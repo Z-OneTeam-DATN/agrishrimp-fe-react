@@ -7,11 +7,21 @@ import { Toaster } from '@/components/ui/sonner'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css';
 
+// 1. Thêm import usePathname
+import { usePathname } from 'next/navigation';
+
 import Header from "@/components/site/SiteHeader";
 import Navbar from "@/components/site/SiteNavbar";
 import Footer from "@/components/site/SiteFooter";
 
 export default function LayoutClient({ children }: Readonly<{ children: React.ReactNode }>) {
+  // 2. Lấy đường dẫn hiện tại
+  const pathname = usePathname();
+
+  // 3. Kiểm tra xem có phải trang admin không
+  // Nếu đường dẫn bắt đầu bằng "/admin", biến này sẽ là true
+  const isAdminPage = pathname?.startsWith('/admin');
+
   const queryClientRef = useRef<QueryClient>()
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({
@@ -26,23 +36,24 @@ export default function LayoutClient({ children }: Readonly<{ children: React.Re
   return (
     <QueryClientProvider client={queryClientRef.current}>
       <ThemeProvider attribute='class' defaultTheme='system' enableSystem disableTransitionOnChange>
-        
-        {/* Cấu trúc giao diện chính nằm ở đây */}
-        <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
-            {/* 1. Header & Navbar */}
-            <Header />
-            <Navbar />
 
-            {/* 2. Main Content */}
+        <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+            {/* 4. Chỉ hiện Header/Navbar nếu KHÔNG PHẢI là trang Admin */}
+            {!isAdminPage && (
+              <>
+                <Header />
+                <Navbar />
+              </>
+            )}
+
             <main className="flex-1">
                 {children}
             </main>
 
-            {/* 3. Footer */}
-            <Footer />
+            {/* 5. Chỉ hiện Footer nếu KHÔNG PHẢI là trang Admin */}
+            {!isAdminPage && <Footer />}
         </div>
 
-        {/* Các thành phần thông báo (Toast) */}
         <ToastContainer
           position='top-right'
           autoClose={3000}
