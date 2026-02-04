@@ -1,4 +1,4 @@
-// File: D:\DuAnAgriShrimp\agrishrimp-fe-react\app\layout.tsx
+// File: H:\duan_totnghiep\agrishrimp-fe-react\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

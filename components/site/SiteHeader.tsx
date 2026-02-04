@@ -52,7 +52,7 @@ export default function Header() {
 
           <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
 
-            <Link href="/store" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
+            <Link href="/store-locator" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
               <Store size={22} className="mb-0.5" />
               <span>Cửa hàng</span>
             </Link>
@@ -75,7 +75,7 @@ export default function Header() {
               <span className="hidden xl:inline">Tài khoản</span>
             </Link>
 
-            <Link href="/cart" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors relative min-w-[60px]">
+            <Link href="/user/cart" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors relative min-w-[60px]">
               <div className="relative">
                 <ShoppingCart size={22} className="mb-0.5" />
                 <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border border-white font-bold shadow-sm">2</span>
