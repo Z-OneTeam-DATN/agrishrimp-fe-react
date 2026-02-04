@@ -4,17 +4,17 @@ import { AddressFormValues } from '@/app/types/user.schema';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { UserService } from '@/app/services/user.service';
-import { useRouter } from 'next/navigation';
-import { CheckCircle } from 'lucide-react'; // Using Lucide icon for consistency
+// Đã xóa import useRouter vì không dùng
+import { CheckCircle } from 'lucide-react';
 
 interface AddressItemProps {
   address: AddressFormValues;
   onEdit: (address: AddressFormValues) => void;
-  onRefresh: () => void; // To refresh the list after delete/set default
+  onRefresh: () => void;
 }
 
 export function AddressItem({ address, onEdit, onRefresh }: AddressItemProps) {
-  const router = useRouter();
+  // Đã xóa const router = useRouter(); vì không dùng
 
   const handleDelete = async () => {
     if (!address.id) return;
@@ -88,7 +88,7 @@ export function AddressItem({ address, onEdit, onRefresh }: AddressItemProps) {
           >
             Cập nhật
           </button>
-          {!address.isDefault && ( // Only show delete if not default address
+          {!address.isDefault && (
             <button
               type="button"
               onClick={handleDelete}

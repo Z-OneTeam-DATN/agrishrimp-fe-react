@@ -7,7 +7,9 @@ import { CheckCircle2, AlertCircle, Image as ImageIcon, Camera, X } from 'lucide
 import { toast } from 'sonner';
 
 export default function ReturnRequestPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrapping params bằng React.use()
   const { id } = use(params);
+  
   const router = useRouter();
   const [images, setImages] = useState<string[]>([]);
 
@@ -34,10 +36,12 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
         <nav className="mb-6 text-sm text-gray-500 flex items-center">
           <Link href="/" className="hover:text-[#2d9f8d]">Trang chủ</Link> <span className="mx-2">/</span>
           <Link href="/orders/list?status=COMPLETED" className="hover:text-[#2d9f8d]">Đơn hàng</Link> <span className="mx-2">/</span>
-          <span className="font-bold text-gray-800">Yêu cầu hoàn tiền</span>
+          
+          {/* ✅ SỬA Ở ĐÂY: Hiển thị ID lên breadcrumb để hết lỗi unused variable */}
+          <span className="font-bold text-gray-800">Yêu cầu hoàn tiền #{id}</span>
         </nav>
 
-        <form onSubmit={(e) => { e.preventDefault(); toast.success('Gửi yêu cầu thành công!'); router.push('/orders/return/list'); }}>
+        <form onSubmit={(e) => { e.preventDefault(); toast.success('Gửi yêu cầu thành công!'); router.push('/orders/return'); }}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               
@@ -45,7 +49,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                 <div className="flex items-center gap-2 mb-4 font-bold text-gray-800"><CheckCircle2 className="text-[#2d9f8d]" size={20} /> 1. Sản phẩm hoàn trả</div>
                 <div className="flex items-center p-4 bg-[#fcfdfe] border border-gray-100 rounded-lg">
                   <input type="checkbox" checked readOnly className="w-5 h-5 accent-[#2d9f8d] mr-4 cursor-default" />
-                  <img src={product.image} className="w-16 h-16 rounded object-cover border border-gray-200 mr-4" />
+                  <img src={product.image} className="w-16 h-16 rounded object-cover border border-gray-200 mr-4" alt={product.name} />
                   <div className="flex-1">
                     <div className="font-bold text-gray-900 text-sm">{product.name}</div>
                     <div className="text-xs text-gray-500 mt-1">Phân loại: {product.variant} | SL: {product.quantity}</div>
@@ -83,7 +87,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                   <div className="grid grid-cols-3 gap-2 mt-4">
                     {images.map((src, index) => (
                       <div key={index} className="relative group aspect-square">
-                        <img src={src} className="w-full h-full object-cover rounded-md border" />
+                        <img src={src} className="w-full h-full object-cover rounded-md border" alt="preview" />
                         <button type="button" onClick={() => setImages(images.filter((_, i) => i !== index))} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5"><X size={12} /></button>
                       </div>
                     ))}

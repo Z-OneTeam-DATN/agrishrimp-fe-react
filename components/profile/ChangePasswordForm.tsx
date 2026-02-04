@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { changePasswordSchema, ChangePasswordFormValues } from '@/app/types/user.schema';
 import { UserService } from '@/app/services/user.service';
 import { toast } from 'sonner';
+// Import AxiosError để lấy type cho lỗi trả về
+import { AxiosError } from 'axios';
 
 interface ChangePasswordFormProps {
   onCancel: () => void;
@@ -12,22 +14,28 @@ interface ChangePasswordFormProps {
 }
 
 export function ChangePasswordForm({ onCancel, onSuccess }: ChangePasswordFormProps) {
-  // Lấy thêm isSubmitting để disable nút khi đang gọi API
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
   });
 
   const onSubmit = async (data: ChangePasswordFormValues) => {
     try {
-      // Gọi API đổi mật khẩu từ UserService
       await UserService.changePassword(data);
       
       toast.success('Đổi mật khẩu thành công!');
-      onSuccess(); // Đóng Modal sau khi thành công
-    } catch (error: any) {
+      onSuccess();
+    } catch (error: unknown) { // ✅ FIX: Dùng unknown thay vì any
       console.error(error);
-      // Hiển thị lỗi từ server trả về (nếu có) hoặc lỗi chung
-      const message = error?.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu cũ.';
+      
+      let message = 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu cũ.';
+      
+      // Kiểm tra nếu error là lỗi từ Axios để lấy message từ server
+      if (error instanceof AxiosError && error.response?.data?.message) {
+          message = error.response.data.message;
+      } else if (error instanceof Error) {
+          message = error.message;
+      }
+
       toast.error(message);
     }
   };
@@ -41,7 +49,6 @@ export function ChangePasswordForm({ onCancel, onSuccess }: ChangePasswordFormPr
           {...register('currentPassword')}
           type="password" 
           placeholder="Nhập mật khẩu cũ..."
-          // 👇 Thêm !bg-white !text-gray-900 để fix lỗi nền đen
           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900"
         />
         {errors.currentPassword && <span className="text-xs text-red-500 mt-1 block">{errors.currentPassword.message}</span>}

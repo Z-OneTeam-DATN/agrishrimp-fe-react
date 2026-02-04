@@ -1,54 +1,54 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import ProfileSidebar from '@/components/profile/ProfileSidebar';
 import { OrderTabs } from '@/components/orders/OrderTabs';
 import { OrderCard } from '@/components/orders/OrderCard';
-import { OrderService } from '@/app/services/order.service';
 import { Order, OrderStatus } from '@/app/types/order.schema';
-// 👇 Đã thêm ChevronRight vào đây
 import { PackageX, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+
+// Định nghĩa Mock Data bên ngoài component để code gọn hơn
+const getMockOrders = (status: OrderStatus): Order[] => {
+  const baseOrder = {
+      id: 'ORD-123456',
+      shopName: 'AgriShrimp Official',
+      items: [{ id: '1', name: 'Florfenicol kết hợp Oxytetracycline', imageUrl: 'https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png', quantity: 1, unitPrice: 250000, displayUnitPrice: '250.000₫', variant: '500g/túi' }],
+      totalAmount: 250000,
+      displayTotalAmount: '250.000₫',
+      createdAt: '2026-01-01T12:00:00Z', // Thêm trường này nếu schema yêu cầu
+      paymentStatus: 'PENDING' // Thêm trường này nếu schema yêu cầu
+  };
+
+  // Ép kiểu về Order[] thay vì any
+  switch (status) {
+      case 'PENDING':
+          return [{ ...baseOrder, status: 'PENDING', id: 'ORD-PENDING-01' }] as Order[];
+      case 'SHIPPING':
+          return [{ ...baseOrder, status: 'SHIPPING', id: 'ORD-SHIP-01', displayTotalAmount: '640.000₫', items: [...baseOrder.items, { id: '2', name: 'Men vi sinh xử lý đáy cao cấp Super Clean', imageUrl: 'https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png', quantity: 2, unitPrice: 320000, displayUnitPrice: '320.000₫', variant: '1kg/gói' }] }] as Order[];
+      case 'COMPLETED':
+          return [{ ...baseOrder, status: 'COMPLETED', id: 'ORD-DONE-01', items: [{...baseOrder.items[0], name: 'Khoáng tạt APA Miner Pox giúp cứng vỏ', imageUrl: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', quantity: 5, unitPrice: 120000, displayUnitPrice: '120.000₫', variant: 'Chai 1 lít' }], displayTotalAmount: '600.000₫' }] as Order[];
+      case 'CANCELLED':
+          return [
+              { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-01', displayTotalAmount: '250.000₫' }, 
+              { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-02', displayTotalAmount: '120.000₫', items: [{...baseOrder.items[0], name: 'Khoáng tạt APA Miner Pox', imageUrl: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg'}] } 
+          ] as Order[];
+      case 'RETURN_REQUESTED':
+           return [];
+      case 'ALL':
+          return [
+              { ...baseOrder, status: 'PENDING', id: 'ORD-PENDING-01' },
+              { ...baseOrder, status: 'SHIPPING', id: 'ORD-SHIP-01', displayTotalAmount: '640.000₫' },
+              { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-01' }
+          ] as Order[];
+      default:
+          return [];
+  }
+};
 
 export default function OrderingPage() {
   const searchParams = useSearchParams();
   const statusFilter = (searchParams.get('status') || 'ALL') as OrderStatus;
-
-  // Mock Data cho từng trạng thái để test giao diện
-  const getMockOrders = (status: OrderStatus): Order[] => {
-    const baseOrder = {
-        id: 'ORD-123456',
-        shopName: 'AgriShrimp Official',
-        items: [{ id: '1', name: 'Florfenicol kết hợp Oxytetracycline', imageUrl: 'https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png', quantity: 1, unitPrice: 250000, displayUnitPrice: '250.000₫', variant: '500g/túi' }],
-        totalAmount: 250000,
-        displayTotalAmount: '250.000₫',
-    };
-
-    switch (status) {
-        case 'PENDING':
-            return [{ ...baseOrder, status: 'PENDING', id: 'ORD-PENDING-01' }] as any;
-        case 'SHIPPING':
-            return [{ ...baseOrder, status: 'SHIPPING', id: 'ORD-SHIP-01', displayTotalAmount: '640.000₫', items: [...baseOrder.items, { id: '2', name: 'Men vi sinh xử lý đáy cao cấp Super Clean', imageUrl: 'https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png', quantity: 2, unitPrice: 320000, displayUnitPrice: '320.000₫', variant: '1kg/gói' }] }] as any;
-        case 'COMPLETED':
-            return [{ ...baseOrder, status: 'COMPLETED', id: 'ORD-DONE-01', items: [{...baseOrder.items[0], name: 'Khoáng tạt APA Miner Pox giúp cứng vỏ', imageUrl: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', quantity: 5, unitPrice: 120000, displayUnitPrice: '120.000₫', variant: 'Chai 1 lít' }], displayTotalAmount: '600.000₫' }] as any;
-        case 'CANCELLED':
-            return [
-                { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-01', displayTotalAmount: '250.000₫' }, 
-                { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-02', displayTotalAmount: '120.000₫', items: [{...baseOrder.items[0], name: 'Khoáng tạt APA Miner Pox', imageUrl: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg'}] } 
-            ] as any;
-        case 'RETURN_REQUESTED':
-             return [];
-        case 'ALL':
-            return [
-                { ...baseOrder, status: 'PENDING', id: 'ORD-PENDING-01' },
-                { ...baseOrder, status: 'SHIPPING', id: 'ORD-SHIP-01', displayTotalAmount: '640.000₫' },
-                { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-01' }
-            ] as any;
-        default:
-            return [];
-    }
-  };
 
   // Sử dụng mock data
   const orders = getMockOrders(statusFilter);
@@ -56,7 +56,7 @@ export default function OrderingPage() {
   const isError = false;
 
   return (
-    <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans">
+    <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans text-gray-800">
       <div className="container mx-auto px-4 py-6">
         
         {/* Breadcrumb */}

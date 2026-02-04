@@ -1,7 +1,20 @@
 import { apiJava } from '@/lib/axios';
 import { Order, OrderStatus, CancelReasonFormValues } from '@/app/types/order.schema';
 
-// Interface cho yêu cầu trả hàng
+// 1. Định nghĩa Interface cho Đơn đổi trả (Dựa trên Mock Data của bạn)
+export interface ReturnOrder {
+  id: string;
+  orderId: string;
+  productName: string;
+  productImg: string;
+  reason: string;
+  amount: string;
+  status: 'PROCESSING' | 'COMPLETED' | 'REJECTED';
+  quantity: number;
+  shopResponse?: string;
+}
+
+// Interface cho Form gửi yêu cầu trả hàng
 export interface ReturnRequestData {
   orderId: string;
   productId: string;
@@ -15,9 +28,10 @@ export class OrderService {
 
   static async getOrders(status?: OrderStatus): Promise<Order[]> {
     const params = status && status !== 'ALL' ? { status } : {};
-    // Mock data để test giao diện ngay (khi chưa có API thật)
-    // Bạn có thể xóa đoạn này khi API Java đã sẵn sàng
+    
+    // Mock data
     if (status === 'RETURN_REQUESTED') {
+        // ✅ FIX: Ép kiểu về Order[] thay vì any
         return [
             {
                 id: 'ORD-123456',
@@ -27,15 +41,15 @@ export class OrderService {
                 totalAmount: 250000,
                 displayTotalAmount: '250.000₫',
             }
-        ] as any;
+        ] as Order[]; 
     }
     
     const response = await apiJava.get<Order[]>(`${this.PREFIX}/list`, { params });
     return response.data;
   }
 
-  // Lấy danh sách đơn đổi trả riêng biệt (như mẫu HTML return-list)
-  static async getReturnOrders(): Promise<any[]> {
+  // ✅ FIX: Thay Promise<any[]> bằng Promise<ReturnOrder[]>
+  static async getReturnOrders(): Promise<ReturnOrder[]> {
     // Mock data giống HTML cũ
     return [
       {
@@ -80,32 +94,12 @@ export class OrderService {
     formData.append('description', data.description);
     if (data.images) data.images.forEach((file) => formData.append('images', file));
 
-        await apiJava.post(`${this.PREFIX}/return/submit`, formData, {
+    await apiJava.post(`${this.PREFIX}/return/submit`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  }
 
-          headers: { 'Content-Type': 'multipart/form-data' }
-
-        });
-
-      }
-
-    
-
-        static async cancelOrder(orderId: string, data: CancelReasonFormValues): Promise<void> {
-
-    
-
-          await apiJava.post(`${this.PREFIX}/cancel`, data);
-
-    
-
-        }
-
-    
-
-      }
-
-    
-
-      
-
-    
+  static async cancelOrder(orderId: string, data: CancelReasonFormValues): Promise<void> {
+    await apiJava.post(`${this.PREFIX}/cancel`, { ...data, orderId });
+  }
+}

@@ -3,7 +3,7 @@
 import React, { use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, MapPin, CreditCard, FileText, Package, Truck, CheckCircle2, Clock } from 'lucide-react';
+import { CreditCard, FileText, Package, Truck, CheckCircle2, Clock } from 'lucide-react';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
