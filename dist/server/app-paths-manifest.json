@@ -1,0 +1,10 @@
+{
+  "/admin/financial/page": "app/admin/financial/page.js",
+  "/admin/products/page": "app/admin/products/page.js",
+  "/admin/variants/page": "app/admin/variants/page.js",
+  "/admin/products/add/page": "app/admin/products/add/page.js",
+  "/admin/branches/page": "app/admin/branches/page.js",
+  "/admin/branches/add/page": "app/admin/branches/add/page.js",
+  "/admin/customers/page": "app/admin/customers/page.js",
+  "/admin/employees/page": "app/admin/employees/page.js"
+}
