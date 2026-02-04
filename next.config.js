@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // output: 'export',
   output: 'standalone',
   distDir: 'dist',
   eslint: {
@@ -12,8 +11,6 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'chat-webapp-nghiadev.s3.ap-southeast-1.amazonaws.com'
-        // port: '4000'
-        // pathname: '/photos/**'
       }
     ]
   },

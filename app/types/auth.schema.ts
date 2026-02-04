@@ -2,10 +2,6 @@ import { z } from "zod";
 
 
 const phoneRegex = /^(84|0)(3|5|7|8|9)[0-9]{8}$/;
-
-/* =========================================================
-   REGISTER — FORM VALIDATION SCHEMA (CHỈ DÙNG CHO UI)
-========================================================= */
 export const RegisterSchema = z
   .object({
     fullName: z
@@ -25,8 +21,7 @@ export const RegisterSchema = z
     password: z
       .string()
       .min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
-
-    // Chỉ dùng để so sánh ở FE
+      
     confirmPassword: z.string(),
 
     terms: z.boolean().refine(val => val === true, {
@@ -48,14 +43,11 @@ export const RegisterSchema = z
     }
   });
 
+
 /**
- * Type dùng cho FORM
+ * Type 
  */
 export type RegisterFormValues = z.infer<typeof RegisterSchema>;
-
-/* =========================================================
-   REGISTER — API DTO 
-========================================================= */
 export type RegisterRequest = {
   fullName: string;
   contact: string;
@@ -63,9 +55,6 @@ export type RegisterRequest = {
   captchaToken: string;
 };
 
-/* =========================================================
-   AUTH RESPONSES
-========================================================= */
 export type AuthResponse = {
   accessToken: string;
   refreshToken: string;
@@ -83,9 +72,9 @@ export type UserResponse = {
   status: string;
 };
 
-/* =========================================================
-   LOGIN
-========================================================= */
+
+
+
 export const LoginSchema = z.object({
   emailOrPhone: z
     .string()

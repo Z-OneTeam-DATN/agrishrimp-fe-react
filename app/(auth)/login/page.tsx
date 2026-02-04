@@ -10,9 +10,10 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="h-screen w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden">
+    // SỬA 1: Dùng min-h-[100dvh] để fix lỗi trên trình duyệt điện thoại
+    <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden bg-white">
     
-      {/* --- LEFT SIDE --- */}
+      {/* --- LEFT SIDE (Desktop Image) --- */}
       <div className="hidden lg:flex w-1/2 relative bg-zinc-900 overflow-hidden group">
         
         <div className="absolute inset-0 transition-transform duration-[20s] ease-in-out group-hover:scale-105">
@@ -28,7 +29,6 @@ export default function LoginPage() {
 
         <div className="absolute inset-0 bg-gradient-to-t from-teal-950/95 via-teal-900/70 to-teal-900/30" />
         
-        {/* Giảm padding p-16 -> p-12 */}
         <div className="relative z-10 w-full h-full flex flex-col justify-between p-12 text-white">
             
             <div className="flex items-center gap-5">
@@ -82,7 +82,8 @@ export default function LoginPage() {
       </div>
 
       {/* --- RIGHT SIDE (FORM) --- */}
-      <div className="w-full lg:w-1/2 bg-white relative overflow-y-auto">
+      {/* SỬA 2: Thêm h-screen để đảm bảo scroll hoạt động đúng trong flex container */}
+      <div className="w-full lg:w-1/2 bg-white relative overflow-y-auto h-screen">
         
         <div className="fixed top-0 right-0 w-64 h-64 bg-teal-50 rounded-bl-full opacity-50 pointer-events-none z-0" />
 
@@ -93,26 +94,25 @@ export default function LoginPage() {
           <X size={20} />
         </Link>
 
-        {/* Giảm padding container chính: py-12 -> py-6 */}
-        <div className="min-h-screen flex flex-col justify-center items-center py-6 px-6 lg:py-8">
+        {/* Wrapper chính: min-h-full để căn giữa đẹp hơn */}
+        <div className="min-h-full flex flex-col justify-center items-center py-8 px-6">
             
             <div className="w-full max-w-[420px] relative z-10">
                 
-                {/* Mobile Logo: mb-10 -> mb-6, giảm size */}
+                {/* Mobile Logo */}
                 <div className="lg:hidden flex flex-col items-center mb-6">
-                    <div className="w-16 h-16 rounded-xl shadow-[0_10px_25px_-5px_rgba(20,184,166,0.4)] overflow-hidden border-4 border-white mb-3">
+                    {/* SỬA 3 (QUAN TRỌNG): Thêm 'relative' để fix lỗi hình logo bị phóng to tràn màn hình */}
+                    <div className="relative w-16 h-16 rounded-xl shadow-[0_10px_25px_-5px_rgba(20,184,166,0.4)] overflow-hidden border-4 border-white mb-3">
                       <Image src="/images/logo_arishrimp.jpg" alt="Logo" fill className="object-cover" sizes="80px"/>
                     </div>
                     <h1 className="text-xl font-bold text-slate-800">Agri<span className="text-teal-600">Shrimp</span></h1>
                 </div>
 
-                {/* Header: mb-8 -> mb-4 */}
                 <div className="mb-4 text-center lg:text-left">
                     <h2 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 mb-1">Chào mừng trở lại</h2>
                     <p className="text-sm text-slate-500">Nhập thông tin để tiếp tục</p>
                 </div>
 
-                {/* Google Button: mb-8 -> mb-5 */}
                 <button className="w-full bg-white border border-slate-200 hover:border-teal-500 hover:bg-teal-50/20 text-slate-700 font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-3 transition-all duration-300 shadow-sm hover:shadow-md mb-5 group text-sm">
                   <div className="relative w-5 h-5">
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-full h-full object-contain" />
@@ -120,7 +120,6 @@ export default function LoginPage() {
                   <span>Đăng nhập với Google</span>
                 </button>
 
-                {/* Divider: mb-8 -> mb-5 */}
                 <div className="relative flex items-center gap-4 py-1 mb-5">
                     <div className="flex-grow h-px bg-slate-200"></div>
                     <span className="flex-shrink-0 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Hoặc Email</span>
@@ -130,7 +129,6 @@ export default function LoginPage() {
                 {/* LOGIN FORM */}
                 <LoginForm />
 
-                {/* Footer Links: mt-12 -> mt-8 */}
                 <div className="mt-8 flex justify-center gap-6 text-xs text-slate-400 pb-4">
                     <Link href="#" className="hover:text-teal-600 transition-colors">Điều khoản</Link>
                     <span className="text-slate-300">•</span>

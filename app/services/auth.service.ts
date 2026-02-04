@@ -51,4 +51,12 @@ static async register(userData: RegisterRequest): Promise<UserResponse> {
   const response = await apiJava.post<UserResponse>("/auth/signup", userData);
   return response.data;
 }
+
+// ĐĂNG NHẬP GG
+static async loginWithGoogle(token: string): Promise<AuthResponse> {
+    const response = await apiJava.post<AuthResponse>(`${this.PREFIX}/google-login`, { 
+      token: token 
+    })
+    return response.data
+  }
 }

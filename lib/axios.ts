@@ -1,13 +1,11 @@
-import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig, isCancel } from 'axios'
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+  isCancel
+} from 'axios'
 import { toast } from 'sonner'
 import { AuthService } from '@/app/services/auth.service'
-
-export interface ErrorResponse {
-  statusCode: string
-  title: string
-  detail: string
-  fieldErrors?: string[]
-}
 
 type Token = string
 type NullableToken = Token | null
@@ -19,20 +17,13 @@ type FailedQueueItem = {
 
 type RetriableRequest = InternalAxiosRequestConfig & {
   _retry?: boolean
-  _retry429?: boolean
 }
 
-type HttpStatus = 401 | 403 | 404 | 422 | 429 | 500 | 502 | 503
-
-// -----------------------------
-// Flags + shared state
-// -----------------------------
 
 let isRefreshing = false
 let failedQueue: FailedQueueItem[] = []
 
 const isClient = () => typeof window !== 'undefined'
-
 const isDev = process.env.NODE_ENV === 'development'
 
 const debugLog = (...args: unknown[]) => {
@@ -42,17 +33,18 @@ const debugLog = (...args: unknown[]) => {
 const redact = (data: unknown) => {
   if (!data) return data
   try {
-    const text = JSON.stringify(data, (_k, v) => {
-      if (typeof v === 'string' && (v.startsWith('Bearer ') || v.length > 200)) {
-        return '[REDACTED]'
-      }
-      return v
-    })
-    return JSON.parse(text)
+    return JSON.parse(
+      JSON.stringify(data, (_k, v) =>
+        typeof v === 'string' && (v.startsWith('Bearer ') || v.length > 200)
+          ? '[REDACTED]'
+          : v
+      )
+    )
   } catch {
     return '[UNSERIALIZABLE]'
   }
 }
+
 
 const getAccessToken = async (): Promise<NullableToken> => {
   if (isClient()) {
@@ -63,243 +55,136 @@ const getAccessToken = async (): Promise<NullableToken> => {
       return null
     }
   }
-  try {
-    const { cookies } = await import('next/headers')
-    const cookieStore = await cookies()
-    return cookieStore.get('accessToken')?.value ?? null
-  } catch {
-    return null
-  }
+  return null
 }
 
 const processQueue = (error: unknown, token: NullableToken = null) => {
-  failedQueue.forEach((p) => {
-    if (error) {
-      p.reject(error)
-    } else if (token) {
-      p.resolve(token)
-    } else {
-      p.reject(new Error('No token available'))
-    }
-  })
+  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)))
   failedQueue = []
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-const getErrorMessage = (error: AxiosError<ErrorResponse>) => {
+const getErrorMessage = (error: AxiosError<any>) => {
   const data = error.response?.data
-  if (!data) return 'Đã xảy ra lỗi không xác định.'
-  let message = data.detail || data.title || 'Đã xảy ra lỗi không xác định.'
-  if (data.fieldErrors?.length) {
-    message += ` Lỗi: ${data.fieldErrors.join(', ')}`
-  }
-  return message
+  if (!data) return 'Lỗi hệ thống, vui lòng thử lại.'
+
+  return (
+    data.detail ||
+    data.message ||
+    data.error_description ||
+    data.error ||
+    data.title ||
+    (typeof data === 'string' ? data : null) ||
+    'Lỗi hệ thống, vui lòng thử lại.'
+  )
 }
 
-const isAuthRefreshUrl = (url?: string | null) => {
-  return !!url && url.includes('/api/auth/refresh')
-}
+const isAuthRefreshUrl = (url?: string | null) =>
+  !!url && url.includes('/api/auth/refresh')
 
-const errorHandlers: Record<HttpStatus | 'default', (error: AxiosError<ErrorResponse>) => Promise<never>> = {
+const errorHandlers: Record<number | 'default', (error: AxiosError<any>) => Promise<never>> = {
+  400: async (e) => Promise.reject(e),
+  409: async (e) => Promise.reject(e),
+  422: async (e) => Promise.reject(e),
+  403: async (e) => Promise.reject(e),
+  404: async (e) => Promise.reject(e),
+  429: async (e) => Promise.reject(e),
+
   401: async (error) => {
-    if (isClient() && !(error.config?.url && error.config.url.includes('/login'))) {
-      toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+    if (isClient()) {
+      const url = error.config?.url || ''
+      const isAuthFlow =
+        url.includes('/login') ||
+        url.includes('/signup') ||
+        url.includes('/google-login')
+
+      if (!isAuthFlow) {
+        toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+      }
     }
     return Promise.reject(error)
   },
-  403: async (error) => {
-    if (isClient()) {
-      toast.error('Bạn không có quyền truy cập tài nguyên này.')
-    }
-    return Promise.reject(error)
+
+  500: async (e) => {
+    if (isClient()) toast.error('Lỗi hệ thống máy chủ. Vui lòng thử lại.')
+    return Promise.reject(e)
   },
-  404: async (error) => {
-    if (isClient()) {
-      toast.error(getErrorMessage(error) || 'Không tìm thấy tài nguyên yêu cầu.')
-    }
-    return Promise.reject(error)
+  502: async (e) => {
+    if (isClient()) toast.error('Máy chủ không phản hồi (502).')
+    return Promise.reject(e)
   },
-  422: async (error) => {
-    if (isClient()) {
-      toast.error(getErrorMessage(error) || 'Dữ liệu không hợp lệ.')
-    }
-    return Promise.reject(error)
+  503: async (e) => {
+    if (isClient()) toast.error('Dịch vụ tạm thời gián đoạn (503).')
+    return Promise.reject(e)
   },
-  429: async (error) => {
-    if (isClient()) {
-      toast.error('Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.')
-    }
-    return Promise.reject(error)
-  },
-  500: async (error) => {
-    if (isClient()) {
-      toast.error('Lỗi hệ thống. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.')
-    }
-    return Promise.reject(error)
-  },
-  502: async (error) => {
-    if (isClient()) {
-      toast.error(error.response?.data?.detail || 'Máy chủ tạm thời không khả dụng. Vui lòng thử lại sau.')
-    }
-    return Promise.reject(error)
-  },
-  503: async (error) => {
-    if (isClient()) {
-      toast.error(error.response?.data?.detail || 'Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.')
-    }
-    return Promise.reject(error)
-  },
-  default: async (error) => {
-    if (isClient()) {
-      toast.error(getErrorMessage(error))
-    }
-    return Promise.reject(error)
-  }
+
+  default: async (e) => Promise.reject(e)
 }
+
 
 const createApi = (baseURL: string): AxiosInstance => {
   const axiosInstance = axios.create({
     baseURL,
-    timeout: 15_000,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json'
-    },
+    timeout: 15000,
+    headers: { 'Content-Type': 'application/json' },
     withCredentials: true
   })
 
-  axiosInstance.interceptors.request.use(
-    async (config: InternalAxiosRequestConfig) => {
-      const token = await getAccessToken()
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
-      debugLog('🚀 Request:', {
-        method: config.method?.toUpperCase(),
-        url: config.url,
-        params: redact(config.params),
-        data: redact(config.data),
-        withCredentials: config.withCredentials
-      })
-      return config
-    },
-    (error) => {
-      debugLog('❌ Request Error:', error)
-      return Promise.reject(error)
-    }
-  )
+  axiosInstance.interceptors.request.use(async (config) => {
+    const token = await getAccessToken()
+    if (token) config.headers.Authorization = `Bearer ${token}`
 
-  // Response interceptor
+    debugLog('🚀 Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      data: redact(config.data)
+    })
+    return config
+  })
+
   axiosInstance.interceptors.response.use(
-    (response: AxiosResponse) => {
-      debugLog('✅ Response:', {
-        method: response.config.method?.toUpperCase(),
-        url: response.config.url,
-        status: response.status,
-        data: redact(response.data)
-      })
-      return response
-    },
-    async (error: AxiosError<ErrorResponse>) => {
-      if (isCancel(error)) {
-        debugLog('⚠️ Request canceled:', error.message)
-        return Promise.reject(error)
-      }
+    (res) => res,
+    async (error: AxiosError<any>) => {
+      if (isCancel(error)) return Promise.reject(error)
 
-      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
-        if (isClient()) {
-          toast.error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.')
-        }
-        return Promise.reject(error)
-      }
-
-      if (!error.response) {
-        if (isClient()) {
-          toast.error('Không nhận được phản hồi từ máy chủ. Vui lòng thử lại sau.')
-        }
-        return Promise.reject(error)
-      }
-
-      const status = error.response.status as HttpStatus
+      const status = error.response?.status
       const original = error.config as RetriableRequest
-      debugLog('❌ Response Error:', {
-        status,
-        statusCode: error.response?.data?.statusCode,
-        title: error.response?.data?.title,
-        detail: error.response?.data?.detail,
-        fieldErrors: error.response?.data?.fieldErrors,
-        url: original?.url,
-        code: error.code
-      })
-
-      // 401: cố gắng refresh token (trừ khi đang gọi refresh)
       if (status === 401 && original && !original._retry && !isAuthRefreshUrl(original.url)) {
-        if (isRefreshing) {
-          return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject })
-          })
-            .then((token) => {
-              if (token) {
-                original.headers.set('Authorization', `Bearer ${token}`)
-              }
+        const isAuthFlow =
+          original.url?.includes('/login') ||
+          original.url?.includes('/signup') ||
+          original.url?.includes('/google-login')
+
+        if (!isAuthFlow) {
+          if (isRefreshing) {
+            return new Promise((res, rej) =>
+              failedQueue.push({ resolve: res, reject: rej })
+            ).then((token) => {
+              original.headers.Authorization = `Bearer ${token}`
               return axiosInstance(original)
             })
-            .catch((err) => Promise.reject(err))
-        }
-
-        original._retry = true
-        isRefreshing = true
-
-        try {
-          const res = await AuthService.refreshAuthTokenNext()
-          const newToken = res.accessToken
-
-          axiosInstance.defaults.headers.common.Authorization = `Bearer ${newToken}`
-          original.headers.set('Authorization', `Bearer ${newToken}`)
-
-          if (isClient()) {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { useAuthStore } = require('@/stores/useAuthStore')
-            useAuthStore.getState().setAccessToken(newToken)
           }
 
-          processQueue(null, newToken)
-          return axiosInstance(original)
-        } catch (refreshErr) {
-          // Nếu lỗi 500 khi refresh token, dừng thử lại và log chi tiết
-          const err = refreshErr as AxiosError<ErrorResponse>
-          if (err?.response?.status === 500) {
-            debugLog('❌ Refresh token failed with 500:', err)
+          original._retry = true
+          isRefreshing = true
+
+          try {
+            const res = await AuthService.refreshAuthTokenNext()
+            const newToken = res.accessToken
+            processQueue(null, newToken)
+            original.headers.Authorization = `Bearer ${newToken}`
+            return axiosInstance(original)
+          } catch (err) {
             processQueue(err, null)
+            if (isClient()) window.location.href = '/login'
             return Promise.reject(err)
+          } finally {
+            isRefreshing = false
           }
-          processQueue(refreshErr, null)
-          if (isClient()) {
-            window.location.href = '/login'
-          }
-          return Promise.reject(refreshErr)
-        } finally {
-          isRefreshing = false
         }
       }
 
-      // 429: tôn trọng Retry-After một lần
-      if (status === 429 && original) {
-        const retryAfterHeader = error.response.headers?.['retry-after'] ?? error.response.headers?.['Retry-After']
-        const retryAfterSec = retryAfterHeader ? Number.parseInt(String(retryAfterHeader), 10) : NaN
-
-        if (!original._retry429) {
-          original._retry429 = true
-          const waitMs = Number.isFinite(retryAfterSec) ? Math.min(retryAfterSec * 1000, 5000) : 1500
-          await sleep(waitMs)
-          return axiosInstance(original)
-        }
-      }
-
-      const handler =
-        (errorHandlers[status] as ((e: AxiosError<ErrorResponse>) => Promise<never>) | undefined) ??
-        errorHandlers.default
+      const handler = errorHandlers[status as number] || errorHandlers.default
       return handler(error)
     }
   )
@@ -308,8 +193,6 @@ const createApi = (baseURL: string): AxiosInstance => {
 }
 
 const apiJava = createApi(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api')
+const apiNext = createApi(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000/api')
 
-const apiNext = createApi(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000/api')
-
-export { apiJava, apiNext, createApi }
-export type { AxiosError, AxiosResponse }
+export { apiJava, apiNext, createApi, getErrorMessage }

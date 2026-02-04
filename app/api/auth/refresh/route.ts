@@ -3,7 +3,6 @@ import { jwtDecode, JwtPayload } from 'jwt-decode'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function POST(_request: Request) {
   const cookieStore = await cookies()
   const refreshToken = cookieStore.get('refreshToken')

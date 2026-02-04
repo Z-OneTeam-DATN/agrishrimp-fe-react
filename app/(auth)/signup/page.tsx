@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import SignupForm from "@/components/auth/SignupForm";
-
+import GoogleLoginBtn from "@/components/auth/GoogleLoginBtn";
 export const metadata = {
   title: "Đăng ký tài khoản - AgriShrimp",
   description: "Tạo tài khoản mới để bắt đầu quản lý trại tôm.",
@@ -10,9 +10,8 @@ export const metadata = {
 
 export default function SignupPage() {
   return (
-    <div className="h-screen w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden">
+    <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden bg-white">
       
-      {/* --- LEFT SIDE (IMAGE) --- */}
       <div className="hidden lg:flex w-1/2 relative bg-zinc-900 overflow-hidden group">
         <div className="absolute inset-0 transition-transform duration-[20s] ease-in-out group-hover:scale-105">
              <Image 
@@ -25,7 +24,7 @@ export default function SignupPage() {
              />
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-teal-950/95 via-teal-900/70 to-teal-900/30" />
-        {/* Giảm p-16 xuống p-12 để thoáng hơn nhưng không quá rộng */}
+        
         <div className="relative z-10 w-full h-full flex flex-col justify-between p-12 text-white">
             <div className="flex items-center gap-5">
                 <div className="relative group/logo cursor-default">
@@ -56,8 +55,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* --- RIGHT SIDE (FORM) --- */}
-      <div className="w-full lg:w-1/2 bg-white relative overflow-y-auto">
+      <div className="w-full lg:w-1/2 bg-white relative overflow-y-auto h-screen"> 
         
         <div className="fixed top-0 right-0 w-64 h-64 bg-teal-50 rounded-bl-full opacity-50 pointer-events-none z-0" />
 
@@ -68,41 +66,36 @@ export default function SignupPage() {
           <X size={20} />
         </Link>
 
-        {/* Giảm padding wrapper chính từ py-12 -> py-6 */}
-        <div className="min-h-screen flex flex-col justify-center items-center py-6 px-6 lg:py-8">
+        <div className="min-h-full flex flex-col justify-center items-center py-8 px-6">
             
             <div className="w-full max-w-[420px] relative z-10">
                 
-                {/* Mobile Logo: Giảm margin bottom mb-10 -> mb-6 */}
                 <div className="lg:hidden flex flex-col items-center mb-6">
-                    <div className="w-16 h-16 rounded-xl shadow-[0_10px_25px_-5px_rgba(20,184,166,0.4)] overflow-hidden border-4 border-white mb-3">
-                      <Image src="/images/logo_arishrimp.jpg" alt="Logo" fill className="object-cover" sizes="80px"/>
+                    <div className="relative w-16 h-16 rounded-xl shadow-[0_10px_25px_-5px_rgba(20,184,166,0.4)] overflow-hidden border-4 border-white mb-3">
+                      <Image 
+                        src="/images/logo_arishrimp.jpg" 
+                        alt="Logo" 
+                        fill 
+                        className="object-cover" 
+                        sizes="80px"
+                      />
                     </div>
                     <h1 className="text-xl font-bold text-slate-800">Agri<span className="text-teal-600">Shrimp</span></h1>
                 </div>
 
-                {/* Header: Giảm margin bottom mb-8 -> mb-4 */}
                 <div className="mb-4 text-center lg:text-left">
                     <h2 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 mb-1">Đăng ký tài khoản</h2>
                     <p className="text-sm text-slate-500">Nhập thông tin để bắt đầu</p>
                 </div>
 
-                {/* Google Button: Giảm margin bottom mb-8 -> mb-5 */}
-                <button className="w-full bg-white border border-slate-200 hover:border-teal-500 hover:bg-teal-50/20 text-slate-700 font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-3 transition-all duration-300 shadow-sm hover:shadow-md mb-5 group text-sm">
-                  <div className="relative w-5 h-5">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-full h-full object-contain" />
-                  </div>
-                  <span>Đăng ký với Google</span>
-                </button>
-
-                {/* Divider: Giảm margin bottom mb-8 -> mb-5 */}
+                <GoogleLoginBtn />
+                
                 <div className="relative flex items-center gap-4 py-1 mb-5">
                     <div className="flex-grow h-px bg-slate-200"></div>
                     <span className="flex-shrink-0 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Hoặc Email</span>
                     <div className="flex-grow h-px bg-slate-200"></div>
                 </div>
 
-                {/* Form Component */}
                 <SignupForm />
               
             </div>

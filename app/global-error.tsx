@@ -3,7 +3,6 @@
 export const dynamic = 'force-dynamic'
 
 export default function GlobalError({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   error,
   reset
 }: {

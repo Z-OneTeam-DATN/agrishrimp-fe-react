@@ -69,6 +69,16 @@ const config: Config = {
             height: 'var(--radix-accordion-content-height)'
           }
         },
+        colors: {
+        primary: {
+          DEFAULT: "hsl(var(--primary))", 
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+      },
         'accordion-up': {
           from: {
             height: 'var(--radix-accordion-content-height)'
@@ -85,5 +95,6 @@ const config: Config = {
     }
   },
   plugins: [require('tailwindcss-animate')]
+  
 }
 export default config
