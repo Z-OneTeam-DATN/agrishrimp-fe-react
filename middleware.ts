@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+
 const PUBLIC_PATHS = [
   '/login',
   '/signup', 
@@ -23,7 +24,10 @@ const PUBLIC_PATHS = [
   '/address',
   '/orders/list',
   '/orders/[id]',
+  '/cart',
+  '/inventory'
 ]
+
 
 export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname
@@ -35,6 +39,7 @@ export function middleware(req: NextRequest) {
 
   const token = req.cookies.get('accessToken')?.value ?? req.cookies.get('refreshToken')?.value
   const isPublicPath = PUBLIC_PATHS.includes(path)
+  const isAdminPath = path.startsWith('/admin')
 
   // Nếu đã đăng nhập và truy cập trang public, chuyển hướng về /chat
   if (isPublicPath && token) {
@@ -43,6 +48,9 @@ export function middleware(req: NextRequest) {
 
   // Nếu chưa đăng nhập và truy cập trang private, chuyển hướng về /login
   if (!isPublicPath && !token) {
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+ if (isAdminPath && !token) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
