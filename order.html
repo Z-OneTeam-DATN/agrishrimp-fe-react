@@ -1,0 +1,1612 @@
+package com.poly.arishrimpjava5.controller.user;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping("/user/orders")
+public class OrderController {
+
+    // Danh sách đơn hàng
+    @GetMapping("/list")
+    public String listOrders() {
+        return "order/order-list";
+    }
+
+    // Chi tiết đơn hàng
+    @GetMapping("/detail")
+    public String orderDetail() {
+        return "order/order-detail";
+    }
+
+    // Đơn hàng đang giao
+    @GetMapping("/shipping")
+    public String shippingOrders() {
+        return "order/order-shipping";
+    }
+
+    // Đơn hàng đã hoàn thành
+    @GetMapping("/completed")
+    public String completedOrders() {
+        return "order/order-completed";
+    }
+
+    // Đơn hàng đã hủy
+    @GetMapping("/cancelled")
+    public String cancelledOrders() {
+        return "order/order-cancelled";
+    }
+
+    // Yêu cầu hoàn trả đơn hàng
+    @GetMapping("/return")
+    public String returnOrder() {
+        return "order/order-return";
+    }
+
+    // Danh sách đơn hoàn trả
+    @GetMapping("/return/list")
+    public String returnOrderList() {
+        return "order/order-return-list";
+    }
+}
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đơn hàng của tôi - AgriShrimp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+    <link rel="stylesheet" th:href="@{/css/user/profile.css}">
+
+    <style>
+        :root { --primary-color: #2d9f8d; --bg-body: #f4f6f8; --text-dark: #333; }
+        body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: #4a4a4a; }
+
+        /* TABS */
+        .order-tabs {
+            background: white; border-radius: 8px 8px 0 0; padding: 0 10px;
+            border-bottom: 1px solid #eee; display: flex; overflow-x: auto;
+        }
+        .tab-item {
+            padding: 12px 15px; cursor: pointer; white-space: nowrap; font-weight: 500; color: #666;
+            font-size: 0.9rem; border-bottom: 3px solid transparent; text-decoration: none;
+        }
+        .tab-item.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+
+        /* ORDER CARD (COMPACT MODE) */
+        .order-card {
+            background: white; border-radius: 8px; margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .order-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+
+        .card-header-custom {
+            padding: 10px 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-text { text-transform: uppercase; font-weight: 700; font-size: 0.8rem; }
+        .status-pending { color: #ff9800; }
+
+        .card-body-custom { padding: 10px 15px; cursor: pointer; }
+
+        /* Product Row nhỏ gọn hơn */
+        .product-row { display: flex; gap: 12px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .product-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .prod-img { width: 50px; height: 50px; border-radius: 4px; border: 1px solid #eee; object-fit: cover; }
+        .prod-info { flex: 1; }
+        .prod-name {
+            font-weight: 500; color: var(--text-dark); font-size: 0.9rem; margin-bottom: 2px;
+            display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .prod-meta { font-size: 0.8rem; color: #888; }
+
+        .card-footer-custom {
+            padding: 10px 15px; border-top: 1px solid #f8f9fa; background: #fff; border-radius: 0 0 8px 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .total-money { font-size: 1rem; font-weight: 700; color: #d32f2f; }
+
+        .btn-action {
+            padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; text-decoration: none; display: inline-block;
+        }
+        .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
+        .btn-outline:hover { background: #f8f9fa; border-color: #999; }
+        .btn-main { background: var(--primary-color); color: white; border: 1px solid var(--primary-color); margin-left: 8px; }
+        .btn-main:hover { background: #258576; color: white; }
+
+        /* MODAL STYLES */
+        .reason-item {
+            padding: 10px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+        }
+        .reason-item:hover { background-color: #f9f9f9; }
+        .reason-item.selected { border-color: var(--primary-color); background-color: #f0fdfa; color: var(--primary-color); font-weight: 600; }
+
+        /* Modal Address (Tái sử dụng style cũ) */
+        .addr-item { border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: pointer; position: relative; }
+        .addr-item.selected { background-color: #f0fdfa !important; border-color: var(--primary-color) !important; }
+        .addr-radio { position: absolute; top: 10px; right: 10px; accent-color: var(--primary-color); }
+
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<main class="container py-4">
+    <div class="row">
+        <div class="col-lg-3 d-none d-lg-block">
+            <div th:replace="~{fragments/user_sidebar :: sidebar('order')}"></div>
+        </div>
+
+        <div class="col-lg-9">
+
+            <div class="order-tabs mb-3">
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Tất cả
+                </a>
+
+                <a th:href="@{/user/orders/list}" class="tab-item active">
+                    Chờ xác nhận
+                </a>
+
+                <a th:href="@{/user/orders/shipping}" class="tab-item">
+                    Đang giao
+                </a>
+
+                <a th:href="@{/user/orders/completed}" class="tab-item">
+                    Đã giao
+                </a>
+
+                <a th:href="@{/user/orders/return/list}" class="tab-item">
+                    Trả hàng/Hoàn tiền
+                </a>
+
+                <a th:href="@{/user/orders/cancelled}" class="tab-item">
+                    Đã hủy
+                </a>
+            </div>
+
+
+            <div class="order-list">
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Official</div>
+                        <div class="status-text status-pending">Chờ xác nhận</div>
+                    </div>
+
+                    <div class="card-body-custom" onclick="window.location.href='/order/detail/1'">
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Florfenicol kết hợp Oxytetracycline</div>
+                                <div class="prod-meta">x1 | 500g/túi</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">250.000₫</div>
+                        </div>
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Men vi sinh xử lý đáy cao cấp Super Clean</div>
+                                <div class="prod-meta">x2 | 1kg/gói</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">320.000₫</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary" style="font-size: 0.85rem;">
+                            Tổng thanh toán: <span class="total-money ms-1">840.000₫</span>
+                        </div>
+                        <div>
+                            <button class="btn-action btn-outline" data-bs-toggle="modal" data-bs-target="#modalCancelOrder">Hủy đơn</button>
+                            <a th:href="@{/user/orders/detail}" class="btn-action btn-main">Chi tiết</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Cần Thơ</div>
+                        <div class="status-text status-pending">Chờ xác nhận</div>
+                    </div>
+                    <div class="card-body-custom" onclick="window.location.href='/order/detail/2'">
+                        <div class="product-row">
+                            <img src="https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Khoáng tạt APA Miner Pox giúp cứng vỏ</div>
+                                <div class="prod-meta">x5 | Chai 1 lít</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">120.000₫</div>
+                        </div>
+                    </div>
+                    <div class="card-footer-custom">
+                        <div class="text-secondary" style="font-size: 0.85rem;">
+                            Tổng thanh toán: <span class="total-money ms-1">600.000₫</span>
+                        </div>
+                        <div>
+                            <button class="btn-action btn-outline" data-bs-toggle="modal" data-bs-target="#modalCancelOrder">Hủy đơn</button>
+                            <a th:href="@{/user/orders/detail}" class="btn-action btn-main">Chi tiết</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/footer :: html_footer}"></footer>
+
+<div class="modal fade" id="modalCancelOrder" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold fs-6">Chọn lý do hủy</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="reason-list">
+                    <div class="reason-item" onclick="selectReason(this, 'change_mind')">Muốn thay đổi sản phẩm</div>
+                    <div class="reason-item" onclick="selectReason(this, 'change_address')">Muốn thay đổi địa chỉ nhận hàng</div>
+                    <div class="reason-item" onclick="selectReason(this, 'found_cheaper')">Tìm thấy giá rẻ hơn</div>
+                    <div class="reason-item" onclick="selectReason(this, 'other')">Lý do khác</div>
+                </div>
+                <textarea class="form-control mt-3 d-none" id="otherReasonText" rows="2" placeholder="Nhập lý do chi tiết..."></textarea>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light btn-sm fw-bold" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-danger btn-sm fw-bold" id="btnConfirmCancel" onclick="processCancel()">Xác nhận hủy</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalChangeAddress" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold fs-6">Cập nhật địa chỉ nhận hàng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light" style="max-height: 60vh; overflow-y: auto;">
+
+                <div id="addrList">
+                    <label class="addr-item selected bg-white d-block" onclick="selectAddrItem(this)">
+                        <input type="radio" name="rePickAddr" class="addr-radio" checked>
+                        <div class="fw-bold text-dark small">Võ Thị Mỹ Thanh <span class="badge bg-light text-primary border border-primary fw-normal ms-1">Mặc định</span></div>
+                        <div class="text-secondary small mt-1">0909 123 456</div>
+                        <div class="text-secondary small text-truncate">123 Đường 3/2, Xuân Khánh, Ninh Kiều, Cần Thơ</div>
+                    </label>
+
+                    <label class="addr-item bg-white d-block" onclick="selectAddrItem(this)">
+                        <input type="radio" name="rePickAddr" class="addr-radio">
+                        <div class="fw-bold text-dark small">Thanh Võ (Công ty)</div>
+                        <div class="text-secondary small mt-1">0939 999 888</div>
+                        <div class="text-secondary small text-truncate">Tòa nhà FPT Poly, Cái Răng, Cần Thơ</div>
+                    </label>
+
+                    <button class="btn btn-outline-primary btn-sm w-100 border-dashed" onclick="toggleNewAddrForm()">
+                        + Thêm địa chỉ mới
+                    </button>
+                </div>
+
+                <div id="formNewAddr" class="d-none mt-2">
+                    <input type="text" class="form-control form-control-sm mb-2" placeholder="Họ tên">
+                    <input type="text" class="form-control form-control-sm mb-2" placeholder="Số điện thoại">
+                    <textarea class="form-control form-control-sm mb-2" rows="2" placeholder="Địa chỉ cụ thể"></textarea>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light btn-sm w-50" onclick="toggleNewAddrForm()">Hủy</button>
+                        <button class="btn btn-primary btn-sm w-50" style="background: var(--primary-color); border:none;">Lưu</button>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCancelOrder">Quay lại</button>
+                <button type="button" class="btn btn-success btn-sm fw-bold" style="background: var(--primary-color); border:none;" onclick="finishChangeAddress()">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let selectedReasonCode = '';
+
+    // 1. Chọn lý do hủy
+    function selectReason(el, code) {
+        document.querySelectorAll('.reason-item').forEach(i => i.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedReasonCode = code;
+
+
+    }
+
+    // 2. Xử lý nút Xác nhận Hủy
+    function processCancel() {
+        if (!selectedReasonCode) {
+            alert("Vui lòng chọn lý do hủy!");
+            return;
+        }
+
+
+            // Các lý do khác -> Gọi API hủy đơn
+            if(confirm("Bạn chắc chắn muốn hủy đơn hàng này?")) {
+                alert("Đã gửi yêu cầu hủy đơn hàng!");
+                location.reload();
+
+        }
+    }
+
+
+
+    function toggleNewAddrForm() {
+        const list = document.getElementById('addrList');
+        const form = document.getElementById('formNewAddr');
+        if(list.classList.contains('d-none')) {
+            list.classList.remove('d-none');
+            form.classList.add('d-none');
+        } else {
+            list.classList.add('d-none');
+            form.classList.remove('d-none');
+        }
+    }
+
+    function finishChangeAddress() {
+        alert("Đã cập nhật địa chỉ mới cho đơn hàng!");
+        location.reload();
+    }
+</script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đơn hàng đã hủy - AgriShrimp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+    <link rel="stylesheet" th:href="@{/css/user/profile.css}">
+
+    <style>
+        :root { --primary-color: #2d9f8d; --bg-body: #f4f6f8; --text-dark: #333; }
+        body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: #4a4a4a; }
+
+        /* TABS */
+        .order-tabs {
+            background: white; border-radius: 8px 8px 0 0; padding: 0 10px;
+            border-bottom: 1px solid #eee; display: flex; overflow-x: auto;
+        }
+        .tab-item {
+            padding: 12px 15px; cursor: pointer; white-space: nowrap; font-weight: 500; color: #666;
+            font-size: 0.9rem; border-bottom: 3px solid transparent; text-decoration: none;
+        }
+        .tab-item:hover { color: var(--primary-color); }
+        .tab-item.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 700; }
+
+        /* ORDER CARD */
+        .order-card {
+            background: white; border-radius: 8px; margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); opacity: 0.85; /* Làm mờ nhẹ thẻ đơn đã hủy */
+        }
+
+        .card-header-custom {
+            padding: 10px 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-cancelled { color: #dc3545; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
+
+        .card-body-custom { padding: 10px 15px; cursor: pointer; }
+        .product-row { display: flex; gap: 12px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .product-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .prod-img { width: 50px; height: 50px; border-radius: 4px; border: 1px solid #eee; object-fit: cover; filter: grayscale(0.5); }
+        .prod-info { flex: 1; }
+        .prod-name { font-weight: 500; color: var(--text-dark); font-size: 0.9rem; margin-bottom: 2px; }
+
+        /* Cancelled Info Area */
+        .cancel-reason-box {
+            background-color: #fff5f5; border-radius: 4px; padding: 10px 15px; margin-bottom: 10px;
+            border-left: 3px solid #dc3545;
+        }
+
+        .card-footer-custom {
+            padding: 10px 15px; border-top: 1px solid #f8f9fa; background: #fff; border-radius: 0 0 8px 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .total-money { font-size: 1rem; font-weight: 700; color: #d32f2f; }
+
+        .btn-action { padding: 6px 15px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; text-decoration: none; }
+        .btn-main { background: var(--primary-color); color: white; border: 1px solid var(--primary-color); }
+        .btn-main:hover { background: #258576; color: white; }
+        .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
+
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<main class="container py-4">
+    <div class="row">
+        <div class="col-lg-3 d-none d-lg-block">
+            <div th:replace="~{fragments/user_sidebar :: sidebar('order')}"></div>
+        </div>
+
+        <div class="col-lg-9">
+            <div class="order-tabs mb-3">
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Tất cả
+                </a>
+
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Chờ xác nhận
+                </a>
+
+                <a th:href="@{/user/orders/shipping}" class="tab-item">
+                    Đang giao
+                </a>
+
+                <a th:href="@{/user/orders/completed}" class="tab-item ">
+                    Đã giao
+                </a>
+
+                <a th:href="@{/user/orders/return/list}" class="tab-item ">
+                    Trả hàng/Hoàn tiền
+                </a>
+
+                <a th:href="@{/user/orders/cancelled}" class="tab-item active">
+                    Đã hủy
+                </a>
+            </div>
+
+            <div class="order-list">
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Official</div>
+                        <div class="status-cancelled"><i class="bi bi-x-circle me-1"></i> Đã hủy</div>
+                    </div>
+
+                    <div class="card-body-custom">
+                        <div class="cancel-reason-box">
+                            <div class="small fw-bold text-danger">Đơn hàng bị hủy bởi bạn</div>
+                            <div class="text-secondary small">Lý do: Muốn thay đổi địa chỉ nhận hàng</div>
+                        </div>
+
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Florfenicol kết hợp Oxytetracycline</div>
+                                <div class="prod-meta small text-muted">x1 | 500g/túi</div>
+                            </div>
+                            <div class="text-end text-muted small">250.000₫</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Tổng cộng: <span class="total-money ms-1">250.000₫</span></div>
+                        <div>
+                            <button class="btn-action btn-main">Mua lại</button>
+                            <button class="btn-action btn-outline ms-2">Xem chi tiết hủy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Cần Thơ</div>
+                        <div class="status-cancelled"><i class="bi bi-x-circle me-1"></i> Đã hủy</div>
+                    </div>
+
+                    <div class="card-body-custom">
+                        <div class="cancel-reason-box">
+                            <div class="small fw-bold text-danger">Đơn hàng bị hủy bởi Hệ thống</div>
+                            <div class="text-secondary small">Lý do: Bạn đã không hoàn tất thanh toán đúng hạn</div>
+                        </div>
+
+                        <div class="product-row">
+                            <img src="https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Khoáng tạt APA Miner Pox giúp cứng vỏ</div>
+                                <div class="prod-meta small text-muted">x5 | Chai 1 lít</div>
+                            </div>
+                            <div class="text-end text-muted small">120.000₫</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Tổng cộng: <span class="total-money ms-1">600.000₫</span></div>
+                        <div>
+                            <button class="btn-action btn-main">Mua lại</button>
+                            <button class="btn-action btn-outline ms-2">Liên hệ Shop</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/footer :: html_footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đơn hàng đã giao - AgriShrimp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+    <link rel="stylesheet" th:href="@{/css/user/profile.css}">
+
+    <style>
+        :root { --primary-color: #2d9f8d; --bg-body: #f4f6f8; --text-dark: #333; }
+        body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: #4a4a4a; }
+
+        /* TABS */
+        .order-tabs {
+            background: white; border-radius: 8px 8px 0 0; padding: 0 10px;
+            border-bottom: 1px solid #eee; display: flex; overflow-x: auto;
+        }
+        .tab-item {
+            padding: 12px 15px; cursor: pointer; white-space: nowrap; font-weight: 500; color: #666;
+            font-size: 0.9rem; border-bottom: 3px solid transparent; text-decoration: none;
+        }
+        .tab-item:hover { color: var(--primary-color); }
+        .tab-item.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 700; }
+
+        /* ORDER CARD */
+        .order-card {
+            background: white; border-radius: 8px; margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+
+        .card-header-custom {
+            padding: 10px 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-completed { color: #2d9f8d; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
+
+        .card-body-custom { padding: 10px 15px; cursor: pointer; }
+        .product-row { display: flex; gap: 12px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .product-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .prod-img { width: 50px; height: 50px; border-radius: 4px; border: 1px solid #eee; object-fit: cover; }
+        .prod-info { flex: 1; }
+        .prod-name { font-weight: 500; color: var(--text-dark); font-size: 0.9rem; margin-bottom: 2px; }
+
+        .card-footer-custom {
+            padding: 10px 15px; border-top: 1px solid #f8f9fa; background: #fff; border-radius: 0 0 8px 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .total-money { font-size: 1rem; font-weight: 700; color: #d32f2f; }
+
+        /* Buttons */
+        .btn-action { padding: 6px 15px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; text-decoration: none; display: inline-block; }
+        .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
+        .btn-outline:hover { background: #f8f9fa; border-color: #999; }
+        .btn-main { background: var(--primary-color); color: white; border: 1px solid var(--primary-color); margin-left: 8px; }
+        .btn-main:hover { background: #258576; color: white; }
+
+        /* Nút hoàn trả đặc biệt */
+        .btn-return { color: #888; border: 1px solid #eee; background: #fafafa; }
+        .btn-return:hover { color: #dc3545; border-color: #dc3545; background: #fff5f5; }
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<main class="container py-4">
+    <div class="row">
+        <div class="col-lg-3 d-none d-lg-block">
+            <div th:replace="~{fragments/user_sidebar :: sidebar('order')}"></div>
+        </div>
+
+        <div class="col-lg-9">
+            <div class="order-tabs mb-3">
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Tất cả
+                </a>
+
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Chờ xác nhận
+                </a>
+
+                <a th:href="@{/user/orders/shipping}" class="tab-item">
+                    Đang giao
+                </a>
+
+                <a th:href="@{/user/orders/completed}" class="tab-item active">
+                    Đã giao
+                </a>
+
+                <a th:href="@{/user/orders/return/list}" class="tab-item ">
+                    Trả hàng/Hoàn tiền
+                </a>
+
+                <a th:href="@{/user/orders/cancelled}" class="tab-item">
+                    Đã hủy
+                </a>
+            </div>
+
+
+            <div class="order-list">
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Official</div>
+                        <div class="status-completed"><i class="bi bi-check2-all me-1"></i> Hoàn thành</div>
+                    </div>
+
+                    <div class="card-body-custom" onclick="window.location.href='/order/detail/1'">
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Florfenicol kết hợp Oxytetracycline</div>
+                                <div class="prod-meta small text-muted">x1 | 500g/túi</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">250.000₫</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Tổng thanh toán: <span class="total-money ms-1">250.000₫</span></div>
+                        <div class="d-flex align-items-center">
+                            <a th:href="@{/testorderreturn}" class="btn-action btn-return me-2">Trả hàng</a>
+
+                            <button class="btn-action btn-main">Đánh giá</button>
+                            <button class="btn-action btn-outline ms-2">Mua lại</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Cần Thơ</div>
+                        <div class="status-completed"><i class="bi bi-check2-all me-1"></i> Hoàn thành</div>
+                    </div>
+
+                    <div class="card-body-custom">
+                        <div class="product-row">
+                            <img src="https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Khoáng tạt APA Miner Pox giúp cứng vỏ</div>
+                                <div class="prod-meta small text-muted">x1 | Chai 1 lít</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">120.000₫</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Tổng thanh toán: <span class="total-money ms-1">120.000₫</span></div>
+                        <div class="d-flex align-items-center">
+                            <a th:href="@{/testorderreturn}" class="btn-action btn-return me-2">Trả hàng</a>
+
+                            <span class="text-muted small me-2"><i class="bi bi-check-circle"></i> Đã đánh giá</span>
+                            <button class="btn-action btn-outline">Mua lại</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/footer :: html_footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chi tiết đơn hàng #ORD-123456</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+
+    <style>
+        :root {
+            --primary-color: #2d9f8d;
+            --bg-body: #f4f6f8;
+            --text-dark: #333;
+        }
+        body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: #4a4a4a; }
+
+        .detail-box {
+            background: white; border-radius: 8px; padding: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 20px;
+        }
+        .box-title { font-weight: 700; color: var(--text-dark); margin-bottom: 20px; font-size: 1.1rem; }
+
+        /* TIMELINE STEPPER */
+        .stepper { display: flex; justify-content: space-between; margin-bottom: 30px; position: relative; }
+        .step-item { flex: 1; text-align: center; position: relative; z-index: 1; }
+        .step-item::before {
+            content: ''; position: absolute; top: 15px; left: -50%; width: 100%; height: 3px;
+            background: #e0e0e0; z-index: -1;
+        }
+        .step-item:first-child::before { display: none; }
+
+        .step-circle {
+            width: 35px; height: 35px; border-radius: 50%; background: #e0e0e0; color: white;
+            display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px;
+            font-weight: 700; transition: 0.3s;
+        }
+        .step-label { font-size: 0.85rem; color: #999; font-weight: 500; }
+        .step-time { font-size: 0.75rem; color: #aaa; display: block; margin-top: 4px; }
+
+        /* Active State */
+        .step-item.active .step-circle { background: var(--primary-color); box-shadow: 0 0 0 4px rgba(45, 159, 141, 0.2); }
+        .step-item.active .step-label { color: var(--text-dark); font-weight: 700; }
+        .step-item.active::before { background: var(--primary-color); }
+        /* Finished State (cho các bước đã qua) */
+        .step-item.finished .step-circle { background: var(--primary-color); }
+        .step-item.finished::before { background: var(--primary-color); }
+
+        /* INFO SECTIONS */
+        .info-label { width: 140px; color: #666; }
+        .info-val { font-weight: 500; color: var(--text-dark); }
+
+        /* PRODUCT TABLE */
+        .table-custom th { border-top: none; color: #888; font-weight: 500; font-size: 0.9rem; }
+        .table-custom td { vertical-align: middle; padding: 15px 10px; }
+        .prod-mini-img { width: 60px; height: 60px; border: 1px solid #eee; border-radius: 4px; object-fit: contain; }
+
+        /* SUMMARY */
+        .summary-row { display: flex; justify-content: flex-end; padding: 5px 0; font-size: 0.95rem; }
+        .sum-lbl { width: 150px; text-align: right; color: #666; margin-right: 20px; }
+        .sum-val { width: 120px; text-align: right; color: var(--text-dark); }
+        .sum-total { font-size: 1.3rem; font-weight: 700; color: #d32f2f; }
+
+        .btn-cancel-order { border: 1px solid #dc3545; color: #dc3545; background: white; font-weight: 600; }
+        .btn-cancel-order:hover { background: #dc3545; color: white; }
+
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/home}" class="text-decoration-none text-secondary">Trang chủ</a></li>
+            <li class="breadcrumb-item"><a th:href="@{/user/orders/list}" class="text-decoration-none text-secondary">Đơn hàng</a></li>
+            <li class="breadcrumb-item active fw-bold" aria-current="page">Chi tiết đơn hàng</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0 fw-bold">Đơn hàng #ORD-123456</h4>
+        <div class="text-warning fw-bold text-uppercase fs-6">
+            <i class="bi bi-clock-history me-1"></i> Chờ xác nhận
+        </div>
+    </div>
+
+    <div class="detail-box">
+        <div class="stepper">
+            <div class="step-item finished">
+                <div class="step-circle"><i class="bi bi-file-earmark-text"></i></div>
+                <div class="step-label">Đơn hàng đã đặt</div>
+                <span class="step-time">23/01/2026 14:30</span>
+            </div>
+            <div class="step-item active">
+                <div class="step-circle"><i class="bi bi-credit-card"></i></div>
+                <div class="step-label">Chờ xác nhận</div>
+                <span class="step-time">23/01/2026 14:32</span>
+            </div>
+            <div class="step-item">
+                <div class="step-circle"><i class="bi bi-box-seam"></i></div>
+                <div class="step-label">Đã giao ĐVVC</div>
+            </div>
+            <div class="step-item">
+                <div class="step-circle"><i class="bi bi-truck"></i></div>
+                <div class="step-label">Đang giao hàng</div>
+            </div>
+            <div class="step-item">
+                <div class="step-circle"><i class="bi bi-star"></i></div>
+                <div class="step-label">Hoàn thành</div>
+            </div>
+        </div>
+
+        <div class="alert alert-warning border-0 bg-warning bg-opacity-10 d-flex align-items-center mb-0">
+            <i class="bi bi-info-circle-fill me-2 text-warning"></i>
+            <span class="small">Đơn hàng đang chờ người bán xác nhận. Vui lòng chờ trong giây lát.</span>
+        </div>
+    </div>
+
+    <div class="detail-box">
+        <div class="row">
+            <div class="col-md-6 border-end">
+                <div class="box-title">Địa chỉ nhận hàng</div>
+                <div class="d-flex mb-2">
+                    <div class="info-label">Người nhận</div>
+                    <div class="info-val">Võ Thị Mỹ Thanh</div>
+                </div>
+                <div class="d-flex mb-2">
+                    <div class="info-label">Số điện thoại</div>
+                    <div class="info-val">(+84) 909 123 456</div>
+                </div>
+                <div class="d-flex mb-2">
+                    <div class="info-label">Địa chỉ</div>
+                    <div class="info-val">123 Đường 3/2, Phường Xuân Khánh, Quận Ninh Kiều, Thành phố Cần Thơ</div>
+                </div>
+            </div>
+            <div class="col-md-6 ps-md-4 mt-3 mt-md-0">
+                <div class="box-title">Hình thức thanh toán</div>
+                <div class="d-flex mb-2">
+                    <div class="info-label">Phương thức</div>
+                    <div class="info-val">Chuyển khoản ngân hàng (Banking)</div>
+                </div>
+                <div class="d-flex mb-2">
+                    <div class="info-label">Trạng thái</div>
+                    <div class="info-val text-warning fw-bold">Chưa thanh toán</div>
+                </div>
+                <div class="mt-3">
+                    <a href="/payment/waiting" class="btn btn-sm btn-primary" style="background: var(--primary-color); border:none;">Thanh toán ngay</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-box p-0 overflow-hidden">
+        <div class="p-3 border-bottom bg-light fw-bold">Sản phẩm</div>
+        <div class="table-responsive">
+            <table class="table table-custom mb-0">
+                <thead>
+                <tr>
+                    <th class="ps-4">Sản phẩm</th>
+                    <th class="text-center">Đơn giá</th>
+                    <th class="text-center">Số lượng</th>
+                    <th class="text-end pe-4">Tạm tính</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-mini-img">
+                            <div class="ms-3">
+                                <div class="fw-bold text-dark">Florfenicol kết hợp Oxytetracycline</div>
+                                <small class="text-muted">Phân loại: 500g/túi</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center">250.000₫</td>
+                    <td class="text-center">1</td>
+                    <td class="text-end pe-4 fw-bold">250.000₫</td>
+                </tr>
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-mini-img">
+                            <div class="ms-3">
+                                <div class="fw-bold text-dark">Men vi sinh xử lý đáy Super Clean</div>
+                                <small class="text-muted">Phân loại: 1kg/gói</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center">320.000₫</td>
+                    <td class="text-center">2</td>
+                    <td class="text-end pe-4 fw-bold">640.000₫</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="p-4 bg-light border-top">
+            <div class="summary-row">
+                <span class="sum-lbl">Tổng tiền hàng</span>
+                <span class="sum-val">890.000₫</span>
+            </div>
+            <div class="summary-row">
+                <span class="sum-lbl">Phí vận chuyển</span>
+                <span class="sum-val">15.000₫</span>
+            </div>
+            <div class="summary-row">
+                <span class="sum-lbl">Voucher giảm giá</span>
+                <span class="sum-val text-success">-50.000₫</span>
+            </div>
+            <div class="summary-row mt-2 pt-2 border-top border-secondary border-opacity-10">
+                <span class="sum-lbl align-self-center">Tổng thanh toán</span>
+                <span class="sum-val sum-total">855.000₫</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mb-5">
+        <button class="btn btn-cancel-order px-4 py-2" onclick="confirm('Bạn có chắc muốn hủy đơn hàng này?')">Hủy đơn hàng</button>
+        <button class="btn btn-outline-secondary px-4 py-2">Liên hệ hỗ trợ</button>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yêu cầu Hoàn trả - AgriShrimp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+
+    <style>
+        :root {
+            --primary-color: #2d9f8d;
+            --primary-hover: #248273;
+            --bg-body: #f8fafb;
+            --text-dark: #1a1a1a;
+            --border-color: #eef2f6;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Inter', sans-serif;
+            color: #4a4a4a;
+        }
+
+        .card-custom {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* PRODUCT SELECTION */
+        .product-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #fcfdfe;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+        .prod-img {
+            width: 65px; height: 65px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #eee;
+        }
+
+        /* SIDEBAR STICKY */
+        .sidebar-sticky {
+            position: sticky;
+            top: 20px;
+        }
+
+        /* UPLOAD AREA */
+        .upload-wrapper {
+            border: 2px dashed #d1d5db;
+            border-radius: 10px;
+            padding: 25px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+            background: #fafafa;
+        }
+        .upload-wrapper:hover {
+            border-color: var(--primary-color);
+            background: #f0fdfa;
+        }
+
+        .preview-container {
+            position: relative;
+            display: inline-block;
+            margin: 5px;
+        }
+        .preview-img {
+            width: 70px; height: 70px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .btn-remove {
+            position: absolute; top: -5px; right: -5px;
+            background: #ff4d4f; color: white;
+            border-radius: 50%; width: 20px; height: 20px;
+            font-size: 12px; border: 2px solid white;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* REFUND INFO */
+        .refund-box {
+            background: #f0fdfa;
+            border: 1px solid rgba(45, 159, 141, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .total-price {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #d32f2f;
+        }
+
+        .btn-submit {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            font-weight: 700;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(45, 159, 141, 0.3);
+        }
+
+        .form-label { font-weight: 600; font-size: 0.9rem; color: #555; }
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<main class="container py-5">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none text-muted">Trang chủ</a></li>
+            <li class="breadcrumb-item"><a href="/testordercompleted" class="text-decoration-none text-muted">Đơn hàng</a></li>
+            <li class="breadcrumb-item active fw-bold text-dark">Yêu cầu hoàn tiền</li>
+        </ol>
+    </nav>
+
+    <form action="/order/return/submit" method="post" enctype="multipart/form-data">
+        <div class="row g-4">
+
+            <div class="col-lg-7">
+
+                <div class="card-custom">
+                    <div class="section-title">
+                        <i class="bi bi-check2-circle text-primary"></i> 1. Sản phẩm hoàn trả
+                    </div>
+                    <div class="product-item shadow-sm">
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="checkbox" checked style="width: 20px; height: 20px; cursor: default" onclick="return false;">
+                        </div>
+                        <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img me-3">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem;">Florfenicol kết hợp Oxytetracycline</div>
+                            <div class="text-muted small">Phân loại: 500g/túi | Số lượng: 01</div>
+                        </div>
+                        <div class="text-end fw-bold text-dark">250.000₫</div>
+                    </div>
+                    <p class="small text-muted mt-3 mb-0">
+                        <i class="bi bi-info-circle me-1"></i> Lưu ý: Bạn chỉ có thể hoàn trả các sản phẩm đã nhận thành công.
+                    </p>
+                </div>
+
+                <div class="card-custom">
+                    <div class="section-title">
+                        <i class="bi bi-chat-left-dots text-warning"></i> 2. Chi tiết lý do
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label mb-2">Lý do hoàn trả <span class="text-danger">*</span></label>
+                        <select class="form-select py-2" required>
+                            <option value="" selected disabled>Vui lòng chọn lý do phù hợp</option>
+                            <option value="1">Sản phẩm bị lỗi kỹ thuật / hỏng hóc</option>
+                            <option value="2">Sản phẩm không đúng như mô tả</option>
+                            <option value="3">Hàng bị bể vỡ do vận chuyển</option>
+                            <option value="4">Giao sai sản phẩm / thiếu hàng</option>
+                            <option value="5">Sản phẩm hết hạn sử dụng</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label mb-2">Mô tả tình trạng chi tiết</label>
+                        <textarea class="form-control" rows="5" placeholder="Mô tả cụ thể vấn đề để AgriShrimp hỗ trợ bạn nhanh nhất..."></textarea>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="col-lg-5">
+                <div class="sidebar-sticky">
+
+                    <div class="card-custom">
+                        <div class="section-title">
+                            <i class="bi bi-images text-danger"></i> 3. Bằng chứng hình ảnh
+                        </div>
+                        <div class="upload-wrapper" id="uploadArea">
+                            <i class="bi bi-camera-fill fs-2 text-muted"></i>
+                            <div class="mt-2 fw-bold text-dark small">Thêm hình ảnh lỗi sản phẩm</div>
+                            <div class="small text-muted" style="font-size: 0.75rem;">(Tối đa 5 ảnh, định dạng JPG, PNG)</div>
+                            <input type="file" id="fileInput" multiple hidden accept="image/*">
+                        </div>
+
+                        <div id="imagePreview" class="mt-3 d-flex flex-wrap gap-1"></div>
+                    </div>
+
+                    <div class="card-custom">
+                        <div class="refund-box mb-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold text-dark small">Số tiền hoàn lại dự kiến:</div>
+                                    <div class="text-muted small" style="font-size: 0.7rem;">Sẽ hoàn về Ví AgriShrimp / Ngân hàng</div>
+                                </div>
+                                <div class="total-price">250.000₫</div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit mb-3">GỬI YÊU CẦU</button>
+
+                        <div class="d-flex justify-content-center">
+                            <button type="button" class="btn btn-link text-decoration-none text-muted small fw-bold" onclick="history.back()">Hủy bỏ yêu cầu</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </form>
+</main>
+
+
+<script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const previewContainer = document.getElementById('imagePreview');
+
+    uploadArea.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => {
+        const files = e.target.files;
+        if (files.length + previewContainer.childElementCount > 5) {
+            alert("Bạn chỉ được tải lên tối đa 5 hình ảnh.");
+            return;
+        }
+
+        for (let i = 0; i < files.length; i++) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'preview-container';
+                wrapper.innerHTML = `
+                    <img src="${event.target.result}" class="preview-img">
+                    <span class="btn-remove" onclick="this.parentElement.remove()">
+                        <i class="bi bi-x"></i>
+                    </span>
+                `;
+                previewContainer.appendChild(wrapper);
+            }
+            reader.readAsDataURL(files[i]);
+        }
+    };
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Danh sách hoàn trả - AgriShrimp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+    <link rel="stylesheet" th:href="@{/css/user/profile.css}">
+
+    <style>
+        :root { --primary-color: #2d9f8d; --bg-body: #f4f6f8; --text-dark: #333; }
+        body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: #4a4a4a; }
+
+        /* TABS */
+        .order-tabs {
+            background: white; border-radius: 8px 8px 0 0; padding: 0 10px;
+            border-bottom: 1px solid #eee; display: flex; overflow-x: auto;
+        }
+        .tab-item {
+            padding: 12px 15px; cursor: pointer; white-space: nowrap; font-weight: 500; color: #666;
+            font-size: 0.9rem; border-bottom: 3px solid transparent; text-decoration: none;
+        }
+        .tab-item:hover { color: var(--primary-color); }
+        .tab-item.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 700; }
+
+        /* RETURN CARD */
+        .return-card {
+            background: white; border-radius: 8px; margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .return-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+
+        .card-header-custom {
+            padding: 10px 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Trạng thái Hoàn tiền */
+        .status-badge { font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
+        .st-processing { background: #fff8e1; color: #f5a623; border: 1px solid #ffe082; } /* Đang xử lý */
+        .st-completed { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }  /* Đã hoàn tiền */
+        .st-rejected { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }   /* Bị từ chối */
+
+        .card-body-custom { padding: 10px 15px; cursor: pointer; }
+
+        .product-row { display: flex; gap: 12px; }
+        .prod-img { width: 55px; height: 55px; border-radius: 4px; border: 1px solid #eee; object-fit: cover; }
+        .prod-info { flex: 1; }
+        .prod-name { font-weight: 500; color: var(--text-dark); font-size: 0.9rem; margin-bottom: 2px; }
+        .return-reason { font-size: 0.8rem; color: #dc3545; background: #fff5f5; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+
+        .card-footer-custom {
+            padding: 10px 15px; border-top: 1px solid #f8f9fa; background: #fff; border-radius: 0 0 8px 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .refund-amount { font-size: 0.95rem; font-weight: 700; color: #d32f2f; }
+
+        .btn-detail { padding: 5px 15px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; border: 1px solid var(--primary-color); color: var(--primary-color); text-decoration: none; }
+        .btn-detail:hover { background: var(--primary-color); color: white; }
+
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<main class="container py-4">
+    <div class="row">
+        <div class="col-lg-3 d-none d-lg-block">
+            <div th:replace="~{fragments/user_sidebar :: sidebar('order')}"></div>
+        </div>
+
+        <div class="col-lg-9">
+
+            <div class="order-tabs mb-3">
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Tất cả
+                </a>
+
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Chờ xác nhận
+                </a>
+
+                <a th:href="@{/user/orders/shipping}" class="tab-item">
+                    Đang giao
+                </a>
+
+                <a th:href="@{/user/orders/completed}" class="tab-item">
+                    Đã giao
+                </a>
+
+                <a th:href="@{/user/orders/return/list}" class="tab-item active">
+                    Trả hàng/Hoàn tiền
+                </a>
+
+                <a th:href="@{/user/orders/cancelled}" class="tab-item">
+                    Đã hủy
+                </a>
+            </div>
+
+
+            <div class="return-list">
+
+                <div class="return-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-arrow-left-right me-1"></i> Mã yêu cầu: #RE-99231</div>
+                        <div class="status-badge st-processing">Đang xử lý</div>
+                    </div>
+
+                    <div class="card-body-custom">
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Florfenicol kết hợp Oxytetracycline</div>
+                                <div class="text-muted small">Số lượng: 1 | Đơn hàng: #ORD-123456</div>
+                                <div class="return-reason">Lý do: Sản phẩm bị lỗi/hư hỏng</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Số tiền hoàn lại dự kiến: <span class="refund-amount ms-1">250.000₫</span></div>
+                        <a href="#" class="btn-detail">Xem chi tiết</a>
+                    </div>
+                </div>
+
+                <div class="return-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-arrow-left-right me-1"></i> Mã yêu cầu: #RE-88120</div>
+                        <div class="status-badge st-completed">Đã hoàn tiền</div>
+                    </div>
+
+                    <div class="card-body-custom">
+                        <div class="product-row">
+                            <img src="https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Khoáng tạt APA Miner Pox giúp cứng vỏ</div>
+                                <div class="text-muted small">Số lượng: 2 | Đơn hàng: #ORD-99812</div>
+                                <div class="return-reason" style="color: #2e7d32; background: #e8f5e9;">Lý do: Giao sai hàng</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 small text-muted"><i class="bi bi-info-circle"></i> Tiền đã được hoàn vào ví AgriShrimp của bạn.</div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Tổng cộng đã hoàn: <span class="refund-amount ms-1">240.000₫</span></div>
+                        <a href="#" class="btn-detail">Xem chi tiết</a>
+                    </div>
+                </div>
+
+                <div class="return-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-arrow-left-right me-1"></i> Mã yêu cầu: #RE-77102</div>
+                        <div class="status-badge st-rejected">Bị từ chối</div>
+                    </div>
+
+                    <div class="card-body-custom">
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Men vi sinh xử lý đáy Super Clean</div>
+                                <div class="text-muted small">Số lượng: 1 | Đơn hàng: #ORD-77615</div>
+                                <div class="return-reason">Lý do: Sản phẩm khác với mô tả</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 p-2 bg-light rounded small text-danger">
+                            <strong>Phản hồi từ shop:</strong> Hình ảnh bằng chứng không rõ ràng, bao bì sản phẩm đã bị xé rách không còn nguyên vẹn.
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary small">Số tiền yêu cầu: <span class="refund-amount ms-1">320.000₫</span></div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-light border small fw-bold">Khiếu nại</button>
+                            <a href="#" class="btn-detail">Xem chi tiết</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/footer :: html_footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đơn hàng đang giao - AgriShrimp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/style/header.css}">
+    <link rel="stylesheet" th:href="@{/css/user/profile.css}">
+
+    <style>
+        :root { --primary-color: #2d9f8d; --bg-body: #f4f6f8; --text-dark: #333; }
+        body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: #4a4a4a; }
+
+        /* TABS */
+        .order-tabs {
+            background: white; border-radius: 8px 8px 0 0; padding: 0 10px;
+            border-bottom: 1px solid #eee; display: flex; overflow-x: auto;
+        }
+        .tab-item {
+            padding: 12px 15px; cursor: pointer; white-space: nowrap; font-weight: 500; color: #666;
+            font-size: 0.9rem; border-bottom: 3px solid transparent; text-decoration: none;
+        }
+        .tab-item:hover { color: var(--primary-color); }
+        /* Active Tab Style */
+        .tab-item.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 700; }
+
+        /* ORDER CARD */
+        .order-card {
+            background: white; border-radius: 8px; margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .order-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+
+        .card-header-custom {
+            padding: 10px 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.85rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-text { text-transform: uppercase; font-weight: 700; font-size: 0.8rem; }
+        /* Màu trạng thái Giao hàng */
+        .status-shipping { color: #0dcaf0; } /* Màu xanh dương nhạt hoặc Teal */
+
+        .card-body-custom { padding: 10px 15px; cursor: pointer; }
+        .product-row { display: flex; gap: 12px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .product-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .prod-img { width: 50px; height: 50px; border-radius: 4px; border: 1px solid #eee; object-fit: cover; }
+        .prod-info { flex: 1; }
+        .prod-name {
+            font-weight: 500; color: var(--text-dark); font-size: 0.9rem; margin-bottom: 2px;
+            display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .prod-meta { font-size: 0.8rem; color: #888; }
+
+        .card-footer-custom {
+            padding: 10px 15px; border-top: 1px solid #f8f9fa; background: #fff; border-radius: 0 0 8px 8px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .total-money { font-size: 1rem; font-weight: 700; color: #d32f2f; }
+
+        /* Buttons */
+        .btn-action {
+            padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; text-decoration: none; display: inline-block;
+        }
+        .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
+        .btn-outline:hover { background: #f8f9fa; border-color: #999; }
+        .btn-main { background: var(--primary-color); color: white; border: 1px solid var(--primary-color); margin-left: 8px; }
+        .btn-main:hover { background: #258576; color: white; }
+        /* Nút nhận hàng */
+        .btn-confirm-received { background: #2d9f8d; color: white; border: 1px solid #2d9f8d; margin-left: 8px; }
+        .btn-confirm-received:hover { background: #238b7a; }
+
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: html_header}"></header>
+
+<main class="container py-4">
+    <div class="row">
+        <div class="col-lg-3 d-none d-lg-block">
+            <div th:replace="~{fragments/user_sidebar :: sidebar('order')}"></div>
+        </div>
+
+        <div class="col-lg-9">
+
+            <div class="order-tabs mb-3">
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Tất cả
+                </a>
+
+                <a th:href="@{/user/orders/list}" class="tab-item">
+                    Chờ xác nhận
+                </a>
+
+                <a th:href="@{/user/orders/shipping}" class="tab-item active">
+                    Đang giao
+                </a>
+
+                <a th:href="@{/user/orders/completed}" class="tab-item">
+                    Đã giao
+                </a>
+
+                <a th:href="@{/user/orders/return/list}" class="tab-item ">
+                    Trả hàng/Hoàn tiền
+                </a>
+
+                <a th:href="@{/user/orders/cancelled}" class="tab-item">
+                    Đã hủy
+                </a>
+            </div>
+
+
+            <div class="order-list">
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Official</div>
+                        <div class="status-text status-shipping">
+                            <i class="bi bi-truck me-1"></i> Đang giao hàng
+                        </div>
+                    </div>
+
+                    <div class="card-body-custom" onclick="window.location.href='/order/detail/1'">
+                        <div class="product-row">
+                            <img src="https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Men vi sinh xử lý đáy cao cấp Super Clean</div>
+                                <div class="prod-meta">x2 | 1kg/gói</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">320.000₫</div>
+                        </div>
+
+                        <div class="mt-2 pt-2 border-top border-light">
+                            <small class="text-success"><i class="bi bi-truck"></i> Đơn hàng đã đến kho Cần Thơ SOC</small>
+                            <div class="text-muted" style="font-size: 0.75rem;">15:30 24/01/2026</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary" style="font-size: 0.85rem;">
+                            Tổng thanh toán: <span class="total-money ms-1">640.000₫</span>
+                        </div>
+                        <div>
+                            <button class="btn-action btn-outline">Theo dõi</button>
+                            <button class="btn-action btn-confirm-received" onclick="confirmReceived()">Đã nhận hàng</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-card">
+                    <div class="card-header-custom">
+                        <div class="fw-bold text-dark"><i class="bi bi-shop me-1"></i> AgriShrimp Cần Thơ</div>
+                        <div class="status-text status-shipping">
+                            <i class="bi bi-truck me-1"></i> Đang giao hàng
+                        </div>
+                    </div>
+
+                    <div class="card-body-custom" onclick="window.location.href='/order/detail/2'">
+                        <div class="product-row">
+                            <img src="https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" class="prod-img">
+                            <div class="prod-info">
+                                <div class="prod-name">Khoáng tạt APA Miner Pox giúp cứng vỏ</div>
+                                <div class="prod-meta">x1 | Chai 1 lít</div>
+                            </div>
+                            <div class="text-end" style="font-size: 0.9rem;">120.000₫</div>
+                        </div>
+
+                        <div class="mt-2 pt-2 border-top border-light">
+                            <small class="text-success"><i class="bi bi-person-walking"></i> Shipper đang giao hàng cho bạn</small>
+                            <div class="text-muted" style="font-size: 0.75rem;">08:30 24/01/2026</div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer-custom">
+                        <div class="text-secondary" style="font-size: 0.85rem;">
+                            Tổng thanh toán: <span class="total-money ms-1">120.000₫</span>
+                        </div>
+                        <div>
+                            <button class="btn-action btn-outline">Liên hệ</button>
+                            <button class="btn-action btn-confirm-received">Đã nhận hàng</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/footer :: html_footer}"></footer>
+
+<script>
+    function confirmReceived() {
+        if(confirm("Bạn xác nhận đã nhận được đầy đủ hàng và hài lòng với sản phẩm?")) {
+            alert("Cảm ơn bạn! Đơn hàng đã hoàn tất.");
+        }
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+

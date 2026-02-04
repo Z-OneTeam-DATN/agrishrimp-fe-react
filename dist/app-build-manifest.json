@@ -31,70 +31,45 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(auth)/login/page.js"
     ],
-    "/_not-found/page": [
+    "/(profile)/profile/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/chunks/app/(profile)/profile/page.js"
     ],
     "/(store)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(store)/layout.js"
     ],
-    "/(store)/account/page": [
+    "/(store)/store-locator/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(store)/account/page.js"
+      "static/chunks/app/(store)/store-locator/page.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
+    ],
+    "/(profile)/edit-profile/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(profile)/edit-profile/page.js"
+    ],
+    "/(profile)/address/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(profile)/address/page.js"
     ],
     "/(store)/ordering/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(store)/ordering/page.js"
     ],
-    "/(store)/packing/page": [
+    "/(profile)/orders/list/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(store)/packing/page.js"
-    ],
-    "/(store)/store-locator/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/store-locator/page.js"
-    ],
-    "/(store)/shipping-fee/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/shipping-fee/page.js"
-    ],
-    "/(store)/warranty-policy/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/warranty-policy/page.js"
-    ],
-    "/(store)/about/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/about/page.js"
-    ],
-    "/(store)/contact/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/contact/page.js"
-    ],
-    "/(store)/terms-of-use/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/terms-of-use/page.js"
-    ],
-    "/(store)/privacy-policy/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/privacy-policy/page.js"
-    ],
-    "/(store)/return/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/return/page.js"
+      "static/chunks/app/(profile)/orders/list/page.js"
     ]
   }
 }

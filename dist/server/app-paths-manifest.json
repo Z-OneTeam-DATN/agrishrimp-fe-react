@@ -1,8 +1,7 @@
 {
-  "/(store)/contact/page": "app/(store)/contact/page.js",
-  "/(store)/return/page": "app/(store)/return/page.js",
-  "/(store)/terms-of-use/page": "app/(store)/terms-of-use/page.js",
-  "/(store)/store-locator/page": "app/(store)/store-locator/page.js",
-  "/(store)/privacy-policy/page": "app/(store)/privacy-policy/page.js",
-  "/(store)/about/page": "app/(store)/about/page.js"
+  "/(profile)/edit-profile/page": "app/(profile)/edit-profile/page.js",
+  "/(profile)/address/page": "app/(profile)/address/page.js",
+  "/(profile)/profile/page": "app/(profile)/profile/page.js",
+  "/(profile)/orders/list/page": "app/(profile)/orders/list/page.js",
+  "/(store)/ordering/page": "app/(store)/ordering/page.js"
 }

@@ -18,6 +18,10 @@ const PUBLIC_PATHS = [
   '/cookie-policy',
   '/clinic-policy',
   '/store-locator',
+  '/profile',
+  '/edit-profile',
+  '/address',
+  '/orders/list',
 ]
 
 export function middleware(req: NextRequest) {

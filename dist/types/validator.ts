@@ -74,6 +74,42 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/(profile)/address/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/address">> = Specific
+  const handler = {} as typeof import("../../app/(profile)/address/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/(profile)/edit-profile/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/edit-profile">> = Specific
+  const handler = {} as typeof import("../../app/(profile)/edit-profile/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/(profile)/orders/list/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/orders/list">> = Specific
+  const handler = {} as typeof import("../../app/(profile)/orders/list/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/(profile)/profile/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/profile">> = Specific
+  const handler = {} as typeof import("../../app/(profile)/profile/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/(store)/about/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/about">> = Specific

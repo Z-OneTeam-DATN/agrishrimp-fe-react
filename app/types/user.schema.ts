@@ -35,6 +35,26 @@ const BaseUserSchema = z.object({
   blockFlag: z.string().optional()
 })
 
+export const editProfileSchema = z.object({
+  fullname: z.string().min(1, { message: 'Họ và tên không được để trống' }),
+  birthday: z.coerce.date({required_error: 'Vui lòng chọn ngày sinh'}).max(new Date(), { message: 'Ngày sinh phải là ngày trong quá khứ' }),
+  gender: z.string().optional() // Add gender field
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, { message: 'Mật khẩu hiện tại không được để trống' }),
+    newPassword: z.string().min(6, { message: 'Mật khẩu mới phải có ít nhất 6 ký tự' }),
+    confirmPassword: z.string().min(1, { message: 'Vui lòng xác nhận mật khẩu mới' })
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Mật khẩu mới không khớp',
+    path: ['confirmPassword']
+  });
+
+export type EditProfileFormValues = z.infer<typeof editProfileSchema>;
+export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
+
 export type UserType = z.infer<typeof BaseUserSchema>
 
 export const loginSchema = BaseUserSchema.pick({
@@ -73,3 +93,21 @@ export type LoginFormValues = z.infer<typeof loginSchema>
 export type SignupFormValues = z.infer<typeof signupSchema>
 export type ProfileFormValues = z.infer<typeof profileSchema>
 export type AvatarImage = z.infer<typeof AvatarImageSchema>
+
+export const addressSchema = z.object({
+  id: z.number().optional(), // For existing addresses
+  fullName: z.string().min(1, { message: 'Họ và tên không được để trống' }),
+  phone: z.string().regex(
+    /^(0|\+84)(\s|\.)?((3[2-9])|(5[689])|(7[06-9])|(8[1-689])|(9[0-46-9]))(\d)(\s|\.)?(\d{3})(\s|\.)?(\d{3})$/,
+    { message: 'Số điện thoại không hợp lệ' }
+  ),
+  provinceId: z.string().min(1, { message: 'Vui lòng chọn Tỉnh/Thành phố' }),
+  districtId: z.string().min(1, { message: 'Vui lòng chọn Quận/Huyện' }),
+  wardId: z.string().min(1, { message: 'Vui lòng chọn Phường/Xã' }),
+  specificAddress: z.string().min(1, { message: 'Địa chỉ cụ thể không được để trống' }),
+  addressType: z.enum(['Home', 'Office']).default('Home'),
+  isDefault: z.boolean().default(false),
+});
+
+export type AddressFormValues = z.infer<typeof addressSchema>;
+
