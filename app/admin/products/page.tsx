@@ -1,149 +1,85 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import {
-  Plus,
-  Search,
-  Filter,
-  Pencil,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Image as ImageIcon
-} from "lucide-react";
+import React, { useState } from "react";
+import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
+import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
+import { AdminProductTable } from "@/components/admin/AdminProductTable";
 
 const products = [
-  {
-    id: 1,
-    name: "Kháng sinh Enrofloxacin",
-    category: "Thuốc & Chế phẩm",
-    stock: 124,
+  { 
+    id: 1, 
+    sku: "ENRO-20-BASE",
+    name: "Kháng sinh Enrofloxacin 20%", 
+    category: "Thuốc & Chế phẩm", 
+    brand: "APA NANO",
+    origin: "Việt Nam",
+    priceRange: "150.000 ₫ - 550.000 ₫",
+    totalSold: 1240, 
+    status: "Đang kinh doanh",
     image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg",
+    imageCount: 5,
+    techSpecs: [
+      { key: "Thành phần", value: "Enrofloxacin 20%" },
+      { key: "Độ pH", value: "3.5 - 4.5" },
+      { key: "Hạn dùng", value: "24 tháng" }
+    ],
+    variants: [
+      { id: "SKU-ENRO-100", formulation: "Dung dịch", packaging: "Chai nhựa", weight: "100", unit: "ml", price: "150.000 ₫", sold: 850, barcode: "893000111", image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" },
+      { id: "SKU-ENRO-500", formulation: "Dung dịch", packaging: "Chai nhựa", weight: "500", unit: "ml", price: "550.000 ₫", sold: 390, barcode: "893000555", image: null },
+    ]
   },
-  {
-    id: 2,
-    name: "Men vi sinh xử lý đáy",
-    category: "Chế phẩm sinh học",
-    stock: 15,
+  { 
+    id: 2, 
+    sku: "BIO-BASE-01",
+    name: "Men vi sinh xử lý đáy ao", 
+    category: "Chế phẩm sinh học", 
+    brand: "BIO-PHARMA",
+    origin: "Mỹ",
+    priceRange: "220.000 ₫",
+    totalSold: 850, 
+    status: "Đang kinh doanh",
     image: "https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png",
+    imageCount: 3,
+    techSpecs: [
+      { key: "Mật độ khuẩn", value: "10^9 CFU/g" },
+      { key: "Dạng", value: "Bột mịn" }
+    ],
+    variants: [
+      { id: "SKU-BIO-1KG", formulation: "Bột mịn", packaging: "Gói nhôm", weight: "1", unit: "kg", price: "220.000 ₫", sold: 850, barcode: "893000222", image: "https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" },
+    ]
   },
-  {
-    id: 3,
-    name: "Máy đo độ pH cầm tay",
-    category: "Dụng cụ đo",
-    stock: 0,
-    image: "https://thuysanvietnam.com.vn/wp-content/uploads/2022/08/thu-hoach-tom-CN.jpg",
-  },
+];
+
+const categoryFilters = [
+  { label: "Tất cả danh mục", value: "all" },
+  { label: "Thuốc & Chế phẩm", value: "thuoc" },
+  { label: "Thức ăn", value: "thuc-an" },
+];
+
+const statusFilters = [
+  { label: "Đang kinh doanh", value: "active" },
+  { label: "Ngừng kinh doanh", value: "inactive" },
 ];
 
 export default function ProductsPage() {
   return (
-    <div className="max-w-[1400px] mx-auto space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Tất cả sản phẩm</h2>
-          <p className="text-sm text-gray-500">Quản lý kho và sản phẩm</p>
-        </div>
-        <Link href="/admin/products/add">
-          <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded">
-            <Plus size={16} />
-            Thêm sản phẩm
-          </button>
-        </Link>
-      </div>
+    <div className="space-y-3">
+      <AdminPageHeader 
+        title="Quản lý hệ thống sản phẩm" 
+        addBtnLabel="Thêm sản phẩm" 
+        addBtnHref="/admin/products/add" 
+      />
 
-      {/* Toolbar */}
-      <div className="flex gap-2">
-        <div className="relative w-72">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-          <input
-            placeholder="Tìm tên sản phẩm..."
-            className="w-full border rounded pl-8 pr-3 py-2 text-sm"
-          />
-        </div>
-        <button className="border rounded px-3">
-          <Filter size={16} />
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="border rounded bg-white overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border px-3 py-2 text-center">ID</th>
-              <th className="border px-3 py-2 text-center">Ảnh</th>
-              <th className="border px-3 py-2">Sản phẩm</th>
-              <th className="border px-3 py-2">Danh mục</th>
-              <th className="border px-3 py-2 text-center">Tồn kho</th>
-              <th className="border px-3 py-2 text-center">Thao tác</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50">
-                <td className="border px-3 py-2 text-center text-gray-500">
-                  #{p.id}
-                </td>
-
-                <td className="border px-3 py-2">
-                  <div className="w-12 h-12 mx-auto border rounded flex items-center justify-center">
-                    {p.image ? (
-                      <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
-                    ) : (
-                      <ImageIcon size={18} className="text-gray-300" />
-                    )}
-                  </div>
-                </td>
-
-                <td className="border px-3 py-2 font-medium">
-                  {p.name}
-                </td>
-
-                <td className="border px-3 py-2">
-                  {p.category}
-                </td>
-
-                <td className="border px-3 py-2 text-center font-semibold">
-                  <span className={p.stock === 0 ? "text-red-500" : ""}>
-                    {p.stock}
-                  </span>
-                </td>
-
-                <td className="border px-3 py-2 text-center">
-                  <div className="flex justify-center gap-2">
-                    <button className="text-blue-500">
-                      <Pencil size={16} />
-                    </button>
-                    <button className="text-red-500">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Pagination */}
-        <div className="flex justify-between items-center px-4 py-3 border-t text-sm">
-          <span className="text-gray-500">
-            Hiển thị {products.length} / 45 sản phẩm
-          </span>
-          <div className="flex items-center gap-1">
-            <button className="px-2 py-1 border rounded" disabled>
-              <ChevronLeft size={16} />
-            </button>
-            <button className="px-3 py-1 border rounded bg-gray-200">1</button>
-            <button className="px-3 py-1 border rounded">2</button>
-            <button className="px-2 py-1 border rounded">
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
+      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
+        <AdminSearchFilter 
+          placeholder="Tìm tên sản phẩm, thương hiệu, mã SKU..." 
+          filter1Placeholder="Tất cả danh mục"
+          filter1Options={categoryFilters}
+          filter2Placeholder="Trạng thái"
+          filter2Options={statusFilters}
+          onRefresh={() => console.log("Refreshing...")}
+        />
+        <AdminProductTable products={products} />
       </div>
     </div>
   );

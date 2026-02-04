@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { InventoryHeader } from "@/components/inventory/InventoryHeader";
-import { InventoryFilters } from "@/components/inventory/InventoryFilters";
-import { ExportTable } from "@/components/inventory/ExportTable";
+import { InventoryPageHeader } from "@/components/inventory/shared/InventoryPageHeader";
+import { InventorySearchFilter } from "@/components/inventory/shared/InventorySearchFilter";
+import { InventoryExportTable } from "@/components/inventory/InventoryExportTable";
 
 export default function ExportListPage() {
   const exports = [
@@ -14,15 +14,15 @@ export default function ExportListPage() {
 
   return (
     <div className="space-y-3">
-      <InventoryHeader 
+      <InventoryPageHeader 
         title="Phiếu xuất kho" 
         addBtnLabel="Tạo phiếu xuất"
         addBtnHref="/inventory/exports/new"
       />
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <InventoryFilters />
-        <ExportTable exports={exports} />
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+        <InventorySearchFilter />
+        <InventoryExportTable exports={exports} />
       </div>
     </div>
   );

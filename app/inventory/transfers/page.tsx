@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { InventoryHeader } from "@/components/inventory/InventoryHeader";
-import { InventoryFilters } from "@/components/inventory/InventoryFilters";
-import { TransferTable } from "@/components/inventory/TransferTable";
+import { InventoryPageHeader } from "@/components/inventory/shared/InventoryPageHeader";
+import { InventorySearchFilter } from "@/components/inventory/shared/InventorySearchFilter";
+import { InventoryTransferTable } from "@/components/inventory/InventoryTransferTable";
 
 export default function TransferListPage() {
   const transfers = [
@@ -14,15 +14,15 @@ export default function TransferListPage() {
 
   return (
     <div className="space-y-3">
-      <InventoryHeader 
+      <InventoryPageHeader 
         title="Điều chuyển" 
         addBtnLabel="Thêm phiếu điều chuyển"
         addBtnHref="/inventory/transfers/new"
       />
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <InventoryFilters />
-        <TransferTable transfers={transfers} />
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+        <InventorySearchFilter />
+        <InventoryTransferTable transfers={transfers} />
       </div>
     </div>
   );

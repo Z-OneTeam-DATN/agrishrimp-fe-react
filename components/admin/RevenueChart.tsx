@@ -1,30 +1,45 @@
 "use client";
 
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
+import React from "react";
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  PointElement, 
+  LineElement, 
+  Title, 
+  Tooltip, 
+  Legend, 
+  Filler 
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { BarChart3, ChevronDown } from "lucide-react";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip);
+ChartJS.register(
+  CategoryScale, 
+  LinearScale, 
+  PointElement, 
+  LineElement, 
+  Title, 
+  Tooltip, 
+  Legend, 
+  Filler
+);
 
 export default function RevenueChart() {
   const data = {
-    labels: ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"],
+    labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
     datasets: [
       {
-        label: "Doanh thu",
-        data: [15, 25, 20, 32, 38, 28, 42, 48, 55, 45, 60, 52],
-        borderColor: "#139a7e",
-        borderWidth: 2,
-        tension: 0.3,
-        pointRadius: 0, // Ẩn các chấm tròn để đường kẻ mượt hơn
-        pointHoverRadius: 5,
-        fill: false, // Loại bỏ mảng màu phía dưới
+        fill: true,
+        label: "Doanh thu tuần này",
+        data: [65, 59, 80, 81, 56, 55, 40],
+        borderColor: "#10b981",
+        backgroundColor: "rgba(16, 185, 129, 0.05)",
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: "#fff",
+        pointBorderWidth: 2,
       },
     ],
   };
@@ -34,27 +49,33 @@ export default function RevenueChart() {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
+      tooltip: {
+        backgroundColor: "#1f2937",
+        padding: 10,
+        titleFont: { size: 12 },
+        bodyFont: { size: 12 },
+        cornerRadius: 4,
+      }
     },
     scales: {
-      y: {
-        grid: { color: "#f3f4f6", drawBorder: false },
-        ticks: { color: "#9ca3af", font: { size: 11 } }
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: "#9ca3af", font: { size: 11 } }
-      }
+      x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+      y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 10 } } }
     }
   };
 
   return (
-    <div className="rounded-xl bg-white p-6 border border-gray-200">
-      <div className="mb-6">
-        <h4 className="text-lg font-bold text-gray-800">Hiệu suất doanh thu</h4>
-        <p className="text-sm text-gray-400">Dữ liệu thực tế năm tài chính 2026</p>
+    <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+      <div className="px-[15px] py-[10px] border-b border-[#eee] bg-[#f8f9fa] flex justify-between items-center">
+        <h5 className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <BarChart3 size={14} className="text-emerald-600" /> Xu hướng tăng trưởng doanh thu
+        </h5>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-slate-400 uppercase">7 ngày qua</span>
+          <ChevronDown size={12} className="text-slate-300" />
+        </div>
       </div>
-      <div className="h-[300px]">
-        <Line data={data} options={options} />
+      <div className="p-6 h-[300px]">
+        <Line data={data} options={options as any} />
       </div>
     </div>
   );

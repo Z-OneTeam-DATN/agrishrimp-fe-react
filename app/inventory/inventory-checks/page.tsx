@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { InventoryHeader } from "@/components/inventory/InventoryHeader";
-import { InventoryFilters } from "@/components/inventory/InventoryFilters";
+import { InventoryPageHeader } from "@/components/inventory/shared/InventoryPageHeader";
+import { InventorySearchFilter } from "@/components/inventory/shared/InventorySearchFilter";
 import { InventoryCheckTable } from "@/components/inventory/InventoryCheckTable";
 
 export default function InventoryListPage() {
@@ -13,14 +13,14 @@ export default function InventoryListPage() {
 
   return (
     <div className="space-y-3">
-      <InventoryHeader 
+      <InventoryPageHeader 
         title="Danh sách yêu cầu kiểm kê" 
         addBtnLabel="Thêm"
         addBtnHref="/inventory/inventory-checks/new"
       />
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <InventoryFilters />
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+        <InventorySearchFilter />
         <InventoryCheckTable checks={inventories} />
       </div>
     </div>
