@@ -1,3 +1,8 @@
 {
-  "/page": "app/page.js"
+  "/(store)/contact/page": "app/(store)/contact/page.js",
+  "/(store)/return/page": "app/(store)/return/page.js",
+  "/(store)/terms-of-use/page": "app/(store)/terms-of-use/page.js",
+  "/(store)/store-locator/page": "app/(store)/store-locator/page.js",
+  "/(store)/privacy-policy/page": "app/(store)/privacy-policy/page.js",
+  "/(store)/about/page": "app/(store)/about/page.js"
 }
