@@ -23,10 +23,21 @@ export default function HomeCategories() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
         {CATEGORIES.map((cat) => (
-          <Link key={cat.id} href="/category" className="group flex flex-col items-center text-center p-3 rounded-lg hover:bg-green-50/50 transition-colors border border-transparent hover:border-green-100">
-             <div className="w-20 h-20 relative mb-3 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-green-500 transition-all shadow-sm group-hover:shadow-md bg-white">
-                <Image src={cat.image} alt={cat.name} fill className="object-contain p-1" />
+         <Link key={cat.id} href="/user/category" className="group flex flex-col items-center text-center p-3 rounded-lg hover:bg-green-50/50 transition-colors border border-transparent hover:border-green-100">
+
+             {/* SỬA ĐỔI:
+                1. Bỏ class 'p-3' trong Image.
+                2. Đổi 'object-contain' thành 'object-cover'.
+             */}
+             <div className="w-20 h-20 relative mb-3 rounded-full border-2 border-gray-100 group-hover:border-green-500 transition-all shadow-sm group-hover:shadow-md bg-white overflow-hidden">
+                <Image
+                  src={cat.image}
+                  alt={cat.name}
+                  fill
+                  className="object-cover"
+                />
              </div>
+
              <span className="text-sm font-bold text-gray-700 group-hover:text-green-800 leading-tight">
                 {cat.name}
              </span>

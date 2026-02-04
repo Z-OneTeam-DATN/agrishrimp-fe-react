@@ -1,8 +1,8 @@
 {
-  "/page": "app/page.js",
   "/user/cart/page": "app/user/cart/page.js",
   "/product/[id]/page": "app/product/[id]/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(store)/store-locator/page": "app/(store)/store-locator/page.js"
+  "/user/category/page": "app/user/category/page.js",
+  "/user/checkout/page": "app/user/checkout/page.js",
+  "/page": "app/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js"
 }

@@ -90,6 +90,17 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/product/[id]/page.js"
+    ],
+    "/user/category/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/user/category/page.css",
+      "static/chunks/app/user/category/page.js"
+    ],
+    "/user/checkout/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/user/checkout/page.js"
     ]
   }
 }

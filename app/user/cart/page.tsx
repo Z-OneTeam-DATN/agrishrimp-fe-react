@@ -274,7 +274,7 @@ export default function CartPage() {
                 </div>
 
                 <Link
-                  href="/checkout" // Thay đổi đường dẫn này thành trang thanh toán của bạn
+                  href="/user/checkout" // Thay đổi đường dẫn này thành trang thanh toán của bạn
                   className={`block w-full py-3.5 rounded-xl text-center font-bold text-white transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 ${totalCount > 0 ? 'bg-gradient-to-r from-teal-500 to-green-600' : 'bg-gray-300 cursor-not-allowed pointer-events-none'}`}
                 >
                   MUA HÀNG ({totalCount})
