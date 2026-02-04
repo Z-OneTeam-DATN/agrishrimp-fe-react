@@ -22,7 +22,7 @@ const defaultTabs = [
   { id: "out", label: "Hết hàng", count: 5, color: "text-red-600" },
 ];
 
-export function InventoryHeader({ 
+export function InventoryPageHeader({ 
   title, 
   activeTab, 
   onTabChange, 

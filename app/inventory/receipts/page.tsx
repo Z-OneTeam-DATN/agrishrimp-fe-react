@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { InventoryHeader } from "@/components/inventory/InventoryHeader";
-import { InventoryFilters } from "@/components/inventory/InventoryFilters";
-import { ReceiptTable } from "@/components/inventory/ReceiptTable";
+import { InventoryPageHeader } from "@/components/inventory/shared/InventoryPageHeader";
+import { InventorySearchFilter } from "@/components/inventory/shared/InventorySearchFilter";
+import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
 
 export default function ReceiptListPage() {
   const receipts = [
@@ -13,15 +13,15 @@ export default function ReceiptListPage() {
 
   return (
     <div className="space-y-3">
-      <InventoryHeader 
+      <InventoryPageHeader 
         title="Lịch sử nhập kho" 
         addBtnLabel="Tạo phiếu nhập"
         addBtnHref="/inventory/receipts/new"
       />
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <InventoryFilters />
-        <ReceiptTable receipts={receipts} />
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+        <InventorySearchFilter />
+        <InventoryReceiptTable receipts={receipts} />
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ interface InventoryFiltersProps {
   onSettings?: () => void;
 }
 
-export function InventoryFilters({ 
+export function InventorySearchFilter({ 
   onSearchChange, 
   onRefresh, 
   onSettings 

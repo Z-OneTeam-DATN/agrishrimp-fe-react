@@ -1,166 +1,206 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import {
-  ChevronRight,
-  Save,
-  X,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  ShieldCheck,
-  Building2,
-  Lock
+import React, { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { 
+  X, Settings, HelpCircle, Save, ChevronLeft, 
+  User, Mail, Phone, Building2, ShieldCheck, 
+  Camera, Calendar, MapPin
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 export default function AddEmployeePage() {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    address: "",
-    branch: "",
-    role: "",
-    isActive: true
-  });
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => setAvatarPreview(event.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onSave = () => {
+    toast.success("Đã lưu thông tin nhân viên thành công!");
+    router.push("/admin/employees");
+  };
+
+  const onSaveAndAdd = () => {
+    toast.success("Đã lưu và chuẩn bị thêm nhân viên mới");
+    setAvatarPreview(null);
+    // Reset form logic here
+  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-10">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Thêm nhân viên mới</h1>
-          <nav className="flex items-center gap-2 text-sm text-gray-500 mt-1 font-medium">
-            <Link href="/admin/employees" className="hover:text-[#139a7e] transition">Nhân viên</Link>
-            <ChevronRight size={14} className="text-gray-300" />
-            <span className="text-gray-400">Thêm mới</span>
-          </nav>
-        </div>
-        <div className="flex gap-3">
-          <Link
-            href="/admin/employees"
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition active:scale-95"
-          >
-            <X size={18} /> Hủy bỏ
-          </Link>
-          <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#139a7e] text-white font-bold hover:bg-[#0e715d] transition shadow-md active:scale-95">
-            <Save size={18} /> Lưu nhân viên
-          </button>
+    <div className="space-y-3 pb-[100px]">
+      {/* Page Header */}
+      <div className="flex items-center gap-4 mb-4 px-1">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
+          <ChevronLeft size={20} />
+        </Button>
+        <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
+          Thêm nhân viên mới
+        </h1>
+        <div className="ms-auto flex items-center gap-3 text-gray-400">
+          <Settings size={18} className="cursor-pointer hover:text-emerald-600 transition-colors" />
+          <HelpCircle size={18} className="cursor-pointer hover:text-emerald-600 transition-colors" />
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8"><X size={20} /></Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-8 space-y-10">
-
-          {/* Section 1: Thông tin cá nhân */}
-          <section className="space-y-6">
-            <h5 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-              <User size={16} /> Thông tin cá nhân
-            </h5>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1">Họ và tên *</label>
-                <input
-                  type="text"
-                  placeholder="Nhập họ tên..."
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#139a7e]/20 transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1">Email *</label>
-                <input
-                  type="email"
-                  placeholder="example@agri.com"
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#139a7e]/20 transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1">Số điện thoại *</label>
-                <input
-                  type="text"
-                  placeholder="09xxx..."
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#139a7e]/20 transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1">Địa chỉ</label>
-                <input
-                  type="text"
-                  placeholder="Nhập địa chỉ..."
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#139a7e]/20 transition-all"
-                />
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Main Content - Left */}
+        <div className="lg:col-span-8 space-y-3">
+          
+          {/* Thông tin cá nhân */}
+          <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center gap-2 mb-4 text-emerald-700 font-black text-[11px] uppercase tracking-wider">
+              <User size={16} /> 1. Thông tin cá nhân cơ bản
             </div>
-          </section>
-
-          <div className="h-px bg-gray-100 w-full"></div>
-
-          {/* Section 2: Phân quyền & Chi nhánh */}
-          <section className="space-y-6">
-            <h5 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-              <ShieldCheck size={16} /> Phân quyền & Chi nhánh
-            </h5>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1">Chi nhánh *</label>
-                <select className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#139a7e]/20 transition-all appearance-none cursor-pointer font-medium text-gray-600">
-                  <option value="">-- Chọn chi nhánh --</option>
-                  <option value="CN01">Chi nhánh Cần Thơ</option>
-                  <option value="CN02">Chi nhánh Sóc Trăng</option>
-                  <option value="CN03">Chi nhánh Bạc Liêu</option>
-                </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Họ và tên nhân viên <span className="text-red-500">*</span></Label>
+                <Input placeholder="Nhập đầy đủ họ tên..." className="h-[32px] text-[13px] border-[#ccc] rounded-[3px] focus-visible:ring-emerald-500/20 shadow-none" />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1">Vai trò *</label>
-                <select className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-[#139a7e]/20 transition-all appearance-none cursor-pointer font-medium text-gray-600">
-                  <option value="">-- Chọn vai trò --</option>
-                  <option value="manager">Quản lý chi nhánh</option>
-                  <option value="staff">Nhân viên kho</option>
-                </select>
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Mã nhân viên</Label>
+                <Input placeholder="NV-000" className="h-[32px] text-[13px] border-[#ccc] rounded-[3px] font-mono shadow-none uppercase bg-slate-50" />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 ml-1 font-mono uppercase tracking-tighter">Mật khẩu mặc định</label>
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Email liên hệ <span className="text-red-500">*</span></Label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    readOnly
-                    value="Agri@123456"
-                    className="w-full bg-gray-100 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-gray-400 outline-none"
-                  />
-                  <Lock size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input type="email" placeholder="example@agri.com" className="h-[32px] pl-8 text-[13px] border-[#ccc] rounded-[3px] shadow-none" />
                 </div>
               </div>
-
-              {/* Toggle Kích hoạt */}
-              <div className="flex items-center gap-3 pt-8 ml-1">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#139a7e]"></div>
-                </label>
-                <span className="text-sm font-bold text-gray-700">Kích hoạt tài khoản ngay</span>
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Số điện thoại <span className="text-red-500">*</span></Label>
+                <div className="relative">
+                  <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input placeholder="090x xxx xxx" className="h-[32px] pl-8 text-[13px] border-[#ccc] rounded-[3px] shadow-none" />
+                </div>
+              </div>
+              <div className="md:col-span-2 space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Địa chỉ thường trú</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input placeholder="Số nhà, tên đường, phường/xã..." className="h-[32px] pl-8 text-[13px] border-[#ccc] rounded-[3px] shadow-none" />
+                </div>
               </div>
             </div>
-          </section>
+          </div>
 
-          {/* Action Buttons Bottom */}
-          <div className="pt-10 flex justify-end gap-3">
-             <Link href="/admin/employees" className="px-8 py-2.5 rounded-xl bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition">
-               Hủy bỏ
-             </Link>
-             <button className="px-8 py-2.5 rounded-xl bg-[#139a7e] text-white font-bold hover:bg-[#0e715d] transition shadow-lg shadow-[#139a7e]/20">
-               Lưu nhân viên
-             </button>
+          {/* Thông tin công tác */}
+          <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center gap-2 mb-4 text-emerald-700 font-black text-[11px] uppercase tracking-wider">
+              <Building2 size={16} /> 2. Thông tin công tác & Phân quyền
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Chi nhánh làm việc <span className="text-red-500">*</span></Label>
+                <Select>
+                  <SelectTrigger className="h-[32px] text-[13px] border-[#ccc] rounded-[3px] shadow-none">
+                    <SelectValue placeholder="-- Chọn chi nhánh --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ct">Chi nhánh Cần Thơ</SelectItem>
+                    <SelectItem value="st">Chi nhánh Sóc Trăng</SelectItem>
+                    <SelectItem value="bl">Chi nhánh Bạc Liêu</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Chức vụ / Quyền hạn <span className="text-red-500">*</span></Label>
+                <Select>
+                  <SelectTrigger className="h-[32px] text-[13px] border-[#ccc] rounded-[3px] shadow-none font-bold text-emerald-600">
+                    <SelectValue placeholder="-- Phân quyền --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mgr">QUẢN LÝ CHI NHÁNH</SelectItem>
+                    <SelectItem value="staff">NHÂN VIÊN KHO</SelectItem>
+                    <SelectItem value="sale">NHÂN VIÊN BÁN HÀNG</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-[2px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Ngày vào làm</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input type="date" className="h-[32px] pl-8 text-[13px] border-[#ccc] rounded-[3px] shadow-none" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Sidebar - Right */}
+        <div className="lg:col-span-4 space-y-3">
+          {/* Avatar Box */}
+          <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-center">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase block mb-4 tracking-widest">Ảnh chân dung</Label>
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="relative mx-auto w-32 h-32 border-2 border-dashed border-[#ddd] rounded-full flex flex-col items-center justify-center bg-[#fcfcfc] hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer overflow-hidden group"
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center">
+                  <Camera size={24} className="text-slate-200 mx-auto mb-1" />
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Tải ảnh</span>
+                </div>
+              )}
+              <input type="file" ref={fileInputRef} onChange={handleAvatarChange} hidden accept="image/*" />
+            </div>
+            <p className="text-[10px] text-slate-400 italic mt-4 leading-relaxed">
+              Ảnh chân dung giúp nhận diện nhân viên trong danh sách và báo cáo công việc.
+            </p>
+          </div>
+
+          {/* Account Status */}
+          <div className="bg-white border border-[#dcdcdc] p-[15px_20_px] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-5">
+            <Label className="text-[11px] font-bold text-slate-500 uppercase block mb-3 tracking-widest">Trạng thái tài khoản</Label>
+            <Select defaultValue="active">
+              <SelectTrigger className="h-[32px] text-[13px] border-[#ccc] rounded-[3px] font-black text-emerald-600 shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">ĐANG HOẠT ĐỘNG</SelectItem>
+                <SelectItem value="locked">ĐANG TẠM KHÓA</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Actions */}
+      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[8px_20px] flex items-center justify-end gap-[10px] z-[999]">
+        <Button variant="outline" className="min-w-[100px] h-[34px] text-[12px] font-bold border-[#ccc] bg-white rounded-[3px] shadow-sm" onClick={() => router.back()}>
+          HỦY BỎ
+        </Button>
+        <Button 
+          variant="outline" 
+          className="min-w-[120px] h-[34px] text-[12px] font-black border-emerald-500 text-emerald-600 bg-white rounded-[3px] hover:bg-emerald-50 shadow-sm"
+          onClick={onSaveAndAdd}
+        >
+          CẤT & THÊM MỚI
+        </Button>
+        <Button 
+          className="min-w-[120px] h-[34px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-[3px] shadow-md shadow-emerald-100"
+          onClick={onSave}
+        >
+          <Save size={16} className="mr-2" />
+          LƯU DỮ LIỆU
+        </Button>
       </div>
     </div>
   );

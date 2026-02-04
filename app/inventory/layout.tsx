@@ -1,5 +1,5 @@
-import { InventorySidebar } from "@/components/site/InventorySidebar";
-import { InventoryTopbar } from "@/components/site/InventoryTopbar";
+import { InventorySidebar } from "@/components/inventory/shared/InventorySidebar";
+import { InventoryTopbar } from "@/components/inventory/shared/InventoryTopbar";
 
 export default function InventoryLayout({
   children,

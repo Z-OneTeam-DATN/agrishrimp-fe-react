@@ -1,72 +1,44 @@
 "use client";
 
 import React from "react";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-interface InventoryCheck {
-  date: string;
-  code: string;
-  warehouse: string;
-  branch: string;
-  cutOffDate: string;
-  deadline: string;
-  status: string;
-}
-
-interface InventoryCheckTableProps {
-  checks: InventoryCheck[];
-}
-
-export function InventoryCheckTable({ checks }: InventoryCheckTableProps) {
+export function InventoryCheckTable({ checks }: any) {
   const router = useRouter();
 
   return (
     <>
       <div className="overflow-x-auto">
-        <Table className="table-custom">
+        <Table>
           <TableHeader>
-            <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-              <TableHead className="w-[40px] text-center p-[10px]">
-                <Checkbox className="h-3.5 w-3.5" />
-              </TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Ngày yêu cầu</TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Số yêu cầu</TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Kiểm kê kho</TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Chi nhánh</TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Kiểm kê đến ngày</TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Hạn kiểm kê</TableHead>
-              <TableHead className="font-bold text-[#1f1f1f] text-[12px] uppercase p-[10px] whitespace-nowrap">Trạng thái</TableHead>
+            <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-100">
+              <TableHead className="w-[40px] text-center p-[10px]"><Checkbox className="h-3.5 w-3.5" /></TableHead>
+              <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">Ngày yêu cầu</TableHead>
+              <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">Số yêu cầu</TableHead>
+              <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">Kho kiểm kê</TableHead>
+              <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">Hạn kiểm kê</TableHead>
+              <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">Trạng thái</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {checks.map((item) => (
+            {checks.map((item: any) => (
               <TableRow 
                 key={item.code} 
-                className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer"
+                className="hover:bg-slate-50/80 border-b border-slate-50 last:border-0 transition-colors cursor-pointer"
                 onClick={() => router.push(`/inventory/inventory-checks/${item.code}`)}
               >
-                <TableCell className="text-center p-[10px]" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox className="h-3.5 w-3.5" />
-                </TableCell>
-                <TableCell className="p-[10px] text-[#555]">{item.date}</TableCell>
-                <TableCell className="p-[10px] text-[#007bff] font-bold">{item.code}</TableCell>
-                <TableCell className="p-[10px] text-[#555]">{item.warehouse}</TableCell>
-                <TableCell className="p-[10px] text-[#555]">{item.branch}</TableCell>
-                <TableCell className="p-[10px] text-[#555]">{item.cutOffDate}</TableCell>
-                <TableCell className="p-[10px] text-[#555]">{item.deadline}</TableCell>
+                <TableCell className="text-center p-[10px]" onClick={(e) => e.stopPropagation()}><Checkbox className="h-3.5 w-3.5" /></TableCell>
+                <TableCell className="p-[10px] text-slate-500 font-medium">{item.date}</TableCell>
+                <TableCell className="p-[10px] text-blue-600 font-black">{item.code}</TableCell>
+                <TableCell className="p-[10px] text-slate-800 font-bold">{item.warehouse}</TableCell>
+                <TableCell className="p-[10px] text-slate-500 font-medium">{item.deadline}</TableCell>
                 <TableCell className="p-[10px]">
-                  <span className={`text-[12px] font-semibold ${
-                    item.status === 'Đã hoàn thành' ? 'text-green-600' : 'text-orange-500'
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-tighter ${
+                    item.status === 'Đã hoàn thành' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-orange-50 text-orange-600 border-orange-100'
                   }`}>
                     {item.status}
                   </span>
@@ -76,16 +48,12 @@ export function InventoryCheckTable({ checks }: InventoryCheckTableProps) {
           </TableBody>
         </Table>
       </div>
-      
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
-        <p className="text-[12px] text-gray-500">
-          Hiển thị 1 - {checks.length} trên tổng số {checks.length} bản ghi
-        </p>
+      <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 bg-slate-50/30">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Hiển thị <span className="text-slate-900">{checks.length}</span> bản ghi</p>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-[28px] px-2 text-[12px] bg-white border-[#ddd]">Trước</Button>
-          <Button variant="outline" size="sm" className="h-[28px] w-[28px] p-0 text-[12px] bg-[#007bff] text-white border-[#007bff]">1</Button>
-          <Button variant="outline" size="sm" className="h-[28px] px-2 text-[12px] bg-white border-[#ddd]">Sau</Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white"><ChevronLeft size={14} /></Button>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0 bg-blue-600 text-white border-blue-600 font-black text-[11px]">1</Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white"><ChevronRight size={14} /></Button>
         </div>
       </div>
     </>

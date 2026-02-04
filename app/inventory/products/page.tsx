@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { InventoryHeader } from "@/components/inventory/InventoryHeader";
-import { InventoryFilters } from "@/components/inventory/InventoryFilters";
-import { ProductTable } from "@/components/inventory/ProductTable";
+import { InventoryPageHeader } from "@/components/inventory/shared/InventoryPageHeader";
+import { InventorySearchFilter } from "@/components/inventory/shared/InventorySearchFilter";
+import { InventoryProductTable } from "@/components/inventory/InventoryProductTable";
 
 const mockProducts = [
   { code: "TA001", name: "Thức ăn tôm Grobest 40% đạm", type: "Hàng hóa", unit: "Bao", group: "Thức ăn tôm", stock: 150.00, status: "Đang sử dụng" },
@@ -15,33 +15,20 @@ const mockProducts = [
 export default function ProductListPage() {
   const [activeTab, setActiveTab] = useState("all");
 
-  const handleRefresh = () => {
-    console.log("Refreshing data...");
-  };
-
-  const handleSettings = () => {
-    console.log("Opening settings...");
-  };
-
-  const handleAddProduct = () => {
-    console.log("Add product clicked");
-  };
-
   return (
     <div className="space-y-3">
-      <InventoryHeader 
+      <InventoryPageHeader 
         title="Vật tư hàng hóa" 
         activeTab={activeTab} 
         onTabChange={setActiveTab}
-        onAddClick={handleAddProduct}
+        onAddClick={() => console.log("Add")}
       />
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-        <InventoryFilters 
-          onRefresh={handleRefresh}
-          onSettings={handleSettings}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+        <InventorySearchFilter 
+          onRefresh={() => console.log("Refresh")}
         />
-        <ProductTable products={mockProducts} />
+        <InventoryProductTable products={mockProducts} />
       </div>
     </div>
   );
