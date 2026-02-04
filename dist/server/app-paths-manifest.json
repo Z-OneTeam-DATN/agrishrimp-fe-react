@@ -1,7 +1,0 @@
-{
-  "/(profile)/address/page": "app/(profile)/address/page.js",
-  "/(profile)/edit-profile/page": "app/(profile)/edit-profile/page.js",
-  "/(profile)/profile/page": "app/(profile)/profile/page.js",
-  "/(profile)/orders/list/page": "app/(profile)/orders/list/page.js",
-  "/(store)/ordering/page": "app/(store)/ordering/page.js"
-}

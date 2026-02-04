@@ -22,6 +22,7 @@ const PUBLIC_PATHS = [
   '/edit-profile',
   '/address',
   '/orders/list',
+  '/orders/[id]',
 ]
 
 export function middleware(req: NextRequest) {

@@ -1,103 +1,105 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
+import ProfileSidebar from '@/components/profile/ProfileSidebar';
 import { OrderTabs } from '@/components/orders/OrderTabs';
-import ProfileSidebar from '@/components/profile/ProfileSidebar'; // Lưu ý import default
+import { OrderCard } from '@/components/orders/OrderCard';
 import { OrderService } from '@/app/services/order.service';
-import { ArrowLeftRight, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Order, OrderStatus } from '@/app/types/order.schema';
+// 👇 Đã thêm ChevronRight vào đây
+import { PackageX, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
-export default function ReturnListPage() {
-  const { data: returns, isLoading } = useQuery({
-    queryKey: ['returnOrders'],
-    queryFn: OrderService.getReturnOrders,
-  });
+export default function OrderingPage() {
+  const searchParams = useSearchParams();
+  const statusFilter = (searchParams.get('status') || 'ALL') as OrderStatus;
 
-  const getStatusBadge = (status: string) => {
+  // Mock Data cho từng trạng thái để test giao diện
+  const getMockOrders = (status: OrderStatus): Order[] => {
+    const baseOrder = {
+        id: 'ORD-123456',
+        shopName: 'AgriShrimp Official',
+        items: [{ id: '1', name: 'Florfenicol kết hợp Oxytetracycline', imageUrl: 'https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png', quantity: 1, unitPrice: 250000, displayUnitPrice: '250.000₫', variant: '500g/túi' }],
+        totalAmount: 250000,
+        displayTotalAmount: '250.000₫',
+    };
+
     switch (status) {
-      case 'PROCESSING':
-        return <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-yellow-50 text-yellow-600 border border-yellow-200 text-[10px] font-bold uppercase"><Clock size={12}/> Đang xử lý</span>;
-      case 'COMPLETED':
-        return <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-50 text-green-600 border border-green-200 text-[10px] font-bold uppercase"><CheckCircle2 size={12}/> Đã hoàn tiền</span>;
-      case 'REJECTED':
-        return <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold uppercase"><XCircle size={12}/> Bị từ chối</span>;
-      default: return null;
+        case 'PENDING':
+            return [{ ...baseOrder, status: 'PENDING', id: 'ORD-PENDING-01' }] as any;
+        case 'SHIPPING':
+            return [{ ...baseOrder, status: 'SHIPPING', id: 'ORD-SHIP-01', displayTotalAmount: '640.000₫', items: [...baseOrder.items, { id: '2', name: 'Men vi sinh xử lý đáy cao cấp Super Clean', imageUrl: 'https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png', quantity: 2, unitPrice: 320000, displayUnitPrice: '320.000₫', variant: '1kg/gói' }] }] as any;
+        case 'COMPLETED':
+            return [{ ...baseOrder, status: 'COMPLETED', id: 'ORD-DONE-01', items: [{...baseOrder.items[0], name: 'Khoáng tạt APA Miner Pox giúp cứng vỏ', imageUrl: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', quantity: 5, unitPrice: 120000, displayUnitPrice: '120.000₫', variant: 'Chai 1 lít' }], displayTotalAmount: '600.000₫' }] as any;
+        case 'CANCELLED':
+            return [
+                { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-01', displayTotalAmount: '250.000₫' }, 
+                { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-02', displayTotalAmount: '120.000₫', items: [{...baseOrder.items[0], name: 'Khoáng tạt APA Miner Pox', imageUrl: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg'}] } 
+            ] as any;
+        case 'RETURN_REQUESTED':
+             return [];
+        case 'ALL':
+            return [
+                { ...baseOrder, status: 'PENDING', id: 'ORD-PENDING-01' },
+                { ...baseOrder, status: 'SHIPPING', id: 'ORD-SHIP-01', displayTotalAmount: '640.000₫' },
+                { ...baseOrder, status: 'CANCELLED', id: 'ORD-CANCEL-01' }
+            ] as any;
+        default:
+            return [];
     }
   };
 
+  // Sử dụng mock data
+  const orders = getMockOrders(statusFilter);
+  const isLoading = false;
+  const isError = false;
+
   return (
     <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans">
-        <div className="container py-4 mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-1 hidden lg:block">
-            <ProfileSidebar />
-            </div>
+      <div className="container mx-auto px-4 py-6">
+        
+        {/* Breadcrumb */}
+        <nav className="mb-6 text-sm text-gray-500 flex items-center">
+          <Link href="/" className="hover:text-[#329965] hover:underline">Trang chủ</Link> 
+          <ChevronRight size={14} className="mx-2" />
+          <Link href="/profile" className="hover:text-[#329965] hover:underline">Tài khoản</Link>
+          <ChevronRight size={14} className="mx-2" />
+          <span className="font-bold text-gray-800">Đơn hàng của tôi</span>
+        </nav>
 
-            <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-3 hidden lg:block">
+            <ProfileSidebar />
+          </div>
+
+          <div className="lg:col-span-9">
             <OrderTabs />
 
-            {isLoading ? (
-                <div className="text-center py-10 text-gray-500">Đang tải danh sách hoàn trả...</div>
-            ) : (
-                <div className="mt-4 space-y-4">
-                    {returns?.map((item) => (
-                    <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-                        {/* Header */}
-                        <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 bg-gray-50/30">
-                        <div className="font-bold text-gray-800 flex items-center text-sm">
-                            <ArrowLeftRight size={16} className="mr-2 text-gray-500" /> 
-                            Mã yêu cầu: #{item.id}
-                        </div>
-                        {getStatusBadge(item.status)}
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-4 cursor-pointer">
-                        <div className="flex gap-4">
-                            <img src={item.productImg} alt={item.productName} className="w-16 h-16 rounded border border-gray-200 object-cover bg-white" />
-                            <div className="flex-1">
-                            <div className="font-bold text-sm text-gray-900 line-clamp-1">{item.productName}</div>
-                            <div className="text-xs text-gray-500 mt-1">Số lượng: {item.quantity} | Đơn hàng: #{item.orderId}</div>
-                            <div className="mt-2 inline-flex items-center bg-red-50 text-red-600 text-xs px-2 py-1 rounded border border-red-100 font-medium">
-                                Lý do: {item.reason}
-                            </div>
-                            </div>
-                        </div>
-
-                        {item.status === 'REJECTED' && (
-                            <div className="mt-3 p-3 bg-red-50 rounded text-xs text-red-700 border border-red-100 flex gap-2 items-start">
-                                <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                                <div><strong>Shop phản hồi:</strong> {item.shopResponse}</div>
-                            </div>
-                        )}
-                        
-                        {item.status === 'COMPLETED' && (
-                             <div className="mt-3 text-xs text-gray-500 flex items-center gap-1">
-                                <i className="bi bi-info-circle"></i> Tiền đã được hoàn vào ví AgriShrimp của bạn.
-                             </div>
-                        )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center bg-white">
-                        <div className="text-sm text-gray-600">
-                            Hoàn lại dự kiến: <span className="text-red-600 font-bold text-base ml-1">{item.amount}</span>
-                        </div>
-                        <div className="flex gap-2">
-                            {item.status === 'REJECTED' && (
-                                <button className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded text-xs font-bold hover:bg-gray-50">Khiếu nại</button>
-                            )}
-                            <button className="px-3 py-1.5 border border-[#2d9f8d] text-[#2d9f8d] rounded text-xs font-bold hover:bg-[#eafef9]">
-                                Xem chi tiết
-                            </button>
-                        </div>
-                        </div>
-                    </div>
-                    ))}
+            <div className="mt-4">
+              {isLoading ? (
+                <div className="text-center py-10 text-gray-500">Đang tải đơn hàng...</div>
+              ) : isError ? (
+                <div className="text-center py-10 text-red-500">Có lỗi xảy ra khi tải đơn hàng.</div>
+              ) : orders && orders.length > 0 ? (
+                orders.map((order) => (
+                  <OrderCard key={order.id} order={order} onOrderCancelled={() => console.log("Reload list")} />
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center bg-white rounded-lg p-10 border border-gray-100 shadow-sm min-h-[300px]">
+                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                    <PackageX size={40} className="text-gray-300" />
+                  </div>
+                  <p className="text-gray-500 font-medium">Chưa có đơn hàng nào.</p>
+                  <Link href="/" className="mt-4 px-6 py-2 bg-[#2d9f8d] text-white rounded-full font-bold text-sm hover:bg-[#248273] transition-colors">
+                    Mua sắm ngay
+                  </Link>
                 </div>
-            )}
+              )}
             </div>
+          </div>
         </div>
-        </div>
+      </div>
     </div>
   );
 }

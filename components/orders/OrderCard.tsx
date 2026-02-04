@@ -24,13 +24,10 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       case 'PENDING':
         return { label: 'Chờ xác nhận', className: 'text-orange-500', icon: null };
       case 'SHIPPING':
-        // Màu xanh dương nhạt giống HTML order-shipping
         return { label: 'Đang giao hàng', className: 'text-[#0dcaf0]', icon: <Truck size={14} className="mr-1" /> };
       case 'COMPLETED':
-        // Màu xanh lá giống HTML order-completed
         return { label: 'Hoàn thành', className: 'text-[#2d9f8d]', icon: <CheckCircle2 size={14} className="mr-1" /> };
       case 'CANCELLED':
-        // Màu đỏ giống HTML order-cancelled
         return { label: 'Đã hủy', className: 'text-red-500', icon: <XCircle size={14} className="mr-1" /> };
       case 'RETURN_REQUESTED':
         return { label: 'Trả hàng/Hoàn tiền', className: 'text-orange-600', icon: <RotateCcw size={14} className="mr-1" /> };
@@ -40,6 +37,12 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
   };
 
   const statusConfig = getStatusConfig(order.status);
+
+  // Style nút chính (Màu xanh, chữ trắng)
+  const btnMainClass = "bg-[#2d9f8d] hover:bg-[#248273] text-white border border-[#2d9f8d] h-8 text-xs font-semibold px-4 shadow-sm";
+  
+  // 👇 SỬA Ở ĐÂY: Thêm hover:text-gray-800 để chữ không bị trắng khi rê chuột
+  const btnOutlineClass = "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-800 border border-gray-300 h-8 text-xs font-semibold px-4 shadow-sm transition-colors";
 
   return (
     <div className="bg-white rounded-lg mb-3 shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200">
@@ -57,7 +60,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       {/* BODY: Product List */}
       <Link href={`/orders/${order.id}`} className="block px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
         
-        {/* Box lý do hủy (Chỉ hiện khi Đã hủy - giống HTML order-cancelled) */}
+        {/* Box lý do hủy (Chỉ hiện khi Đã hủy) */}
         {order.status === 'CANCELLED' && (
             <div className="bg-[#fff5f5] border-l-[3px] border-red-500 rounded p-2.5 mb-3">
                 <div className="text-xs font-bold text-red-600">Đơn hàng bị hủy</div>
@@ -85,7 +88,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
           </div>
         ))}
 
-        {/* Thông tin vận chuyển (Chỉ hiện khi Đang giao - giống HTML order-shipping) */}
+        {/* Thông tin vận chuyển (Chỉ hiện khi Đang giao) */}
         {order.status === 'SHIPPING' && (
             <div className="mt-2 pt-2 border-top border-gray-100 flex items-start gap-2">
                 <Truck size={14} className="text-[#2d9f8d] mt-0.5" />
@@ -105,29 +108,31 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
         
         <div className="flex gap-2 items-center">
           
-          {/* PENDING: Hủy đơn */}
+          {/* PENDING: Hủy đơn & Chi tiết */}
           {order.status === 'PENDING' && (
-            <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-600 hover:text-red-600 hover:bg-red-50">
-                  Hủy đơn
-                </Button>
-              </DialogTrigger>
-              <CancelOrderModal orderId={order.id} onClose={() => setIsCancelModalOpen(false)} onOrderCancelled={onOrderCancelled} />
-            </Dialog>
+            <>
+                <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className={btnOutlineClass}>
+                      Hủy đơn
+                    </Button>
+                  </DialogTrigger>
+                  <CancelOrderModal orderId={order.id} onClose={() => setIsCancelModalOpen(false)} onOrderCancelled={onOrderCancelled} />
+                </Dialog>
+                
+                <Link href={`/orders/${order.id}`}>
+                   <Button className={btnMainClass}>
+                     Chi tiết
+                   </Button>
+                </Link>
+            </>
           )}
 
           {/* SHIPPING: Theo dõi & Đã nhận hàng */}
           {order.status === 'SHIPPING' && (
             <>
-                <Button variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-600">Theo dõi</Button>
-                <Button 
-                    size="sm" 
-                    className="h-8 text-xs bg-[#2d9f8d] hover:bg-[#248273] text-white border border-[#2d9f8d]"
-                    onClick={() => {
-                        if(confirm("Bạn xác nhận đã nhận được hàng?")) alert("Đã hoàn tất đơn hàng!");
-                    }}
-                >
+                <Button variant="outline" className={btnOutlineClass}>Theo dõi</Button>
+                <Button className={btnMainClass} onClick={() => confirm("Bạn xác nhận đã nhận được hàng?") && alert("Đã hoàn tất đơn hàng!")}>
                     Đã nhận hàng
                 </Button>
             </>
@@ -137,30 +142,21 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
           {order.status === 'COMPLETED' && (
             <>
               <Link href={`/orders/return/request/${order.id}`}>
-                <Button variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-500 hover:text-red-500 hover:bg-red-50 hover:border-red-200">
+                <Button variant="ghost" className="h-8 text-xs bg-gray-50 text-gray-500 border border-gray-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200 px-3 font-medium transition-colors">
                     Trả hàng
                 </Button>
               </Link>
-              <Button size="sm" className="h-8 text-xs bg-[#2d9f8d] hover:bg-[#248273] text-white">Đánh giá</Button>
-              <Button variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-600">Mua lại</Button>
+              <Button className={btnMainClass}>Đánh giá</Button>
+              <Button variant="outline" className={btnOutlineClass}>Mua lại</Button>
             </>
           )}
 
-           {/* CANCELLED: Mua lại & Xem chi tiết */}
+           {/* CANCELLED: Chi tiết hủy & Mua lại */}
            {order.status === 'CANCELLED' && (
               <>
-                <Button variant="outline" size="sm" className="h-8 text-xs border-gray-300 text-gray-600">Chi tiết hủy</Button>
-                <Button size="sm" className="h-8 text-xs bg-[#2d9f8d] hover:bg-[#248273] text-white">Mua lại</Button>
+                <Button variant="outline" className={btnOutlineClass}>Chi tiết hủy</Button>
+                <Button className={btnMainClass}>Mua lại</Button>
               </>
-          )}
-
-          {/* Nút Chi tiết mặc định cho Pending */}
-          {order.status === 'PENDING' && (
-             <Link href={`/orders/${order.id}`}>
-                <Button variant="outline" size="sm" className="h-8 text-xs border-[#2d9f8d] text-[#2d9f8d] hover:bg-[#eafef9]">
-                Chi tiết
-                </Button>
-            </Link>
           )}
         </div>
       </div>

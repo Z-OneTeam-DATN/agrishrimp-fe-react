@@ -1,0 +1,23 @@
+package com.poly.arishrimpjava5.controller.ai;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping("/ai-doctor")
+public class AIChatController {
+
+    // Trang chủ là giao diện Chatbox đã có sẵn nội dung
+    @GetMapping
+    public String chatPage() {
+        return "ai/index"; // File HTML bên dưới
+    }
+
+    // Trang kết quả/phác đồ (khi bấm nút Xem phác đồ)
+    @GetMapping("/result")
+    public String resultPage() {
+        return "ai/result"; // File result.html đã tạo ở bước trước
+    }
+}
+
