@@ -1,8 +1,8 @@
 {
-  "/(store)/contact/page": "app/(store)/contact/page.js",
-  "/(store)/return/page": "app/(store)/return/page.js",
-  "/(store)/terms-of-use/page": "app/(store)/terms-of-use/page.js",
-  "/(store)/store-locator/page": "app/(store)/store-locator/page.js",
-  "/(store)/privacy-policy/page": "app/(store)/privacy-policy/page.js",
-  "/(store)/about/page": "app/(store)/about/page.js"
+  "/page": "app/page.js",
+  "/user/cart/page": "app/user/cart/page.js",
+  "/product/[id]/page": "app/product/[id]/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(store)/store-locator/page": "app/(store)/store-locator/page.js"
 }

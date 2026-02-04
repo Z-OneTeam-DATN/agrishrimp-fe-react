@@ -1,4 +1,4 @@
-// File: E:\Java 5\eclipse-workspace\agrishrimp-fe-react\app\(auth)\login\page.tsx
+// File: H:\duan_totnghiep\agrishrimp-fe-react\app\(auth)\login\page.tsx
 import * as entry from '../../../../../app/(auth)/login/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

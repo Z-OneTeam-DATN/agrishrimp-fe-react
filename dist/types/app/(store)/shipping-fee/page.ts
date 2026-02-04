@@ -1,4 +1,4 @@
-// File: E:\Java 5\eclipse-workspace\agrishrimp-fe-react\app\(store)\shipping-fee\page.tsx
+// File: H:\duan_totnghiep\agrishrimp-fe-react\app\(store)\shipping-fee\page.tsx
 import * as entry from '../../../../../app/(store)/shipping-fee/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

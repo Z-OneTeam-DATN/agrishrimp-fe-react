@@ -41,60 +41,55 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(store)/layout.js"
     ],
-    "/(store)/account/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/account/page.js"
-    ],
-    "/(store)/ordering/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/ordering/page.js"
-    ],
-    "/(store)/packing/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/packing/page.js"
-    ],
     "/(store)/store-locator/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(store)/store-locator/page.js"
-    ],
-    "/(store)/shipping-fee/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/shipping-fee/page.js"
     ],
     "/(store)/warranty-policy/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(store)/warranty-policy/page.js"
     ],
-    "/(store)/about/page": [
+    "/(store)/shipping-fee/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(store)/about/page.js"
-    ],
-    "/(store)/contact/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/contact/page.js"
-    ],
-    "/(store)/terms-of-use/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/terms-of-use/page.js"
-    ],
-    "/(store)/privacy-policy/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(store)/privacy-policy/page.js"
+      "static/chunks/app/(store)/shipping-fee/page.js"
     ],
     "/(store)/return/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(store)/return/page.js"
+    ],
+    "/(store)/packing/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(store)/packing/page.js"
+    ],
+    "/(store)/clinic-policy/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(store)/clinic-policy/page.js"
+    ],
+    "/(store)/cookie-policy/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(store)/cookie-policy/page.js"
+    ],
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/page.js"
+    ],
+    "/user/cart/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/user/cart/page.js"
+    ],
+    "/product/[id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/product/[id]/page.js"
     ]
   }
 }

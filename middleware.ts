@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   '/cookie-policy',
   '/clinic-policy',
   '/store-locator',
+  '/cart',
 ]
 
 export function middleware(req: NextRequest) {
