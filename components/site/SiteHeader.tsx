@@ -70,7 +70,7 @@ export default function Header() {
                     <span>Đăng nhập</span>
                 </Link>
             </div>
-            <Link href="/user/profile" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
+            <Link href="/profile" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
               <User size={22} className="mb-0.5" />
               <span className="hidden xl:inline">Tài khoản</span>
             </Link>

@@ -19,6 +19,11 @@ const PUBLIC_PATHS = [
   '/cookie-policy',
   '/clinic-policy',
   '/store-locator',
+  '/profile',
+  '/edit-profile',
+  '/address',
+  '/orders/list',
+  '/orders/[id]',
   '/cart',
   '/inventory'
 ]
