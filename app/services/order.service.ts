@@ -1,5 +1,5 @@
 import { apiJava } from '@/lib/axios';
-import { Order, OrderStatus } from '@/app/types/order.schema';
+import { Order, OrderStatus, CancelReasonFormValues } from '@/app/types/order.schema';
 
 // Interface cho yêu cầu trả hàng
 export interface ReturnRequestData {
@@ -80,8 +80,32 @@ export class OrderService {
     formData.append('description', data.description);
     if (data.images) data.images.forEach((file) => formData.append('images', file));
 
-    await apiJava.post(`${this.PREFIX}/return/submit`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  }
-}
+        await apiJava.post(`${this.PREFIX}/return/submit`, formData, {
+
+          headers: { 'Content-Type': 'multipart/form-data' }
+
+        });
+
+      }
+
+    
+
+        static async cancelOrder(orderId: string, data: CancelReasonFormValues): Promise<void> {
+
+    
+
+          await apiJava.post(`${this.PREFIX}/cancel`, data);
+
+    
+
+        }
+
+    
+
+      }
+
+    
+
+      
+
+    

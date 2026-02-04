@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, AlertCircle, Image as ImageIcon, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ReturnRequestPage({ params }: { params: { id: string } }) {
+export default function ReturnRequestPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [images, setImages] = useState<string[]>([]);
 

@@ -6,14 +6,14 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { toast } from 'sonner'
-import { resetPasswordSchema } from '@/lib/schemas'
+import { ResetPasswordSchema } from '@/app/types/auth.schema'
 import { FormTextField } from '../form-control/FormTextField'
 
-type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
+type ResetPasswordFormValues = z.infer<typeof ResetPasswordSchema>
 
 export function ResetPasswordForm() {
   const form = useForm<ResetPasswordFormValues>({
-    resolver: zodResolver(resetPasswordSchema),
+    resolver: zodResolver(ResetPasswordSchema),
     defaultValues: {
       email: ''
     }

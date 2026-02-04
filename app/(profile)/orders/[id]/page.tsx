@@ -1,13 +1,16 @@
 'use client';
 
+import React, { use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, MapPin, CreditCard, FileText, Package, Truck, CheckCircle2, Clock } from 'lucide-react';
 
-export default function OrderDetailPage({ params }: { params: { id: string } }) {
+export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+
   // Mock data - Thay bằng API call lấy chi tiết đơn hàng
   const order = {
-        id: params.id,
+        id: id,
         shopName: 'AgriShrimp Official',
         status: 'PENDING',
         createdAt: '23/01/2026 14:30',
@@ -111,7 +114,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                         </div>
                         <div className="text-center w-24 text-sm text-gray-600">{item.unitPrice}</div>
                         <div className="text-center w-16 text-sm text-gray-600">x{item.quantity}</div>
-                        <div className="text-right w-24 font-bold text-sm text-gray-900">{item.displayUnitPrice}</div>
+                        <div className="text-right w-24 font-bold text-sm text-gray-900">{item.unitPrice}</div>
                     </div>
                 ))}
             </div>

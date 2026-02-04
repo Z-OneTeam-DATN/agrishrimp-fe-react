@@ -11,9 +11,9 @@ import ProductCard from '@/components/ui/product-card';
 const BEST_SELLERS = [
   { id: 1, name: 'Vi sinh xử lý đáy ao APA MINER', price: '150.000 ₫', oldPrice: '180.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Xử lý nước', sold: 1200, tag: 'BEST' as const },
   { id: 2, name: 'Thức ăn tôm thẻ Grow Best 40 đạm', price: '550.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Dinh dưỡng', sold: 890, tag: 'BEST' as const },
-  { id: 3, name: 'Vôi nông nghiệp Super Calci', price: '80.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Hóa chất', sold: 500, tag: 'BÁN CHẠY' as const },
+  { id: 3, name: 'Vôi nông nghiệp Super Calci', price: '80.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Hóa chất', sold: 500, tag: 'BEST' as const },
   { id: 4, name: 'Khoáng tạt định kỳ Mix-Mineral', price: '90.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Khoáng chất', sold: 450, tag: 'BEST' as const },
-  { id: 5, name: 'Vitamin C tạt tăng đề kháng', price: '120.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Thuốc bổ', sold: 300, tag: 'BÁN CHẠY' as const },
+  { id: 5, name: 'Vitamin C tạt tăng đề kháng', price: '120.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Thuốc bổ', sold: 300, tag: 'BEST' as const },
 ];
 
 const TRENDING_PRODUCTS = [

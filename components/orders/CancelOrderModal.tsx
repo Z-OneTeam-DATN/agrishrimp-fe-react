@@ -115,7 +115,12 @@ export function CancelOrderModal({ orderId, onClose, onOrderCancelled }: CancelO
                 <FormItem>
                   <FormLabel>Lý do chi tiết</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Nhập lý do hủy chi tiết..." {...field} rows={3} />
+                    <Textarea 
+                      placeholder="Nhập lý do hủy chi tiết..." 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      rows={3} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

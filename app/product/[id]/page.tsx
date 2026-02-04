@@ -49,7 +49,8 @@ const RELATED_PRODUCTS = [
   { id: 8, name: 'Máy đo Oxy hòa tan kỹ thuật số', price: 3500000, image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg' },
 ];
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
+export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   // --- STATES ---
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);

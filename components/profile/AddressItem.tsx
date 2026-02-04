@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { UserService } from '@/app/services/user.service';
 import { useRouter } from 'next/navigation';
-import { CheckCircleFill } from 'lucide-react'; // Using Lucide icon for consistency
+import { CheckCircle } from 'lucide-react'; // Using Lucide icon for consistency
 
 interface AddressItemProps {
   address: AddressFormValues;
@@ -75,7 +75,7 @@ export function AddressItem({ address, onEdit, onRefresh }: AddressItemProps) {
         </div>
         {address.isDefault && (
           <span className="inline-flex items-center mt-2 px-3 py-1 text-xs font-semibold text-green-700 bg-green-100 border border-green-700 rounded-md">
-            <CheckCircleFill size={14} className="mr-1" /> Mặc định
+            <CheckCircle size={14} className="mr-1" /> Mặc định
           </span>
         )}
       </div>
