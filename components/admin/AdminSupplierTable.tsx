@@ -28,7 +28,7 @@ export function AdminSupplierTable({ suppliers }: AdminSupplierTableProps) {
       <Table className="table-custom border-collapse min-w-[1100px]">
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-            <TableHead className="w-[80px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Mã NCC</TableHead>
+            <TableHead className="w-[100px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Mã NCC</TableHead>
             <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Nhà cung cấp & MST</TableHead>
             <TableHead className="w-[180px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Hàng hóa cung cấp</TableHead>
             <TableHead className="w-[150px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Người liên hệ</TableHead>

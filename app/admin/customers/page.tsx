@@ -29,6 +29,7 @@ export default function CustomerManagementPage() {
       <AdminPageHeader 
         title="Quản lý đối tác & Khách hàng" 
         addBtnLabel="Thêm khách hàng"
+        addBtnHref="/admin/customers/add"
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
