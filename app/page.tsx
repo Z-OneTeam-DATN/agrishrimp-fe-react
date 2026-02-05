@@ -7,7 +7,7 @@ import Banner from "@/components/site/SiteBanner";
 import SiteHomeCategories from '@/components/site/SiteHomeCategories';
 import ProductCard from '@/components/ui/product-card';
 
-// --- MOCK DATA ---
+// --- MOCK DATA GIỮ NGUYÊN ---
 const BEST_SELLERS = [
   { id: 1, name: 'Vi sinh xử lý đáy ao APA MINER', price: '150.000 ₫', oldPrice: '180.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Xử lý nước', sold: 1200, tag: 'BEST' as const },
   { id: 2, name: 'Thức ăn tôm thẻ Grow Best 40 đạm', price: '550.000 ₫', image: 'https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg', category: 'Dinh dưỡng', sold: 890, tag: 'BEST' as const },
@@ -26,31 +26,33 @@ const TRENDING_PRODUCTS = [
 
 export default function Home() {
   return (
-    <div className="flex flex-col gap-6 pb-20">
+    <div className="flex flex-col gap-4 md:gap-6 pb-20 bg-gray-50/50">
 
       {/* 1. HERO BANNER SECTION */}
-      <div className="container mx-auto px-4 mt-4">
+      {/* Mobile: px-2, Desktop: px-4 */}
+      <div className="container mx-auto px-2 md:px-4 mt-2 md:mt-4">
         <Banner />
       </div>
 
       {/* 2. DANH MỤC VẬT TƯ */}
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-2 md:px-4">
          <SiteHomeCategories />
       </div>
 
       {/* 3. SECTION: TOP BÁN CHẠY */}
-      <section className="container mx-auto px-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-           <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-              <h5 className="font-bold text-xl uppercase text-[#d32f2f] flex items-center gap-2">
-                  <Trophy className="fill-red-600 text-red-600" /> Top Bán Chạy Nhất
+      <section className="container mx-auto px-2 md:px-4">
+        <div className="bg-white rounded-lg md:rounded-xl p-3 md:p-5 shadow-sm border border-gray-100">
+           <div className="flex items-center justify-between mb-3 md:mb-4 border-b border-gray-100 pb-2 md:pb-3">
+              <h5 className="font-bold text-base md:text-xl uppercase text-[#d32f2f] flex items-center gap-2">
+                  <Trophy className="fill-red-600 text-red-600 w-5 h-5 md:w-6 md:h-6" /> Top Bán Chạy
               </h5>
-              <Link href="/best-seller" className="text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium">
+              <Link href="/best-seller" className="text-xs md:text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium whitespace-nowrap">
                   Xem tất cả <ChevronRight size={16} />
               </Link>
            </div>
 
-           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+           {/* Grid: 2 cột trên mobile (gap nhỏ), 3-4-5 cột trên màn hình lớn */}
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
               {BEST_SELLERS.map((product) => (
                   <ProductCard key={product.id} {...product} />
               ))}
@@ -59,18 +61,18 @@ export default function Home() {
       </section>
 
       {/* 4. SECTION: XU HƯỚNG TÌM KIẾM */}
-      <section className="container mx-auto px-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-           <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-              <h5 className="font-bold text-xl uppercase text-[#ff9800] flex items-center gap-2">
-                  <TrendingUp className="text-[#ff9800]" strokeWidth={2.5} /> Xu Hướng Tìm Kiếm
+      <section className="container mx-auto px-2 md:px-4">
+        <div className="bg-white rounded-lg md:rounded-xl p-3 md:p-5 shadow-sm border border-gray-100">
+           <div className="flex items-center justify-between mb-3 md:mb-4 border-b border-gray-100 pb-2 md:pb-3">
+              <h5 className="font-bold text-base md:text-xl uppercase text-[#ff9800] flex items-center gap-2">
+                  <TrendingUp className="text-[#ff9800] w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} /> Xu Hướng
               </h5>
-              <Link href="/trending" className="text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium">
+              <Link href="/trending" className="text-xs md:text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium whitespace-nowrap">
                   Xem tất cả <ChevronRight size={16} />
               </Link>
            </div>
 
-           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
               {TRENDING_PRODUCTS.map((product) => (
                   <ProductCard key={product.id} {...product} />
               ))}
