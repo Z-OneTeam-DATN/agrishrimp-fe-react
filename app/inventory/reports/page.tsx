@@ -38,23 +38,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  LineChart,
-  Line,
-  AreaChart,
-  Area
-} from "recharts";
+import dynamic from "next/dynamic";
+
+// Khắc phục lỗi Recharts bị trắng/lỗi SSR bằng Dynamic Import
+const ResponsiveContainer = dynamic(() => import("recharts").then((re) => re.ResponsiveContainer), { ssr: false }) as any;
+const AreaChart = dynamic(() => import("recharts").then((re) => re.AreaChart), { ssr: false }) as any;
+const Area = dynamic(() => import("recharts").then((re) => re.Area), { ssr: false }) as any;
+const XAxis = dynamic(() => import("recharts").then((re) => re.XAxis), { ssr: false }) as any;
+const YAxis = dynamic(() => import("recharts").then((re) => re.YAxis), { ssr: false }) as any;
+const CartesianGrid = dynamic(() => import("recharts").then((re) => re.CartesianGrid), { ssr: false }) as any;
+const Tooltip = dynamic(() => import("recharts").then((re) => re.Tooltip), { ssr: false }) as any;
+const PieChart = dynamic(() => import("recharts").then((re) => re.PieChart), { ssr: false }) as any;
+const Pie = dynamic(() => import("recharts").then((re) => re.Pie), { ssr: false }) as any;
+const Cell = dynamic(() => import("recharts").then((re) => re.Cell), { ssr: false }) as any;
+const Legend = dynamic(() => import("recharts").then((re) => re.Legend), { ssr: false }) as any;
+const BarChart = dynamic(() => import("recharts").then((re) => re.BarChart), { ssr: false }) as any;
+const Bar = dynamic(() => import("recharts").then((re) => re.Bar), { ssr: false }) as any;
 
 // Mock data cho báo cáo
 const monthlyData = [

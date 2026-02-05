@@ -1,70 +1,53 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-
-const PUBLIC_PATHS = [
+// Các trang chỉ dành cho người chưa đăng nhập (Auth pages)
+const AUTH_PATHS = [
   '/login',
-  '/signup', 
+  '/signup',
   '/reset-password',
-  '/account',
-  '/ordering',
-  '/packing',
-  '/shipping-fee',
-  '/warranty-policy',
-  '/return',
-  '/about',
-  '/contact',
-  '/terms-of-use',
-  '/privacy-policy',
-  '/cookie-policy',
-  '/clinic-policy',
-  '/store-locator',
+]
+
+// Các trang yêu cầu phải đăng nhập (Private pages)
+const PROTECTED_PATHS = [
   '/profile',
   '/edit-profile',
   '/address',
-  '/address/create',
-  '/address/${addr.id}',
-  '/orders/list',
-  '/orders/[id]',
-  '/cart',
-  '/inventory',
-  '/ai-doctor',
-  '/ai-doctor/result',
-  '/ai-doctor/history',
+  '/orders',
   '/ponds',
-  '/ponds/create',
   '/voucher',
-  '/ponds/[id]',
-  '/voucher/create',
+  '/ai-doctor',
+  '/cart',
 ]
-
 
 export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname
 
-  // Skip middleware for error pages during build
-  if (path === '/404' || path === '/500' || path === '/_error') {
+  // Bỏ qua các đường dẫn static và api
+  if (
+    path.startsWith('/_next') ||
+    path.startsWith('/api') ||
+    path.startsWith('/images') ||
+    path === '/favicon.ico'
+  ) {
     return NextResponse.next()
   }
 
   const token = req.cookies.get('accessToken')?.value ?? req.cookies.get('refreshToken')?.value
-  const isPublicPath = PUBLIC_PATHS.includes(path)
-  const isAdminPath = path.startsWith('/admin')
+  
+  const isAuthPath = AUTH_PATHS.some(p => path.startsWith(p))
+  const isProtectedPath = PROTECTED_PATHS.some(p => path.startsWith(p)) || path.startsWith('/admin') || path.startsWith('/inventory')
 
-  // Nếu đã đăng nhập và truy cập trang public, chuyển hướng về /chat
-  if (isPublicPath && token) {
+  // 1. Nếu đã đăng nhập mà cố vào trang login/signup -> về trang chủ
+  if (token && isAuthPath) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
-  // Nếu chưa đăng nhập và truy cập trang private, chuyển hướng về /login
-  if (!isPublicPath && !token) {
-    return NextResponse.redirect(new URL('/login', req.url))
-  }
- if (isAdminPath && !token) {
+  // 2. Nếu chưa đăng nhập mà vào trang yêu cầu tài khoản -> về trang login
+  if (!token && isProtectedPath) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // Các trường hợp còn lại cho phép truy cập
   return NextResponse.next()
 }
 

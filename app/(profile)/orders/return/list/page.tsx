@@ -1,7 +1,6 @@
 'use client';
 
 import { OrderTabs } from '@/components/orders/OrderTabs';
-import ProfileSidebar from '@/components/profile/ProfileSidebar';
 import { ArrowLeftRight, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 export default function ReturnListPage() {
@@ -56,58 +55,49 @@ export default function ReturnListPage() {
   };
 
   return (
-    <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans">
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 hidden lg:block">
-            <ProfileSidebar />
-          </div>
-          <div className="lg:col-span-9">
-            <OrderTabs />
-            <div className="mt-4 space-y-4">
-              {returnOrders.map((item) => (
-                <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200">
-                  <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 bg-gray-50/30">
-                    <div className="font-bold text-gray-800 flex items-center text-sm">
-                      <ArrowLeftRight size={16} className="mr-2 text-gray-500" /> Mã yêu cầu: #{item.id}
-                    </div>
-                    {getStatusBadge(item.status)}
-                  </div>
-                  <div className="p-4 cursor-pointer">
-                    <div className="flex gap-4">
-                      <img src={item.productImg} alt={item.productName} className="w-14 h-14 rounded border border-gray-200 object-cover bg-white" />
-                      <div className="flex-1">
-                        <div className="font-bold text-sm text-gray-900 line-clamp-1">{item.productName}</div>
-                        <div className="text-xs text-gray-500 mt-1">Số lượng: {item.quantity} | Đơn hàng: #{item.orderCode}</div>
-                        <div className="mt-2 inline-flex items-center bg-red-50 text-red-600 text-[11px] px-2 py-0.5 rounded border border-red-100 font-medium">
-                          Lý do: {item.reason}
-                        </div>
-                      </div>
-                    </div>
-                    {item.status === 'REJECTED' && (
-                      <div className="mt-3 p-3 bg-red-50 rounded-md text-xs text-red-700 border border-red-100 flex gap-2 items-start">
-                        <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                        <div><strong>Phản hồi từ shop:</strong> {item.shopResponse}</div>
-                      </div>
-                    )}
-                    {item.status === 'COMPLETED' && (
-                      <div className="mt-3 text-xs text-gray-500 flex items-center gap-1">
-                        <CheckCircle2 size={12} /> Tiền đã được hoàn vào ví AgriShrimp của bạn.
-                      </div>
-                    )}
-                  </div>
-                  <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center bg-white">
-                    <div className="text-sm text-gray-600">Hoàn lại dự kiến: <span className="text-red-600 font-bold text-base ml-1">{item.refundAmount}</span></div>
-                    <div className="flex gap-2">
-                        <button className="px-3 py-1.5 border border-[#2d9f8d] text-[#2d9f8d] rounded text-xs font-bold hover:bg-[#eafef9] transition-colors">Xem chi tiết</button>
-                    </div>
+    <>
+      <OrderTabs />
+      <div className="mt-4 space-y-4">
+        {returnOrders.map((item) => (
+          <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200">
+            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 bg-gray-50/30">
+              <div className="font-bold text-gray-800 flex items-center text-sm">
+                <ArrowLeftRight size={16} className="mr-2 text-gray-500" /> Mã yêu cầu: #{item.id}
+              </div>
+              {getStatusBadge(item.status)}
+            </div>
+            <div className="p-4 cursor-pointer">
+              <div className="flex gap-4">
+                <img src={item.productImg} alt={item.productName} className="w-14 h-14 rounded border border-gray-100 object-cover bg-white" />
+                <div className="flex-1">
+                  <div className="font-bold text-sm text-gray-900 line-clamp-1">{item.productName}</div>
+                  <div className="text-xs text-gray-500 mt-1">Số lượng: {item.quantity} | Đơn hàng: #{item.orderCode}</div>
+                  <div className="mt-2 inline-flex items-center bg-red-50 text-red-600 text-[11px] px-2 py-0.5 rounded border border-red-100 font-medium">
+                    Lý do: {item.reason}
                   </div>
                 </div>
-              ))}
+              </div>
+              {item.status === 'REJECTED' && (
+                <div className="mt-3 p-3 bg-red-50 rounded-md text-xs text-red-700 border border-red-100 flex gap-2 items-start">
+                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                  <div><strong>Phản hồi từ shop:</strong> {item.shopResponse}</div>
+                </div>
+              )}
+              {item.status === 'COMPLETED' && (
+                <div className="mt-3 text-xs text-gray-500 flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Tiền đã được hoàn vào ví AgriShrimp của bạn.
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center bg-white">
+              <div className="text-sm text-gray-600">Hoàn lại dự kiến: <span className="text-red-600 font-bold text-base ml-1">{item.refundAmount}</span></div>
+              <div className="flex gap-2">
+                  <button className="px-3 py-1.5 border border-[#2d9f8d] text-[#2d9f8d] rounded text-xs font-bold hover:bg-[#eafef9] transition-colors">Xem chi tiết</button>
+              </div>
             </div>
           </div>
-        </div>
+        ))}
       </div>
-    </div>
+    </>
   );
 }

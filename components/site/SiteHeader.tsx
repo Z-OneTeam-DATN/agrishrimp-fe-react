@@ -52,13 +52,13 @@ export default function Header() {
 
           <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
 
-            <Link href="/store-locator" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
+            <Link href="/store" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
               <Store size={22} className="mb-0.5" />
               <span>Cửa hàng</span>
             </Link>
 
             <div className="hidden lg:flex items-center mx-1">
-                <Link href="/register" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
+                <Link href="/signup" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
                     <UserPlus size={22} className="mb-0.5" />
                     <span>Đăng ký</span>
                 </Link>
