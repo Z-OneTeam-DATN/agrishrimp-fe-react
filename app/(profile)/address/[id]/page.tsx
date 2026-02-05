@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import ProfileSidebar from '@/components/profile/ProfileSidebar';
 import AddressForm from '@/components/profile/AddressForm';
 import { AddressFormValues } from '@/app/types/address.schema';
 
@@ -32,21 +31,10 @@ export default function EditAddressPage({ params }: { params: { id: string } }) 
   };
 
   return (
-    <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans text-gray-800">
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 hidden lg:block">
-            <ProfileSidebar />
-          </div>
-          <div className="lg:col-span-9">
-            <AddressForm 
-              title="Cập nhật địa chỉ" 
-              initialValues={addressData}
-              onSubmit={handleUpdate} 
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+    <AddressForm 
+      title="Cập nhật địa chỉ" 
+      initialValues={addressData}
+      onSubmit={handleUpdate} 
+    />
   );
 }

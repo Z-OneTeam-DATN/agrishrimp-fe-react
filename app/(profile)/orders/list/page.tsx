@@ -1,7 +1,6 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import ProfileSidebar from '@/components/profile/ProfileSidebar';
 import { OrderTabs } from '@/components/orders/OrderTabs';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { Order, OrderStatus } from '@/app/types/order.schema';
@@ -56,50 +55,30 @@ export default function OrderingPage() {
   const isError = false;
 
   return (
-    <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans text-gray-800">
-      <div className="container mx-auto px-4 py-6">
-        
-        {/* Breadcrumb */}
-        <nav className="mb-6 text-sm text-gray-500 flex items-center">
-          <Link href="/" className="hover:text-[#329965] hover:underline">Trang chủ</Link> 
-          <ChevronRight size={14} className="mx-2" />
-          <Link href="/profile" className="hover:text-[#329965] hover:underline">Tài khoản</Link>
-          <ChevronRight size={14} className="mx-2" />
-          <span className="font-bold text-gray-800">Đơn hàng của tôi</span>
-        </nav>
+    <>
+      <OrderTabs />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 hidden lg:block">
-            <ProfileSidebar />
-          </div>
-
-          <div className="lg:col-span-9">
-            <OrderTabs />
-
-            <div className="mt-4">
-              {isLoading ? (
-                <div className="text-center py-10 text-gray-500">Đang tải đơn hàng...</div>
-              ) : isError ? (
-                <div className="text-center py-10 text-red-500">Có lỗi xảy ra khi tải đơn hàng.</div>
-              ) : orders && orders.length > 0 ? (
-                orders.map((order) => (
-                  <OrderCard key={order.id} order={order} onOrderCancelled={() => console.log("Reload list")} />
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center bg-white rounded-lg p-10 border border-gray-100 shadow-sm min-h-[300px]">
-                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                    <PackageX size={40} className="text-gray-300" />
-                  </div>
-                  <p className="text-gray-500 font-medium">Chưa có đơn hàng nào.</p>
-                  <Link href="/" className="mt-4 px-6 py-2 bg-[#2d9f8d] text-white rounded-full font-bold text-sm hover:bg-[#248273] transition-colors">
-                    Mua sắm ngay
-                  </Link>
-                </div>
-              )}
+      <div className="mt-4">
+        {isLoading ? (
+          <div className="text-center py-10 text-gray-500">Đang tải đơn hàng...</div>
+        ) : isError ? (
+          <div className="text-center py-10 text-red-500">Có lỗi xảy ra khi tải đơn hàng.</div>
+        ) : orders && orders.length > 0 ? (
+          orders.map((order) => (
+            <OrderCard key={order.id} order={order} onOrderCancelled={() => console.log("Reload list")} />
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center bg-white rounded-lg p-10 border border-gray-100 shadow-sm min-h-[300px]">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <PackageX size={40} className="text-gray-300" />
             </div>
+            <p className="text-gray-500 font-medium">Chưa có đơn hàng nào.</p>
+            <Link href="/" className="mt-4 px-6 py-2 bg-[#2d9f8d] text-white rounded-full font-bold text-sm hover:bg-[#248273] transition-colors">
+              Mua sắm ngay
+            </Link>
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }

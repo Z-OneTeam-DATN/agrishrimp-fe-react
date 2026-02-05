@@ -55,10 +55,10 @@ export default function ProfileSidebar() {
         <Link href="/profile" className={itemClass('/profile')}>
           <User size={18} className="mr-2.5" /> Hồ sơ của tôi
         </Link>
-        <Link href="/edit-profile" className={itemClass('/profile/edit-profile')}>
+        <Link href="/edit-profile" className={itemClass('/edit-profile')}>
           <Settings size={18} className="mr-2.5" /> Thiết lập tài khoản
         </Link>
-        <Link href="/address" className={itemClass('/profile/address')}>
+        <Link href="/address" className={itemClass('/address')}>
           <MapPin size={18} className="mr-2.5" /> Sổ địa chỉ
         </Link>
       </nav>
@@ -66,7 +66,7 @@ export default function ProfileSidebar() {
       {/* --- MENU ĐƠN HÀNG --- */}
       <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-5">Đơn hàng</div>
       <nav className="flex flex-col">
-        <Link href="/orders/list" className={itemClass('/profile/orders/list')}>
+        <Link href="/orders/list" className={itemClass('/orders/list')}>
           <ClipboardList size={18} className="mr-2.5" /> Đơn hàng của tôi
         </Link>
       </nav>
@@ -74,10 +74,10 @@ export default function ProfileSidebar() {
       {/* --- MENU TIỆN ÍCH --- */}
       <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-5">Tiện ích</div>
       <nav className="flex flex-col">
-        <Link href="/ai-doctor/history" className={itemClass('/ai-history')}>
+        <Link href="/ai-doctor/history" className={itemClass('/ai-doctor/history')}>
           <Bot size={18} className="mr-2.5" /> Lịch sử chẩn đoán AI
         </Link>
-        <Link href="/ponds" className={itemClass('/pond-manager')}>
+        <Link href="/ponds" className={itemClass('/ponds')}>
           <Waves size={18} className="mr-2.5" /> Quản lý ao nuôi
         </Link>
         <Link href="/voucher" className={itemClass('/voucher')}>
