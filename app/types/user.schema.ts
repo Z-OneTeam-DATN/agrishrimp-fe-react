@@ -35,11 +35,24 @@ const BaseUserSchema = z.object({
   blockFlag: z.string().optional()
 })
 
-export const editProfileSchema = z.object({
-  fullname: z.string().min(1, { message: 'Họ và tên không được để trống' }),
-  birthday: z.coerce.date({required_error: 'Vui lòng chọn ngày sinh'}).max(new Date(), { message: 'Ngày sinh phải là ngày trong quá khứ' }),
-  gender: z.string().optional() // Add gender field
+export const updateProfileSchema = z.object({
+  fullname: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
+  email: z.string().email().optional(),
+  phone: z.string().regex(/(84|0[3|5|7|8|9])+([0-9]{8})\b/g, 'Số điện thoại không đúng định dạng'),
+  gender: z.enum(['male', 'female', 'other']),
+
+  birthday: z.preprocess((arg) => {
+    if (!arg || arg === "") return undefined; 
+    return new Date(arg as string | number | Date);
+  }, z.date({ 
+    required_error: "Vui lòng chọn ngày sinh", 
+    invalid_type_error: "Ngày sinh không hợp lệ" 
+  })),
+  
+  avatarUrl: z.string().optional(),
 });
+
+export type UserData = z.infer<typeof updateProfileSchema>;
 
 export const changePasswordSchema = z
   .object({
@@ -52,7 +65,6 @@ export const changePasswordSchema = z
     path: ['confirmPassword']
   });
 
-export type EditProfileFormValues = z.infer<typeof editProfileSchema>;
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
 
 export type UserType = z.infer<typeof BaseUserSchema>
