@@ -38,7 +38,7 @@ export function AdminEmployeeTable({ employees }: AdminEmployeeTableProps) {
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
             <TableHead className="w-[40px] text-center p-2"><Checkbox className="h-3.5 w-3.5" /></TableHead>
-            <TableHead className="w-[80px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Mã NV</TableHead>
+            <TableHead className="w-[100px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Mã NV</TableHead>
             <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Họ tên & Ngày vào làm</TableHead>
             <TableHead className="w-[220px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Liên hệ & Địa chỉ</TableHead>
             <TableHead className="w-[180px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Nơi công tác</TableHead>
