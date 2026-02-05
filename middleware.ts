@@ -22,10 +22,20 @@ const PUBLIC_PATHS = [
   '/profile',
   '/edit-profile',
   '/address',
+  '/address/create',
+  '/address/${addr.id}',
   '/orders/list',
   '/orders/[id]',
   '/cart',
-  '/inventory'
+  '/inventory',
+  '/ai-doctor',
+  '/ai-doctor/result',
+  '/ai-doctor/history',
+  '/ponds',
+  '/ponds/create',
+  '/voucher',
+  '/ponds/[id]',
+  '/voucher/create',
 ]
 
 

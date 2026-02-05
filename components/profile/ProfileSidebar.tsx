@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { 
   Pencil, 
@@ -9,10 +8,6 @@ import {
   Settings, 
   MapPin, 
   ClipboardList, 
-  Truck, 
-  CheckCircle2, 
-  RotateCcw, 
-  XCircle, 
   Bot, 
   Waves, 
   Ticket, 
@@ -79,10 +74,10 @@ export default function ProfileSidebar() {
       {/* --- MENU TIỆN ÍCH --- */}
       <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-5">Tiện ích</div>
       <nav className="flex flex-col">
-        <Link href="/ai-history" className={itemClass('/ai-history')}>
+        <Link href="/ai-doctor/history" className={itemClass('/ai-history')}>
           <Bot size={18} className="mr-2.5" /> Lịch sử chẩn đoán AI
         </Link>
-        <Link href="/pond-manager" className={itemClass('/pond-manager')}>
+        <Link href="/ponds" className={itemClass('/pond-manager')}>
           <Waves size={18} className="mr-2.5" /> Quản lý ao nuôi
         </Link>
         <Link href="/voucher" className={itemClass('/voucher')}>
