@@ -43,7 +43,7 @@ export default function AdminSidebar() {
         <section>
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Hệ thống</p>
           <div className="space-y-0.5">
-            <SidebarLink href="/admin" icon={LayoutDashboard} label="Bàn làm việc" active={isActive("/admin")} color="text-emerald-500" />
+            <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={isActive("/admin")} color="text-emerald-500" />
           </div>
         </section>
 
