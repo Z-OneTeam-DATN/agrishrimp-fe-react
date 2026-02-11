@@ -79,7 +79,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* INFO CARD */}
         <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                 <div>
                     <h3 className="font-bold text-gray-800 mb-3 text-sm">Địa chỉ nhận hàng</h3>
                     <div className="space-y-2 text-sm text-gray-600">
@@ -94,7 +94,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         <div className="flex"><span className="w-32 text-gray-500">Phương thức</span> <span className="font-medium text-gray-900">Chuyển khoản (Banking)</span></div>
                         <div className="flex"><span className="w-32 text-gray-500">Trạng thái</span> <span className="font-bold text-orange-500">Chưa thanh toán</span></div>
                     </div>
-                    <button className="mt-4 px-4 py-1.5 bg-[#2d9f8d] text-white text-sm font-bold rounded hover:bg-[#248273]">Thanh toán ngay</button>
+                    <button className="mt-4 px-4 h-12 bg-[#2d9f8d] text-white text-sm font-bold rounded hover:bg-[#248273]">Thanh toán ngay</button>
                 </div>
             </div>
         </div>

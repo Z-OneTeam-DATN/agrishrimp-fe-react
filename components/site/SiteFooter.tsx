@@ -141,8 +141,10 @@ export default function SiteFooter() {
                 type="email"
                 placeholder="Nhập email của bạn..."
                 className="flex-1 px-4 py-2 rounded-l-md text-gray-900 text-sm outline-none focus:ring-1 focus:ring-orange-400"
+                suppressHydrationWarning={true}
               />
-              <button className="bg-[#f4a742] hover:bg-orange-600 text-white px-4 rounded-r-md font-bold text-sm transition-colors">
+              <button className="bg-[#f4a742] hover:bg-orange-600 text-white px-4 rounded-r-md font-bold text-sm transition-colors" suppressHydrationWarning={true}>
+            
                 ĐĂNG KÝ
               </button>
             </div>

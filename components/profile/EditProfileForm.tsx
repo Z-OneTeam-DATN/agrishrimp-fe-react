@@ -30,7 +30,7 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
   };
 
   const inputClass = (hasError: boolean) => `
-    w-full px-3 py-2.5 bg-white border rounded-lg text-sm text-gray-900 
+    w-full px-4 h-12 bg-white border rounded-lg text-sm text-gray-900 
     focus:outline-none transition-all
     ${hasError 
       ? 'border-red-500 focus:ring-1 focus:ring-red-500' 
@@ -39,7 +39,7 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
   `;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-20"> {/* Added pb-20 for sticky button */}
       
       {/* Avatar Upload */}
       <div className="flex flex-col items-center mb-6">
@@ -61,7 +61,7 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
       </div>
 
       {/* 1. Họ tên */}
-      <div className="space-y-1.5">
+      <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
         <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
           <User size={14} /> Họ và tên
         </label>
@@ -73,19 +73,19 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
       </div>
 
       {/* 2. Email (Read-only) */}
-      <div className="space-y-1.5">
+      <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
         <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
           <Mail size={14} /> Email đăng nhập
         </label>
         <input 
           {...register('email')}
           disabled 
-          className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-400 cursor-not-allowed"
+          className="w-full px-4 h-12 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-400 cursor-not-allowed"
         />
       </div>
 
       {/* 3. Số điện thoại */}
-      <div className="space-y-1.5">
+      <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
         <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
           <Phone size={14} /> Số điện thoại
         </label>
@@ -97,18 +97,27 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
       </div>
 
       {/* 4. Giới tính */}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <label className="text-sm font-bold text-gray-700">Giới tính</label>
-        <div className="flex gap-6 mt-1">
+        <div className="flex flex-wrap gap-3 mt-1"> {/* Changed flex gap-6 to flex-wrap gap-3 for mobile */}
           {['male', 'female', 'other'].map((g) => (
-            <label key={g} className="flex items-center gap-2 cursor-pointer group">
+            <label 
+              key={g} 
+              className={`
+                flex-1 text-center py-2 px-4 rounded-lg border cursor-pointer transition-colors h-12
+                ${initialValues.gender === g 
+                  ? 'bg-[#eafef9] border-[#2d9f8d] text-[#2d9f8d] font-bold' 
+                  : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                }
+              `}
+            >
               <input 
                 type="radio" 
                 value={g} 
                 {...register('gender')}
-                className="w-4 h-4 cursor-pointer accent-[#329965] bg-white border-gray-300"
+                className="hidden" // Hide the actual radio button
               />
-              <span className="text-sm text-gray-700 capitalize">
+              <span className="text-sm">
                 {g === 'male' ? 'Nam' : g === 'female' ? 'Nữ' : 'Khác'}
               </span>
             </label>
@@ -118,7 +127,7 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
       </div>
 
       {/* 5. Ngày sinh */}
-      <div className="space-y-1.5">
+      <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
         <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
           <Calendar size={14} /> Ngày sinh
         </label>
@@ -130,11 +139,12 @@ export default function EditProfileForm({ initialValues }: { initialValues: User
         {errors.birthday && <p className="text-xs text-red-500 mt-1">{errors.birthday.message}</p>}
       </div>
 
-      <div className="pt-2">
+      {/* Sticky Action Bar for mobile */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:relative lg:p-0 lg:bg-transparent lg:shadow-none z-10">
         <button 
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-[#329965] hover:bg-[#2a8556] text-white font-bold py-2.5 rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+          className="w-full bg-[#329965] hover:bg-[#2a8556] text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70"
         >
           {isSubmitting ? (
             <>

@@ -32,7 +32,7 @@ export default function VoucherForm({ onSubmit, isSubmitting = false }: VoucherF
         <h1 className="font-bold text-gray-800 text-lg">Lưu mã Voucher</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6">
+      <form onSubmit={handleSubmit} className="p-6 pb-20"> {/* Added pb-20 */}
         <p className="text-sm text-gray-500 mb-6">
           Nhập mã voucher bạn sưu tầm được để lưu vào ví và sử dụng khi thanh toán.
         </p>
@@ -54,7 +54,7 @@ export default function VoucherForm({ onSubmit, isSubmitting = false }: VoucherF
                 setCode(e.target.value);
                 if(error) setError('');
               }}
-              className={`w-full pl-10 pr-4 py-3 border rounded-lg outline-none transition-all 
+              className={`w-full pl-10 pr-4 h-12 border rounded-lg outline-none transition-all 
                 bg-white text-gray-900 placeholder:text-gray-400 font-medium uppercase placeholder:normal-case
                 ${error 
                   ? 'border-red-500 focus:ring-2 focus:ring-red-200' 
@@ -67,19 +67,21 @@ export default function VoucherForm({ onSubmit, isSubmitting = false }: VoucherF
           {error && <p className="text-xs text-red-500 mt-1.5 font-medium">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <Link href="/voucher">
-            <button type="button" className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-              Hủy bỏ
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:relative lg:p-0 lg:bg-transparent lg:shadow-none z-10">
+          <div className="flex gap-3">
+            <Link href="/voucher" className="flex-1">
+              <button type="button" className="w-full h-12 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                Hủy bỏ
+              </button>
+            </Link>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="flex-1 h-12 text-sm font-bold text-white bg-[#2d9f8d] hover:bg-[#248273] rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              <Save size={18} /> {isSubmitting ? 'Đang lưu...' : 'Lưu vào ví'}
             </button>
-          </Link>
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="px-6 py-2.5 text-sm font-bold text-white bg-[#2d9f8d] hover:bg-[#248273] rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70"
-          >
-            <Save size={18} /> {isSubmitting ? 'Đang lưu...' : 'Lưu vào ví'}
-          </button>
+          </div>
         </div>
       </form>
     </div>

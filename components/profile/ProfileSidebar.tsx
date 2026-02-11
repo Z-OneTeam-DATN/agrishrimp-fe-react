@@ -14,7 +14,7 @@ import {
   LogOut 
 } from 'lucide-react';
 
-export default function ProfileSidebar() {
+export default function ProfileSidebar({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname();
 
   // Hàm kiểm tra active link đơn giản
@@ -28,6 +28,12 @@ export default function ProfileSidebar() {
       : 'text-gray-600 hover:bg-gray-50 hover:text-[#329965]' // Bình thường
     }
   `;
+
+  const handleLinkClick = () => {
+    if (onLinkClick) {
+      onLinkClick();
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 sticky top-20">
@@ -43,7 +49,7 @@ export default function ProfileSidebar() {
         </div>
         <div className="overflow-hidden">
           <div className="font-bold text-gray-800 truncate text-sm mb-0.5">User</div>
-          <Link href="/edit-profile" className="text-xs text-gray-500 hover:text-[#329965] flex items-center transition-colors">
+          <Link href="/edit-profile" onClick={handleLinkClick} className="text-xs text-gray-500 hover:text-[#329965] flex items-center transition-colors">
             <Pencil size={10} className="mr-1" /> Sửa hồ sơ
           </Link>
         </div>
@@ -52,13 +58,13 @@ export default function ProfileSidebar() {
       {/* --- MENU TÀI KHOẢN --- */}
       <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-4">Tài khoản</div>
       <nav className="flex flex-col">
-        <Link href="/profile" className={itemClass('/profile')}>
+        <Link href="/profile" onClick={handleLinkClick} className={itemClass('/profile')}>
           <User size={18} className="mr-2.5" /> Hồ sơ của tôi
         </Link>
-        <Link href="/edit-profile" className={itemClass('/edit-profile')}>
+        <Link href="/edit-profile" onClick={handleLinkClick} className={itemClass('/edit-profile')}>
           <Settings size={18} className="mr-2.5" /> Thiết lập tài khoản
         </Link>
-        <Link href="/address" className={itemClass('/address')}>
+        <Link href="/address" onClick={handleLinkClick} className={itemClass('/address')}>
           <MapPin size={18} className="mr-2.5" /> Sổ địa chỉ
         </Link>
       </nav>
@@ -66,7 +72,7 @@ export default function ProfileSidebar() {
       {/* --- MENU ĐƠN HÀNG --- */}
       <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-5">Đơn hàng</div>
       <nav className="flex flex-col">
-        <Link href="/orders/list" className={itemClass('/orders/list')}>
+        <Link href="/orders/list" onClick={handleLinkClick} className={itemClass('/orders/list')}>
           <ClipboardList size={18} className="mr-2.5" /> Đơn hàng của tôi
         </Link>
       </nav>
@@ -74,19 +80,19 @@ export default function ProfileSidebar() {
       {/* --- MENU TIỆN ÍCH --- */}
       <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-5">Tiện ích</div>
       <nav className="flex flex-col">
-        <Link href="/ai-doctor/history" className={itemClass('/ai-doctor/history')}>
+        <Link href="/ai-doctor/history" onClick={handleLinkClick} className={itemClass('/ai-doctor/history')}>
           <Bot size={18} className="mr-2.5" /> Lịch sử chẩn đoán AI
         </Link>
-        <Link href="/ponds" className={itemClass('/ponds')}>
+        <Link href="/ponds" onClick={handleLinkClick} className={itemClass('/ponds')}>
           <Waves size={18} className="mr-2.5" /> Quản lý ao nuôi
         </Link>
-        <Link href="/voucher" className={itemClass('/voucher')}>
+        <Link href="/voucher" onClick={handleLinkClick} className={itemClass('/voucher')}>
           <Ticket size={18} className="mr-2.5" /> Kho Voucher
         </Link>
         
         {/* Đăng xuất */}
         <div className="border-t border-gray-100 mt-3 pt-3">
-          <Link href="/logout" className="flex items-center px-3 py-2.5 rounded-md transition-colors text-sm font-medium text-red-500 hover:bg-red-50">
+          <Link href="/logout" onClick={handleLinkClick} className="flex items-center px-3 py-2.5 rounded-md transition-colors text-sm font-medium text-red-500 hover:bg-red-50">
             <LogOut size={18} className="mr-2.5" /> Đăng xuất
           </Link>
         </div>
