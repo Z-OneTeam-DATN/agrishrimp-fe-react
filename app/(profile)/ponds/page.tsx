@@ -28,7 +28,7 @@ export default function PondManagementPage() {
         
         {/* NÚT THÊM MỚI: CHUYỂN TRANG */}
         <Link href="/ponds/create">
-          <button className="bg-[#2d9f8d] hover:bg-[#248273] text-white text-sm font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-colors shadow-sm">
+          <button className="bg-[#2d9f8d] hover:bg-[#248273] text-white text-sm font-bold px-4 h-12 rounded-md flex items-center gap-2 transition-colors shadow-sm">
             <Plus size={18} /> Thêm ao mới
           </button>
         </Link>

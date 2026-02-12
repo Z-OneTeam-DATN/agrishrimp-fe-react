@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,10 @@ interface AdminPageHeaderProps {
   addBtnLabel?: string;
   addBtnHref?: string;
   onAddClick?: () => void;
+  secondaryBtnLabel?: string;
+  secondaryBtnHref?: string;
+  secondaryBtnIcon?: LucideIcon;
+  onSecondaryClick?: () => void;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   tabs?: { id: string; label: string; count: number | null; color?: string }[];
@@ -21,6 +25,10 @@ export function AdminPageHeader({
   addBtnLabel, 
   addBtnHref,
   onAddClick,
+  secondaryBtnLabel,
+  secondaryBtnHref,
+  secondaryBtnIcon: SecondaryIcon,
+  onSecondaryClick,
   activeTab,
   onTabChange,
   tabs
@@ -51,20 +59,25 @@ export function AdminPageHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        {addBtnHref ? (
-          <Link href={addBtnHref}>
-            <Button className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-[#1f1f1f] hover:bg-[#f8f9fa] rounded-[4px] shadow-none">
-              <Plus className="mr-1 h-3 w-3 text-emerald-600" /> {addBtnLabel || "Thêm mới"}
+        {secondaryBtnLabel && (
+          secondaryBtnHref ? (
+            <Link href={secondaryBtnHref}>
+              <Button variant="outline" className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-slate-600 hover:bg-slate-50 rounded-[4px] shadow-none">
+                {SecondaryIcon && <SecondaryIcon className="mr-1.5 h-3.5 w-3.5" />} {secondaryBtnLabel}
+              </Button>
+            </Link>
+          ) : (
+            <Button 
+              variant="outline"
+              onClick={onSecondaryClick}
+              className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-slate-600 hover:bg-slate-50 rounded-[4px] shadow-none"
+            >
+              {SecondaryIcon && <SecondaryIcon className="mr-1.5 h-3.5 w-3.5" />} {secondaryBtnLabel}
             </Button>
-          </Link>
-        ) : (
-          <Button 
-            onClick={onAddClick}
-            className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-[#1f1f1f] hover:bg-[#f8f9fa] rounded-[4px] shadow-none"
-          >
-            <Plus className="mr-1 h-3 w-3 text-emerald-600" /> {addBtnLabel || "Thêm mới"}
-          </Button>
+          )
         )}
+
+
       </div>
     </div>
   );

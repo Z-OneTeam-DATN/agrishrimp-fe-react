@@ -20,7 +20,7 @@ export default function InventoryListPage() {
       />
 
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
-        <InventorySearchFilter />
+        <InventorySearchFilter type="CHECK" />
         <InventoryCheckTable checks={inventories} />
       </div>
     </div>

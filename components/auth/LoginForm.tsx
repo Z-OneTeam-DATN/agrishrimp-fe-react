@@ -198,7 +198,7 @@ export default function SignupForm() {
       {/* LOGIN LINK */}
       <div className="text-center text-sm text-gray-600 mt-4">
         Bạn đã có tài khoản?{" "}
-        <Link href="/login" className="font-bold text-[#009688] hover:underline">
+        <Link href="/signup" className="font-bold text-[#009688] hover:underline">
           Đăng ký ngay
         </Link>
       </div>

@@ -8,21 +8,23 @@ import { AdminBranchTable } from "@/components/admin/AdminBranchTable";
 const branchData = [
   { 
     id: "CN-001", 
-    name: "Chi nhánh Cần Thơ 1", 
+    name: "KHO TỔNG TRUNG TÂM", 
+    type: "Kho trung tâm",
     manager: "Nguyễn Văn An", 
     managerId: "NV-001", 
     phone: "0909 123 456", 
-    email: "cantho@agri.com", 
-    province: "Cần Thơ",
-    district: "Ninh Kiều",
-    ward: "Xuân Khánh",
-    addressDetail: "123 Đường 3/2",
+    email: "headquarter@agri.com", 
+    province: "TP. Hồ Chí Minh",
+    district: "Quận 1",
+    ward: "Bến Nghé",
+    addressDetail: "123 Lê Lợi",
     status: "Đang hoạt động", 
-    avatar: "AN" 
+    avatar: "AD" 
   },
   { 
     id: "CN-002", 
     name: "Chi nhánh Sóc Trăng", 
+    type: "Chi nhánh",
     manager: "Trần Thị Bích", 
     managerId: "NV-002", 
     phone: "0988 777 666", 
@@ -37,6 +39,7 @@ const branchData = [
   { 
     id: "CN-003", 
     name: "Chi nhánh Bạc Liêu", 
+    type: "Chi nhánh",
     manager: "Lê Văn Cường", 
     managerId: "NV-005", 
     phone: "0912 345 678", 

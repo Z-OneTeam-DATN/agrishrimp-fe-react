@@ -84,7 +84,7 @@ export default function ProfilePage() {
             <div className="flex justify-between items-center mb-4">
               <h6 className="font-bold text-gray-500 uppercase text-xs tracking-wider">Thông tin tài khoản</h6>
               <Link href="/edit-profile" className="text-[#329965] text-sm flex items-center hover:underline">
-                <Pencil size={12} className="mr-1" /> Chỉnh sửa
+                <Pencil size={16} className="mr-1" /> Chỉnh sửa
               </Link>
             </div>
 

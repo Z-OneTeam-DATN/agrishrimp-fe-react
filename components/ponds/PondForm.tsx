@@ -27,7 +27,7 @@ export default function PondForm({ initialData, onSubmit, title, isSubmitting = 
 
   // Helper class để fix lỗi nền đen và xử lý viền đỏ
   const getInputClass = (hasError: boolean) => {
-    return `w-full px-4 py-2.5 border rounded-lg text-sm outline-none transition-all 
+    return `w-full px-4 h-12 border rounded-lg text-sm outline-none transition-all 
             bg-white text-gray-900 placeholder:text-gray-400 
             ${hasError 
               ? 'border-red-500 focus:ring-2 focus:ring-red-200' 
@@ -45,10 +45,10 @@ export default function PondForm({ initialData, onSubmit, title, isSubmitting = 
         <h1 className="font-bold text-gray-800 text-lg">{title}</h1>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6 pb-20"> {/* Added pb-20 */}
         
         {/* Tên ao */}
-        <div className="space-y-1.5">
+        <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
           <label className="text-sm font-bold text-gray-700">Tên ao nuôi <span className="text-red-500">*</span></label>
           <input 
             {...form.register('name')}
@@ -59,8 +59,8 @@ export default function PondForm({ initialData, onSubmit, title, isSubmitting = 
         </div>
 
         {/* Diện tích & Độ sâu */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Changed gap-6 to gap-4 */}
+          <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
             <label className="text-sm font-bold text-gray-700">Diện tích (m²) <span className="text-red-500">*</span></label>
             <input 
               type="number" step="0.1"
@@ -70,7 +70,7 @@ export default function PondForm({ initialData, onSubmit, title, isSubmitting = 
             />
             {form.formState.errors.area && <p className="text-xs text-red-500 font-medium mt-1">{form.formState.errors.area.message}</p>}
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
             <label className="text-sm font-bold text-gray-700">Độ sâu (m) <span className="text-red-500">*</span></label>
             <input 
               type="number" step="0.1"
@@ -83,7 +83,7 @@ export default function PondForm({ initialData, onSubmit, title, isSubmitting = 
         </div>
 
         {/* Loài vật nuôi */}
-        <div className="space-y-1.5">
+        <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
           <label className="text-sm font-bold text-gray-700">Loài vật nuôi (Vụ hiện tại) <span className="text-red-500">*</span></label>
           <input 
             {...form.register('species')}
@@ -95,31 +95,33 @@ export default function PondForm({ initialData, onSubmit, title, isSubmitting = 
         </div>
 
         {/* Trạng thái */}
-        <div className="space-y-1.5">
+        <div className="space-y-2"> {/* Changed from space-y-1.5 to space-y-2 */}
           <label className="text-sm font-bold text-gray-700">Trạng thái ao</label>
           <select 
             {...form.register('status')}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2d9f8d]/20 focus:border-[#2d9f8d] text-sm bg-white text-gray-900 cursor-pointer"
+            className="w-full px-4 h-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2d9f8d]/20 focus:border-[#2d9f8d] text-sm bg-white text-gray-900 cursor-pointer"
           >
             <option value="ACTIVE">Đang nuôi</option>
             <option value="INACTIVE">Ao trống / Ngưng nuôi</option>
           </select>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <Link href="/ponds">
-            <button type="button" className="px-5 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-              Hủy bỏ
+        {/* Sticky Footer Actions */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:relative lg:p-0 lg:bg-transparent lg:shadow-none z-10">
+          <div className="flex gap-3">
+            <Link href="/ponds" className="flex-1">
+              <button type="button" className="w-full h-12 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                Hủy bỏ
+              </button>
+            </Link>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="flex-1 h-12 text-sm font-bold text-white bg-[#2d9f8d] hover:bg-[#248273] rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              <Save size={18} /> {isSubmitting ? 'Đang lưu...' : 'Lưu thông tin'}
             </button>
-          </Link>
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="px-6 py-2.5 text-sm font-bold text-white bg-[#2d9f8d] hover:bg-[#248273] rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70"
-          >
-            <Save size={18} /> {isSubmitting ? 'Đang lưu...' : 'Lưu thông tin'}
-          </button>
+          </div>
         </div>
 
       </form>

@@ -6,9 +6,9 @@ import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminCustomerTable } from "@/components/admin/AdminCustomerTable";
 
 const customerData = [
-  { id: "KH-001", name: "Nguyễn Văn Đại", type: "Chủ ao", location: "Bạc Liêu", phone: "0901 222 333", totalOrders: 12, status: "Hoạt động" },
-  { id: "KH-002", name: "Lê Thị Hồng", type: "Đại lý", location: "Cà Mau", phone: "0988 444 555", totalOrders: 45, status: "Hoạt động" },
-  { id: "KH-003", name: "Trần Hữu Lộc", type: "Chủ ao", location: "Sóc Trăng", phone: "0912 999 888", totalOrders: 5, status: "Tạm khóa" },
+  { id: "KH-001", name: "Nguyễn Văn Đại", type: "Chủ ao", location: "Bạc Liêu", phone: "0901 222 333", totalSpent: "125.000.000", totalOrders: 12, status: "Hoạt động" },
+  { id: "KH-002", name: "Lê Thị Hồng", type: "Đại lý", location: "Cà Mau", phone: "0988 444 555", totalSpent: "450.000.000", totalOrders: 45, status: "Hoạt động" },
+  { id: "KH-003", name: "Trần Hữu Lộc", type: "Chủ ao", location: "Sóc Trăng", phone: "0912 999 888", totalSpent: "45.000.000", totalOrders: 5, status: "Tạm khóa" },
 ];
 
 const customerTypeFilters = [
@@ -27,7 +27,7 @@ export default function CustomerManagementPage() {
   return (
     <div className="space-y-3">
       <AdminPageHeader 
-        title="Quản lý đối tác & Khách hàng" 
+        title="Quản lý danh sách khách hàng" 
         addBtnLabel="Thêm khách hàng"
         addBtnHref="/admin/customers/add"
       />

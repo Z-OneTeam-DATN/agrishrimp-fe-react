@@ -62,7 +62,7 @@ export default function VoucherWalletPage() {
         
         {/* NÚT CHUYỂN TRANG */}
         <Link href="/voucher/create">
-          <button className="bg-[#2d9f8d] hover:bg-[#248273] text-white text-sm font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-colors shadow-sm">
+          <button className="bg-[#2d9f8d] hover:bg-[#248273] text-white text-sm font-bold px-4 h-12 rounded-md flex items-center gap-2 transition-colors shadow-sm">
             <Ticket size={18} /> Nhập mã Voucher
           </button>
         </Link>

@@ -41,39 +41,39 @@ export function ChangePasswordForm({ onCancel, onSuccess }: ChangePasswordFormPr
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6"> {/* Changed from space-y-4 to space-y-6 */}
       {/* Mật khẩu hiện tại */}
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu hiện tại</label>
+        <label className="block text-sm font-bold text-gray-700 mb-2">Mật khẩu hiện tại</label> {/* Changed mb-1 to mb-2 */}
         <input 
           {...register('currentPassword')}
           type="password" 
           placeholder="Nhập mật khẩu cũ..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900"
+          className="w-full px-4 h-12 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900" // Changed px-3 py-2 to px-4 h-12
         />
         {errors.currentPassword && <span className="text-xs text-red-500 mt-1 block">{errors.currentPassword.message}</span>}
       </div>
 
       {/* Mật khẩu mới */}
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu mới</label>
+        <label className="block text-sm font-bold text-gray-700 mb-2">Mật khẩu mới</label> {/* Changed mb-1 to mb-2 */}
         <input 
           {...register('newPassword')}
           type="password" 
           placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900"
+          className="w-full px-4 h-12 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900" // Changed px-3 py-2 to px-4 h-12
         />
         {errors.newPassword && <span className="text-xs text-red-500 mt-1 block">{errors.newPassword.message}</span>}
       </div>
 
       {/* Nhập lại mật khẩu mới */}
       <div>
-        <label className="block text-sm font-bold text-gray-700 mb-1">Nhập lại mật khẩu mới</label>
+        <label className="block text-sm font-bold text-gray-700 mb-2">Nhập lại mật khẩu mới</label> {/* Changed mb-1 to mb-2 */}
         <input 
           {...register('confirmPassword')}
           type="password" 
           placeholder="Xác nhận lại mật khẩu mới"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900"
+          className="w-full px-4 h-12 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#329965] !bg-white !text-gray-900" // Changed px-3 py-2 to px-4 h-12
         />
         {errors.confirmPassword && <span className="text-xs text-red-500 mt-1 block">{errors.confirmPassword.message}</span>}
       </div>
@@ -84,14 +84,14 @@ export function ChangePasswordForm({ onCancel, onSuccess }: ChangePasswordFormPr
           type="button" 
           onClick={onCancel} 
           disabled={isSubmitting}
-          className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors font-medium"
+          className="px-4 h-12 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors font-medium" // Changed py-2 to h-12
         >
           Hủy
         </button>
         <button 
           type="submit" 
           disabled={isSubmitting}
-          className="px-4 py-2 text-sm text-white bg-[#329965] rounded-md font-bold hover:bg-[#268050] transition-colors disabled:opacity-70 flex items-center gap-2"
+          className="px-4 h-12 text-sm text-white bg-[#329965] rounded-md font-bold hover:bg-[#268050] transition-colors disabled:opacity-70 flex items-center gap-2" // Changed py-2 to h-12
         >
           {isSubmitting ? (
             <>

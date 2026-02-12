@@ -41,7 +41,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
           <span className="font-bold text-gray-800">Yêu cầu hoàn tiền #{id}</span>
         </nav>
 
-        <form onSubmit={(e) => { e.preventDefault(); toast.success('Gửi yêu cầu thành công!'); router.push('/orders/return'); }}>
+        <form onSubmit={(e) => { e.preventDefault(); toast.success('Gửi yêu cầu thành công!'); router.push('/orders/return'); }} className="pb-20"> {/* Added pb-20 */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               
@@ -62,7 +62,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                 <div className="flex items-center gap-2 mb-4 font-bold text-gray-800"><AlertCircle className="text-orange-500" size={20} /> 2. Chi tiết lý do</div>
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Lý do hoàn trả <span className="text-red-500">*</span></label>
-                  <select className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#2d9f8d]">
+                  <select className="w-full h-12 px-4 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#2d9f8d]"> {/* Changed p-2.5 to h-12 px-4 */}
                     <option value="">Vui lòng chọn lý do phù hợp</option>
                     <option>Sản phẩm bị lỗi kỹ thuật / hỏng hóc</option>
                     <option>Giao sai sản phẩm / thiếu hàng</option>
@@ -70,7 +70,7 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Mô tả tình trạng chi tiết</label>
-                  <textarea rows={5} className="w-full p-3 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#2d9f8d]" placeholder="Mô tả cụ thể vấn đề..."></textarea>
+                  <textarea rows={4} className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#2d9f8d]" placeholder="Mô tả cụ thể vấn đề..."></textarea> {/* Changed p-3 to px-4 py-3, rows from 5 to 4 */}
                 </div>
               </div>
             </div>
@@ -93,7 +93,10 @@ export default function ReturnRequestPage({ params }: { params: Promise<{ id: st
                     ))}
                   </div>
                 )}
-                <button type="submit" className="w-full bg-[#2d9f8d] hover:bg-[#248273] text-white font-bold py-3 rounded-lg shadow-md mt-4 transition-colors uppercase text-sm">GỬI YÊU CẦU</button>
+                {/* Sticky Submit Button for mobile */}
+                <div className="lg:static fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:p-0 lg:bg-transparent lg:shadow-none z-10 mt-4 lg:mt-0"> {/* Added wrapper for sticky button */}
+                  <button type="submit" className="w-full bg-[#2d9f8d] hover:bg-[#248273] text-white font-bold h-12 rounded-lg shadow-md transition-colors uppercase text-sm">GỬI YÊU CẦU</button> {/* Changed py-3 to h-12 */}
+                </div>
               </div>
             </div>
           </div>

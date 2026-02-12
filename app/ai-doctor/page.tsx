@@ -50,7 +50,7 @@ export default function AiDoctorChatPage() {
           </div>
         </div>
 
-        <button className="text-white">
+        <button className="text-white" suppressHydrationWarning={true}>
           <MoreVertical size={24} />
         </button>
       </div>
@@ -108,7 +108,7 @@ export default function AiDoctorChatPage() {
                 </div>
               </div>
               <div className="p-3 bg-white border-t border-gray-100">
-                <Link href="/ai-doctor/result" className="bg-[#376E60] text-white text-[13px] font-bold py-2.5 rounded-lg w-full flex justify-center items-center gap-1 uppercase">
+                <Link href="/ai-doctor/result" className="bg-[#376E60] text-white text-[13px] font-bold h-12 rounded-lg w-full flex justify-center items-center gap-1 uppercase">
                   Xem phác đồ <ArrowRight size={16} />
                 </Link>
               </div>
@@ -123,7 +123,7 @@ export default function AiDoctorChatPage() {
       <div className="bg-white px-4 py-3 border-t border-gray-200 flex items-center gap-3 shrink-0">
         <button className="text-[#376E60]"><PlusCircle size={26} /></button>
         <button className="text-[#376E60]"><ImageIcon size={26} /></button>
-        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 py-2">
+        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-4 h-12 flex items-center"> {/* Added flex items-center and h-12 */}
           <input type="text" placeholder="Nhập tin nhắn..." className="w-full bg-transparent outline-none text-sm text-gray-800" />
         </div>
         <button className="text-[#376E60]"><Send size={26} /></button>

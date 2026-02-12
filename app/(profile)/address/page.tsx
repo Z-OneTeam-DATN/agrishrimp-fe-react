@@ -18,7 +18,7 @@ export default function AddressListPage() {
             
             {/* NÚT THÊM MỚI: CHUYỂN TRANG */}
             <Link href="/address/create">
-                <button className="bg-[#329965] hover:bg-[#268050] text-white px-4 py-2 rounded-md text-sm font-bold flex items-center transition-colors shadow-sm">
+                <button className="bg-[#329965] hover:bg-[#268050] text-white px-4 h-12 rounded-md text-sm font-bold flex items-center transition-colors shadow-sm">
                     <Plus size={18} className="mr-1" /> Thêm địa chỉ mới
                 </button>
             </Link>
@@ -41,7 +41,7 @@ export default function AddressListPage() {
                         )}
                     </div>
 
-                    <div className="flex flex-col items-end gap-2 min-w-[140px]">
+                    <div className="flex flex-col items-end gap-4 min-w-[140px]">
                         <div className="flex items-center gap-3 text-sm">
                             {/* NÚT SỬA: CHUYỂN TRANG */}
                             <Link href={`/address/${addr.id}`} className="text-blue-600 hover:text-blue-800 font-medium hover:underline">
@@ -52,7 +52,7 @@ export default function AddressListPage() {
                             )}
                         </div>
                         <button 
-                            className={`text-xs border px-3 py-1.5 rounded transition-colors ${addr.isDefault 
+                            className={`text-sm border px-4 h-12 rounded transition-colors ${addr.isDefault 
                                 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' 
                                 : 'bg-white text-gray-600 border-gray-300 hover:border-[#329965] hover:text-[#329965]'}`}
                             disabled={addr.isDefault}

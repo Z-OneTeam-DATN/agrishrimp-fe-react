@@ -11,7 +11,11 @@ import {
   Plus, 
   Trash2, 
   Keyboard,
-  Paperclip
+  Search,
+  Download,
+  Filter,
+  Info,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,14 +41,15 @@ import { cn } from "@/lib/utils";
 
 export default function NewReceiptPage() {
   const router = useRouter();
-  const [showNote, setShowNote] = useState(false);
-  const [sourceType, setSourceType] = useState<"SUPPLIER" | "BRANCH">("SUPPLIER");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<Receipt>({
     resolver: zodResolver(ReceiptSchema),
@@ -54,14 +59,16 @@ export default function NewReceiptPage() {
       supplierCode: "",
       supplierName: "",
       receiptCode: "PNK" + Date.now().toString().slice(-6),
-      warehouseId: "",
-      branchName: "Chi nhánh Cà Mau",
-      deliverer: "",
-      entryDate: new Date().toISOString().slice(0, 16),
-      referenceCode: "",
+      warehouseId: "HH",
+      branchName: "Chi nhánh mặc định",
+      importStatus: "IMPORTED",
+      deliverer: "Nhiên Lê",
+      entryDate: new Date().toISOString().slice(0, 10),
+      referenceCode: "REF-" + Date.now().toString().slice(-4),
       description: "",
-      items: [{ productCode: "", productName: "", unit: "", plannedQuantity: 1 }],
-      note: ""
+      items: [],
+      note: "",
+      paymentAmount: 0,
     },
   });
 
@@ -70,340 +77,396 @@ export default function NewReceiptPage() {
     name: "items",
   });
 
+  const watchItems = watch("items");
+  const watchPaymentAmount = watch("paymentAmount") || 0;
+
+  const calculateTotals = () => {
+    const totalQty = watchItems.reduce((acc, item) => acc + (item.plannedQuantity || 0), 0);
+    const subTotal = watchItems.reduce((acc, item) => {
+      const amount = (item.plannedQuantity || 0) * (item.importPrice || 0);
+      const discount = (item.discount || 0) / 100 * amount;
+      return acc + (amount - discount);
+    }, 0);
+    return { totalQty, subTotal };
+  };
+
+  const { totalQty, subTotal } = calculateTotals();
+  const debtAmount = Math.max(0, subTotal - watchPaymentAmount);
+
   const onSubmit = (data: Receipt) => {
-    console.log("Saving receipt:", { ...data, sourceType });
-    toast.success(`Lập phiếu nhập từ ${sourceType === "SUPPLIER" ? "Nhà cung cấp" : "Chi nhánh"} thành công`);
+    console.log("Saving receipt:", data);
+    toast.success("Lập phiếu nhập thành công");
     router.push("/inventory/receipts");
   };
 
-  const suppliers = [
-    { code: "NCC001", name: "GROBEST VIỆT NAM" },
-    { code: "NCC002", name: "C.P. VIỆT NAM" },
-    { code: "NCC003", name: "CÔNG TY THỦY SẢN TOÀN CẦU" },
-  ];
-
-  const branches = [
-    { code: "CN_HCM", name: "Chi nhánh Hồ Chí Minh" },
-    { code: "CN_HN", name: "Chi nhánh Hà Nội" },
-  ];
+  const addTag = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && tagInput.trim()) {
+      e.preventDefault();
+      if (!tags.includes(tagInput.trim())) {
+        setTags([...tags, tagInput.trim()]);
+      }
+      setTagInput("");
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 pb-[80px]">
-      {/* Page Header */}
-      <div className="flex items-center gap-[15px] mb-[10px]">
-        <h1 className="text-[18px] font-bold text-[#1f1f1f]">Phiếu nhập kho mới</h1>
-        
-        <div className="flex flex-col">
-          <Controller
-            name="receiptType"
-            control={control}
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} value={field.value} key={field.value}>
-                <SelectTrigger className={`w-[200px] h-[32px] text-[13px] font-semibold border-[#ccc] rounded-[4px] focus:ring-0 ${errors.receiptType ? 'border-red-500' : ''}`}>
-                  <SelectValue placeholder="-- Loại phiếu --" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NHAP_MUA">Nhập kho mua hàng</SelectItem>
-                  <SelectItem value="NHAP_TP">Nhập kho thành phẩm</SelectItem>
-                  <SelectItem value="NHAP_KHAC">Nhập kho khác</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 bg-[#f4f6f8] min-h-screen p-4 pb-[100px]">
+      {/* Top Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Supplier Info */}
+        <div className="bg-white p-4 rounded-md shadow-sm border border-slate-200">
+          <h2 className="text-[14px] font-bold text-slate-700 mb-4">Thông tin nhà cung cấp</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <Input 
+              placeholder="Tìm theo tên, SĐT, mã nhà cung cấp... (F4)"
+              className="pl-10 h-10 border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-500"
+            />
+          </div>
+          <div className="mt-8 flex flex-col items-center justify-center py-4 text-slate-400 border-2 border-dashed border-slate-100 rounded-md">
+            <Info size={32} className="opacity-20 mb-2" />
+            <p className="text-[13px]">Chưa có thông tin nhà cung cấp</p>
+          </div>
         </div>
-        
-        <div className="ms-auto flex items-center gap-4 text-gray-400">
-          <span title="Phím tắt" className="cursor-pointer hover:text-gray-600">
-            <Keyboard size={20} />
-          </span>
-          <span title="Cài đặt" className="cursor-pointer hover:text-gray-600">
-            <Settings size={20} />
-          </span>
-          <span title="Giúp đỡ" className="cursor-pointer hover:text-gray-600">
-            <HelpCircle size={20} />
-          </span>
-          <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-gray-400">
-            <X size={20} />
-          </Button>
-        </div>
-      </div>
 
-      {/* Source Selection Tags */}
-      <div className="flex gap-2 mb-2">
-        <button
-          type="button"
-          onClick={() => setSourceType("SUPPLIER")}
-          className={cn(
-            "px-4 py-1.5 text-[12px] font-bold rounded-t-lg border-t border-x transition-all",
-            sourceType === "SUPPLIER" 
-              ? "bg-white border-[#dcdcdc] text-blue-600 -mb-[1px] z-10" 
-              : "bg-slate-50 border-transparent text-slate-400 hover:text-slate-600"
-          )}
-        >
-          Nhập từ Nhà cung cấp
-        </button>
-        <button
-          type="button"
-          onClick={() => setSourceType("BRANCH")}
-          className={cn(
-            "px-4 py-1.5 text-[12px] font-bold rounded-t-lg border-t border-x transition-all",
-            sourceType === "BRANCH" 
-              ? "bg-white border-[#dcdcdc] text-indigo-600 -mb-[1px] z-10" 
-              : "bg-slate-50 border-transparent text-slate-400 hover:text-slate-600"
-          )}
-        >
-          Nhập từ Chi nhánh
-        </button>
-      </div>
+        {/* Receipt Info */}
+        <div className="bg-white p-4 rounded-md shadow-sm border border-slate-200">
+          <h2 className="text-[14px] font-bold text-slate-700 mb-4">Thông tin đơn nhập hàng</h2>
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 items-center gap-4">
+              <Label className="text-[13px] text-slate-600">Nhập vào Kho</Label>
+              <div className="col-span-2">
+                <Controller
+                  name="branchName"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-9 text-[13px] border-slate-200">
+                        <SelectValue placeholder="Chọn kho nhập" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Chi nhánh mặc định">KHO TỔNG (TRỤ SỞ)</SelectItem>
+                        <SelectItem value="Kho Sóc Trăng">Kho Sóc Trăng</SelectItem>
+                        <SelectItem value="Kho Bạc Liêu">Kho Bạc Liêu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
 
-      {/* Info Card */}
-      <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] rounded-tl-none shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-3">
-          
-          <div className="md:col-span-2 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-[#555]">
-              {sourceType === "SUPPLIER" ? "Mã nhà cung cấp" : "Mã chi nhánh"} <span className="text-red-500">*</span>
-            </Label>
-            <div className="flex gap-0">
-              <Controller
-                name="supplierCode"
-                control={control}
-                render={({ field }) => (
-                  <Select 
-                    onValueChange={(val) => {
-                      field.onChange(val);
-                      const list = sourceType === "SUPPLIER" ? suppliers : branches;
-                      const found = list.find(x => x.code === val);
-                      if (found) setValue("supplierName", found.name);
-                    }} 
-                    value={field.value} 
-                    key={field.value}
-                  >
-                    <SelectTrigger className={`h-[32px] text-[13px] border-[#ccc] rounded-r-none rounded-l-[4px] focus:ring-0 ${errors.supplierCode ? 'border-red-500 bg-red-50' : ''}`}>
-                      <SelectValue placeholder={sourceType === "SUPPLIER" ? "-- NCC --" : "-- CN --"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(sourceType === "SUPPLIER" ? suppliers : branches).map(s => (
-                        <SelectItem key={s.code} value={s.code}>{s.code}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+            <div className="grid grid-cols-3 items-center gap-4">
+              <Label className="text-[13px] text-slate-600">Nhân viên</Label>
+              <div className="col-span-2">
+                <Controller
+                  name="deliverer"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-9 text-[13px] border-slate-200">
+                        <SelectValue placeholder="Chọn nhân viên" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Nhiên Lê">Nhiên Lê</SelectItem>
+                        <SelectItem value="Admin">Quản trị viên</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 items-center gap-4">
+              <Label className="text-[13px] text-slate-600">Trạng thái nhập</Label>
+              <div className="col-span-2">
+                <Controller
+                  name="importStatus"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-9 text-[13px] border-slate-200">
+                        <SelectValue placeholder="Chọn trạng thái" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="IMPORTED">Đã nhập kho</SelectItem>
+                        <SelectItem value="PO">Đặt hàng - PO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 items-center gap-4">
+              <Label className="text-[13px] text-slate-600">Ngày hẹn giao</Label>
+              <Input 
+                type="date"
+                {...register("entryDate")}
+                className="col-span-2 h-9 text-[13px] border-slate-200"
               />
-              <Button type="button" variant="outline" size="icon" className="h-[32px] w-[32px] border-[#ccc] border-l-0 rounded-l-none rounded-r-[4px] bg-[#f0f0f0]"><Plus size={14}/></Button>
             </div>
-            {errors.supplierCode && <p className="text-[11px] text-red-500">{errors.supplierCode.message}</p>}
           </div>
-
-          <div className="md:col-span-7 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-[#555]">
-              {sourceType === "SUPPLIER" ? "Tên đối tượng giao hàng" : "Tên chi nhánh xuất hàng"} <span className="text-red-500">*</span>
-            </Label>
-            <Input 
-              {...register("supplierName")}
-              readOnly
-              className={`h-[32px] text-[13px] bg-[#f8f9fa] text-[#6c757d] border-[#ccc] rounded-[4px] focus-visible:ring-0 ${errors.supplierName ? 'border-red-500' : ''}`} 
-            />
-            {errors.supplierName && <p className="text-[11px] text-red-500">{errors.supplierName.message}</p>}
-          </div>
-
-          <div className="md:col-span-3 border-l border-[#eee] ps-4 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-red-600">Số phiếu nhập kho</Label>
-            <Input 
-              {...register("receiptCode")}
-              className="h-[32px] text-[13px] font-bold border-[#ccc] rounded-[4px] focus-visible:ring-1 focus-visible:ring-[#007bff]" 
-            />
-          </div>
-
-          <div className="md:col-span-2 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-red-600">Kho nhập <span className="text-red-500">*</span></Label>
-            <Controller
-              name="warehouseId"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} key={field.value}>
-                  <SelectTrigger className={`h-[32px] text-[13px] border-[#ccc] rounded-[4px] focus:ring-0 ${errors.warehouseId ? 'border-red-500' : ''}`}>
-                    <SelectValue placeholder="-- Chọn kho --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="HH">HH (Kho hàng hóa)</SelectItem>
-                    <SelectItem value="KL">KL (Kho lạnh)</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.warehouseId && <p className="text-[11px] text-red-500">{errors.warehouseId.message}</p>}
-          </div>
-
-          <div className="md:col-span-3 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-[#555]">Chi nhánh <span className="text-red-500">*</span></Label>
-            <Controller
-              name="branchName"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} key={field.value}>
-                  <SelectTrigger className={`h-[32px] text-[13px] border-[#ccc] rounded-[4px] focus:ring-0 ${errors.branchName ? 'border-red-500' : ''}`}>
-                    <SelectValue placeholder="-- Chọn chi nhánh --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CN1">Cửa hàng Cầu Giấy</SelectItem>
-                    <SelectItem value="CN2">Chi nhánh Hồ Chí Minh</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.branchName && <p className="text-[11px] text-red-500">{errors.branchName.message}</p>}
-          </div>
-
-          <div className="md:col-span-4 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-[#555]">Người giao <span className="text-red-500">*</span></Label>
-            <Input 
-              {...register("deliverer")}
-              className={`h-[32px] text-[13px] border-[#ccc] rounded-[4px] focus-visible:ring-1 focus-visible:ring-[#007bff] ${errors.deliverer ? 'border-red-500' : ''}`} 
-            />
-            {errors.deliverer && <p className="text-[11px] text-red-500">{errors.deliverer.message}</p>}
-          </div>
-
-          <div className="md:col-span-3 border-l border-[#eee] ps-4 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-red-600">Ngày nhập kho <span className="text-red-500">*</span></Label>
-            <Input 
-              type="datetime-local"
-              {...register("entryDate")}
-              className={`h-[32px] text-[13px] border-[#ccc] rounded-[4px] focus-visible:ring-1 focus-visible:ring-[#007bff] ${errors.entryDate ? 'border-red-500' : ''}`} 
-            />
-            {errors.entryDate && <p className="text-[11px] text-red-500">{errors.entryDate.message}</p>}
-          </div>
-
-          <div className="md:col-span-2 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-[#555]">Tham chiếu <span className="text-red-500">*</span></Label>
-            <Input 
-              {...register("referenceCode")}
-              className={`h-[32px] text-[13px] border-[#ccc] rounded-[4px] focus-visible:ring-1 focus-visible:ring-[#007bff] ${errors.referenceCode ? 'border-red-500' : ''}`} 
-            />
-            {errors.referenceCode && <p className="text-[11px] text-red-500">{errors.referenceCode.message}</p>}
-          </div>
-
-          <div className="md:col-span-10 space-y-[2px]">
-            <Label className="text-[12px] font-bold text-[#555]">Diễn giải <span className="text-red-500">*</span></Label>
-            <Input 
-              {...register("description")}
-              placeholder="Nhập lý do nhập kho..."
-              className={`h-[32px] text-[13px] border-[#ccc] rounded-[4px] focus-visible:ring-1 focus-visible:ring-[#007bff] ${errors.description ? 'border-red-500' : ''}`} 
-            />
-            {errors.description && <p className="text-[11px] text-red-500">{errors.description.message}</p>}
-          </div>
-
         </div>
       </div>
 
-      {/* Items Table */}
-      <div className="border border-[#dcdcdc] rounded-[4px] overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] min-h-[300px]">
-        <div className="px-[15px] py-[10px] border-b border-[#eee] bg-white font-bold text-[13px] text-[#1f1f1f]">Hàng hóa</div>
-        <Table className="table-custom">
-          <TableHeader>
-            <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-              <TableHead className="w-[50px] text-center p-[10px] font-bold text-[12px] text-[#1f1f1f] uppercase">#</TableHead>
-              <TableHead className="w-[150px] p-[10px] font-bold text-[12px] text-[#1f1f1f] uppercase">Mã hàng</TableHead>
-              <TableHead className="p-[10px] font-bold text-[12px] text-[#1f1f1f] uppercase">Tên hàng</TableHead>
-              <TableHead className="w-[100px] p-[10px] font-bold text-[12px] text-[#1f1f1f] uppercase">ĐVT</TableHead>
-              <TableHead className="w-[120px] text-right p-[10px] font-bold text-[12px] text-[#1f1f1f] uppercase">SL Kế hoạch</TableHead>
-              <TableHead className="w-[150px] p-[10px] font-bold text-[12px] text-[#1f1f1f] uppercase">Số lô</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {fields.map((field, index) => (
-              <TableRow key={field.id} className="border-b border-[#eee] hover:bg-[#f0f8ff]">
-                <TableCell className="text-center text-gray-400 p-[4px]">{index + 1}</TableCell>
-                <TableCell className="p-[4px]">
-                  <Input 
-                    {...register(`items.${index}.productCode` as const)} 
-                    className="h-7 text-[13px] border-none focus-visible:ring-1 focus-visible:ring-[#007bff] bg-transparent"
-                  />
-                </TableCell>
-                <TableCell className="p-[4px]">
-                  <Input 
-                    {...register(`items.${index}.productName` as const)} 
-                    className="h-7 text-[13px] border-none focus-visible:ring-1 focus-visible:ring-[#007bff] bg-transparent"
-                  />
-                </TableCell>
-                <TableCell className="p-[4px]">
-                  <Input 
-                    {...register(`items.${index}.unit` as const)} 
-                    className="h-7 text-[13px] border-none focus-visible:ring-1 focus-visible:ring-[#007bff] bg-transparent"
-                  />
-                </TableCell>
-                <TableCell className="p-[4px]">
-                   <Input 
-                    type="number"
-                    {...register(`items.${index}.plannedQuantity` as const)} 
-                    className="h-7 text-[13px] text-right border-none focus-visible:ring-1 focus-visible:ring-[#007bff] bg-transparent font-bold text-[#1f1f1f]" 
-                   />
-                </TableCell>
-                <TableCell className="p-[4px]">
-                   <Input 
-                    {...register(`items.${index}.lotNumber` as const)} 
-                    className="h-7 text-[13px] border-none focus-visible:ring-1 focus-visible:ring-[#007bff] bg-transparent" 
-                   />
-                </TableCell>
-                <TableCell className="p-[4px]">
-                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="h-7 w-7 text-gray-400 hover:text-red-600">
-                    <Trash2 size={14} />
-                  </Button>
-                </TableCell>
+      {/* Product Search & Table */}
+      <div className="bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-100">
+          <h2 className="text-[14px] font-bold text-slate-700 mb-4">Thông tin sản phẩm</h2>
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[300px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <Input 
+                placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
+                className="pl-10 h-10 border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    append({ 
+                      productCode: "SP00" + (fields.length + 1), 
+                      productName: "Sản phẩm mới " + (fields.length + 1), 
+                      unit: "Chai", 
+                      plannedQuantity: 1, 
+                      lotNumber: "LOT-" + Date.now().toString().slice(-4),
+                      expiryDate: "2026-12-31",
+                      importPrice: 100000,
+                      newSellingPrice: 120000,
+                      discount: 0
+                    });
+                  }
+                }}
+              />
+            </div>
+            <Button type="button" variant="outline" className="h-10 text-[13px] border-slate-200">Chọn nhiều</Button>
+            <Button type="button" variant="outline" className="h-10 text-[13px] border-slate-200"><Filter size={16} className="mr-1"/> (F10)</Button>
+            <Select defaultValue="importPrice">
+              <SelectTrigger className="h-10 w-[120px] text-[13px] border-slate-200">
+                <SelectValue placeholder="Giá nhập" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="importPrice">Giá nhập</SelectItem>
+                <SelectItem value="lastImportPrice">Giá nhập cuối</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="outline" className="h-10 text-[13px] border-slate-200 bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100">
+              <Download size={16} className="mr-1"/> Import Excel
+            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
+                <input type="checkbox" className="rounded border-slate-300" />
+                Tách dòng
+              </label>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-slate-400"><Settings size={18}/></Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto min-h-[300px]">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-100">
+                <TableHead className="w-[50px] text-center text-[11px] font-bold text-slate-500 uppercase">STT</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 uppercase">Sản phẩm</TableHead>
+                <TableHead className="w-[80px] text-[11px] font-bold text-slate-500 uppercase">ĐVT</TableHead>
+                <TableHead className="w-[120px] text-[11px] font-bold text-slate-500 uppercase">Số lô</TableHead>
+                <TableHead className="w-[120px] text-[11px] font-bold text-slate-500 uppercase">Hạn dùng</TableHead>
+                <TableHead className="w-[100px] text-right text-[11px] font-bold text-slate-500 uppercase">SL nhập</TableHead>
+                <TableHead className="w-[120px] text-right text-[11px] font-bold text-slate-500 uppercase">Giá nhập</TableHead>
+                <TableHead className="w-[120px] text-right text-[11px] font-bold text-slate-500 uppercase">Giá bán mới</TableHead>
+                <TableHead className="w-[120px] text-right text-[11px] font-bold text-slate-500 uppercase">Thành tiền</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {errors.items?.message && <p className="text-[11px] text-red-500 p-2">{errors.items.message}</p>}
+            </TableHeader>
+            <TableBody>
+              {fields.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="h-[200px] text-center">
+                    <div className="flex flex-col items-center justify-center text-slate-400">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <Info size={32} className="opacity-20" />
+                      </div>
+                      <p className="text-[13px]">Đơn hàng nhập của bạn chưa có sản phẩm nào</p>
+                      <Button type="button" variant="outline" onClick={() => append({ 
+                        productCode: "SP001", productName: "Sản phẩm mẫu", unit: "Chai", plannedQuantity: 1, lotNumber: "LOT001", expiryDate: "2026-12-31", importPrice: 100000, discount: 0 
+                      })} className="mt-4 text-blue-600 border-blue-200">Thêm sản phẩm</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                fields.map((field, index) => {
+                  const item = watchItems[index];
+                  const amount = (item?.plannedQuantity || 0) * (item?.importPrice || 0);
+                  const discount = (item?.discount || 0) / 100 * amount;
+                  const finalAmount = amount - discount;
+
+                  return (
+                    <TableRow key={field.id} className="hover:bg-blue-50/30 border-b border-slate-50 last:border-0 transition-colors">
+                      <TableCell className="text-center text-[13px] text-slate-500">{index + 1}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-100 rounded border border-slate-200 flex-shrink-0" />
+                          <div className="flex flex-col">
+                            <span className="text-[13px] font-bold text-slate-900">{item?.productName}</span>
+                            <span className="text-[11px] text-slate-500">{item?.productCode}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input {...register(`items.${index}.unit`)} className="h-8 text-[13px] border-none shadow-none focus-visible:ring-0 px-0" />
+                      </TableCell>
+                      <TableCell>
+                        <Input {...register(`items.${index}.lotNumber`)} className="h-8 text-[13px] border-slate-200 px-2" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="date" {...register(`items.${index}.expiryDate`)} className="h-8 text-[13px] border-slate-200 px-2" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" {...register(`items.${index}.plannedQuantity`)} className="h-8 text-[13px] text-right border-slate-200 px-2 font-bold" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" {...register(`items.${index}.importPrice`)} className="h-8 text-[13px] text-right border-slate-200 px-2" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" {...register(`items.${index}.newSellingPrice`)} className="h-8 text-[13px] text-right border-slate-200 px-2 text-blue-600" />
+                      </TableCell>
+                      <TableCell className="text-right text-[13px] font-bold text-slate-900">
+                        {finalAmount.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="h-8 w-8 text-slate-300 hover:text-rose-600">
+                          <Trash2 size={16} />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
-      <div className="flex justify-between items-start mt-2 px-1">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => append({ productCode: "", productName: "", unit: "", plannedQuantity: 1, actualQuantity: 0, damagedQuantity: 0, lotNumber: "" })}
-              className="h-[28px] text-[12px] font-bold text-[#007bff] bg-white border-[#ddd] px-3 rounded-[3px] flex gap-1 items-center hover:bg-[#007bff] hover:text-white transition-colors"
-            >
-              <Plus size={14} /> Thêm dòng
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => remove()}
-              className="h-[28px] text-[12px] font-bold text-red-600 bg-white border-[#ddd] px-3 rounded-[3px] flex gap-1 items-center hover:bg-red-600 hover:text-white transition-colors"
-            >
-              <Trash2 size={14} /> Xóa hết dòng
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setShowNote(!showNote)}
-              className="h-[28px] text-[12px] font-bold text-gray-600 bg-white border-[#ddd] px-3 rounded-[3px] flex gap-1 items-center"
-            >
-              <Paperclip size={14} /> Thêm ghi chú
-            </Button>
+      {/* Bottom Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-4">
+        {/* Notes & Tags */}
+        <div className="md:col-span-4 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-[13px] font-bold text-slate-700">Ghi chú đơn</Label>
+            <textarea 
+              {...register("note")}
+              placeholder="VD: Hàng tặng gói riêng"
+              className="w-full min-h-[80px] p-3 text-[13px] border border-slate-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            ></textarea>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[13px] font-bold text-slate-700">Tags</Label>
+            <div className="min-h-[40px] p-2 border border-slate-200 rounded-md bg-white flex flex-wrap gap-2">
+              {tags.map(tag => (
+                <span key={tag} className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[12px]">
+                  {tag}
+                  <X size={12} className="cursor-pointer" onClick={() => setTags(tags.filter(t => t !== tag))} />
+                </span>
+              ))}
+              <input 
+                type="text" 
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={addTag}
+                placeholder="Nhập ký tự và ấn enter"
+                className="flex-1 min-w-[100px] border-none text-[13px] focus:ring-0 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Totals & Payment */}
+        <div className="md:col-span-4 md:col-start-9 space-y-3">
+          <div className="flex justify-between items-center text-[13px]">
+            <span className="text-slate-500">Số lượng</span>
+            <span className="font-bold">{totalQty}</span>
+          </div>
+          <div className="flex justify-between items-center text-[13px]">
+            <span className="text-slate-500">Tổng tiền</span>
+            <span className="font-bold">{subTotal.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center text-[13px] text-blue-600 cursor-pointer hover:underline">
+            <span>Chiết khấu (F6)</span>
+            <span className="font-bold">0</span>
           </div>
           
-          {showNote && (
-            <div className="mt-2 w-[500px]">
-              <Input {...register("note")} placeholder="Nhập ghi chú..." className="h-8 text-[13px] border-[#ddd] rounded-[4px]" />
+          <div className="pt-2">
+            <p className="text-[13px] font-bold text-slate-700 mb-2">Chi phí nhập hàng</p>
+            <Button type="button" variant="ghost" className="h-auto p-0 text-[13px] text-blue-600 flex items-center gap-1">
+              <Plus size={14} /> Thêm chi phí (F7)
+            </Button>
+          </div>
+
+          <div className="flex justify-between items-center text-[13px] pt-1">
+            <div className="flex items-center gap-1">
+              <span className="text-slate-500">Thuế</span>
+              <HelpCircle size={14} className="text-slate-300" />
             </div>
+            <span className="font-bold">0</span>
+          </div>
+
+          <div className="flex justify-between items-center text-[15px] font-bold pt-2 border-t border-slate-100">
+            <span>Tiền cần trả</span>
+            <span className="text-blue-600">{subTotal.toLocaleString()}</span>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <p className="text-[13px] font-bold text-slate-700 mb-2">Thanh toán cho NCC</p>
+            <div className="flex gap-2">
+              <Input 
+                type="number"
+                {...register("paymentAmount")}
+                className="h-9 text-[13px] border-slate-200 font-bold"
+                placeholder="0"
+              />
+              <Button type="button" variant="outline" className="h-9 px-2 text-slate-400">
+                <ChevronDown size={16} />
+              </Button>
+            </div>
+            <Button type="button" variant="ghost" className="h-auto p-0 mt-2 text-[13px] text-blue-600 flex items-center gap-1">
+              <Plus size={14} /> Thêm phương thức
+            </Button>
+          </div>
+
+          <div className="flex justify-between items-center text-[14px] font-bold pt-3 text-slate-700">
+            <span>Còn phải trả</span>
+            <span>{debtAmount.toLocaleString()}</span>
+          </div>
+          {debtAmount > 0 && (
+            <p className="text-[11px] text-amber-600 text-right font-medium italic">
+              * Hệ thống sẽ tự động ghi vào công nợ NCC
+            </p>
           )}
         </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[8px_20px] flex items-center justify-end gap-[10px] z-[999]">
-        <Button type="button" variant="outline" className="min-w-[100px] h-[32px] text-[13px] font-semibold border-[#ccc] bg-white rounded-[4px]" onClick={() => router.back()}>
+      {/* Fixed Footer */}
+      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t border-slate-200 p-4 flex items-center justify-end gap-3 z-[100] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={() => router.back()}
+          className="min-w-[100px] h-10 border-slate-200 font-bold text-slate-600"
+        >
           Hủy
         </Button>
-        <Button type="submit" className="min-w-[100px] h-[32px] text-[13px] font-semibold bg-[#007bff] hover:bg-[#0069d9] text-white rounded-[4px] shadow-none">
-          Lưu phiếu dự kiến
-        </Button>
+        <div className="flex shadow-sm rounded-md overflow-hidden">
+          <Button 
+            type="submit"
+            className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold border-r border-blue-500"
+          >
+            Lưu phiếu (F9)
+          </Button>
+          <Button type="button" className="h-10 px-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <ChevronDown size={18} />
+          </Button>
+        </div>
       </div>
     </form>
   );
 }
+
