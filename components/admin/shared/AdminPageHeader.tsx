@@ -77,7 +77,22 @@ export function AdminPageHeader({
           )
         )}
 
-
+        {(addBtnHref || onAddClick) && (
+          addBtnHref ? (
+            <Link href={addBtnHref}>
+              <Button className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-[#1f1f1f] hover:bg-[#f8f9fa] rounded-[4px] shadow-none">
+                <Plus className="mr-1 h-3 w-3 text-emerald-600" /> {addBtnLabel || "Thêm mới"}
+              </Button>
+            </Link>
+          ) : (
+            <Button
+              onClick={onAddClick}
+              className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-[#1f1f1f] hover:bg-[#f8f9fa] rounded-[4px] shadow-none"
+            >
+              <Plus className="mr-1 h-3 w-3 text-emerald-600" /> {addBtnLabel || "Thêm mới"}
+            </Button>
+          )
+        )}
       </div>
     </div>
   );

@@ -30,6 +30,8 @@ export default function CustomerManagementPage() {
         title="Quản lý danh sách khách hàng" 
         addBtnLabel="Thêm khách hàng"
         addBtnHref="/admin/customers/add"
+        secondaryBtnLabel="Đăng ký đại lý"
+        secondaryBtnHref="/admin/customers/add-dealer"
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
