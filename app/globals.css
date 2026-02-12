@@ -30,6 +30,24 @@
     --ring: 171 56% 40%; 
  
     --radius: 0.5rem;
+
+    /* Custom AI Doctor CSS Variables */
+    --primary-color-ai: #376E60; /* Renamed to avoid conflict */
+    --primary-hover-ai: #2a554a; /* Renamed to avoid conflict */
+    --bg-chat: #E5E5E5;
+    --user-msg-bg: #d1fae5;
+    --ai-msg-bg: #ffffff;
+    --bg-color: #F5F7FA; /* from ai-style.css, used in result page */
+    --text-dark: #1f2937; /* from ai-style.css, used in result page */
+    --border-color: #e2e8f0; /* from result page style */
+    --bs-body-bg: #f5f7f9; /* from result page style */
+    --bs-body-color: #1e293b; /* from result page style */
+
+    /* Custom Pond Management CSS Variables */
+    --primary-color-pond: #2d9f8d; /* Renamed to avoid conflict */
+    --primary-hover-pond: #258576; /* Renamed to avoid conflict */
+    --text-main: #333;
+    --bg-body: #f5f5fa;
   }
  
   .dark {
@@ -69,13 +87,31 @@
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(4px);
   }
+
+  body {
+    font-family: 'Inter', sans-serif;
+  }
 }
  
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+/* Hide scrollbar for Chrome, Safari and Opera */
+ 
+.no-scrollbar::-webkit-scrollbar {
+ 
+  display: none;
+ 
 }
+ 
+
+ 
+/* Hide scrollbar for IE, Edge and Firefox */
+ 
+.no-scrollbar {
+ 
+  -ms-overflow-style: none;  /* IE and Edge */
+ 
+  scrollbar-width: none;  /* Firefox */
+ 
+}
+
+
+ 

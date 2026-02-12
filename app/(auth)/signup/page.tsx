@@ -9,6 +9,7 @@ export const metadata = {
 };
 
 export default function SignupPage() {
+
   return (
     <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden bg-white">
       

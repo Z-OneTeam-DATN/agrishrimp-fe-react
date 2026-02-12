@@ -86,3 +86,12 @@ export const LoginSchema = z.object({
 });
 
 export type LoginFormValues = z.infer<typeof LoginSchema>;
+
+export const ResetPasswordSchema = z.object({
+  email: z
+    .string()
+    .min(1, { message: "Vui lòng nhập Email" })
+    .email({ message: "Email không hợp lệ" }),
+});
+
+export type ResetPasswordFormValues = z.infer<typeof ResetPasswordSchema>;

@@ -6,13 +6,23 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from '@/components/ui/sonner'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css';
+import { usePathname } from 'next/navigation';
 
 import Header from "@/components/site/SiteHeader";
 import Navbar from "@/components/site/SiteNavbar";
 import Footer from "@/components/site/SiteFooter";
 
 export default function LayoutClient({ children }: Readonly<{ children: React.ReactNode }>) {
+  const pathname = usePathname();
   const queryClientRef = useRef<QueryClient>()
+
+  // Kiểm tra các route không hiển thị Header/Footer chung của trang chủ
+  const isHideLayout = pathname?.startsWith('/admin') ||
+                       pathname?.startsWith('/inventory') || 
+                       pathname?.startsWith('/login') || 
+                       pathname?.startsWith('/signup') || 
+                       pathname?.startsWith('/reset-password');
+
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({
       defaultOptions: {
@@ -27,22 +37,23 @@ export default function LayoutClient({ children }: Readonly<{ children: React.Re
     <QueryClientProvider client={queryClientRef.current}>
       <ThemeProvider attribute='class' defaultTheme='system' enableSystem disableTransitionOnChange>
         
-        {/* Cấu trúc giao diện chính nằm ở đây */}
-        <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
-            {/* 1. Header & Navbar */}
-            <Header />
-            <Navbar />
+        {isHideLayout ? (
+          // Giao diện cho trang quản lý/xác thực (Không Header/Footer trang chủ)
+          <>
+            {children}
+          </>
+        ) : (
+          // Giao diện chính cho trang khách (Landing, Home...)
+          <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+              <Header />
+              <Navbar />
+              <main className="flex-1">
+                  {children}
+              </main>
+              <Footer />
+          </div>
+        )}
 
-            {/* 2. Main Content */}
-            <main className="flex-1">
-                {children}
-            </main>
-
-            {/* 3. Footer */}
-            <Footer />
-        </div>
-
-        {/* Các thành phần thông báo (Toast) */}
         <ToastContainer
           position='top-right'
           autoClose={3000}

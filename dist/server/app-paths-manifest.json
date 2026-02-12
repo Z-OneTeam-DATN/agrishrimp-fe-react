@@ -1,7 +1,0 @@
-{
-  "/page": "app/page.js",
-  "/user/category/page": "app/user/category/page.js",
-  "/product/[id]/page": "app/product/[id]/page.js",
-  "/user/cart/page": "app/user/cart/page.js",
-  "/user/checkout/page": "app/user/checkout/page.js"
-}
