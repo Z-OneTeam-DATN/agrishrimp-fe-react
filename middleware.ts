@@ -36,7 +36,7 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get('accessToken')?.value ?? req.cookies.get('refreshToken')?.value
   
   const isAuthPath = AUTH_PATHS.some(p => path.startsWith(p))
-  const isProtectedPath = PROTECTED_PATHS.some(p => path.startsWith(p)) || path.startsWith('/admin') || path.startsWith('/inventory')
+  const isProtectedPath = PROTECTED_PATHS.some(p => path.startsWith(p)) || path.startsWith('/admin')
 
   // 1. Nếu đã đăng nhập mà cố vào trang login/signup -> về trang chủ
   if (token && isAuthPath) {

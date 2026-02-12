@@ -17,7 +17,8 @@ import {
   Truck,
   TrendingUp,
   Warehouse,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,7 @@ export default function AdminSidebar() {
             <SidebarLink href="/admin/products" icon={Package} label="Sản phẩm" active={isActive("/admin/products")} />
             <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} />
             <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} />
+            <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
             <SidebarLink href="/admin/variants" icon={Layers} label="Thuộc tính" active={isActive("/admin/variants")} />
             <SidebarLink href="/admin/categories" icon={Tags} label="Danh mục" active={isActive("/admin/categories")} />
           </div>

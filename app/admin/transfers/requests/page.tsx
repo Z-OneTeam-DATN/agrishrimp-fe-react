@@ -93,7 +93,7 @@ export default function TransferRequestsPage() {
                     </span>
                   </TableCell>
                   <TableCell className="p-[10px] text-center">
-                    <Link href={`/inventory/transfers/new?source=${req.code}`}>
+                    <Link href={`/admin/transfers/new?source=${req.code}`}>
                       <Button variant="outline" className="h-[28px] text-[11px] border-[#007bff] text-[#007bff] hover:bg-[#007bff] hover:text-white font-bold rounded-[4px] px-3">
                         Duyệt & Xuất kho
                       </Button>

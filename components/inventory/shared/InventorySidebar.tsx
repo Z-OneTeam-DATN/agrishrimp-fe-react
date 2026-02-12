@@ -88,29 +88,6 @@ export function InventorySidebar() {
           />
         </section>
 
-        {/* Section: Vận hành khác */}
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Vận hành</p>
-          <div className="space-y-0.5">
-            <SidebarLink 
-              href="/inventory/transfers/requests" 
-              icon={BellRing} 
-              label="Yêu cầu điều chuyển" 
-              active={pathname.includes("/transfers/requests")} 
-              color="text-sky-500" 
-              badge={3}
-              badgeColor="bg-sky-500/20 text-sky-500"
-            />
-            <SidebarLink 
-              href="/inventory/transfers" 
-              icon={RefreshCcw} 
-              label="Lịch sử điều chuyển" 
-              active={pathname === "/inventory/transfers"} 
-              color="text-slate-400" 
-            />
-            <SidebarLink href="/inventory/inventory-checks" icon={ShieldCheck} label="Kiểm kê định kỳ" active={isActive("/inventory/inventory-checks")} color="text-purple-500" />
-          </div>
-        </section>
 
         {/* Section: Phân tích */}
         <section>

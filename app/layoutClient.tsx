@@ -18,7 +18,6 @@ export default function LayoutClient({ children }: Readonly<{ children: React.Re
 
   // Kiểm tra các route không hiển thị Header/Footer chung của trang chủ
   const isHideLayout = pathname?.startsWith('/admin') ||
-                       pathname?.startsWith('/inventory') || 
                        pathname?.startsWith('/login') || 
                        pathname?.startsWith('/signup') || 
                        pathname?.startsWith('/reset-password');

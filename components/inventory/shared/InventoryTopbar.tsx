@@ -105,7 +105,7 @@ export function InventoryTopbar() {
             <div className="flex items-center gap-3 cursor-pointer pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ml-2 group">
               <div className="text-right hidden sm:block">
                 <p className="text-[13px] font-black text-slate-800 leading-none group-hover:text-blue-600 transition-colors">Nguyễn Văn Admin</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Tổng quản lý kho</p>
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mt-1">Warehouse Pro</p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
                 <AvatarImage src="" />
