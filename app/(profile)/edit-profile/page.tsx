@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import EditProfileForm from '@/components/profile/EditProfileForm'; // Đã bỏ dấu ngoặc nhọn {} nếu export default
 import { ChangePasswordForm } from '@/components/profile/ChangePasswordForm';
 import { Phone, Mail, Lock, CheckCircle2 } from 'lucide-react';
@@ -37,7 +36,7 @@ export default function EditProfilePage() {
             {/* Thông tin liên lạc */}
             <div className="mb-6 pb-6 border-b border-gray-100">
               <div className="font-bold mb-4 text-sm text-gray-700 uppercase tracking-wide">Thông tin liên lạc</div>
-              <div className="space-y-4">
+              <div className="space-y-6"> {/* Changed from space-y-4 to space-y-6 */}
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
                       <Phone size={16} />
@@ -69,8 +68,7 @@ export default function EditProfilePage() {
                 </div>
                 <button 
                   onClick={() => setShowPasswordModal(true)}
-                  // FIX: Thêm class 'text-gray-700' để chữ hiện rõ trên nền trắng
-                  className="text-xs font-bold text-gray-700 border border-gray-300 bg-white px-3 py-1.5 rounded hover:border-[#329965] hover:text-[#329965] transition-colors"
+                  className="h-12 px-4 text-sm font-bold text-gray-700 border border-gray-300 bg-white rounded hover:border-[#329965] hover:text-[#329965] transition-colors"
                 >
                   Cập nhật
                 </button>

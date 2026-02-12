@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { OrderTabs } from '@/components/orders/OrderTabs';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { Order, OrderStatus } from '@/app/types/order.schema';
-import { PackageX, ChevronRight } from 'lucide-react';
+import { PackageX } from 'lucide-react';
 import Link from 'next/link';
 
 // Định nghĩa Mock Data bên ngoài component để code gọn hơn

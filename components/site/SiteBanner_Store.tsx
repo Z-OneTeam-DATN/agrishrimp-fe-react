@@ -29,12 +29,14 @@ export default function StoreBanner() {
               type="text" 
               placeholder="Nhập từ khóa tìm kiếm... Ví dụ: Kháng sinh, thức ăn..." 
               className="w-full h-[45px] rounded-full border-none pl-5 pr-[50px] text-sm outline-none shadow-[0_4px_8px_rgba(0,0,0,0.15)] text-gray-700 placeholder:text-gray-400"
+              suppressHydrationWarning={true}
             />
             
             {/* .search-btn-icon */}
             <button 
               type="submit"
               className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-transparent border-none text-[#329965] p-0 w-[35px] h-[35px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+              suppressHydrationWarning={true}
             >
               <Search size={20} />
             </button>

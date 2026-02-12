@@ -34,11 +34,17 @@ const supportMenuItems = [
   { href: '/store-locator', label: 'Hệ thống cửa hàng', icon: MapPin }, // Mục này có thể dùng icon khác hoặc dot tùy ý
 ];
 
-export default function StoreSidebar() {
+export default function StoreSidebar({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname();
 
+  const handleLinkClick = () => {
+    if (onLinkClick) {
+      onLinkClick();
+    }
+  };
+
   return (
-    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hidden lg:block">
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100"> {/* Removed hidden lg:block */}
       
       {/* --- PHẦN 1: MENU CHÍNH --- */}
       <div className="mb-4">
@@ -50,6 +56,7 @@ export default function StoreSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleLinkClick}
               className={`
                 flex items-center px-3 py-2.5 mb-1 rounded-md text-sm transition-all
                 ${isActive 
@@ -85,6 +92,7 @@ export default function StoreSidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={handleLinkClick}
                   className={`
                     flex items-center px-2 py-2 rounded-md text-sm transition-all
                     ${isActive 
