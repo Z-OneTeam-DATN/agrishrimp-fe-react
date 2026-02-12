@@ -13,6 +13,7 @@ interface Customer {
   type: string;
   location: string;
   phone: string;
+  totalSpent: string;
   totalOrders: number;
   status: string;
 }
@@ -30,23 +31,24 @@ export function AdminCustomerTable({ customers }: AdminCustomerTableProps) {
             <TableHead className="w-[100px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Mã KH</TableHead>
             <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Thông tin đối tác</TableHead>
             <TableHead className="w-[150px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Liên hệ</TableHead>
+            <TableHead className="w-[150px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Số tiền đã mua (₫)</TableHead>
             <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Đơn hàng</TableHead>
-            <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Trạng thái</TableHead>
+            <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
             <TableHead className="w-[80px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {customers.map((cus) => (
-            <TableRow key={cus.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer">
+            <TableRow key={cus.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer" onClick={() => window.location.href = `/admin/customers/${cus.id}`}>
               <TableCell className="p-2 pl-4 text-[12px] font-bold text-slate-500">#{cus.id}</TableCell>
               <TableCell className="p-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                  <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 border border-blue-100">
                     <User size={14} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[13px] font-bold text-slate-800">{cus.name}</span>
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                    <span className="text-[13px] font-bold text-slate-800 uppercase tracking-tighter">{cus.name}</span>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold uppercase">
                       <MapPin size={10} /> {cus.location} • {cus.type}
                     </span>
                   </div>
@@ -57,10 +59,13 @@ export function AdminCustomerTable({ customers }: AdminCustomerTableProps) {
                   <Phone size={12} className="text-slate-400" /> {cus.phone}
                 </div>
               </TableCell>
+              <TableCell className="p-2 text-right">
+                <span className="text-[13px] font-black text-emerald-600">{cus.totalSpent}</span>
+              </TableCell>
               <TableCell className="p-2 text-center font-bold text-slate-700 text-[12px]">
                 {cus.totalOrders}
               </TableCell>
-              <TableCell className="p-2">
+              <TableCell className="p-2 text-center">
                 <span className={cn(
                   "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
                   cus.status === "Hoạt động" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
@@ -69,8 +74,8 @@ export function AdminCustomerTable({ customers }: AdminCustomerTableProps) {
                 </span>
               </TableCell>
               <TableCell className="p-2 text-right pr-4">
-                <Link href={`/admin/customers/${cus.id}`}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-md">
+                <Link href={`/admin/customers/${cus.id}`} onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white transition-all rounded-md">
                     <Eye size={16} />
                   </Button>
                 </Link>

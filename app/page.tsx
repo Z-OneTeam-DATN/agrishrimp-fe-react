@@ -45,7 +45,7 @@ export default function Home() {
               <h5 className="font-bold text-xl uppercase text-[#d32f2f] flex items-center gap-2">
                   <Trophy className="fill-red-600 text-red-600" /> Top Bán Chạy Nhất
               </h5>
-              <Link href="/best-seller" className="text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium">
+              <Link href="/store?sort=best-sell" className="text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium">
                   Xem tất cả <ChevronRight size={16} />
               </Link>
            </div>
@@ -65,7 +65,7 @@ export default function Home() {
               <h5 className="font-bold text-xl uppercase text-[#ff9800] flex items-center gap-2">
                   <TrendingUp className="text-[#ff9800]" strokeWidth={2.5} /> Xu Hướng Tìm Kiếm
               </h5>
-              <Link href="/trending" className="text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium">
+              <Link href="/store?sort=trending" className="text-sm text-gray-500 hover:text-teal-600 flex items-center transition-colors font-medium">
                   Xem tất cả <ChevronRight size={16} />
               </Link>
            </div>

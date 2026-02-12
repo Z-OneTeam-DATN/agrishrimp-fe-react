@@ -16,34 +16,42 @@ export type AdminCustomSpec = z.infer<typeof AdminCustomSpecSchema>;
 
 export const AdminProductVariantSchema = z.object({
   id: z.number().optional(),
-  formulation: z.string()
-    .min(1, "Vui lòng nhập dạng bào chế")
-    .max(100, "Dạng bào chế quá dài"),
-  packaging: z.string()
-    .min(1, "Vui lòng nhập quy cách")
-    .max(100, "Quy cách quá dài"),
-  weight: z.coerce.number({
-    invalid_type_error: "Trọng lượng phải là số",
-    required_error: "Vui lòng nhập trọng lượng",
-  }).min(0.0001, "Trọng lượng phải lớn hơn 0"),
-  unit: z.enum(["ml", "l", "g", "kg"], {
-    errorMap: () => ({ message: "Đơn vị không hợp lệ" }),
-  }),
-  price: z.coerce.number({
-    invalid_type_error: "Giá bán phải là số",
-    required_error: "Vui lòng nhập giá bán",
-  }).min(1000, "Giá bán tối thiểu là 1,000đ"),
-  barcode: z.string()
-    .max(50, "Mã vạch tối đa 50 ký tự")
-    .optional()
-    .or(z.literal("")),
+  // Nhóm 1: Định danh & Quy cách
+  formulation: z.string().min(1, "Vui lòng nhập dạng bào chế"),
+  packaging: z.string().min(1, "Vui lòng nhập quy cách"),
+  unit: z.string().min(1, "Đơn vị tính không được để trống"), // VD: Chai, Hộp
+  sku: z.string().min(1, "Vui lòng nhập mã SKU cho biến thể"),
+  barcode: z.string().optional().or(z.literal("")),
+  
+  // Nhóm 2: Tài chính
+  costPrice: z.coerce.number().min(0, "Giá vốn không được âm"),
+  price: z.coerce.number().min(0, "Giá bán lẻ không được âm"),
+  wholesalePrice: z.coerce.number().min(0, "Giá bán buôn không được âm").optional(),
+  
+  // Nhóm 3: Kho vận & Vận chuyển
+  initialStock: z.coerce.number().min(0, "Tồn kho không được âm"),
+  netWeight: z.coerce.number().min(0, "Dung tích thực không được âm"),
+  netWeightUnit: z.enum(["ml", "l", "g", "kg"]),
+  shippingWeight: z.coerce.number().min(0, "Trọng lượng gói hàng không được âm"),
+  
   image: z.string().min(1, "Vui lòng tải ảnh cho biến thể này"),
-  customSpecs: z.array(AdminCustomSpecSchema)
-    .optional()
-    .default([]),
+  customSpecs: z.array(AdminCustomSpecSchema).optional().default([]),
 });
 
 export type AdminProductVariant = z.infer<typeof AdminProductVariantSchema>;
+
+export const UnitConversionSchema = z.object({
+  id: z.number().optional(),
+  fromUnit: z.string().min(1, "Đơn vị quy đổi không được để trống"),
+  toUnit: z.string().min(1, "Đơn vị gốc không được để trống"),
+  ratio: z.coerce.number().min(1, "Tỷ lệ quy đổi phải ít nhất là 1"),
+  price: z.coerce.number().optional(),
+  wholesalePrice: z.coerce.number().optional(),
+  sku: z.string().optional().or(z.literal("")),
+  barcode: z.string().optional().or(z.literal("")),
+});
+
+export type UnitConversion = z.infer<typeof UnitConversionSchema>;
 
 export const AdminProductSchema = z.object({
   name: z.string()
@@ -72,6 +80,7 @@ export const AdminProductSchema = z.object({
   isVariantEnabled: z.boolean().default(true),
   variants: z.array(AdminProductVariantSchema)
     .min(1, "Cần ít nhất một biến thể"),
+  unitConversions: z.array(UnitConversionSchema).optional().default([]),
 })
 .refine((data) => {
   if (!data.isVariantEnabled) return true;
@@ -91,11 +100,11 @@ export const AdminProductSchema = z.object({
 })
 .refine((data) => {
   const keys = data.variants.map(v =>
-    `${v.formulation}|${v.packaging}|${v.weight}|${v.unit}`
+    `${v.formulation}|${v.packaging}|${v.unit}|${v.netWeight}|${v.netWeightUnit}`
   );
   return new Set(keys).size === keys.length;
 }, {
-  message: "Các biến thể không được trùng thông tin",
+  message: "Các biến thể không được trùng thông tin định danh",
   path: ["variants"],
 });
 
@@ -191,9 +200,20 @@ export const SupplierSchema = z.object({
     .min(0, "Chiết khấu không được âm")
     .max(100, "Chiết khấu tối đa 100%"),
 
-  bankAccount: z.string()
-    .min(5, "Thông tin tài khoản không được để trống")
-    .max(100, "Thông tin tài khoản quá dài"),
+  paymentTerms: z.string()
+    .min(1, "Vui lòng chọn chu kỳ thanh toán"),
+
+  creditLimit: z.coerce.number()
+    .min(0, "Hạn mức nợ không được âm"),
+
+  bankAccountNumber: z.string()
+    .min(1, "Số tài khoản không được để trống"),
+  
+  bankName: z.string()
+    .min(1, "Tên ngân hàng không được để trống"),
+
+  bankAccountHolder: z.string()
+    .min(1, "Tên chủ tài khoản không được để trống"),
 
   status: z.enum(["active", "inactive"])
     .default("active"),
@@ -292,6 +312,13 @@ export const AdminBranchSchema = z.object({
   status: z.enum(["active", "maint", "inactive"], {
     errorMap: () => ({ message: "Trạng thái vận hành không hợp lệ" }),
   }).default("active"),
+
+  branchType: z.enum(["hub", "store"], {
+    errorMap: () => ({ message: "Vui lòng chọn loại hình chi nhánh" }),
+  }),
+
+  priceList: z.string()
+    .min(1, "Vui lòng chọn bảng giá áp dụng"),
 
   area: z.string()
     .min(1, "Vui lòng chọn khu vực quản lý (Miền Tây/Miền Đông...)"),

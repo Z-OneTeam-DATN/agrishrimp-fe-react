@@ -21,7 +21,7 @@ export default function TransferListPage() {
       />
 
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
-        <InventorySearchFilter />
+        <InventorySearchFilter type="TRANSFER" />
         <InventoryTransferTable transfers={transfers} />
       </div>
     </div>

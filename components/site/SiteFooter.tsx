@@ -86,11 +86,11 @@ export default function SiteFooter() {
             <p className="text-xs text-gray-400 mb-5">(08h - 22h, kể cả T7, CN)</p>
 
             <ul className="space-y-2.5 text-gray-300 text-[13px]">
-              <li><Link href="#" className="hover:text-white hover:underline">Các câu hỏi thường gặp</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Gửi yêu cầu hỗ trợ</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Hướng dẫn đặt hàng</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Phương thức vận chuyển</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Chính sách đổi trả</Link></li>
+              <li><Link href="/faq" className="hover:text-white hover:underline">Các câu hỏi thường gặp</Link></li>
+              <li><Link href="/support" className="hover:text-white hover:underline">Gửi yêu cầu hỗ trợ</Link></li>
+              <li><Link href="/ordering" className="hover:text-white hover:underline">Hướng dẫn đặt hàng</Link></li>
+              <li><Link href="/shipping-fee" className="hover:text-white hover:underline">Phương thức vận chuyển</Link></li>
+              <li><Link href="/return" className="hover:text-white hover:underline">Chính sách đổi trả</Link></li>
             </ul>
           </div>
 
@@ -100,11 +100,11 @@ export default function SiteFooter() {
               <ShieldCheck size={18} /> Về AgriShrimp
             </h3>
             <ul className="space-y-2.5 text-gray-300 text-[13px]">
-              <li><Link href="#" className="hover:text-white hover:underline">Giới thiệu công ty</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Tuyển dụng</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Chính sách bảo mật</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Điều khoản sử dụng</Link></li>
-              <li><Link href="#" className="hover:text-white hover:underline">Liên hệ hợp tác</Link></li>
+              <li><Link href="/about" className="hover:text-white hover:underline">Giới thiệu công ty</Link></li>
+              <li><Link href="/careers" className="hover:text-white hover:underline">Tuyển dụng</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-white hover:underline">Chính sách bảo mật</Link></li>
+              <li><Link href="/terms-of-use" className="hover:text-white hover:underline">Điều khoản sử dụng</Link></li>
+              <li><Link href="/contact" className="hover:text-white hover:underline">Liên hệ hợp tác</Link></li>
             </ul>
           </div>
 

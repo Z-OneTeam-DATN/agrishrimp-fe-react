@@ -15,6 +15,9 @@ const products = [
     origin: "Việt Nam",
     priceRange: "150.000 ₫ - 550.000 ₫",
     totalSold: 1240, 
+    inventory: 240,
+    available: 240,
+    createdAt: "28/03/2024",
     status: "Đang kinh doanh",
     image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg",
     imageCount: 5,
@@ -24,8 +27,8 @@ const products = [
       { key: "Hạn dùng", value: "24 tháng" }
     ],
     variants: [
-      { id: "SKU-ENRO-100", formulation: "Dung dịch", packaging: "Chai nhựa", weight: "100", unit: "ml", price: "150.000 ₫", sold: 850, barcode: "893000111", image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" },
-      { id: "SKU-ENRO-500", formulation: "Dung dịch", packaging: "Chai nhựa", weight: "500", unit: "ml", price: "550.000 ₫", sold: 390, barcode: "893000555", image: null },
+      { id: "SKU-ENRO-100", formulation: "Dung dịch", packaging: "Chai nhựa", weight: "100", unit: "ml", price: "150.000 ₫", costPrice: "100.000 ₫", wholesalePrice: "120.000 ₫", inventory: 120, available: 120, sold: 850, barcode: "893000111", image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg" },
+      { id: "SKU-ENRO-500", formulation: "Dung dịch", packaging: "Chai nhựa", weight: "500", unit: "ml", price: "550.000 ₫", costPrice: "400.000 ₫", wholesalePrice: "480.000 ₫", inventory: 120, available: 120, sold: 390, barcode: "893000555", image: null },
     ]
   },
   { 
@@ -37,6 +40,9 @@ const products = [
     origin: "Mỹ",
     priceRange: "220.000 ₫",
     totalSold: 850, 
+    inventory: 60,
+    available: 59,
+    createdAt: "27/03/2024",
     status: "Đang kinh doanh",
     image: "https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png",
     imageCount: 3,
@@ -45,7 +51,7 @@ const products = [
       { key: "Dạng", value: "Bột mịn" }
     ],
     variants: [
-      { id: "SKU-BIO-1KG", formulation: "Bột mịn", packaging: "Gói nhôm", weight: "1", unit: "kg", price: "220.000 ₫", sold: 850, barcode: "893000222", image: "https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" },
+      { id: "SKU-BIO-1KG", formulation: "Bột mịn", packaging: "Gói nhôm", weight: "1", unit: "kg", price: "220.000 ₫", costPrice: "150.000 ₫", wholesalePrice: "180.000 ₫", inventory: 60, available: 59, sold: 850, barcode: "893000222", image: "https://vagen.com.vn/app/user/12/12/admin/file/UPHINHTAM/thiet-ke-chua-co-ten.png" },
     ]
   },
 ];
@@ -65,7 +71,7 @@ export default function ProductsPage() {
   return (
     <div className="space-y-3">
       <AdminPageHeader 
-        title="Quản lý hệ thống sản phẩm" 
+        title="Hệ thống sản phẩm" 
         addBtnLabel="Thêm sản phẩm" 
         addBtnHref="/admin/products/add" 
       />

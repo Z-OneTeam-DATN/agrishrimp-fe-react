@@ -4,6 +4,7 @@ import React from "react";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminEmployeeTable } from "@/components/admin/AdminEmployeeTable";
+import { ShieldCheck } from "lucide-react";
 
 const employeeData = [
   { id: "NV-001", name: "Nguyễn Văn An", email: "an.nguyen@agri.com", phone: "0909 123 456", branchName: "Chi nhánh Cần Thơ", address: "Ninh Kiều, Cần Thơ", role: "QUẢN LÝ CHI NHÁNH", joinDate: "15/01/2024", status: "Đang hoạt động", avatarLabel: "AN" },
@@ -31,6 +32,9 @@ export default function EmployeeManagementPage() {
         title="Quản lý nhân sự & Cấp quyền" 
         addBtnLabel="Thêm nhân viên mới" 
         addBtnHref="/admin/employees/add" 
+        secondaryBtnLabel="Phân quyền vai trò"
+        secondaryBtnHref="/admin/employees/roles"
+        secondaryBtnIcon={ShieldCheck}
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
