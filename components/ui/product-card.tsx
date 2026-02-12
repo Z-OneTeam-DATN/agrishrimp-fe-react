@@ -30,7 +30,6 @@ export default function ProductCard({
   tag
 }: ProductCardProps) {
 
-  // Logic màu sắc cho Tag
   const getTagColor = (type: string) => {
     switch (type) {
       case 'HOT': return 'bg-gradient-to-br from-orange-500 to-red-600';
@@ -45,33 +44,37 @@ export default function ProductCard({
 
       {/* 1. TAG BADGE */}
       {tag && (
-        <div className={`absolute top-0 left-0 px-3 py-1 text-[10px] font-extrabold text-white rounded-br-xl z-20 shadow-md flex items-center ${getTagColor(tag)}`}>
-          {tag === 'HOT' && <Flame size={12} className="mr-1" />}
-          {tag === 'BEST' && <Award size={12} className="mr-1" />}
+        <div className={`absolute top-0 left-0 px-2 md:px-3 py-1 text-[9px] md:text-[10px] font-extrabold text-white rounded-br-lg z-20 shadow-md flex items-center ${getTagColor(tag)}`}>
+          {tag === 'HOT' && <Flame size={10} className="mr-1" />}
+          {tag === 'BEST' && <Award size={10} className="mr-1" />}
           {tag === 'BEST' ? 'TOP 1' : tag}
         </div>
       )}
 
-      {/* 2. IMAGE SECTION */}
+      {/* 2. IMAGE SECTION - Vuông 100% */}
       <Link href={`/product/${id}`} className="relative block w-full pt-[100%] overflow-hidden bg-gray-50">
         <Image
           src={image}
           alt={name}
           fill
-          className="object-contain p-4 transition-transform duration-500 group-hover:scale-110"
+          className="object-contain p-2 md:p-4 transition-transform duration-500 group-hover:scale-110"
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
         />
-        {/* Nút thêm nhanh vào giỏ */}
-        <button className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-teal-700 z-10">
+        {/* Nút thêm nhanh - Ẩn trên mobile để tránh che nội dung khi chạm */}
+        <button className="hidden md:flex absolute bottom-3 right-3 w-9 h-9 rounded-full bg-teal-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-teal-700 z-10">
           <ShoppingCart size={16} />
         </button>
       </Link>
 
-      {/* 3. BODY SECTION */}
-      <div className="flex flex-col flex-1 p-3">
-        <div className="text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wide">{category}</div>
+      {/* 3. BODY SECTION - Padding nhỏ trên mobile */}
+      <div className="flex flex-col flex-1 p-2 md:p-3">
+        <div className="text-[9px] md:text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wide truncate">
+          {category}
+        </div>
 
         <Link href={`/product/${id}`} className="mb-1 block">
-          <h3 className="text-[14px] font-medium text-gray-800 leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors h-[40px]" title={name}>
+          {/* Giới hạn 2 dòng, chiều cao cố định để không lệch grid */}
+          <h3 className="text-[13px] md:text-[14px] font-medium text-gray-800 leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors h-[38px] md:h-[40px]" title={name}>
             {name}
           </h3>
         </Link>
@@ -86,23 +89,22 @@ export default function ProductCard({
 
         {/* Price & Action */}
         <div className="mt-auto">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg font-bold text-orange-600">{price}</span>
-            {oldPrice && <span className="text-xs text-gray-400 line-through">{oldPrice}</span>}
+          <div className="flex flex-wrap items-baseline gap-x-2 mb-2">
+            <span className="text-base md:text-lg font-bold text-orange-600">{price}</span>
+            {oldPrice && <span className="text-[10px] md:text-xs text-gray-400 line-through">{oldPrice}</span>}
           </div>
 
-          {/* Nếu có 'sold' thì hiện thanh tiến trình, nếu không thì hiện Giao hàng 2H */}
           {sold ? (
-            <div className="relative w-full h-4 bg-orange-100 rounded-full overflow-hidden mt-1">
+            <div className="relative w-full h-3 md:h-4 bg-orange-100 rounded-full overflow-hidden mt-1">
               <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-400 to-orange-600 w-[70%] rounded-full"></div>
-              <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white uppercase drop-shadow-md z-10">
-                <Flame size={10} className="mr-1 fill-white" /> Đã bán {sold}
+              <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[9px] font-bold text-white uppercase drop-shadow-md z-10">
+                <Flame size={8} className="mr-1 fill-white md:w-[10px] md:h-[10px]" /> Đã bán {sold}
               </div>
             </div>
           ) : (
              <div className="border-t border-dashed pt-2 mt-1">
-                <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold italic">
-                    <Truck size={12} /> Giao siêu tốc 2H
+                <div className="flex items-center gap-1 text-[9px] md:text-[10px] text-green-600 font-semibold italic">
+                    <Truck size={12} /> Giao 2H
                 </div>
              </div>
           )}
