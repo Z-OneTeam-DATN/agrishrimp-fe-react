@@ -320,11 +320,7 @@ export const AdminBranchSchema = z.object({
     errorMap: () => ({ message: "Vui lòng chọn loại hình chi nhánh" }),
   }),
 
-  priceList: z.string()
-    .min(1, "Vui lòng chọn bảng giá áp dụng"),
 
-  area: z.string()
-    .min(1, "Vui lòng chọn khu vực quản lý (Miền Tây/Miền Đông...)"),
 });
 
 export type AdminBranchForm = z.infer<typeof AdminBranchSchema>;
