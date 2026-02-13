@@ -35,15 +35,23 @@ export default function AdminSidebar() {
 
   const fetchCounts = async () => {
     try {
-      const [supplierData, customerData] = await Promise.all([
+      // Use Promise.allSettled to allow one to fail without blocking the other,
+      // and handle errors silently to avoid disruptive "Network Error" overlays in dev
+      const results = await Promise.allSettled([
         supplierService.getAll(undefined, undefined, undefined, 0, 1),
         customerService.getAll("", "all", 0, 1) 
       ]);
       
-      setSupplierCount(supplierData.totalElements || 0);
-      setCustomerCount(customerData.totalElements || 0);
+      if (results[0].status === 'fulfilled') {
+        setSupplierCount(results[0].value.totalElements || 0);
+      }
+      
+      if (results[1].status === 'fulfilled') {
+        setCustomerCount(results[1].value.totalElements || 0);
+      }
     } catch (error) {
-      console.error("Sidebar Sync Error:", error);
+      // Silent catch for initial count fetching to avoid UI crashes
+      console.warn("Sidebar counts could not be synced (Backend might be offline)");
     }
   };
 
