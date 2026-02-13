@@ -4,10 +4,23 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-
-  LayoutDashboard, Package, Layers, Tags, Users,
-  UserCircle, Building2, FileBarChart, Settings,
-  HelpCircle, Truck, TrendingUp, Warehouse, ArrowRightLeft, ShieldCheck
+  LayoutDashboard,
+  Package,
+  Layers,
+  Tags,
+  Users,
+  UserCircle,
+  Building2,
+  FileBarChart,
+  Settings,
+  HelpCircle,
+  Truck,
+  TrendingUp,
+  Warehouse,
+  ArrowRightLeft,
+  ArrowUpFromLine,
+  ShieldCheck,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +67,7 @@ export default function AdminSidebar() {
 
   return (
     <div className="w-[260px] bg-[#020617] text-slate-400 h-screen flex flex-col border-r border-slate-800/40 sticky top-0 z-30">
+      {/* Brand Header */}
       <div className="h-[64px] px-7 flex items-center mb-4">
         <div className="flex items-center gap-2">
           <div className="w-2 h-6 bg-emerald-500 rounded-full" />
@@ -66,54 +80,75 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 space-y-6 no-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 space-y-6 no-scrollbar pb-10">
+        {/* Section: Hệ thống */}
         <section>
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Hệ thống</p>
           <div className="space-y-0.5">
             <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={isActive("/admin")} color="text-emerald-500" />
+            <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
           </div>
         </section>
 
+        {/* Section: Quản trị (Moved up below System) */}
+        <section>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Quản trị</p>
+          <div className="space-y-0.5">
+            <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên hệ thống" active={isActive("/admin/employees")} />
+            <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
+          </div>
+        </section>
+
+        {/* Section: Danh mục hàng hóa */}
         <section>
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Hàng hóa</p>
           <div className="space-y-0.5">
             <SidebarLink href="/admin/products" icon={Package} label="Sản phẩm" active={isActive("/admin/products")} />
+            <SidebarLink href="/admin/categories" icon={Tags} label="Danh mục" active={isActive("/admin/categories")} />
+            <SidebarLink href="/admin/variants" icon={Layers} label="Thuộc tính" active={isActive("/admin/variants")} />
+          </div>
+        </section>
+
+        {/* Section: Nghiệp vụ kho */}
+        <section>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Giao dịch kho</p>
+          <div className="space-y-0.5">
             <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} />
+            <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} />
             <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} />
             <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
-            <SidebarLink href="/admin/variants" icon={Layers} label="Thuộc tính" active={isActive("/admin/variants")} />
-            <SidebarLink href="/admin/categories" icon={Tags} label="Danh mục" active={isActive("/admin/categories")} />
           </div>
         </section>
 
+        {/* Section: Vận chuyển */}
         <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Đối tác & Nhân sự</p>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Vận chuyển</p>
+          <div className="space-y-0.5">
+            <SidebarLink href="/admin/shipping/overview" icon={Truck} label="Tổng quan vận chuyển" active={isActive("/admin/shipping/overview")} />
+          </div>
+        </section>
+
+        {/* Section: Đối tác */}
+        <section>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Đối tác</p>
           <div className="space-y-0.5">
             <SidebarLink href="/admin/suppliers" icon={Truck} label="Nhà cung cấp" active={isActive("/admin/suppliers")} badge={supplierCount} color="text-orange-400" />
-            {/* CẬP NHẬT BADGE KHÁCH HÀNG THẬT 👇 */}
             <SidebarLink href="/admin/customers" icon={Users} label="Khách hàng" active={isActive("/admin/customers")} badge={customerCount} color="text-blue-400" />
-            <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên hệ thống" active={isActive("/admin/employees")} />
           </div>
         </section>
 
+        {/* Section: Phân tích */}
         <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Báo cáo & Phân tích</p>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Báo cáo</p>
           <div className="space-y-0.5">
             <SidebarLink href="/admin/reports/sales" icon={TrendingUp} label="Báo cáo bán hàng" active={isActive("/admin/reports/sales")} color="text-blue-500" />
             <SidebarLink href="/admin/reports/inventory" icon={Warehouse} label="Báo cáo kho" active={isActive("/admin/reports/inventory")} color="text-amber-500" />
             <SidebarLink href="/admin/financial" icon={FileBarChart} label="Báo cáo tài chính" active={isActive("/admin/financial")} color="text-emerald-500" />
           </div>
         </section>
-
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Quản trị hệ thống</p>
-          <div className="space-y-0.5">
-            <SidebarLink href="/admin/inventory-dashboard" icon={LayoutDashboard} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
-            <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
-          </div>
-        </section>
       </div>
 
+      {/* Footer Actions */}
       <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50">
         <SidebarLink href="/admin/settings" icon={Settings} label="Cài đặt" active={isActive("/admin/settings")} />
         <SidebarLink href="#" icon={HelpCircle} label="Hỗ trợ" active={false} />
