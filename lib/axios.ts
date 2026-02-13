@@ -147,6 +147,14 @@ const createApi = (baseURL: string): AxiosInstance => {
     async (error: AxiosError<any>) => {
       if (isCancel(error)) return Promise.reject(error)
 
+      // Handle Network Error (Backend down)
+      if (!error.response && error.message === 'Network Error') {
+        if (isClient()) {
+          toast.error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng hoặc liên hệ quản trị viên.')
+        }
+        return Promise.reject(error)
+      }
+
       const status = error.response?.status
       const original = error.config as RetriableRequest
       if (status === 401 && original && !original._retry && !isAuthRefreshUrl(original.url)) {

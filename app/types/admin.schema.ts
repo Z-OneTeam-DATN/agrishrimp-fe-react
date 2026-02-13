@@ -126,8 +126,8 @@ export const AdminAttributeSchema = z.object({
       .min(1, "Vui lòng nhập mô tả cho thuộc tính này")
       .max(500, "Mô tả tối đa 500 ký tự"),
 
-  status: z.enum(["active", "inactive"])
-    .default("active"),
+  status: z.enum(["ACTIVE", "INACTIVE"])
+    .default("ACTIVE"),
 
   values: z.array(z.string())
     .min(1, "Phải có ít nhất 1 giá trị cho thuộc tính này"),

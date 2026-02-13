@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -24,9 +24,49 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { supplierService } from "@/app/services/supplier.service";
+import { customerService } from "@/app/services/customer.service"; 
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+
+  const [supplierCount, setSupplierCount] = useState(0);
+  const [customerCount, setCustomerCount] = useState(0);
+
+  const fetchCounts = async () => {
+    try {
+      // Use Promise.allSettled to allow one to fail without blocking the other,
+      // and handle errors silently to avoid disruptive "Network Error" overlays in dev
+      const results = await Promise.allSettled([
+        supplierService.getAll(undefined, undefined, undefined, 0, 1),
+        customerService.getAll("", "all", 0, 1) 
+      ]);
+      
+      if (results[0].status === 'fulfilled') {
+        setSupplierCount(results[0].value.totalElements || 0);
+      }
+      
+      if (results[1].status === 'fulfilled') {
+        setCustomerCount(results[1].value.totalElements || 0);
+      }
+    } catch (error) {
+      // Silent catch for initial count fetching to avoid UI crashes
+      console.warn("Sidebar counts could not be synced (Backend might be offline)");
+    }
+  };
+
+  useEffect(() => {
+    fetchCounts();
+
+    const handleUpdate = () => fetchCounts();
+    window.addEventListener("supplierUpdated", handleUpdate);
+    window.addEventListener("customerUpdated", handleUpdate); 
+    
+    return () => {
+      window.removeEventListener("supplierUpdated", handleUpdate);
+      window.removeEventListener("customerUpdated", handleUpdate);
+    };
+  }, []);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
@@ -40,7 +80,9 @@ export default function AdminSidebar() {
         <div className="flex items-center gap-2">
           <div className="w-2 h-6 bg-emerald-500 rounded-full" />
           <div className="flex flex-col">
-            <h1 className="font-black text-white text-[18px] tracking-[0.15em] leading-none uppercase">AGRI<span className="text-emerald-500">SHRIMP</span></h1>
+            <h1 className="font-black text-white text-[18px] tracking-[0.15em] leading-none uppercase">
+              AGRI<span className="text-emerald-500">SHRIMP</span>
+            </h1>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em] mt-1">Administrator</span>
           </div>
         </div>
@@ -98,8 +140,8 @@ export default function AdminSidebar() {
         <section>
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">Đối tác</p>
           <div className="space-y-0.5">
-            <SidebarLink href="/admin/suppliers" icon={Truck} label="Nhà cung cấp" active={isActive("/admin/suppliers")} badge={15} color="text-orange-400" />
-            <SidebarLink href="/admin/customers" icon={Users} label="Khách hàng" active={isActive("/admin/customers")} badge={150} />
+            <SidebarLink href="/admin/suppliers" icon={Truck} label="Nhà cung cấp" active={isActive("/admin/suppliers")} badge={supplierCount} color="text-orange-400" />
+            <SidebarLink href="/admin/customers" icon={Users} label="Khách hàng" active={isActive("/admin/customers")} badge={customerCount} color="text-blue-400" />
           </div>
         </section>
 
