@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Pencil, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Hash } from "lucide-react";
+import { Pencil, Trash2, Image as ImageIcon } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface Category {
+export interface Category {
   id: number;
   name: string;
   description: string;
@@ -24,9 +24,11 @@ interface Category {
 
 interface AdminCategoryTableProps {
   categories: Category[];
+  onEdit: (category: Category) => void;
+  onDelete: (id: number) => void;
 }
 
-export function AdminCategoryTable({ categories }: AdminCategoryTableProps) {
+export function AdminCategoryTable({ categories, onEdit, onDelete }: AdminCategoryTableProps) {
   return (
     <div className="w-full">
       <Table className="table-custom border-collapse">
@@ -41,47 +43,68 @@ export function AdminCategoryTable({ categories }: AdminCategoryTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {categories.map((cat) => (
-            <TableRow key={cat.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors">
-              <TableCell className="text-center text-slate-400 font-bold text-[11px]">#{cat.id}</TableCell>
-              <TableCell className="p-2">
-                <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] flex items-center justify-center overflow-hidden shadow-sm">
-                  {cat.image ? (
-                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover p-0.5" />
-                  ) : (
-                    <ImageIcon size={16} className="text-slate-200" />
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="p-2">
-                <div className="flex flex-col">
-                  <span className="text-[#1f1f1f] font-bold text-[13px] leading-tight">{cat.name}</span>
-                  <span className="text-slate-500 text-[11px] line-clamp-1">{cat.description}</span>
-                </div>
-              </TableCell>
-              <TableCell className="p-2 text-center font-bold text-slate-700 text-[12px]">
-                {cat.productCount}
-              </TableCell>
-              <TableCell className="p-2">
-                <span className={cn(
-                  "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase",
-                  cat.status === "Hiển thị" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-100 text-slate-400 border-slate-200"
-                )}>
-                  {cat.status}
-                </span>
-              </TableCell>
-              <TableCell className="p-2 text-right pr-4">
-                <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100">
-                    <Pencil size={14} className="text-blue-600" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50">
-                    <Trash2 size={14} className="text-rose-600" />
-                  </Button>
-                </div>
+          {categories.length > 0 ? (
+            categories.map((cat) => (
+              <TableRow key={cat.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors">
+                <TableCell className="text-center text-slate-400 font-bold text-[11px]">#{cat.id}</TableCell>
+                <TableCell className="p-2">
+                  <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] flex items-center justify-center overflow-hidden shadow-sm">
+                    {cat.image ? (
+                      <img src={cat.image} alt={cat.name} className="w-full h-full object-cover p-0.5" />
+                    ) : (
+                      <ImageIcon size={16} className="text-slate-200" />
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="p-2">
+                  <div className="flex flex-col">
+                    <span className="text-[#1f1f1f] font-bold text-[13px] leading-tight">{cat.name}</span>
+                    <span className="text-slate-500 text-[11px] line-clamp-1">{cat.description}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="p-2 text-center font-bold text-slate-700 text-[12px]">
+                  {cat.productCount}
+                </TableCell>
+                <TableCell className="p-2">
+                  <span className={cn(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase",
+                    cat.status === "Hiển thị" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-100 text-slate-400 border-slate-200"
+                  )}>
+                    {cat.status}
+                  </span>
+                </TableCell>
+                <TableCell className="p-2 text-right pr-4">
+                  <div className="flex justify-end gap-1">
+                    {/* Nút Sửa: Gắn sự kiện onEdit */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 hover:bg-slate-100"
+                      onClick={() => onEdit(cat)}
+                    >
+                      <Pencil size={14} className="text-blue-600" />
+                    </Button>
+
+                    {/* Nút Xóa: Gắn sự kiện onDelete */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 hover:bg-rose-50"
+                      onClick={() => onDelete(cat.id)}
+                    >
+                      <Trash2 size={14} className="text-rose-600" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center p-4 text-slate-500 text-[12px]">
+                Không có dữ liệu danh mục nào.
               </TableCell>
             </TableRow>
-          ))}
+          )}
         </TableBody>
       </Table>
 
