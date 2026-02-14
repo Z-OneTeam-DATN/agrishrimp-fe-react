@@ -6,8 +6,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createAttribute, getAttributeById, updateAttribute } from "@/app/services/AttributeService";
 import {
-  X, Settings, HelpCircle, Plus, Save,
-  ChevronLeft, Tag, AlertCircle, Settings2, Loader2
+  X, Settings, ChevronLeft, Tag, Save, Loader2, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,19 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AdminAttributeSchema, AdminAttributeForm } from "@/app/types/admin.schema";
+
+// --- HÀM TIỆN ÍCH CHUYỂN ĐỔI ---
+const generateCodeFromName = (name: string) => {
+  if (!name) return "";
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d").replace(/Đ/g, "D")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+};
 
 export default function AddVariantPage() {
   const router = useRouter();
@@ -40,13 +52,19 @@ export default function AddVariantPage() {
     }
   });
 
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.error("Dữ liệu Form không hợp lệ:", errors);
-    }
-  }, [errors]);
+  // --- THEO DÕI TÊN ĐỂ SINH MÃ ---
+  const nameValue = watch("name");
 
-  // Load dữ liệu cũ khi ở chế độ Edit
+  useEffect(() => {
+    // Chỉ tự động điền khi KHÔNG PHẢI chế độ sửa (để tránh sửa nhầm mã cũ)
+    if (!isEditMode && nameValue) {
+      const autoCode = generateCodeFromName(nameValue);
+      setValue("code", autoCode, { shouldValidate: true });
+    }
+  }, [nameValue, isEditMode, setValue]);
+  // ------------------------------
+
+  // Load dữ liệu cũ khi Edit
   useEffect(() => {
     if (isEditMode && idFromUrl) {
       const fetchDetail = async () => {
@@ -56,7 +74,7 @@ export default function AddVariantPage() {
             name: data.name,
             code: data.code,
             description: data.description || "",
-            status: data.status, // ACTIVE hoặc INACTIVE từ Backend
+            status: data.status,
             values: data.values || []
           });
         } catch (error) {
@@ -97,7 +115,7 @@ export default function AddVariantPage() {
       }
       router.push("/admin/variants");
     } catch (error) {
-      toast.error("Lỗi server hoặc Mã định danh đã tồn tại!");
+      toast.error("Mã định danh (Code) đã tồn tại hoặc lỗi server!");
     } finally {
       setIsSubmitting(false);
     }
@@ -105,7 +123,6 @@ export default function AddVariantPage() {
 
   return (
     <form onSubmit={handleSubmit(onSave)} className="space-y-3 pb-[100px]">
-      {/* Header */}
       <div className="flex items-center gap-4 mb-4 px-1">
         <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
           <ChevronLeft size={20} />
@@ -113,10 +130,6 @@ export default function AddVariantPage() {
         <h1 className="text-[18px] font-black text-[#1f1f1f] uppercase tracking-tight">
           {isEditMode ? "Chỉnh sửa thuộc tính" : "Thêm thuộc tính mới"}
         </h1>
-        <div className="ms-auto flex items-center gap-3 text-gray-400">
-          <Settings size={18} className="cursor-pointer hover:text-emerald-600 transition-colors" />
-          <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8"><X size={20} /></Button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -128,7 +141,11 @@ export default function AddVariantPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               <div className="space-y-[2px] relative pb-5">
                 <Label className="text-[11px] font-bold text-slate-500 uppercase">Tên thuộc tính *</Label>
-                <Input {...register("name")} placeholder="Ví dụ: Đơn vị tính..." className="h-[32px] text-[13px] border-[#ccc]" />
+                <Input
+                  {...register("name")}
+                  placeholder="Ví dụ: Đơn vị tính..."
+                  className="h-[32px] text-[13px] border-[#ccc]"
+                />
                 {errors.name && <p className="absolute bottom-0 text-[11px] text-red-500 font-bold">{errors.name.message}</p>}
               </div>
 
@@ -136,9 +153,10 @@ export default function AddVariantPage() {
                 <Label className="text-[11px] font-bold text-slate-500 uppercase">Mã định danh (Code) *</Label>
                 <Input
                     {...register("code")}
-                    readOnly={isEditMode} // Không dùng disabled để tránh mất dữ liệu khi submit
+                    // Nếu muốn người dùng vẫn sửa được sau khi tự động sinh thì bỏ readOnly, hoặc chỉ readOnly khi Edit
+                    readOnly={isEditMode}
                     className={cn("h-[32px] text-[13px] border-[#ccc] font-mono", isEditMode && "bg-slate-50 opacity-70")}
-                    placeholder="Ví dụ: UNIT_TYPE..."
+                    placeholder="Tự động sinh: DON_VI_TINH..."
                 />
                 {errors.code && <p className="absolute bottom-0 text-[11px] text-red-500 font-bold">{errors.code.message}</p>}
               </div>
@@ -151,6 +169,7 @@ export default function AddVariantPage() {
             </div>
           </div>
 
+          {/* ... Phần danh sách giá trị giữ nguyên ... */}
           <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-sm">
             <div className="flex items-center gap-2 mb-4 text-slate-700 font-black text-[11px] uppercase tracking-wider">
               <Settings2 size={16} className="text-emerald-600" /> 2. Danh sách giá trị hợp lệ
@@ -181,6 +200,7 @@ export default function AddVariantPage() {
           </div>
         </div>
 
+        {/* ... Sidebar giữ nguyên ... */}
         <div className="lg:col-span-4 space-y-3">
           <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-sm">
             <Label className="text-[11px] font-bold text-slate-500 uppercase block mb-3">Trạng thái sử dụng</Label>
