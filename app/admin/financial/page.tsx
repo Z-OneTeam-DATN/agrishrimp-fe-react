@@ -1,9 +1,14 @@
 "use client";
 
 import React from "react";
-import { 
-  HelpCircle, BarChart3, BookOpen, 
-  UserMinus, Users, FileText, Landmark
+import {
+  HelpCircle,
+  BarChart3,
+  BookOpen,
+  UserMinus,
+  Users,
+  FileText,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -14,22 +19,23 @@ const financialReports = [
     title: "Báo cáo lãi lỗ",
     description: "Theo dõi doanh thu, chi phí và lợi nhuận của cửa hàng",
     icon: BarChart3,
-    href: "/admin/financial/profit-loss"
+    href: "/admin/financial/profit-loss",
   },
   {
     id: "cashbook",
     title: "Sổ quỹ",
     description: "Theo dõi các khoản thu chi của cửa hàng",
     icon: Landmark,
-    href: "/admin/financial/cashbook"
+    href: "/admin/financial/cashbook",
   },
   {
     id: "supplier-debt",
     title: "Báo cáo công nợ nhà cung cấp",
-    description: "Theo dõi các khoản công nợ phải thu hoặc phải trả nhà cung cấp",
+    description:
+      "Theo dõi các khoản công nợ phải thu hoặc phải trả nhà cung cấp",
     icon: Users,
-    href: "/admin/financial/supplier-debt"
-  }
+    href: "/admin/financial/supplier-debt",
+  },
 ];
 
 export default function FinancialReportListPage() {
@@ -37,8 +43,13 @@ export default function FinancialReportListPage() {
     <div className="space-y-6 pb-10 bg-[#f0f2f5] min-h-screen p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-[24px] font-medium text-[#1f1f1f]">Danh sách báo cáo tài chính</h1>
-        <Button variant="outline" className="bg-white border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2">
+        <h1 className="text-[24px] font-medium text-[#1f1f1f]">
+          Danh sách báo cáo tài chính
+        </h1>
+        <Button
+          variant="outline"
+          className="bg-white border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2"
+        >
           <HelpCircle size={18} className="text-slate-500" /> Trợ giúp
         </Button>
       </div>

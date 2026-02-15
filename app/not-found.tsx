@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
 export default function NotFound() {
   return (
@@ -6,5 +6,5 @@ export default function NotFound() {
       <h2>Not Found</h2>
       <p>Could not find requested resource</p>
     </div>
-  )
+  );
 }

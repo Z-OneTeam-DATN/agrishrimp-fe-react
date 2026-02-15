@@ -1,38 +1,39 @@
-import { useQuery } from '@tanstack/react-query'
-import { UserType } from '@/app/types/user.schema'
-import { AuthService } from '@/app/services/auth.service'
-import { useEffect } from 'react'
-import { useAuthStore } from '@/stores/useAuthStore'
+import { useQuery } from "@tanstack/react-query";
+import { UserType } from "@/app/types/user.schema";
+import { AuthService } from "@/app/services/auth.service";
+import { useEffect } from "react";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export function useCurrentUser() {
-  const { setUserDetail, accessToken, setAccessAndRefreshToken } = useAuthStore()
+  const { setUserDetail, accessToken, setAccessAndRefreshToken } =
+    useAuthStore();
 
   const { data: token } = useQuery({
-    queryKey: ['test'],
-    queryFn: () => AuthService.meTokenNext()
-  })
+    queryKey: ["test"],
+    queryFn: () => AuthService.meTokenNext(),
+  });
 
   const { data } = useQuery<UserType, Error, UserType>({
-    queryKey: ['currentUser', accessToken],
+    queryKey: ["currentUser", accessToken],
     queryFn: () => AuthService.me(),
     staleTime: 0,
     enabled: !!accessToken,
-    refetchOnMount: true
-  })
+    refetchOnMount: true,
+  });
 
   useEffect(() => {
     if (data) {
-      setUserDetail(data)
+      setUserDetail(data);
     }
-  }, [data, setUserDetail])
+  }, [data, setUserDetail]);
 
   useEffect(() => {
     if (token) {
-      setAccessAndRefreshToken(token)
+      setAccessAndRefreshToken(token);
     }
-  }, [token, setUserDetail, setAccessAndRefreshToken])
+  }, [token, setUserDetail, setAccessAndRefreshToken]);
 
   return {
-    data
-  }
+    data,
+  };
 }

@@ -1,24 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  distDir: 'dist',
+  output: "standalone",
+  distDir: "dist",
   eslint: {
-    ignoreDuringBuilds: true
+    ignoreDuringBuilds: true,
   },
   images: {
     unoptimized: true,
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'chat-webapp-nghiadev.s3.ap-southeast-1.amazonaws.com'
-      }
-    ]
+        protocol: "https",
+        hostname: "chat-webapp-nghiadev.s3.ap-southeast-1.amazonaws.com",
+      },
+    ],
   },
   logging: {
     fetches: {
-      fullUrl: true
-    }
-  }
-}
+      fullUrl: true,
+    },
+  },
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const OrderItemSchema = z.object({
   id: z.string().optional(),
@@ -12,12 +12,12 @@ export const OrderItemSchema = z.object({
 
 // Update enum to match your tab requirements
 export const OrderStatusEnum = z.enum([
-  'ALL',
-  'PENDING',          // Chờ xác nhận
-  'SHIPPING',         // Đang giao
-  'COMPLETED',        // Đã giao
-  'RETURN_REQUESTED', // Trả hàng/Hoàn tiền
-  'CANCELLED',        // Đã hủy
+  "ALL",
+  "PENDING", // Chờ xác nhận
+  "SHIPPING", // Đang giao
+  "COMPLETED", // Đã giao
+  "RETURN_REQUESTED", // Trả hàng/Hoàn tiền
+  "CANCELLED", // Đã hủy
 ]);
 
 export type OrderStatus = z.infer<typeof OrderStatusEnum>;
@@ -40,7 +40,7 @@ export type Order = z.infer<typeof OrderSchema>;
 
 export const CancelReasonSchema = z.object({
   orderId: z.string(),
-  reasonCode: z.string().min(1, { message: 'Vui lòng chọn lý do hủy' }),
+  reasonCode: z.string().min(1, { message: "Vui lòng chọn lý do hủy" }),
   otherReasonText: z.string().optional().nullable(),
 });
 

@@ -29,7 +29,7 @@ export const SettingsCard = ({
         "group relative bg-white p-5 rounded-xl border border-slate-200",
         "shadow-sm hover:shadow-md hover:-translate-y-1",
         "cursor-pointer transition-all duration-300 ease-out",
-        className
+        className,
       )}
     >
       <div className="flex items-start gap-4">
@@ -48,7 +48,7 @@ export const SettingsCard = ({
           </p>
         </div>
       </div>
-      
+
       {/* Decorative element on hover */}
       <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />

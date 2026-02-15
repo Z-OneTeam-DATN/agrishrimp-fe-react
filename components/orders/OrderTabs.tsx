@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 export function OrderTabs() {
   const searchParams = useSearchParams();
-  const currentStatus = searchParams.get('status') || 'ALL';
+  const currentStatus = searchParams.get("status") || "ALL";
 
   const tabs = [
-    { label: 'Tất cả', value: 'ALL' },
-    { label: 'Chờ xác nhận', value: 'PENDING' },
-    { label: 'Đang giao', value: 'SHIPPING' },
-    { label: 'Đã giao', value: 'COMPLETED' },
-    { label: 'Trả hàng/Hoàn tiền', value: 'RETURN_REQUESTED' },
-    { label: 'Đã hủy', value: 'CANCELLED' },
+    { label: "Tất cả", value: "ALL" },
+    { label: "Chờ xác nhận", value: "PENDING" },
+    { label: "Đang giao", value: "SHIPPING" },
+    { label: "Đã giao", value: "COMPLETED" },
+    { label: "Trả hàng/Hoàn tiền", value: "RETURN_REQUESTED" },
+    { label: "Đã hủy", value: "CANCELLED" },
   ];
 
   return (
@@ -23,10 +23,15 @@ export function OrderTabs() {
         <Link
           key={tab.value}
           // If value is ALL, remove param, else set it
-          href={tab.value === 'ALL' ? '/orders/list' : `/orders/list?status=${tab.value}`}
+          href={
+            tab.value === "ALL"
+              ? "/orders/list"
+              : `/orders/list?status=${tab.value}`
+          }
           className={cn(
             "px-4 py-3 whitespace-nowrap font-medium text-gray-600 text-sm border-b-2 border-transparent transition-colors hover:text-[#2d9f8d]",
-            (currentStatus === tab.value) && "text-[#2d9f8d] border-[#2d9f8d] font-bold"
+            currentStatus === tab.value &&
+              "text-[#2d9f8d] border-[#2d9f8d] font-bold",
           )}
         >
           {tab.label}

@@ -2,76 +2,127 @@ import { z } from "zod";
 
 export const ConversionUnitSchema = z.object({
   id: z.string().optional(),
-  name: z.string()
+  name: z
+    .string()
     .min(1, "Tên đơn vị không được để trống")
     .max(50, "Tên đơn vị quá dài"),
-  value: z.coerce.number({ 
-    invalid_type_error: "Giá trị quy đổi phải là số",
-    required_error: "Vui lòng nhập giá trị quy đổi"
-  }).min(0.000001, "Giá trị quy đổi phải lớn hơn 0"),
+  value: z.coerce
+    .number({
+      invalid_type_error: "Giá trị quy đổi phải là số",
+      required_error: "Vui lòng nhập giá trị quy đổi",
+    })
+    .min(0.000001, "Giá trị quy đổi phải lớn hơn 0"),
   operator: z.enum(["*", "/"]).default("*"),
-  price: z.coerce.number({ 
-    invalid_type_error: "Giá bán phải là số",
-    required_error: "Vui lòng nhập giá bán"
-  }).min(0, "Giá bán không được âm"),
+  price: z.coerce
+    .number({
+      invalid_type_error: "Giá bán phải là số",
+      required_error: "Vui lòng nhập giá bán",
+    })
+    .min(0, "Giá bán không được âm"),
   barcode: z.string().max(50, "Mã vạch quá dài").optional(),
 });
 
 export type ConversionUnit = z.infer<typeof ConversionUnitSchema>;
 
-export const ProductSchema = z.object({
-  code: z.string()
-    .min(1, "Mã hàng không được để trống")
-    .max(50, "Mã hàng quá dài")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Mã hàng chỉ được chứa chữ cái, số, dấu gạch ngang và gạch dưới"),
-  name: z.string()
-    .min(2, "Tên hàng hóa phải có ít nhất 2 ký tự")
-    .max(200, "Tên hàng hóa quá dài"),
-  type: z.string().default("Hàng hóa"),
-  group: z.string().min(1, "Vui lòng chọn nhóm VTHH"),
-  unit: z.string().min(1, "Vui lòng chọn đơn vị tính"),
-  warranty: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number({ 
-    invalid_type_error: "Bảo hành phải là số" 
-  }).min(0, "Bảo hành không được âm").optional()),
-  tax: z.preprocess((val) => (val === "" ? 0 : val), z.coerce.number({ 
-    invalid_type_error: "Thuế phải là số" 
-  }).min(0, "Thuế không được âm").max(100, "Thuế tối đa 100%").default(8)),
-  minStock: z.preprocess((val) => (val === "" ? NaN : val), z.coerce.number({ 
-    invalid_type_error: "Vui lòng nhập số lượng tồn tối thiểu",
-    required_error: "Vui lòng nhập tồn tối thiểu"
-  }).min(0, "Tồn tối thiểu không được âm")),
-  maxStock: z.preprocess((val) => (val === "" ? NaN : val), z.coerce.number({ 
-    invalid_type_error: "Vui lòng nhập số lượng tồn tối đa",
-    required_error: "Vui lòng nhập tồn tối đa"
-  }).min(0, "Tồn tối đa không được âm")),
-  origin: z.string().min(1, "Nguồn gốc không được để trống").max(100, "Nguồn gốc quá dài"),
-  description: z.string().max(2000, "Mô tả tối đa 2000 ký tự").optional(),
-  status: z.enum(["Đang kinh doanh", "Ngừng kinh doanh"]).default("Đang kinh doanh"),
-  stock: z.coerce.number().default(0),
-  conversionUnits: z.array(ConversionUnitSchema).optional().default([]),
-  manageByLot: z.boolean().default(false),
-}).refine((data) => data.maxStock >= data.minStock, {
-  message: "Tồn tối đa phải lớn hơn hoặc bằng tồn tối thiểu",
-  path: ["maxStock"],
-}).refine((data) => {
-  if (!data.conversionUnits || data.conversionUnits.length === 0) return true;
-  const names = data.conversionUnits.map(u => u.name.trim().toLowerCase()).filter(n => n !== "");
-  return new Set(names).size === names.length;
-}, {
-  message: "Tên các đơn vị chuyển đổi không được trùng nhau",
-  path: ["conversionUnits"],
-}).refine((data) => {
-  if (!data.conversionUnits) return true;
-  const mainUnit = data.unit.trim().toLowerCase();
-  return !data.conversionUnits.some(u => u.name.trim().toLowerCase() === mainUnit);
-}, {
-  message: "Tên đơn vị chuyển đổi không được trùng với đơn vị tính chính",
-  path: ["conversionUnits"],
-});
+export const ProductSchema = z
+  .object({
+    code: z
+      .string()
+      .min(1, "Mã hàng không được để trống")
+      .max(50, "Mã hàng quá dài")
+      .regex(
+        /^[a-zA-Z0-9_-]+$/,
+        "Mã hàng chỉ được chứa chữ cái, số, dấu gạch ngang và gạch dưới",
+      ),
+    name: z
+      .string()
+      .min(2, "Tên hàng hóa phải có ít nhất 2 ký tự")
+      .max(200, "Tên hàng hóa quá dài"),
+    type: z.string().default("Hàng hóa"),
+    group: z.string().min(1, "Vui lòng chọn nhóm VTHH"),
+    unit: z.string().min(1, "Vui lòng chọn đơn vị tính"),
+    warranty: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.coerce
+        .number({
+          invalid_type_error: "Bảo hành phải là số",
+        })
+        .min(0, "Bảo hành không được âm")
+        .optional(),
+    ),
+    tax: z.preprocess(
+      (val) => (val === "" ? 0 : val),
+      z.coerce
+        .number({
+          invalid_type_error: "Thuế phải là số",
+        })
+        .min(0, "Thuế không được âm")
+        .max(100, "Thuế tối đa 100%")
+        .default(8),
+    ),
+    minStock: z.preprocess(
+      (val) => (val === "" ? NaN : val),
+      z.coerce
+        .number({
+          invalid_type_error: "Vui lòng nhập số lượng tồn tối thiểu",
+          required_error: "Vui lòng nhập tồn tối thiểu",
+        })
+        .min(0, "Tồn tối thiểu không được âm"),
+    ),
+    maxStock: z.preprocess(
+      (val) => (val === "" ? NaN : val),
+      z.coerce
+        .number({
+          invalid_type_error: "Vui lòng nhập số lượng tồn tối đa",
+          required_error: "Vui lòng nhập tồn tối đa",
+        })
+        .min(0, "Tồn tối đa không được âm"),
+    ),
+    origin: z
+      .string()
+      .min(1, "Nguồn gốc không được để trống")
+      .max(100, "Nguồn gốc quá dài"),
+    description: z.string().max(2000, "Mô tả tối đa 2000 ký tự").optional(),
+    status: z
+      .enum(["Đang kinh doanh", "Ngừng kinh doanh"])
+      .default("Đang kinh doanh"),
+    stock: z.coerce.number().default(0),
+    conversionUnits: z.array(ConversionUnitSchema).optional().default([]),
+    manageByLot: z.boolean().default(false),
+  })
+  .refine((data) => data.maxStock >= data.minStock, {
+    message: "Tồn tối đa phải lớn hơn hoặc bằng tồn tối thiểu",
+    path: ["maxStock"],
+  })
+  .refine(
+    (data) => {
+      if (!data.conversionUnits || data.conversionUnits.length === 0)
+        return true;
+      const names = data.conversionUnits
+        .map((u) => u.name.trim().toLowerCase())
+        .filter((n) => n !== "");
+      return new Set(names).size === names.length;
+    },
+    {
+      message: "Tên các đơn vị chuyển đổi không được trùng nhau",
+      path: ["conversionUnits"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (!data.conversionUnits) return true;
+      const mainUnit = data.unit.trim().toLowerCase();
+      return !data.conversionUnits.some(
+        (u) => u.name.trim().toLowerCase() === mainUnit,
+      );
+    },
+    {
+      message: "Tên đơn vị chuyển đổi không được trùng với đơn vị tính chính",
+      path: ["conversionUnits"],
+    },
+  );
 
 export type Product = z.infer<typeof ProductSchema>;
-
-
 
 // Warehouse Receipt Schema
 export const ReceiptItemSchema = z.object({
@@ -79,13 +130,18 @@ export const ReceiptItemSchema = z.object({
   productName: z.string(),
   productImage: z.string().optional(),
   unit: z.string(),
-  plannedQuantity: z.coerce.number().min(0.001, "Số lượng kế hoạch phải lớn hơn 0"),
+  plannedQuantity: z.coerce
+    .number()
+    .min(0.001, "Số lượng kế hoạch phải lớn hơn 0"),
   actualQuantity: z.coerce.number().min(0).optional().default(0),
   damagedQuantity: z.coerce.number().min(0).optional().default(0),
   lotNumber: z.string().min(1, "Số lô là bắt buộc"),
   expiryDate: z.string().min(1, "Hạn sử dụng là bắt buộc"),
   importPrice: z.coerce.number().min(0, "Giá nhập không được âm"),
-  newSellingPrice: z.coerce.number().min(0, "Giá bán mới không được âm").optional(),
+  newSellingPrice: z.coerce
+    .number()
+    .min(0, "Giá bán mới không được âm")
+    .optional(),
   discount: z.coerce.number().min(0).max(100).optional().default(0),
 });
 
@@ -103,7 +159,9 @@ export const ReceiptSchema = z.object({
   entryDate: z.string().min(1, "Vui lòng chọn ngày nhập"),
   referenceCode: z.string().min(1, "Vui lòng nhập tham chiếu"),
   description: z.string().min(1, "Vui lòng nhập diễn giải"),
-  status: z.enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"]).default("PENDING"),
+  status: z
+    .enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"])
+    .default("PENDING"),
   items: z.array(ReceiptItemSchema).min(1, "Cần ít nhất một mặt hàng"),
   paymentAmount: z.coerce.number().min(0).optional().default(0),
   note: z.string().optional(),
@@ -146,44 +204,70 @@ export const TransferItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string().min(1, "Tên hàng không được để trống"),
   unit: z.string().min(1, "ĐVT không được để trống"),
-  quantity: z.coerce.number({ invalid_type_error: "Số lượng phải là số" }).min(0.001, "Số lượng phải lớn hơn 0"),
-  receivedQuantity: z.coerce.number({ invalid_type_error: "Số lượng phải là số" }).min(0, "Số lượng nhận không được âm").optional().default(0),
+  quantity: z.coerce
+    .number({ invalid_type_error: "Số lượng phải là số" })
+    .min(0.001, "Số lượng phải lớn hơn 0"),
+  receivedQuantity: z.coerce
+    .number({ invalid_type_error: "Số lượng phải là số" })
+    .min(0, "Số lượng nhận không được âm")
+    .optional()
+    .default(0),
 });
 
 export type TransferItem = z.infer<typeof TransferItemSchema>;
 
-export const TransferSchema = z.object({
-  transferType: z.enum(["BETWEEN_WAREHOUSES", "INTERNAL"]).default("INTERNAL"),
-  description: z.string().min(1, "Vui lòng nhập lý do điều chuyển").max(500, "Lý do quá dài"),
-  transporter: z.string().min(1, "Vui lòng nhập người vận chuyển").max(100, "Tên người vận chuyển quá dài"),
-  transferCode: z.string().optional(),
-  sourceBranch: z.string().min(1, "Vui lòng chọn chi nhánh xuất"),
-  sourceWarehouse: z.string().min(1, "Vui lòng chọn kho xuất"),
-  sourceAddress: z.string().min(1, "Vui lòng nhập địa chỉ kho xuất"),
-  transferDate: z.string().min(1, "Vui lòng chọn ngày điều chuyển"),
-  destBranch: z.string().min(1, "Vui lòng chọn chi nhánh nhận"),
-  destWarehouse: z.string().min(1, "Vui lòng chọn kho nhập"),
-  destAddress: z.string().min(1, "Vui lòng nhập địa chỉ kho nhập"),
-  status: z.string().default("Chờ xử lý"),
-  referenceCode: z.string().min(1, "Vui lòng nhập tham chiếu").max(50, "Mã tham chiếu quá dài"),
-  items: z.array(TransferItemSchema).min(1, "Cần ít nhất một mặt hàng"),
-  note: z.string().optional(),
-}).refine((data) => {
-  // Nếu là điều chuyển giữa các kho trong cùng chi nhánh hoặc khác chi nhánh
-  // thì kho xuất và kho nhập phải khác nhau
-  return data.sourceWarehouse !== data.destWarehouse;
-}, {
-  message: "Kho nhập phải khác kho xuất",
-  path: ["destWarehouse"],
-}).refine((data) => {
-  if (data.transferType === "INTERNAL") {
-    return data.sourceBranch === data.destBranch;
-  }
-  return true;
-}, {
-  message: "Điều chuyển nội bộ phải cùng một chi nhánh",
-  path: ["destBranch"],
-});
+export const TransferSchema = z
+  .object({
+    transferType: z
+      .enum(["BETWEEN_WAREHOUSES", "INTERNAL"])
+      .default("INTERNAL"),
+    description: z
+      .string()
+      .min(1, "Vui lòng nhập lý do điều chuyển")
+      .max(500, "Lý do quá dài"),
+    transporter: z
+      .string()
+      .min(1, "Vui lòng nhập người vận chuyển")
+      .max(100, "Tên người vận chuyển quá dài"),
+    transferCode: z.string().optional(),
+    sourceBranch: z.string().min(1, "Vui lòng chọn chi nhánh xuất"),
+    sourceWarehouse: z.string().min(1, "Vui lòng chọn kho xuất"),
+    sourceAddress: z.string().min(1, "Vui lòng nhập địa chỉ kho xuất"),
+    transferDate: z.string().min(1, "Vui lòng chọn ngày điều chuyển"),
+    destBranch: z.string().min(1, "Vui lòng chọn chi nhánh nhận"),
+    destWarehouse: z.string().min(1, "Vui lòng chọn kho nhập"),
+    destAddress: z.string().min(1, "Vui lòng nhập địa chỉ kho nhập"),
+    status: z.string().default("Chờ xử lý"),
+    referenceCode: z
+      .string()
+      .min(1, "Vui lòng nhập tham chiếu")
+      .max(50, "Mã tham chiếu quá dài"),
+    items: z.array(TransferItemSchema).min(1, "Cần ít nhất một mặt hàng"),
+    note: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Nếu là điều chuyển giữa các kho trong cùng chi nhánh hoặc khác chi nhánh
+      // thì kho xuất và kho nhập phải khác nhau
+      return data.sourceWarehouse !== data.destWarehouse;
+    },
+    {
+      message: "Kho nhập phải khác kho xuất",
+      path: ["destWarehouse"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.transferType === "INTERNAL") {
+        return data.sourceBranch === data.destBranch;
+      }
+      return true;
+    },
+    {
+      message: "Điều chuyển nội bộ phải cùng một chi nhánh",
+      path: ["destBranch"],
+    },
+  );
 
 export type Transfer = z.infer<typeof TransferSchema>;
 
@@ -220,7 +304,9 @@ export const InventorySchema = z.object({
   isBlindAudit: z.boolean().default(false),
   includeZeroStock: z.boolean().default(true),
   items: z.array(InventoryItemSchema).optional().default([]),
-  members: z.array(InventoryMemberSchema).min(1, "Cần ít nhất một thành viên ban kiểm kê"),
+  members: z
+    .array(InventoryMemberSchema)
+    .min(1, "Cần ít nhất một thành viên ban kiểm kê"),
   conclusion: z.string().optional(),
 });
 

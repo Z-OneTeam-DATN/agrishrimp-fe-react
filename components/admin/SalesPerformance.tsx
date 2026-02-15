@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search } from "lucide-react";
 
 export default function SalesPerformance() {
@@ -58,17 +64,20 @@ export default function SalesPerformance() {
       </div>
       <div className="p-12 flex flex-col items-center justify-center min-h-[300px]">
         <div className="relative w-48 h-48 opacity-40 grayscale">
-            {/* Placeholder for the empty state illustration */}
-            <img 
-                src="/images/no-data.png" 
-                alt="No data" 
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                    e.currentTarget.src = "https://cdn-icons-png.flaticon.com/512/7486/7486744.png";
-                }}
-            />
+          {/* Placeholder for the empty state illustration */}
+          <img
+            src="/images/no-data.png"
+            alt="No data"
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              e.currentTarget.src =
+                "https://cdn-icons-png.flaticon.com/512/7486/7486744.png";
+            }}
+          />
         </div>
-        <p className="mt-4 text-sm text-gray-400 font-medium italic">Chưa có dữ liệu</p>
+        <p className="mt-4 text-sm text-gray-400 font-medium italic">
+          Chưa có dữ liệu
+        </p>
       </div>
     </div>
   );

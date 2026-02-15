@@ -45,16 +45,13 @@ export default function SignupForm() {
       return AuthService.register(payload);
     },
     onSuccess: () => {
-
       router.refresh();
       router.push("/");
     },
     onError: (error: any) => {
       const status = error?.response?.status;
       const detail: string =
-        error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        "";
+        error?.response?.data?.detail || error?.response?.data?.message || "";
 
       console.log("Signup error:", status, detail);
 
@@ -94,7 +91,6 @@ export default function SignupForm() {
     },
   });
 
-
   const resetCaptcha = () => {
     setValue("captchaToken", "", { shouldValidate: true });
     if (typeof window !== "undefined" && (window as any).turnstile) {
@@ -114,14 +110,14 @@ export default function SignupForm() {
   };
 
   const getInputClass = (hasError: boolean) =>
-    `group flex items-center bg-[#f4f6f8] rounded-lg transition-all border ${hasError
-      ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200"
-      : "border-transparent focus-within:ring-2 focus-within:ring-[#009688]/25"
+    `group flex items-center bg-[#f4f6f8] rounded-lg transition-all border ${
+      hasError
+        ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200"
+        : "border-transparent focus-within:ring-2 focus-within:ring-[#009688]/25"
     }`;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-
       {/* FULL NAME */}
       <InputField
         label="Họ và tên"
@@ -171,7 +167,9 @@ export default function SignupForm() {
             setValue("captchaToken", token, { shouldValidate: true });
             clearErrors("captchaToken");
           }}
-          onExpire={() => setValue("captchaToken", "", { shouldValidate: true })}
+          onExpire={() =>
+            setValue("captchaToken", "", { shouldValidate: true })
+          }
         />
         {errors.captchaToken && (
           <p className="text-xs text-red-500 font-medium mt-1">
@@ -188,24 +186,30 @@ export default function SignupForm() {
         </label>
       </div>
       {errors.terms && (
-        <p className="text-xs text-red-500 font-medium">{errors.terms.message}</p>
+        <p className="text-xs text-red-500 font-medium">
+          {errors.terms.message}
+        </p>
       )}
 
       {/* SUBMIT */}
       <button
         type="submit"
         disabled={mutation.isPending}
-        className={`w-full py-3 font-bold rounded-lg ${mutation.isPending
-          ? "bg-slate-300 text-slate-500"
-          : "bg-[#009688] hover:bg-[#00796b] text-white"
-          }`}
+        className={`w-full py-3 font-bold rounded-lg ${
+          mutation.isPending
+            ? "bg-slate-300 text-slate-500"
+            : "bg-[#009688] hover:bg-[#00796b] text-white"
+        }`}
       >
         {mutation.isPending ? "ĐANG XỬ LÝ..." : "ĐĂNG KÝ"}
       </button>
 
       <div className="text-center text-sm text-gray-600 pt-2">
         Bạn đã có tài khoản?{" "}
-        <Link href="/login" className="text-[#009688] font-bold hover:underline">
+        <Link
+          href="/login"
+          className="text-[#009688] font-bold hover:underline"
+        >
           Đăng nhập ngay
         </Link>
       </div>
@@ -215,12 +219,21 @@ export default function SignupForm() {
 
 /* ================= REUSABLE COMPONENTS ================= */
 
-function InputField({ label, icon, error, inputProps, placeholder, getInputClass }: any) {
+function InputField({
+  label,
+  icon,
+  error,
+  inputProps,
+  placeholder,
+  getInputClass,
+}: any) {
   return (
     <div className="space-y-1">
       <label className="text-sm font-medium text-gray-700">{label}</label>
       <div className={getInputClass(!!error)}>
-        <div className={`pl-3 ${error ? "text-red-400" : "text-gray-400"}`}>{icon}</div>
+        <div className={`pl-3 ${error ? "text-red-400" : "text-gray-400"}`}>
+          {icon}
+        </div>
         <input
           placeholder={placeholder}
           className="w-full bg-transparent p-3 text-sm focus:outline-none"
@@ -232,7 +245,14 @@ function InputField({ label, icon, error, inputProps, placeholder, getInputClass
   );
 }
 
-function PasswordField({ label, show, toggle, error, inputProps, getInputClass }: any) {
+function PasswordField({
+  label,
+  show,
+  toggle,
+  error,
+  inputProps,
+  getInputClass,
+}: any) {
   return (
     <div className="space-y-1">
       <label className="text-sm font-medium text-gray-700">{label}</label>

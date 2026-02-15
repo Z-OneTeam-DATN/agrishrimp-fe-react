@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { 
-  Calendar, 
-  ChevronDown, 
-  MapPin, 
-  Building2, 
+import {
+  Calendar,
+  ChevronDown,
+  MapPin,
+  Building2,
   PlusCircle,
   FileBarChart2,
   Package,
@@ -15,15 +15,15 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  CircleDollarSign
+  CircleDollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +32,12 @@ export default function ShippingOverviewPage() {
     <div className="space-y-6 p-6 bg-[#f8fafc] min-h-screen pb-20 overflow-x-hidden">
       {/* Header Section */}
       <div className="flex justify-between items-center gap-4">
-        <h1 className="text-xl font-bold text-slate-900 whitespace-nowrap">Tổng quan vận chuyển</h1>
+        <h1 className="text-xl font-bold text-slate-900 whitespace-nowrap">
+          Tổng quan vận chuyển
+        </h1>
         <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 shrink-0">
-          <PlusCircle size={18} /> <span className="whitespace-nowrap">Kết nối vận chuyển</span>
+          <PlusCircle size={18} />{" "}
+          <span className="whitespace-nowrap">Kết nối vận chuyển</span>
         </Button>
       </div>
 
@@ -50,7 +53,9 @@ export default function ShippingOverviewPage() {
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7days">7 ngày qua (07/02 - 13/02/2026)</SelectItem>
+            <SelectItem value="7days">
+              7 ngày qua (07/02 - 13/02/2026)
+            </SelectItem>
             <SelectItem value="30days">30 ngày qua</SelectItem>
             <SelectItem value="thismonth">Tháng này</SelectItem>
           </SelectContent>
@@ -82,14 +87,62 @@ export default function ShippingOverviewPage() {
       {/* Stats Section - Scrollable */}
       <div className="bg-white border border-slate-200 rounded-lg p-1 overflow-x-auto no-scrollbar shadow-sm">
         <div className="flex divide-x divide-slate-100 min-w-max">
-          <StatCard title="Chờ lấy hàng" value="0" cod="0₫" icon={Clock} color="text-amber-500" />
-          <StatCard title="Đã lấy hàng" value="0" cod="0₫" icon={Package} color="text-blue-500" />
-          <StatCard title="Đang giao hàng" value="0" cod="0₫" icon={Truck} color="text-indigo-500" />
-          <StatCard title="Chờ giao lại" value="0" cod="0₫" icon={RotateCcw} color="text-orange-500" />
-          <StatCard title="Đang hoàn hàng" value="0" cod="0₫" icon={RefreshCcw} color="text-rose-500" />
-          <StatCard title="Đã hoàn hàng" value="0" cod="0₫" icon={CheckCircle2} color="text-slate-500" />
-          <StatCard title="Đã giao hàng" value="0" cod="0₫" icon={CheckCircle2} color="text-emerald-500" />
-          <StatCard title="Huỷ giao hàng" value="0" cod="0₫" icon={XCircle} color="text-red-500" />
+          <StatCard
+            title="Chờ lấy hàng"
+            value="0"
+            cod="0₫"
+            icon={Clock}
+            color="text-amber-500"
+          />
+          <StatCard
+            title="Đã lấy hàng"
+            value="0"
+            cod="0₫"
+            icon={Package}
+            color="text-blue-500"
+          />
+          <StatCard
+            title="Đang giao hàng"
+            value="0"
+            cod="0₫"
+            icon={Truck}
+            color="text-indigo-500"
+          />
+          <StatCard
+            title="Chờ giao lại"
+            value="0"
+            cod="0₫"
+            icon={RotateCcw}
+            color="text-orange-500"
+          />
+          <StatCard
+            title="Đang hoàn hàng"
+            value="0"
+            cod="0₫"
+            icon={RefreshCcw}
+            color="text-rose-500"
+          />
+          <StatCard
+            title="Đã hoàn hàng"
+            value="0"
+            cod="0₫"
+            icon={CheckCircle2}
+            color="text-slate-500"
+          />
+          <StatCard
+            title="Đã giao hàng"
+            value="0"
+            cod="0₫"
+            icon={CheckCircle2}
+            color="text-emerald-500"
+          />
+          <StatCard
+            title="Huỷ giao hàng"
+            value="0"
+            cod="0₫"
+            icon={XCircle}
+            color="text-red-500"
+          />
         </div>
       </div>
 
@@ -107,7 +160,9 @@ export default function ShippingOverviewPage() {
 function StatCard({ title, value, cod, icon: Icon, color }: any) {
   return (
     <div className="flex-1 p-4 px-6 min-w-max shrink-0">
-      <p className="text-[12px] font-medium text-slate-500 mb-1 whitespace-nowrap">{title}</p>
+      <p className="text-[12px] font-medium text-slate-500 mb-1 whitespace-nowrap">
+        {title}
+      </p>
       <div className="flex items-baseline gap-2">
         <span className="text-xl font-bold text-slate-900">{value}</span>
       </div>
@@ -132,10 +187,12 @@ function ChartPlaceholder({ title }: { title: string }) {
             <FileBarChart2 size={64} className="text-slate-400" />
           </div>
           <div className="absolute top-0 right-0">
-             <XCircle size={20} className="text-slate-400" />
+            <XCircle size={20} className="text-slate-400" />
           </div>
         </div>
-        <p className="text-sm font-medium text-slate-400">Chưa có dữ liệu báo cáo</p>
+        <p className="text-sm font-medium text-slate-400">
+          Chưa có dữ liệu báo cáo
+        </p>
       </div>
     </div>
   );

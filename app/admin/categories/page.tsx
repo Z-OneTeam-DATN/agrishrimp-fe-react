@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// Định nghĩa Interface chuẩn cho Category
 export interface Category {
   id: number;
   name: string;
@@ -47,12 +48,14 @@ export default function CategoryManagementPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const router = useRouter();
 
+  // Hàm xây dựng cấu trúc cây từ mảng phẳng (Flat Array to Tree)
   const buildCategoryTree = (data: any[]): Category[] => {
     if (!Array.isArray(data)) return [];
 
     const categoryMap: Record<number, Category> = {};
     const tree: Category[] = [];
 
+    // Bước 1: Khởi tạo Map
     data.forEach((item) => {
       categoryMap[item.id] = {
         id: item.id,
@@ -65,10 +68,11 @@ export default function CategoryManagementPage() {
       };
     });
 
+    // Bước 2: Gắn con vào cha
     data.forEach((item) => {
       if (item.parentId && categoryMap[item.parentId]) {
         categoryMap[item.parentId].children?.push(categoryMap[item.id]);
-      } else {
+      } else if (!item.parentId) {
         tree.push(categoryMap[item.id]);
       }
     });
@@ -95,10 +99,6 @@ export default function CategoryManagementPage() {
     router.push(`/admin/categories/add?id=${id}`);
   };
 
-  const handleDeleteClick = (id: number) => {
-    setDeleteId(id);
-  };
-
   const toggleExpand = (id: number) => {
     setExpandedRows((prev) => ({
       ...prev,
@@ -113,13 +113,13 @@ export default function CategoryManagementPage() {
       toast.success("Đã xóa danh mục thành công!");
       loadData();
     } catch (error) {
-      console.error("Lỗi khi xóa:", error);
       toast.error("Có lỗi xảy ra khi xóa danh mục!");
     } finally {
       setDeleteId(null);
     }
   };
 
+  // Hàm render đệ quy từng dòng của bảng
   const renderCategoryRow = (category: Category, level: number = 0) => {
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedRows[category.id];
@@ -133,10 +133,7 @@ export default function CategoryManagementPage() {
           </td>
 
           <td className="p-3 text-sm text-slate-700 font-medium">
-            <div
-              className="flex items-center gap-2"
-              style={{ paddingLeft: `${paddingLeft}px` }}
-            >
+            <div className="flex items-center gap-2" style={{ paddingLeft: `${paddingLeft}px` }}>
               {hasChildren ? (
                 <button
                   onClick={() => toggleExpand(category.id)}
@@ -201,7 +198,7 @@ export default function CategoryManagementPage() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-red-600 hover:bg-red-50"
-                onClick={() => handleDeleteClick(category.id)}
+                onClick={() => setDeleteId(category.id)}
               >
                 <Trash2 size={15} />
               </Button>

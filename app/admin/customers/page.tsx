@@ -12,7 +12,7 @@ export default function CustomerManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("all");
-  
+
   // Thêm state để quản lý phân trang
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
@@ -23,10 +23,15 @@ export default function CustomerManagementPage() {
     setIsLoading(true);
     try {
       // Gửi keyword, status (viết hoa), page và size xuống Backend
-      const data = await customerService.getAll(keyword, status, page, pageSize);
-      
+      const data = await customerService.getAll(
+        keyword,
+        status,
+        page,
+        pageSize,
+      );
+
       // Backend trả về Page object nên lấy content và totalElements
-      setCustomers(data.content || []); 
+      setCustomers(data.content || []);
       setTotalElements(data.totalElements || 0);
     } catch (error) {
       console.error("Lỗi fetch khách hàng:", error);
@@ -50,15 +55,15 @@ export default function CustomerManagementPage() {
 
   return (
     <div className="space-y-3">
-      <AdminPageHeader 
-        title="Quản lý danh sách khách hàng" 
+      <AdminPageHeader
+        title="Quản lý danh sách khách hàng"
         addBtnLabel="Thêm khách hàng"
         addBtnHref="/admin/customers/add"
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-        <AdminSearchFilter 
-          placeholder="Tìm tên, số điện thoại..." 
+        <AdminSearchFilter
+          placeholder="Tìm tên, số điện thoại..."
           filter2Placeholder="Trạng thái tài khoản"
           filter2Options={statusFilters}
           onSearch={(val) => {
@@ -71,14 +76,16 @@ export default function CustomerManagementPage() {
           }}
           onRefresh={fetchCustomers}
         />
-        
+
         {isLoading ? (
-           <div className="p-20 text-center flex flex-col items-center gap-2">
-             <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-             <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Đang truy xuất dữ liệu...</p>
-           </div>
+          <div className="p-20 text-center flex flex-col items-center gap-2">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+              Đang truy xuất dữ liệu...
+            </p>
+          </div>
         ) : (
-           <AdminCustomerTable customers={customers} />
+          <AdminCustomerTable customers={customers} />
         )}
       </div>
     </div>

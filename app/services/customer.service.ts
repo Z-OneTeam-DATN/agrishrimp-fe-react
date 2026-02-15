@@ -4,14 +4,19 @@ import { CustomerFormValues } from "@/app/types/admin.schema";
 export const customerService = {
   PREFIX: "/customers",
 
-  getAll: async (keyword: string = "", status: string = "all", page: number = 0, size: number = 10) => {
+  getAll: async (
+    keyword: string = "",
+    status: string = "all",
+    page: number = 0,
+    size: number = 10,
+  ) => {
     const response = await apiJava.get(`${customerService.PREFIX}`, {
       params: {
         keyword,
         status: status === "all" ? null : status,
         page,
-        size
-      }
+        size,
+      },
     });
     return response.data;
   },
@@ -34,5 +39,5 @@ export const customerService = {
   delete: async (id: number) => {
     const response = await apiJava.delete(`${customerService.PREFIX}/${id}`);
     return response.data;
-  }
+  },
 };
