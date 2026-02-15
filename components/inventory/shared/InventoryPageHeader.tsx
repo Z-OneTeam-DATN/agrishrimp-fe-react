@@ -22,19 +22,19 @@ const defaultTabs = [
   { id: "out", label: "Hết hàng", count: 5, color: "text-red-600" },
 ];
 
-export function InventoryPageHeader({ 
-  title, 
-  activeTab, 
-  onTabChange, 
+export function InventoryPageHeader({
+  title,
+  activeTab,
+  onTabChange,
   onAddClick,
   addBtnLabel = "Thêm hàng hóa",
   addBtnHref,
-  tabs = defaultTabs
+  tabs = defaultTabs,
 }: InventoryHeaderProps) {
   const renderAddButton = () => {
     const button = (
-      <Button 
-        variant="outline" 
+      <Button
+        variant="outline"
         className="h-[32px] text-[12px] bg-white border-[#dcdcdc] rounded-[4px]"
         onClick={onAddClick}
       >
@@ -44,11 +44,7 @@ export function InventoryPageHeader({
     );
 
     if (addBtnHref) {
-      return (
-        <Link href={addBtnHref}>
-          {button}
-        </Link>
-      );
+      return <Link href={addBtnHref}>{button}</Link>;
     }
 
     return button;
@@ -66,20 +62,21 @@ export function InventoryPageHeader({
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
                   "px-3 py-[6px] text-[13px] font-semibold rounded-[4px] transition-all",
-                  activeTab === tab.id 
-                    ? "bg-[#eef6fc] text-[#007bff]" 
-                    : "text-[#555] hover:bg-[#f8f9fa] hover:text-[#007bff]"
+                  activeTab === tab.id
+                    ? "bg-[#eef6fc] text-[#007bff]"
+                    : "text-[#555] hover:bg-[#f8f9fa] hover:text-[#007bff]",
                 )}
               >
-                {tab.label} {tab.count !== null && <span className={cn("ml-1", tab.color)}>({tab.count})</span>}
+                {tab.label}{" "}
+                {tab.count !== null && (
+                  <span className={cn("ml-1", tab.color)}>({tab.count})</span>
+                )}
               </button>
             ))}
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        {renderAddButton()}
-      </div>
+      <div className="flex items-center gap-2">{renderAddButton()}</div>
     </div>
   );
 }

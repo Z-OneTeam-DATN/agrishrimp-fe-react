@@ -1,8 +1,20 @@
 "use client";
 
 import React from "react";
-import { DollarSign, FileText, RotateCcw, XCircle, ChevronDown } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DollarSign,
+  FileText,
+  RotateCcw,
+  XCircle,
+  ChevronDown,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function DailyBusinessResults() {
   const stats = [
@@ -39,7 +51,9 @@ export default function DailyBusinessResults() {
   return (
     <div className="bg-white border border-gray-200 rounded-sm shadow-sm">
       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase">Kết quả kinh doanh trong ngày</h2>
+        <h2 className="text-sm font-semibold text-gray-700 uppercase">
+          Kết quả kinh doanh trong ngày
+        </h2>
         <div className="w-48">
           <Select defaultValue="all">
             <SelectTrigger className="h-8 text-xs">

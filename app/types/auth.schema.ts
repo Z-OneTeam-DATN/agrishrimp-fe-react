@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-
 const phoneRegex = /^(84|0)(3|5|7|8|9)[0-9]{8}$/;
 export const RegisterSchema = z
   .object({
@@ -15,19 +14,18 @@ export const RegisterSchema = z
       .refine(
         (value) =>
           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || phoneRegex.test(value),
-        { message: "Email hoặc Số điện thoại không hợp lệ" }
+        { message: "Email hoặc Số điện thoại không hợp lệ" },
       ),
 
     password: z
       .string()
       .min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
-      
+
     confirmPassword: z.string(),
 
-    terms: z.boolean().refine(val => val === true, {
+    terms: z.boolean().refine((val) => val === true, {
       message: "Bạn phải đồng ý với điều khoản sử dụng",
     }),
-
 
     captchaToken: z.string().min(1, {
       message: "Vui lòng xác thực Captcha",
@@ -43,9 +41,8 @@ export const RegisterSchema = z
     }
   });
 
-
 /**
- * Type 
+ * Type
  */
 export type RegisterFormValues = z.infer<typeof RegisterSchema>;
 export type RegisterRequest = {
@@ -72,17 +69,12 @@ export type UserResponse = {
   status: string;
 };
 
-
-
-
 export const LoginSchema = z.object({
   emailOrPhone: z
     .string()
     .min(1, { message: "Vui lòng nhập Email hoặc Số điện thoại" }),
 
-  password: z
-    .string()
-    .min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
+  password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
 });
 
 export type LoginFormValues = z.infer<typeof LoginSchema>;

@@ -1,15 +1,15 @@
-import { AuthResponse } from '@/app/types/auth.schema'
-import { UserType } from '@/app/types/user.schema'
-import { create } from 'zustand'
+import { AuthResponse } from "@/app/types/auth.schema";
+import { UserType } from "@/app/types/user.schema";
+import { create } from "zustand";
 
 interface AuthStore {
-  userDetail?: UserType
-  accessToken: string | null
-  refreshToken?: string | null
-  setAccessToken: (token: string | null) => void
-  setRefreshToken: (token: string | null) => void
-  setAccessAndRefreshToken: (data: AuthResponse) => void
-  setUserDetail: (userDetails?: UserType) => void
+  userDetail?: UserType;
+  accessToken: string | null;
+  refreshToken?: string | null;
+  setAccessToken: (token: string | null) => void;
+  setRefreshToken: (token: string | null) => void;
+  setAccessAndRefreshToken: (data: AuthResponse) => void;
+  setUserDetail: (userDetails?: UserType) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -20,5 +20,5 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setRefreshToken: (refreshToken) => set({ refreshToken }),
   setAccessAndRefreshToken: (data: AuthResponse) =>
     set({ accessToken: data.accessToken, refreshToken: data.refreshToken }),
-  setUserDetail: (userDetail?: UserType) => set({ userDetail })
-}))
+  setUserDetail: (userDetail?: UserType) => set({ userDetail }),
+}));

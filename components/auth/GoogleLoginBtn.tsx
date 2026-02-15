@@ -28,9 +28,7 @@ export default function GoogleLoginBtn() {
       } catch (error: any) {
         const status = error?.response?.status;
         const detail: string =
-          error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          "";
+          error?.response?.data?.detail || error?.response?.data?.message || "";
 
         const message = detail.toLowerCase();
 

@@ -1,4 +1,4 @@
-import z from 'zod'
+import z from "zod";
 
 export const FileControlDetailSchema = z.object({
   detailNo: z.coerce.number(),
@@ -7,29 +7,29 @@ export const FileControlDetailSchema = z.object({
   deleteFlag: z.string(),
   createDatetime: z.date(),
   createUserCode: z.string(),
-  fileNameDifferenceFlag: z.boolean()
-})
+  fileNameDifferenceFlag: z.boolean(),
+});
 
-export type FileControlDetailType = z.TypeOf<typeof FileControlDetailSchema>
+export type FileControlDetailType = z.TypeOf<typeof FileControlDetailSchema>;
 
 export const FileControlSchema = z.object({
   fileControlId: z.coerce.number().nullable(), // Có thể là null
   objectId: z.string().nullable(),
-  fileControlDetails: z.array(FileControlDetailSchema)
-})
+  fileControlDetails: z.array(FileControlDetailSchema),
+});
 
-export type FileControlType = z.TypeOf<typeof FileControlSchema>
+export type FileControlType = z.TypeOf<typeof FileControlSchema>;
 
 export const FileControlRes = z.object({
   data: FileControlSchema,
-  message: z.string()
-})
+  message: z.string(),
+});
 
-export type FileControlResType = z.TypeOf<typeof FileControlRes>
+export type FileControlResType = z.TypeOf<typeof FileControlRes>;
 
 export const FileControlListRes = z.object({
   data: z.array(FileControlSchema),
-  message: z.string()
-})
+  message: z.string(),
+});
 
-export type FileControlListResType = z.TypeOf<typeof FileControlListRes>
+export type FileControlListResType = z.TypeOf<typeof FileControlListRes>;

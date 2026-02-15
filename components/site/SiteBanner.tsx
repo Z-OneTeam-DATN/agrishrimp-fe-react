@@ -1,38 +1,35 @@
+"use client";
 
-'use client'
-
-import * as React from "react"
-import Autoplay from "embla-carousel-autoplay"
+import * as React from "react";
+import Autoplay from "embla-carousel-autoplay";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel"
-import { BANNER_SLIDERS, SUB_BANNERS } from "@/lib/Constant"
-import Link from "next/link"
+} from "@/components/ui/carousel";
+import { BANNER_SLIDERS, SUB_BANNERS } from "@/lib/Constant";
+import Link from "next/link";
 
 export default function Banner() {
   const plugin = React.useRef(
-    Autoplay({ 
-        delay: 3500, 
-        stopOnInteraction: false 
-    })
-  )
+    Autoplay({
+      delay: 3500,
+      stopOnInteraction: false,
+    }),
+  );
 
   return (
-    <section className="w-full py-2 bg-gray-50"> 
-      <div className="w-full px-5"> 
-        
+    <section className="w-full py-2 bg-gray-50">
+      <div className="w-full px-5">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-        
           <div className="lg:col-span-2 rounded-xl overflow-hidden shadow-sm relative group">
             <Carousel
               plugins={[plugin.current]}
               className="w-full h-full"
               opts={{
-                loop: true, 
+                loop: true,
                 align: "start",
               }}
               onMouseEnter={plugin.current.stop}
@@ -57,9 +54,9 @@ export default function Banner() {
           </div>
           <div className="hidden lg:flex flex-col gap-2 h-[400px]">
             {SUB_BANNERS.map((sub, index) => (
-              <Link 
-                href="#" 
-                key={sub.id} 
+              <Link
+                href="#"
+                key={sub.id}
                 className="flex-1 relative rounded-xl overflow-hidden shadow-sm group block h-[196px]"
               >
                 <img
@@ -71,9 +68,8 @@ export default function Banner() {
               </Link>
             ))}
           </div>
-
         </div>
       </div>
     </section>
-  )
+  );
 }

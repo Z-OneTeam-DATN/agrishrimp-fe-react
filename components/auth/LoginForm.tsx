@@ -59,12 +59,13 @@ export default function SignupForm() {
 
     onError: (err: any) => {
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Lỗi không xác định";
+        err?.response?.data?.message || err?.message || "Lỗi không xác định";
 
       // Nếu tài khoản đã tồn tại → show lỗi ngay field
-      if (msg.toLowerCase().includes("tồn tại") || msg.toLowerCase().includes("exists")) {
+      if (
+        msg.toLowerCase().includes("tồn tại") ||
+        msg.toLowerCase().includes("exists")
+      ) {
         setError("contact", { message: msg });
       } else {
         alert("Lỗi đăng ký: " + msg);
@@ -85,10 +86,11 @@ export default function SignupForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="w-full">
-
       {/* CONTACT FIELD */}
       <div className="mb-3">
-         <label className="text-sm font-medium text-gray-700">Email hoặc SĐT</label>
+        <label className="text-sm font-medium text-gray-700">
+          Email hoặc SĐT
+        </label>
         <div className="relative flex items-center">
           <span className="absolute left-3 text-gray-400">
             <Mail size={20} />
@@ -102,13 +104,15 @@ export default function SignupForm() {
           />
         </div>
         {errors.contact && (
-          <small className="text-red-500 mt-1 block">{errors.contact.message}</small>
+          <small className="text-red-500 mt-1 block">
+            {errors.contact.message}
+          </small>
         )}
       </div>
 
       {/* PASSWORD FIELD */}
       <div className="mb-3">
-         <label className="text-sm font-medium text-gray-700">Mật khẩu</label>
+        <label className="text-sm font-medium text-gray-700">Mật khẩu</label>
         <div className="relative flex items-center">
           <span className="absolute left-3 text-gray-400">
             <Lock size={20} />
@@ -133,7 +137,9 @@ export default function SignupForm() {
         </div>
 
         {errors.password && (
-          <small className="text-red-500 mt-1 block">{errors.password.message}</small>
+          <small className="text-red-500 mt-1 block">
+            {errors.password.message}
+          </small>
         )}
       </div>
 
@@ -170,24 +176,33 @@ export default function SignupForm() {
         />
         <label htmlFor="terms" className="text-xs text-gray-500 leading-snug">
           Tôi đồng ý với{" "}
-          <Link href="#" className="font-semibold text-[#009688] hover:underline">
+          <Link
+            href="#"
+            className="font-semibold text-[#009688] hover:underline"
+          >
             Điều khoản dịch vụ
           </Link>{" "}
           và{" "}
-          <Link href="#" className="font-semibold text-[#009688] hover:underline">
+          <Link
+            href="#"
+            className="font-semibold text-[#009688] hover:underline"
+          >
             Chính sách bảo mật
-          </Link>.
+          </Link>
+          .
         </label>
       </div>
       {errors.terms && (
-        <small className="text-red-500 mt-1 block">{errors.terms.message}</small>
+        <small className="text-red-500 mt-1 block">
+          {errors.terms.message}
+        </small>
       )}
 
       {/* SUBMIT BUTTON */}
       <button
         type="submit"
         className={`w-full py-3 font-bold rounded-lg transition-all ${
-          mutation.isPending 
+          mutation.isPending
             ? "bg-slate-300 text-slate-500 cursor-not-allowed"
             : "bg-[#009688] hover:bg-[#00796b] text-white hover:-translate-y-0.5"
         }`}
@@ -198,7 +213,10 @@ export default function SignupForm() {
       {/* LOGIN LINK */}
       <div className="text-center text-sm text-gray-600 mt-4">
         Bạn đã có tài khoản?{" "}
-        <Link href="/signup" className="font-bold text-[#009688] hover:underline">
+        <Link
+          href="/signup"
+          className="font-bold text-[#009688] hover:underline"
+        >
           Đăng ký ngay
         </Link>
       </div>

@@ -7,22 +7,33 @@ export const supplierService = {
   EXTERNAL_PREFIX: "/external",
 
   // 1. LẤY DANH SÁCH (Hỗ trợ lọc động)
-  getAll: async (keyword?: string, categoryId?: string, status?: string, page: number = 0, size: number = 10) => {
-    const response = await apiJava.get<PageResponse<Supplier>>(`${supplierService.PREFIX}`, {
-        params: { 
-            keyword, 
-            category: categoryId === "all" ? null : categoryId, // BE nhận categoryId (Long)
-            status: status === "all" ? null : status, // BE nhận status (Enum String)
-            page, 
-            size 
-        }
-    });
+  getAll: async (
+    keyword?: string,
+    categoryId?: string,
+    status?: string,
+    page: number = 0,
+    size: number = 10,
+  ) => {
+    const response = await apiJava.get<PageResponse<Supplier>>(
+      `${supplierService.PREFIX}`,
+      {
+        params: {
+          keyword,
+          category: categoryId === "all" ? null : categoryId, // BE nhận categoryId (Long)
+          status: status === "all" ? null : status, // BE nhận status (Enum String)
+          page,
+          size,
+        },
+      },
+    );
     return response.data;
   },
 
   // 2. LẤY CHI TIẾT
   getById: async (id: number) => {
-    const response = await apiJava.get<Supplier>(`${supplierService.PREFIX}/${id}`);
+    const response = await apiJava.get<Supplier>(
+      `${supplierService.PREFIX}/${id}`,
+    );
     return response.data;
   },
 
@@ -31,13 +42,16 @@ export const supplierService = {
     const payload = {
       ...data,
       // Chuyển paymentTerms thành paymentTerm để khớp Entity Java
-      paymentTerm: data.paymentTerms?.toUpperCase(), 
-      category: data.category, 
+      paymentTerm: data.paymentTerms?.toUpperCase(),
+      category: data.category,
       status: data.status?.toUpperCase(),
-      paymentTerms: undefined 
+      paymentTerms: undefined,
     };
-    
-    const response = await apiJava.post<Supplier>(`${supplierService.PREFIX}`, payload);
+
+    const response = await apiJava.post<Supplier>(
+      `${supplierService.PREFIX}`,
+      payload,
+    );
     return response.data;
   },
 
@@ -48,38 +62,50 @@ export const supplierService = {
       paymentTerm: data.paymentTerms?.toUpperCase(),
       category: data.category, // Giữ nguyên ID danh mục
       status: data.status?.toUpperCase(),
-      paymentTerms: undefined
+      paymentTerms: undefined,
     };
-    
-    const response = await apiJava.put<Supplier>(`${supplierService.PREFIX}/${id}`, payload);
+
+    const response = await apiJava.put<Supplier>(
+      `${supplierService.PREFIX}/${id}`,
+      payload,
+    );
     return response.data;
   },
 
   // 5. XÓA
   delete: async (id: number) => {
-    const response = await apiJava.delete<{message: string}>(`${supplierService.PREFIX}/${id}`);
+    const response = await apiJava.delete<{ message: string }>(
+      `${supplierService.PREFIX}/${id}`,
+    );
     return response.data;
   },
 
   // Hàm tra cứu MST
   lookupTaxCode: async (taxCode: string) => {
-    const response = await apiJava.get(`${supplierService.EXTERNAL_PREFIX}/business/${taxCode}`);
-    return response.data; 
+    const response = await apiJava.get(
+      `${supplierService.EXTERNAL_PREFIX}/business/${taxCode}`,
+    );
+    return response.data;
   },
 
   // Hàm tra cứu ngân hàng
   lookupBank: async (bin: string, accountNumber: string) => {
-    console.log("URL đang gọi:", `${supplierService.EXTERNAL_PREFIX}/bank-lookup`);
-    const response = await apiJava.post(`${supplierService.EXTERNAL_PREFIX}/bank-lookup`, {
-      bin,
-      accountNumber
-    });
+    console.log(
+      "URL đang gọi:",
+      `${supplierService.EXTERNAL_PREFIX}/bank-lookup`,
+    );
+    const response = await apiJava.post(
+      `${supplierService.EXTERNAL_PREFIX}/bank-lookup`,
+      {
+        bin,
+        accountNumber,
+      },
+    );
     return response.data;
   },
 
   getCategories: async () => {
-
-    const response = await apiJava.get("/categories"); 
+    const response = await apiJava.get("/categories");
     return response.data;
   },
 };
