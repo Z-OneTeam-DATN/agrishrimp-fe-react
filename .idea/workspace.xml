@@ -4,6 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
+    <list default="true" id="372a3868-29d7-4326-9678-0fc43de912ff" name="Changes" comment="" />
     <list default="true" id="372a3868-29d7-4326-9678-0fc43de912ff" name="Changes" comment="">
 
       <change afterPath="$PROJECT_DIR$/app/admin/orders-all/page.tsx" afterDir="false" />
@@ -49,6 +50,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "feature/order-management-system",
     "git-widget-placeholder": "main",
     "git-widget-placeholder": "feat/admin-validation",
     "ignore.virus.scanning.warn.message": "true",
