@@ -11,6 +11,7 @@ import {
   Layers,
   Images,
   Camera,
+  Ban,
 } from "lucide-react";
 
 import {
@@ -58,17 +59,118 @@ interface Product {
   status: string;
 }
 
-interface AdminProductTableProps {
-  products: Product[];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface Variant {
+  id: string;
+  formulation: string;
+  packaging: string;
+  weight: string;
+  unit: string;
+  price: string;
+  costPrice: string;
+  wholesalePrice: string;
+  inventory: number;
+  available: number;
+  sold: number;
+  barcode: string;
+  image: string | null;
 }
 
-export function AdminProductTable({ products }: AdminProductTableProps) {
+interface Product {
+  id: number;
+  sku: string;
+  name: string;
+  category: string;
+  brand: string;
+  origin: string;
+  totalSold: number;
+  inventory: number;
+  available: number;
+  createdAt: string;
+  image: string;
+  imageCount: number;
+  techSpecs: { key: string; value: string }[];
+  variants: Variant[];
+  status: string;
+}
+
+interface AdminProductTableProps {
+  products: Product[];
+  onDelete?: (id: number) => void;
+  onEdit?: (id: number) => void;
+  onDisable?: (id: number) => void;
+}
+
+export function AdminProductTable({ products, onDelete, onEdit, onDisable }: AdminProductTableProps) {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
+  
+  // State for Alert Dialog
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    id: number | null;
+    type: "delete" | "disable";
+    title: string;
+    description: string;
+    actionLabel: string;
+    variant: "default" | "destructive";
+  }>({
+    id: null,
+    type: "delete",
+    title: "",
+    description: "",
+    actionLabel: "",
+    variant: "default"
+  });
 
   const toggleRow = (id: number) => {
     setExpandedRows((prev) =>
       prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id],
     );
+  };
+
+  const openDeleteConfirm = (id: number) => {
+    setConfirmConfig({
+      id,
+      type: "delete",
+      title: "Xác nhận xóa vĩnh viễn",
+      description: "Bạn có chắc chắn muốn xóa vĩnh viễn sản phẩm này? Hành động này không thể hoàn tác và chỉ thực hiện được khi sản phẩm chưa có giao dịch và hết tồn kho.",
+      actionLabel: "Xóa sản phẩm",
+      variant: "destructive"
+    });
+    setConfirmOpen(true);
+  };
+
+  const openDisableConfirm = (id: number) => {
+    setConfirmConfig({
+      id,
+      type: "disable",
+      title: "Xác nhận ngừng kinh doanh",
+      description: "Sản phẩm này sẽ không còn xuất hiện trên cửa hàng nhưng vẫn được lưu trữ trong hệ thống.",
+      actionLabel: "Ngừng kinh doanh",
+      variant: "default"
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmConfig.id === null) return;
+    
+    if (confirmConfig.type === "delete") {
+      onDelete?.(confirmConfig.id);
+    } else {
+      onDisable?.(confirmConfig.id);
+    }
+    setConfirmOpen(false);
   };
 
   return (
@@ -95,7 +197,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
             <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">
               Trạng thái
             </TableHead>
-            <TableHead className="w-[100px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">
+            <TableHead className="w-[130px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">
               Hành động
             </TableHead>
           </TableRow>
@@ -104,6 +206,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
         <TableBody>
           {products.map((p) => {
             const isExpanded = expandedRows.includes(p.id);
+            const isInactive = p.status === "Ngừng kinh doanh" || p.status === "INACTIVE";
 
             return (
               <React.Fragment key={p.id}>
@@ -176,7 +279,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                     <span
                       className={cn(
                         "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase",
-                        p.status === "Đang kinh doanh"
+                        !isInactive
                           ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                           : "bg-slate-100 text-slate-400 border-slate-200",
                       )}
@@ -194,13 +297,29 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 hover:bg-slate-100"
+                        onClick={() => onEdit?.(p.id)}
+                        title="Chỉnh sửa"
                       >
                         <Pencil size={14} className="text-blue-600" />
                       </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-amber-50"
+                        onClick={() => openDisableConfirm(p.id)}
+                        disabled={isInactive}
+                        title="Ngừng kinh doanh"
+                      >
+                        <Ban size={14} className={isInactive ? "text-slate-300" : "text-amber-600"} />
+                      </Button>
+
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 hover:bg-rose-50"
+                        onClick={() => openDeleteConfirm(p.id)}
+                        title="Xóa vĩnh viễn"
                       >
                         <Trash2 size={14} className="text-rose-600" />
                       </Button>
@@ -359,6 +478,35 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="rounded-none border-[#dcdcdc] shadow-xl">
+          <AlertDialogHeader className="space-y-3">
+            <AlertDialogTitle className="text-[16px] font-black uppercase tracking-tight text-[#1f1f1f]">
+              {confirmConfig.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] text-slate-500 leading-relaxed">
+              {confirmConfig.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-3">
+            <AlertDialogCancel className="h-9 text-[12px] font-bold border-[#ccc] rounded-none hover:bg-slate-50 uppercase min-w-[100px]">
+              Hủy bỏ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmAction}
+              className={cn(
+                "h-9 text-[12px] font-black rounded-none shadow-sm uppercase min-w-[120px]",
+                confirmConfig.variant === "destructive" 
+                  ? "bg-rose-600 hover:bg-rose-700 text-white" 
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              )}
+            >
+              {confirmConfig.actionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

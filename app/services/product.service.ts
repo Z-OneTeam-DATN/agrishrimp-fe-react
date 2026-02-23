@@ -1,55 +1,66 @@
 import { apiJava } from "@/lib/axios";
-
-// Interface mẫu để bạn quản lý kiểu dữ liệu (tùy chỉnh theo ApiResponse của bạn)
-interface ApiResponse<T> {
-  code: number;
-  message: string;
-  data: T;
-}
+import { 
+  ProductListItem, 
+  ProductDetail, 
+  UpdateProductRequest,
+  ApiResponse // Sử dụng Type từ schema đã import
+} from "@/app/types/product.schema";
 
 export const ProductService = {
   PREFIX: "/products",
 
-  getAll: async () => {
-    const response = await apiJava.get<ApiResponse<any[]>>(`${ProductService.PREFIX}`);
-    return response.data.data;
+  // 1. Lấy danh sách sản phẩm
+  getAll: async (): Promise<ProductListItem[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}`);
+    // Lưu ý: Nếu backend trả về bọc trong .data.data thì dùng response.data.data
+    return response.data;
   },
 
-  getById: async (id: string | number) => {
-    const response = await apiJava.get<ApiResponse<any>>(`${ProductService.PREFIX}/${id}`);
-    return response.data.data;
+  // 2. Xem chi tiết sản phẩm (Bao gồm SKUs)
+  getById: async (id: string | number): Promise<ProductDetail> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}/${id}`);
+    return response.data;
   },
 
-  create: async (formData: FormData) => {
-    const response = await apiJava.post<ApiResponse<any>>(`${ProductService.PREFIX}`, formData, {
+  // 3. Tạo sản phẩm mới
+  create: async (formData: FormData): Promise<ApiResponse> => {
+    const response = await apiJava.post(`${ProductService.PREFIX}`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    return response.data; // Thường create trả về cả ApiResponse để hiển thị Toast message
-  },
-
-  update: async (id: string | number, data: any) => {
-    const response = await apiJava.put<ApiResponse<any>>(`${ProductService.PREFIX}/${id}`, data);
     return response.data;
   },
 
-  delete: async (id: string | number) => {
-    const response = await apiJava.delete<ApiResponse<void>>(`${ProductService.PREFIX}/${id}`);
+  // 4. Cập nhật sản phẩm & Biến thể
+  update: async (id: string | number, data: UpdateProductRequest): Promise<ApiResponse> => {
+    const response = await apiJava.put(`${ProductService.PREFIX}/${id}`, data);
     return response.data;
   },
 
-  // DATA GỢI Ý
-  getCategories: async () => {
-    const response = await apiJava.get<ApiResponse<any[]>>(`${ProductService.PREFIX}/categories`);
-    return response.data.data;
+  // 5. Xóa sản phẩm
+  delete: async (id: string | number): Promise<ApiResponse> => {
+    const response = await apiJava.delete(`${ProductService.PREFIX}/${id}`);
+    return response.data;
   },
 
-  getBrands: async () => {
-    const response = await apiJava.get<ApiResponse<any[]>>(`${ProductService.PREFIX}/brands`);
-    return response.data.data;
+  // 6. Ngừng kinh doanh (Mới từ main)
+  disable: async (id: string | number): Promise<ApiResponse> => {
+    const response = await apiJava.put(`${ProductService.PREFIX}/${id}/disable`);
+    return response.data;
   },
 
-  getAttributes: async () => {
-    const response = await apiJava.get<ApiResponse<any[]>>(`${ProductService.PREFIX}/attributes`);
-    return response.data.data;
-  }
+  // 7. API Hỗ trợ (Metadata cho Dropdowns)
+  getCategories: async (): Promise<any[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}/categories`);
+    return response.data;
+  },
+
+  getBrands: async (): Promise<any[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}/brands`);
+    return response.data;
+  },
+
+  getAttributes: async (): Promise<any[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
+    return response.data;
+  },
 };
