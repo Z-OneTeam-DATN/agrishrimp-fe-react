@@ -23,7 +23,7 @@ export const RegisterSchema = z
 
     confirmPassword: z.string(),
 
-    terms: z.boolean().refine((val) => val === true, {
+    termsAccepted: z.boolean().refine((val) => val === true, {
       message: "Bạn phải đồng ý với điều khoản sử dụng",
     }),
 
@@ -49,7 +49,9 @@ export type RegisterRequest = {
   fullName: string;
   contact: string;
   password: string;
+  confirmPassword: string;
   captchaToken: string;
+  termsAccepted: boolean;
 };
 
 export type AuthResponse = {

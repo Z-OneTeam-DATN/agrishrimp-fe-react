@@ -34,15 +34,15 @@ export default function SignupForm() {
       contact: "",
       password: "",
       confirmPassword: "",
-      terms: false,
+      termsAccepted: false,
       captchaToken: "",
     },
   });
 
   const mutation = useMutation({
     mutationFn: (data: RegisterFormValues) => {
-      const { confirmPassword, terms, ...payload } = data;
-      return AuthService.register(payload);
+      console.log("Submitting Register Payload:", data);
+      return AuthService.register(data);
     },
     onSuccess: () => {
       router.refresh();
@@ -180,14 +180,14 @@ export default function SignupForm() {
 
       {/* TERMS */}
       <div className="flex items-start gap-2 pt-2">
-        <input type="checkbox" {...register("terms")} />
+        <input type="checkbox" {...register("termsAccepted")} />
         <label className="text-xs text-gray-600">
           Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật
         </label>
       </div>
-      {errors.terms && (
+      {errors.termsAccepted && (
         <p className="text-xs text-red-500 font-medium">
-          {errors.terms.message}
+          {errors.termsAccepted.message}
         </p>
       )}
 
