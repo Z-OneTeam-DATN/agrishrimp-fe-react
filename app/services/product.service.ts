@@ -14,8 +14,10 @@ export const ProductService = {
     return response.data;
   },
 
-  create: async (data: any) => {
-    const response = await apiJava.post(`${ProductService.PREFIX}`, data);
+  create: async (formData: FormData) => {
+    const response = await apiJava.post(`${ProductService.PREFIX}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   },
 

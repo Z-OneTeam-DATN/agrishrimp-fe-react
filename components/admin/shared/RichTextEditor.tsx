@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
   Code,
   Type,
@@ -27,6 +27,9 @@ interface RichTextEditorProps {
   placeholder?: string;
   className?: string;
   minHeight?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  onBlur?: () => void;
 }
 
 export function RichTextEditor({
@@ -34,7 +37,20 @@ export function RichTextEditor({
   placeholder,
   className,
   minHeight = "150px",
+  value,
+  onChange,
+  onBlur,
 }: RichTextEditorProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  // Set initial HTML on mount only — avoids React fighting with contentEditable
+  useEffect(() => {
+    if (editorRef.current && value) {
+      editorRef.current.innerHTML = value;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className={cn("space-y-1", className)}>
       {label && (
@@ -154,15 +170,15 @@ export function RichTextEditor({
 
         {/* Content Area */}
         <div
+          ref={editorRef}
           className="p-3 focus:outline-none text-[13px] text-slate-700 bg-white"
           style={{ minHeight }}
           contentEditable
           suppressContentEditableWarning
-        >
-          {placeholder && (
-            <span className="text-slate-300 italic">{placeholder}</span>
-          )}
-        </div>
+          onInput={(e) => onChange?.(e.currentTarget.innerHTML)}
+          onBlur={onBlur}
+          data-placeholder={placeholder}
+        />
 
         {/* Footer info (like the resize handle in image) */}
         <div className="bg-[#f1f1f1] h-[18px] flex justify-end items-center px-1">
