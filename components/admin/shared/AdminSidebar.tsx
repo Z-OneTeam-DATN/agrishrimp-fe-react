@@ -10,6 +10,7 @@ import {
   Tags,
   Users,
   UserCircle,
+  UserPlus,
   Building2,
   FileBarChart,
   Settings,
@@ -33,9 +34,11 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { hasPermission } = usePermissions();
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
   
@@ -141,7 +144,31 @@ export default function AdminSidebar() {
             Quản trị
           </p>
           <div className="space-y-0.5">
-            <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
+            {hasPermission("USER_MANAGE") && (
+              <SidebarLink
+                href="/admin/employees"
+                icon={UserCircle}
+                label="Nhân viên"
+                active={pathname === "/admin/employees"}
+              />
+            )}
+            {hasPermission("USER_CREATE") && (
+              <SidebarLink
+                href="/admin/employees/add"
+                icon={UserPlus}
+                label="Thêm nhân viên"
+                active={pathname === "/admin/employees/add"}
+              />
+            )}
+            {hasPermission("ROLE_MANAGE") && (
+              <SidebarLink
+                href="/admin/employees/roles"
+                icon={ShieldCheck}
+                label="Vai trò & Quyền"
+                active={pathname.startsWith("/admin/employees/roles")}
+                color="text-violet-400"
+              />
+            )}
             <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
           </div>
         </section>

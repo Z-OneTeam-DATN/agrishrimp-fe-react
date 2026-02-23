@@ -83,7 +83,16 @@ export const changePasswordSchema = z
 
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
 
-export type UserType = z.infer<typeof BaseUserSchema>;
+export type UserType = z.infer<typeof BaseUserSchema> & {
+  role?: {
+    id: number;
+    slug: string;
+    displayName: string;
+    permissions?: string[];
+  };
+  permissions?: string[];
+  mustChangePassword?: boolean;
+};
 
 export const loginSchema = BaseUserSchema.pick({
   email: true,

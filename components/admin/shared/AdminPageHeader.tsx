@@ -34,9 +34,9 @@ export function AdminPageHeader({
   tabs
 }: AdminPageHeaderProps) {
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-1">
       <div className="flex items-center gap-4">
-        <h1 className="text-[18px] font-bold text-[#1f1f1f]">{title}</h1>
+        <h1 className="text-[20px] font-bold text-slate-900 tracking-tight">{title}</h1>
         
         {tabs && onTabChange && (
           <div className="hidden md:flex gap-[5px]">
@@ -58,21 +58,21 @@ export function AdminPageHeader({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {secondaryBtnLabel && (
           secondaryBtnHref ? (
             <Link href={secondaryBtnHref}>
-              <Button variant="outline" className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-slate-600 hover:bg-slate-50 rounded-[4px] shadow-none">
-                {SecondaryIcon && <SecondaryIcon className="mr-1.5 h-3.5 w-3.5" />} {secondaryBtnLabel}
+              <Button variant="outline" className="h-[40px] px-4 text-[14px] font-medium bg-white border-slate-200 border text-slate-700 hover:bg-slate-50 rounded-md shadow-sm">
+                {SecondaryIcon && <SecondaryIcon className="mr-2 h-4 w-4 text-slate-500" />} {secondaryBtnLabel}
               </Button>
             </Link>
           ) : (
             <Button 
               variant="outline"
               onClick={onSecondaryClick}
-              className="h-[32px] text-[12px] bg-white border-[#dcdcdc] border text-slate-600 hover:bg-slate-50 rounded-[4px] shadow-none"
+              className="h-[40px] px-4 text-[14px] font-medium bg-white border-slate-200 border text-slate-700 hover:bg-slate-50 rounded-md shadow-sm"
             >
-              {SecondaryIcon && <SecondaryIcon className="mr-1.5 h-3.5 w-3.5" />} {secondaryBtnLabel}
+              {SecondaryIcon && <SecondaryIcon className="mr-2 h-4 w-4 text-slate-500" />} {secondaryBtnLabel}
             </Button>
           )
         )}
@@ -80,16 +80,16 @@ export function AdminPageHeader({
         {(addBtnHref || onAddClick) && (
           addBtnHref ? (
             <Link href={addBtnHref}>
-              <Button className="h-[32px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[4px] shadow-sm transition-all">
-                <Plus className="mr-1 h-4 w-4" /> {addBtnLabel || "Thêm mới"}
+              <Button className="h-[40px] px-4 text-[14px] font-bold bg-[#4169E1] hover:bg-blue-700 text-white rounded-md shadow-md transition-all">
+                <Plus className="mr-2 h-5 w-5" /> {addBtnLabel || "Thêm mới"}
               </Button>
             </Link>
           ) : (
             <Button
               onClick={onAddClick}
-              className="h-[32px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[4px] shadow-sm transition-all"
+              className="h-[40px] px-4 text-[14px] font-bold bg-[#4169E1] hover:bg-blue-700 text-white rounded-md shadow-md transition-all"
             >
-              <Plus className="mr-1 h-4 w-4" /> {addBtnLabel || "Thêm mới"}
+              <Plus className="mr-2 h-5 w-5" /> {addBtnLabel || "Thêm mới"}
             </Button>
           )
         )}

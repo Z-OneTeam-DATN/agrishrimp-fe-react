@@ -1,45 +1,88 @@
-export interface UserRequest {
-  fullName: string;
-  employeeCode: string;
-  email: string;
-  password?: string;
-  phoneNumber: string;
-  address: string;
-  dateOfBirth: string;
-  avatarUrl?: string;
-  status: string; // ACTIVE, INACTIVE
-  startDate: string; // Ngày vào làm
-  branchId: number;
-  roleId: number;
-  // Các trường bổ sung nếu cần (theo đặc tả VN)
-  citizenId?: string;
-  gender?: number; 
-}
+import { z } from "zod";
+
+export const EmployeeCreateSchema = z.object({
+  fullName: z.string()
+    .min(2, "Họ tên từ 2-100 ký tự")
+    .max(100, "Họ tên không quá 100 ký tự")
+    .regex(/^[a-zA-ZÀ-ỹ\s]+$/, "Họ tên không được chứa số hoặc ký tự đặc biệt")
+    .transform(v => v.trim()),
+  employeeCode: z.string().optional(), // Server tự sinh nếu trống
+  email: z.string()
+    .email("Email không đúng định dạng RFC")
+    .max(100, "Email không quá 100 ký tự")
+    .transform(v => v.trim()),
+  password: z.string()
+    .min(8, "Mật khẩu phải từ 8-100 ký tự")
+    .max(100, "Mật khẩu không quá 100 ký tự")
+    .regex(/[A-Z]/, "Cần ít nhất 1 chữ hoa")
+    .regex(/[a-z]/, "Cần ít nhất 1 chữ thường")
+    .regex(/[0-9]/, "Cần ít nhất 1 chữ số")
+    .regex(/[@#$%^&+=!]/, "Cần ít nhất 1 ký tự đặc biệt (@#$%^&+=!)"),
+  phoneNumber: z.string().regex(/^0\d{9}$/, "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng 0"),
+  addressDetail: z.string().min(1, "Địa chỉ không được để trống").transform(v => v.trim()),
+  dateOfBirth: z.string().refine((date) => {
+    const dob = new Date(date);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    if (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate())) age--;
+    return age >= 18;
+  }, { message: "Nhân viên phải từ 18 tuổi trở lên" }),
+  avatarUrl: z.string().nullable().optional(),
+  status: z.enum(["ACTIVE", "INACTIVE", "BANNED"]),
+  startDate: z.string().refine((date) => {
+    const d = new Date(date);
+    const minDate = new Date("2000-01-01");
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 30);
+    return d >= minDate && d <= maxDate;
+  }, { message: "Ngày vào làm không hợp lệ (từ năm 2000 đến +30 ngày tới)" }),
+  branchId: z.preprocess((val) => Number(val), z.number().min(1, "Vui lòng chọn chi nhánh")),
+  roleId: z.preprocess((val) => Number(val), z.number().min(1, "Vui lòng chọn vai trò")),
+  citizenId: z.string().regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số"),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]),
+});
+
+export type EmployeeCreateInput = z.infer<typeof EmployeeCreateSchema>;
+
+export const EmployeeUpdateSchema = EmployeeCreateSchema.omit({ 
+    password: true, 
+    email: true, 
+    citizenId: true // CitizenId bị lock sau khi tạo theo đặc tả 5.4
+}).extend({
+    // Cho phép sửa CitizenId nếu là ADMIN (Logic xử lý trong Component)
+    citizenId: z.string().regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số").optional(),
+});
+
+export type EmployeeUpdateInput = z.infer<typeof EmployeeUpdateSchema>;
+
+export interface UserRequest extends EmployeeCreateInput {}
 
 export interface UserResponse {
   id: number;
-  fullName: string;
   employeeCode: string;
+  fullName: string;
   email: string;
   phoneNumber: string;
-  address: string;
+  citizenId: string;
   dateOfBirth: string;
-  avatarUrl?: string;
-  status: string;
+  gender: string;
   startDate: string;
-  citizenId?: string;
-  gender?: number;
+  addressDetail: string;
+  avatarUrl: string | null;
   branch: {
     id: number;
     name: string;
-    code: string;
   };
   role: {
     id: number;
     displayName: string;
     slug: string;
   };
+  status: "ACTIVE" | "INACTIVE" | "BANNED";
+  mustChangePassword: boolean;
+  emailSent: boolean;
   createdAt: string;
+  createdByUserId: number;
 }
 
 export interface PageResponse<T> {
@@ -53,5 +96,4 @@ export interface PageResponse<T> {
 export interface BranchType {
   id: number;
   name: string;
-  code: string;
 }

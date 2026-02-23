@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import Header from "@/components/site/SiteHeader";
 import Navbar from "@/components/site/SiteNavbar";
@@ -19,35 +19,60 @@ export default function LayoutClient({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
     const pathname = usePathname();
+    const router = useRouter();
     const queryClientRef = useRef<QueryClient>();
-    const { setUser, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
-    
-      // HYDRATE FULL USER PROFILE ON LOAD
+    const { user, setUser, setAccessToken, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
+
+      // HYDRATE FULL USER PROFILE + TOKEN ON LOAD
       useEffect(() => {
         const hydrateAuth = async () => {
           setLoadingAuth(true);
           try {
-            const user = await AuthService.meNext();
-            if (user) {
-              setUser(user);
+            // Run both in parallel: get user profile AND restore access token from cookie
+            const [userData, tokenData] = await Promise.allSettled([
+              AuthService.meNext(),
+              AuthService.meTokenNext(),
+            ]);
+
+            // Restore access token first (needed for usePermissions JWT decode)
+            if (tokenData.status === "fulfilled" && tokenData.value?.accessToken) {
+              setAccessToken(tokenData.value.accessToken);
+            }
+
+            // Set user profile
+            if (userData.status === "fulfilled" && userData.value) {
+              setUser(userData.value);
+            } else if (userData.status === "rejected") {
+              clearAuth();
             }
           } catch (err) {
-            // No toast here to avoid annoying 401 messages on public pages
             clearAuth();
           } finally {
             setLoadingAuth(false);
           }
         };
         hydrateAuth();
-      }, [setUser, clearAuth, setLoadingAuth]);  
+      }, [setUser, setAccessToken, clearAuth, setLoadingAuth]);  
     // Public pages don't need a blocking spinner
-    const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
-    const isAdminPage = pathname?.startsWith("/admin");
-    const isProtectedPath = ["/profile", "/orders", "/user/checkout"].some(p => pathname?.startsWith(p));
-  
-    // Determine if we should show a full screen loader (only for admin or protected user pages)
-    const showBlockingLoader = (isAdminPage || isProtectedPath) && isLoadingAuth;
-  if (!queryClientRef.current) {
+      const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
+      const isChangePasswordPage = pathname === "/change-password";
+      const isAdminPage = pathname?.startsWith("/admin");
+      const isProtectedPath = ["/profile", "/orders", "/user/checkout"].some(p => pathname?.startsWith(p));
+    
+      // Redirect to mandatory password change page if needed
+      useEffect(() => {
+        if (!isLoadingAuth && user?.mustChangePassword && !isChangePasswordPage) {
+          router.push("/change-password");
+        }
+      }, [user, isLoadingAuth, isChangePasswordPage, router]);
+    
+      // Determine if we should show a full screen loader (only for admin or protected user pages)
+      const showBlockingLoader = (isAdminPage || isProtectedPath) && isLoadingAuth;
+    
+      // Block rendering if must change password but not on the page
+      if (!isLoadingAuth && user?.mustChangePassword && !isChangePasswordPage) {
+        return null; // Let the useEffect handle redirection
+      }  if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({
       defaultOptions: {
         queries: { retry: 0 },

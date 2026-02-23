@@ -66,6 +66,11 @@ const getErrorMessage = (error: AxiosError<any>) => {
   const data = error.response?.data;
   if (!data) return "Lỗi hệ thống, vui lòng thử lại.";
 
+  // Nếu có mảng chi tiết lỗi (Validation errors)
+  if (Array.isArray(data.details) && data.details.length > 0) {
+    return data.details.map((d: any) => d.message).join(". ");
+  }
+
   return (
     data.detail ||
     data.message ||

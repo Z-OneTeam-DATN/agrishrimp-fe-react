@@ -1,17 +1,17 @@
-import axios from 'axios';
+import { apiJava } from '@/lib/axios';
 
-const API_BASE_URL = 'http://localhost:8080/api'; // Điều chỉnh theo server của bạn
+const PREFIX = '/chi-nhanh';
 
 export const BranchService = {
-  getAll: () => axios.get(`${API_BASE_URL}/chi-nhanh/danh-sach-chi-nhanh`),
+  getAll: () => apiJava.get(`${PREFIX}/danh-sach-chi-nhanh`),
 
-  getById: (id: string | number) => axios.get(`${API_BASE_URL}/chi-nhanh/chi-tiet-danh-sach-/${id}`),
+  getById: (id: string | number) => apiJava.get(`${PREFIX}/chi-tiet-danh-sach-/${id}`),
 
-  create: (data: any) => axios.post(`${API_BASE_URL}/chi-nhanh`, data),
+  create: (data: any) => apiJava.post(`${PREFIX}`, data),
 
-  update: (id: string | number, data: any) => axios.put(`${API_BASE_URL}/chi-nhanh/${id}`, data),
+  update: (id: string | number, data: any) => apiJava.put(`${PREFIX}/${id}`, data),
 
-  delete: (id: number | string) => axios.delete(`${API_BASE_URL}/chi-nhanh/${id}`),
+  delete: (id: number | string) => apiJava.delete(`${PREFIX}/${id}`),
 
-  getAllStaff: () => axios.get(`${API_BASE_URL}/users/all-staff`)
+  getAllStaff: () => apiJava.get(`/users/all-staff`)
 };
