@@ -1,17 +1,36 @@
-import { apiJava } from '@/lib/axios';
 
-const PREFIX = '/chi-nhanh';
+import { apiJava } from "@/lib/axios";
 
-export const BranchService = {
-  getAll: () => apiJava.get(`${PREFIX}/danh-sach-chi-nhanh`),
+export const branchService = {
+  PREFIX: "/branches",
 
-  getById: (id: string | number) => apiJava.get(`${PREFIX}/chi-tiet-danh-sach-/${id}`),
+  getAll: async () => {
+    const response = await apiJava.get(`${branchService.PREFIX}`);
+    return response.data;
+  },
 
-  create: (data: any) => apiJava.post(`${PREFIX}`, data),
+  getById: async (id: string | number) => {
+    const response = await apiJava.get(`${branchService.PREFIX}/${id}`);
+    return response.data;
+  },
 
-  update: (id: string | number, data: any) => apiJava.put(`${PREFIX}/${id}`, data),
+  create: async (data: any) => {
+    const response = await apiJava.post(`${branchService.PREFIX}`, data);
+    return response.data;
+  },
 
-  delete: (id: number | string) => apiJava.delete(`${PREFIX}/${id}`),
+  update: async (id: string | number, data: any) => {
+    const response = await apiJava.put(`${branchService.PREFIX}/${id}`, data);
+    return response.data;
+  },
 
-  getAllStaff: () => apiJava.get(`/users/all-staff`)
+  delete: async (id: number | string) => {
+    const response = await apiJava.delete(`${branchService.PREFIX}/${id}`);
+    return response.data;
+  },
+
+  getAllStaff: async () => {
+    const response = await apiJava.get(`/users`);
+    return response.data;
+  }
 };

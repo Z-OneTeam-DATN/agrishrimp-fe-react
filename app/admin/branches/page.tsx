@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminBranchTable } from "@/components/admin/AdminBranchTable";
-import { BranchService } from "@/app/services/branchService";
+// Đã sửa: Viết thường chữ b
+import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import { Loader2, AlertTriangle, AlertCircle } from "lucide-react";
 import {
@@ -34,8 +35,9 @@ export default function BranchManagementPage() {
   const fetchBranches = async () => {
     setIsLoading(true);
     try {
-      const res = await BranchService.getAll();
-      setBranches(res.data);
+      // Đã sửa: branchService chữ thường và bỏ .data
+      const res = await branchService.getAll();
+      setBranches(res?.content || res || []);
     } catch (error: any) {
       toast.error("Không thể kết nối đến máy chủ");
     } finally {
@@ -52,7 +54,8 @@ export default function BranchManagementPage() {
     if (!deleteBranch) return;
 
     try {
-      await BranchService.delete(deleteBranch.id);
+      // Đã sửa: branchService chữ thường
+      await branchService.delete(deleteBranch.id);
       toast.success(`Đã xóa chi nhánh "${deleteBranch.name}" thành công!`);
       fetchBranches(); // Reload danh sách
     } catch (error: any) {
