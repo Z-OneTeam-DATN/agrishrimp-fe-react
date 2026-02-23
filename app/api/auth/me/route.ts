@@ -25,7 +25,12 @@ export async function GET() {
       }
     );
 
-    return NextResponse.json(response.data, { status: 200 });
+    return NextResponse.json(response.data, {
+      status: 200,
+      headers: {
+        "Cache-Control": "private, max-age=60", // Cache locally for 60s
+      },
+    });
   } catch (error: any) {
     console.error("Hydration /auth/me failed:", error?.response?.data || error.message);
     return NextResponse.json(

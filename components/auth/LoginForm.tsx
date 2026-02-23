@@ -48,8 +48,7 @@ export default function LoginForm() {
       const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
       setAccessAndRefreshToken(res);
       toast.success("Đăng nhập thành công!");
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     },
     onError: (error: any) => {
       const status = error?.response?.status;

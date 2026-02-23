@@ -31,6 +31,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
       isAuthenticated: true,
+      isLoadingAuth: false, // Ensure loading is off after login
       user: {
         id: data.userId,
         email: data.email,

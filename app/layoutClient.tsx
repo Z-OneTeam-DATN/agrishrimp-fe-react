@@ -18,66 +18,59 @@ import { AuthService } from "./services/auth.service";
 export default function LayoutClient({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const pathname = usePathname();
-  const queryClientRef = useRef<QueryClient>();
-  const { setUser, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
-  const [isHydrating, setIsHydrating] = useState(true);
-
-  // HYDRATE FULL USER PROFILE ON LOAD
-  useEffect(() => {
-    const hydrateAuth = async () => {
-      setLoadingAuth(true);
-      try {
-        const user = await AuthService.meNext();
-        if (user) {
-          // Token is already in cookie, meTokenNext can be called if we need tokens in Zustand too
-          // For now meNext gets the profile which sets isAuthenticated
-          setUser(user);
-          
-          // Try fetching tokens to sync them to Zustand (optional, but good for interceptors)
-          try {
-            const tokens = await AuthService.meTokenNext();
-            if (tokens) {
-              useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken);
-            }
-          } catch (tokenErr) {
-            console.warn("User profile fetched but tokens not synced to Zustand.");
+    const pathname = usePathname();
+    const queryClientRef = useRef<QueryClient>();
+    const { setUser, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
+    
+    // HYDRATE FULL USER PROFILE ON LOAD
+    useEffect(() => {
+      const hydrateAuth = async () => {
+        setLoadingAuth(true);
+        try {
+          const user = await AuthService.meNext();
+          if (user) {
+            setUser(user);
+            
+            // Try fetching tokens to sync them to Zustand (background task)
+            AuthService.meTokenNext().then(tokens => {
+              if (tokens) {
+                useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken);
+              }
+            }).catch(() => {});
           }
+        } catch (err) {
+          // No toast here to avoid annoying 401 messages on public pages
+          clearAuth();
+        } finally {
+          setLoadingAuth(false);
         }
-      } catch (err) {
-        console.warn("No active session or session expired.");
-        clearAuth();
-      } finally {
-        setLoadingAuth(false);
-        setIsHydrating(false);
-      }
-    };
-    hydrateAuth();
-  }, [setUser, clearAuth, setLoadingAuth]);
-
-  // Kiểm tra các route không hiển thị Header/Footer chung của trang chủ
-  const isHideLayout =
-    pathname?.startsWith("/admin") ||
-    pathname?.startsWith("/login") ||
-    pathname?.startsWith("/signup") ||
-    pathname?.startsWith("/reset-password");
-
+      };
+      hydrateAuth();
+    }, [setUser, clearAuth, setLoadingAuth]);
+  
+    // Public pages don't need a blocking spinner
+    const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
+    const isAdminPage = pathname?.startsWith("/admin");
+    const isProtectedPath = ["/profile", "/orders", "/user/checkout"].some(p => pathname?.startsWith(p));
+  
+    // Determine if we should show a full screen loader (only for admin or protected user pages)
+    const showBlockingLoader = (isAdminPage || isProtectedPath) && isLoadingAuth;
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({
       defaultOptions: {
-        queries: {
-          retry: 0,
-        },
+        queries: { retry: 0 },
       },
     });
   }
 
-  if (isHydrating) {
+  const isHideLayout = isAdminPage || isAuthPage;
+
+  if (showBlockingLoader) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#009688]/20 border-t-[#009688] rounded-full animate-spin"></div>
-          <p className="text-sm font-bold text-[#009688] animate-pulse">
+          <p className="text-sm font-bold text-[#009688] animate-pulse uppercase tracking-widest">
             AGRISHRIMP
           </p>
         </div>
@@ -94,10 +87,8 @@ export default function LayoutClient({
         disableTransitionOnChange
       >
         {isHideLayout ? (
-          // Giao diện cho trang quản lý/xác thực (Không Header/Footer trang chủ)
           <>{children}</>
         ) : (
-          // Giao diện chính cho trang khách (Landing, Home...)
           <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
             <Header />
             <Navbar />
@@ -105,7 +96,6 @@ export default function LayoutClient({
             <Footer />
           </div>
         )}
-
         <ToastContainer
           position="top-right"
           autoClose={3000}

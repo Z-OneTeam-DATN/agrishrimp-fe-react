@@ -32,9 +32,8 @@ export const useLogout = () => {
       // 3. Thông báo cho người dùng
       toast.success("Bạn đã đăng xuất thành công.");
       
-      // 4. Điều hướng về trang Login
-      router.refresh();
-      router.push("/login");
+      // 4. Điều hướng cưỡng bức về trang Login (Hard redirect)
+      window.location.href = "/login";
     },
     
     onError: (error) => {
@@ -42,8 +41,7 @@ export const useLogout = () => {
       // Dù có lỗi API vẫn nên ép logout ở phía FE
       clearAuth();
       queryClient.clear();
-      router.refresh();
-      router.push("/login");
+      window.location.href = "/login";
     }
   });
 

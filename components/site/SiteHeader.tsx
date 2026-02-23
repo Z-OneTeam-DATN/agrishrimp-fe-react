@@ -47,11 +47,11 @@ export default function Header() {
   const renderAuthSection = () => {
     if (isLoading) {
       return (
-        <div className="flex items-center gap-2 min-w-[120px] justify-end">
-          <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
-          <div className="hidden xl:flex flex-col gap-1 w-16">
-            <div className="h-2 bg-white/10 rounded animate-pulse w-full" />
-            <div className="h-2 bg-white/10 rounded animate-pulse w-2/3" />
+        <div className="flex items-center gap-2 min-w-[100px] justify-end animate-pulse">
+          <div className="w-8 h-8 rounded-full bg-white/20" />
+          <div className="hidden xl:flex flex-col gap-1.5 w-16">
+            <div className="h-2 bg-white/20 rounded-full w-full" />
+            <div className="h-2 bg-white/20 rounded-full w-2/3" />
           </div>
         </div>
       );
