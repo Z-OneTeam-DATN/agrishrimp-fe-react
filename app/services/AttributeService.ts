@@ -1,25 +1,25 @@
-import axios from "axios";
+import { apiJava } from "@/lib/axios";
 
-const API_URL = "http://localhost:8080/api/attributes";
+const PREFIX = "/attributes";
 
 export const getAttributes = async () => {
-  const response = await axios.get(API_URL);
+  const response = await apiJava.get(PREFIX);
   return response.data;
 };
 
 export const getAttributeById = async (id: number) => {
-  const response = await axios.get(`${API_URL}/${id}`);
+  const response = await apiJava.get(`${PREFIX}/${id}`);
   return response.data;
 };
 
 export const createAttribute = async (data: any) => {
-  return await axios.post(API_URL, data);
+  return await apiJava.post(PREFIX, data);
 };
 
 export const updateAttribute = async (id: number, data: any) => {
-  return await axios.put(`${API_URL}/${id}`, data);
+  return await apiJava.put(`${PREFIX}/${id}`, data);
 };
 
 export const deleteAttribute = async (id: number) => {
-  return await axios.delete(`${API_URL}/${id}`);
+  return await apiJava.delete(`${PREFIX}/${id}`);
 };
