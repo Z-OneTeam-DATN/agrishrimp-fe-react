@@ -46,13 +46,15 @@ export default function AdminNewReceiptPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
 
   // --- QUẢN LÝ SẢN PHẨM ---
-  const [products, setProducts] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]); // Cache toàn bộ sản phẩm
+  const [products, setProducts] = useState<any[]>([]); // Sản phẩm hiển thị (đã filter)
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [searchProductText, setSearchProductText] = useState("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const productSearchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null); // Ref để auto-focus ô tìm kiếm
 
   const {
     register, handleSubmit, control, setValue, watch,
@@ -111,32 +113,44 @@ export default function AdminNewReceiptPage() {
     }
   }, [user, setValue]);
 
-  // --- LOGIC GỌI API SẢN PHẨM ---
+  // --- LOGIC GỌI API SẢN PHẨM (TỐI ƯU HIỆU SUẤT) ---
   useEffect(() => {
     const fetchProducts = async () => {
-      if (!isProductDropdownOpen) return;
+      // Chỉ gọi API 1 lần duy nhất khi mở dropdown và dữ liệu chưa được load
+      if (!isProductDropdownOpen || allProducts.length > 0) return;
+
       setIsLoadingProducts(true);
       try {
         const data = await ProductService.getAll();
+        // Xử lý dữ liệu an toàn (hỗ trợ .data.data nếu backend bọc thêm 1 lớp)
+        const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
 
-        // Xử lý dữ liệu an toàn cho cả mảng và object phân trang
-        const productList = Array.isArray(data) ? data : (data?.content || []);
-
-        const filtered = productList.filter((p: any) =>
-          p.name?.toLowerCase().includes(searchProductText.toLowerCase()) ||
-          p.sku?.toLowerCase().includes(searchProductText.toLowerCase())
-        );
-        setProducts(filtered);
+        setAllProducts(productList);
+        setProducts(productList);
       } catch (error) {
         console.error("Lỗi tải sản phẩm:", error);
+        toast.error("Không thể tải danh sách sản phẩm");
       } finally {
         setIsLoadingProducts(false);
       }
     };
 
-    const timer = setTimeout(fetchProducts, 300);
-    return () => clearTimeout(timer);
-  }, [searchProductText, isProductDropdownOpen]);
+    fetchProducts();
+  }, [isProductDropdownOpen, allProducts.length]);
+
+  // --- LỌC SẢN PHẨM (CLIENT-SIDE) ---
+  useEffect(() => {
+    if (!searchProductText.trim()) {
+      setProducts(allProducts);
+      return;
+    }
+    const filtered = allProducts.filter((p: any) =>
+      p.name?.toLowerCase().includes(searchProductText.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(searchProductText.toLowerCase()) ||
+      p.code?.toLowerCase().includes(searchProductText.toLowerCase())
+    );
+    setProducts(filtered);
+  }, [searchProductText, allProducts]);
 
   // --- CLICK NGOÀI ĐỂ ĐÓNG DROPDOWN ---
   useEffect(() => {
@@ -174,29 +188,47 @@ export default function AdminNewReceiptPage() {
     setIsSupplierDropdownOpen(false);
   };
 
-  const handleSelectProduct = (product: any) => {
-    const sku = product.sku || product.code;
-    const existingIndex = watchItems.findIndex(item => item.productCode === sku);
-
-    if (existingIndex > -1) {
-      const currentQty = watchItems[existingIndex].plannedQuantity || 0;
-      setValue(`items.${existingIndex}.plannedQuantity`, Number(currentQty) + 1);
-      toast.info(`Đã tăng số lượng: ${product.name}`);
-    } else {
-      append({
-        productCode: sku || "N/A",
-        productName: product.name,
-        unit: product.unit || "Cái",
-        plannedQuantity: 1,
-        lotNumber: "", expiryDate: "",
-        importPrice: product.importPrice || 0,
-        newSellingPrice: product.sellingPrice || 0,
-      });
-      toast.success(`Đã thêm: ${product.name}`);
-    }
-    setIsProductDropdownOpen(false);
-    setSearchProductText("");
+  const handleClearSupplier = () => {
+    setValue("supplierCode", "");
+    setValue("supplierName", "");
+    setSelectedSupplier(null);
   };
+
+  const handleSelectProduct = (product: any) => {
+      // 1. TRÍCH XUẤT BIẾN THỂ ĐẦU TIÊN (Nếu có)
+      const firstVariant = product.variants && product.variants.length > 0 ? product.variants[0] : {};
+
+      // 2. LẤY MÃ SẢN PHẨM: Ưu tiên mã của biến thể (sku), nếu không có thì lấy baseSku của sản phẩm cha
+      const productCode = firstVariant.sku || product.baseSku || "N/A";
+
+      // 3. LẤY GIÁ NHẬP & GIÁ BÁN TỪ BIẾN THỂ
+      // (Lưu ý: Bạn cần check xem ProductVariantResponse của bạn đặt tên biến giá là gì.
+      // Thường là importPrice, costPrice, hoặc price).
+      const importPrice = firstVariant.importPrice || firstVariant.costPrice || firstVariant.price || 0;
+      const sellingPrice = firstVariant.sellingPrice || firstVariant.retailPrice || firstVariant.price || 0;
+
+      const existingIndex = watchItems.findIndex((item) => item.productCode === productCode);
+
+      if (existingIndex > -1) {
+        const currentQty = watchItems[existingIndex].plannedQuantity || 0;
+        setValue(`items.${existingIndex}.plannedQuantity`, Number(currentQty) + 1);
+        toast.info(`Đã tăng số lượng: ${product.name}`);
+      } else {
+        append({
+          productCode: productCode,
+          productName: product.name,
+          unit: product.unit || firstVariant.unit || "Cái", // Backend chưa thấy có unit, tạm để "Cái"
+          plannedQuantity: 1,
+          lotNumber: "",
+          expiryDate: "",
+          importPrice: importPrice,
+          newSellingPrice: sellingPrice,
+        });
+        toast.success(`Đã thêm: ${product.name}`);
+      }
+      setIsProductDropdownOpen(false);
+      setSearchProductText("");
+    };
 
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && tagInput.trim()) {
@@ -207,6 +239,7 @@ export default function AdminNewReceiptPage() {
   };
 
   const onSubmit = (data: Receipt) => {
+    console.log("Submit Data: ", data);
     toast.success("Đã lưu thông tin phiếu nhập");
     router.push("/admin/receipts");
   };
@@ -347,6 +380,7 @@ export default function AdminNewReceiptPage() {
             <div className="relative flex-1 max-w-[600px]" ref={productSearchRef}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <Input
+                ref={searchInputRef} // Gắn ref để auto-focus
                 value={searchProductText}
                 onChange={(e) => { setSearchProductText(e.target.value); setIsProductDropdownOpen(true); }}
                 onFocus={() => setIsProductDropdownOpen(true)}
@@ -361,7 +395,7 @@ export default function AdminNewReceiptPage() {
                     {isLoadingProducts ? (
                       <div className="flex items-center justify-center p-4">
                         <Loader2 size={20} className="animate-spin mr-2 text-blue-600" />
-                        <span className="text-[12px]">Đang tìm kiếm...</span>
+                        <span className="text-[12px]">Đang tải danh sách...</span>
                       </div>
                     ) : products.length > 0 ? (
                       products.map((product) => (
@@ -371,7 +405,6 @@ export default function AdminNewReceiptPage() {
                           className="p-3 border-b border-slate-100 last:border-0 hover:bg-blue-50 cursor-pointer transition-colors group flex justify-between items-center"
                         >
                           <div className="flex items-center gap-3">
-                             {/* Có thể thêm ảnh sản phẩm nhỏ ở đây */}
                              <div className="w-8 h-8 bg-slate-100 flex items-center justify-center">
                                 <Package size={14} className="text-slate-400" />
                              </div>
@@ -437,7 +470,11 @@ export default function AdminNewReceiptPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsProductDropdownOpen(true)}
+                        onClick={() => {
+                          setIsProductDropdownOpen(true);
+                          // Delay nhẹ để UI render ô Input rồi mới focus
+                          setTimeout(() => searchInputRef.current?.focus(), 100);
+                        }}
                         className="text-blue-600 border-blue-200 h-9 px-6 rounded-none font-bold text-[11px] uppercase hover:bg-blue-50"
                       >Thêm sản phẩm</Button>
                     </div>

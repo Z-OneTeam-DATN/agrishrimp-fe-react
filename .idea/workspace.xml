@@ -5,11 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="372a3868-29d7-4326-9678-0fc43de912ff" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/types/product.schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/admin/products/add/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/products/add/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/admin/products/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/products/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/services/product.service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/product.service.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/admin/AdminProductTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/admin/AdminProductTable.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/admin/receipts/new/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/receipts/new/page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,7 +30,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "Merging feature/productmanager",
+    "git-widget-placeholder": "feature/productmanager",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "H:/duan_totnghiep/agrishrimp-fe-react"
