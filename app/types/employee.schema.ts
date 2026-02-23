@@ -27,6 +27,8 @@ export interface UserResponse {
   avatarUrl?: string;
   status: string;
   startDate: string;
+  citizenId?: string;
+  gender?: number;
   branch: {
     id: number;
     name: string;

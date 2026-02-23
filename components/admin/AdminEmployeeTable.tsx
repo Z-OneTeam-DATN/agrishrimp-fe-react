@@ -77,7 +77,7 @@ export function AdminEmployeeTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {employees.map((emp) => (
+          {(employees || []).map((emp) => (
             <TableRow key={emp.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors">
               <TableCell className="text-center p-2"><Checkbox className="h-3.5 w-3.5" /></TableCell>
               <TableCell className="text-[12px] font-bold text-slate-500 pl-4">#{emp.id}</TableCell>
@@ -97,18 +97,18 @@ export function AdminEmployeeTable({
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold">
                     <Phone size={10} className="text-slate-400" /> {emp.phoneNumber}
                   </div>
-                  <div className="text-[10px] text-slate-400 font-medium italic">CCCD: {emp.citizenId}</div>
+                  <div className="text-[10px] text-slate-400 font-medium italic">CCCD: {emp.citizenId || "Chưa cập nhật"}</div>
                 </div>
               </TableCell>
               <TableCell className="p-2">
                 <div className="flex flex-col">
-                  <span className="text-[12px] font-bold text-emerald-600 uppercase tracking-tighter">{emp.branchName}</span>
-                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> {new Date(emp.createdAt).toLocaleDateString('vi-VN')}</span>
+                  <span className="text-[12px] font-bold text-emerald-600 uppercase tracking-tighter">{emp.branch?.name || "N/A"}</span>
+                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> {emp.createdAt ? new Date(emp.createdAt).toLocaleDateString('vi-VN') : "N/A"}</span>
                 </div>
               </TableCell>
               <TableCell className="p-2">
                 <span className="bg-slate-50 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 w-fit uppercase tracking-tight whitespace-nowrap shadow-none">
-                  <ShieldCheck size={10} className="text-emerald-500" /> {emp.roleName}
+                  <ShieldCheck size={10} className="text-emerald-500" /> {emp.role?.displayName || "N/A"}
                 </span>
               </TableCell>
               <TableCell className="p-2 text-center">

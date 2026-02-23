@@ -71,11 +71,11 @@ export default function EditEmployeePage() {
                     phoneNumber: userRes.phoneNumber || "",
                     citizenId: userRes.citizenId || "",
                     dateOfBirth: userRes.dateOfBirth ? userRes.dateOfBirth.split('T')[0] : "",
-                    roleId: String(userRes.roleId),
-                    branchId: String(userRes.branchId),
-                    gender: userRes.gender === "MALE" ? "1" : userRes.gender === "FEMALE" ? "0" : "2",
+                    roleId: userRes.role?.id ? String(userRes.role.id) : "",
+                    branchId: userRes.branch?.id ? String(userRes.branch.id) : "",
+                    gender: userRes.gender !== undefined ? String(userRes.gender) : "1",
                     status: userRes.status || "ACTIVE",
-                    address: "" // Backend Response chưa có address? Bổ sung nếu cần
+                    address: userRes.address || "" 
                 });
 
             } catch (error) {
