@@ -36,6 +36,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         fullName: data.fullName || state.user?.fullName,
         displayName: data.fullName || state.user?.displayName,
         phoneNumber: data.phoneNumber || state.user?.phoneNumber,
+        mustChangePassword: data.mustChangePassword ?? state.user?.mustChangePassword,
         // Only update role if it's not already a rich object, or keep existing rich object
         role: typeof state.user?.role === "object" ? state.user.role : data.role,
         avatar: data.avatarUrl

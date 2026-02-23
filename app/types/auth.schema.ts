@@ -63,6 +63,7 @@ export type AuthResponse = {
   phoneNumber: string;
   avatarUrl: string;
   role: string;
+  mustChangePassword?: boolean;
 };
 
 export type UserResponse = {

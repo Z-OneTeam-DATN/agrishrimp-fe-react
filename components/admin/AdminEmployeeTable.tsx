@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Pencil, Trash2, Phone, ShieldCheck, MapPin, Calendar, User as UserIcon } from "lucide-react";
+import { Pencil, Trash2, Phone, ShieldCheck, MapPin, Calendar, User as UserIcon, Mail } from "lucide-react";
 import Link from "next/link";
 import { 
   Table, 
@@ -27,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface AdminEmployeeTableProps {
   employees: UserResponse[];
@@ -43,8 +44,22 @@ export function AdminEmployeeTable({
   currentPage = 0,
   onPageChange
 }: AdminEmployeeTableProps) {
+  const { hasPermission } = usePermissions();
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [resendingId, setResendingId] = React.useState<number | null>(null);
+
+  const handleResendCredentials = async (empId: number) => {
+    try {
+      setResendingId(empId);
+      await EmployeeService.resendCredentials(empId);
+      toast.success("Đã gửi lại email thông tin tài khoản.");
+    } catch {
+      toast.error("Không thể gửi lại email. Vui lòng thử lại.");
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -114,21 +129,37 @@ export function AdminEmployeeTable({
               <TableCell className="p-2 text-center">
                 <span className={cn(
                   "text-[9px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
-                  emp.status === "ACTIVE" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
+                  emp.status === "ACTIVE" ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                  : emp.status === "BANNED" ? "bg-red-50 text-red-700 border-red-200"
+                  : "bg-rose-50 text-rose-600 border-rose-100"
                 )}>
-                  {emp.status === "ACTIVE" ? "Hoạt động" : "Tạm khóa"}
+                  {emp.status === "ACTIVE" ? "Hoạt động" : emp.status === "BANNED" ? "Bị chặn" : "Tạm khóa"}
                 </span>
               </TableCell>
               <TableCell className="p-2 text-right pr-4">
                 <div className="flex justify-end gap-1">
-                  <Link href={`/admin/employees/edit/${emp.id}`}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100">
-                      <Pencil size={14} className="text-blue-600" />
+                  {hasPermission("USER_UPDATE") && (
+                    <Button
+                      variant="ghost" size="icon" className="h-7 w-7 hover:bg-sky-50"
+                      title="Gửi lại email tài khoản"
+                      disabled={resendingId === emp.id}
+                      onClick={() => handleResendCredentials(emp.id)}
+                    >
+                      <Mail size={14} className="text-sky-500" />
                     </Button>
-                  </Link>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => setDeleteId(emp.id)}>
-                    <Trash2 size={14} className="text-rose-600" />
-                  </Button>
+                  )}
+                  {hasPermission("USER_UPDATE") && (
+                    <Link href={`/admin/employees/edit/${emp.id}`}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100">
+                        <Pencil size={14} className="text-blue-600" />
+                      </Button>
+                    </Link>
+                  )}
+                  {hasPermission("USER_DELETE") && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => setDeleteId(emp.id)}>
+                      <Trash2 size={14} className="text-rose-600" />
+                    </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

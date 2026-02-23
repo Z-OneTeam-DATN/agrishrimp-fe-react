@@ -2,7 +2,7 @@ import { apiJava } from '@/lib/axios'
 import { UserRequest, UserResponse, PageResponse } from '@/app/types/employee.schema'
 
 export class EmployeeService {
-  private static readonly PREFIX = '/users'
+  private static readonly PREFIX = '/employees'
 
   static async getAll(params?: {
     keyword?: string;
@@ -23,7 +23,11 @@ export class EmployeeService {
   }
 
   static async create(data: UserRequest): Promise<UserResponse> {
-    const response = await apiJava.post<UserResponse>(`${this.PREFIX}`, data)
+    const { password, ...rest } = data as any;
+    const response = await apiJava.post<UserResponse>(`${this.PREFIX}`, {
+      ...rest,
+      initialPassword: password,
+    })
     return response.data
   }
 
@@ -34,5 +38,13 @@ export class EmployeeService {
 
   static async delete(id: number): Promise<void> {
     await apiJava.delete(`${this.PREFIX}/${id}`)
+  }
+
+  static async updateStatus(id: number, status: string): Promise<void> {
+    await apiJava.patch(`${this.PREFIX}/${id}/status`, { status })
+  }
+
+  static async resendCredentials(id: number): Promise<void> {
+    await apiJava.post(`${this.PREFIX}/${id}/resend-credentials`)
   }
 }

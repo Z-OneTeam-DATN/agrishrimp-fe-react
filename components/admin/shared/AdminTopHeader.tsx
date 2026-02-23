@@ -11,6 +11,7 @@ import {
   MapPin,
   Clock,
   Search,
+  ShieldCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,14 +24,17 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import { useLogout } from "@/hooks/use-logout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading } = useCurrentUser();
+  const { hasPermission } = usePermissions();
 
   useEffect(() => {
     setMounted(true);
@@ -120,6 +124,19 @@ export default function AdminTopHeader() {
           </span>
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></div>
         </div>
+
+        {/* Quản lý vai trò quick access */}
+        {hasPermission("ROLE_MANAGE") && (
+          <Link href="/admin/employees/roles">
+            <Button
+              variant="outline"
+              className="hidden md:flex h-8 items-center gap-1.5 px-3 text-[12px] font-semibold text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100 hover:border-violet-300 rounded-full transition-colors"
+            >
+              <ShieldCheck size={14} className="text-violet-500" />
+              Quản lý vai trò
+            </Button>
+          </Link>
+        )}
 
         {/* Utility Actions */}
         <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
