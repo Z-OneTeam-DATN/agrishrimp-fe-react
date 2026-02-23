@@ -22,32 +22,24 @@ export default function LayoutClient({
     const queryClientRef = useRef<QueryClient>();
     const { setUser, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
     
-    // HYDRATE FULL USER PROFILE ON LOAD
-    useEffect(() => {
-      const hydrateAuth = async () => {
-        setLoadingAuth(true);
-        try {
-          const user = await AuthService.meNext();
-          if (user) {
-            setUser(user);
-            
-            // Try fetching tokens to sync them to Zustand (background task)
-            AuthService.meTokenNext().then(tokens => {
-              if (tokens) {
-                useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken);
-              }
-            }).catch(() => {});
+      // HYDRATE FULL USER PROFILE ON LOAD
+      useEffect(() => {
+        const hydrateAuth = async () => {
+          setLoadingAuth(true);
+          try {
+            const user = await AuthService.meNext();
+            if (user) {
+              setUser(user);
+            }
+          } catch (err) {
+            // No toast here to avoid annoying 401 messages on public pages
+            clearAuth();
+          } finally {
+            setLoadingAuth(false);
           }
-        } catch (err) {
-          // No toast here to avoid annoying 401 messages on public pages
-          clearAuth();
-        } finally {
-          setLoadingAuth(false);
-        }
-      };
-      hydrateAuth();
-    }, [setUser, clearAuth, setLoadingAuth]);
-  
+        };
+        hydrateAuth();
+      }, [setUser, clearAuth, setLoadingAuth]);  
     // Public pages don't need a blocking spinner
     const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
     const isAdminPage = pathname?.startsWith("/admin");

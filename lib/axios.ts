@@ -78,7 +78,11 @@ const getErrorMessage = (error: AxiosError<any>) => {
 };
 
 const isAuthRefreshUrl = (url?: string | null) =>
-  !!url && (url.includes("/api/auth/refresh") || url.includes("/auth/refresh"));
+  !!url &&
+  (url.includes("/api/auth/refresh") ||
+    url.includes("/auth/refresh") ||
+    url.includes("/api/auth/me") ||
+    url.includes("/api/auth/me-token"));
 
 const errorHandlers: Record<
   number | "default",

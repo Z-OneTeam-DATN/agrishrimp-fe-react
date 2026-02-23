@@ -27,21 +27,48 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ accessToken, isAuthenticated: !!accessToken }),
   setRefreshToken: (refreshToken) => set({ refreshToken }),
   setAccessAndRefreshToken: (data: AuthResponse) =>
-    set({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      isAuthenticated: true,
-      isLoadingAuth: false, // Ensure loading is off after login
-      user: {
-        id: data.userId,
-        email: data.email,
-        displayName: data.fullName,
-        fullName: data.fullName,
-        phoneNumber: data.phoneNumber,
-        avatar: { imageUrl: data.avatarUrl },
-      } as any,
+    set((state) => {
+      // Merge current user with new data from refresh/login
+      const updatedUser = {
+        ...(state.user || {}),
+        id: data.userId || state.user?.id,
+        email: data.email || state.user?.email,
+        fullName: data.fullName || state.user?.fullName,
+        displayName: data.fullName || state.user?.displayName,
+        phoneNumber: data.phoneNumber || state.user?.phoneNumber,
+        // Only update role if it's not already a rich object, or keep existing rich object
+        role: typeof state.user?.role === "object" ? state.user.role : data.role,
+        avatar: data.avatarUrl
+          ? { imageUrl: data.avatarUrl }
+          : state.user?.avatar,
+      };
+
+      return {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        isAuthenticated: true,
+        isLoadingAuth: false,
+        user: updatedUser as UserType,
+      };
     }),
-  setUser: (user?: UserType) => set({ user, isAuthenticated: !!user }),
+  setUser: (user?: UserType) => {
+    if (user) {
+      // Normalize user data (handle fullname vs fullName)
+      const normalizedUser = {
+        ...user,
+        fullName: user.fullName || (user as any).fullname,
+        displayName:
+          user.displayName || user.fullName || (user as any).fullname,
+      };
+      set({
+        user: normalizedUser as UserType,
+        isAuthenticated: true,
+        isLoadingAuth: false,
+      });
+    } else {
+      set({ user: undefined, isAuthenticated: false, isLoadingAuth: false });
+    }
+  },
   setAuth: (accessToken: string | null, refreshToken: string | null) =>
     set({ accessToken, refreshToken, isAuthenticated: !!accessToken }),
   setLoadingAuth: (isLoadingAuth: boolean) => set({ isLoadingAuth }),

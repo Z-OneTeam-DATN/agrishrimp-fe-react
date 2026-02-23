@@ -21,16 +21,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useLogout } from "@/hooks/use-logout";
 
 export function InventoryTopbar() {
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
+  const { data: user } = useCurrentUser();
+  const { logout, isLoading } = useLogout();
 
   useEffect(() => {
     setMounted(true);
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const getUserDisplayName = () => {
+    if (!user) return "Warehouse Admin";
+    return (
+      user.fullName ||
+      user.displayName ||
+      user.phoneNumber ||
+      user.email ||
+      "Warehouse Admin"
+    );
+  };
 
   const formattedDate = mounted
     ? time.toLocaleDateString("vi-VN", {
@@ -134,16 +149,16 @@ export function InventoryTopbar() {
             <div className="flex items-center gap-3 cursor-pointer pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ml-2 group">
               <div className="text-right hidden sm:block">
                 <p className="text-[13px] font-black text-slate-800 leading-none group-hover:text-blue-600 transition-colors">
-                  Nguyễn Văn Admin
+                  {getUserDisplayName()}
                 </p>
                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mt-1">
-                  Warehouse Pro
+                  {user?.role || "Warehouse Pro"}
                 </p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
-                <AvatarImage src="" />
+                <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white text-[11px] font-bold">
-                  NA
+                  {getUserDisplayName().charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -158,7 +173,7 @@ export function InventoryTopbar() {
                   Đang đăng nhập với
                 </span>
                 <span className="text-[13px] font-bold text-slate-800 mt-0.5">
-                  admin@agrishrimp.com
+                  {user?.email || user?.phoneNumber || "Đang tải..."}
                 </span>
               </div>
             </DropdownMenuLabel>
@@ -172,9 +187,15 @@ export function InventoryTopbar() {
               <span className="text-[13px] font-medium">Cài đặt hệ thống</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            <DropdownMenuItem className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group">
+            <DropdownMenuItem
+              onClick={() => logout()}
+              disabled={isLoading}
+              className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group"
+            >
               <LogOut className="mr-3 h-4 w-4 text-rose-400 group-hover:text-rose-600" />
-              <span className="text-[13px]">Đăng xuất</span>
+              <span className="text-[13px]">
+                {isLoading ? "Đang xử lý..." : "Đăng xuất"}
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
