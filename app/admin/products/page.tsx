@@ -41,13 +41,13 @@ export default function ProductsPage() {
           weight: "---",
           unit: v.unit || "N/A",
           price: v.price?.toLocaleString() + " ₫" || "0 ₫",
-          costPrice: "---",
+          costPrice: v.costPrice?.toLocaleString() + " ₫" || "0 ₫",
           wholesalePrice: v.wholesalePrice?.toLocaleString() + " ₫" || "0 ₫",
           inventory: v.quantity || 0,
           available: v.quantity || 0,
           sold: 0,
           barcode: v.barcode || "",
-          image: null,
+          image: v.imageUrl || null,
         })),
       }));
 

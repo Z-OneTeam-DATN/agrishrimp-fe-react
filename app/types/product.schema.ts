@@ -18,10 +18,11 @@ export interface ProductListItem {
   brandName: string;
   status: string;
   imageUrls: string[];
-  variants: any[];
+  variants: ProductVariant[];
 }
 
 export interface UnitConversion {
+  id?: number;
   fromUnit: string;
   toUnit: string;
   rate: number;
@@ -41,27 +42,22 @@ export interface ProductVariant {
   unit: string;
   price: number;
   wholesalePrice: number;
-  costPrice?: number; // Added for creation
-  initialStock?: number; // Added for creation
-  quantity?: number; // From GET
-  status?: string;
-  netWeight?: number;
+  costPrice: number;
+  quantity: number;
+  status: string;
+  weightValue?: number; // Backend renamed from netWeight
   netWeightUnit?: string;
   shippingWeight?: number;
+  imageUrl?: string; // Variant specific image
   attributes: VariantAttribute[];
   unitConversions: UnitConversion[];
 }
 
-export interface ProductDetail {
-  id: number;
-  name: string;
+export interface ProductDetail extends Omit<ProductListItem, "categoryName" | "brandName"> {
   description: string;
-  baseSku: string;
   brand: string;
   origin: string;
   categoryId: number;
-  status: string;
-  variants: ProductVariant[];
 }
 
 export interface CreateProductRequest {
