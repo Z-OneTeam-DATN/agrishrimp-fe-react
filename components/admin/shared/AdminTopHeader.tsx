@@ -23,10 +23,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLogout } from "@/hooks/use-logout";
 
 export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
+  const { logout, isLoading } = useLogout();
 
   useEffect(() => {
     setMounted(true);
@@ -170,9 +172,13 @@ export default function AdminTopHeader() {
               <span className="text-[13px] font-medium">Cài đặt hệ thống</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            <DropdownMenuItem className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group">
+            <DropdownMenuItem 
+              onClick={() => logout()}
+              disabled={isLoading}
+              className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group"
+            >
               <LogOut className="mr-3 h-4 w-4 text-rose-400 group-hover:text-rose-600" />
-              <span className="text-[13px]">Đăng xuất</span>
+              <span className="text-[13px]">{isLoading ? "Đang xử lý..." : "Đăng xuất"}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

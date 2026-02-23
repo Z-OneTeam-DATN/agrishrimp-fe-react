@@ -14,6 +14,11 @@ export class AuthService {
     return response.data;
   }
 
+  static async meNext(): Promise<UserType> {
+    const response = await apiNext.get<UserType>(`${this.PREFIX}/me`);
+    return response.data;
+  }
+
   static async me(): Promise<UserType> {
     const response = await apiJava.get<UserType>(`${this.PREFIX}/me`);
     return response.data;
@@ -72,6 +77,16 @@ export class AuthService {
       `${this.PREFIX}/google-login`,
       {
         token: token,
+      },
+    );
+    return response.data;
+  }
+
+  static async loginWithGoogleNext(token: string): Promise<AuthResponse> {
+    const response = await apiNext.post<AuthResponse>(
+      `${this.PREFIX}/google-login`,
+      {
+        token,
       },
     );
     return response.data;

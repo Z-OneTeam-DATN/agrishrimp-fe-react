@@ -6,6 +6,7 @@ import axios, {
 } from "axios";
 import { toast } from "sonner";
 import { AuthService } from "@/app/services/auth.service";
+import { jwtDecode, JwtPayload } from "jwt-decode";
 
 type Token = string;
 type NullableToken = Token | null;
@@ -77,7 +78,7 @@ const getErrorMessage = (error: AxiosError<any>) => {
 };
 
 const isAuthRefreshUrl = (url?: string | null) =>
-  !!url && url.includes("/api/auth/refresh");
+  !!url && (url.includes("/api/auth/refresh") || url.includes("/auth/refresh"));
 
 const errorHandlers: Record<
   number | "default",
@@ -96,10 +97,31 @@ const errorHandlers: Record<
       const isAuthFlow =
         url.includes("/login") ||
         url.includes("/signup") ||
-        url.includes("/google-login");
+        url.includes("/google-login") ||
+        url.includes("/me-token");
 
       if (!isAuthFlow) {
-        toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        // Không hiện toast nếu đang ở trang login/signup
+        const path = window.location.pathname;
+        const isAuthPage =
+          path.startsWith("/login") ||
+          path.startsWith("/signup") ||
+          path.startsWith("/reset-password");
+
+        if (isAuthPage) return Promise.reject(error);
+
+        // Chỉ hiện toast nếu request này được gửi đi với token (nghĩa là nó bị từ chối do hết hạn)
+        // và hiện tại trong store vẫn đang có token.
+        const authHeader = error.config?.headers?.Authorization;
+        const hasTokenInRequest =
+          typeof authHeader === "string" && authHeader.startsWith("Bearer ");
+
+        const { useAuthStore } = await import("@/stores/useAuthStore");
+        const hasTokenInStore = !!useAuthStore.getState().accessToken;
+
+        if (hasTokenInRequest && hasTokenInStore) {
+          toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        }
       }
     }
     return Promise.reject(error);
@@ -130,7 +152,42 @@ const createApi = (baseURL: string): AxiosInstance => {
   });
 
   axiosInstance.interceptors.request.use(async (config) => {
-    const token = await getAccessToken();
+    let token = await getAccessToken();
+
+    // Tự động làm mới token nếu sắp hết hạn (pre-emptive refresh)
+    if (token && isClient() && !isAuthRefreshUrl(config.url)) {
+      try {
+        const decoded = jwtDecode<JwtPayload>(token);
+        const now = Date.now() / 1000;
+        // Nếu token sắp hết hạn trong 30 giây tới
+        if (decoded.exp && decoded.exp - now < 30) {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            try {
+              const res = await AuthService.refreshAuthTokenNext();
+              const { useAuthStore } = await import("@/stores/useAuthStore");
+              useAuthStore.getState().setAccessAndRefreshToken(res);
+              token = res.accessToken;
+              processQueue(null, token);
+            } catch (refreshError) {
+              processQueue(refreshError, null);
+              const { useAuthStore } = await import("@/stores/useAuthStore");
+              useAuthStore.getState().clearAuth();
+            } finally {
+              isRefreshing = false;
+            }
+          } else {
+            // Đợi token mới từ queue
+            token = await new Promise((res, rej) =>
+              failedQueue.push({ resolve: res, reject: rej }),
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("Lỗi giải mã token trong request interceptor", e);
+      }
+    }
+
     if (token) config.headers.Authorization = `Bearer ${token}`;
 
     debugLog("🚀 Request:", {
@@ -167,7 +224,8 @@ const createApi = (baseURL: string): AxiosInstance => {
         const isAuthFlow =
           original.url?.includes("/login") ||
           original.url?.includes("/signup") ||
-          original.url?.includes("/google-login");
+          original.url?.includes("/google-login") ||
+          original.url?.includes("/me-token");
 
         if (!isAuthFlow) {
           if (isRefreshing) {
@@ -184,13 +242,28 @@ const createApi = (baseURL: string): AxiosInstance => {
 
           try {
             const res = await AuthService.refreshAuthTokenNext();
+            
+            // 1. Update Global Store (Zustand) with new tokens and user info
+            const { useAuthStore } = await import("@/stores/useAuthStore");
+            useAuthStore.getState().setAccessAndRefreshToken(res);
+
             const newToken = res.accessToken;
             processQueue(null, newToken);
+
+            // 2. Update current request and retry
             original.headers.Authorization = `Bearer ${newToken}`;
             return axiosInstance(original);
           } catch (err) {
             processQueue(err, null);
-            if (isClient()) window.location.href = "/login";
+            
+            // 3. Force logout on refresh failure
+            const { useAuthStore } = await import("@/stores/useAuthStore");
+            useAuthStore.getState().clearAuth();
+            
+            if (isClient()) {
+              toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
+              window.location.href = "/login";
+            }
             return Promise.reject(err);
           } finally {
             isRefreshing = false;

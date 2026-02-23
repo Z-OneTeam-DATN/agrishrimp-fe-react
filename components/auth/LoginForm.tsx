@@ -7,215 +7,196 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import Turnstile from "react-turnstile";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { RegisterSchema, RegisterFormValues } from "@/app/types/auth.schema";
+import { LoginSchema, LoginFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getErrorMessage } from "@/lib/axios";
 
-/**
- * SignupForm Component
- * Handles:
- * - Form validation (Zod + React Hook Form)
- * - Captcha verification (Cloudflare Turnstile)
- * - API registration request
- */
-export default function SignupForm() {
+export default function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const setAuth = useAuthStore((state) => state.setAuth);
 
-  // Cloudflare test site key
-  const SITE_KEY = "0x4AAAAAACWEfiexADEyMozt";
+  const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
-  /**
-   * React Hook Form setup
-   */
   const {
     register,
     handleSubmit,
     setValue,
     setError,
-    formState: { errors, isValid },
-  } = useForm<RegisterFormValues>({
-    resolver: zodResolver(RegisterSchema),
-    mode: "all",
+    clearErrors,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(LoginSchema),
+    mode: "onSubmit",
     defaultValues: {
       contact: "",
       password: "",
-      terms: false,
       captchaToken: "",
     },
   });
 
-  /**
-   * Register API mutation
-   */
   const mutation = useMutation({
-    mutationFn: (data: RegisterFormValues) => AuthService.register(data),
-
-    onSuccess: () => {
-      alert("Đăng ký thành công!");
-      router.push("/login");
+    mutationFn: (data: LoginFormValues) => {
+      console.log("Submitting Login Payload:", data);
+      return AuthService.loginNext(data);
     },
+    onSuccess: (res) => {
+      const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
+      setAccessAndRefreshToken(res);
+      toast.success("Đăng nhập thành công!");
+      router.push("/");
+      router.refresh();
+    },
+    onError: (error: any) => {
+      const status = error?.response?.status;
+      const message = getErrorMessage(error);
 
-    onError: (err: any) => {
-      const msg =
-        err?.response?.data?.message || err?.message || "Lỗi không xác định";
-
-      // Nếu tài khoản đã tồn tại → show lỗi ngay field
-      if (
-        msg.toLowerCase().includes("tồn tại") ||
-        msg.toLowerCase().includes("exists")
-      ) {
-        setError("contact", { message: msg });
+      if (status === 401) {
+        toast.error("Tài khoản hoặc mật khẩu không chính xác.");
+      } else if (status === 400 && message.toLowerCase().includes("captcha")) {
+        toast.error("Xác thực Captcha không hợp lệ.");
+        resetCaptcha();
       } else {
-        alert("Lỗi đăng ký: " + msg);
+        toast.error(message || "Đăng nhập thất bại.");
+        resetCaptcha();
       }
-
-      // Reset captcha để user verify lại
-      setValue("captchaToken", "");
     },
   });
 
-  /**
-   * Submit form handler
-   */
-  const onSubmit = (data: RegisterFormValues) => {
-    if (!data.captchaToken) return; // bảo vệ thêm tầng FE
+  const resetCaptcha = () => {
+    setValue("captchaToken", "", { shouldValidate: true });
+    if (typeof window !== "undefined" && (window as any).turnstile) {
+      (window as any).turnstile.reset();
+    }
+  };
+
+  const onSubmit = (data: LoginFormValues) => {
+    if (!data.captchaToken) {
+      setError("captchaToken", {
+        type: "manual",
+        message: "Vui lòng xác thực bạn không phải robot",
+      });
+      return;
+    }
     mutation.mutate(data);
   };
 
+  const getInputClass = (hasError: boolean) =>
+    `group flex items-center bg-[#f4f6f8] rounded-lg transition-all border ${
+      hasError
+        ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200"
+        : "border-transparent focus-within:ring-2 focus-within:ring-[#009688]/25"
+    }`;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 w-full">
       {/* CONTACT FIELD */}
-      <div className="mb-3">
-        <label className="text-sm font-medium text-gray-700">
-          Email hoặc SĐT
-        </label>
-        <div className="relative flex items-center">
-          <span className="absolute left-3 text-gray-400">
-            <Mail size={20} />
+      <div className="space-y-1.5">
+        <label className="text-sm font-semibold text-slate-700">Email hoặc SĐT</label>
+        <div className={getInputClass(!!errors.contact)}>
+          <span className="pl-3 text-slate-400">
+            <Mail size={18} />
           </span>
           <input
             type="text"
-            placeholder="Email hoặc Số điện thoại"
-            className="w-full bg-[#f4f6f8] py-3 pl-10 pr-4 rounded-lg focus:ring-2 focus:ring-[#009688]/25 focus:bg-white transition-all"
+            placeholder="example@gmail.com"
+            className="w-full bg-transparent p-3 text-sm focus:outline-none"
             disabled={mutation.isPending}
             {...register("contact")}
           />
         </div>
         {errors.contact && (
-          <small className="text-red-500 mt-1 block">
+          <p className="text-xs text-red-500 font-medium mt-1">
             {errors.contact.message}
-          </small>
+          </p>
         )}
       </div>
 
       {/* PASSWORD FIELD */}
-      <div className="mb-3">
-        <label className="text-sm font-medium text-gray-700">Mật khẩu</label>
-        <div className="relative flex items-center">
-          <span className="absolute left-3 text-gray-400">
-            <Lock size={20} />
+      <div className="space-y-1.5">
+        <div className="flex justify-between items-center">
+          <label className="text-sm font-semibold text-slate-700">Mật khẩu</label>
+          <Link
+            href="/reset-password"
+            className="text-xs font-bold text-[#009688] hover:underline"
+          >
+            Quên mật khẩu?
+          </Link>
+        </div>
+        <div className={getInputClass(!!errors.password)}>
+          <span className="pl-3 text-slate-400">
+            <Lock size={18} />
           </span>
-
           <input
             type={showPassword ? "text" : "password"}
-            placeholder="Mật khẩu"
-            className="w-full bg-[#f4f6f8] py-3 pl-10 pr-10 rounded-lg focus:ring-2 focus:ring-[#009688]/25 focus:bg-white transition-all"
+            placeholder="••••••••"
+            className="w-full bg-transparent p-3 text-sm focus:outline-none"
             disabled={mutation.isPending}
             {...register("password")}
           />
-
-          {/* Toggle password visibility */}
           <button
             type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute right-3 text-gray-400 hover:text-gray-600"
+            onClick={() => setShowPassword(!showPassword)}
+            className="pr-3 text-slate-400 hover:text-slate-600"
           >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-
         {errors.password && (
-          <small className="text-red-500 mt-1 block">
+          <p className="text-xs text-red-500 font-medium mt-1">
             {errors.password.message}
-          </small>
+          </p>
         )}
       </div>
 
       {/* CAPTCHA */}
-      <div className="mb-3">
+      <div className="flex flex-col items-center lg:items-start gap-2">
         <input type="hidden" {...register("captchaToken")} />
-
-        <div className="flex justify-center md:justify-start">
-          <Turnstile
-            sitekey={SITE_KEY}
-            onVerify={(token) =>
-              setValue("captchaToken", token, { shouldValidate: true })
-            }
-            onExpire={() =>
-              setValue("captchaToken", "", { shouldValidate: true })
-            }
-          />
-        </div>
-
+        <Turnstile
+          sitekey={SITE_KEY}
+          onVerify={(token) => {
+            setValue("captchaToken", token, { shouldValidate: true });
+            clearErrors("captchaToken");
+          }}
+          onExpire={() => setValue("captchaToken", "", { shouldValidate: true })}
+        />
         {errors.captchaToken && (
-          <small className="text-red-500 mt-1 block text-center md:text-left">
-            Vui lòng xác thực Captcha
-          </small>
+          <p className="text-xs text-red-500 font-medium">
+            {errors.captchaToken.message}
+          </p>
         )}
       </div>
-
-      {/* TERMS */}
-      <div className="mb-4 flex items-start gap-2">
-        <input
-          type="checkbox"
-          id="terms"
-          className="mt-1 w-4 h-4 accent-[#009688]"
-          {...register("terms")}
-        />
-        <label htmlFor="terms" className="text-xs text-gray-500 leading-snug">
-          Tôi đồng ý với{" "}
-          <Link
-            href="#"
-            className="font-semibold text-[#009688] hover:underline"
-          >
-            Điều khoản dịch vụ
-          </Link>{" "}
-          và{" "}
-          <Link
-            href="#"
-            className="font-semibold text-[#009688] hover:underline"
-          >
-            Chính sách bảo mật
-          </Link>
-          .
-        </label>
-      </div>
-      {errors.terms && (
-        <small className="text-red-500 mt-1 block">
-          {errors.terms.message}
-        </small>
-      )}
 
       {/* SUBMIT BUTTON */}
       <button
         type="submit"
-        className={`w-full py-3 font-bold rounded-lg transition-all ${
+        disabled={mutation.isPending}
+        className={`w-full py-3.5 font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] ${
           mutation.isPending
-            ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-            : "bg-[#009688] hover:bg-[#00796b] text-white hover:-translate-y-0.5"
+            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+            : "bg-[#009688] hover:bg-[#00796b] text-white shadow-[#009688]/20"
         }`}
       >
-        {mutation.isPending ? "ĐANG XỬ LÝ..." : "ĐĂNG NHẬP"}
+        {mutation.isPending ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>ĐANG XỬ LÝ...</span>
+          </div>
+        ) : (
+          "ĐĂNG NHẬP"
+        )}
       </button>
 
-      {/* LOGIN LINK */}
-      <div className="text-center text-sm text-gray-600 mt-4">
-        Bạn đã có tài khoản?{" "}
+      {/* FOOTER */}
+      <div className="text-center text-sm text-slate-500 pt-2">
+        Chưa có tài khoản?{" "}
         <Link
           href="/signup"
-          className="font-bold text-[#009688] hover:underline"
+          className="text-[#009688] font-bold hover:underline"
         >
           Đăng ký ngay
         </Link>

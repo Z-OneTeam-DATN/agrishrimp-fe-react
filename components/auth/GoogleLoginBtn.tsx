@@ -1,79 +1,80 @@
 "use client";
 
 import { useGoogleLogin } from "@react-oauth/google";
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { AuthService } from "@/app/services/auth.service";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getErrorMessage } from "@/lib/axios";
 
 export default function GoogleLoginBtn() {
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const [isInternalLoading, setIsInternalLoading] = useState(false);
 
-  const login = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setIsLoading(true);
-      try {
-        const googleToken = tokenResponse.access_token;
-
-        const data = await AuthService.loginWithGoogle(googleToken);
-
-        if (data.accessToken) {
-          localStorage.setItem("accessToken", data.accessToken);
-          localStorage.setItem("refreshToken", data.refreshToken);
-
-          toast.success("Đăng nhập Google thành công!");
-          router.push("/");
-        }
-      } catch (error: any) {
-        const status = error?.response?.status;
-        const detail: string =
-          error?.response?.data?.detail || error?.response?.data?.message || "";
-
-        const message = detail.toLowerCase();
-
-        console.log("Google login error:", status, detail);
-
-        if (status === 401 && message.includes("google")) {
-          toast.error("Phiên Google hết hạn. Vui lòng thử lại.");
-          return;
-        }
-
-        if (status === 400 && message.includes("email")) {
-          toast.error("Email này đã được đăng ký bằng phương thức khác.");
-          return;
-        }
-
-        if (status === 403) {
-          toast.error("Tài khoản của bạn đã bị khóa.");
-          return;
-        }
-
-        if (status >= 500) {
-          toast.error("Lỗi hệ thống máy chủ. Vui lòng thử lại.");
-          return;
-        }
-
-        toast.error("Đăng nhập Google thất bại.");
-      } finally {
-        setIsLoading(false);
-      }
+  /**
+   * Mutation gọi API Next.js Route (/api/auth/google-login)
+   * Để thiết lập HttpOnly Cookie sau khi Java Backend verify xong Google Token
+   */
+  const mutation = useMutation({
+    mutationFn: (googleAccessToken: string) => {
+      return AuthService.loginWithGoogleNext(googleAccessToken);
     },
-
-    onError: () => {
-      toast.error("Không thể kết nối đến Google.");
+    onSuccess: (res) => {
+      // 1. Lưu vào zustand state
+      setAuth(res.accessToken, res.refreshToken);
+      
+      // 2. Thông báo thành công
+      toast.success("Đăng nhập với Google thành công!");
+      
+      // 3. Điều hướng về Dashboard hoặc Home
+      router.push("/");
+      router.refresh();
+    },
+    onError: (error: any) => {
+      console.error("Google Login Backend Error:", error);
+      const message = getErrorMessage(error);
+      toast.error(message || "Đăng nhập Google thất bại. Vui lòng thử lại.");
+      setIsInternalLoading(false);
     },
   });
+
+  /**
+   * Khởi tạo Popup Google Login (Implicit Flow)
+   */
+  const googleLogin = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      console.log("Google Token Response:", tokenResponse);
+      setIsInternalLoading(true);
+      // Gửi Google access_token về Backend của chúng ta
+      mutation.mutate(tokenResponse.access_token);
+    },
+    onError: (errorResponse) => {
+      console.error("Google Login Failed:", errorResponse);
+      toast.error("Không thể kết nối với tài khoản Google.");
+      setIsInternalLoading(false);
+    },
+  });
+
+  const isLoading = isInternalLoading || mutation.isPending;
 
   return (
     <button
       type="button"
-      onClick={() => login()}
+      onClick={() => {
+        setIsInternalLoading(true);
+        googleLogin();
+      }}
       disabled={isLoading}
-      className="w-full bg-white border border-slate-200 hover:border-teal-500 hover:bg-teal-50/20 text-slate-700 font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-3 transition-all duration-300 shadow-sm hover:shadow-md mb-5 group text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+      className={`w-full group relative flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl font-semibold text-slate-700 transition-all duration-300 shadow-sm hover:shadow-md hover:border-teal-500 hover:bg-teal-50/20 active:scale-[0.98] ${
+        isLoading ? "opacity-70 cursor-not-allowed bg-slate-50" : "bg-white"
+      }`}
     >
       {isLoading ? (
-        <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
       ) : (
         <img
           src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
@@ -81,7 +82,14 @@ export default function GoogleLoginBtn() {
           className="w-5 h-5 object-contain"
         />
       )}
-      <span>{isLoading ? "Đang xử lý..." : "Đăng ký với Google"}</span>
+      <span className="text-sm">
+        {isLoading ? "Đang xử lý..." : "Tiếp tục với Google"}
+      </span>
+      
+      {/* Hiệu ứng tia sáng khi hover */}
+      {!isLoading && (
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-500/0 via-teal-500/5 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+      )}
     </button>
   );
 }

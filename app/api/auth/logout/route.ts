@@ -4,20 +4,37 @@ import { NextResponse } from "next/server";
 
 export async function POST() {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken");
-  if (!accessToken) {
-    const response = NextResponse.json(
-      {
-        detail: "Không nhận được accessToken",
-        status: 401,
-      },
-      { status: 401 },
-    );
-    return response;
+  
+  try {
+    // 1. Gọi Backend Java để vô hiệu hóa token (nếu có accessToken)
+    const accessToken = cookieStore.get("accessToken");
+    if (accessToken) {
+      await AuthService.logout(); 
+    }
+  } catch (error) {
+    console.error("Backend logout failed, but proceeding to clear cookies:", error);
   }
-  const result = await AuthService.logout();
-  const res200 = NextResponse.json(result, { status: 200 });
-  res200.cookies.delete("accessToken");
-  res200.cookies.delete("refreshToken");
-  return res200;
+
+  // 2. Tạo phản hồi thành công
+  const response = NextResponse.json(
+    { message: "Logged out successfully" },
+    { status: 200 }
+  );
+
+  // 3. Xóa Cookies phía Next.js Server
+  response.cookies.set({
+    name: "accessToken",
+    value: "",
+    path: "/",
+    maxAge: 0, // Xóa ngay lập tức
+  });
+  
+  response.cookies.set({
+    name: "refreshToken",
+    value: "",
+    path: "/",
+    maxAge: 0,
+  });
+
+  return response;
 }

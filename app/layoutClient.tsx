@@ -11,12 +11,49 @@ import { usePathname } from "next/navigation";
 import Header from "@/components/site/SiteHeader";
 import Navbar from "@/components/site/SiteNavbar";
 import Footer from "@/components/site/SiteFooter";
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { AuthService } from "./services/auth.service";
 
 export default function LayoutClient({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const queryClientRef = useRef<QueryClient>();
+  const { setUser, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
+  const [isHydrating, setIsHydrating] = useState(true);
+
+  // HYDRATE FULL USER PROFILE ON LOAD
+  useEffect(() => {
+    const hydrateAuth = async () => {
+      setLoadingAuth(true);
+      try {
+        const user = await AuthService.meNext();
+        if (user) {
+          // Token is already in cookie, meTokenNext can be called if we need tokens in Zustand too
+          // For now meNext gets the profile which sets isAuthenticated
+          setUser(user);
+          
+          // Try fetching tokens to sync them to Zustand (optional, but good for interceptors)
+          try {
+            const tokens = await AuthService.meTokenNext();
+            if (tokens) {
+              useAuthStore.getState().setAuth(tokens.accessToken, tokens.refreshToken);
+            }
+          } catch (tokenErr) {
+            console.warn("User profile fetched but tokens not synced to Zustand.");
+          }
+        }
+      } catch (err) {
+        console.warn("No active session or session expired.");
+        clearAuth();
+      } finally {
+        setLoadingAuth(false);
+        setIsHydrating(false);
+      }
+    };
+    hydrateAuth();
+  }, [setUser, clearAuth, setLoadingAuth]);
 
   // Kiểm tra các route không hiển thị Header/Footer chung của trang chủ
   const isHideLayout =
@@ -33,6 +70,19 @@ export default function LayoutClient({
         },
       },
     });
+  }
+
+  if (isHydrating) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#009688]/20 border-t-[#009688] rounded-full animate-spin"></div>
+          <p className="text-sm font-bold text-[#009688] animate-pulse">
+            AGRISHRIMP
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

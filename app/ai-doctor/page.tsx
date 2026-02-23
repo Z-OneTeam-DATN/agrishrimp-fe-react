@@ -14,8 +14,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
 export default function AiDoctorChatPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const { data: user } = useCurrentUser();
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,7 +31,7 @@ export default function AiDoctorChatPage() {
     <div className="fixed inset-0 z-[9999] flex flex-col h-screen bg-[#E5E5E5] font-sans overflow-hidden">
       {/* --- HEADER CHAT --- */}
       <div className="bg-[#376E60] px-4 py-3 flex items-center gap-3 shadow-sm z-50 shrink-0">
-        <Link href="/profile" className="text-white hover:opacity-80">
+        <Link href="/" className="text-white hover:opacity-80">
           <ChevronLeft size={28} />
         </Link>
 
@@ -76,7 +79,7 @@ export default function AiDoctorChatPage() {
             />
           </div>
           <div className="bg-white text-gray-800 px-3.5 py-2.5 rounded-[18px] rounded-bl-md text-sm shadow-sm max-w-[85%] leading-relaxed">
-            Xin chào Gia Huy! Tôi là bác sĩ AI. Hãy gửi ảnh tôm để tôi kiểm tra
+            Xin chào {user?.displayName || "bạn"}! Tôi là bác sĩ AI. Hãy gửi ảnh tôm để tôi kiểm tra
             nhé.
           </div>
         </div>
