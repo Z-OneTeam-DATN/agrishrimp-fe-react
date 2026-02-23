@@ -20,6 +20,12 @@ export async function POST(_request: Request) {
       ? new Date(accessToken.exp * 1000)
       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+  const refreshTokenNew = jwtDecode<JwtPayload>(res.refreshToken);
+  const expiresDateRefreshToken =
+    typeof refreshTokenNew.exp === "number"
+      ? new Date(refreshTokenNew.exp * 1000)
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
   const response = NextResponse.json(res, { status: 200 });
 
   response.cookies.set({
@@ -28,6 +34,16 @@ export async function POST(_request: Request) {
     path: "/",
     httpOnly: true,
     expires: expiresDateAccessToken,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  response.cookies.set({
+    name: "refreshToken",
+    value: res.refreshToken,
+    path: "/",
+    httpOnly: true,
+    expires: expiresDateRefreshToken,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });

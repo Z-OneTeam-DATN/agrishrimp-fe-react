@@ -13,6 +13,8 @@ const BaseUserSchema = z.object({
     message: "Mật khẩu phải có ít nhất 6 ký tự.",
   }),
   gender: z.string().optional(),
+  fullName: z.string().optional(),
+  phoneNumber: z.string().optional(),
   displayName: z
     .string()
     .min(2, {

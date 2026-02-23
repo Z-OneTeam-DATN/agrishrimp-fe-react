@@ -13,7 +13,8 @@ const PROTECTED_PATHS = [
   "/ponds",
   "/voucher",
   "/ai-doctor",
-  "/cart",
+  "/user/cart",
+  "/user/checkout",
 ];
 
 export function middleware(req: NextRequest) {

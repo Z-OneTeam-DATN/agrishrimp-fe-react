@@ -23,16 +23,32 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLogout } from "@/hooks/use-logout";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
+  const { logout, isLoading: isLoggingOut } = useLogout();
+  const { data: user, isLoading } = useCurrentUser();
 
   useEffect(() => {
     setMounted(true);
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const getUserDisplayName = () => {
+    if (isLoading) return "Đang tải...";
+    if (!user) return "Admin";
+    return (
+      user.fullName ||
+      user.displayName ||
+      user.phoneNumber ||
+      user.email ||
+      "Admin"
+    );
+  };
 
   const formattedDate = mounted
     ? time.toLocaleDateString("vi-VN", {
@@ -51,19 +67,17 @@ export default function AdminTopHeader() {
       })
     : "--:--:--";
 
+  const getUserRoleName = () => {
+    if (typeof user?.role === "object" && user.role !== null) {
+      return user.role.displayName || "Quản trị viên";
+    }
+    return user?.role || "Quản trị viên";
+  };
+
   return (
     <header className="h-[64px] border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-6 flex-1">
-        {/* Mobile Menu Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden text-slate-500"
-        >
-          <Menu size={20} />
-        </Button>
-
-        {/* Company Logo & Name (Y hệt Kho) */}
+        {/* ... (Logo section) */}
         <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
           <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 shadow-sm ring-4 ring-slate-50">
             <img
@@ -133,15 +147,16 @@ export default function AdminTopHeader() {
             <div className="flex items-center gap-3 cursor-pointer pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ml-2 group">
               <div className="text-right hidden sm:block">
                 <p className="text-[13px] font-black text-slate-800 leading-none group-hover:text-emerald-600 transition-colors">
-                  Admin Agri
+                  {getUserDisplayName()}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">
-                  Quản trị viên
+                  {getUserRoleName()}
                 </p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
+                <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
                 <AvatarFallback className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white text-[11px] font-bold">
-                  AD
+                  {getUserDisplayName().charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -153,10 +168,12 @@ export default function AdminTopHeader() {
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  Quyền hạn cao nhất
+                  {user?.role?.slug === "admin" || user?.role === "ADMIN"
+                    ? "Quyền hạn cao nhất"
+                    : "Thông tin tài khoản"}
                 </span>
                 <span className="text-[13px] font-bold text-slate-800 mt-0.5">
-                  admin@agrishrimp.com
+                  {user?.email || user?.phoneNumber || "Đang tải..."}
                 </span>
               </div>
             </DropdownMenuLabel>
@@ -170,9 +187,15 @@ export default function AdminTopHeader() {
               <span className="text-[13px] font-medium">Cài đặt hệ thống</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            <DropdownMenuItem className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group">
+            <DropdownMenuItem
+              onClick={() => logout()}
+              disabled={isLoggingOut}
+              className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group"
+            >
               <LogOut className="mr-3 h-4 w-4 text-rose-400 group-hover:text-rose-600" />
-              <span className="text-[13px]">Đăng xuất</span>
+              <span className="text-[13px]">
+                {isLoggingOut ? "Đang xử lý..." : "Đăng xuất"}
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

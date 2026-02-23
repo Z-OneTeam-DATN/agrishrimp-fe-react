@@ -57,6 +57,12 @@ export type RegisterRequest = {
 export type AuthResponse = {
   accessToken: string;
   refreshToken: string;
+  userId: number;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  avatarUrl: string;
+  role: string;
 };
 
 export type UserResponse = {
@@ -72,11 +78,13 @@ export type UserResponse = {
 };
 
 export const LoginSchema = z.object({
-  emailOrPhone: z
+  contact: z
     .string()
     .min(1, { message: "Vui lòng nhập Email hoặc Số điện thoại" }),
 
   password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
+
+  captchaToken: z.string().min(1, { message: "Vui lòng xác thực Captcha" }),
 });
 
 export type LoginFormValues = z.infer<typeof LoginSchema>;
