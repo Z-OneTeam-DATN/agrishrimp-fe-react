@@ -44,6 +44,8 @@ import { AdminProductSchema, AdminProductForm } from "@/app/types/admin.schema";
 import { RichTextEditor } from "@/components/admin/shared/RichTextEditor";
 import { ProductService } from "@/app/services/product.service";
 
+import { useAuthStore } from "@/stores/useAuthStore";
+
 // Template mặc định khi tạo mới 1 biến thể (Mồi sẵn 3 thuộc tính cho UX tốt)
 const DEFAULT_VARIANT = {
   sku: "",
@@ -57,11 +59,7 @@ const DEFAULT_VARIANT = {
   shippingWeight: undefined as any,
   image: "",
   customSpecs: [],
-  attributes: [
-    { name: "Dạng bào chế", value: "" },
-    { name: "Quy cách đóng gói", value: "" },
-    { name: "Đơn vị tính", value: "" },
-  ],
+  attributes: [{ name: "", value: "" }],
 };
 
 export default function AddProductPage() {
@@ -74,6 +72,9 @@ export default function AddProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [attributeDictionary, setAttributeDictionary] = useState<string[]>([]);
+  
+  const { isLoadingAuth, isAuthenticated } = useAuthStore();
+
 
   // 1. CALL API GET DỮ LIỆU
   useEffect(() => {
@@ -94,8 +95,10 @@ export default function AddProductPage() {
       }
     };
 
-    fetchDropdownData();
-  }, []);
+    if (!isLoadingAuth && isAuthenticated) {
+      fetchDropdownData();
+    }
+  }, [isLoadingAuth, isAuthenticated]);
 
   const {
     register,
@@ -169,32 +172,86 @@ export default function AddProductPage() {
   };
 
   // 2. SUBMIT FORM
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: AdminProductForm) => {
     try {
       setIsLoading(true);
 
       const payload = {
         ...data,
         categoryId: Number(data.categoryId),
-        variants: data.variants.map((v: any) => ({
-          ...v,
-          costPrice: Number(v.costPrice || 0),
-          price: Number(v.price || 0),
-          wholesalePrice: Number(v.wholesalePrice || 0),
-          initialStock: Number(v.initialStock || 0),
-          netWeight: Number(v.netWeight || 0),
-          shippingWeight: Number(v.shippingWeight || 0),
-          // Lọc bỏ các thuộc tính rỗng trước khi gửi
-          attributes: v.attributes.filter((attr: any) => attr.name && attr.name.trim() !== "")
-        })),
+        description: data.description || "Chưa có mô tả chi tiết.", // Backend có thể yêu cầu
+        variants: data.variants.map((v: any) => {
+          const attributes = v.attributes || [];
+          
+          // Helper to find a value and remove it from the list
+          const findAndExtract = (name: string) => {
+            const index = attributes.findIndex((a: any) => a.name === name);
+            if (index > -1) {
+              const value = attributes[index].value;
+              attributes.splice(index, 1); // Remove from list
+              return value;
+            }
+            return "";
+          };
+
+          const formulation = findAndExtract("Dạng bào chế");
+          const packaging = findAndExtract("Quy cách đóng gói");
+          const unit = findAndExtract("Đơn vị tính");
+
+          // Map the rest to customSpecs
+          const customSpecs = attributes
+            .filter((attr: any) => attr.name && attr.name.trim() !== "" && attr.value && attr.value.trim() !== "")
+            .map((attr: any) => ({
+              key: attr.name,
+              value: attr.value,
+            }));
+
+          // Remove the now-processed attributes field
+          const { attributes: _, ...variantWithoutAttrs } = v;
+
+          return {
+            ...variantWithoutAttrs,
+            formulation,
+            packaging,
+            unit,
+            costPrice: Number(v.costPrice || 0),
+            price: Number(v.price || 0),
+            wholesalePrice: Number(v.wholesalePrice || 0),
+            initialStock: Number(v.initialStock || 0),
+            netWeight: Number(v.netWeight || 0),
+            shippingWeight: Number(v.shippingWeight || 0),
+            image: v.image || "/placeholder.jpg", // Gửi ảnh placeholder nếu trống
+            customSpecs,
+          };
+        }),
       };
+      
+      // Xóa các trường không cần thiết ở cấp cao nhất
+      delete (payload as any).isVariantEnabled;
+
 
       await ProductService.create(payload);
       toast.success("Đã lưu dữ liệu sản phẩm thành công!");
       router.push("/admin/products");
     } catch (error: any) {
-      console.error("Lỗi tạo sản phẩm:", error);
-      toast.error(error.response?.data || "Có lỗi xảy ra, vui lòng thử lại!");
+
+      // Cải thiện thông báo lỗi: ưu tiên fieldErrors nếu có
+      const res = error.response?.data;
+      if (res && res.fieldErrors) {
+        const errorDetails = Object.entries(res.fieldErrors)
+          .map(([field, message]) => `- ${field}: ${message}`)
+          .join("\n");
+        toast.error(
+          <div className="text-left">
+            <p className="font-bold mb-2">{res.title || "Dữ liệu không hợp lệ:"}</p>
+            <pre className="text-xs whitespace-pre-wrap">{errorDetails}</pre>
+          </div>,
+          { duration: 10000 }
+        );
+      } else {
+        const errorMsg = res?.detail || "Có lỗi không xác định từ máy chủ.";
+        toast.error(errorMsg);
+      }
     } finally {
       setIsLoading(false);
     }
