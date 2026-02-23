@@ -21,20 +21,20 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { customerService } from "@/app/services/customer.service";
 
-interface Customer {
-  id?: number;
-  name?: string;
-  phone?: string;
-  email?: string;
+// 1. Cập nhật Interface khớp chính xác với DTO từ Backend
+interface CustomerData {
+  userId: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  provider: string; // LOCAL hoặc GOOGLE
+  userStatus: string; // Trạng thái tài khoản (Gốc)
+  createdAt: string;
+  
+  // Dữ liệu từ bảng Customer (Có thể null)
+  customerId?: number;
+  customerStatus?: string;
   addressDetail?: string;
-  status?: "ACTIVE" | "INACTIVE";
-  user?: {
-    id?: number;
-    email?: string;
-    role?: {
-      displayName?: string;
-    };
-  };
 }
 
 export default function CustomerDetailPage({
@@ -44,20 +44,20 @@ export default function CustomerDetailPage({
 }) {
   const router = useRouter();
 
-  // 1. Giải nén params theo chuẩn Next.js 15
+  // Giải nén params theo chuẩn Next.js 15
   const resolvedParams = use(params);
   const customerId = resolvedParams.id;
 
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  // 2. Tránh lỗi Hydration: Đợi Client sẵn sàng mới render nội dung động
+  // Tránh lỗi Hydration
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 3. Fetch dữ liệu từ API
+  // Fetch dữ liệu từ API
   useEffect(() => {
     const fetchDetail = async () => {
       if (!mounted) return;
@@ -65,7 +65,7 @@ export default function CustomerDetailPage({
       try {
         const data = await customerService.getById(Number(customerId));
         setCustomer(data);
-      } catch (error: Error) {
+      } catch (error: any) {
         console.error("Lỗi fetch:", error);
         toast.error("Không thể tải thông tin khách hàng");
         router.push("/admin/customers");
@@ -76,7 +76,6 @@ export default function CustomerDetailPage({
     fetchDetail();
   }, [customerId, mounted, router]);
 
-  // Render rỗng khi ở Server để tránh lệch HTML (Fix Hydration Error)
   if (!mounted) return null;
 
   if (isLoading)
@@ -123,19 +122,23 @@ export default function CustomerDetailPage({
             <div className="p-6 border-b border-slate-50 flex flex-col items-center text-center">
               <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-4 border-2 border-blue-100 shadow-sm relative group">
                 <User size={40} />
-                {customer?.user?.role?.displayName && (
-                  <span className="absolute -bottom-1 bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
-                    {customer.user.role.displayName}
+                {/* Hiện Provider (GOOGLE/LOCAL) thay vì Role cũ */}
+                {customer?.provider && (
+                  <span className={cn(
+                    "absolute -bottom-1 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase",
+                    customer.provider === 'GOOGLE' ? "bg-red-500" : "bg-blue-600"
+                  )}>
+                    {customer.provider}
                   </span>
                 )}
               </div>
               <h2 className="text-[16px] font-black text-slate-800 uppercase leading-tight mb-1">
-                {customer?.name || "Chưa có tên"}
+                {customer?.fullName || "Chưa cập nhật tên"}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                 Mã định danh:{" "}
-                {customer?.user?.id
-                  ? `USR-${customer.user.id}`
+                {customer?.userId
+                  ? `USR-${customer.userId}`
                   : "KHÔNG CÓ TÀI KHOẢN"}
               </p>
 
@@ -174,9 +177,7 @@ export default function CustomerDetailPage({
                     Hòm thư điện tử
                   </span>
                   <span className="text-[13px] font-bold text-slate-700">
-                    {customer?.email ||
-                      customer?.user?.email ||
-                      "Chưa cập nhật"}
+                    {customer?.email || "Chưa cập nhật"}
                   </span>
                 </div>
               </div>
@@ -191,19 +192,21 @@ export default function CustomerDetailPage({
                   </span>
                 </div>
               </div>
+              
               <div className="pt-2 border-t border-slate-50 flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase">
                   Trạng thái vận hành
                 </span>
+                {/* SỬ DỤNG userStatus ĐỂ CHECK ĐÚNG CHUẨN */}
                 <span
                   className={cn(
                     "text-[10px] font-black px-2 py-0.5 rounded-none border uppercase tracking-tighter",
-                    customer?.status === "ACTIVE"
+                    customer?.userStatus === "ACTIVE"
                       ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                       : "bg-rose-50 text-rose-600 border-rose-100",
                   )}
                 >
-                  {customer?.status === "ACTIVE"
+                  {customer?.userStatus === "ACTIVE"
                     ? "ĐANG HOẠT ĐỘNG"
                     : "TẠM KHÓA"}
                 </span>
