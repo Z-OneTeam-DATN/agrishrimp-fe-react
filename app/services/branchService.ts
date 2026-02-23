@@ -1,17 +1,36 @@
-import axios from 'axios';
+import { apiJava } from "@/lib/axios";
 
-const API_BASE_URL = 'http://localhost:8080/api'; // Điều chỉnh theo server của bạn
+export const branchService = {
+  PREFIX: "/branches",
 
-export const BranchService = {
-  getAll: () => axios.get(`${API_BASE_URL}/chi-nhanh/danh-sach-chi-nhanh`),
+  getAll: async () => {
+    const response = await apiJava.get(`${branchService.PREFIX}`);
+    return response.data;
+  },
 
-  getById: (id: string | number) => axios.get(`${API_BASE_URL}/chi-nhanh/chi-tiet-danh-sach-/${id}`),
+  getById: async (id: string | number) => {
+    const response = await apiJava.get(`${branchService.PREFIX}/${id}`);
+    return response.data;
+  },
 
-  create: (data: any) => axios.post(`${API_BASE_URL}/chi-nhanh`, data),
+  create: async (data: any) => {
+    const response = await apiJava.post(`${branchService.PREFIX}`, data);
+    return response.data;
+  },
 
-  update: (id: string | number, data: any) => axios.put(`${API_BASE_URL}/chi-nhanh/${id}`, data),
+  update: async (id: string | number, data: any) => {
+    const response = await apiJava.put(`${branchService.PREFIX}/${id}`, data);
+    return response.data;
+  },
 
-  delete: (id: number | string) => axios.delete(`${API_BASE_URL}/chi-nhanh/${id}`),
+  delete: async (id: number | string) => {
+    const response = await apiJava.delete(`${branchService.PREFIX}/${id}`);
+    return response.data;
+  },
 
-  getAllStaff: () => axios.get(`${API_BASE_URL}/users/all-staff`)
+  getAllStaff: async () => {
+    const response = await apiJava.get(`/users`);
+    return response.data;
+  }
+
 };

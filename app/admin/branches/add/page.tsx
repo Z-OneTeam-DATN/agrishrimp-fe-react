@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { AdminBranchSchema, AdminBranchForm } from "@/app/types/admin.schema";
-import { BranchService } from '@/app/services/branchService';
+import { branchService } from '@/app/services/branchService';
 import axios from "axios";
 
 export default function AddBranchPage() {
@@ -93,10 +93,11 @@ export default function AddBranchPage() {
     const initData = async () => {
       try {
         const [staffRes, provinceRes] = await Promise.all([
-          BranchService.getAllStaff(),
+          branchService.getAllStaff(),
           axios.get("https://provinces.open-api.vn/api/p/")
         ]);
-        setStaffs(staffRes.data);
+        // Đã sửa: Map đúng theo format mới của branchService (không dùng .data)
+        setStaffs(staffRes?.content || staffRes || []);
         setProvinces(provinceRes.data);
         setIsInitialLoaded(true);
       } catch (error) { console.error(error); }
@@ -136,9 +137,10 @@ export default function AddBranchPage() {
       const fetchFullDetail = async () => {
         try {
           setIsLoading(true);
-          const res = await BranchService.getById(branchId);
-          const data = res.data;
-          
+          // Đã sửa: branchService chữ thường và bỏ res.data
+          const res = await branchService.getById(branchId);
+          const data = res;
+
           const [distRes, wardRes] = await Promise.all([
             axios.get(`https://provinces.open-api.vn/api/p/${data.provinceId}?depth=2`),
             axios.get(`https://provinces.open-api.vn/api/d/${data.districtId}?depth=2`)
@@ -160,10 +162,10 @@ export default function AddBranchPage() {
             status: data.status.toLowerCase(),
             managerId: data.managerIds?.[0] ? String(data.managerIds[0]) : "",
           });
-        } catch (error) { 
-          toast.error("Lỗi tải thông tin chi nhánh!"); 
-        } finally { 
-          setIsLoading(false); 
+        } catch (error) {
+          toast.error("Lỗi tải thông tin chi nhánh!");
+        } finally {
+          setIsLoading(false);
         }
       };
       fetchFullDetail();
@@ -190,10 +192,12 @@ export default function AddBranchPage() {
       };
 
       if (isEditMode) {
-        await BranchService.update(branchId!, payload);
+        // Đã sửa: branchService chữ thường
+        await branchService.update(branchId!, payload);
         toast.success("Cập nhật chi nhánh thành công!");
       } else {
-        await BranchService.create(payload);
+        // Đã sửa: branchService chữ thường
+        await branchService.create(payload);
         toast.success("Khởi tạo chi nhánh mới thành công!");
       }
       router.push("/admin/branches");
@@ -298,7 +302,9 @@ export default function AddBranchPage() {
                   disabled={isEditMode} 
                   className="h-[34px] text-[13px] border-[#ccc] rounded-none font-mono uppercase bg-slate-50" 
                 />
+                {errors.id && <p className="text-[10px] text-red-500 font-bold">{errors.id.message}</p>}
               </div>
+
             </div>
           </div>
 
