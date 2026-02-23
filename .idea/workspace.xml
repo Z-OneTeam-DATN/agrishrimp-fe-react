@@ -5,8 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="372a3868-29d7-4326-9678-0fc43de912ff" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/public/images/empty-box.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/admin/products/add/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/products/add/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/admin/exports/new-command/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/exports/new-command/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/admin/exports/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/exports/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/inventory/InventoryExportReceiptTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/inventory/InventoryExportReceiptTable.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/inventory/InventoryExportTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/inventory/InventoryExportTable.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -24,18 +28,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "feature/branch-ui-crud-api",
-    "ignore.virus.scanning.warn.message": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "H:/duan_totnghiep/agrishrimp-fe-react"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;H:/duan_totnghiep/agrishrimp-fe-react&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="H:\duan_totnghiep\agrishrimp-fe-react\app\admin" />
