@@ -10,7 +10,6 @@ import {
   Tags,
   Users,
   UserCircle,
-  UserPlus,
   Building2,
   FileBarChart,
   Settings,
@@ -28,17 +27,17 @@ import {
   CheckSquare,
   Box,
   List,
-  Archive
+  Archive,
+  FileEdit,   // Mới thêm cho Đơn nháp
+  RotateCcw   // Mới thêm cho Trả hàng
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
-import { usePermissions } from "@/hooks/usePermissions";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { hasPermission } = usePermissions();
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
   
@@ -47,7 +46,7 @@ export default function AdminSidebar() {
 
   // Tự động mở nhóm menu nếu đang truy cập trang con bên trong
   useEffect(() => {
-    if (pathname.startsWith("/admin/orders")) {
+    if (pathname.startsWith("/admin/orders") || pathname.startsWith("/admin/orders-")) {
       setOpenGroups(prev => prev.includes("orders") ? prev : [...prev, "orders"]);
     }
   }, [pathname]);
@@ -121,13 +120,13 @@ export default function AdminSidebar() {
             <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={pathname === "/admin"} color="text-emerald-500" />
             <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
             
-            {/* Nhóm Đơn Hàng */}
+            {/* Nhóm Xử Lý Đơn Hàng (Cũ) */}
             <SidebarGroup
               label="Xử lý đơn hàng"
               icon={ShoppingCart}
-              isOpen={openGroups.includes("orders")}
-              onToggle={() => toggleGroup("orders")}
-              active={pathname.startsWith("/admin/orders")}
+              isOpen={openGroups.includes("orders-processing")}
+              onToggle={() => toggleGroup("orders-processing")}
+              active={pathname.startsWith("/admin/orders-")}
             >
               <SidebarLink href="/admin/orders-confirmation" icon={CheckSquare} label="Chờ xác nhận" active={pathname === "/admin/orders-confirmation"} isChild />
               <SidebarLink href="/admin/orders-processing" icon={Box} label="Chờ xử lý" active={pathname === "/admin/orders-processing"} isChild />
@@ -144,32 +143,56 @@ export default function AdminSidebar() {
             Quản trị
           </p>
           <div className="space-y-0.5">
-            {hasPermission("USER_MANAGE") && (
-              <SidebarLink
-                href="/admin/employees"
-                icon={UserCircle}
-                label="Nhân viên"
-                active={pathname === "/admin/employees"}
-              />
-            )}
-            {hasPermission("USER_CREATE") && (
-              <SidebarLink
-                href="/admin/employees/add"
-                icon={UserPlus}
-                label="Thêm nhân viên"
-                active={pathname === "/admin/employees/add"}
-              />
-            )}
-            {hasPermission("ROLE_MANAGE") && (
-              <SidebarLink
-                href="/admin/employees/roles"
-                icon={ShieldCheck}
-                label="Vai trò & Quyền"
-                active={pathname.startsWith("/admin/employees/roles")}
-                color="text-violet-400"
-              />
-            )}
+            <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
             <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
+          </div>
+        </section>
+
+        {/* =======================
+            SECTION MỚI: KINH DOANH
+            ======================= */}
+        <section>
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+            Kinh doanh
+          </p>
+          <div className="space-y-0.5">
+            <SidebarGroup
+              label="Đơn hàng"
+              icon={ShoppingCart}
+              isOpen={openGroups.includes("orders")}
+              onToggle={() => toggleGroup("orders")}
+              active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}
+            >
+              {/* Trang chủ đơn hàng HOẶC trang thêm đơn hàng đều sáng tab này */}
+              <SidebarLink 
+                href="/admin/orders" 
+                icon={List} 
+                label="Danh sách đơn hàng" 
+                active={pathname === "/admin/orders" || (pathname.startsWith("/admin/orders/") && !pathname.includes("draft") && !pathname.includes("return") && !pathname.includes("incomplete"))} 
+                isChild 
+              />
+              <SidebarLink 
+                href="/admin/orders/drafts" 
+                icon={FileEdit} 
+                label="Đơn hàng nháp" 
+                active={pathname.startsWith("/admin/orders/drafts")} 
+                isChild 
+              />
+              <SidebarLink 
+                href="/admin/orders/returns" 
+                icon={RotateCcw} 
+                label="Trả hàng" 
+                active={pathname.startsWith("/admin/orders/returns")} 
+                isChild 
+              />
+              <SidebarLink 
+                href="/admin/orders/incomplete" 
+                icon={ShoppingCart} 
+                label="Đơn chưa hoàn tất" 
+                active={pathname.startsWith("/admin/orders/incomplete")} 
+                isChild 
+              />
+            </SidebarGroup>
           </div>
         </section>
 
