@@ -68,4 +68,12 @@ export const ProductService = {
     const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
     return response.data;
   },
+
+  // Tìm kiếm theo tên, SKU, hoặc Barcode
+  searchVariants: async (keyword: string) => {
+    const response = await apiJava.get(`/product-variants/search`, {
+      params: { keyword }
+    });
+    return response.data;
+  },
 };
