@@ -16,7 +16,9 @@ interface ProductCardProps {
   name: string;
   price: string;
   oldPrice?: string;
-  image: string;
+  image?: string;      // Prop cũ
+  img?: string;        // Trường mới bạn vừa thêm ở Backend
+  imageUrls?: string[]; // Danh sách ảnh từ ProductResponse
   category: string;
   rating?: number;
   reviewCount?: number;
@@ -30,22 +32,34 @@ export default function ProductCard({
   price,
   oldPrice,
   image,
+  img,
+  imageUrls,
   category,
   rating = 5,
   reviewCount = 0,
   sold,
   tag,
 }: ProductCardProps) {
+
+  // --- 1. LOGIC CHỌN ẢNH THÔNG MINH ---
+  const DEFAULT_IMAGE = "https://placehold.co/600x600/e2e8f0/1e293b?text=AgriShrimp";
+
+  // Ưu tiên: 1. img -> 2. image -> 3. phần tử đầu tiên của imageUrls -> 4. Ảnh mặc định
+  const getDisplayImage = () => {
+    if (img && img.trim() !== "") return img;
+    if (image && image.trim() !== "") return image;
+    if (imageUrls && imageUrls.length > 0 && imageUrls[0] !== "") return imageUrls[0];
+    return DEFAULT_IMAGE;
+  };
+
+  const finalImage = getDisplayImage();
+
   const getTagColor = (type: string) => {
     switch (type) {
-      case "HOT":
-        return "bg-gradient-to-br from-orange-500 to-red-600";
-      case "NEW":
-        return "bg-gradient-to-br from-sky-400 to-blue-600";
-      case "BEST":
-        return "bg-gradient-to-br from-red-500 to-rose-700";
-      default:
-        return "bg-gray-500";
+      case "HOT": return "bg-gradient-to-br from-orange-500 to-red-600";
+      case "NEW": return "bg-gradient-to-br from-sky-400 to-blue-600";
+      case "BEST": return "bg-gradient-to-br from-red-500 to-rose-700";
+      default: return "bg-gray-500";
     }
   };
 
@@ -53,83 +67,67 @@ export default function ProductCard({
     <div className="group relative flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden transition-all duration-300 hover:border-teal-600 hover:shadow-lg hover:-translate-y-1 cursor-pointer">
       {/* 1. TAG BADGE */}
       {tag && (
-        <div
-          className={`absolute top-0 left-0 px-2 md:px-3 py-1 text-[9px] md:text-[10px] font-extrabold text-white rounded-br-lg z-20 shadow-md flex items-center ${getTagColor(tag)}`}
-        >
+        <div className={`absolute top-0 left-0 px-2 md:px-3 py-1 text-[9px] md:text-[10px] font-extrabold text-white rounded-br-lg z-20 shadow-md flex items-center ${getTagColor(tag)}`}>
           {tag === "HOT" && <Flame size={10} className="mr-1" />}
           {tag === "BEST" && <Award size={10} className="mr-1" />}
           {tag === "BEST" ? "TOP 1" : tag}
         </div>
       )}
 
-      {/* 2. IMAGE SECTION - Vuông 100% */}
-      <Link
-        href={`/product/${id}`}
-        className="relative block w-full pt-[100%] overflow-hidden bg-gray-50"
-      >
+      {/* 2. IMAGE SECTION */}
+      <Link href={`/product/${id}`} className="relative block w-full pt-[100%] overflow-hidden bg-gray-50">
         <Image
-          src={image}
+          src={finalImage}
           alt={name}
           fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
           className="object-contain p-2 md:p-4 transition-transform duration-500 group-hover:scale-110"
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (target.src !== DEFAULT_IMAGE) {
+              target.src = DEFAULT_IMAGE;
+            }
+          }}
         />
-        {/* Nút thêm nhanh - Ẩn trên mobile để tránh che nội dung khi chạm */}
         <button className="hidden md:flex absolute bottom-3 right-3 w-9 h-9 rounded-full bg-teal-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-teal-700 z-10">
           <ShoppingCart size={16} />
         </button>
       </Link>
 
-      {/* 3. BODY SECTION - Padding nhỏ trên mobile */}
+      {/* 3. BODY SECTION */}
       <div className="flex flex-col flex-1 p-2 md:p-3">
         <div className="text-[9px] md:text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wide truncate">
           {category}
         </div>
 
         <Link href={`/product/${id}`} className="mb-1 block">
-          {/* Giới hạn 2 dòng, chiều cao cố định để không lệch grid */}
-          <h3
-            className="text-[13px] md:text-[14px] font-medium text-gray-800 leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors h-[38px] md:h-[40px]"
-            title={name}
-          >
+          <h3 className="text-[13px] md:text-[14px] font-medium text-gray-800 leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors h-[38px] md:h-[40px]" title={name}>
             {name}
           </h3>
         </Link>
 
         {/* Rating */}
         <div className="flex items-center gap-0.5 text-yellow-400 mb-2 text-[10px]">
-          {[...Array(5)].map((_, i) =>
-            i < Math.floor(rating) ? (
-              <Star key={i} size={10} fill="currentColor" />
-            ) : (
-              <StarHalf key={i} size={10} fill="currentColor" />
-            ),
-          )}
+          {[...Array(5)].map((_, i) => (
+            i < Math.floor(rating)
+              ? <Star key={i} size={10} fill="currentColor" />
+              : <StarHalf key={i} size={10} fill="currentColor" />
+          ))}
           <span className="text-gray-400 ml-1">({reviewCount})</span>
         </div>
 
         {/* Price & Action */}
         <div className="mt-auto">
           <div className="flex flex-wrap items-baseline gap-x-2 mb-2">
-            <span className="text-base md:text-lg font-bold text-orange-600">
-              {price}
-            </span>
-            {oldPrice && (
-              <span className="text-[10px] md:text-xs text-gray-400 line-through">
-                {oldPrice}
-              </span>
-            )}
+            <span className="text-base md:text-lg font-bold text-orange-600">{price}</span>
+            {oldPrice && <span className="text-[10px] md:text-xs text-gray-400 line-through">{oldPrice}</span>}
           </div>
 
           {sold ? (
             <div className="relative w-full h-3 md:h-4 bg-orange-100 rounded-full overflow-hidden mt-1">
               <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-400 to-orange-600 w-[70%] rounded-full"></div>
               <div className="absolute inset-0 flex items-center justify-center text-[8px] md:text-[9px] font-bold text-white uppercase drop-shadow-md z-10">
-                <Flame
-                  size={8}
-                  className="mr-1 fill-white md:w-[10px] md:h-[10px]"
-                />{" "}
-                Đã bán {sold}
+                <Flame size={8} className="mr-1 fill-white md:w-[10px] md:h-[10px]" /> Đã bán {sold}
               </div>
             </div>
           ) : (
