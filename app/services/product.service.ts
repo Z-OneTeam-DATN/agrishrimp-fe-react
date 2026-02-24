@@ -27,9 +27,11 @@ export const ProductService = {
     return response.data;
   },
 
-  // 3. Tạo sản phẩm mới (Sử dụng JSON)
-  create: async (data: CreateProductRequest): Promise<ApiResponse> => {
-    const response = await apiJava.post(`${ProductService.PREFIX}`, data);
+  // 3. Tạo sản phẩm mới (Sử dụng multipart/form-data)
+  create: async (formData: FormData): Promise<ApiResponse> => {
+    const response = await apiJava.post(`${ProductService.PREFIX}/multipart`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   },
 
