@@ -5,7 +5,6 @@ import axios, {
   isCancel,
 } from "axios";
 import { toast } from "sonner";
-import { AuthService } from "@/app/services/auth.service";
 import { jwtDecode, JwtPayload } from "jwt-decode";
 
 type Token = string;
@@ -88,7 +87,9 @@ const isAuthRefreshUrl = (url?: string | null) =>
   (url.includes("/api/auth/refresh") ||
     url.includes("/auth/refresh") ||
     url.includes("/api/auth/me") ||
-    url.includes("/api/auth/me-token"));
+    url.includes("/auth/me") ||
+    url.includes("/api/auth/me-token") ||
+    url.includes("/auth/me-token"));
 
 const errorHandlers: Record<
   number | "default",
@@ -179,6 +180,7 @@ const createApi = (baseURL: string): AxiosInstance => {
           if (!isRefreshing) {
             isRefreshing = true;
             try {
+              const { AuthService } = await import("@/app/services/auth.service");
               const res = await AuthService.refreshAuthTokenNext();
               const { useAuthStore } = await import("@/stores/useAuthStore");
               useAuthStore.getState().setAccessAndRefreshToken(res);
@@ -256,6 +258,7 @@ const createApi = (baseURL: string): AxiosInstance => {
           isRefreshing = true;
 
           try {
+            const { AuthService } = await import("@/app/services/auth.service");
             const res = await AuthService.refreshAuthTokenNext();
             
             // 1. Update Global Store (Zustand) with new tokens and user info
