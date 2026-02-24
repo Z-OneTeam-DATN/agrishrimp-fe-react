@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { transferService } from "@/app/services/transfer.service";
+import { branchService } from "@/app/services/branchService";
+import { ProductService } from "@/app/services/product.service";
 import {
   X,
   Settings,
@@ -56,6 +59,29 @@ export default function NewTransferPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sourceCode = searchParams.get("source");
+  
+  // State quản lý API
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [branches, setBranches] = useState<any[]>([]);
+
+  const onError = (errors: any) => {
+    console.log("Lỗi Validation của Zod:", errors);
+    toast.error("Dữ liệu chưa hợp lệ! Vui lòng kiểm tra lại các ô nhập liệu.");
+  };
+
+  // Kéo danh sách Chi nhánh thật lúc load trang
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const data = await branchService.getAll();
+        setBranches(data);
+      } catch (error) {
+        console.error("Lỗi fetch chi nhánh", error);
+        toast.error("Không thể tải danh sách chi nhánh");
+      }
+    };
+    fetchBranches();
+  }, []);
 
   const {
     register,
@@ -76,13 +102,13 @@ export default function NewTransferPage() {
       vehicle: "",
       dispatchOrder: "",
       transferCode: "PDC-" + Date.now().toString().slice(-6),
-      sourceBranch: "Chi nhánh Hà Nội",
+      sourceBranch: "", // Để trống để lát chọn
       sourceWarehouse: "wh-hn",
-      sourceAddress: "123 Đường Láng, Đống Đa, Hà Nội",
+      sourceAddress: "",
       transferDate: new Date().toISOString().slice(0, 16),
-      destBranch: "Chi nhánh Hồ Chí Minh",
+      destBranch: "", // Để trống để lát chọn
       destWarehouse: "wh-st",
-      destAddress: "456 Lê Lợi, Quận 1, TP. HCM",
+      destAddress: "",
       status: "DRAFT",
       importStatus: "PENDING",
       referenceCode: sourceCode || "",
@@ -93,6 +119,7 @@ export default function NewTransferPage() {
 
   const transferType = watch("transferType");
   const importStatus = watch("importStatus");
+  const currentSourceBranch = watch("sourceBranch"); // Dùng để chặn chọn trùng kho
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -101,32 +128,67 @@ export default function NewTransferPage() {
 
   const auditLogs = [
     {
-      time: "12/02/2026 16:13",
-      user: "Nhiên Lê (Thủ kho)",
+      time: new Date().toLocaleString('vi-VN'),
+      user: "Hệ thống",
       action: "Khởi tạo phiếu dự thảo",
-      detail: "Hệ thống tự động cấp mã PDC-123456",
+      detail: "Hệ thống tự động cấp mã phiếu",
     },
   ];
 
-  const addNewItem = () => {
-    append({
-      productCode: "",
-      productName: "",
-      unit: "",
-      convUnit: "Chai",
-      convRatio: 12,
-      quantity: 0,
-      receivedQuantity: 0,
-      availableQuantity: 100,
-      fromLoc: "",
-      toLoc: "",
-      itemNote: "",
-    });
-  };
+  // HÀM SUBMIT GỌI API THẬT
+  const onSubmit = async (formData: any) => {
+    // 1. Validate form cơ bản
+    if (!formData.sourceBranch || !formData.destBranch) {
+      toast.error("Vui lòng chọn đầy đủ Chi nhánh xuất và Chi nhánh nhận!");
+      return;
+    }
+    if (formData.sourceBranch === formData.destBranch) {
+      toast.error("Chi nhánh xuất và Chi nhánh nhận không được trùng nhau!");
+      return;
+    }
+    if (!formData.items || formData.items.length === 0) {
+      toast.error("Vui lòng thêm ít nhất 1 sản phẩm để điều chuyển!");
+      return;
+    }
 
-  const onSubmit = (data: any) => {
-    toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
-    router.push("/admin/transfers");
+    setIsSubmitting(true);
+    try {
+      // Chuẩn bị Payload khớp với Backend DTO
+      const payload = {
+        fromBranchId: Number(formData.sourceBranch),
+        toBranchId: Number(formData.destBranch),
+        transferType: formData.transferType,
+        description: formData.description,
+        transporter: formData.transporter,
+        vehicle: formData.vehicle,
+        dispatchOrder: formData.dispatchOrder,
+        referenceCode: formData.referenceCode,
+        priority: "NORMAL", 
+        transferDate: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
+        deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null, 
+        
+        // SỬA CHỖ NÀY: Gửi "bao lô" 3 biến số lượng luôn cho Backend tự bốc
+        items: formData.items.map((item: any) => ({
+          variantId: Number(item.variantId) || 1, 
+          quantity: Number(item.quantity),           // Cột quantity chung
+          quantityRequested: Number(item.quantity),  // Cột quantity_requested (Số lượng yêu cầu)
+          quantityReal: 0,                           // Cột quantity_real (Thực nhận ban đầu = 0)
+          itemNote: item.itemNote
+        }))
+      };
+
+      // 3. Gửi request tạo mới
+      await transferService.create(payload);
+      
+      toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
+      router.push("/admin/transfers");
+      
+    } catch (error: any) {
+      console.error("Lỗi tạo phiếu:", error);
+      toast.error("Lỗi hệ thống: " + (error.response?.data || "Không thể tạo phiếu"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const steps = [
@@ -136,9 +198,77 @@ export default function NewTransferPage() {
     { label: "Đã nhận hàng", status: "upcoming", icon: CheckCircle2 },
   ];
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  // 1. Khai báo ref để trỏ tới ô Input tìm kiếm
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 2. Hàm xử lý khi bấm nút "Thêm hàng hóa" hoặc "Chọn từ danh sách"
+  const openProductDropdown = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus(); // Tự động trỏ chuột vào ô tìm kiếm
+    }
+    setShowDropdown(true); // Bật dropdown lên
+  };
+
+  // Hook tìm kiếm (Debounce 500ms)
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        // Gọi API tìm kiếm (khi searchTerm = "" thì backend sẽ trả về TẤT CẢ)
+        const results = await ProductService.searchVariants(searchTerm);
+        
+        // Đề phòng API trả về dạng { data: [...] } hoặc chỉ [...]
+        const finalData = Array.isArray(results) ? results : (results?.data || []);
+        setSearchResults(finalData);
+        
+        // Cập nhật lại UI Dropdown nếu đang Focus
+        if (document.activeElement?.getAttribute('placeholder')?.includes('Tìm theo tên')) {
+           setShowDropdown(true);
+        }
+      } catch (error) {
+        console.error("Lỗi tìm sản phẩm", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500); 
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
+  // Hàm xử lý khi click chọn 1 sản phẩm từ danh sách gợi ý
+  const handleSelectProduct = (variant: any) => {
+    // Kiểm tra xem sản phẩm đã có trong bảng chưa
+    const isExist = fields.some((f: any) => f.variantId === variant.id);
+    if (isExist) {
+      toast.error("Sản phẩm này đã có trong danh sách!");
+      return;
+    }
+
+    // Thêm sản phẩm thật vào mảng react-hook-form
+    append({
+      variantId: variant.id,
+      productCode: variant.sku || variant.barcode,
+      productName: variant.productName || "Tên sản phẩm",
+      unit: variant.unit || "Cái",
+      quantity: 1, // Mặc định SL chuyển = 1
+      availableQuantity: variant.quantity || 0, // Tồn kho hiện tại
+      itemNote: "",
+    });
+
+    // Reset ô tìm kiếm
+    setSearchTerm("");
+    setSearchResults([]);
+    setShowDropdown(false);
+    toast.success("Đã thêm sản phẩm vào phiếu!");
+  };
+
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, onError)}
       className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen"
     >
       {/* Page Header - Synchronized with Admin UI */}
@@ -306,7 +436,7 @@ export default function NewTransferPage() {
                 <Input
                   {...register("transferCode")}
                   readOnly
-                  className="h-[34px] text-[13px] border-[#ccc] rounded-none bg-slate-50 font-mono"
+                  className="h-[34px] text-[13px] border-[#ccc] rounded-none bg-slate-50 font-mono text-slate-500 cursor-not-allowed"
                 />
               </div>
 
@@ -366,7 +496,7 @@ export default function NewTransferPage() {
           </div>
 
           {/* Section 2: Danh mục hàng hóa */}
-          <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+          <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm">
             <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex flex-wrap items-center justify-between gap-4">
               <h3 className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-2 tracking-wider whitespace-nowrap">
                 <Plus size={16} className="text-blue-600" /> 2. Danh mục vật tư
@@ -374,16 +504,50 @@ export default function NewTransferPage() {
               </h3>
 
               <div className="flex flex-1 items-center gap-2 min-w-[300px] max-w-[600px]">
-                <div className="relative flex-1">
-                  <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    size={16}
-                  />
-                  <Input
-                    placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
-                    className="pl-10 h-9 text-[13px] border-slate-200 rounded-none focus:border-blue-500 shadow-none bg-white"
-                  />
-                </div>
+                {/* Ô Tìm kiếm với Dropdown */}
+              <div className="relative flex-1">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
+                />
+                <Input
+                  ref={searchInputRef}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setShowDropdown(true)} // Click vào là mở Dropdown luôn
+                  onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                  placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
+                  className="pl-10 h-9 text-[13px] border-slate-200 rounded-none focus:border-blue-500 shadow-none bg-white relative z-20"
+                />
+
+                {/* Dropdown Gợi ý sản phẩm */}
+                {showDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[300px] overflow-y-auto">
+                    {isSearching ? (
+                      <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
+                    ) : searchResults.length > 0 ? (
+                      searchResults.map((variant) => (
+                        <div 
+                          key={variant.id}
+                          onClick={() => handleSelectProduct(variant)}
+                          className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors"
+                        >
+                          <div>
+                            <p className="text-[12px] font-bold text-slate-800">{variant.productName}</p>
+                            <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[11px] font-black text-slate-600">Tồn: {variant.quantity}</p>
+                            <p className="text-[10px] text-slate-400">{variant.unit}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-[12px] text-slate-400 text-rose-500">Không có sản phẩm nào</div>
+                    )}
+                  </div>
+                )}
+              </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -397,7 +561,7 @@ export default function NewTransferPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={addNewItem}
+                  onClick={openProductDropdown}
                   className="h-9 text-[10px] font-black text-blue-600 border-blue-200 rounded-none uppercase px-4"
                 >
                   <Plus size={14} className="mr-1" /> Thêm hàng hóa
@@ -455,16 +619,18 @@ export default function NewTransferPage() {
                         <Input
                           {...register(`items.${index}.productName`)}
                           className="h-8 text-[12px] border-none bg-transparent font-bold focus:ring-0"
+                          readOnly
                         />
                       </TableCell>
                       <TableCell className="p-1">
                         <Input
                           {...register(`items.${index}.unit`)}
                           className="h-8 text-[12px] border-none bg-transparent text-center focus:ring-0"
+                          readOnly
                         />
                       </TableCell>
                       <TableCell className="p-1 text-center text-[10px] font-medium text-slate-400 italic">
-                        1T = 12C
+                        --
                       </TableCell>
                       <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
                         {watch(`items.${index}.availableQuantity`)}
@@ -481,7 +647,7 @@ export default function NewTransferPage() {
                           type="number"
                           {...register(`items.${index}.receivedQuantity`)}
                           readOnly
-                          className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0"
+                          className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0 cursor-not-allowed"
                         />
                       </TableCell>
                       <TableCell className="p-1">
@@ -530,7 +696,7 @@ export default function NewTransferPage() {
                 <div className="flex gap-3">
                   <Button
                     type="button"
-                    onClick={addNewItem}
+                    onClick={openProductDropdown}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] uppercase rounded-none shadow-lg shadow-blue-100 flex gap-2"
                   >
                     <ListPlus size={18} /> Chọn hàng từ danh sách
@@ -573,14 +739,31 @@ export default function NewTransferPage() {
                 <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
                   <Building2 size={12} /> Chi nhánh xuất hàng
                 </Label>
-                <Select defaultValue="cn-hn">
-                  <SelectTrigger className="h-8 text-[12px] border-[#eee] rounded-none font-bold focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="cn-hn">CHI NHÁNH MIỀN BẮC</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="sourceBranch"
+                  control={control}
+                  render={({ field }) => (
+                    <Select 
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        const selectedBranch = branches.find(b => b.id.toString() === val);
+                        if (selectedBranch) {
+                          setValue("sourceAddress", selectedBranch.addressDetail || "Chi nhánh chưa cập nhật địa chỉ");
+                        }
+                      }} 
+                    >
+                      <SelectTrigger className="h-8 text-[12px] border-[#eee] rounded-none font-bold focus:ring-0">
+                        <SelectValue placeholder="Chọn kho xuất..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        {branches.map(b => (
+                          <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
@@ -593,8 +776,9 @@ export default function NewTransferPage() {
                   render={({ field }) => (
                     <Textarea
                       {...field}
+                      readOnly // KHÓA NHẬP TAY
                       placeholder="Địa chỉ chi tiết..."
-                      className="min-h-[60px] text-[12px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none resize-none bg-slate-50/50"
+                      className="min-h-[60px] text-[12px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none resize-none bg-slate-50 text-slate-600 cursor-not-allowed"
                     />
                   )}
                 />
@@ -615,14 +799,39 @@ export default function NewTransferPage() {
                 <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
                   <Building2 size={12} /> Chi nhánh nhận hàng
                 </Label>
-                <Select defaultValue="cn-hcm">
-                  <SelectTrigger className="h-8 text-[12px] border-[#eee] rounded-none font-bold focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="cn-hcm">CHI NHÁNH MIỀN NAM</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="destBranch"
+                  control={control}
+                  render={({ field }) => (
+                    <Select 
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val); // Lưu ID chi nhánh vào form
+                        // Tìm chi nhánh vừa chọn trong mảng branches
+                        const selectedBranch = branches.find(b => b.id.toString() === val);
+                        if (selectedBranch) {
+                          // Tự động điền địa chỉ vào ô text area
+                          setValue("destAddress", selectedBranch.addressDetail || "Chi nhánh chưa cập nhật địa chỉ");
+                        }
+                      }} 
+                    >
+                      <SelectTrigger className="h-8 text-[12px] border-[#eee] rounded-none font-bold focus:ring-0">
+                        <SelectValue placeholder="Chọn kho nhận..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        {branches.map(b => (
+                          <SelectItem 
+                            key={b.id} 
+                            value={b.id.toString()}
+                            disabled={b.id.toString() === currentSourceBranch}
+                          >
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
@@ -635,8 +844,9 @@ export default function NewTransferPage() {
                   render={({ field }) => (
                     <Textarea
                       {...field}
+                      readOnly // KHÓA NHẬP TAY
                       placeholder="Địa chỉ chi tiết..."
-                      className="min-h-[60px] text-[12px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none resize-none bg-slate-50/50"
+                      className="min-h-[60px] text-[12px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none resize-none bg-slate-50 text-slate-600 cursor-not-allowed"
                     />
                   )}
                 />
@@ -689,9 +899,15 @@ export default function NewTransferPage() {
         </Button>
         <Button
           type="submit"
-          className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-none shadow-md shadow-blue-100 uppercase transition-all active:scale-[0.98]"
+          disabled={isSubmitting}
+          className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-none shadow-md shadow-blue-100 uppercase transition-all active:scale-[0.98] flex items-center justify-center"
         >
-          <Save size={18} className="mr-2" /> LƯU & GỬI DUYỆT
+          {isSubmitting ? (
+             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+          ) : (
+             <Save size={18} className="mr-2" />
+          )}
+          {isSubmitting ? "ĐANG LƯU..." : "LƯU & GỬI DUYỆT"}
         </Button>
       </div>
     </form>
