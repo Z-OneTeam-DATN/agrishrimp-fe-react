@@ -80,7 +80,7 @@ export default function AddSupplierPage() {
       provinceId: "",
       creditLimit: 0,
       paymentTerms: "",
-      category: undefined,
+      category: "",
     },
   });
 
@@ -297,7 +297,14 @@ export default function AddSupplierPage() {
                   name="category"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      // 👇 Sửa dòng onValueChange thành như thế này
+                      onValueChange={(val) => {
+                        field.onChange(val); // Cập nhật state cho component
+                        setValue("category", val, { shouldValidate: true }); // Ép form kiểm tra lại và xóa dòng lỗi ngay lập tức
+                      }}
+                      value={field.value || ""}
+                    >
                       <SelectTrigger className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0 italic">
                         <SelectValue placeholder="-- Chọn nhóm hàng --" />
                       </SelectTrigger>

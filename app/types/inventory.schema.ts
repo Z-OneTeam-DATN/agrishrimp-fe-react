@@ -128,40 +128,30 @@ export type Product = z.infer<typeof ProductSchema>;
 export const ReceiptItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string(),
-  productImage: z.string().optional(),
-  unit: z.string(),
-  plannedQuantity: z.coerce
-    .number()
-    .min(0.001, "Số lượng kế hoạch phải lớn hơn 0"),
+  imageUrl: z.string().optional(), // Đổi tên cho khớp với UI
+  unit: z.string().default("Cái"),
+  plannedQuantity: z.coerce.number().min(0.001, "Số lượng phải > 0"),
   actualQuantity: z.coerce.number().min(0).optional().default(0),
-  damagedQuantity: z.coerce.number().min(0).optional().default(0),
   lotNumber: z.string().min(1, "Số lô là bắt buộc"),
-  expiryDate: z.string().min(1, "Hạn sử dụng là bắt buộc"),
+  expiryDate: z.string().min(1, "Hạn dùng là bắt buộc"),
   importPrice: z.coerce.number().min(0, "Giá nhập không được âm"),
-  newSellingPrice: z.coerce
-    .number()
-    .min(0, "Giá bán mới không được âm")
-    .optional(),
-  discount: z.coerce.number().min(0).max(100).optional().default(0),
+  newSellingPrice: z.coerce.number().min(0).optional(),
 });
 
-export type ReceiptItem = z.infer<typeof ReceiptItemSchema>;
-
 export const ReceiptSchema = z.object({
-  receiptType: z.string().min(1, "Vui lòng chọn loại phiếu"),
+  receiptType: z.string().default("NHAP_MUA"),
   supplierCode: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
   supplierName: z.string().min(1, "Tên nhà cung cấp không được để trống"),
   receiptCode: z.string().optional(),
-  warehouseId: z.string().min(1, "Vui lòng chọn kho nhập"),
+  warehouseId: z.string().default("HH"),
   branchName: z.string().min(1, "Vui lòng chọn chi nhánh"),
   importStatus: z.enum(["IMPORTED", "PO"]).default("IMPORTED"),
   deliverer: z.string().min(1, "Vui lòng nhập người giao"),
   entryDate: z.string().min(1, "Vui lòng chọn ngày nhập"),
-  referenceCode: z.string().min(1, "Vui lòng nhập tham chiếu"),
-  description: z.string().min(1, "Vui lòng nhập diễn giải"),
-  status: z
-    .enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"])
-    .default("PENDING"),
+  // Chuyển sang optional để không chặn form nếu UI chưa có ô nhập
+  referenceCode: z.string().optional().default(""),
+  description: z.string().optional().default(""),
+  status: z.enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"]).default("PENDING"),
   items: z.array(ReceiptItemSchema).min(1, "Cần ít nhất một mặt hàng"),
   paymentAmount: z.coerce.number().min(0).optional().default(0),
   note: z.string().optional(),
