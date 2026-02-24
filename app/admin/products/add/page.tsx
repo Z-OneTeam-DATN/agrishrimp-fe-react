@@ -446,25 +446,9 @@ export default function AddProductPage() {
         }),
       };
 
-      // Construct FormData to support image uploads
-      const formData = new FormData();
-      formData.append("data", JSON.stringify(productData));
+      console.log("[DEBUG] Submitting Product Data:", productData);
 
-      // Append main product images
-      productImageFiles.forEach((file) => {
-        formData.append("images", file);
-      });
-
-      // Append variant images (with index mapping)
-      variantImageFiles.forEach((file, index) => {
-        if (file) {
-          formData.append(`variantImage_${index}`, file);
-        }
-      });
-
-      console.log("[DEBUG] Submitting FormData with Product Data:", productData);
-
-      await ProductService.create(formData);
+      await ProductService.create(productData);
       toast.success("Tạo sản phẩm thành công!");
       router.push("/admin/products");
     } catch (error: any) {

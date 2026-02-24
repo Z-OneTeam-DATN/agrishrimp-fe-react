@@ -3,6 +3,7 @@ import {
   Attribute,
   ProductListItem,
   ProductDetail,
+  CreateProductRequest,
   UpdateProductRequest,
   ApiResponse,
 } from "@/app/types/product.schema";
@@ -26,11 +27,9 @@ export const ProductService = {
     return response.data;
   },
 
-  // 3. Tạo sản phẩm mới (Sử dụng FormData từ main để hỗ trợ upload ảnh)
-  create: async (formData: FormData): Promise<ApiResponse> => {
-    const response = await apiJava.post(`${ProductService.PREFIX}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+  // 3. Tạo sản phẩm mới (Sử dụng JSON)
+  create: async (data: CreateProductRequest): Promise<ApiResponse> => {
+    const response = await apiJava.post(`${ProductService.PREFIX}`, data);
     return response.data;
   },
 
