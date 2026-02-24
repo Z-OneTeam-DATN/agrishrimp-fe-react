@@ -91,7 +91,7 @@ export interface CreateProductRequest {
 export interface UpdateProductVariantRequest {
   sku: string;
   price: number;
-  attributes: VariantAttribute[];
+  attributes: VariantAttributeValue[];
 }
 
 export interface UpdateProductRequest {
