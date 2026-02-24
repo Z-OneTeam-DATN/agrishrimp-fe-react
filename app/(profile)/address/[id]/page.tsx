@@ -1,44 +1,89 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import AddressForm from "@/components/profile/AddressForm";
-import { AddressFormValues } from "@/app/types/address.schema";
+import { addressService } from "@/app/services/address.service";
+import { Loader2 } from "lucide-react";
 
-// Mock function lấy data
-const getAddressById = (id: string): AddressFormValues => {
-  console.log("Đang lấy dữ liệu cho địa chỉ ID:", id);
-  return {
-    fullName: "Võ Thị Mỹ Thanh",
-    phone: "0909123456",
-    provinceId: "CT",
-    districtId: "NK",
-    wardId: "XK",
-    specificAddress: "123 Đường 3/2",
-    addressType: "Home",
-    isDefault: true,
-  };
-};
-
-export default function EditAddressPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditAddressPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const router = useRouter();
-  const addressData = getAddressById(params.id); // Thực tế bạn sẽ fetch API tại đây
+  
+  const [initialData, setInitialData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleUpdate = (data: AddressFormValues) => {
-    console.log("Update Address:", data);
-    toast.success("Cập nhật địa chỉ thành công!");
-    router.push("/address");
+  // --- FETCH DỮ LIỆU ĐỊA CHỈ CŨ ĐỂ ĐIỀN VÀO FORM ---
+  useEffect(() => {
+    const fetchAddressInfo = async () => {
+      try {
+        const allAddresses = await addressService.getAll();
+        const currentAddress = allAddresses.find((a: any) => a.id.toString() === id);
+
+        if (!currentAddress) {
+          toast.error("Không tìm thấy địa chỉ này!");
+          router.push("/address");
+          return;
+        }
+
+        // Đổ dữ liệu từ API vào format của Form
+        setInitialData({
+          receiverName: currentAddress.receiverName,
+          receiverPhone: currentAddress.receiverPhone,
+          provinceId: currentAddress.province?.id || "",
+          districtId: currentAddress.district?.id || "",
+          wardId: currentAddress.ward?.id || "",
+          addressDetail: currentAddress.addressDetail,
+          isDefault: currentAddress.isDefault,
+        });
+
+      } catch (error: any) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          toast.error("Vui lòng đăng nhập!");
+          router.push("/login");
+        } else {
+          toast.error("Lỗi tải dữ liệu địa chỉ!");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAddressInfo();
+  }, [id, router]);
+
+  // --- SUBMIT CẬP NHẬT LÊN BACKEND ---
+  const handleUpdate = async (data: any) => {
+    setIsSubmitting(true);
+    try {
+      await addressService.update(Number(id), data);
+      toast.success("✅ Cập nhật địa chỉ thành công!");
+      router.push("/address"); // Quay lại trang danh sách
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Lỗi khi cập nhật địa chỉ!");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center bg-white rounded-lg shadow-sm border border-gray-100">
+        <Loader2 className="animate-spin text-[#329965]" size={32} />
+      </div>
+    );
+  }
 
   return (
-    <AddressForm
-      title="Cập nhật địa chỉ"
-      initialValues={addressData}
-      onSubmit={handleUpdate}
-    />
+    <div className="max-w-3xl mx-auto">
+      <AddressForm 
+        title="Cập nhật địa chỉ" 
+        initialValues={initialData} 
+        onSubmit={handleUpdate} 
+        isSubmitting={isSubmitting}
+      />
+    </div>
   );
 }
