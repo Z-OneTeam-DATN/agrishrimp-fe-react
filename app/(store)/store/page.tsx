@@ -44,8 +44,8 @@ const PRODUCTS = Array.from({ length: 20 }).map((_, i) => ({
     i % 2 === 0
       ? "Vi sinh xử lý đáy ao APA MINER"
       : "Thức ăn tôm thẻ Grow Best",
-  price: i % 2 === 0 ? "150.000 ₫" : "550.000 ₫",
-  oldPrice: i % 3 === 0 ? "180.000 ₫" : undefined,
+  price: i % 2 === 0 ? 150000 : 550000,
+  oldPrice: i % 3 === 0 ? 180000 : undefined,
   image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg",
   category: i % 2 === 0 ? "Xử lý nước" : "Dinh dưỡng",
   rating: 4.5,

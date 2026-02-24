@@ -64,20 +64,10 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {bestSellers.map((product, index) => (
+            {bestSellers.map((product) => (
               <ProductCard
                 key={product.id}
-                // Sử dụng slug cho URL đẹp và SEO tốt
-                id={product.slug || product.id}
-                name={product.name}
-                category={product.categoryName}
-                image={product.imageUrls?.[0]}
-                price={product.variants?.[0]?.price}
-                oldPrice={product.variants?.[0]?.oldPrice}
-                sold={product.soldCount || 0}
-                rating={product.ratingAverage || 5}
-                reviewCount={product.reviewCount || 0}
-                tag={index === 0 ? "TOP 1" : "BEST"}
+                product={product}
               />
             ))}
           </div>
@@ -100,13 +90,7 @@ export default function Home() {
             {allProducts.map((product) => (
               <ProductCard
                 key={product.id}
-                id={product.slug || product.id}
-                name={product.name}
-                category={product.categoryName}
-                image={product.imageUrls?.[0]}
-                price={product.variants?.[0]?.price}
-                sold={product.soldCount || 0}
-                rating={product.ratingAverage || 5}
+                product={product}
               />
             ))}
           </div>

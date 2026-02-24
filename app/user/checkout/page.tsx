@@ -272,7 +272,7 @@ export default function CheckoutPage() {
       await orderService.checkout(payload);
       
       toast.success("🎉 Đặt hàng thành công! Cảm ơn bạn.");
-      router.push("/"); 
+      router.push("/user/checkout/success"); 
       router.refresh();
       
     } catch (error: any) {

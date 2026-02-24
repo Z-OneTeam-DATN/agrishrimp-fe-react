@@ -1,6 +1,17 @@
 import { apiJava } from "@/lib/axios";
+import { CategoryDTO } from "@/app/types/category.type";
 
 const PREFIX = "/categories";
+
+export const getPublicCategories = async (): Promise<CategoryDTO[]> => {
+  try {
+    const response = await apiJava.get(`${PREFIX}/public`, { isPublic: true } as any);
+    return response.data || [];
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách danh mục công khai:", error);
+    return [];
+  }
+};
 
 export const getCategories = async () => {
   try {

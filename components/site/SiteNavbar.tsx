@@ -1,17 +1,13 @@
 import Link from "next/link";
-import { LayoutGrid, Phone, MapPin } from "lucide-react";
+import { Phone, MapPin } from "lucide-react";
 import { MAIN_NAV } from "@/lib/Constant";
+import HeaderCategoryDropdown from "./HeaderCategoryDropdown";
 
 export default function Navbar() {
   return (
     <nav className="border-b border-primary-light bg-[#f5fffd] h-[46px] text-sm font-semibold text-gray-700 sticky top-[64px] z-40">
       <div className="container mx-auto px-4 h-full flex items-center justify-between">
-        <div className="flex items-center gap-2 border-r border-primary-light pr-6 h-full cursor-pointer hover:text-primary transition-colors">
-          <LayoutGrid className="text-primary" size={20} />
-          <span className="hidden lg:block uppercase tracking-wide">
-            Danh mục
-          </span>
-        </div>
+        <HeaderCategoryDropdown />
 
         <div className="flex-1 flex items-center gap-6 px-6 overflow-x-auto h-full scrollbar-hide">
           {MAIN_NAV.map((item, index) => {
