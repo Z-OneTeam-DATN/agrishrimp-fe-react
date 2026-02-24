@@ -71,6 +71,8 @@ function AdminReceiptFormContent() {
   const productSearchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const hasFetched = useRef(false);
+
   const {
     register, handleSubmit, control, setValue, watch, getValues, reset,
     formState: { errors },
@@ -84,7 +86,7 @@ function AdminReceiptFormContent() {
       receiptCode: "PNK" + Date.now().toString().slice(-6),
       warehouseId: "HH",
       branchName: "",
-      importStatus: "IMPORTED",
+      importStatus: "PO", // Đổi mặc định là PO (Phiếu tạm) cho an toàn khi tạo mới
       deliverer: "",
       entryDate: new Date().toISOString().slice(0, 10),
       items: [],
@@ -93,7 +95,8 @@ function AdminReceiptFormContent() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  // Lấy thêm hàm "replace" từ useFieldArray để ép ghi đè mảng
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "items",
   });
@@ -107,18 +110,18 @@ function AdminReceiptFormContent() {
 
   // --- 1. LOGIC FILL DỮ LIỆU KHI SỬA ---
   useEffect(() => {
-    if (isEditMode && receiptId) {
+    if (isEditMode && receiptId && !hasFetched.current) {
+      hasFetched.current = true;
+
       const fetchDetail = async () => {
         try {
           setIsInitialLoading(true);
           const data = await InventoryApiService.getReceiptDetail(receiptId);
 
-          // Nếu trạng thái là hoàn thành, bật chế độ ReadOnly
           if (data.status === "COMPLETED") {
             setIsReadOnly(true);
           }
 
-          // MAP DỮ LIỆU TỪ RESPONSE API SANG FORM FORMAT
           const mappedItems = (data.items || []).map((item: any) => ({
             productCode: item.productCode || "",
             productName: item.productName || "",
@@ -131,7 +134,7 @@ function AdminReceiptFormContent() {
             imageUrl: item.imageUrl || ""
           }));
 
-          // Reset toàn bộ form với dữ liệu đã map
+          // Chỉ reset các trường thông tin chung, đặt items là mảng rỗng để tránh merge tự động
           reset({
             receiptCode: data.code || "",
             supplierName: data.supplierName || "",
@@ -142,10 +145,12 @@ function AdminReceiptFormContent() {
             note: data.note || "",
             paymentAmount: data.paymentAmount || 0,
             importStatus: data.status === "PENDING" ? "PO" : "IMPORTED",
-            items: mappedItems,
+            items: [],
           });
 
-          // Cập nhật UI State cho Nhà cung cấp hiển thị ở khung trên cùng
+          // Dùng replace ép ghi đè hoàn toàn danh sách sản phẩm
+          replace(mappedItems);
+
           if (data.supplierName || data.supplierCode) {
              try {
                 const supplierRes = await supplierService.getAll(data.supplierCode || data.supplierName, undefined, "ACTIVE", 0, 1);
@@ -180,7 +185,7 @@ function AdminReceiptFormContent() {
       };
       fetchDetail();
     }
-  }, [isEditMode, receiptId, reset, router]);
+  }, [isEditMode, receiptId, reset, replace, router]);
 
   // --- EFFECT: LOAD BRANCHES ---
   useEffect(() => {
@@ -491,6 +496,29 @@ function AdminReceiptFormContent() {
         {/* THÔNG TIN ĐƠN NHẬP HÀNG */}
         <div className="md:col-span-5 bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm space-y-3">
           <h2 className="text-[13px] font-bold text-slate-700 mb-4 border-b pb-2">Thông tin đơn nhập hàng</h2>
+
+          {/* Ô CHỌN TRẠNG THÁI PHIẾU */}
+          <div className="grid grid-cols-12 items-center gap-2">
+            <Label className="col-span-4 text-[12px] font-bold text-slate-500">Trạng thái phiếu</Label>
+            <div className="col-span-8">
+              <Controller
+                name="importStatus"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
+                    <SelectTrigger className={`h-9 text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0 font-medium ${errors.importStatus ? "border-rose-500" : ""}`}>
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="PO">Phiếu tạm (Chờ nhập)</SelectItem>
+                      <SelectItem value="IMPORTED">Đã nhập kho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[12px] font-bold text-slate-500">Nhập vào kho</Label>
             <div className="col-span-8">
@@ -759,24 +787,13 @@ function AdminReceiptFormContent() {
         </Button>
 
         {!isReadOnly && (
-          <>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              onClick={() => setValue("importStatus", "PO")}
-              className="min-w-[150px] text-[12px] font-bold bg-white text-slate-700 border border-slate-300 uppercase rounded-none"
-            >
-              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : (isEditMode ? "Cập nhật nháp" : "Tạo phiếu nháp")}
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              onClick={() => setValue("importStatus", "IMPORTED")}
-              className="min-w-[180px] text-[12px] font-black bg-blue-600 text-white uppercase rounded-none shadow-md"
-            >
-              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Save size={18} className="mr-2" /> {isEditMode ? "Cập nhật & nhập hàng" : "Tạo & nhập hàng"}</>}
-            </Button>
-          </>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="min-w-[180px] text-[12px] font-black bg-blue-600 text-white uppercase rounded-none shadow-md"
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Save size={18} className="mr-2" /> Lưu phiếu nhập</>}
+          </Button>
         )}
       </div>
     </form>
