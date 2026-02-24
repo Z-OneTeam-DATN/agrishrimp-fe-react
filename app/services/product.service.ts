@@ -17,13 +17,18 @@ export const ProductService = {
     categoryId?: number | string | null;
     status?: string;
   }): Promise<ProductListItem[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}`, { params });
+    const response = await apiJava.get(`${ProductService.PREFIX}`, { 
+      params,
+      isPublic: true 
+    } as any);
     return response.data;
   },
 
   // 2. Xem chi tiết sản phẩm (Bao gồm SKUs)
   getById: async (id: string | number): Promise<ProductDetail> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/${id}`);
+    const response = await apiJava.get(`${ProductService.PREFIX}/${id}`, { 
+      isPublic: true 
+    } as any);
     return response.data;
   },
 
@@ -55,17 +60,17 @@ export const ProductService = {
 
   // 7. API Hỗ trợ (Metadata cho Dropdowns)
   getCategories: async (): Promise<any[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/categories`);
+    const response = await apiJava.get(`${ProductService.PREFIX}/categories`, { isPublic: true } as any);
     return response.data;
   },
 
   getBrands: async (): Promise<any[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/brands`);
+    const response = await apiJava.get(`${ProductService.PREFIX}/brands`, { isPublic: true } as any);
     return response.data;
   },
 
   getAttributes: async (): Promise<Attribute[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
+    const response = await apiJava.get(`${ProductService.PREFIX}/attributes`, { isPublic: true } as any);
     return response.data;
   },
 

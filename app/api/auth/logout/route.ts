@@ -7,9 +7,9 @@ export async function POST() {
   
   try {
     // 1. Gọi Backend Java để vô hiệu hóa token (nếu có accessToken)
-    const accessToken = cookieStore.get("accessToken");
+    const accessToken = cookieStore.get("accessToken")?.value;
     if (accessToken) {
-      await AuthService.logout(); 
+      await AuthService.logout(accessToken); 
     }
   } catch (error) {
     console.error("Backend logout failed, but proceeding to clear cookies:", error);

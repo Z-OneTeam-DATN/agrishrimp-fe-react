@@ -17,6 +17,25 @@ const PROTECTED_PATHS = [
   "/user/checkout",
 ];
 
+// Helper to decode JWT payload without external library
+function decodeJwt(token: string) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    // Decode base64url to base64
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
@@ -30,9 +49,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token =
-    req.cookies.get("accessToken")?.value ??
-    req.cookies.get("refreshToken")?.value;
+  const accessToken = req.cookies.get("accessToken")?.value;
+  const refreshToken = req.cookies.get("refreshToken")?.value;
+  const token = accessToken ?? refreshToken;
 
   const isAuthPath = AUTH_PATHS.some((p) => path.startsWith(p));
   const isProtectedPath =
@@ -47,6 +66,36 @@ export function middleware(req: NextRequest) {
   // 2. Nếu chưa đăng nhập mà vào trang yêu cầu tài khoản -> về trang login
   if (!token && isProtectedPath) {
     return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // 3. RBAC Check for /admin
+  if (accessToken && path.startsWith("/admin")) {
+    const payload = decodeJwt(accessToken);
+    if (!payload) return NextResponse.next();
+
+    const role = (payload.role || "").toUpperCase();
+
+    // USER không được vào admin
+    if (role === "USER") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
+    // MANAGER bị hạn chế một số khu vực hệ thống
+    if (role === "MANAGER") {
+      const restrictedForManager = [
+        "/admin/employees",
+        "/admin/branches",
+        "/admin/products",
+        "/admin/categories",
+        "/admin/variants",
+        "/admin/financial",
+      ];
+
+      if (restrictedForManager.some((p) => path.startsWith(p))) {
+        // Redirect về Dashboard admin hoặc trang 403
+        return NextResponse.redirect(new URL("/admin", req.url));
+      }
+    }
   }
 
   return NextResponse.next();

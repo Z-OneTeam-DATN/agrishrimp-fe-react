@@ -4,7 +4,7 @@ const PREFIX = "/categories";
 
 export const getCategories = async () => {
   try {
-    const response = await apiJava.get(PREFIX);
+    const response = await apiJava.get(PREFIX, { isPublic: true } as any);
     return response.data || [];
   } catch (error) {
     console.error("Lỗi khi lấy danh sách danh mục:", error);

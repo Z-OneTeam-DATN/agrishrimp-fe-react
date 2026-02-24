@@ -18,6 +18,7 @@ type FailedQueueItem = {
 
 type RetriableRequest = InternalAxiosRequestConfig & {
   _retry?: boolean;
+  isPublic?: boolean;
 };
 
 let isRefreshing = false;
@@ -160,7 +161,12 @@ const createApi = (baseURL: string): AxiosInstance => {
     withCredentials: true,
   });
 
-  axiosInstance.interceptors.request.use(async (config) => {
+  axiosInstance.interceptors.request.use(async (config: RetriableRequest) => {
+    // Skip auth logic for public requests to avoid issues with stale/invalid tokens
+    if (config.isPublic) {
+      return config;
+    }
+
     let token = await getAccessToken();
 
     // Tự động làm mới token nếu sắp hết hạn (pre-emptive refresh)
