@@ -7,7 +7,7 @@ import { AdminEmployeeTable } from "@/components/admin/AdminEmployeeTable";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { EmployeeService } from "@/app/services/employee.service";
 import { RoleService } from "@/app/services/RoleService";
-import { BranchService } from "@/app/services/branchService";
+import { branchService } from "@/app/services/branchService";
 import { UserResponse } from "@/app/types/employee.schema";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -42,7 +42,7 @@ export default function EmployeeManagementPage() {
     try {
       const [rolesRes, branchesRes] = await Promise.all([
         RoleService.getAll(),
-        BranchService.getAll()
+        branchService.getAll()
       ]);
       
       let rolesList = (Array.isArray(rolesRes) ? rolesRes : (rolesRes as any).content || [])
@@ -51,8 +51,8 @@ export default function EmployeeManagementPage() {
       // Không hiển thị role USER (1.2)
       rolesList = rolesList.filter((r: any) => r.slug.toLowerCase() !== "user" && r.slug.toLowerCase() !== "customer");
 
-      let branchesList = (Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || [])
-        .map((b: any) => ({ label: b.name, value: String(b.id) }));
+      const branchesData = Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || [];
+      let branchesList = branchesData.map((b: any) => ({ label: b.name, value: String(b.id) }));
 
       // Nếu không phải admin, chỉ được xem chi nhánh của mình (2.2)
       if (!isAdmin && currentUser?.branch?.id) {

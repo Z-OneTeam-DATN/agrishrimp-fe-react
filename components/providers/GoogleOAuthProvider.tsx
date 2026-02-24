@@ -14,6 +14,7 @@ export default function GoogleAuthProvider({
     console.error(
       "Chưa cấu hình NEXT_PUBLIC_GOOGLE_CLIENT_ID trong .env.local",
     );
+    return <>{children}</>;
   }
 
   return (

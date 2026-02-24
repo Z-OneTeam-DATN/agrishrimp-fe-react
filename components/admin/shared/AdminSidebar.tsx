@@ -35,9 +35,17 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { user } = useAuthStore();
+  
+  // Normalize role
+  const role = (typeof user?.role === "object" ? user.role?.slug : user?.role)?.toUpperCase() || "USER";
+  const isAdmin = role === "ADMIN";
+  const isManager = role === "MANAGER";
+
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
   
@@ -104,7 +112,7 @@ export default function AdminSidebar() {
               AGRI<span className="text-emerald-500">SHRIMP</span>
             </h1>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em] mt-1">
-              Administrator
+              {role === "ADMIN" ? "Administrator" : role === "MANAGER" ? "Manager" : "User"}
             </span>
           </div>
         </div>
@@ -137,16 +145,18 @@ export default function AdminSidebar() {
           </div>
         </section>
 
-        {/* SECTION: QUẢN TRỊ */}
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-            Quản trị
-          </p>
-          <div className="space-y-0.5">
-            <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
-            <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
-          </div>
-        </section>
+        {/* SECTION: QUẢN TRỊ - Only for ADMIN */}
+        {isAdmin && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Quản trị
+            </p>
+            <div className="space-y-0.5">
+              <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
+              <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
+            </div>
+          </section>
+        )}
 
         {/* =======================
             SECTION MỚI: KINH DOANH
@@ -196,17 +206,19 @@ export default function AdminSidebar() {
           </div>
         </section>
 
-        {/* SECTION: HÀNG HÓA */}
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-            Hàng hóa
-          </p>
-          <div className="space-y-0.5">
-            <SidebarLink href="/admin/products" icon={Package} label="Sản phẩm" active={isActive("/admin/products")} />
-            <SidebarLink href="/admin/categories" icon={Tags} label="Danh mục" active={isActive("/admin/categories")} />
-            <SidebarLink href="/admin/variants" icon={Layers} label="Thuộc tính" active={isActive("/admin/variants")} />
-          </div>
-        </section>
+        {/* SECTION: HÀNG HÓA - Only for ADMIN */}
+        {isAdmin && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Hàng hóa
+            </p>
+            <div className="space-y-0.5">
+              <SidebarLink href="/admin/products" icon={Package} label="Sản phẩm" active={isActive("/admin/products")} />
+              <SidebarLink href="/admin/categories" icon={Tags} label="Danh mục" active={isActive("/admin/categories")} />
+              <SidebarLink href="/admin/variants" icon={Layers} label="Thuộc tính" active={isActive("/admin/variants")} />
+            </div>
+          </section>
+        )}
 
         {/* SECTION: GIAO DỊCH KHO */}
         <section>
@@ -240,7 +252,9 @@ export default function AdminSidebar() {
           <div className="space-y-0.5">
             <SidebarLink href="/admin/reports/sales" icon={TrendingUp} label="Doanh thu" active={isActive("/admin/reports/sales")} color="text-blue-500" />
             <SidebarLink href="/admin/reports/inventory" icon={Warehouse} label="Báo cáo kho" active={isActive("/admin/reports/inventory")} color="text-amber-500" />
-            <SidebarLink href="/admin/financial" icon={FileBarChart} label="Tài chính" active={isActive("/admin/financial")} color="text-emerald-500" />
+            {isAdmin && (
+              <SidebarLink href="/admin/financial" icon={FileBarChart} label="Tài chính" active={isActive("/admin/financial")} color="text-emerald-500" />
+            )}
           </div>
         </section>
       </div>

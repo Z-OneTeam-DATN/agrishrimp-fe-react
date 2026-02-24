@@ -40,9 +40,18 @@ export class AuthService {
     return response.data;
   }
 
-  static async logout(): Promise<{ res: { message: string } }> {
+  static async logout(token?: string): Promise<{ res: { message: string } }> {
+    const config = token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : {};
+
     const response = await apiJava.post<{ res: { message: string } }>(
       `${this.PREFIX}/logout`,
+      {},
+      {
+        ...config,
+        timeout: 5000, // Shorter timeout for logout as it's best-effort
+      },
     );
     return response.data;
   }

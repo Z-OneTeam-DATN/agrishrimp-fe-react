@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   ShoppingCart,
@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
+import { useCartStore } from "@/stores/useCartStore"; // ✅ IMPORT STORE GIỎ HÀNG
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +34,17 @@ export default function Header() {
   const { logout, isLoading: isLoggingOut } = useLogout();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // ✅ LẤY STATE SỐ LƯỢNG GIỎ HÀNG
+  const { itemCount, fetchCartCount } = useCartStore();
+
   const isLoggedIn = isAuthenticated && !!user;
+
+  // ✅ TỰ ĐỘNG FETCH GIỎ HÀNG KHI ĐĂNG NHẬP THÀNH CÔNG
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchCartCount();
+    }
+  }, [isLoggedIn, fetchCartCount]);
 
   // Helper function to pick the best display name
   const getUserDisplayName = () => {
@@ -237,29 +248,32 @@ export default function Header() {
             </Link>
           </div>
 
-                    <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
-                      <Link
-                        href="/store"
-                        className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]"
-                      >
-                        <Store size={22} className="mb-0.5" />
-                        <span>Cửa hàng</span>
-                      </Link>
-          
-                      <Link
-                        href="/user/cart"
-                        className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors relative min-w-[60px]"
-                      >
-                        <div className="relative">
-                          <ShoppingCart size={22} className="mb-0.5" />
-                          <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border border-white font-bold shadow-sm">
-                            2
-                          </span>
-                        </div>
-                        <span className="hidden xl:inline">Giỏ hàng</span>
-                      </Link>
-          
-                      {renderAuthSection()}
+          <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
+            <Link
+              href="/store"
+              className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]"
+            >
+              <Store size={22} className="mb-0.5" />
+              <span>Cửa hàng</span>
+            </Link>
+
+            <Link
+                href="/user/cart"
+                id="cart-icon-target" // ✅ THÊM ID NÀY ĐỂ LÀM ĐÍCH ĐẾN
+                className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-all duration-300 relative min-w-[60px]" // Thêm transition-all duration-300
+              >
+                <div className="relative">
+                  <ShoppingCart size={22} className="mb-0.5" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border border-white font-bold shadow-sm animate-in zoom-in">
+                      {itemCount > 99 ? '99+' : itemCount}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden xl:inline">Giỏ hàng</span>
+              </Link>
+
+            {renderAuthSection()}
 
             <button className="md:hidden p-2" suppressHydrationWarning={true}>
               <Search size={24} />

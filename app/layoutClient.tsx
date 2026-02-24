@@ -7,10 +7,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { usePathname, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 
-import Header from "@/components/site/SiteHeader";
-import Navbar from "@/components/site/SiteNavbar";
-import Footer from "@/components/site/SiteFooter";
+const Header = dynamic(() => import("@/components/site/SiteHeader"), { ssr: false });
+const Navbar = dynamic(() => import("@/components/site/SiteNavbar"), { ssr: false });
+const Footer = dynamic(() => import("@/components/site/SiteFooter"), { ssr: false });
+
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { AuthService } from "./services/auth.service";
@@ -21,38 +23,48 @@ export default function LayoutClient({
     const pathname = usePathname();
     const router = useRouter();
     const queryClientRef = useRef<QueryClient>();
-    const { user, setUser, setAccessToken, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
+    const { user, setUser, setAccessToken, setAccessAndRefreshToken, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
 
       // HYDRATE FULL USER PROFILE + TOKEN ON LOAD
       useEffect(() => {
         const hydrateAuth = async () => {
           setLoadingAuth(true);
           try {
-            // Run both in parallel: get user profile AND restore access token from cookie
-            const [userData, tokenData] = await Promise.allSettled([
+            // Chạy song song: lấy profile và token từ cookie
+            const [userResult, tokenResult] = await Promise.allSettled([
               AuthService.meNext(),
               AuthService.meTokenNext(),
             ]);
 
-            // Restore access token first (needed for usePermissions JWT decode)
-            if (tokenData.status === "fulfilled" && tokenData.value?.accessToken) {
-              setAccessToken(tokenData.value.accessToken);
+            // Khôi phục access token vào Zustand (cần cho usePermissions decode JWT)
+            if (tokenResult.status === "fulfilled" && tokenResult.value?.accessToken) {
+              setAccessToken(tokenResult.value.accessToken);
             }
 
-            // Set user profile
-            if (userData.status === "fulfilled" && userData.value) {
-              setUser(userData.value);
-            } else if (userData.status === "rejected") {
-              clearAuth();
+            if (userResult.status === "fulfilled" && userResult.value) {
+              // Access token còn hợp lệ, hydrate bình thường
+              setUser(userResult.value);
+            } else {
+              // Access token hết hạn → thử refresh bằng HttpOnly refreshToken cookie
+              try {
+                const refreshData = await AuthService.refreshAuthTokenNext();
+                setAccessAndRefreshToken(refreshData);
+                // Thử lại sau khi có token mới
+                const retryUser = await AuthService.meNext();
+                setUser(retryUser);
+              } catch {
+                // Refresh cũng thất bại → hết phiên, xóa auth
+                clearAuth();
+              }
             }
-          } catch (err) {
+          } catch {
             clearAuth();
           } finally {
             setLoadingAuth(false);
           }
         };
         hydrateAuth();
-      }, [setUser, setAccessToken, clearAuth, setLoadingAuth]);  
+      }, [setUser, setAccessToken, setAccessAndRefreshToken, clearAuth, setLoadingAuth]);  
     // Public pages don't need a blocking spinner
       const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
       const isChangePasswordPage = pathname === "/change-password";
@@ -72,13 +84,15 @@ export default function LayoutClient({
       // Block rendering if must change password but not on the page
       if (!isLoadingAuth && user?.mustChangePassword && !isChangePasswordPage) {
         return null; // Let the useEffect handle redirection
-      }  if (!queryClientRef.current) {
-    queryClientRef.current = new QueryClient({
-      defaultOptions: {
-        queries: { retry: 0 },
-      },
-    });
-  }
+      }
+
+      if (!queryClientRef.current) {
+        queryClientRef.current = new QueryClient({
+          defaultOptions: {
+            queries: { retry: 0 },
+          },
+        });
+      }
 
   const isHideLayout = isAdminPage || isAuthPage;
 

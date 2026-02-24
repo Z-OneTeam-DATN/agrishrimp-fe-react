@@ -48,22 +48,63 @@ import { RichTextEditor } from "@/components/admin/shared/RichTextEditor";
 import { ProductService } from "@/app/services/product.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Attribute } from "@/app/types/product.schema";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+// ─── VALIDATION SCHEMA ───
+const variantSchema = z.object({
+  sku: z.string().min(3, "SKU phải có ít nhất 3 ký tự"),
+  barcode: z.string().optional(),
+  costPrice: z.coerce.number().min(0, "Giá vốn không được âm"),
+  price: z.coerce.number().min(0, "Giá bán không được âm"),
+  wholesalePrice: z.coerce.number().min(0, "Giá sỉ không được âm").optional(),
+  initialStock: z.coerce.number().min(0, "Tồn kho không được âm").optional(),
+  shippingWeight: z.coerce.number().min(0, "Trọng lượng không được âm").optional(),
+  attributeValueIds: z.array(z.number()).optional(),
+}).refine((data) => data.price >= data.costPrice, {
+  message: "Giá bán không được thấp hơn giá vốn",
+  path: ["price"],
+});
+
+const productSchema = z.object({
+  name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
+  categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
+  brand: z.string().optional(),
+  origin: z.string().optional(),
+  baseSku: z.string().optional(),
+  description: z.string().optional(),
+  status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
+  variants: z.array(variantSchema).min(1, "Phải có ít nhất 1 biến thể"),
+});
+
+type ProductFormData = z.infer<typeof productSchema>;
 
 const DEFAULT_VARIANT = {
   sku: "",
   barcode: "",
-  costPrice: "",
-  price: "",
-  wholesalePrice: "",
-  initialStock: "",
-  shippingWeight: "",
-  attributeValueIds: [] as number[],
+  costPrice: 0,
+  price: 0,
+  wholesalePrice: 0,
+  initialStock: 0,
+  shippingWeight: 0,
+  attributeValueIds: [],
+};
+
+// ─── ERROR MESSAGE COMPONENT ───
+const ErrorMessage = ({ message }: { message?: string }) => {
+  if (!message) return null;
+  return (
+    <p className="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
+      <AlertCircle size={12} className="shrink-0" />
+      {message}
+    </p>
+  );
 };
 
 // ─── CREATABLE COMBOBOX ───
 interface CreatableComboboxProps {
   options: string[];
-  value: string;
+  value?: string;
   onSelect: (val: string) => void;
   placeholder?: string;
 }
@@ -225,7 +266,8 @@ export default function AddProductPage() {
     getValues,
     watch,
     formState: { errors },
-  } = useForm<any>({
+  } = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
     mode: "onTouched",
     defaultValues: {
       name: "",
@@ -235,7 +277,7 @@ export default function AddProductPage() {
       baseSku: "",
       description: "",
       status: "ACTIVE",
-      variants: [{ ...DEFAULT_VARIANT }],
+      variants: [DEFAULT_VARIANT],
     },
   });
 
@@ -281,7 +323,7 @@ export default function AddProductPage() {
 
   // ── BIẾN THỂ ──
   const handleAppendVariant = () => {
-    append({ ...DEFAULT_VARIANT });
+    append(DEFAULT_VARIANT);
     setVariantImageFiles((prev) => [...prev, null]);
     setVariantImagePreviews((prev) => [...prev, ""]);
   };
@@ -359,42 +401,19 @@ export default function AddProductPage() {
     });
 
   // ── SUBMIT ──
-  const onSubmit = async (data: any) => {
-    if (!data.name?.trim()) {
-      toast.error("Vui lòng nhập tên sản phẩm.");
-      return;
-    }
-    if (!data.categoryId) {
-      toast.error("Vui lòng chọn danh mục.");
+  const onSubmit = async (data: ProductFormData) => {
+    // ── IMAGE CHECK ──
+    if (productImageFiles.length === 0) {
+      toast.error("Vui lòng tải lên ít nhất 1 ảnh sản phẩm.");
       return;
     }
 
-    // ── VALIDATE VARIANTS ──
-    const variantList = data.variants || [];
-    const skuList = variantList.map((v: any) => v.sku?.trim().toLowerCase());
-
-    for (let i = 0; i < variantList.length; i++) {
-      const v = variantList[i];
-      const sku = v.sku?.trim();
-
-      if (!sku || sku.length < 3) {
-        toast.error(`Biến thể số ${i + 1}: SKU phải có ít nhất 3 ký tự.`);
-        return;
-      }
-
-      if (skuList.filter((s: string) => s === sku.toLowerCase()).length > 1) {
-        toast.error(`Biến thể số ${i + 1}: Mã SKU "${sku}" bị trùng lặp.`);
-        return;
-      }
-
-      if (!v.costPrice || Number(v.costPrice) < 0) {
-        toast.error(`Biến thể số ${i + 1}: Vui lòng nhập giá vốn.`);
-        return;
-      }
-      if (!v.price || Number(v.price) < 0) {
-        toast.error(`Biến thể số ${i + 1}: Vui lòng nhập giá bán.`);
-        return;
-      }
+    // ── SKU DUPLICATION CHECK ──
+    const skus = data.variants.map(v => v.sku.toLowerCase().trim());
+    const uniqueSkus = new Set(skus);
+    if (skus.length !== uniqueSkus.size) {
+      toast.error("Mã SKU giữa các biến thể không được trùng lặp.");
+      return;
     }
 
     try {
@@ -416,29 +435,22 @@ export default function AddProductPage() {
         ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
         ...(data.description?.trim() && { description: data.description }),
         ...(data.status && { status: data.status }),
-        variants: variantList.map((v: any, vIdx: number) => {
-          const attributeValueIds: number[] = (v.attributeValueIds || [])
-            .map((id: any) => Number(id))
-            .filter((id: number) => !isNaN(id));
-
+        variants: data.variants.map((v: any, vIdx: number) => {
           return {
             sku: v.sku.trim(),
-            costPrice: Number(v.costPrice || 0),
-            price: Number(v.price || 0),
+            costPrice: v.costPrice,
+            price: v.price,
             ...(v.barcode?.trim() && { barcode: v.barcode.trim() }),
-            ...(v.wholesalePrice !== "" &&
-              v.wholesalePrice !== undefined && {
-                wholesalePrice: Number(v.wholesalePrice),
+            ...(v.wholesalePrice !== undefined && {
+                wholesalePrice: v.wholesalePrice,
               }),
-            ...(v.initialStock !== "" &&
-              v.initialStock !== undefined && {
-                initialStock: Number(v.initialStock),
+            ...(v.initialStock !== undefined && {
+                initialStock: v.initialStock,
               }),
-            ...(v.shippingWeight !== "" &&
-              v.shippingWeight !== undefined && {
-                shippingWeight: Number(v.shippingWeight),
+            ...(v.shippingWeight !== undefined && {
+                shippingWeight: v.shippingWeight,
               }),
-            attributeValueIds: attributeValueIds,
+            attributeValueIds: v.attributeValueIds || [],
             ...(validConversions.length > 0 && {
               unitConversions: validConversions,
             }),
@@ -526,11 +538,13 @@ export default function AddProductPage() {
                   </Label>
                   <Input
                     {...register("name")}
+                    placeholder="VD: Thuốc trị nấm tôm ShrimpCare"
                     className={cn(
-                      "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none",
-                      errors.name && "border-rose-500 bg-rose-50/20"
+                      "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none focus:border-emerald-500",
+                      errors.name && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
                     )}
                   />
+                  <ErrorMessage message={errors.name?.message} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
@@ -540,23 +554,26 @@ export default function AddProductPage() {
                     name="categoryId"
                     control={control}
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger
-                          className={cn(
-                            "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none",
-                            errors.categoryId && "border-rose-500"
-                          )}
-                        >
-                          <SelectValue placeholder="-- Chọn danh mục --" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          {categories.map((cat, catIdx) => (
-                            <SelectItem key={`cat-${cat.id ?? catIdx}`} value={String(cat.id)}>
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-1">
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger
+                            className={cn(
+                              "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none focus:border-emerald-500",
+                              errors.categoryId && "border-rose-500 bg-rose-50/10"
+                            )}
+                          >
+                            <SelectValue placeholder="-- Chọn danh mục --" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {categories.map((cat, catIdx) => (
+                              <SelectItem key={`cat-${cat.id ?? catIdx}`} value={String(cat.id)}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <ErrorMessage message={errors.categoryId?.message} />
+                      </div>
                     )}
                   />
                 </div>
@@ -574,7 +591,7 @@ export default function AddProductPage() {
                     render={({ field }) => (
                       <CreatableCombobox
                         options={brands}
-                        value={field.value}
+                        value={field.value || ""}
                         onSelect={field.onChange}
                         placeholder="Chọn hoặc nhập..."
                       />
@@ -741,15 +758,19 @@ export default function AddProductPage() {
                         )}
 
                         {/* Row 2: SKU + Barcode + Buttons */}
-                        <div className="grid grid-cols-12 gap-3 items-end">
+                        <div className="grid grid-cols-12 gap-3 items-start">
                           <div className="col-span-4 space-y-1">
                             <Label className="text-[10px] font-bold text-slate-500 uppercase">
                               Mã SKU biến thể *
                             </Label>
                             <Input
                               {...register(`variants.${idx}.sku`)}
-                              className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-none"
+                              className={cn(
+                                "h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-none focus:border-emerald-500",
+                                errors.variants?.[idx]?.sku && "border-rose-500 bg-rose-50/10"
+                              )}
                             />
+                            <ErrorMessage message={errors.variants?.[idx]?.sku?.message} />
                           </div>
                           <div className="col-span-4 space-y-1">
                             <Label className="text-[10px] font-bold text-slate-500 uppercase">
@@ -757,26 +778,15 @@ export default function AddProductPage() {
                             </Label>
                             <Input
                               {...register(`variants.${idx}.barcode`)}
-                              className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-none"
+                              className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-none focus:border-emerald-500"
                             />
                           </div>
-                          <div className="col-span-4 flex gap-2 pb-[1px]">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() =>
-                                toast.info("Tính năng đang phát triển.")
-                              }
-                              className="flex-1 h-[34px] text-[10px] font-black text-sky-600 border-sky-200 rounded-none uppercase shadow-none"
-                            >
-                              <Settings2 size={12} className="mr-1" />
-                              Cấu hình spec
-                            </Button>
+                          <div className="col-span-4 flex gap-2 pt-5">
                             <Button
                               type="button"
                               variant="outline"
                               onClick={() => handleRemoveVariant(idx)}
-                              className="flex-1 h-[34px] text-[10px] font-black text-rose-500 border-rose-100 rounded-none hover:bg-rose-50 shadow-none uppercase"
+                              className="w-full h-[34px] text-[10px] font-black text-rose-500 border-rose-100 rounded-none hover:bg-rose-50 shadow-none uppercase"
                             >
                               <Trash2 size={12} className="mr-1" />
                               Xóa biến thể
@@ -797,9 +807,13 @@ export default function AddProductPage() {
                               <Input
                                 type="number"
                                 {...register(`variants.${idx}.costPrice`)}
-                                className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-blue-600 bg-blue-50/20 pl-6 shadow-none"
+                                className={cn(
+                                  "h-[34px] border-[#ccc] rounded-none text-right font-bold text-blue-600 bg-blue-50/20 pl-6 shadow-none focus:border-blue-500",
+                                  errors.variants?.[idx]?.costPrice && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
+                                )}
                               />
                             </div>
+                            <ErrorMessage message={errors.variants?.[idx]?.costPrice?.message} />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-[10px] font-bold text-emerald-600 uppercase">
@@ -812,9 +826,13 @@ export default function AddProductPage() {
                               <Input
                                 type="number"
                                 {...register(`variants.${idx}.price`)}
-                                className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-emerald-700 pl-6 shadow-none"
+                                className={cn(
+                                  "h-[34px] border-[#ccc] rounded-none text-right font-bold text-emerald-700 pl-6 shadow-none focus:border-emerald-500",
+                                  errors.variants?.[idx]?.price && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
+                                )}
                               />
                             </div>
+                            <ErrorMessage message={errors.variants?.[idx]?.price?.message} />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-[10px] font-bold text-orange-500 uppercase">
@@ -827,9 +845,13 @@ export default function AddProductPage() {
                               <Input
                                 type="number"
                                 {...register(`variants.${idx}.wholesalePrice`)}
-                                className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-orange-500 pl-6 shadow-none"
+                                className={cn(
+                                  "h-[34px] border-[#ccc] rounded-none text-right font-bold text-orange-500 pl-6 shadow-none focus:border-orange-500",
+                                  errors.variants?.[idx]?.wholesalePrice && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
+                                )}
                               />
                             </div>
+                            <ErrorMessage message={errors.variants?.[idx]?.wholesalePrice?.message} />
                           </div>
                         </div>
 
@@ -842,8 +864,12 @@ export default function AddProductPage() {
                             <Input
                               type="number"
                               {...register(`variants.${idx}.initialStock`)}
-                              className="h-[34px] border-[#ccc] rounded-none text-right shadow-none"
+                              className={cn(
+                                "h-[34px] border-[#ccc] rounded-none text-right shadow-none focus:border-emerald-500",
+                                errors.variants?.[idx]?.initialStock && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
+                              )}
                             />
+                            <ErrorMessage message={errors.variants?.[idx]?.initialStock?.message} />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-[10px] font-bold text-slate-500 uppercase">
@@ -851,9 +877,14 @@ export default function AddProductPage() {
                             </Label>
                             <Input
                               type="number"
+                              step="0.01"
                               {...register(`variants.${idx}.shippingWeight`)}
-                              className="h-[34px] border-[#ccc] rounded-none text-right shadow-none"
+                              className={cn(
+                                "h-[34px] border-[#ccc] rounded-none text-right shadow-none focus:border-emerald-500",
+                                errors.variants?.[idx]?.shippingWeight && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
+                              )}
                             />
+                            <ErrorMessage message={errors.variants?.[idx]?.shippingWeight?.message} />
                           </div>
                         </div>
                       </div>
