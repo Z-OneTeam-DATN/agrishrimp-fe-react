@@ -132,7 +132,7 @@ export function InventoryReceiptTable({ receipts }: any) {
                 <TableCell className="p-2 text-center">
                   <span
                     className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase",
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
                       getStatusStyle(item.status),
                     )}
                   >

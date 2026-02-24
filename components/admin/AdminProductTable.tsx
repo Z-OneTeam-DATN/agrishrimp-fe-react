@@ -9,7 +9,6 @@ import {
   ChevronUp,
   BadgeCheck,
   Layers,
-  Images,
   Camera,
   Ban,
 } from "lucide-react";
@@ -24,41 +23,6 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface Variant {
-  id: string;
-  formulation: string;
-  packaging: string;
-  weight: string;
-  unit: string;
-  price: string;
-  costPrice: string;
-  wholesalePrice: string;
-  inventory: number;
-  available: number;
-  sold: number;
-  barcode: string;
-  image: string | null;
-}
-
-interface Product {
-  id: number;
-  sku: string;
-  name: string;
-  category: string;
-  brand: string;
-  origin: string;
-  totalSold: number;
-  inventory: number;
-  available: number;
-  createdAt: string;
-  image: string;
-  imageCount: number;
-  techSpecs: { key: string; value: string }[];
-  variants: Variant[];
-  status: string;
-}
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,38 +34,38 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface AttributeValueDisplay {
+  attributeName: string;
+  value: string;
+}
+
 interface Variant {
-  id: string;
-  formulation: string;
-  packaging: string;
-  weight: string;
-  unit: string;
-  price: string;
-  costPrice: string;
-  wholesalePrice: string;
-  inventory: number;
-  available: number;
-  sold: number;
+  id: number;
+  sku: string;
   barcode: string;
-  image: string | null;
+  costPrice: number;
+  price: number;
+  wholesalePrice: number;
+  quantity: number;
+  shippingWeight: number | null;
+  imageUrl: string | null;
+  status: string;
+  attributeValues: AttributeValueDisplay[];
 }
 
 interface Product {
   id: number;
-  sku: string;
   name: string;
-  category: string;
-  brand: string;
+  slug: string;
+  baseSku: string;
+  categoryName: string;
+  brandName: string;
   origin: string;
-  totalSold: number;
-  inventory: number;
-  available: number;
-  createdAt: string;
-  image: string;
-  imageCount: number;
-  techSpecs: { key: string; value: string }[];
-  variants: Variant[];
   status: string;
+  image: string;
+  imageUrls: string[];
+  inventory: number;
+  variants: Variant[];
 }
 
 interface AdminProductTableProps {
@@ -111,10 +75,19 @@ interface AdminProductTableProps {
   onDisable?: (id: number) => void;
 }
 
+const STATUS_MAP: Record<string, { label: string; className: string }> = {
+  ACTIVE:   { label: "Đang kinh doanh", className: "bg-emerald-50 text-emerald-600 border-emerald-100" },
+  INACTIVE: { label: "Ngừng kinh doanh", className: "bg-slate-100 text-slate-400 border-slate-200" },
+  DRAFT:    { label: "Lưu nháp",         className: "bg-amber-50 text-amber-600 border-amber-100" },
+};
+
+function formatPrice(n: number) {
+  return n?.toLocaleString("vi-VN") + " ₫";
+}
+
 export function AdminProductTable({ products, onDelete, onEdit, onDisable }: AdminProductTableProps) {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
-  
-  // State for Alert Dialog
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     id: number | null;
@@ -129,7 +102,7 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
     title: "",
     description: "",
     actionLabel: "",
-    variant: "default"
+    variant: "default",
   });
 
   const toggleRow = (id: number) => {
@@ -143,9 +116,10 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
       id,
       type: "delete",
       title: "Xác nhận xóa vĩnh viễn",
-      description: "Bạn có chắc chắn muốn xóa vĩnh viễn sản phẩm này? Hành động này không thể hoàn tác và chỉ thực hiện được khi sản phẩm chưa có giao dịch và hết tồn kho.",
+      description:
+        "Bạn có chắc chắn muốn xóa vĩnh viễn sản phẩm này? Hành động này không thể hoàn tác và chỉ thực hiện được khi sản phẩm chưa có giao dịch và hết tồn kho.",
       actionLabel: "Xóa sản phẩm",
-      variant: "destructive"
+      variant: "destructive",
     });
     setConfirmOpen(true);
   };
@@ -155,16 +129,16 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
       id,
       type: "disable",
       title: "Xác nhận ngừng kinh doanh",
-      description: "Sản phẩm này sẽ không còn xuất hiện trên cửa hàng nhưng vẫn được lưu trữ trong hệ thống.",
+      description:
+        "Sản phẩm này sẽ không còn xuất hiện trên cửa hàng nhưng vẫn được lưu trữ trong hệ thống.",
       actionLabel: "Ngừng kinh doanh",
-      variant: "default"
+      variant: "default",
     });
     setConfirmOpen(true);
   };
 
   const handleConfirmAction = () => {
     if (confirmConfig.id === null) return;
-    
     if (confirmConfig.type === "delete") {
       onDelete?.(confirmConfig.id);
     } else {
@@ -183,16 +157,13 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
               Ảnh
             </TableHead>
             <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">
-              Tên sản phẩm & SKU
+              Tên sản phẩm & Danh mục
             </TableHead>
-            <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">
+            <TableHead className="w-[130px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">
               Thương hiệu
             </TableHead>
             <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">
               Tồn kho
-            </TableHead>
-            <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">
-              Có thể bán
             </TableHead>
             <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">
               Trạng thái
@@ -206,7 +177,8 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
         <TableBody>
           {products.map((p) => {
             const isExpanded = expandedRows.includes(p.id);
-            const isInactive = p.status === "Ngừng kinh doanh" || p.status === "INACTIVE";
+            const isInactive = p.status === "INACTIVE";
+            const statusInfo = STATUS_MAP[p.status] ?? { label: p.status, className: "bg-slate-100 text-slate-400 border-slate-200" };
 
             return (
               <React.Fragment key={p.id}>
@@ -217,6 +189,7 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                     isExpanded && "bg-[#f8f9fa]",
                   )}
                 >
+                  {/* Expand toggle */}
                   <TableCell className="text-center p-2">
                     {isExpanded ? (
                       <ChevronUp size={12} className="text-blue-600" />
@@ -225,6 +198,7 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                     )}
                   </TableCell>
 
+                  {/* Ảnh */}
                   <TableCell className="p-2">
                     <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] flex items-center justify-center overflow-hidden shadow-sm">
                       {p.image ? (
@@ -239,55 +213,52 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                     </div>
                   </TableCell>
 
+                  {/* Tên + danh mục + baseSku */}
                   <TableCell className="p-2 pl-4">
                     <div className="flex flex-col">
                       <span className="text-[#1f1f1f] font-bold text-[13px] leading-tight">
                         {p.name}
                       </span>
-                      <span className="text-slate-500 text-[10px] font-mono">
-                        #{p.sku}
+                      <span className="text-slate-400 text-[10px] mt-0.5">
+                        {p.categoryName}
+                        {p.baseSku && (
+                          <span className="ml-2 font-mono text-slate-300">#{p.baseSku}</span>
+                        )}
                       </span>
                     </div>
                   </TableCell>
 
+                  {/* Thương hiệu */}
                   <TableCell className="p-2">
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase">
-                      <BadgeCheck size={12} className="text-emerald-500" />
-                      {p.brand}
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase">
+                      <BadgeCheck size={12} className="text-emerald-500 shrink-0" />
+                      {p.brandName || "—"}
                     </span>
                   </TableCell>
 
+                  {/* Tồn kho */}
                   <TableCell className="p-2 text-center">
                     <span className="text-[12px] font-bold text-slate-700">
-                      {p.inventory.toLocaleString()}
+                      {p.inventory.toLocaleString("vi-VN")}
                     </span>
                     <p className="text-[9px] text-slate-400 uppercase font-bold">
                       ({p.variants.length} SKU)
                     </p>
                   </TableCell>
 
-                  <TableCell className="p-2 text-center">
-                    <span className="text-[12px] font-bold text-emerald-600">
-                      {p.available.toLocaleString()}
-                    </span>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold">
-                      Sẵn có
-                    </p>
-                  </TableCell>
-
+                  {/* Trạng thái */}
                   <TableCell className="p-2 text-center">
                     <span
                       className={cn(
-                        "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase",
-                        !isInactive
-                          ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                          : "bg-slate-100 text-slate-400 border-slate-200",
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
+                        statusInfo.className,
                       )}
                     >
-                      {p.status}
+                      {statusInfo.label}
                     </span>
                   </TableCell>
 
+                  {/* Hành động */}
                   <TableCell
                     className="p-2 text-right pr-4"
                     onClick={(e) => e.stopPropagation()}
@@ -302,7 +273,7 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                       >
                         <Pencil size={14} className="text-blue-600" />
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
@@ -311,7 +282,10 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                         disabled={isInactive}
                         title="Ngừng kinh doanh"
                       >
-                        <Ban size={14} className={isInactive ? "text-slate-300" : "text-amber-600"} />
+                        <Ban
+                          size={14}
+                          className={isInactive ? "text-slate-300" : "text-amber-600"}
+                        />
                       </Button>
 
                       <Button
@@ -327,97 +301,103 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                   </TableCell>
                 </TableRow>
 
+                {/* Expanded — danh sách biến thể */}
                 {isExpanded && (
                   <TableRow className="bg-[#fdfdfd]">
-                    <TableCell
-                      colSpan={8}
-                      className="p-0 border-b border-[#eee]"
-                    >
-                      <div className="pl-[40px] pr-4 py-3 space-y-4">
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                            <Layers size={12} /> Biến thể hàng hóa
-                          </p>
+                    <TableCell colSpan={7} className="p-0 border-b border-[#eee]">
+                      <div className="pl-[40px] pr-4 py-3 space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2 mb-2">
+                          <Layers size={12} /> Biến thể hàng hóa ({p.variants.length} SKU)
+                        </p>
 
-                          {p.variants.map((v) => {
-                            const priceNum =
-                              parseInt(v.price.replace(/\D/g, "")) || 0;
-                            const costNum =
-                              parseInt(v.costPrice.replace(/\D/g, "")) || 0;
-                            const margin =
-                              priceNum > 0
-                                ? Math.round(
-                                    ((priceNum - costNum) / priceNum) * 100,
-                                  )
-                                : 0;
-                            const marginColor =
-                              margin > 30
-                                ? "text-emerald-600"
-                                : margin < 10
-                                  ? "text-rose-600"
-                                  : "text-amber-600";
+                        {p.variants.map((v) => {
+                          const margin =
+                            v.price > 0
+                              ? Math.round(((v.price - v.costPrice) / v.price) * 100)
+                              : 0;
+                          const marginColor =
+                            margin > 30
+                              ? "text-emerald-600"
+                              : margin < 10
+                              ? "text-rose-600"
+                              : "text-amber-600";
 
-                            return (
-                              <div
-                                key={v.id}
-                                className="grid grid-cols-12 gap-4 items-center p-2 bg-white border border-slate-100 rounded-[2px] hover:border-blue-200 transition-colors"
-                              >
-                                <div className="col-span-3 flex items-center gap-3">
-                                  <div className="w-8 h-8 border border-slate-200 rounded-[2px] flex items-center justify-center bg-slate-50 overflow-hidden">
-                                    {v.image ? (
-                                      <img
-                                        src={v.image}
-                                        className="w-full h-full object-cover p-0.5"
-                                      />
-                                    ) : (
-                                      <Camera
-                                        size={12}
-                                        className="text-slate-300"
-                                      />
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
+                          const attrLabel =
+                            v.attributeValues.length > 0
+                              ? v.attributeValues
+                                  .map((a) => `${a.attributeName}: ${a.value}`)
+                                  .join(" / ")
+                              : null;
+
+                          const variantStatus = STATUS_MAP[v.status];
+
+                          return (
+                            <div
+                              key={v.id}
+                              className="grid grid-cols-12 gap-3 items-center p-2 bg-white border border-slate-100 rounded-[2px] hover:border-blue-200 transition-colors"
+                            >
+                              {/* Ảnh + SKU + thuộc tính */}
+                              <div className="col-span-4 flex items-center gap-3">
+                                <div className="w-8 h-8 border border-slate-200 rounded-[2px] flex items-center justify-center bg-slate-50 overflow-hidden shrink-0">
+                                  {v.imageUrl ? (
+                                    <img
+                                      src={v.imageUrl}
+                                      className="w-full h-full object-cover p-0.5"
+                                      alt={v.sku}
+                                    />
+                                  ) : (
+                                    <Camera size={12} className="text-slate-300" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  {attrLabel && (
                                     <p className="text-[11px] font-bold text-slate-700 truncate uppercase">
-                                      {v.formulation} / {v.packaging}
+                                      {attrLabel}
                                     </p>
-                                    <p className="text-[9px] text-slate-400 font-bold">
-                                      #{v.id}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="col-span-2 text-center">
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
-                                    Kho / Bán
-                                  </p>
-                                  <p className="text-[11px] font-bold text-slate-600">
-                                    {v.inventory} |{" "}
-                                    <span className="text-blue-600">
-                                      {v.sold}
-                                    </span>
+                                  )}
+                                  <p className="text-[9px] text-slate-400 font-mono">
+                                    {v.sku}
+                                    {v.barcode && (
+                                      <span className="ml-1 text-slate-300">· {v.barcode}</span>
+                                    )}
                                   </p>
                                 </div>
+                              </div>
 
-                                <div className="col-span-2 text-right">
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
-                                    Giá vốn
-                                  </p>
-                                  <p className="text-[11px] font-bold text-slate-400">
-                                    {v.costPrice}
-                                  </p>
-                                </div>
+                              {/* Kho */}
+                              <div className="col-span-2 text-center">
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
+                                  Tồn kho
+                                </p>
+                                <p className="text-[11px] font-bold text-slate-600">
+                                  {v.quantity.toLocaleString("vi-VN")}
+                                </p>
+                              </div>
 
-                                <div className="col-span-2 text-right">
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
-                                    Giá sỉ
-                                  </p>
-                                  <p className="text-[11px] font-bold text-orange-600">
-                                    {v.wholesalePrice}
-                                  </p>
-                                </div>
+                              {/* Giá vốn */}
+                              <div className="col-span-2 text-right">
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
+                                  Giá vốn
+                                </p>
+                                <p className="text-[11px] font-bold text-slate-400">
+                                  {formatPrice(v.costPrice)}
+                                </p>
+                              </div>
 
-                                <div className="col-span-3 text-right pr-2">
-                                  <div className="flex items-center justify-end gap-2">
+                              {/* Giá sỉ */}
+                              <div className="col-span-2 text-right">
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
+                                  Giá sỉ
+                                </p>
+                                <p className="text-[11px] font-bold text-orange-500">
+                                  {v.wholesalePrice ? formatPrice(v.wholesalePrice) : "—"}
+                                </p>
+                              </div>
+
+                              {/* Giá lẻ + biên lợi nhuận */}
+                              <div className="col-span-2 text-right pr-1">
+                                <div className="flex items-center justify-end gap-2">
+                                  {v.price > 0 && (
                                     <span
                                       className={cn(
                                         "text-[9px] font-bold uppercase px-1 bg-slate-50 border border-slate-100 rounded-[2px]",
@@ -426,20 +406,20 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                                     >
                                       {margin}%
                                     </span>
-                                    <div className="text-right">
-                                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
-                                        Giá lẻ niêm yết
-                                      </p>
-                                      <p className="text-[12px] font-bold text-[#1f1f1f]">
-                                        {v.price}
-                                      </p>
-                                    </div>
+                                  )}
+                                  <div className="text-right">
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
+                                      Giá lẻ
+                                    </p>
+                                    <p className="text-[12px] font-bold text-[#1f1f1f]">
+                                      {formatPrice(v.price)}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -497,9 +477,9 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
               onClick={handleConfirmAction}
               className={cn(
                 "h-9 text-[12px] font-black rounded-none shadow-sm uppercase min-w-[120px]",
-                confirmConfig.variant === "destructive" 
-                  ? "bg-rose-600 hover:bg-rose-700 text-white" 
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                confirmConfig.variant === "destructive"
+                  ? "bg-rose-600 hover:bg-rose-700 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white",
               )}
             >
               {confirmConfig.actionLabel}

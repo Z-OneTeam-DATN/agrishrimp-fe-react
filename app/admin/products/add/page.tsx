@@ -3,10 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   X,
-  Plus,
   Trash2,
   Save,
   ChevronLeft,
@@ -18,9 +16,8 @@ import {
   Loader2,
   ChevronDown,
   ArrowRightLeft,
-  Tag,
-  Scale,
   Check,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,38 +47,33 @@ import { cn } from "@/lib/utils";
 import { RichTextEditor } from "@/components/admin/shared/RichTextEditor";
 import { ProductService } from "@/app/services/product.service";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { AttributeSuggestion } from "@/app/types/product.schema";
-
-const DEFAULT_UNIT_CONVERSION = { fromUnit: "", toUnit: "", rate: 1 };
-const DEFAULT_ATTRIBUTE = { name: "", value: "" };
+import { Attribute } from "@/app/types/product.schema";
 
 const DEFAULT_VARIANT = {
   sku: "",
   barcode: "",
-  formulation: "",
-  packaging: "",
-  unit: "",
-  costPrice: 0,
-  price: 0,
-  wholesalePrice: 0,
-  initialStock: 0,
-  netWeight: 0,
-  netWeightUnit: "g",
-  shippingWeight: 0,
-  attributes: [] as any[],
-  unitConversions: [] as any[],
+  costPrice: "",
+  price: "",
+  wholesalePrice: "",
+  initialStock: "",
+  shippingWeight: "",
+  attributeValueIds: [] as number[],
 };
 
-// ─── COMPONENT CON: CREATABLE COMBOBOX ───
+// ─── CREATABLE COMBOBOX ───
 interface CreatableComboboxProps {
   options: string[];
   value: string;
   onSelect: (val: string) => void;
   placeholder?: string;
-  emptyLabel?: string;
 }
 
-function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn...", emptyLabel = "Nhấn Enter để thêm mới" }: CreatableComboboxProps) {
+function CreatableCombobox({
+  options,
+  value,
+  onSelect,
+  placeholder = "Chọn...",
+}: CreatableComboboxProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
@@ -91,18 +83,24 @@ function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn..."
         <Button
           variant="outline"
           role="combobox"
-          aria-expanded={open}
-          className="w-full h-[34px] justify-between text-[13px] border-[#ccc] rounded-none px-3 font-normal bg-white"
+          className="w-full h-[34px] justify-between text-[13px] border-[#ccc] rounded-none px-3 font-normal bg-white shadow-none"
         >
-          {value || placeholder}
+          {value ? (
+            <span>{value}</span>
+          ) : (
+            <span className="text-slate-400">{placeholder}</span>
+          )}
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0 w-[--radix-popover-trigger-width] rounded-none" align="start">
+      <PopoverContent
+        className="p-0 w-[--radix-popover-trigger-width] rounded-none"
+        align="start"
+      >
         <Command className="rounded-none">
-          <CommandInput 
-            placeholder="Tìm kiếm hoặc gõ mới..." 
-            className="h-9 text-[13px]" 
+          <CommandInput
+            placeholder="Tìm hoặc gõ mới..."
+            className="h-9 text-[13px]"
             value={inputValue}
             onValueChange={setInputValue}
             onKeyDown={(e) => {
@@ -114,9 +112,9 @@ function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn..."
             }}
           />
           <CommandList>
-            <CommandEmpty className="p-2 text-[12px]">
-               <Button 
-                variant="ghost" 
+            <CommandEmpty>
+              <Button
+                variant="ghost"
                 className="w-full justify-start h-8 text-emerald-600 text-[12px] font-bold px-2"
                 onClick={() => {
                   onSelect(inputValue);
@@ -124,7 +122,7 @@ function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn..."
                   setInputValue("");
                 }}
               >
-                + Thêm "{inputValue}"
+                + Thêm &quot;{inputValue}&quot;
               </Button>
             </CommandEmpty>
             <CommandGroup>
@@ -132,14 +130,19 @@ function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn..."
                 <CommandItem
                   key={option}
                   value={option}
-                  onSelect={(currentValue) => {
-                    onSelect(currentValue);
+                  onSelect={() => {
+                    onSelect(option);
                     setOpen(false);
                     setInputValue("");
                   }}
                   className="text-[13px]"
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === option ? "opacity-100" : "opacity-0")} />
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option ? "opacity-100" : "opacity-0"
+                    )}
+                  />
                   {option}
                 </CommandItem>
               ))}
@@ -151,6 +154,32 @@ function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn..."
   );
 }
 
+// ─── SECTION HEADER ───
+function SectionHeader({
+  num,
+  icon: Icon,
+  title,
+  color = "text-emerald-700",
+}: {
+  num: string;
+  icon: React.ElementType;
+  title: string;
+  color?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 mb-5 font-black text-[11px] uppercase tracking-widest border-b pb-3",
+        color
+      )}
+    >
+      <Icon size={15} />
+      {num}. {title}
+    </div>
+  );
+}
+
+// ─── MAIN PAGE ───
 export default function AddProductPage() {
   const router = useRouter();
   const mainImagesRef = useRef<HTMLInputElement>(null);
@@ -163,28 +192,28 @@ export default function AddProductPage() {
 
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
-  const [attributeSuggestions, setAttributeSuggestions] = useState<AttributeSuggestion[]>([]);
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+
+  // Product-level unit conversions (applied to all variants on submit)
+  const [unitConversions, setUnitConversions] = useState<
+    { fromUnit: string; toUnit: string; rate: number | string }[]
+  >([]);
 
   const { isLoadingAuth, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    const fetchMetadata = async () => {
-      try {
-        const [catRes, brandRes, attrRes] = await Promise.all([
-          ProductService.getCategories(),
-          ProductService.getBrands(),
-          ProductService.getAttributes(),
-        ]);
-        setCategories(catRes || []);
-        setBrands(brandRes?.map((b: any) => b.name) || []);
-        setAttributeSuggestions(attrRes || []);
-      } catch (error) {
-        console.error("Lỗi fetch metadata:", error);
-      }
-    };
-
     if (!isLoadingAuth && isAuthenticated) {
-      fetchMetadata();
+      Promise.all([
+        ProductService.getCategories(),
+        ProductService.getBrands(),
+        ProductService.getAttributes(),
+      ])
+        .then(([catRes, brandRes, attrRes]) => {
+          setCategories(catRes || []);
+          setBrands(brandRes?.map((b: any) => b.name) || []);
+          setAttributes(attrRes || []);
+        })
+        .catch(console.error);
     }
   }, [isLoadingAuth, isAuthenticated]);
 
@@ -210,17 +239,20 @@ export default function AddProductPage() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: "variants" });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "variants",
+  });
 
-  // ──────────────────────────────────────────
-  // XỬ LÝ ẢNH
-  // ──────────────────────────────────────────
+  // ── ẢNH SẢN PHẨM ──
   const handleMainImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      const previews = files.map((f) => URL.createObjectURL(f));
       setProductImageFiles((prev) => [...prev, ...files]);
-      setProductImagePreviews((prev) => [...prev, ...previews]);
+      setProductImagePreviews((prev) => [
+        ...prev,
+        ...files.map((f) => URL.createObjectURL(f)),
+      ]);
     }
   };
 
@@ -229,26 +261,25 @@ export default function AddProductPage() {
     setProductImagePreviews((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVariantImageChange = (
+    variantIndex: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const preview = URL.createObjectURL(file);
-      setVariantImageFiles((prev) => {
-        const next = [...prev];
-        next[variantIndex] = file;
-        return next;
-      });
-      setVariantImagePreviews((prev) => {
-        const next = [...prev];
-        next[variantIndex] = preview;
-        return next;
-      });
-    }
+    if (!file) return;
+    setVariantImageFiles((prev) => {
+      const n = [...prev];
+      n[variantIndex] = file;
+      return n;
+    });
+    setVariantImagePreviews((prev) => {
+      const n = [...prev];
+      n[variantIndex] = URL.createObjectURL(file);
+      return n;
+    });
   };
 
-  // ──────────────────────────────────────────
-  // THÊM / XÓA FIELDS
-  // ──────────────────────────────────────────
+  // ── BIẾN THỂ ──
   const handleAppendVariant = () => {
     append({ ...DEFAULT_VARIANT });
     setVariantImageFiles((prev) => [...prev, null]);
@@ -256,100 +287,170 @@ export default function AddProductPage() {
   };
 
   const handleRemoveVariant = (idx: number) => {
+    if (fields.length === 1) {
+      toast.error("Phải có ít nhất 1 biến thể.");
+      return;
+    }
     remove(idx);
     setVariantImageFiles((prev) => prev.filter((_, i) => i !== idx));
     setVariantImagePreviews((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const addAttribute = (variantIndex: number) => {
-    const current = getValues(`variants.${variantIndex}.attributes`) || [];
-    setValue(`variants.${variantIndex}.attributes`, [...current, { ...DEFAULT_ATTRIBUTE }]);
-  };
+  const setAttributeValue = (
+    variantIndex: number,
+    attrId: number | string,
+    valueId: number | string
+  ) => {
 
-  const removeAttribute = (variantIndex: number, attrIdx: number) => {
-    const current = [...(getValues(`variants.${variantIndex}.attributes`) || [])];
-    current.splice(attrIdx, 1);
-    setValue(`variants.${variantIndex}.attributes`, current);
-  };
+    // 1. Lấy giá trị hiện tại từ watch (đảm bảo real-time nhất)
+    const currentValues = watch(`variants.${variantIndex}.attributeValueIds`) || [];
+    const currentIds = Array.isArray(currentValues) 
+      ? currentValues.map(Number).filter(id => !isNaN(id)) 
+      : [];
 
-  const addUnitConversion = (variantIndex: number) => {
-    const current = getValues(`variants.${variantIndex}.unitConversions`) || [];
-    setValue(`variants.${variantIndex}.unitConversions`, [...current, { ...DEFAULT_UNIT_CONVERSION }]);
-  };
-
-  const removeUnitConversion = (variantIndex: number, convIdx: number) => {
-    const current = [...(getValues(`variants.${variantIndex}.unitConversions`) || [])];
-    current.splice(convIdx, 1);
-    setValue(`variants.${variantIndex}.unitConversions`, current);
-  };
-
-  // ──────────────────────────────────────────
-  // SUBMIT
-  // ──────────────────────────────────────────
-  const onSubmit = async (data: any) => {
-    if (productImageFiles.length === 0) {
-      toast.error("Vui lòng tải lên ít nhất 1 hình ảnh sản phẩm.");
+    // 2. Tìm thuộc tính đang thao tác
+    const attr = attributes.find((a) => String(a.id) === String(attrId));
+    if (!attr) {
+      console.warn(`[WARN] Attribute with ID ${attrId} not found in state.`);
       return;
+    }
+
+    // 3. Lọc bỏ các ID thuộc về thuộc tính này đã chọn trước đó (Single Select per Attribute)
+    const attrValueIds = attr.values.map(v => Number(v.id));
+    const others = currentIds.filter(id => !attrValueIds.includes(id));
+
+    // 4. Xác định mảng mới
+    let newValueIds = [...others];
+    if (valueId !== -1 && valueId !== "-1" && valueId !== "") {
+      const numericId = Number(valueId);
+      if (!isNaN(numericId)) {
+        newValueIds.push(numericId);
+      }
+    }
+
+
+    // 5. Cập nhật state
+    setValue(`variants.${variantIndex}.attributeValueIds`, newValueIds, {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true
+    });
+  };
+
+  // ── QUY ĐỔI ĐƠN VỊ ──
+  const addUnitConversion = () =>
+    setUnitConversions((prev) => [
+      ...prev,
+      { fromUnit: "", toUnit: "", rate: 1 },
+    ]);
+
+  const removeUnitConversion = (idx: number) =>
+    setUnitConversions((prev) => prev.filter((_, i) => i !== idx));
+
+  const updateUnitConversion = (
+    idx: number,
+    key: string,
+    value: string | number
+  ) =>
+    setUnitConversions((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [key]: value };
+      return next;
+    });
+
+  // ── SUBMIT ──
+  const onSubmit = async (data: any) => {
+    if (!data.name?.trim()) {
+      toast.error("Vui lòng nhập tên sản phẩm.");
+      return;
+    }
+    if (!data.categoryId) {
+      toast.error("Vui lòng chọn danh mục.");
+      return;
+    }
+
+    // ── VALIDATE VARIANTS ──
+    const variantList = data.variants || [];
+    const skuList = variantList.map((v: any) => v.sku?.trim().toLowerCase());
+
+    for (let i = 0; i < variantList.length; i++) {
+      const v = variantList[i];
+      const sku = v.sku?.trim();
+
+      if (!sku || sku.length < 3) {
+        toast.error(`Biến thể số ${i + 1}: SKU phải có ít nhất 3 ký tự.`);
+        return;
+      }
+
+      if (skuList.filter((s: string) => s === sku.toLowerCase()).length > 1) {
+        toast.error(`Biến thể số ${i + 1}: Mã SKU "${sku}" bị trùng lặp.`);
+        return;
+      }
+
+      if (!v.costPrice || Number(v.costPrice) < 0) {
+        toast.error(`Biến thể số ${i + 1}: Vui lòng nhập giá vốn.`);
+        return;
+      }
+      if (!v.price || Number(v.price) < 0) {
+        toast.error(`Biến thể số ${i + 1}: Vui lòng nhập giá bán.`);
+        return;
+      }
     }
 
     try {
       setIsLoading(true);
 
-      const jsonPayload = {
-        name: data.name,
+      const validConversions = unitConversions
+        .filter((uc) => uc.fromUnit && uc.toUnit && Number(uc.rate) > 0)
+        .map((uc) => ({
+          fromUnit: uc.fromUnit,
+          toUnit: uc.toUnit,
+          rate: Number(uc.rate),
+        }));
+
+      const jsonPayload: any = {
+        name: data.name.trim(),
         categoryId: Number(data.categoryId),
-        brand: data.brand,
-        origin: data.origin,
-        baseSku: data.baseSku || "",
-        description: data.description || "",
-        status: data.status,
-        variants: data.variants.map((v: any) => ({
-          sku: v.sku,
-          barcode: v.barcode,
-          formulation: v.formulation,
-          packaging: v.packaging,
-          unit: v.unit,
-          costPrice: Number(v.costPrice || 0),
-          price: Number(v.price || 0),
-          wholesalePrice: Number(v.wholesalePrice || 0),
-          initialStock: Number(v.initialStock || 0),
-          netWeight: Number(v.netWeight || 0),
-          netWeightUnit: v.netWeightUnit,
-          shippingWeight: Number(v.shippingWeight || 0),
-          attributes: (v.attributes || []).filter((a: any) => a.name && a.value),
-          unitConversions: (v.unitConversions || [])
-            .filter((uc: any) => uc.fromUnit && uc.toUnit)
-            .map((uc: any) => ({
-              fromUnit: uc.fromUnit,
-              toUnit: uc.toUnit,
-              rate: Number(uc.rate || 1),
-            })),
-        })),
+        ...(data.brand?.trim() && { brand: data.brand.trim() }),
+        ...(data.origin?.trim() && { origin: data.origin.trim() }),
+        ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
+        ...(data.description?.trim() && { description: data.description }),
+        ...(data.status && { status: data.status }),
+        variants: variantList.map((v: any) => {
+          const attributeValueIds: number[] = (v.attributeValueIds || [])
+            .map((id: any) => Number(id))
+            .filter((id: number) => !isNaN(id));
+
+          return {
+            sku: v.sku.trim(),
+            costPrice: Number(v.costPrice || 0),
+            price: Number(v.price || 0),
+            ...(v.barcode?.trim() && { barcode: v.barcode.trim() }),
+            ...(v.wholesalePrice !== "" &&
+              v.wholesalePrice !== undefined && {
+                wholesalePrice: Number(v.wholesalePrice),
+              }),
+            ...(v.initialStock !== "" &&
+              v.initialStock !== undefined && {
+                initialStock: Number(v.initialStock),
+              }),
+            ...(v.shippingWeight !== "" &&
+              v.shippingWeight !== undefined && {
+                shippingWeight: Number(v.shippingWeight),
+              }),
+            attributeValueIds: attributeValueIds,
+            ...(validConversions.length > 0 && {
+              unitConversions: validConversions,
+            }),
+          };
+        }),
       };
 
-      const formData = new FormData();
-      formData.append(
-        "data",
-        new Blob([JSON.stringify(jsonPayload)], { type: "application/json" }),
-      );
+      console.log("[DEBUG] Final JSON Payload:", jsonPayload);
 
-      productImageFiles.forEach((file) => {
-        formData.append("productImages", file);
-      });
-
-      data.variants.forEach((_: any, idx: number) => {
-        if (variantImageFiles[idx]) {
-          formData.append("variantImages", variantImageFiles[idx] as File);
-        }
-      });
-
-      const res = await ProductService.create(formData);
-      if (res.success) {
-        toast.success(res.message || "Tạo sản phẩm thành công!");
-        router.push("/admin/products");
-      } else {
-        toast.error(res.message);
-      }
+      await ProductService.create(jsonPayload);
+      toast.success("Tạo sản phẩm thành công!");
+      router.push("/admin/products");
     } catch (error: any) {
       const res = error.response?.data;
       toast.error(res?.message || "Có lỗi khi lưu sản phẩm.");
@@ -359,9 +460,12 @@ export default function AddProductPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-[100px] bg-slate-50/30 p-4">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-2 px-1">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-4 pb-[100px] bg-slate-50/30 p-4"
+    >
+      {/* ── HEADER ── */}
+      <div className="flex items-center gap-3 mb-2 px-1">
         <Button
           type="button"
           variant="ghost"
@@ -371,85 +475,117 @@ export default function AddProductPage() {
         >
           <ChevronLeft size={20} />
         </Button>
-        <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
+        <h1 className="text-[17px] font-black text-[#1f1f1f] tracking-tight uppercase flex-1">
           Thiết lập sản phẩm mới
         </h1>
-        <div className="ms-auto">
-           <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
-            <X size={20} />
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => router.back()}
+          className="h-8 w-8 text-slate-400"
+        >
+          <X size={18} />
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* ══ CỘT TRÁI (9/12) ══ */}
         <div className="lg:col-span-9 space-y-5">
 
-          {/* 1. Thông tin sản phẩm chính */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-emerald-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <AlertCircle size={16} /> 1. Thông tin sản phẩm chính
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
-              <div className="md:col-span-2 space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Tên sản phẩm *</Label>
-                <Input {...register("name")} className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none" />
-                {errors.name && <p className="text-[11px] text-rose-500">{errors.name.message as string}</p>}
+          {/* ─── 1. THÔNG TIN SẢN PHẨM CHÍNH ─── */}
+          <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
+            <SectionHeader num="1" icon={AlertCircle} title="Thông tin sản phẩm chính" />
+            <div className="space-y-4">
+              {/* Row 1: Tên + Danh mục */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2 space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                    Tên sản phẩm *
+                  </Label>
+                  <Input
+                    {...register("name")}
+                    className={cn(
+                      "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none",
+                      errors.name && "border-rose-500 bg-rose-50/20"
+                    )}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                    Danh mục *
+                  </Label>
+                  <Controller
+                    name="categoryId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger
+                          className={cn(
+                            "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none",
+                            errors.categoryId && "border-rose-500"
+                          )}
+                        >
+                          <SelectValue placeholder="-- Chọn danh mục --" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {categories.map((cat, catIdx) => (
+                            <SelectItem key={`cat-${cat.id ?? catIdx}`} value={String(cat.id)}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Danh mục *</Label>
-                <Controller
-                  name="categoryId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none">
-                        <SelectValue placeholder="-- Chọn danh mục --" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-
-              {/* Thương hiệu - Creatable Combobox */}
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Thương hiệu</Label>
-                <Controller
-                  name="brand"
-                  control={control}
-                  render={({ field }) => (
-                    <CreatableCombobox 
-                      options={brands} 
-                      value={field.value} 
-                      onSelect={field.onChange} 
-                      placeholder="Chọn hoặc nhập thương hiệu..."
-                    />
-                  )}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Xuất xứ</Label>
-                <Input {...register("origin")} className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none" />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Mã SKU gốc</Label>
-                <Input {...register("baseSku")} className="h-[34px] text-[13px] border-[#ccc] rounded-none font-mono shadow-none" />
+              {/* Row 2: Thương hiệu + Xuất xứ + Mã SKU gốc */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                    Thương hiệu
+                  </Label>
+                  <Controller
+                    name="brand"
+                    control={control}
+                    render={({ field }) => (
+                      <CreatableCombobox
+                        options={brands}
+                        value={field.value}
+                        onSelect={field.onChange}
+                        placeholder="Chọn hoặc nhập..."
+                      />
+                    )}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                    Xuất xứ
+                  </Label>
+                  <Input
+                    {...register("origin")}
+                    className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                    Mã SKU gốc
+                  </Label>
+                  <Input
+                    {...register("baseSku")}
+                    placeholder="VD: VTC-001"
+                    className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none font-mono"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 2. Mô tả */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-emerald-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <FileText size={16} /> 2. Mô tả sản phẩm
-            </div>
+          {/* ─── 2. ĐẶC TÍNH & BÀI VIẾT MÔ TẢ ─── */}
+          <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
+            <SectionHeader num="2" icon={FileText} title="Đặc tính & Bài viết mô tả" />
             <Controller
               name="description"
               control={control}
@@ -464,212 +600,240 @@ export default function AddProductPage() {
             />
           </div>
 
-          {/* 3. Danh sách biến thể */}
+          {/* ─── 3. DANH SÁCH BIẾN THỂ ─── */}
           <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex justify-between items-center">
               <h3 className="text-[11px] font-black text-slate-700 flex items-center gap-2 uppercase tracking-wider">
-                <Layers size={16} className="text-emerald-600" /> 3. Danh sách biến thể (SKUs)
+                <Layers size={15} className="text-emerald-600" />
+                3. Danh sách biến thể sản phẩm (SKUs)
               </h3>
-              <Button type="button" variant="outline" onClick={handleAppendVariant} className="h-[28px] text-[10px] font-black text-emerald-600 border-emerald-200 bg-white px-4 rounded-none shadow-sm uppercase">
-                + THÊM BIẾN THỂ
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAppendVariant}
+                className="h-[28px] text-[10px] font-black text-emerald-600 border-emerald-200 bg-white px-4 rounded-none shadow-sm uppercase"
+              >
+                + Thêm biến thể
               </Button>
             </div>
 
             <div className="divide-y divide-slate-100">
               {fields.map((field, idx) => {
-                const attributes = watch(`variants.${idx}.attributes`) || [];
-                const conversions = watch(`variants.${idx}.unitConversions`) || [];
+                const variantAttributeIds =
+                  watch(`variants.${idx}.attributeValueIds`) || [];
 
                 return (
-                  <div key={field.id} className="p-5 bg-white border-b-4 border-slate-50 last:border-0">
-                    <div className="flex flex-col xl:flex-row gap-8">
-                      {/* Ảnh SKU */}
+                  <div key={field.id} className="p-5 bg-white">
+                    <div className="flex flex-col xl:flex-row gap-5">
+                      {/* Ảnh biến thể */}
                       <div className="flex flex-col items-center shrink-0">
                         <div
-                          onClick={() => document.getElementById(`v-img-${idx}`)?.click()}
-                          className="w-[120px] h-[120px] border border-[#ddd] bg-white flex items-center justify-center cursor-pointer group hover:border-emerald-500 transition-all overflow-hidden relative shadow-sm"
+                          onClick={() =>
+                            document.getElementById(`v-img-${idx}`)?.click()
+                          }
+                          className="w-[100px] h-[100px] border border-[#ddd] bg-slate-50 flex flex-col items-center justify-center cursor-pointer group hover:border-emerald-500 transition-all overflow-hidden relative"
                         >
                           {variantImagePreviews[idx] ? (
-                            <img src={variantImagePreviews[idx]} className="w-full h-full object-cover" alt="SKU" />
+                            <img
+                              src={variantImagePreviews[idx]}
+                              className="w-full h-full object-cover"
+                              alt="SKU"
+                            />
                           ) : (
-                            <Camera size={32} className="text-slate-200" />
+                            <>
+                              <Camera size={26} className="text-slate-300" />
+                              <span className="text-[7px] font-bold text-slate-300 mt-1 uppercase tracking-wider">
+                                ẢNH SKU
+                              </span>
+                            </>
                           )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                            <Upload size={18} className="text-white" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Upload size={15} className="text-white" />
                           </div>
                         </div>
-                        <input type="file" id={`v-img-${idx}`} hidden onChange={(e) => handleVariantImageChange(idx, e)} accept="image/*" />
-                        <p className="text-[9px] font-black text-slate-400 mt-2 uppercase tracking-tighter">Ảnh SKU #{idx + 1}</p>
+                        <input
+                          type="file"
+                          id={`v-img-${idx}`}
+                          hidden
+                          onChange={(e) => handleVariantImageChange(idx, e)}
+                          accept="image/*"
+                        />
+                        <p className="text-[8px] font-black text-slate-400 mt-1.5 uppercase tracking-tighter text-center">
+                          ẢNH SKU/BARCODE
+                        </p>
                       </div>
 
-                      {/* Fields */}
-                      <div className="flex-1 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-500 uppercase">Mã SKU *</Label>
-                            <Input {...register(`variants.${idx}.sku`)} className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px]" />
+                      {/* Tất cả fields */}
+                      <div className="flex-1 space-y-4">
+
+                        {/* Row 1: Thuộc tính động */}
+                        {attributes.length > 0 && (
+                          <div
+                            className={cn(
+                              "grid gap-4",
+                              attributes.length === 1
+                                ? "grid-cols-1 max-w-xs"
+                                : attributes.length === 2
+                                ? "grid-cols-2"
+                                : "grid-cols-3"
+                            )}
+                          >
+                            {attributes.map((attr) => {
+                              const selectedValueId =
+                                variantAttributeIds.find((id: number | string) =>
+                                  attr.values.some((v) => String(v.id) === String(id))
+                                ) ?? -1;
+                              return (
+                                <div key={`v${idx}-a${attr.id ?? "x"}`} className="space-y-1">
+                                  <Label className="text-[10px] font-bold text-slate-500 uppercase">
+                                    {attr.name} *
+                                  </Label>
+                                  <Select
+                                    value={selectedValueId === -1 ? undefined : String(selectedValueId)}
+                                    onValueChange={(val) =>
+                                      setAttributeValue(idx, attr.id, val)
+                                    }
+                                  >
+                                    <SelectTrigger className="h-[34px] border-[#ccc] rounded-none text-[13px] bg-white shadow-none">
+                                      <SelectValue
+                                        placeholder={`Chọn ${attr.name}...`}
+                                      />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-none">
+                                      <SelectItem value="-1">
+                                        -- Bỏ chọn --
+                                      </SelectItem>
+                                      {attr.values.map((v, vIdx) => (
+                                        <SelectItem
+                                          key={`v${idx}-a${attr.id ?? "x"}-${vIdx}`}
+                                          value={String(v?.id ?? v)}
+                                        >
+                                          {v?.value ?? String(v)}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-500 uppercase">Mã vạch</Label>
-                            <Input {...register(`variants.${idx}.barcode`)} className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px]" />
+                        )}
+
+                        {/* Row 2: SKU + Barcode + Buttons */}
+                        <div className="grid grid-cols-12 gap-3 items-end">
+                          <div className="col-span-4 space-y-1">
+                            <Label className="text-[10px] font-bold text-slate-500 uppercase">
+                              Mã SKU biến thể *
+                            </Label>
+                            <Input
+                              {...register(`variants.${idx}.sku`)}
+                              className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-none"
+                            />
                           </div>
-                          <div className="flex items-end">
-                            <Button type="button" variant="outline" onClick={() => handleRemoveVariant(idx)} className="h-[34px] w-full text-rose-500 border-rose-100 rounded-none text-[11px] font-bold uppercase hover:bg-rose-50">
-                                <Trash2 size={14} className="mr-2" /> Xóa SKU này
+                          <div className="col-span-4 space-y-1">
+                            <Label className="text-[10px] font-bold text-slate-500 uppercase">
+                              Mã vạch / Barcode
+                            </Label>
+                            <Input
+                              {...register(`variants.${idx}.barcode`)}
+                              className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-none"
+                            />
+                          </div>
+                          <div className="col-span-4 flex gap-2 pb-[1px]">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                toast.info("Tính năng đang phát triển.")
+                              }
+                              className="flex-1 h-[34px] text-[10px] font-black text-sky-600 border-sky-200 rounded-none uppercase shadow-none"
+                            >
+                              <Settings2 size={12} className="mr-1" />
+                              Cấu hình spec
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleRemoveVariant(idx)}
+                              className="flex-1 h-[34px] text-[10px] font-black text-rose-500 border-rose-100 rounded-none hover:bg-rose-50 shadow-none uppercase"
+                            >
+                              <Trash2 size={12} className="mr-1" />
+                              Xóa biến thể
                             </Button>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-500 uppercase">Dạng bào chế *</Label>
-                            <Input {...register(`variants.${idx}.formulation`)} placeholder="VD: Bột, Viên..." className="h-[34px] border-[#ccc] rounded-none text-[13px]" />
+                        {/* Row 3: Giá */}
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-blue-600 uppercase">
+                              Giá vốn (Giá nhập hàng) *
+                            </Label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-slate-400 font-bold pointer-events-none">
+                                ₫
+                              </span>
+                              <Input
+                                type="number"
+                                {...register(`variants.${idx}.costPrice`)}
+                                className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-blue-600 bg-blue-50/20 pl-6 shadow-none"
+                              />
+                            </div>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-500 uppercase">Quy cách *</Label>
-                            <Input {...register(`variants.${idx}.packaging`)} placeholder="VD: Gói 1kg" className="h-[34px] border-[#ccc] rounded-none text-[13px]" />
+                            <Label className="text-[10px] font-bold text-emerald-600 uppercase">
+                              Giá bán lẻ mềm yêu *
+                            </Label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-slate-400 font-bold pointer-events-none">
+                                ₫
+                              </span>
+                              <Input
+                                type="number"
+                                {...register(`variants.${idx}.price`)}
+                                className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-emerald-700 pl-6 shadow-none"
+                              />
+                            </div>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-500 uppercase">Đơn vị *</Label>
-                            <Input {...register(`variants.${idx}.unit`)} placeholder="VD: Gói, Hộp" className="h-[34px] border-[#ccc] rounded-none text-[13px]" />
+                            <Label className="text-[10px] font-bold text-orange-500 uppercase">
+                              Giá bán sỉ / Giá bán buôn
+                            </Label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-slate-400 font-bold pointer-events-none">
+                                ₫
+                              </span>
+                              <Input
+                                type="number"
+                                {...register(`variants.${idx}.wholesalePrice`)}
+                                className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-orange-500 pl-6 shadow-none"
+                              />
+                            </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-blue-600 uppercase">Giá vốn *</Label>
-                            <Input type="number" {...register(`variants.${idx}.costPrice`)} className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-blue-600 bg-blue-50/20" />
+                        {/* Row 4: Tồn kho + Trọng lượng vận chuyển */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-slate-500 uppercase">
+                              Tồn kho khởi tạo
+                            </Label>
+                            <Input
+                              type="number"
+                              {...register(`variants.${idx}.initialStock`)}
+                              className="h-[34px] border-[#ccc] rounded-none text-right shadow-none"
+                            />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-emerald-600 uppercase">Giá bán lẻ *</Label>
-                            <Input type="number" {...register(`variants.${idx}.price`)} className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-emerald-700" />
+                            <Label className="text-[10px] font-bold text-slate-500 uppercase">
+                              Trọng lượng vận chuyển (kg)
+                            </Label>
+                            <Input
+                              type="number"
+                              {...register(`variants.${idx}.shippingWeight`)}
+                              className="h-[34px] border-[#ccc] rounded-none text-right shadow-none"
+                            />
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-orange-600 uppercase">Giá sỉ</Label>
-                            <Input type="number" {...register(`variants.${idx}.wholesalePrice`)} className="h-[34px] border-[#ccc] rounded-none text-right font-bold text-orange-600" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-500 uppercase">Tồn kho đầu</Label>
-                            <Input type="number" {...register(`variants.${idx}.initialStock`)} className="h-[34px] border-[#ccc] rounded-none text-right font-bold" />
-                          </div>
-                        </div>
-
-                        {/* Khối lượng vận chuyển */}
-                        <div className="bg-slate-50 p-4 border border-slate-100 flex items-center gap-4">
-                           <Scale size={20} className="text-slate-400" />
-                           <div className="grid grid-cols-3 gap-4 flex-1">
-                                <div className="space-y-1">
-                                    <Label className="text-[9px] font-bold text-slate-500 uppercase">Khối lượng tịnh</Label>
-                                    <Input type="number" {...register(`variants.${idx}.netWeight`)} className="h-[30px] border-[#ccc] rounded-none text-right" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[9px] font-bold text-slate-500 uppercase">Đơn vị KL</Label>
-                                    <Select 
-                                        defaultValue="g" 
-                                        onValueChange={(val) => setValue(`variants.${idx}.netWeightUnit`, val)}
-                                    >
-                                        <SelectTrigger className="h-[30px] border-[#ccc] rounded-none text-[12px]">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-none">
-                                            <SelectItem value="g">Gram (g)</SelectItem>
-                                            <SelectItem value="kg">Kilogram (kg)</SelectItem>
-                                            <SelectItem value="ml">Mililit (ml)</SelectItem>
-                                            <SelectItem value="l">Lít (l)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[9px] font-bold text-slate-500 uppercase">Cân nặng (+bao bì)</Label>
-                                    <Input type="number" {...register(`variants.${idx}.shippingWeight`)} className="h-[30px] border-[#ccc] rounded-none text-right" />
-                                </div>
-                           </div>
-                        </div>
-
-                        {/* Thuộc tính động - Tích hợp API Từ điển */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between border-b pb-1">
-                                <Label className="text-[10px] font-black text-emerald-700 uppercase flex items-center gap-2">
-                                    <Tag size={14} /> Thuộc tính bổ sung
-                                </Label>
-                                <Button type="button" variant="ghost" onClick={() => addAttribute(idx)} className="h-6 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 px-2 rounded-none">
-                                    + Thêm thuộc tính
-                                </Button>
-                            </div>
-                            <div className="space-y-2">
-                                {attributes.map((attr: any, attrIdx: number) => {
-                                    const selectedSuggestion = attributeSuggestions.find(s => s.name === attr.name);
-                                    const availableValues = selectedSuggestion?.values || [];
-
-                                    return (
-                                        <div key={attrIdx} className="flex gap-2">
-                                            {/* Tên thuộc tính - Creatable Combobox */}
-                                            <div className="flex-1">
-                                                <Controller
-                                                    name={`variants.${idx}.attributes.${attrIdx}.name`}
-                                                    control={control}
-                                                    render={({ field }) => (
-                                                        <CreatableCombobox 
-                                                            options={attributeSuggestions.map(s => s.name)} 
-                                                            value={field.value} 
-                                                            onSelect={(val) => {
-                                                                field.onChange(val);
-                                                                // Xóa giá trị cũ khi đổi tên thuộc tính
-                                                                setValue(`variants.${idx}.attributes.${attrIdx}.value`, "");
-                                                            }} 
-                                                            placeholder="Tên thuộc tính (VD: Màu sắc)"
-                                                        />
-                                                    )}
-                                                />
-                                            </div>
-                                            {/* Giá trị thuộc tính - Creatable Combobox (Lọc theo tên) */}
-                                            <div className="flex-1">
-                                                <Controller
-                                                    name={`variants.${idx}.attributes.${attrIdx}.value`}
-                                                    control={control}
-                                                    render={({ field }) => (
-                                                        <CreatableCombobox 
-                                                            options={availableValues} 
-                                                            value={field.value} 
-                                                            onSelect={field.onChange} 
-                                                            placeholder="Giá trị (VD: Xanh, Đỏ...)"
-                                                            emptyLabel="Gõ để thêm giá trị mới"
-                                                        />
-                                                    )}
-                                                />
-                                            </div>
-                                            <Button type="button" variant="ghost" onClick={() => removeAttribute(idx, attrIdx)} className="h-[34px] w-8 p-0 text-slate-300 hover:text-rose-500">
-                                                <X size={16} />
-                                            </Button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Quy đổi đơn vị */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between border-b pb-1">
-                                <Label className="text-[10px] font-black text-purple-700 uppercase flex items-center gap-2">
-                                    <ArrowRightLeft size={14} /> Quy đổi đơn vị
-                                </Label>
-                                <Button type="button" variant="ghost" onClick={() => addUnitConversion(idx)} className="h-6 text-[10px] font-bold text-purple-600 hover:bg-purple-50 px-2 rounded-none">
-                                    + Thêm quy đổi
-                                </Button>
-                            </div>
-                            <div className="space-y-2">
-                                {conversions.map((uc: any, convIdx: number) => (
-                                    <div key={convIdx} className="flex items-center gap-2">
-                                        <Input {...register(`variants.${idx}.unitConversions.${convIdx}.fromUnit`)} placeholder="Từ (Thùng)" className="h-[30px] border-[#ccc] rounded-none text-[12px] flex-1" />
-                                        <span className="text-[11px] font-bold text-slate-400">=</span>
-                                        <Input type="number" {...register(`variants.${idx}.unitConversions.${convIdx}.rate`)} placeholder="Số lượng" className="h-[30px] border-[#ccc] rounded-none text-[12px] w-[80px] text-right" />
-                                        <Input {...register(`variants.${idx}.unitConversions.${convIdx}.toUnit`)} placeholder="Đến (Gói)" className="h-[30px] border-[#ccc] rounded-none text-[12px] flex-1" />
-                                        <Button type="button" variant="ghost" onClick={() => removeUnitConversion(idx, convIdx)} className="h-8 w-8 p-0 text-slate-300 hover:text-rose-500">
-                                            <X size={16} />
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
                         </div>
                       </div>
                     </div>
@@ -678,31 +842,162 @@ export default function AddProductPage() {
               })}
             </div>
           </div>
-        </div>
 
-        {/* CỘT PHẢI (3/12) */}
-        <div className="lg:col-span-3 space-y-5">
-           <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
-            <Label className="text-[11px] font-black text-slate-700 uppercase block mb-5 text-center tracking-widest border-b pb-3">Album hình ảnh *</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {productImagePreviews.map((src, i) => (
-                <div key={i} className="relative aspect-square border border-[#eee] group overflow-hidden shadow-sm">
-                  <img src={src} className="w-full h-full object-cover" alt="Product" />
-                  <button type="button" onClick={() => removeMainImage(i)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-              <div onClick={() => mainImagesRef.current?.click()} className="aspect-square border-2 border-dashed border-[#ddd] flex flex-col items-center justify-center bg-[#fcfcfc] hover:bg-emerald-50 cursor-pointer transition-colors group">
-                <Upload size={20} className="text-slate-300 group-hover:text-emerald-500 mb-1" />
-                <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-600 uppercase">Tải ảnh</span>
+          {/* ─── BƯỚC 8: QUY ĐỔI ĐƠN VỊ ─── */}
+          <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex justify-between items-center">
+              <h3 className="text-[11px] font-black text-slate-700 flex items-center gap-2 uppercase tracking-wider">
+                <ArrowRightLeft size={15} className="text-purple-600" />
+                Bước 8: Quy đổi đơn vị sản phẩm
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addUnitConversion}
+                className="h-[28px] text-[10px] font-black text-purple-600 border-purple-200 bg-white px-4 rounded-none shadow-sm uppercase"
+              >
+                + Thêm đơn vị quy đổi
+              </Button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Ghi chú */}
+              <div className="text-[12px] text-slate-500 space-y-1">
+                <p>
+                  <span className="font-bold text-slate-600">Lưu ý nghĩa vụ:</span>{" "}
+                  <span className="italic">
+                    Đơn vị quy đổi không có tồn kho riêng mà phụ thuộc hoàn
+                    toàn vào đơn vị gốc (đơn vị nhỏ nhất). Hệ thống sẽ tự động
+                    tính toán tồn kho dựa trên tỷ lệ quy đổi.
+                  </span>
+                </p>
+                <p className="italic">
+                  Ví dụ: 1 Thùng = 12 Chai. Khi nhập hàng đặt 1 Thùng, kho
+                  Chai sẽ tự động tăng/giảm tương ứng 12 đơn vị.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {unitConversions.map((uc, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-400 w-4 text-right shrink-0">
+                      1
+                    </span>
+                    <Input
+                      value={uc.fromUnit}
+                      onChange={(e) =>
+                        updateUnitConversion(idx, "fromUnit", e.target.value)
+                      }
+                      placeholder="Đơn vị lớn (Thùng, Hộp...)"
+                      className="h-[34px] border-[#ccc] rounded-none text-[13px] shadow-none flex-1"
+                    />
+                    <span className="text-[11px] font-bold text-slate-400 shrink-0">
+                      =
+                    </span>
+                    <Input
+                      type="number"
+                      value={uc.rate}
+                      onChange={(e) =>
+                        updateUnitConversion(idx, "rate", e.target.value)
+                      }
+                      placeholder="SL"
+                      className="h-[34px] border-[#ccc] rounded-none text-[13px] shadow-none w-[72px] text-right"
+                    />
+                    <Input
+                      value={uc.toUnit}
+                      onChange={(e) =>
+                        updateUnitConversion(idx, "toUnit", e.target.value)
+                      }
+                      placeholder="Đơn vị nhỏ (Chai, Viên...)"
+                      className="h-[34px] border-[#ccc] rounded-none text-[13px] shadow-none flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => removeUnitConversion(idx)}
+                      className="h-8 w-8 p-0 text-slate-300 hover:text-rose-500 shrink-0"
+                    >
+                      <X size={15} />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
-            <input type="file" ref={mainImagesRef} multiple hidden onChange={handleMainImagesChange} accept="image/*" />
+          </div>
+        </div>
+
+        {/* ══ CỘT PHẢI (3/12) ══ */}
+        <div className="lg:col-span-3 space-y-5">
+
+          {/* Album hình ảnh */}
+          <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
+            <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center tracking-widest border-b pb-3">
+              Album hình ảnh *
+            </Label>
+
+            {productImagePreviews.length === 0 ? (
+              <div
+                onClick={() => mainImagesRef.current?.click()}
+                className="aspect-square border border-[#e0e0e0] flex flex-col items-center justify-center bg-white hover:bg-slate-50 cursor-pointer transition-colors group rounded-none"
+              >
+                <Camera
+                  size={36}
+                  className="text-slate-200 group-hover:text-slate-300 mb-2"
+                />
+                <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-500 uppercase tracking-wider">
+                  Tải ảnh lên
+                </span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {productImagePreviews.map((src, i) => (
+                  <div
+                    key={i}
+                    className="relative aspect-square border border-[#eee] group overflow-hidden"
+                  >
+                    <img
+                      src={src}
+                      className="w-full h-full object-cover"
+                      alt="Product"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeMainImage(i)}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+                <div
+                  onClick={() => mainImagesRef.current?.click()}
+                  className="aspect-square border-2 border-dashed border-[#ddd] flex flex-col items-center justify-center bg-[#fcfcfc] hover:bg-emerald-50 cursor-pointer transition-colors group"
+                >
+                  <Upload
+                    size={18}
+                    className="text-slate-300 group-hover:text-emerald-500 mb-1"
+                  />
+                  <span className="text-[8px] font-black text-slate-400 group-hover:text-emerald-600 uppercase">
+                    Tải thêm
+                  </span>
+                </div>
+              </div>
+            )}
+            <input
+              type="file"
+              ref={mainImagesRef}
+              multiple
+              hidden
+              onChange={handleMainImagesChange}
+              accept="image/*"
+            />
           </div>
 
+          {/* Trạng thái phát hành */}
           <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
-            <Label className="text-[11px] font-black text-slate-700 uppercase block mb-5 tracking-widest border-b pb-3">Trạng thái phát hành</Label>
+            <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">
+              Trạng thái phát hành
+            </Label>
             <Controller
               name="status"
               control={control}
@@ -712,9 +1007,24 @@ export default function AddProductPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-none">
-                    <SelectItem value="ACTIVE" className="text-emerald-600 font-bold">ĐANG KINH DOANH</SelectItem>
-                    <SelectItem value="INACTIVE" className="text-rose-600 font-bold">TẠM NGỪNG BÁN</SelectItem>
-                    <SelectItem value="DRAFT" className="text-slate-500 font-bold">LƯU NHÁP</SelectItem>
+                    <SelectItem
+                      value="ACTIVE"
+                      className="text-emerald-600 font-bold"
+                    >
+                      Đang kinh doanh
+                    </SelectItem>
+                    <SelectItem
+                      value="INACTIVE"
+                      className="text-rose-500 font-bold"
+                    >
+                      Tạm ngừng bán
+                    </SelectItem>
+                    <SelectItem
+                      value="DRAFT"
+                      className="text-slate-500 font-bold"
+                    >
+                      Lưu nháp
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -723,11 +1033,27 @@ export default function AddProductPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-[15px] z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-        <Button type="button" variant="outline" onClick={() => router.back()} className="min-w-[100px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-none uppercase">HỦY BỎ</Button>
-        <Button type="submit" disabled={isLoading} className="min-w-[160px] h-[38px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-none shadow-md uppercase">
-          {isLoading ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Save size={18} className="mr-2" />}
-          TẠO SẢN PHẨM
+      {/* ── FOOTER CỐ ĐỊNH ── */}
+      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-3 z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.back()}
+          className="min-w-[100px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-none uppercase"
+        >
+          Hủy bỏ
+        </Button>
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="min-w-[150px] h-[38px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-none shadow-md uppercase"
+        >
+          {isLoading ? (
+            <Loader2 size={17} className="mr-2 animate-spin" />
+          ) : (
+            <Save size={17} className="mr-2" />
+          )}
+          Lưu dữ liệu
         </Button>
       </div>
     </form>

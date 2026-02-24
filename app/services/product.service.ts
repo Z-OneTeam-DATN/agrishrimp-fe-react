@@ -1,17 +1,22 @@
 import { apiJava } from "@/lib/axios";
-import { 
-  ProductListItem, 
-  ProductDetail, 
+import {
+  Attribute,
+  ProductListItem,
+  ProductDetail,
   UpdateProductRequest,
-  ApiResponse
+  ApiResponse,
 } from "@/app/types/product.schema";
 
 export const ProductService = {
   PREFIX: "/products",
 
   // 2.1 Lấy danh sách sản phẩm
-  getAll: async (): Promise<ProductListItem[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}`);
+  getAll: async (params?: {
+    keyword?: string;
+    categoryId?: number | string | null;
+    status?: string;
+  }): Promise<ProductListItem[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}`, { params });
     return response.data;
   },
 
@@ -50,17 +55,14 @@ export const ProductService = {
     return response.data;
   },
 
-  getAttributes: async (): Promise<any[]> => {
-    // Backend developer said: GET /api/products/attributes
+  getAttributes: async (): Promise<Attribute[]> => {
     const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
     return response.data;
   },
 
-  // 2. Chi tiết API Tạo sản phẩm
-  create: async (formData: FormData): Promise<ApiResponse> => {
-    const response = await apiJava.post(`${ProductService.PREFIX}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+  // 2. Chi tiết API Tạo sản phẩm — POST /products, Content-Type: application/json
+  create: async (payload: Record<string, any>): Promise<ProductDetail> => {
+    const response = await apiJava.post(`${ProductService.PREFIX}`, { data: payload });
     return response.data;
   },
 };

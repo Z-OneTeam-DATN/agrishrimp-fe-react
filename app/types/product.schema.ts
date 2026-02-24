@@ -1,22 +1,49 @@
+export interface ApiError {
+  field: string;
+  message: string;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data: T | null;
+  errors?: ApiError[];
+  timestamp?: string;
 }
 
-export interface AttributeSuggestion {
+export interface AttributeValue {
+  id: number;
+  value: string;
+}
+
+export interface Attribute {
+  id: number;
   name: string;
-  values: string[];
+  code: string;
+  type: string;
+  description: string;
+  status: "ACTIVE" | "INACTIVE";
+  values: AttributeValue[];
+}
+
+export interface VariantAttributeValue {
+  attributeId: number;
+  attributeName: string;
+  attributeCode: string;
+  valueId: number;
+  value: string;
 }
 
 export interface ProductListItem {
   id: number;
   name: string;
   slug: string;
+  description: string;
+  status: string;
+  origin: string;
   baseSku: string;
   categoryName: string;
   brandName: string;
-  status: string;
   imageUrls: string[];
   variants: ProductVariant[];
 }
@@ -28,28 +55,19 @@ export interface UnitConversion {
   rate: number;
 }
 
-export interface VariantAttribute {
-  name: string;
-  value: string;
-}
-
 export interface ProductVariant {
   id?: number;
   sku: string;
   barcode: string;
-  formulation: string;
-  packaging: string;
-  unit: string;
   price: number;
   wholesalePrice: number;
   costPrice: number;
   quantity: number;
   status: string;
-  weightValue?: number; // Backend renamed from netWeight
-  netWeightUnit?: string;
   shippingWeight?: number;
-  imageUrl?: string; // Variant specific image
-  attributes: VariantAttribute[];
+  imageUrl?: string;
+  attributeValueIds?: number[];
+  attributeValues?: VariantAttributeValue[];
   unitConversions: UnitConversion[];
 }
 
@@ -65,10 +83,9 @@ export interface CreateProductRequest {
   categoryId: number;
   brand: string;
   origin: string;
-  baseSku: string;
   description: string;
   status: string;
-  variants: Omit<ProductVariant, "id" | "quantity">[];
+  variants: Omit<ProductVariant, "id" | "quantity" | "attributeValues">[];
 }
 
 export interface UpdateProductVariantRequest {

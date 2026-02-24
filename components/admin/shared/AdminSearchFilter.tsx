@@ -33,6 +33,11 @@ interface AdminSearchFilterProps {
   filter2Options?: FilterOption[];
   onFilter2Change?: (val: string) => void;
 
+  // Default values
+  defaultFilter1Value?: string;
+  defaultFilter2Value?: string;
+  defaultSortValue?: string;
+
   // Sắp xếp
   onSortChange?: (val: string) => void;
   sortOptions?: FilterOption[];
@@ -53,6 +58,9 @@ export function AdminSearchFilter({
   ],
   onFilter1Change,
   onFilter2Change,
+  defaultFilter1Value = "all",
+  defaultFilter2Value = "all",
+  defaultSortValue,
   onSortChange,
   sortOptions = [
     { label: "Mới nhất", value: "id,desc" },
@@ -75,7 +83,7 @@ export function AdminSearchFilter({
         </div>
         
         {/* Bộ lọc 1 - Chi nhánh */}
-        <Select onValueChange={onFilter1Change} defaultValue="all">
+        <Select onValueChange={onFilter1Change} defaultValue={defaultFilter1Value}>
           <SelectTrigger className="w-[200px] h-[38px] text-[13px] font-medium bg-white border-slate-200 rounded-md text-slate-600 shadow-none focus:ring-0">
             <SelectValue placeholder={filter1Placeholder} />
           </SelectTrigger>
@@ -89,7 +97,7 @@ export function AdminSearchFilter({
         </Select>
 
         {/* Bộ lọc 2 - Trạng thái */}
-        <Select onValueChange={onFilter2Change} defaultValue="all">
+        <Select onValueChange={onFilter2Change} defaultValue={defaultFilter2Value}>
           <SelectTrigger className="w-[180px] h-[38px] text-[13px] font-medium bg-white border-slate-200 rounded-md text-slate-600 shadow-none focus:ring-0">
             <SelectValue placeholder={filter2Placeholder} />
           </SelectTrigger>
@@ -108,19 +116,21 @@ export function AdminSearchFilter({
           </SelectContent>
         </Select>
 
-        {/* Sắp xếp */}
-        <Select onValueChange={onSortChange} defaultValue={sortOptions[0]?.value}>
-          <SelectTrigger className="w-[140px] h-[38px] text-[13px] font-medium bg-white border-slate-200 rounded-md text-slate-600 shadow-none focus:ring-0">
-            <SelectValue placeholder="Sắp xếp" />
-          </SelectTrigger>
-          <SelectContent>
-            {sortOptions.map(opt => (
-              <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Sắp xếp - Only show if options are provided */}
+        {sortOptions && sortOptions.length > 0 && (
+          <Select onValueChange={onSortChange} defaultValue={defaultSortValue || sortOptions[0]?.value}>
+            <SelectTrigger className="w-[140px] h-[38px] text-[13px] font-medium bg-white border-slate-200 rounded-md text-slate-600 shadow-none focus:ring-0">
+              <SelectValue placeholder="Sắp xếp" />
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value} className="text-[13px]">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Các nút chức năng bên phải */}
