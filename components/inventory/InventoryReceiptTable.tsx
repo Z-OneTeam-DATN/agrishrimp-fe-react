@@ -34,8 +34,10 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "COMPLETED":
+      case "IMPORTED":
         return "text-emerald-600 bg-emerald-50 border-emerald-100";
       case "PENDING":
+      case "PO":
         return "text-blue-500 bg-blue-50 border-blue-100";
       case "CANCELLED":
         return "text-rose-600 bg-rose-50 border-rose-100";
@@ -69,7 +71,7 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
           </TableHeader>
           <TableBody>
             {receipts.map((item: any) => {
-              const isPending = item.status === "PENDING";
+              const isPending = item.status === "PENDING" || item.status === "PO";
 
               return (
                 <TableRow key={item.code} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer group">
@@ -92,7 +94,6 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
                   <TableCell className="p-2"><div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold"><Warehouse size={12} className="text-slate-400" /> {item.warehouse}</div></TableCell>
                   <TableCell className="p-2 text-right text-[14px] font-black text-slate-900">{formatNumber(item.total || 0)}</TableCell>
 
-                  {/* Sửa ở đây: Bỏ logic ẩn cột nợ đối với phiếu tạm, lúc nào cũng hiện số nợ */}
                   <TableCell className="p-2 text-right">
                     <span className={cn("text-[14px] font-black", (item.debt || 0) > 0 ? "text-rose-600" : "text-emerald-600")}>
                       {formatNumber(item.debt || 0)}
@@ -101,7 +102,11 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
 
                   <TableCell className="p-2 text-center">
                     <span className={cn("text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase", getStatusStyle(item.status))}>
-                      {item.status === "COMPLETED" ? "Đã nhập kho" : item.status === "PENDING" ? "Đặt hàng (Phiếu tạm)" : "Đã hủy"}
+                      {item.status === "COMPLETED" || item.status === "IMPORTED" 
+                        ? "Đã nhập kho" 
+                        : (item.status === "PENDING" || item.status === "PO") 
+                        ? "Đặt hàng" 
+                        : "Đã hủy"}
                     </span>
                   </TableCell>
 

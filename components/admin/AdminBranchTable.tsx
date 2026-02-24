@@ -156,7 +156,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
 
                 <TableCell className="p-2 text-center">
                   <span className={cn(
-                    "text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase",
+                    "text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
                     isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
                   )}>
                     {isActive ? "ĐANG HOẠT ĐỘNG" : "NGỪNG HOẠT ĐỘNG"}

@@ -11,43 +11,79 @@ import { Loader2 } from "lucide-react";
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    keyword: "",
+    categoryId: "all",
+    status: "ACTIVE", // Default according to specification
+  });
+
+  const [debouncedKeyword, setDebouncedKeyword] = useState("");
+
+  // Debounce logic for keyword
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
+
+  // Fetch categories for filter
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await ProductService.getCategories();
+        const mapped = [
+          { label: "Tất cả danh mục", value: "all" },
+          ...data.map((c: any) => ({ label: c.name, value: String(c.id) }))
+        ];
+        setCategories(mapped);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const fetchProducts = useCallback(async () => {
     try {
       setIsLoading(true);
-      const data = await ProductService.getAll();
       
-      // Map API data to Table format
+      const apiParams: any = {};
+      if (debouncedKeyword) apiParams.keyword = debouncedKeyword;
+      if (filters.categoryId !== "all") apiParams.categoryId = filters.categoryId;
+      if (filters.status !== "all") apiParams.status = filters.status;
+
+      const data = await ProductService.getAll(apiParams);
+      
+      // Map API data — giữ đúng tên trường từ BE
       const mappedProducts = data.map((p: any) => ({
         id: p.id,
-        sku: p.baseSku,
         name: p.name,
-        category: p.categoryName,
-        brand: p.brandName,
-        origin: p.origin || "N/A",
-        priceRange: "---", // Will be calculated if variants are available
-        totalSold: 0,
-        inventory: p.variants?.reduce((sum: number, v: any) => sum + (v.quantity || 0), 0) || 0,
-        available: p.variants?.reduce((sum: number, v: any) => sum + (v.quantity || 0), 0) || 0,
-        createdAt: "---",
-        status: p.status === "ACTIVE" ? "Đang kinh doanh" : "Ngừng kinh doanh",
+        slug: p.slug || "",
+        baseSku: p.baseSku || "",
+        categoryName: p.categoryName || "",
+        brandName: p.brandName || "",
+        origin: p.origin || "",
+        status: p.status,                        // raw: ACTIVE | INACTIVE | DRAFT
         image: p.imageUrls?.[0] || "",
-        imageCount: p.imageUrls?.length || 0,
-        techSpecs: [],
+        imageUrls: p.imageUrls || [],
+        inventory: (p.variants || []).reduce((sum: number, v: any) => sum + (v.quantity || 0), 0),
         variants: (p.variants || []).map((v: any) => ({
-          id: String(v.id || v.sku),
-          formulation: v.formulation || "N/A",
-          packaging: v.packaging || "N/A",
-          weight: "---",
-          unit: v.unit || "N/A",
-          price: v.price?.toLocaleString() + " ₫" || "0 ₫",
-          costPrice: v.costPrice?.toLocaleString() + " ₫" || "0 ₫",
-          wholesalePrice: v.wholesalePrice?.toLocaleString() + " ₫" || "0 ₫",
-          inventory: v.quantity || 0,
-          available: v.quantity || 0,
-          sold: 0,
+          id: v.id,
+          sku: v.sku || "",
           barcode: v.barcode || "",
-          image: v.imageUrl || null,
+          costPrice: v.costPrice ?? 0,
+          price: v.price ?? 0,
+          wholesalePrice: v.wholesalePrice ?? 0,
+          quantity: v.quantity || 0,
+          shippingWeight: v.shippingWeight ?? null,
+          imageUrl: v.imageUrl || null,
+          status: v.status || "",
+          attributeValues: v.attributeValues || [],
+          unitConversions: v.unitConversions || [],
         })),
       }));
 
@@ -58,7 +94,7 @@ export default function ProductsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [debouncedKeyword, filters.categoryId, filters.status]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -111,15 +147,10 @@ export default function ProductsPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  const categoryFilters = [
-    { label: "Tất cả danh mục", value: "all" },
-    { label: "Thuốc & Chế phẩm", value: "thuoc" },
-    { label: "Thức ăn", value: "thuc-an" },
-  ];
-
   const statusFilters = [
-    { label: "Đang kinh doanh", value: "active" },
-    { label: "Ngừng kinh doanh", value: "inactive" },
+    { label: "Tất cả trạng thái", value: "all" },
+    { label: "Đang kinh doanh", value: "ACTIVE" },
+    { label: "Ngừng kinh doanh", value: "INACTIVE" },
   ];
 
   return (
@@ -134,10 +165,15 @@ export default function ProductsPage() {
         <AdminSearchFilter
           placeholder="Tìm tên sản phẩm, thương hiệu, mã SKU..."
           filter1Placeholder="Tất cả danh mục"
-          filter1Options={categoryFilters}
+          filter1Options={categories}
+          onFilter1Change={(val) => setFilters(f => ({ ...f, categoryId: val }))}
           filter2Placeholder="Trạng thái"
           filter2Options={statusFilters}
+          defaultFilter2Value="ACTIVE"
+          onFilter2Change={(val) => setFilters(f => ({ ...f, status: val }))}
+          onSearch={(val) => setFilters(f => ({ ...f, keyword: val }))}
           onRefresh={fetchProducts}
+          sortOptions={[]}
         />
         
         {isLoading ? (

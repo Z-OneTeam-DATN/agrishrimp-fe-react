@@ -1,18 +1,23 @@
 import { apiJava } from "@/lib/axios";
-import { 
-  ProductListItem, 
-  ProductDetail, 
+import {
+  Attribute,
+  ProductListItem,
+  ProductDetail,
+  CreateProductRequest,
   UpdateProductRequest,
-  ApiResponse // Sử dụng Type từ schema đã import
+  ApiResponse,
 } from "@/app/types/product.schema";
 
 export const ProductService = {
   PREFIX: "/products",
 
-  // 1. Lấy danh sách sản phẩm
-  getAll: async (): Promise<ProductListItem[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}`);
-    // Lưu ý: Nếu backend trả về bọc trong .data.data thì dùng response.data.data
+  // 1. Lấy danh sách sản phẩm (Giữ lại params lọc từ branch local)
+  getAll: async (params?: {
+    keyword?: string;
+    categoryId?: number | string | null;
+    status?: string;
+  }): Promise<ProductListItem[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}`, { params });
     return response.data;
   },
 
@@ -22,9 +27,9 @@ export const ProductService = {
     return response.data;
   },
 
-  // 3. Tạo sản phẩm mới
+  // 3. Tạo sản phẩm mới (Sử dụng multipart/form-data)
   create: async (formData: FormData): Promise<ApiResponse> => {
-    const response = await apiJava.post(`${ProductService.PREFIX}`, formData, {
+    const response = await apiJava.post(`${ProductService.PREFIX}/multipart`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
@@ -42,7 +47,7 @@ export const ProductService = {
     return response.data;
   },
 
-  // 6. Ngừng kinh doanh (Mới từ main)
+  // 6. Ngừng kinh doanh
   disable: async (id: string | number): Promise<ApiResponse> => {
     const response = await apiJava.put(`${ProductService.PREFIX}/${id}/disable`);
     return response.data;
@@ -59,7 +64,7 @@ export const ProductService = {
     return response.data;
   },
 
-  getAttributes: async (): Promise<any[]> => {
+  getAttributes: async (): Promise<Attribute[]> => {
     const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
     return response.data;
   },
