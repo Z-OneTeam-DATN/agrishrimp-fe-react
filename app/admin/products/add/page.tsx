@@ -408,7 +408,7 @@ export default function AddProductPage() {
           rate: Number(uc.rate),
         }));
 
-      const jsonPayload: any = {
+      const productData: any = {
         name: data.name.trim(),
         categoryId: Number(data.categoryId),
         ...(data.brand?.trim() && { brand: data.brand.trim() }),
@@ -416,7 +416,7 @@ export default function AddProductPage() {
         ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
         ...(data.description?.trim() && { description: data.description }),
         ...(data.status && { status: data.status }),
-        variants: variantList.map((v: any) => {
+        variants: variantList.map((v: any, vIdx: number) => {
           const attributeValueIds: number[] = (v.attributeValueIds || [])
             .map((id: any) => Number(id))
             .filter((id: number) => !isNaN(id));
@@ -446,9 +446,25 @@ export default function AddProductPage() {
         }),
       };
 
-      console.log("[DEBUG] Final JSON Payload:", jsonPayload);
+      // Construct FormData to support image uploads
+      const formData = new FormData();
+      formData.append("data", JSON.stringify(productData));
 
-      await ProductService.create(jsonPayload);
+      // Append main product images
+      productImageFiles.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      // Append variant images (with index mapping)
+      variantImageFiles.forEach((file, index) => {
+        if (file) {
+          formData.append(`variantImage_${index}`, file);
+        }
+      });
+
+      console.log("[DEBUG] Submitting FormData with Product Data:", productData);
+
+      await ProductService.create(formData);
       toast.success("Tạo sản phẩm thành công!");
       router.push("/admin/products");
     } catch (error: any) {
