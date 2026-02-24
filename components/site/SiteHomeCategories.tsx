@@ -63,7 +63,7 @@ export default function HomeCategories() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
           {categories.map((cat) => {
-            const linkHref = cat.slug ? `/category/${cat.slug}` : `/category/${cat.id}`;
+            const linkHref = `/category/${cat.id}`;
             const imgSrc = getImageUrl(cat.imageUrl);
 
             return (
