@@ -12,6 +12,7 @@
       <change beforePath="$PROJECT_DIR$/app/admin/receipts/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/receipts/page.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/types/inventory.schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/types/inventory.schema.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/components/inventory/InventoryReceiptTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/inventory/InventoryReceiptTable.tsx" afterDir="false" />
+
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,8 +40,9 @@
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "H:/duan_totnghiep/agrishrimp-fe-react"
+
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="H:\duan_totnghiep\agrishrimp-fe-react\app\admin" />
