@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addressSchema, AddressFormValues } from "@/app/types/address.schema";
-import { Save, ChevronLeft } from "lucide-react";
+import { Save, ChevronLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 interface AddressFormProps {
@@ -11,6 +12,11 @@ interface AddressFormProps {
   onSubmit: (data: AddressFormValues) => void;
   title: string;
   isSubmitting?: boolean;
+}
+
+interface LocationOption {
+  code: number;
+  name: string;
 }
 
 export default function AddressForm({
@@ -22,6 +28,8 @@ export default function AddressForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
@@ -37,7 +45,86 @@ export default function AddressForm({
     },
   });
 
-  // Helper class để input luôn trắng đẹp
+  // ✅ 1. CÁC STATE LƯU TRỮ DỮ LIỆU TỪ API CÔNG KHAI
+  const [provinces, setProvinces] = useState<LocationOption[]>([]);
+  const [districts, setDistricts] = useState<LocationOption[]>([]);
+  const [wards, setWards] = useState<LocationOption[]>([]);
+  const [loadingLoc, setLoadingLoc] = useState(false);
+
+  // Theo dõi giá trị các ô Select
+  const provinceId = watch("provinceId");
+  const districtId = watch("districtId");
+  const wardId = watch("wardId");
+  const specificAddress = watch("specificAddress");
+
+  // ✅ 2. GỌI API LẤY 63 TỈNH THÀNH
+  useEffect(() => {
+    fetch("https://provinces.open-api.vn/api/p/")
+      .then((res) => res.json())
+      .then((data) => setProvinces(data))
+      .catch((err) => console.error("Lỗi tải tỉnh thành:", err));
+  }, []);
+
+  // ✅ 3. GỌI API LẤY QUẬN/HUYỆN KHI ĐỔI TỈNH
+  useEffect(() => {
+    if (provinceId) {
+      setLoadingLoc(true);
+      fetch(`https://provinces.open-api.vn/api/p/${provinceId}?depth=2`)
+        .then((res) => res.json())
+        .then((data) => {
+          setDistricts(data.districts || []);
+          setLoadingLoc(false);
+        })
+        .catch(() => setLoadingLoc(false));
+    } else {
+      setDistricts([]);
+    }
+  }, [provinceId]);
+
+  // ✅ 4. GỌI API LẤY PHƯỜNG/XÃ KHI ĐỔI QUẬN/HUYỆN
+  useEffect(() => {
+    if (districtId) {
+      setLoadingLoc(true);
+      fetch(`https://provinces.open-api.vn/api/d/${districtId}?depth=2`)
+        .then((res) => res.json())
+        .then((data) => {
+          setWards(data.wards || []);
+          setLoadingLoc(false);
+        })
+        .catch(() => setLoadingLoc(false));
+    } else {
+      setWards([]);
+    }
+  }, [districtId]);
+
+  // ✅ 5. LOGIC TỰ ĐỘNG ĐIỀN CHUỖI ĐỊA CHỈ CHI TIẾT
+  useEffect(() => {
+    // Nếu chọn đủ cả 3 cấp thì bắt đầu tự ghép chuỗi
+    if (provinceId && districtId && wardId) {
+      const selectedProvince = provinces.find((p) => p.code.toString() === provinceId.toString());
+      const selectedDistrict = districts.find((d) => d.code.toString() === districtId.toString());
+      const selectedWard = wards.find((w) => w.code.toString() === wardId.toString());
+
+      if (selectedProvince && selectedDistrict && selectedWard) {
+        // Tạo chuỗi: "Phường X, Quận Y, Tỉnh Z"
+        const autoString = `${selectedWard.name}, ${selectedDistrict.name}, ${selectedProvince.name}`;
+        
+        // Cắt bỏ phần đuôi cũ (nếu có) để không bị lặp lại khi người dùng đổi Tỉnh/Huyện nhiều lần
+        const currentStreet = specificAddress?.split(",")[0]?.trim() || "";
+        
+        // Ghép số nhà người dùng đã gõ (nếu có) với chuỗi Phường/Quận/Tỉnh mới
+        const newAddress = currentStreet && currentStreet !== selectedWard.name 
+          ? `${currentStreet}, ${autoString}` 
+          : autoString;
+        
+        // Điền vào Form
+        setValue("specificAddress", newAddress, { shouldValidate: true });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wardId, provinces, districts, wards]); // Kích hoạt khi chọn xong Phường/Xã
+
+  // Helper CSS class
   const getInputClass = (hasError: boolean) => `
     w-full px-4 h-12 border rounded-lg text-sm outline-none transition-all
     bg-white text-gray-900 placeholder:text-gray-400
@@ -62,16 +149,10 @@ export default function AddressForm({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6 pb-20">
-        {" "}
-        {/* Changed space-y-5 to space-y-6, added pb-20 */}
         {/* Họ tên & SĐT */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {" "}
-          {/* Changed gap-5 to gap-4 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              {" "}
-              {/* Changed mb-1 to mb-2 */}
               Họ và tên <span className="text-red-500">*</span>
             </label>
             <input
@@ -87,8 +168,6 @@ export default function AddressForm({
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              {" "}
-              {/* Changed mb-1 to mb-2 */}
               Số điện thoại <span className="text-red-500">*</span>
             </label>
             <input
@@ -103,22 +182,33 @@ export default function AddressForm({
             )}
           </div>
         </div>
+
         {/* Địa chính (Tỉnh/Huyện/Xã) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {" "}
-          {/* Changed gap-5 to gap-4 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+          {/* Hiệu ứng loading nhỏ khi fetch API */}
+          {loadingLoc && (
+            <div className="absolute -top-6 right-0 flex items-center text-xs text-[#329965]">
+              <Loader2 size={14} className="animate-spin mr-1" /> Đang tải dữ liệu...
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
               Tỉnh/Thành <span className="text-red-500">*</span>
-            </label>{" "}
-            {/* Changed mb-1 to mb-2 */}
+            </label>
             <select
-              {...register("provinceId")}
+              {...register("provinceId", {
+                onChange: () => {
+                  setValue("districtId", ""); // Reset Quận/Huyện
+                  setValue("wardId", "");     // Reset Phường/Xã
+                },
+              })}
               className={getInputClass(!!errors.provinceId)}
             >
               <option value="">Chọn Tỉnh/Thành</option>
-              <option value="CT">Cần Thơ</option>
-              <option value="HCM">Hồ Chí Minh</option>
+              {provinces.map((p) => (
+                <option key={p.code} value={p.code}>{p.name}</option>
+              ))}
             </select>
             {errors.provinceId && (
               <span className="text-xs text-red-500 mt-1 block">
@@ -126,18 +216,24 @@ export default function AddressForm({
               </span>
             )}
           </div>
+
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
               Quận/Huyện <span className="text-red-500">*</span>
-            </label>{" "}
-            {/* Changed mb-1 to mb-2 */}
+            </label>
             <select
-              {...register("districtId")}
-              className={getInputClass(!!errors.districtId)}
+              {...register("districtId", {
+                onChange: () => {
+                  setValue("wardId", ""); // Reset Phường/Xã
+                },
+              })}
+              disabled={!provinceId}
+              className={`${getInputClass(!!errors.districtId)} disabled:bg-gray-100 disabled:text-gray-400`}
             >
               <option value="">Chọn Quận/Huyện</option>
-              <option value="NK">Ninh Kiều</option>
-              <option value="CR">Cái Răng</option>
+              {districts.map((d) => (
+                <option key={d.code} value={d.code}>{d.name}</option>
+              ))}
             </select>
             {errors.districtId && (
               <span className="text-xs text-red-500 mt-1 block">
@@ -145,18 +241,20 @@ export default function AddressForm({
               </span>
             )}
           </div>
+
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
               Phường/Xã <span className="text-red-500">*</span>
-            </label>{" "}
-            {/* Changed mb-1 to mb-2 */}
+            </label>
             <select
               {...register("wardId")}
-              className={getInputClass(!!errors.wardId)}
+              disabled={!districtId}
+              className={`${getInputClass(!!errors.wardId)} disabled:bg-gray-100 disabled:text-gray-400`}
             >
               <option value="">Chọn Phường/Xã</option>
-              <option value="XK">Xuân Khánh</option>
-              <option value="HL">Hưng Lợi</option>
+              {wards.map((w) => (
+                <option key={w.code} value={w.code}>{w.name}</option>
+              ))}
             </select>
             {errors.wardId && (
               <span className="text-xs text-red-500 mt-1 block">
@@ -165,18 +263,17 @@ export default function AddressForm({
             )}
           </div>
         </div>
+
         {/* Địa chỉ cụ thể */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
-            {" "}
-            {/* Changed mb-1 to mb-2 */}
             Địa chỉ cụ thể <span className="text-red-500">*</span>
           </label>
           <textarea
             {...register("specificAddress")}
-            rows={3} // Increased rows for better mobile input
+            rows={3}
             className={getInputClass(!!errors.specificAddress)}
-            placeholder="Số nhà, tên đường, tòa nhà..."
+            placeholder="Ví dụ: Số 123 Đường 3/2"
           ></textarea>
           {errors.specificAddress && (
             <span className="text-xs text-red-500 mt-1 block">
@@ -184,29 +281,26 @@ export default function AddressForm({
             </span>
           )}
         </div>
+
         {/* Loại địa chỉ & Mặc định */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
             Cài đặt địa chỉ:
           </label>
           <div className="flex flex-wrap gap-3">
-            {" "}
-            {/* Changed from flex-col md:flex-row gap-6 */}
             <div className="flex-1">
-              {" "}
-              {/* Wrap address type radios in a div */}
               <div className="flex gap-3">
                 {["Home", "Office"].map((type) => (
                   <label
                     key={type}
                     className={`
-                                flex-1 text-center py-2 px-4 rounded-lg border cursor-pointer transition-colors h-12
-                                ${
-                                  initialValues?.addressType === type
-                                    ? "bg-[#eafef9] border-[#2d9f8d] text-[#2d9f8d] font-bold"
-                                    : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
-                                }
-                            `}
+                        flex-1 text-center py-2 px-4 rounded-lg border cursor-pointer transition-colors h-12 flex items-center justify-center
+                        ${
+                          watch("addressType") === type
+                            ? "bg-[#eafef9] border-[#2d9f8d] text-[#2d9f8d] font-bold"
+                            : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
+                        }
+                    `}
                   >
                     <input
                       type="radio"
@@ -233,6 +327,7 @@ export default function AddressForm({
             </label>
           </div>
         </div>
+
         {/* Sticky Footer Actions */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-lg lg:relative lg:p-0 lg:bg-transparent lg:shadow-none z-10">
           <div className="flex gap-3">
@@ -249,7 +344,8 @@ export default function AddressForm({
               disabled={isSubmitting}
               className="flex-1 h-12 text-sm font-bold text-white bg-[#329965] hover:bg-[#268050] rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70"
             >
-              <Save size={18} /> {isSubmitting ? "Đang lưu..." : "Lưu địa chỉ"}
+              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} 
+              {isSubmitting ? "Đang lưu..." : "Lưu địa chỉ"}
             </button>
           </div>
         </div>

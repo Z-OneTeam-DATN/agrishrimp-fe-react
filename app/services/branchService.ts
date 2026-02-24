@@ -32,5 +32,10 @@ export const branchService = {
   getAllStaff: async () => {
     const response = await apiJava.get(`/users`);
     return response.data;
-  }
+  },
+
+  checkStock: async (items: { variantId: number; quantity: number }[]) => {
+    const res = await apiJava.post("/branches/check-stock", items);
+    return res.data;
+  },
 };

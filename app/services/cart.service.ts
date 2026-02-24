@@ -1,7 +1,7 @@
 import { apiJava } from "@/lib/axios";
 
 export const cartService = {
-  PREFIX: "/api/cart",
+  PREFIX: "/cart",
 
   // 1. Lấy giỏ hàng hiện tại
   getMyCart: async () => {
