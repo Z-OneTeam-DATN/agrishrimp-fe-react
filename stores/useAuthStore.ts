@@ -1,6 +1,12 @@
 import { AuthResponse } from "@/app/types/auth.schema";
 import { UserType } from "@/app/types/user.schema";
 import { create } from "zustand";
+import { jwtDecode } from "jwt-decode";
+
+interface CustomJwtPayload {
+  warehouseId?: number;
+  [key: string]: any;
+}
 
 interface AuthStore {
   user?: UserType;
@@ -8,6 +14,7 @@ interface AuthStore {
   refreshToken?: string | null;
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
+  warehouseId: number | null;
   setAccessToken: (token: string | null) => void;
   setRefreshToken: (token: string | null) => void;
   setAccessAndRefreshToken: (data: AuthResponse) => void;
@@ -23,11 +30,30 @@ export const useAuthStore = create<AuthStore>((set) => ({
   refreshToken: null,
   isAuthenticated: false,
   isLoadingAuth: true,
-  setAccessToken: (accessToken) =>
-    set({ accessToken, isAuthenticated: !!accessToken }),
+  warehouseId: null,
+  setAccessToken: (accessToken) => {
+    let warehouseId = null;
+    if (accessToken) {
+      try {
+        const decoded = jwtDecode<CustomJwtPayload>(accessToken);
+        warehouseId = decoded.warehouseId || null;
+      } catch (e) {
+        console.error("Error decoding token", e);
+      }
+    }
+    set({ accessToken, isAuthenticated: !!accessToken, warehouseId });
+  },
   setRefreshToken: (refreshToken) => set({ refreshToken }),
   setAccessAndRefreshToken: (data: AuthResponse) =>
     set((state) => {
+      let warehouseId = null;
+      try {
+        const decoded = jwtDecode<CustomJwtPayload>(data.accessToken);
+        warehouseId = decoded.warehouseId || null;
+      } catch (e) {
+        console.error("Error decoding token in setAccessAndRefreshToken", e);
+      }
+
       // Merge current user with new data from refresh/login
       const updatedUser = {
         ...(state.user || {}),
@@ -39,6 +65,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         mustChangePassword: data.mustChangePassword ?? state.user?.mustChangePassword,
         // Only update role if it's not already a rich object, or keep existing rich object
         role: typeof state.user?.role === "object" ? state.user.role : data.role,
+        branch: data.branch || state.user?.branch || (warehouseId ? { id: warehouseId, name: "" } : undefined),
         avatar: data.avatarUrl
           ? { imageUrl: data.avatarUrl }
           : state.user?.avatar,
@@ -49,6 +76,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         refreshToken: data.refreshToken,
         isAuthenticated: true,
         isLoadingAuth: false,
+        warehouseId: warehouseId || state.warehouseId,
         user: updatedUser as UserType,
       };
     }),
@@ -80,5 +108,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
       user: undefined,
       isAuthenticated: false,
       isLoadingAuth: false,
+      warehouseId: null,
     }),
 }));

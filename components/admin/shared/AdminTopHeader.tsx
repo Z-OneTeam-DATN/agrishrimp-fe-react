@@ -28,13 +28,24 @@ import Link from "next/link";
 import { useLogout } from "@/hooks/use-logout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useQuery } from "@tanstack/react-query";
+import { branchService } from "@/app/services/branchService";
 
 export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
-  const { data: user, isLoading } = useCurrentUser();
+  const { data: user, isLoading: isUserLoading } = useCurrentUser();
   const { hasPermission } = usePermissions();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
+
+  // Lấy danh sách chi nhánh để ánh xạ ID sang tên (theo yêu cầu backend)
+  const { data: branches, isLoading: isBranchesLoading } = useQuery({
+    queryKey: ["branches"],
+    queryFn: () => branchService.getAll(),
+    staleTime: 1000 * 60 * 30, // Cache 30 phút vì danh sách chi nhánh ít thay đổi
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -43,7 +54,7 @@ export default function AdminTopHeader() {
   }, []);
 
   const getUserDisplayName = () => {
-    if (isLoading) return "Đang tải...";
+    if (isUserLoading) return "Đang tải...";
     if (!user) return "Admin";
     return (
       user.fullName ||
@@ -78,10 +89,34 @@ export default function AdminTopHeader() {
     return user?.role || "Quản trị viên";
   };
 
+  const getUserBranchName = () => {
+    if (isUserLoading || isBranchesLoading) return "Đang tải...";
+    
+    // 1. Ưu tiên lấy tên từ object branch trong profile (nếu backend có trả về)
+    if (user?.branch?.name) return user.branch.name;
+
+    // 2. Tra cứu trong danh sách chi nhánh đã fetch dựa trên warehouseId (JWT)
+    if (warehouseId && branches) {
+      const branchList = Array.isArray(branches) ? branches : (branches as any).content || [];
+      const currentBranch = branchList.find((b: any) => b.id === warehouseId);
+      if (currentBranch) return currentBranch.name;
+    }
+
+    // 3. Dự phòng logic mặc định nếu không tìm thấy ánh xạ
+    if (warehouseId === 1) return "Kho Tổng Cần Thơ";
+    
+    const roleSlug = typeof user?.role === "object" ? user.role?.slug : user?.role;
+    if (roleSlug?.toLowerCase() === "admin") {
+      return "Kho Tổng Cần Thơ";
+    }
+
+    return warehouseId ? `Chi Nhánh (ID: ${warehouseId})` : "Đang xác định chi nhánh...";
+  };
+
   return (
     <header className="h-[64px] border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-6 flex-1">
-        {/* ... (Logo section) */}
+        {/* Logo Section - Modernized */}
         <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
           <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 shadow-sm ring-4 ring-slate-50">
             <img
@@ -120,7 +155,7 @@ export default function AdminTopHeader() {
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full">
           <MapPin size={14} className="text-emerald-600" />
           <span className="text-[12px] font-bold text-emerald-700">
-            Hệ thống tổng
+            {getUserBranchName()}
           </span>
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></div>
         </div>
