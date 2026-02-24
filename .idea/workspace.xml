@@ -5,10 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="313242ed-54fc-41f1-8cb5-04cbd7647994" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/services/home.service.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/product/[id]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/product/[id]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/admin/branches/add/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/branches/add/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/types/admin.schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/types/admin.schema.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -20,7 +19,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "git-widget-placeholder": "feature/receipt-payment-logic-ui"
+    "git-widget-placeholder": "feature/product-detail-ui"
   }
 }]]></component>
   <component name="TaskManager">
