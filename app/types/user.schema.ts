@@ -90,6 +90,10 @@ export type UserType = z.infer<typeof BaseUserSchema> & {
     displayName: string;
     permissions?: string[];
   };
+  branch?: {
+    id: number;
+    name: string;
+  };
   permissions?: string[];
   mustChangePassword?: boolean;
 };
