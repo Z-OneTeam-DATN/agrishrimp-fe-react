@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation"; // 1. Import useRouter để điều hướng
 import {
   Pencil,
   Trash2,
@@ -47,12 +48,15 @@ export function AdminTransferTable({
   selectedIds,
   onSelectionChange,
 }: AdminTransferTableProps) {
+  const router = useRouter(); // 2. Khởi tạo router
+
   // 7. Cố định màu chuẩn ERP
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "PENDING":
         return "bg-amber-50 text-amber-600 border-amber-100"; // Chờ xuất - Vàng
       case "TRANSIT":
+      case "SHIPPING": // Thêm trường hợp SHIPPING nếu backend trả về tên này
         return "bg-blue-50 text-blue-600 border-blue-100"; // Đang chuyển - Xanh dương
       case "COMPLETED":
         return "bg-emerald-50 text-emerald-600 border-emerald-100"; // Đã nhận - Xanh lá
@@ -68,6 +72,7 @@ export function AdminTransferTable({
       case "PENDING":
         return "CHỜ XUẤT KHO";
       case "TRANSIT":
+      case "SHIPPING":
         return "ĐANG CHUYỂN";
       case "COMPLETED":
         return "ĐÃ NHẬN";
@@ -106,6 +111,11 @@ export function AdminTransferTable({
     } else {
       onSelectionChange(data.map((item) => item.id));
     }
+  };
+
+  // 3. Hàm xử lý khi nhấn xem chi tiết
+  const handleViewDetail = (id: any) => {
+    router.push(`/admin/transfers/${id}`);
   };
 
   return (
@@ -160,6 +170,8 @@ export function AdminTransferTable({
               return (
                 <TableRow
                   key={item.id}
+                  // 4. Gắn sự kiện click vào Row để xem chi tiết
+                  onClick={() => handleViewDetail(item.id)}
                   className={cn(
                     "hover:bg-blue-50/20 border-b border-[#eee] transition-colors cursor-pointer group",
                     selectedIds.includes(item.id) && "bg-blue-50",
@@ -169,17 +181,17 @@ export function AdminTransferTable({
                     <Checkbox
                       checked={selectedIds.includes(item.id)}
                       onCheckedChange={() => toggleSelect(item.id)}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()} // Ngăn chặn nhảy trang khi click checkbox
                     />
                   </TableCell>
 
                   <TableCell className="p-2 whitespace-nowrap">
                     <div className="flex flex-col">
                       <span className="text-[#1f1f1f] font-black text-[13px] tracking-tighter uppercase">
-                        {item.code}
+                        {item.transferCode || item.code}
                       </span>
                       <span className="text-slate-400 text-[10px] font-bold">
-                        {item.date}
+                        {item.date || new Date(item.createdAt).toLocaleDateString('vi-VN')}
                       </span>
                     </div>
                   </TableCell>
@@ -188,7 +200,7 @@ export function AdminTransferTable({
                     <div
                       className={cn(
                         "flex items-center gap-1.5",
-                        getPriorityStyle(item.priority),
+                        getStatusStyle(item.status), // Sử dụng màu status cho đồng bộ hoặc giữ nguyên getPriorityStyle
                       )}
                     >
                       <div
@@ -215,11 +227,11 @@ export function AdminTransferTable({
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[11px] font-bold text-slate-500 uppercase">
-                          {item.fromWarehouse}
+                          {item.fromBranchName || item.fromWarehouse}
                         </span>
                         <ArrowRight size={10} className="text-slate-300" />
                         <span className="text-[11px] font-black text-slate-800 uppercase tracking-tighter">
-                          {item.toWarehouse}
+                          {item.toBranchName || item.toWarehouse}
                         </span>
                       </div>
                       <div
@@ -228,7 +240,7 @@ export function AdminTransferTable({
                           item.isOverdue ? "text-rose-600" : "text-slate-400",
                         )}
                       >
-                        <Clock size={10} /> {item.age}
+                        <Clock size={10} /> {item.age || 'Vừa xong'}
                       </div>
                     </div>
                   </TableCell>
@@ -242,7 +254,7 @@ export function AdminTransferTable({
                           : "border-slate-200 text-slate-600",
                       )}
                     >
-                      {item.deadline}
+                      {item.deadline ? new Date(item.deadline).toLocaleDateString('vi-VN') : '--'}
                     </div>
                   </TableCell>
 
@@ -250,7 +262,7 @@ export function AdminTransferTable({
                     <div className="flex items-center gap-1.5">
                       <Truck size={12} className="text-slate-300 shrink-0" />
                       <span className="text-[11px] font-bold text-slate-600 leading-tight truncate">
-                        {item.transporter}
+                        {item.transporter || 'Chưa cập nhật'}
                       </span>
                     </div>
                   </TableCell>
@@ -258,7 +270,7 @@ export function AdminTransferTable({
                   <TableCell className="p-2 text-right whitespace-nowrap">
                     <div className="flex flex-col items-end">
                       <span className="text-[13px] font-black text-slate-800 tracking-tighter">
-                        {item.totalQty} SP
+                        {item.totalQuantity || item.totalQty} SP
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase">
                         ({item.itemCount} mặt hàng)
@@ -271,7 +283,7 @@ export function AdminTransferTable({
                       <span className="text-[12px] font-black text-slate-700">
                         {formatNumber(item.totalValue)}
                       </span>
-                      {item.isHighValue && (
+                      {item.totalValue > 10000000 && (
                         <Tooltip>
                           <TooltipTrigger>
                             <DollarSign
@@ -301,23 +313,19 @@ export function AdminTransferTable({
                           {getStatusLabel(item.status)}
                         </span>
                       </TooltipTrigger>
-                      {/* 5. Tooltip Nhật ký nhanh */}
+                      {/* 5. Tooltip Nhật ký nhanh - Đã fix lỗi Hydration (div -> span) */}
                       <TooltipContent className="bg-slate-900 border-none p-2 rounded-none">
                         <div className="space-y-1.5">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-1">
                             Nhật ký xử lý:
                           </p>
                           <p className="text-[10px] text-white flex items-center gap-2">
-                            <div className="w-1 h-1 bg-emerald-500 rounded-full" />{" "}
-                            Lập phiếu: 12/02 08:10
+                            <span className="w-1 h-1 bg-emerald-500 rounded-full inline-block" />
+                            Lập phiếu: {new Date(item.createdAt).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
                           </p>
                           <p className="text-[10px] text-white flex items-center gap-2">
-                            <div className="w-1 h-1 bg-blue-500 rounded-full" />{" "}
-                            Xuất kho: 12/02 10:30
-                          </p>
-                          <p className="text-[10px] text-slate-400 flex items-center gap-2">
-                            <div className="w-1 h-1 bg-slate-600 rounded-full" />{" "}
-                            Đang chuyển...
+                            <span className="w-1 h-1 bg-blue-500 rounded-full inline-block" />
+                            Trạng thái: {item.status}
                           </p>
                         </div>
                       </TooltipContent>
@@ -326,7 +334,7 @@ export function AdminTransferTable({
 
                   <TableCell
                     className="p-2 text-right pr-4 whitespace-nowrap"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()} // Ngăn nhảy trang khi click cụm nút hành động
                   >
                     <div className="flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                       <Button
@@ -334,6 +342,7 @@ export function AdminTransferTable({
                         size="icon"
                         className="h-7 w-7 hover:bg-slate-100"
                         title="Xem chi tiết"
+                        onClick={() => handleViewDetail(item.id)} // 5. Nút icon xem chi tiết
                       >
                         <Eye size={14} className="text-slate-600" />
                       </Button>
