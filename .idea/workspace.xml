@@ -4,15 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372a3868-29d7-4326-9678-0fc43de912ff" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/services/inventory.service.ts" afterDir="false" />
+    <list default="true" id="313242ed-54fc-41f1-8cb5-04cbd7647994" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/admin/branches/add/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/branches/add/page.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/admin/receipts/new/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/receipts/new/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/admin/receipts/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/admin/receipts/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/types/inventory.schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/types/inventory.schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/inventory/InventoryReceiptTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/inventory/InventoryReceiptTable.tsx" afterDir="false" />
-
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,58 +16,12 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo">{
-  &quot;associatedIndex&quot;: 1
-}</component>
-  <component name="ProjectId" id="39CKDgS7YrWopRA2zMKBK843s93" />
-  <component name="ProjectViewState">
-    <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showLibraryContents" value="true" />
-  </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "feature/productmanager",
-    "ignore.virus.scanning.warn.message": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "H:/duan_totnghiep/agrishrimp-fe-react"
-
+    "git-widget-placeholder": "feature/receipt-payment-logic-ui"
   }
-}</component>
-  <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="H:\duan_totnghiep\agrishrimp-fe-react\app\admin" />
-      <recent name="H:\duan_totnghiep\agrishrimp-fe-react\components\admin\order-manager" />
-      <recent name="D:\DuAnTotNghiep\agrishrimp-fe\agrishrimp-fe-react\app\admin\branches\edit\[id]" />
-      <recent name="H:\duan_totnghiep\agrishrimp-fe-react\app\user" />
-    </key>
-  </component>
-  <component name="SharedIndexes">
-    <attachedChunks>
-      <set>
-        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.138" />
-      </set>
-    </attachedChunks>
-  </component>
+}]]></component>
   <component name="TaskManager">
-    <task active="true" id="Default" summary="Default task">
-      <changelist id="372a3868-29d7-4326-9678-0fc43de912ff" name="Changes" comment="" />
-      <created>1770194494691</created>
-      <option name="number" value="Default" />
-      <option name="presentableId" value="Default" />
-      <updated>1770194494691</updated>
-    </task>
     <servers />
-  </component>
-  <component name="github-copilot-workspace">
-    <instructionFileLocations>
-      <option value=".github/instructions" />
-    </instructionFileLocations>
-    <promptFileLocations>
-      <option value=".github/prompts" />
-    </promptFileLocations>
   </component>
 </project>
