@@ -34,8 +34,6 @@ const statusFilters = [
 export default function AdminReceiptListPage() {
   const [receipts, setReceipts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // --- STATE QUẢN LÝ XÓA PHIẾU ---
   const [deleteReceipt, setDeleteReceipt] = useState<{id: number, code: string} | null>(null);
 
   const fetchReceipts = async () => {
@@ -44,18 +42,27 @@ export default function AdminReceiptListPage() {
       const data = await InventoryApiService.getAllReceipts();
       const rawData = Array.isArray(data) ? data : (data?.content || []);
 
-      const formattedData = rawData.map((item: any) => ({
-        id: item.id,
-        code: item.code || `PNK-${item.id}`,
-        date: item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chưa xác định",
-        supplier: item.supplierName || "N/A",
-        warehouse: item.branchName || "Kho mặc định",
-        total: item.totalAmount || 0,
-        paid: item.paymentAmount || 0,
-        debt: item.debtAmount || 0,
-        status: item.status || "PO",
-        creator: item.deliverer || "Hệ thống",
-      }));
+      const formattedData = rawData.map((item: any) => {
+        // LOGIC: Nếu không có supplierName (hoặc là N/A) và là phiếu nội bộ, hiện tên kho nguồn
+        let displayPartner = item.supplierName;
+        if (!displayPartner || displayPartner === "N/A") {
+          displayPartner = item.importType === "INTERNAL" ? "[Nội bộ] Kho điều chuyển" : "N/A";
+        }
+
+        return {
+          id: item.id,
+          code: item.code || `PNK-${item.id}`,
+          date: item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chưa xác định",
+          supplier: displayPartner,
+          importType: item.importType, // Giữ lại để Table xử lý style
+          warehouse: item.branchName || "Kho mặc định",
+          total: item.totalAmount || 0,
+          paid: item.paymentAmount || 0,
+          debt: item.debtAmount || 0,
+          status: item.status || "PO",
+          creator: item.deliverer || "Hệ thống",
+        };
+      });
 
       setReceipts(formattedData);
     } catch (error: any) {
@@ -69,14 +76,12 @@ export default function AdminReceiptListPage() {
     fetchReceipts();
   }, []);
 
-  // --- HÀM XÁC NHẬN XÓA ---
   const confirmDelete = async () => {
     if (!deleteReceipt) return;
-
     try {
       await InventoryApiService.deleteReceipt(deleteReceipt.id.toString());
       toast.success(`Đã xóa phiếu nhập "${deleteReceipt.code}" thành công!`);
-      fetchReceipts(); // Cập nhật lại danh sách sau khi xóa
+      fetchReceipts();
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi khi xóa phiếu nhập!");
     } finally {
@@ -125,7 +130,6 @@ export default function AdminReceiptListPage() {
         )}
       </div>
 
-      {/* --- HỘP THOẠI XÁC NHẬN XÓA --- */}
       <AlertDialog open={!!deleteReceipt} onOpenChange={() => setDeleteReceipt(null)}>
         <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">
           <AlertDialogHeader>

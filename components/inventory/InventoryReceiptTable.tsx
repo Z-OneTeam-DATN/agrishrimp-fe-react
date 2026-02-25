@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 
-// Khai báo prop onDeleteClick để truyền từ component cha xuống
 interface InventoryReceiptTableProps {
   receipts: any[];
   onDeleteClick: (id: number, code: string) => void;
@@ -47,11 +46,7 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
   };
 
   const totalAmount = receipts.reduce((acc, item) => acc + (item.total || 0), 0);
-
-  // Đã bỏ điều kiện if (item.status === "COMPLETED"), giờ sẽ tính tổng nợ của TẤT CẢ các phiếu
-  const totalDebt = receipts.reduce((acc, item) => {
-    return acc + (item.debt || 0);
-  }, 0);
+  const totalDebt = receipts.reduce((acc, item) => acc + (item.debt || 0), 0);
 
   return (
     <div className="w-full">
@@ -61,7 +56,7 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
             <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
               <TableHead className="w-[100px] font-bold text-[11px] uppercase p-2 pl-6 text-[#1f1f1f]">ID</TableHead>
               <TableHead className="font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Phiếu & Thời gian</TableHead>
-              <TableHead className="font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Nhà cung cấp</TableHead>
+              <TableHead className="font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Đối tác / Nhà cung cấp</TableHead>
               <TableHead className="w-[180px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Kho nhập</TableHead>
               <TableHead className="w-[150px] text-right font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Tổng giá trị</TableHead>
               <TableHead className="w-[150px] text-right font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Còn nợ</TableHead>
@@ -72,6 +67,7 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
           <TableBody>
             {receipts.map((item: any) => {
               const isPending = item.status === "PENDING" || item.status === "PO";
+              const isInternal = item.importType === "INTERNAL";
 
               return (
                 <TableRow key={item.code} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer group">
@@ -79,19 +75,37 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
 
                   <TableCell className="p-2">
                     <div className="flex flex-col">
-                      <span className="text-[13px] font-black text-slate-800 uppercase tracking-tighter flex items-center gap-1.5"><FileText size={14} className="text-blue-500" /> {item.code}</span>
-                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1"><Calendar size={10} className="text-slate-300" /> {item.date}</span>
+                      <span className="text-[13px] font-black text-slate-800 uppercase tracking-tighter flex items-center gap-1.5">
+                        <FileText size={14} className={isInternal ? "text-orange-500" : "text-blue-500"} />
+                        {item.code}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
+                        <Calendar size={10} className="text-slate-300" /> {item.date}
+                      </span>
                     </div>
                   </TableCell>
 
                   <TableCell className="p-2">
                     <div className="flex flex-col">
-                      <span className="text-[13px] font-bold text-slate-700 leading-tight">{item.supplier}</span>
-                      <span className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1"><User size={10} /> Người tạo: {item.creator || "N/A"}</span>
+                      {/* Highlight màu xanh cho phiếu nội bộ */}
+                      <span className={cn(
+                        "text-[13px] font-bold leading-tight",
+                        isInternal ? "text-blue-600" : "text-slate-700"
+                      )}>
+                        {item.supplier}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
+                        <User size={10} /> Người tạo: {item.creator || "N/A"}
+                      </span>
                     </div>
                   </TableCell>
 
-                  <TableCell className="p-2"><div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold"><Warehouse size={12} className="text-slate-400" /> {item.warehouse}</div></TableCell>
+                  <TableCell className="p-2">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold">
+                      <Warehouse size={12} className="text-slate-400" /> {item.warehouse}
+                    </div>
+                  </TableCell>
+
                   <TableCell className="p-2 text-right text-[14px] font-black text-slate-900">{formatNumber(item.total || 0)}</TableCell>
 
                   <TableCell className="p-2 text-right">
@@ -102,10 +116,10 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
 
                   <TableCell className="p-2 text-center">
                     <span className={cn("text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase", getStatusStyle(item.status))}>
-                      {item.status === "COMPLETED" || item.status === "IMPORTED" 
-                        ? "Đã nhập kho" 
-                        : (item.status === "PENDING" || item.status === "PO") 
-                        ? "Đặt hàng" 
+                      {item.status === "COMPLETED" || item.status === "IMPORTED"
+                        ? "Đã nhập kho"
+                        : isPending
+                        ? "Đặt hàng"
                         : "Đã hủy"}
                     </span>
                   </TableCell>
@@ -156,7 +170,6 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
         </Table>
       </div>
 
-      {/* Footer Pagination */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
         <div className="flex items-center gap-6">
           <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Tổng cộng {receipts.length} phiếu nhập</p>
