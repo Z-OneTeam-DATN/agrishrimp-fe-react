@@ -17,10 +17,9 @@ export default function StoreLayout({
 
   // Map path to breadcrumb name
   const getBreadcrumbName = (path: string) => {
-    if (path === "/store") return "Cửa hàng";
+    if (path === "/store" || path === "/account") return "Tài khoản";
     if (path.includes("/about")) return "Giới thiệu AgriShrimp";
     if (path.includes("/account")) return "Tài khoản";
-    if (path.includes("/clinic-policy")) return "Chính sách khách hàng Clinic";
     if (path.includes("/contact")) return "Liên hệ";
     if (path.includes("/cookie-policy")) return "Chính sách cookie";
     if (path.includes("/ordering")) return "Hướng dẫn đặt hàng";
@@ -66,10 +65,10 @@ export default function StoreLayout({
           </Link>
           <ChevronRight size={14} className="mx-2" />
           <Link
-            href="/store"
+            href="/account"
             className="hover:text-[#329965] hover:underline transition-colors"
           >
-            Cửa hàng
+            Tài khoản
           </Link>
           <ChevronRight size={14} className="mx-2" />
           <span className="font-bold text-gray-800">

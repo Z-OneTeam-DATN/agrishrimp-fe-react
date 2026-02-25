@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
-import axios from "axios";
 import {
-  Filter, List, X, SlidersHorizontal, Loader2, PackageX
+  Filter, List, X, SlidersHorizontal, Loader2, PackageX, LayoutGrid
 } from "lucide-react";
 import ProductCard from "@/components/ui/product-card";
 import { ProductListItem } from "@/app/types/product.schema";
+import { getPublicCategories } from "@/app/services/CategoryService";
+import { PublicProductService } from "@/app/services/publicProduct.service";
+import { CategoryDTO } from "@/app/types/category.type";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('vi-VN', {
@@ -25,23 +27,20 @@ export default function CategoryPage() {
   const currentCategoryId = params.id as string;
 
   // --- STATE ---
-  const [allCategories, setAllCategories] = useState<any[]>([]);
-  const [subCategories, setSubCategories] = useState<any[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryDTO[]>([]);
+  const [subCategories, setSubCategories] = useState<CategoryDTO[]>([]);
   const [currentCategoryName, setCurrentCategoryName] = useState("Tất cả sản phẩm");
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
-  // State lọc giá
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
-  const [appliedRange, setAppliedRange] = useState<[number, number]>([0, 10000000]);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
 
   // 1. Tải danh mục
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await axios.get("http://localhost:8080/api/categories");
-        setAllCategories(res.data);
+        const data = await getPublicCategories();
+        setAllCategories(data);
       } catch (error) {
         console.error("Lỗi danh mục:", error);
       }
@@ -53,10 +52,18 @@ export default function CategoryPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       if (!currentCategoryId) return;
+      
+      const idNum = Number(currentCategoryId);
+      if (isNaN(idNum)) {
+        console.error("Invalid category ID, redirecting...");
+        router.push("/san-pham");
+        return;
+      }
+
       setIsLoadingProducts(true);
       try {
-        const res = await axios.get(`http://localhost:8080/api/products?categoryId=${currentCategoryId}`);
-        setProducts(res.data);
+        const data = await PublicProductService.getByCategory(idNum);
+        setProducts(data || []);
       } catch (error) {
         console.error("Lỗi sản phẩm:", error);
         setProducts([]);
@@ -65,7 +72,7 @@ export default function CategoryPage() {
       }
     };
     fetchProducts();
-  }, [currentCategoryId]);
+  }, [currentCategoryId, router]);
 
   // 3. Xử lý logic hiển thị Sidebar
   useEffect(() => {
@@ -82,26 +89,10 @@ export default function CategoryPage() {
     }
   }, [allCategories, currentCategoryId]);
 
-  // --- XỬ LÝ LỌC GIÁ ---
-  const handleInputChange = (val: string, index: 0 | 1) => {
-    const num = parseInt(val.replace(/\D/g, "")) || 0;
-    const newRange: [number, number] = [...priceRange];
-    newRange[index] = num;
-    setPriceRange(newRange);
-  };
-
-  const applyPriceFilter = () => {
-    setAppliedRange(priceRange);
-    setShowMobileFilter(false);
-  };
-
-  // Lọc sản phẩm trên Client
+  // Lọc sản phẩm trên Client (Hiện tại chỉ trả về tất cả sản phẩm vì đã bỏ lọc giá)
   const filteredProducts = useMemo(() => {
-    return products.filter(prod => {
-      // Kiểm tra xem có biến thể nào nằm trong khoảng giá đã áp dụng không
-      return prod.variants.some(v => v.price >= appliedRange[0] && v.price <= appliedRange[1]);
-    });
-  }, [products, appliedRange]);
+    return products;
+  }, [products]);
 
   // --- BIẾN JSX BỘ LỌC (Ổn định để tránh lỗi slider re-render) ---
   const filterContentHtml = (
@@ -136,61 +127,30 @@ export default function CategoryPage() {
 
       <hr className="border-gray-100" />
 
-      {/* Khoảng giá */}
+      {/* Tất cả danh mục */}
       <div>
         <h6 className="font-bold text-gray-800 uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
-          <Filter size={16} /> Khoảng Giá
+          <LayoutGrid size={16} /> Tất Cả Danh Mục
         </h6>
-
-        {/* Slider */}
-        <div className="px-2 mb-6">
-          <Slider
-            range
-            min={0}
-            max={10000000}
-            step={100000}
-            value={priceRange}
-            onChange={(val) => setPriceRange(val as [number, number])}
-            trackStyle={[{ backgroundColor: "#0d9488" }]}
-            handleStyle={[{ borderColor: "#0d9488", backgroundColor: "#fff" }, { borderColor: "#0d9488", backgroundColor: "#fff" }]}
-            railStyle={{ backgroundColor: "#e5e7eb" }}
-          />
-        </div>
-
-        {/* Ô nhập giá */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="space-y-1">
-            <label className="text-[10px] text-gray-400 uppercase font-bold">Từ</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={priceRange[0].toLocaleString('vi-VN')}
-                onChange={(e) => handleInputChange(e.target.value, 0)}
-                className="w-full pl-2 pr-5 py-2 text-xs border rounded outline-none focus:border-teal-500"
-              />
-              <span className="absolute right-2 top-2 text-[10px] text-gray-400">₫</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] text-gray-400 uppercase font-bold">Đến</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={priceRange[1].toLocaleString('vi-VN')}
-                onChange={(e) => handleInputChange(e.target.value, 1)}
-                className="w-full pl-2 pr-5 py-2 text-xs border rounded outline-none focus:border-teal-500"
-              />
-              <span className="absolute right-2 top-2 text-[10px] text-gray-400">₫</span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={applyPriceFilter}
-          className="w-full py-2.5 bg-teal-600 text-white text-xs font-bold rounded shadow-sm hover:bg-teal-700 active:scale-95 transition-all uppercase"
-        >
-          Áp dụng
-        </button>
+        <ul className="space-y-2">
+          {allCategories
+            .filter(c => c.parentId && c.status === "ACTIVE" && !subCategories.some(sc => sc.id === c.id))
+            .map((cat) => (
+            <li key={cat.id}>
+              <button
+                onClick={() => router.push(`/category/${cat.id}`)}
+                className={`w-full text-left text-sm flex items-center justify-between group py-1 ${
+                  Number(currentCategoryId) === cat.id ? "text-teal-600 font-bold" : "text-gray-600 hover:text-teal-600"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${Number(currentCategoryId) === cat.id ? "bg-teal-600" : "bg-gray-300 group-hover:bg-teal-400"}`}></span>
+                  {cat.name}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -241,24 +201,12 @@ export default function CategoryPage() {
               </div>
             ) : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-                {filteredProducts.map((prod) => {
-                  const firstVariant = prod.variants?.[0];
-                  return (
-                    <ProductCard
-                      key={prod.id}
-                      id={prod.id}
-                      name={prod.name}
-                      category={prod.categoryName || "Sản phẩm"}
-                      imageUrls={prod.imageUrls}
-                      image={prod.imageUrls?.[0] || firstVariant?.imageUrl}
-                      price={formatCurrency(firstVariant?.price)}
-                      oldPrice={firstVariant?.costPrice ? formatCurrency(firstVariant.costPrice) : undefined}
-                      sold={firstVariant?.quantity || 0}
-                      rating={5}
-                      reviewCount={0}
-                    />
-                  );
-                })}
+                {filteredProducts.map((prod) => (
+                  <ProductCard
+                    key={prod.id}
+                    product={prod as any}
+                  />
+                ))}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100 text-center px-4">

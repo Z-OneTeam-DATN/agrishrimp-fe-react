@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { HomeService } from "@/app/services/home.service";
+import { getPublicCategories } from "@/app/services/CategoryService";
+import { CategoryDTO } from "@/app/types/category.type";
 import { cartService } from "@/app/services/cart.service"; 
 import { useCartStore } from "@/stores/useCartStore";
 import { ProductDetail, ProductListItem } from "@/app/types/product.schema";
@@ -22,6 +24,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { updateCountLocal } = useCartStore();
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [relatedProducts, setRelatedProducts] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
@@ -34,12 +37,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [detailData, allProducts] = await Promise.all([
+        const [detailData, allProducts, cats] = await Promise.all([
           HomeService.getProductBySlug(id),
-          HomeService.getProducts()
+          HomeService.getProducts(),
+          getPublicCategories()
         ]);
 
         setProduct(detailData);
+        setCategories(cats);
         if (detailData.imageUrls?.length > 0) setActiveImage(detailData.imageUrls[0]);
 
         const suggestions = allProducts
@@ -168,14 +173,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         animateFlyToCart(e);
         toast.success("Đã thêm sản phẩm vào giỏ hàng!");
       }
-    } catch (error: any) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error("Vui lòng đăng nhập để mua hàng!");
-        router.push("/login"); 
-      } else {
-        toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
-      }
-    } finally {
+        } catch (error: any) {
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            toast.error("Vui lòng đăng nhập để mua hàng!");
+            setTimeout(() => {
+              router.push("/login");
+            }, 1500);
+          } else {
+            toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
+          }
+        } finally {
+    
       setIsAdding(false);
     }
   };
@@ -188,6 +196,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const currentVariant = product.variants?.[selectedVariantIndex] || product.variants?.[0];
 
+  const currentCategory = categories.find(c => c.id === product.categoryId);
+  const parentCategory = currentCategory?.parentId 
+    ? categories.find(c => c.id === currentCategory.parentId) 
+    : null;
+
   return (
     <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
       {/* 1. BREADCRUMB */}
@@ -195,10 +208,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="container mx-auto px-4 py-2.5">
           <nav className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider flex-wrap">
             <Link href="/" className="hover:text-teal-600 transition-colors">Trang chủ</Link>
+            {parentCategory && (
+              <>
+                <ChevronRight size={10} />
+                <Link href={`/category/${parentCategory.id}`} className="hover:text-teal-600 transition-colors">
+                  {parentCategory.name}
+                </Link>
+              </>
+            )}
             {product.categoryName && (
               <>
                 <ChevronRight size={10} />
-                <span className="text-slate-400">{product.categoryName}</span>
+                <Link href={`/category/${product.categoryId}`} className="hover:text-teal-600 transition-colors">
+                  {product.categoryName}
+                </Link>
               </>
             )}
             <ChevronRight size={10} />
@@ -219,7 +242,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <div className="md:col-span-5 space-y-3">
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-50 border border-slate-100 group">
                     <Image
-                      src={activeImage || "/placeholder.png"}
+                      src={activeImage || "/placeholder.svg"}
                       alt={product.name}
                       fill
                       className="object-contain p-6 transition-transform duration-500 group-hover:scale-105"
@@ -270,6 +293,25 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <span className="text-2xl font-extrabold text-red-600 tracking-tight">
                         {currentVariant ? formatCurrency(currentVariant.price) : "Liên hệ"}
                       </span>
+                    </div>
+                  </div>
+
+                  {/* Danh mục hấp dẫn */}
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-4 w-1 bg-teal-600 rounded-full"></div>
+                      <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Danh mục hấp dẫn</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {categories.filter(c => c.parentId !== null).slice(0, 10).map(cat => (
+                        <Link 
+                          key={cat.id} 
+                          href={`/category/${cat.id}`}
+                          className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-medium text-slate-600 hover:border-teal-500 hover:text-teal-600 transition-all shadow-sm"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
                     </div>
                   </div>
 
@@ -395,7 +437,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   relatedProducts.map((prod) => (
                     <Link key={prod.id} href={`/san-pham/${prod.slug || prod.id}`} className="flex gap-3 group items-start">
                       <div className="w-12 h-12 relative rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100 transition-transform group-hover:scale-105">
-                        <Image src={prod.imageUrls?.[0] || "/placeholder.png"} alt={prod.name} fill className="object-cover" />
+                        <Image src={prod.imageUrls?.[0] || "/placeholder.svg"} alt={prod.name} fill className="object-cover" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="text-[10px] font-bold text-slate-700 line-clamp-2 mb-0.5 group-hover:text-teal-600 transition-colors leading-normal">{prod.name}</div>

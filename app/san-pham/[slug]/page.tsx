@@ -19,6 +19,8 @@ import {
 import { toast } from "sonner";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { cartService } from "@/app/services/cart.service";
+import { getPublicCategories } from "@/app/services/CategoryService";
+import { CategoryDTO } from "@/app/types/category.type";
 import { useCartStore } from "@/stores/useCartStore";
 import {
   PublicProductDetail,
@@ -67,7 +69,7 @@ function RelatedProductCard({ product }: { product: PublicProductListItem }) {
   const img =
     product.variants?.[0]?.imageUrl ??
     product.imageUrls?.[0] ??
-    "/placeholder.png";
+    "/placeholder.svg";
   return (
     <Link
       href={`/san-pham/${product.slug}`}
@@ -98,12 +100,13 @@ export default function ProductDetailPage({
   const { updateCountLocal } = useCartStore();
 
   const [product, setProduct] = useState<PublicProductDetail | null>(null);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [related, setRelated] = useState<PublicProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
-  const [activeImage, setActiveImage] = useState<string>("/placeholder.png");
+  const [activeImage, setActiveImage] = useState<string>("/placeholder.svg");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<"desc" | "specs">("desc");
   const [isAdding, setIsAdding] = useState(false);
@@ -113,12 +116,14 @@ export default function ProductDetailPage({
       setLoading(true);
       setNotFound(false);
       try {
-        const [detail, listResult] = await Promise.all([
+        const [detail, listResult, cats] = await Promise.all([
           PublicProductService.getBySlug(slug),
           PublicProductService.getList({ size: 6 }),
+          getPublicCategories(),
         ]);
         setProduct(detail);
-        setActiveImage(detail.imageUrls?.[0] ?? "/placeholder.png");
+        setCategories(cats);
+        setActiveImage(detail.imageUrls?.[0] ?? "/placeholder.svg");
         setRelated(
           listResult.content.filter((p) => p.slug !== slug).slice(0, 5)
         );
@@ -135,7 +140,7 @@ export default function ProductDetailPage({
     setSelectedVariantIndex(index);
     const v = product?.variants?.[index];
     const img =
-      v?.imageUrl ?? product?.imageUrls?.[0] ?? "/placeholder.png";
+      v?.imageUrl ?? product?.imageUrls?.[0] ?? "/placeholder.svg";
     setActiveImage(img);
   };
 
@@ -159,7 +164,9 @@ export default function ProductDetailPage({
     } catch (error: any) {
       if (error.response?.status === 401 || error.response?.status === 403) {
         toast.error("Vui lòng đăng nhập để mua hàng!");
-        router.push("/login");
+        setTimeout(() => {
+          router.push("/login");
+        }, 1500);
       } else {
         toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
       }
@@ -195,6 +202,11 @@ export default function ProductDetailPage({
 
   const currentVariant = product.variants?.[selectedVariantIndex];
 
+  const currentCategory = categories.find(c => c.id === product.category?.id);
+  const parentCategory = currentCategory?.parentId 
+    ? categories.find(c => c.id === currentCategory.parentId) 
+    : null;
+
   return (
     <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
       {/* Breadcrumb */}
@@ -204,11 +216,22 @@ export default function ProductDetailPage({
             <Link href="/" className="hover:text-teal-600 transition-colors">
               Trang chủ
             </Link>
+            {parentCategory && (
+              <>
+                <ChevronRight size={10} />
+                <Link
+                  href={`/category/${parentCategory.id}`}
+                  className="hover:text-teal-600 transition-colors"
+                >
+                  {parentCategory.name}
+                </Link>
+              </>
+            )}
             {product.category?.name && (
               <>
                 <ChevronRight size={10} />
                 <Link
-                  href={`/san-pham?categoryId=${product.category.id}`}
+                  href={`/category/${product.category.id}`}
                   className="hover:text-teal-600 transition-colors"
                 >
                   {product.category.name}
@@ -247,7 +270,7 @@ export default function ProductDetailPage({
                         product.isOutOfStock ? "opacity-40 grayscale" : ""
                       }`}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/placeholder.png";
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
                       }}
                     />
                     <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
@@ -282,11 +305,6 @@ export default function ProductDetailPage({
                 <div className="md:col-span-7 flex flex-col pt-2">
                   {/* Brand + SKU */}
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    {product.brandName && (
-                      <span className="bg-teal-50 text-teal-700 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                        {product.brandName}
-                      </span>
-                    )}
                     {currentVariant?.sku && (
                       <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                         SKU:{" "}
@@ -297,9 +315,32 @@ export default function ProductDetailPage({
                     )}
                   </div>
 
-                  <h1 className="text-xl font-bold text-slate-800 mb-3 leading-tight">
+                  <h1 className="text-xl font-bold text-slate-800 mb-1 leading-tight">
                     {product.name}
                   </h1>
+
+                  {/* Thương hiệu rõ ràng dưới tên SP */}
+                  {product.brandName && (
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs text-slate-500">Thương hiệu:</span>
+                      <span className="text-xs font-bold text-teal-600 hover:underline cursor-pointer">
+                        {product.brandName}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Danh mục rõ ràng dưới thương hiệu */}
+                  {product.category?.name && (
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span className="text-xs text-slate-500">Danh mục:</span>
+                      <Link 
+                        href={`/category/${product.category.id}`}
+                        className="text-xs font-bold text-teal-600 hover:underline transition-colors"
+                      >
+                        {product.category.name}
+                      </Link>
+                    </div>
+                  )}
 
                   {product.shortDesc && (
                     <p className="text-sm text-slate-500 mb-4 font-medium leading-relaxed">
@@ -319,16 +360,6 @@ export default function ProductDetailPage({
                             {formatNumber(currentVariant.price)} ₫
                           </div>
                         </div>
-                        {currentVariant.wholesalePrice != null && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">
-                              Giá sỉ:
-                            </span>
-                            <span className="text-sm font-bold text-teal-700">
-                              {formatNumber(currentVariant.wholesalePrice)} ₫
-                            </span>
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <span className="text-lg font-semibold text-slate-400">
@@ -357,16 +388,16 @@ export default function ProductDetailPage({
                               onClick={() => handleSelectVariant(idx)}
                               className={`group relative flex items-center px-4 py-2.5 border rounded-xl text-xs transition-all duration-300 ${
                                 isSelected
-                                  ? "border-teal-600 bg-teal-600 text-white shadow-md shadow-teal-100 ring-2 ring-teal-600 ring-offset-1"
+                                  ? "border-teal-500 bg-teal-50 text-teal-700 shadow-sm ring-1 ring-teal-500 ring-offset-0"
                                   : "border-slate-200 bg-white hover:border-teal-400 text-slate-600 hover:shadow-sm"
                               }`}
                             >
-                              <span className={`font-bold ${isSelected ? "text-white" : "text-slate-700 group-hover:text-teal-600"}`}>
+                              <span className={`font-bold ${isSelected ? "text-teal-700" : "text-slate-700 group-hover:text-teal-600"}`}>
                                 {getVariantLabel(v)}
                               </span>
                               {isSelected && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center shadow-sm">
-                                  <div className="w-1.5 h-1.5 bg-teal-600 rounded-full"></div>
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-teal-500 rounded-full flex items-center justify-center shadow-sm">
+                                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                                 </div>
                               )}
                             </button>
@@ -562,6 +593,24 @@ export default function ProductDetailPage({
                 </div>
               </div>
             )}
+
+            {/* Danh mục hấp dẫn */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+              <h6 className="font-bold text-slate-800 mb-4 text-[10px] uppercase tracking-widest border-b border-slate-50 pb-2">
+                Danh mục hấp dẫn
+              </h6>
+              <div className="flex flex-wrap gap-2">
+                {categories.filter(c => c.parentId !== null).slice(0, 10).map(cat => (
+                  <Link 
+                    key={cat.id} 
+                    href={`/category/${cat.id}`}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-[10px] font-medium text-slate-600 hover:border-teal-500 hover:text-teal-600 transition-all shadow-sm"
+                  >
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
 
             {/* Navigate back */}
             <Link

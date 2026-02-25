@@ -2,8 +2,6 @@ import {
   Home,
   Flame,
   Zap,
-  Droplet,
-  Ruler,
   Phone,
   MapPin,
   CreditCard,
@@ -34,16 +32,8 @@ export const SITE_CONFIG = {
 };
 
 export const MAIN_NAV: NavItem[] = [
-  { label: "Hàng mới về", href: "/store?sort=new", icon: Zap, highlight: true },
-  {
-    label: "Bán chạy",
-    href: "/store?sort=best-sell",
-    icon: Flame,
-    highlight: true,
-  },
-  { label: "Thương hiệu", href: "/brands", icon: null },
-  { label: "Thuốc thủy sản", href: "/store?category=medicine", icon: Droplet },
-  { label: "Dụng cụ đo", href: "/store?category=tools", icon: Ruler },
+  { label: "Trang chủ", href: "/", icon: Home, highlight: true },
+  { label: "Thương hiệu", href: "/brands", icon: null, highlight: true },
 ];
 
 export const FOOTER_BENEFITS: FooterBenefit[] = [
@@ -125,36 +115,36 @@ export const CATEGORIES = [
     id: 1,
     name: "Thuốc &\nDược phẩm",
     img: "https://thuysantincay.com/wp-content/uploads/2022/05/logothuysannofonnewt.png",
-    href: "/store?category=medicine",
+    href: "/san-pham?category=medicine",
   },
   {
     id: 2,
     name: "Thức ăn\nTăng trọng",
     img: "https://tepbac.com/upload/images/2022/06/cho-ca-an_1656057019.jpg",
-    href: "/store?category=food",
+    href: "/san-pham?category=food",
   },
   {
     id: 3,
     name: "Chế phẩm\nVi sinh",
     img: "https://emzeo.com.vn/wp-content/uploads/2024/03/che-pham-em-goc-thuy-san-3-1.jpg",
-    href: "/store?category=biotech",
+    href: "/san-pham?category=biotech",
   },
   {
     id: 4,
     name: "Dụng cụ\nĐo môi trường",
     img: "https://vietstock.org/wp-content/uploads/2023/09/bao-ve-moi-truong-trong-nuoi-trong-thuy-san-2.jpg",
-    href: "/store?category=tools",
+    href: "/san-pham?category=tools",
   },
   {
     id: 5,
     name: "Máy móc &\nThiết bị ao",
     img: "https://drive.gianhangvn.com/image/may-thoi-khi-con-so-cung-cap-oxy-cho-ca-tom-tao-oxy-2298793j1509x3.jpg",
-    href: "/store?category=machines",
+    href: "/san-pham?category=machines",
   },
   {
     id: 6,
     name: "Vật tư\nKhác",
     img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRcWdKFqsvAGanZ78kDOJUKdPbkwB3tCbJQkw&s",
-    href: "/store?category=others",
+    href: "/san-pham?category=others",
   },
 ];

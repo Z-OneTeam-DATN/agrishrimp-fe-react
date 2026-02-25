@@ -30,7 +30,6 @@ const supportMenuItems = [
   { href: "/terms-of-use", label: "Điều khoản sử dụng" },
   { href: "/privacy-policy", label: "Chính sách bảo mật" },
   { href: "/cookie-policy", label: "Chính sách cookie" },
-  { href: "/clinic-policy", label: "Chính sách khách hàng Clinic" },
   { href: "/store-locator", label: "Hệ thống cửa hàng", icon: MapPin }, // Mục này có thể dùng icon khác hoặc dot tùy ý
 ];
 

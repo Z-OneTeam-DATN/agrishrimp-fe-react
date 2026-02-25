@@ -58,7 +58,7 @@ export default function Home() {
             <h5 className="font-bold text-xl uppercase text-[#d32f2f] flex items-center gap-2">
               <Trophy className="fill-red-600 text-red-600" /> Top Bán Chạy Nhất
             </h5>
-            <Link href="/store?sort=best-sell" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
+            <Link href="/account" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
               Xem tất cả <ChevronRight size={16} />
             </Link>
           </div>
@@ -81,7 +81,7 @@ export default function Home() {
             <h5 className="font-bold text-xl uppercase text-[#009688] flex items-center gap-2">
               <Sparkles className="text-[#009688] fill-[#009688]/20" strokeWidth={2.5} /> Sản Phẩm Gợi Ý
             </h5>
-            <Link href="/store" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
+            <Link href="/account" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
               Xem tất cả <ChevronRight size={16} />
             </Link>
           </div>

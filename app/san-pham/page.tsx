@@ -20,10 +20,13 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { PublicProductService } from "@/app/services/publicProduct.service";
-import { getCategories } from "@/app/services/CategoryService";
+import { getPublicCategories } from "@/app/services/CategoryService";
+import { getPublicBrands } from "@/app/services/brand.service";
 import { PublicProductListItem } from "@/app/types/product.schema";
+import { BrandDTO } from "@/app/types/brand.type";
 import { formatNumber } from "@/lib/utils";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
+import { motion, AnimatePresence } from "framer-motion";
 
 const PAGE_SIZE = 20;
 
@@ -120,18 +123,38 @@ function ProductListingInner() {
   const [loading, setLoading] = useState(true);
 
   const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<BrandDTO[]>([]);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
 
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
+  const [inputValue, setInputValue] = useState(keyword);
   const [categoryId, setCategoryId] = useState<string>(
     searchParams.get("categoryId") ?? ""
+  );
+  const [brandId, setBrandId] = useState<string>(
+    searchParams.get("brandId") ?? ""
   );
   const [page, setPage] = useState(Number(searchParams.get("page") ?? "0"));
 
   const keywordDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Sync state with URL parameters (e.g. when searching from Header)
   useEffect(() => {
-    getCategories().then((data) => setCategories(data));
+    const urlKeyword = searchParams.get("keyword") ?? "";
+    const urlCategory = searchParams.get("categoryId") ?? "";
+    const urlBrand = searchParams.get("brandId") ?? "";
+    const urlPage = Number(searchParams.get("page") ?? "0");
+
+    setKeyword(urlKeyword);
+    setInputValue(urlKeyword);
+    setCategoryId(urlCategory);
+    setBrandId(urlBrand);
+    setPage(urlPage);
+  }, [searchParams]);
+
+  useEffect(() => {
+    getPublicCategories().then((data) => setCategories(data));
+    getPublicBrands().then((data) => setBrands(data));
   }, []);
 
   const fetchProducts = useCallback(async () => {
@@ -140,6 +163,7 @@ function ProductListingInner() {
       const result = await PublicProductService.getList({
         keyword: keyword || undefined,
         categoryId: categoryId || undefined,
+        brandId: brandId || undefined,
         page,
         size: PAGE_SIZE,
       });
@@ -153,7 +177,7 @@ function ProductListingInner() {
     } finally {
       setLoading(false);
     }
-  }, [keyword, categoryId, page]);
+  }, [keyword, categoryId, brandId, page]);
 
   useEffect(() => {
     fetchProducts();
@@ -163,20 +187,25 @@ function ProductListingInner() {
     const params = new URLSearchParams();
     if (keyword) params.set("keyword", keyword);
     if (categoryId) params.set("categoryId", categoryId);
+    if (brandId) params.set("brandId", brandId);
     if (page > 0) params.set("page", String(page));
     router.replace(`/san-pham?${params.toString()}`, { scroll: false });
-  }, [keyword, categoryId, page, router]);
+  }, [keyword, categoryId, brandId, page, router]);
 
-  const handleKeywordChange = (val: string) => {
-    if (keywordDebounceRef.current) clearTimeout(keywordDebounceRef.current);
-    keywordDebounceRef.current = setTimeout(() => {
-      setKeyword(val);
-      setPage(0);
-    }, 400);
+  const handleInputChange = (val: string) => {
+    setInputValue(val); // Cập nhật ô nhập liệu ngay lập tức
+    setKeyword(val);    // Gọi API ngay lập tức trên mỗi phím gõ
+    setPage(0);         // Reset về trang 1
   };
 
   const handleCategoryChange = (id: string) => {
     setCategoryId(id);
+    setPage(0);
+    setShowMobileFilter(false);
+  };
+
+  const handleBrandChange = (id: string) => {
+    setBrandId(id);
     setPage(0);
     setShowMobileFilter(false);
   };
@@ -187,75 +216,127 @@ function ProductListingInner() {
   };
 
   const activeCategory = categories.find((c) => String(c.id) === categoryId);
-  const activeCategories = categories.filter(
-    (c) => c.status === "ACTIVE" || c.status === undefined
+  const activeBrand = brands.find((b) => String(b.id) === brandId);
+  
+  const parentCategories = categories.filter(
+    (c) => (!c.parentId || c.parentId === 0) && (c.status === "ACTIVE" || c.status === undefined)
   );
+  const getChildren = (parentId: number) => 
+    categories.filter((c) => c.parentId === parentId && (c.status === "ACTIVE" || c.status === undefined));
 
   const sidebarContent = (
-    <div className="space-y-1">
-      <h6 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2 px-2">
-        <Tag size={11} /> Danh Mục Sản Phẩm
-      </h6>
-      <button
-        onClick={() => handleCategoryChange("")}
-        className={`w-full text-left text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between gap-2 ${
-          !categoryId
-            ? "bg-teal-600 text-white font-semibold shadow-sm shadow-teal-200"
-            : "text-gray-600 hover:bg-teal-50 hover:text-teal-700"
-        }`}
-      >
-        <span className="flex items-center gap-2">
-          <LayoutGrid size={14} />
-          Tất cả sản phẩm
-        </span>
-        {!categoryId && <ChevronRight size={13} />}
-      </button>
-      {activeCategories.map((cat) => (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h6 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2 px-2">
+          <Tag size={11} /> Danh Mục Sản Phẩm
+        </h6>
         <button
-          key={cat.id}
-          onClick={() => handleCategoryChange(String(cat.id))}
-          className={`w-full text-left text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between gap-2 ${
-            String(cat.id) === categoryId
-              ? "bg-teal-600 text-white font-semibold shadow-sm shadow-teal-200"
-              : "text-gray-600 hover:bg-teal-50 hover:text-teal-700"
+          onClick={() => handleCategoryChange("")}
+          className={`w-full text-left text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between gap-2 group ${
+            !categoryId
+              ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
+              : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
           }`}
         >
-          <span className="truncate">{cat.name}</span>
-          {String(cat.id) === categoryId && <ChevronRight size={13} />}
+          <span className="flex items-center gap-2">
+            <LayoutGrid size={14} className={!categoryId ? "text-teal-600" : "text-gray-400"} />
+            Tất cả sản phẩm
+          </span>
+          {!categoryId && <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
         </button>
-      ))}
+
+        {parentCategories.map((parent) => {
+          const children = getChildren(parent.id);
+          const hasChildren = children.length > 0;
+          const isParentActive = String(parent.id) === categoryId;
+          const isChildActive = children.some(child => String(child.id) === categoryId);
+          const isActive = isParentActive || isChildActive;
+
+          return (
+            <div key={parent.id} className="space-y-1">
+              <button
+                onClick={() => handleCategoryChange(String(parent.id))}
+                className={`w-full text-left text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between gap-2 group ${
+                  isActive
+                    ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
+                    : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+                }`}
+              >
+                <span className="truncate">{parent.name}</span>
+                {hasChildren && (
+                   <ChevronRight size={13} className={`transition-transform duration-300 ${isActive ? "rotate-90 text-teal-600" : "text-gray-300 group-hover:translate-x-0.5"}`} />
+                )}
+              </button>
+
+              <AnimatePresence initial={false}>
+                {hasChildren && isActive && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="ml-4 pl-2 border-l border-teal-100 space-y-1 my-1">
+                      {children.map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => handleCategoryChange(String(child.id))}
+                          className={`w-full text-left text-xs px-3 py-2 rounded-lg transition-all ${
+                            String(child.id) === categoryId
+                              ? "bg-teal-100/50 text-teal-700 font-bold"
+                              : "text-gray-500 hover:text-teal-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {child.name}
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="space-y-1">
+        <h6 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2 px-2 pt-4 border-t border-gray-100">
+          <BadgeCheck size={11} /> Thương hiệu
+        </h6>
+        <div className="grid grid-cols-1 gap-1">
+          <button
+            onClick={() => handleBrandChange("")}
+            className={`w-full text-left text-sm px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-2 group ${
+              !brandId
+                ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
+                : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+            }`}
+          >
+            <span>Tất cả thương hiệu</span>
+            {!brandId && <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+          </button>
+          {brands.map((brand) => (
+            <button
+              key={brand.id}
+              onClick={() => handleBrandChange(String(brand.id))}
+              className={`w-full text-left text-sm px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-2 group ${
+                String(brand.id) === brandId
+                  ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
+                  : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+              }`}
+            >
+              <span className="truncate">{brand.name}</span>
+              {String(brand.id) === brandId && <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
   return (
     <div className="bg-gray-50 min-h-screen pb-16 font-sans">
-      {/* Page Header */}
-      <div className="bg-gradient-to-r from-teal-700 to-teal-500 text-white">
-        <div className="container mx-auto px-4 py-5">
-          <nav className="text-[11px] font-semibold text-teal-100/80 flex items-center gap-1.5 uppercase tracking-wider mb-2">
-            <Link href="/" className="hover:text-white transition-colors">
-              Trang chủ
-            </Link>
-            <ChevronRight size={10} />
-            <span className="text-white">Sản phẩm</span>
-            {activeCategory && (
-              <>
-                <ChevronRight size={10} />
-                <span className="text-white">{activeCategory.name}</span>
-              </>
-            )}
-          </nav>
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            {activeCategory ? activeCategory.name : "Tất cả sản phẩm"}
-          </h1>
-          {!loading && (
-            <p className="text-teal-100/80 text-sm mt-0.5">
-              {totalElements} sản phẩm
-            </p>
-          )}
-        </div>
-      </div>
-
       {/* Mobile filter drawer */}
       {showMobileFilter && (
         <div
@@ -295,37 +376,58 @@ function ProductListingInner() {
           {/* Main content */}
           <main className="lg:col-span-3 space-y-4">
             {/* Search + filter bar */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-wrap gap-3 items-center">
-              <div className="flex-1 min-w-[180px] relative">
-                <Search
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  defaultValue={keyword}
-                  onChange={(e) => handleKeywordChange(e.target.value)}
-                  placeholder="Tìm kiếm sản phẩm..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all bg-gray-50/50"
-                />
-              </div>
-              <div className="flex items-center gap-3">
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 md:items-center justify-between">
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <Search size={20} className="text-teal-600" />
+                  {keyword ? (
+                    <>
+                      Kết quả tìm kiếm cho: <span className="text-teal-600">&ldquo;{keyword}&rdquo;</span>
+                    </>
+                  ) : (
+                    "Tất cả sản phẩm"
+                  )}
+                </h2>
                 {!loading && (
-                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap hidden sm:block">
-                    {totalElements} sản phẩm
-                  </span>
+                   <p className="text-xs text-gray-500 font-medium">
+                    Tìm thấy <span className="text-teal-600 font-bold">{totalElements}</span> sản phẩm trùng khớp
+                  </p>
                 )}
+              </div>
+
+              <div className="flex flex-1 max-w-md items-center gap-3">
+                <div className="relative flex-1">
+                  {loading ? (
+                    <Loader2
+                      size={16}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-600 animate-spin"
+                    />
+                  ) : (
+                    <Search
+                      size={16}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                  )}
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder="Tìm sản phẩm khác..."
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all bg-gray-50/50"
+                  />
+                </div>
+                
                 <button
                   onClick={() => setShowMobileFilter(true)}
-                  className="lg:hidden flex items-center gap-2 bg-teal-600 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-sm"
+                  className="lg:hidden flex items-center gap-2 bg-teal-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm whitespace-nowrap"
                 >
-                  <SlidersHorizontal size={14} /> Danh mục
+                  <SlidersHorizontal size={14} /> Lọc
                 </button>
               </div>
             </div>
 
             {/* Active filters */}
-            {(keyword || categoryId) && (
+            {(keyword || categoryId || brandId) && (
               <div className="flex flex-wrap gap-2">
                 {keyword && (
                   <span className="inline-flex items-center gap-1.5 bg-white text-teal-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-200 shadow-sm">
@@ -354,10 +456,23 @@ function ProductListingInner() {
                     </button>
                   </span>
                 )}
+                {brandId && activeBrand && (
+                  <span className="inline-flex items-center gap-1.5 bg-white text-teal-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-200 shadow-sm">
+                    <BadgeCheck size={11} />
+                    {activeBrand.name}
+                    <button
+                      onClick={() => handleBrandChange("")}
+                      className="ml-0.5 hover:text-red-500 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
                 <button
                   onClick={() => {
                     setKeyword("");
                     setCategoryId("");
+                    setBrandId("");
                     setPage(0);
                   }}
                   className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors px-2"
@@ -399,11 +514,12 @@ function ProductListingInner() {
                   Thử điều chỉnh từ khóa hoặc chọn danh mục khác để tìm sản
                   phẩm phù hợp.
                 </p>
-                {(keyword || categoryId) && (
+                {(keyword || categoryId || brandId) && (
                   <button
                     onClick={() => {
                       setKeyword("");
                       setCategoryId("");
+                      setBrandId("");
                       setPage(0);
                     }}
                     className="mt-5 text-sm text-white bg-teal-600 hover:bg-teal-700 font-semibold px-5 py-2 rounded-xl transition-colors"

@@ -6,7 +6,6 @@ import {
   ShoppingCart,
   Layers,
   BadgeCheck,
-  Store,
   Loader2,
 } from "lucide-react";
 
@@ -85,12 +84,13 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { updateCountLocal } = useCartStore();
   const [isAdding, setIsAdding] = useState(false);
 
+  if (!product) return null;
+
   const firstVariant = product.variants?.[0];
   const displayImage =
     firstVariant?.imageUrl ?? product.imageUrls?.[0] ?? "/placeholder.svg";
 
   const variantCount = product.variants?.length ?? 0;
-  const hasWholesale = firstVariant?.wholesalePrice != null;
   const hasAttributes = product.variants?.some(
     (v) => v.attributeValues && v.attributeValues.length > 0
   );
@@ -120,7 +120,9 @@ export default function ProductCard({ product }: ProductCardProps) {
     } catch (error: any) {
       if (error.response?.status === 401 || error.response?.status === 403) {
         toast.error("Vui lòng đăng nhập để mua hàng!");
-        router.push("/login");
+        setTimeout(() => {
+          router.push("/login");
+        }, 1500);
       } else {
         toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
       }
@@ -154,11 +156,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           {product.isOutOfStock && (
             <span className="bg-gray-700/85 backdrop-blur-sm text-white text-[9px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wide">
               Hết hàng
-            </span>
-          )}
-          {hasWholesale && !product.isOutOfStock && (
-            <span className="bg-amber-500/90 backdrop-blur-sm text-white text-[9px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wide">
-              Giá sỉ
             </span>
           )}
         </div>
@@ -209,8 +206,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-center gap-1 text-[10px] text-gray-400">
             <Layers size={10} />
             <span>
-              {variantCount} phân loại
-              {hasAttributes ? " thuộc tính" : ""}
+              {variantCount} tùy chọn
             </span>
           </div>
         ) : firstVariant?.unit ? (
@@ -233,14 +229,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                     : `${formatNumber(firstVariant.price)} ₫`}
                 </span>
               </div>
-              {hasWholesale && (
-                <div className="mt-0.5">
-                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
-                    <Store size={8} />
-                    Sỉ: {formatNumber(firstVariant.wholesalePrice!)} ₫
-                  </span>
-                </div>
-              )}
             </>
           ) : (
             <span className="text-sm text-gray-400 italic">Liên hệ</span>

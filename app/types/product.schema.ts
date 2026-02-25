@@ -118,17 +118,25 @@ export interface PageResponse<T> {
 export interface PublicVariantAttributeValue {
   attributeId: number;
   attributeName: string;
+  attributeCode: string;
+  valueId: number;
   value: string;
 }
 
 export interface PublicProductVariant {
   id: number;
   sku: string;
+  barcode: string;
+  costPrice: number;
   price: number;
-  wholesalePrice?: number | null;
+  wholesalePrice: number;
+  quantity: number;
+  shippingWeight: number;
   unit: string;
-  imageUrl?: string | null;
-  attributeValues?: PublicVariantAttributeValue[];
+  imageUrl: string;
+  status: string;
+  attributeValues: PublicVariantAttributeValue[];
+  unitConversions: UnitConversion[];
 }
 
 export interface PublicProductCategory {
@@ -140,9 +148,11 @@ export interface PublicProductListItem {
   id: number;
   name: string;
   slug: string;
+  description?: string;
   shortDesc?: string;
   imageUrls: string[];
   isOutOfStock: boolean;
+  origin?: string;
   brandName?: string;
   categoryName?: string;
   category?: PublicProductCategory;

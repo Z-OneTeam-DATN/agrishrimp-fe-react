@@ -2,29 +2,30 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { LayoutGrid, Loader2, AlertCircle, ChevronDown } from "lucide-react";
-import { getPublicCategories } from "@/app/services/CategoryService";
-import { CategoryDTO } from "@/app/types/category.type";
+import Image from "next/image";
+import { BadgeCheck, Loader2, AlertCircle, ChevronDown } from "lucide-react";
+import { getPublicBrands } from "@/app/services/brand.service";
+import { BrandDTO } from "@/app/types/brand.type";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function HeaderCategoryDropdown() {
+export default function HeaderBrandDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [brands, setBrands] = useState<BrandDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchCategories = async () => {
+  const fetchBrands = async () => {
     if (hasLoaded) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await getPublicCategories();
-      setCategories(data);
+      const data = await getPublicBrands();
+      setBrands(data);
       setHasLoaded(true);
     } catch (err) {
-      setError("Không thể tải danh mục");
+      setError("Không thể tải thương hiệu");
       console.error(err);
     } finally {
       setLoading(false);
@@ -42,17 +43,14 @@ export default function HeaderCategoryDropdown() {
   }, []);
 
   const handleToggle = () => {
-    if (!isOpen) fetchCategories();
+    if (!isOpen) fetchBrands();
     setIsOpen(!isOpen);
   };
 
   const handleMouseEnter = () => {
-    fetchCategories();
+    fetchBrands();
     setIsOpen(true);
   };
-
-  const parentCategories = categories.filter((c) => !c.parentId || c.parentId === 0);
-  const getChildren = (parentId: number) => categories.filter((c) => c.parentId === parentId && c.parentId !== 0);
 
   return (
     <div 
@@ -67,8 +65,8 @@ export default function HeaderCategoryDropdown() {
           isOpen ? "text-orange-700" : "text-orange-600 hover:text-orange-700"
         }`}
       >
-        <LayoutGrid size={16} className="text-orange-500" />
-        <span className="hidden lg:block tracking-wider">Danh mục</span>
+        <BadgeCheck size={16} className="text-orange-500" />
+        <span className="hidden lg:block tracking-wider">Thương hiệu</span>
         <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
@@ -85,7 +83,7 @@ export default function HeaderCategoryDropdown() {
               {loading && (
                 <div className="flex items-center justify-center py-12 text-gray-400">
                   <Loader2 className="animate-spin mr-2" size={20} />
-                  <span className="text-sm">Đang tải danh mục...</span>
+                  <span className="text-sm">Đang tải thương hiệu...</span>
                 </div>
               )}
 
@@ -96,35 +94,27 @@ export default function HeaderCategoryDropdown() {
                 </div>
               )}
 
-              {!loading && !error && categories.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-8 p-6 lg:py-8 lg:px-4">
-                  {parentCategories.map((parent) => (
-                    <div key={parent.id} className="flex flex-col">
-                      <div className="font-bold text-gray-900 text-[15px] md:text-base mb-2.5 block border-b border-gray-100 pb-1.5 uppercase tracking-tight">
-                        {parent.name}
-                      </div>
-
-                      <div className="flex flex-col space-y-1.5">
-                        {getChildren(parent.id).map((child) => (
-                          <Link
-                            key={child.id}
-                            href={`/category/${child.id}`}
-                            className="text-[13px] text-gray-600 hover:text-primary transition-colors py-0.5"
-                            onClick={() => setIsOpen(false)}
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
+              {!loading && !error && brands.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-8 gap-y-2 p-8 lg:px-6">
+                  {brands.map((brand) => (
+                    <Link
+                      key={brand.id}
+                      href={`/brand/${brand.id}`}
+                      className="group flex items-center gap-2 py-1.5 border-b border-transparent hover:border-orange-100 transition-all"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-200 group-hover:bg-orange-500 transition-colors"></div>
+                      <span className="text-[14px] font-semibold text-gray-600 group-hover:text-orange-700 transition-colors">
+                        {brand.name}
+                      </span>
+                    </Link>
                   ))}
                 </div>
               )}
 
-            {!loading && !error && categories.length === 0 && hasLoaded && (
+            {!loading && !error && brands.length === 0 && hasLoaded && (
               <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                <span className="text-sm">Không có danh mục nào khả dụng</span>
-                <span className="text-[10px] mt-1 opacity-50">(Dữ liệu trả về rỗng hoặc không đúng cấu trúc)</span>
+                <span className="text-sm">Không có thương hiệu nào khả dụng</span>
               </div>
             )}
             </div>

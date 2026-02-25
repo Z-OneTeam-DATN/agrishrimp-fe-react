@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronDown,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
@@ -29,10 +30,37 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function Header() {
+  const router = useRouter();
   const { accessToken } = useAuthStore();
   const { data: user, isAuthenticated, isLoading } = useCurrentUser();
   const { logout, isLoading: isLoggingOut } = useLogout();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+
+  const handleSearch = (keyword: string) => {
+    setSearchKeyword(keyword);
+    const trimmedKeyword = keyword.trim();
+    
+    if (!trimmedKeyword) {
+      // Nếu xóa hết chữ, quay về trang chủ
+      router.push("/");
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("keyword", trimmedKeyword);
+    
+    // Sử dụng replace để tránh làm đầy lịch sử trình duyệt khi gõ nhanh
+    router.replace(`/san-pham?${params.toString()}`, { scroll: false });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      if (searchKeyword.trim()) {
+        router.push(`/san-pham?keyword=${encodeURIComponent(searchKeyword.trim())}`);
+      }
+    }
+  };
 
   // ✅ LẤY STATE SỐ LƯỢNG GIỎ HÀNG
   const { itemCount, fetchCartCount } = useCartStore();
@@ -222,11 +250,19 @@ export default function Header() {
                 <input
                   type="text"
                   placeholder="Tìm sản phẩm, bệnh..."
+                  value={searchKeyword}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="w-full h-full pl-4 pr-4 rounded-l-full bg-white text-gray-800 text-sm focus:outline-none border-none"
                   suppressHydrationWarning={true}
                 />
               </div>
               <button
+                onClick={() => {
+                  if (searchKeyword.trim()) {
+                    router.push(`/san-pham?keyword=${encodeURIComponent(searchKeyword.trim())}`);
+                  }
+                }}
                 className="h-[34px] px-5 bg-secondary hover:bg-orange-600 rounded-r-full text-white transition-colors flex items-center justify-center"
                 suppressHydrationWarning={true}
               >
@@ -250,7 +286,7 @@ export default function Header() {
 
           <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
             <Link
-              href="/store"
+              href="/account"
               className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]"
             >
               <Store size={22} className="mb-0.5" />

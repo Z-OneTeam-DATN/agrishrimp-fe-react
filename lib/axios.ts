@@ -163,8 +163,14 @@ const createApi = (baseURL: string): AxiosInstance => {
   });
 
   axiosInstance.interceptors.request.use(async (config: RetriableRequest) => {
-    // Skip auth logic for public requests to avoid issues with stale/invalid tokens
+    // 1. Tuyệt đối không gắn Token cho các request công khai
     if (config.isPublic) {
+      if (config.headers) {
+        config.headers.Authorization = undefined;
+        if (typeof config.headers.delete === 'function') {
+          config.headers.delete('Authorization');
+        }
+      }
       return config;
     }
 
@@ -206,12 +212,6 @@ const createApi = (baseURL: string): AxiosInstance => {
     }
 
     if (token) config.headers.Authorization = `Bearer ${token}`;
-
-    debugLog("🚀 Request:", {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      data: redact(config.data),
-    });
     return config;
   });
 
@@ -232,6 +232,12 @@ const createApi = (baseURL: string): AxiosInstance => {
 
       const status = error.response?.status;
       const original = error.config as RetriableRequest;
+
+      // Không bao giờ refresh token cho các request public
+      if (original?.isPublic) {
+        return Promise.reject(error);
+      }
+
       if (
         status === 401 &&
         original &&
@@ -279,14 +285,24 @@ const createApi = (baseURL: string): AxiosInstance => {
             useAuthStore.getState().clearAuth();
             
             if (isClient()) {
-              toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
-              window.location.href = "/login";
+              const path = window.location.pathname;
+              const isProtectedPath = ["/profile", "/orders", "/user/checkout", "/admin"].some(p => path.startsWith(p));
+              
+              if (isProtectedPath) {
+                toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
+                window.location.href = "/login";
+              }
             }
             return Promise.reject(err);
           } finally {
             isRefreshing = false;
           }
         }
+      }
+
+      // Silence 401 errors from auth/me or refresh to avoid console noise for guests
+      if (status === 401 && isAuthRefreshUrl(original?.url)) {
+        return Promise.reject({ ...error, silent: true });
       }
 
       const handler = errorHandlers[status as number] || errorHandlers.default;

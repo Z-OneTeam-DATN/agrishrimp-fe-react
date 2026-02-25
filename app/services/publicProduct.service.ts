@@ -11,6 +11,7 @@ export const PublicProductService = {
   getList: async (params?: {
     keyword?: string;
     categoryId?: number | string | null;
+    brandId?: number | string | null;
     page?: number;
     size?: number;
   }): Promise<PageResponse<PublicProductListItem>> => {
@@ -25,6 +26,30 @@ export const PublicProductService = {
       isPublic: true,
     } as any);
     return response.data;
+  },
+
+  getByCategory: async (categoryId: number | string): Promise<PublicProductListItem[]> => {
+    try {
+      const response = await apiJava.get(`/public/categories/${categoryId}/products`, {
+        isPublic: true,
+      } as any);
+      return response.data || [];
+    } catch (error) {
+      console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
+      return [];
+    }
+  },
+
+  getByBrand: async (brandId: number | string): Promise<PublicProductListItem[]> => {
+    try {
+      const response = await apiJava.get(`/public/brands/${brandId}/products`, {
+        isPublic: true,
+      } as any);
+      return response.data || [];
+    } catch (error) {
+      console.error("Lỗi khi lấy sản phẩm theo thương hiệu:", error);
+      return [];
+    }
   },
 
   getBySlug: async (slug: string): Promise<PublicProductDetail> => {
