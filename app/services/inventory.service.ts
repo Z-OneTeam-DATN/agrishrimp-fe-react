@@ -2,7 +2,7 @@ import { apiJava } from "@/lib/axios";
 
 // Sửa lại đường dẫn khớp với @RequestMapping("/api/v1/inventory") của Java
 // Lưu ý: Nếu trong lib/axios bạn đã có sẵn tiền tố "/api" rồi thì chỉ cần thêm "/v1/inventory"
-const BASE_URL = "/v1/inventory";
+const BASE_URL = "/inventory";
 
 export const InventoryApiService = {
 
@@ -30,6 +30,33 @@ export const InventoryApiService = {
 
   deleteReceipt: async (id: number | string) => {
     const response = await apiJava.delete(`${BASE_URL}/receipts/${id}`);
+    return response.data;
+  },
+};
+export const InventoryExportApiService = {
+  // Lấy danh sách lệnh xuất
+  getAllExportCommands: async () => {
+    const response = await apiJava.get(`${BASE_URL}/export-commands`);
+    return response.data;
+  },
+
+  // Lấy danh sách phiếu xuất (lịch sử)
+  getAllExportReceipts: async () => {
+    const response = await apiJava.get(`${BASE_URL}/export-receipts`);
+    return response.data;
+  },
+
+  // Xóa lệnh xuất
+  deleteExportCommand: async (id: number | string) => {
+    const response = await apiJava.delete(`${BASE_URL}/export-commands/${id}`);
+    return response.data;
+  },
+createExportCommand: async (payload: any) => {
+    const response = await apiJava.post(`${BASE_URL}/export-commands`, payload);
+    return response.data;
+  },
+getAllProductsForExport: async () => {
+    const response = await apiJava.get(`/products`);
     return response.data;
   },
 };

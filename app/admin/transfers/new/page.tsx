@@ -59,7 +59,7 @@ export default function NewTransferPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sourceCode = searchParams.get("source");
-  
+
   // State quản lý API
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
@@ -163,13 +163,13 @@ export default function NewTransferPage() {
         vehicle: formData.vehicle,
         dispatchOrder: formData.dispatchOrder,
         referenceCode: formData.referenceCode,
-        priority: "NORMAL", 
+        priority: "NORMAL",
         transferDate: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
-        deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null, 
-        
+        deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
+
         // SỬA CHỖ NÀY: Gửi "bao lô" 3 biến số lượng luôn cho Backend tự bốc
         items: formData.items.map((item: any) => ({
-          variantId: Number(item.variantId) || 1, 
+          variantId: Number(item.variantId) || 1,
           quantity: Number(item.quantity),           // Cột quantity chung
           quantityRequested: Number(item.quantity),  // Cột quantity_requested (Số lượng yêu cầu)
           quantityReal: 0,                           // Cột quantity_real (Thực nhận ban đầu = 0)
@@ -179,10 +179,10 @@ export default function NewTransferPage() {
 
       // 3. Gửi request tạo mới
       await transferService.create(payload);
-      
+
       toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
       router.push("/admin/transfers");
-      
+
     } catch (error: any) {
       console.error("Lỗi tạo phiếu:", error);
       toast.error("Lỗi hệ thống: " + (error.response?.data || "Không thể tạo phiếu"));
@@ -207,6 +207,11 @@ export default function NewTransferPage() {
 
   // 2. Hàm xử lý khi bấm nút "Thêm hàng hóa" hoặc "Chọn từ danh sách"
   const openProductDropdown = () => {
+    // KHÓA TÌM KIẾM NẾU CHƯA CHỌN KHO
+    if (!currentSourceBranch) {
+      toast.error("Vui lòng chọn 'Chi nhánh xuất hàng' trước khi thêm hàng hóa!");
+      return;
+    }
     if (searchInputRef.current) {
       searchInputRef.current.focus(); // Tự động trỏ chuột vào ô tìm kiếm
     }
@@ -216,15 +221,19 @@ export default function NewTransferPage() {
   // Hook tìm kiếm (Debounce 500ms)
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
+      // Bỏ qua nếu không gõ gì HOẶC chưa chọn chi nhánh xuất
+      if (!searchTerm && !showDropdown) return;
+      if (!currentSourceBranch) return;
+
       setIsSearching(true);
       try {
-        // Gọi API tìm kiếm (khi searchTerm = "" thì backend sẽ trả về TẤT CẢ)
-        const results = await ProductService.searchVariants(searchTerm);
-        
+        // GỌI API CÙNG VỚI ID KHO XUẤT ĐỂ LẤY ĐÚNG TỒN KHO
+        const results = await ProductService.searchVariants(searchTerm, currentSourceBranch);
+
         // Đề phòng API trả về dạng { data: [...] } hoặc chỉ [...]
         const finalData = Array.isArray(results) ? results : (results?.data || []);
         setSearchResults(finalData);
-        
+
         // Cập nhật lại UI Dropdown nếu đang Focus
         if (document.activeElement?.getAttribute('placeholder')?.includes('Tìm theo tên')) {
            setShowDropdown(true);
@@ -234,37 +243,49 @@ export default function NewTransferPage() {
       } finally {
         setIsSearching(false);
       }
-    }, 500); 
+    }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
+  }, [searchTerm, currentSourceBranch]); // Lắng nghe cả thay đổi kho xuất
 
   // Hàm xử lý khi click chọn 1 sản phẩm từ danh sách gợi ý
-  const handleSelectProduct = (variant: any) => {
-    // Kiểm tra xem sản phẩm đã có trong bảng chưa
-    const isExist = fields.some((f: any) => f.variantId === variant.id);
-    if (isExist) {
-      toast.error("Sản phẩm này đã có trong danh sách!");
-      return;
-    }
+ // Hàm xử lý khi click chọn 1 sản phẩm từ danh sách gợi ý
+   const handleSelectProduct = (variant: any) => {
+     const isExist = fields.some((f: any) => f.variantId === variant.id);
+     if (isExist) {
+       toast.error("Sản phẩm này đã có trong danh sách!");
+       return;
+     }
 
-    // Thêm sản phẩm thật vào mảng react-hook-form
-    append({
-      variantId: variant.id,
-      productCode: variant.sku || variant.barcode,
-      productName: variant.productName || "Tên sản phẩm",
-      unit: variant.unit || "Cái",
-      quantity: 1, // Mặc định SL chuyển = 1
-      availableQuantity: variant.quantity || 0, // Tồn kho hiện tại
-      itemNote: "",
-    });
+     // GỘP TÊN SẢN PHẨM, SKU VÀ THUỘC TÍNH RÕ RÀNG
+     let displayName = variant.productName || "Tên sản phẩm";
 
-    // Reset ô tìm kiếm
-    setSearchTerm("");
-    setSearchResults([]);
-    setShowDropdown(false);
-    toast.success("Đã thêm sản phẩm vào phiếu!");
-  };
+     if (variant.sku) {
+       displayName += ` - ${variant.sku}`;
+     }
+
+     if (variant.attributeValues && variant.attributeValues.length > 0) {
+       const attributes = variant.attributeValues.map((attr: any) => attr.value).join(", ");
+       displayName += ` (${attributes})`;
+     }
+
+     append({
+       variantId: variant.id,
+       productCode: variant.sku || variant.barcode,
+       productName: displayName, // Gán tên siêu chi tiết vào bảng
+       unit: variant.unit || "Cái",
+       quantity: 1,
+       availableQuantity: variant.quantity || 0, // Tồn kho thực tế
+       itemNote: "",
+     });
+
+     setSearchTerm("");
+     setSearchResults([]);
+     setShowDropdown(false);
+     toast.success("Đã thêm sản phẩm vào phiếu!");
+   };
+
+
 
   return (
     <form
@@ -514,36 +535,39 @@ export default function NewTransferPage() {
                   ref={searchInputRef}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onFocus={() => setShowDropdown(true)} // Click vào là mở Dropdown luôn
+                  onFocus={openProductDropdown}
                   onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                  placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
-                  className="pl-10 h-9 text-[13px] border-slate-200 rounded-none focus:border-blue-500 shadow-none bg-white relative z-20"
+                  disabled={!currentSourceBranch} // Khóa nếu chưa chọn kho xuất
+                  placeholder={!currentSourceBranch ? "Vui lòng chọn Kho xuất trước..." : "Tìm theo tên, mã SKU...(F3)"}
+                  className="pl-10 h-9 text-[13px] border-slate-200 rounded-none focus:border-blue-500 shadow-none bg-white relative z-20 disabled:bg-slate-50"
                 />
 
                 {/* Dropdown Gợi ý sản phẩm */}
-                {showDropdown && (
+                {showDropdown && currentSourceBranch && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[300px] overflow-y-auto">
                     {isSearching ? (
                       <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
                     ) : searchResults.length > 0 ? (
                       searchResults.map((variant) => (
-                        <div 
+                        <div
                           key={variant.id}
-                          onClick={() => handleSelectProduct(variant)}
+                          onMouseDown={() => handleSelectProduct(variant)}
                           className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors"
                         >
                           <div>
-                            <p className="text-[12px] font-bold text-slate-800">{variant.productName}</p>
+                            <p className="text-[12px] font-bold text-slate-800">{variant.productName || variant.unit}</p>
                             <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[11px] font-black text-slate-600">Tồn: {variant.quantity}</p>
-                            <p className="text-[10px] text-slate-400">{variant.unit}</p>
+                            <p className={cn("text-[11px] font-black", (variant.quantity || 0) > 0 ? "text-emerald-600" : "text-rose-500")}>
+                               Tồn: {variant.quantity || 0}
+                            </p>
+                            <p className="text-[10px] text-slate-400">Cái</p>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-3 text-center text-[12px] text-slate-400 text-rose-500">Không có sản phẩm nào</div>
+                      <div className="p-3 text-center text-[12px] text-slate-400">Không có sản phẩm nào</div>
                     )}
                   </div>
                 )}
@@ -633,7 +657,7 @@ export default function NewTransferPage() {
                         --
                       </TableCell>
                       <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
-                        {watch(`items.${index}.availableQuantity`)}
+                        {(watch(`items.${index}.availableQuantity`) || 0).toLocaleString("vi-VN")}
                       </TableCell>
                       <TableCell className="p-1">
                         <Input
@@ -743,15 +767,17 @@ export default function NewTransferPage() {
                   name="sourceBranch"
                   control={control}
                   render={({ field }) => (
-                    <Select 
+                    <Select
                       value={field.value}
                       onValueChange={(val) => {
                         field.onChange(val);
+                        // Khi đổi chi nhánh xuất, xóa hết sản phẩm cũ đang chọn (do tồn kho khác nhau)
+                        remove();
                         const selectedBranch = branches.find(b => b.id.toString() === val);
                         if (selectedBranch) {
                           setValue("sourceAddress", selectedBranch.addressDetail || "Chi nhánh chưa cập nhật địa chỉ");
                         }
-                      }} 
+                      }}
                     >
                       <SelectTrigger className="h-8 text-[12px] border-[#eee] rounded-none font-bold focus:ring-0">
                         <SelectValue placeholder="Chọn kho xuất..." />
@@ -803,7 +829,7 @@ export default function NewTransferPage() {
                   name="destBranch"
                   control={control}
                   render={({ field }) => (
-                    <Select 
+                    <Select
                       value={field.value}
                       onValueChange={(val) => {
                         field.onChange(val); // Lưu ID chi nhánh vào form
@@ -813,15 +839,15 @@ export default function NewTransferPage() {
                           // Tự động điền địa chỉ vào ô text area
                           setValue("destAddress", selectedBranch.addressDetail || "Chi nhánh chưa cập nhật địa chỉ");
                         }
-                      }} 
+                      }}
                     >
                       <SelectTrigger className="h-8 text-[12px] border-[#eee] rounded-none font-bold focus:ring-0">
                         <SelectValue placeholder="Chọn kho nhận..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
                         {branches.map(b => (
-                          <SelectItem 
-                            key={b.id} 
+                          <SelectItem
+                            key={b.id}
                             value={b.id.toString()}
                             disabled={b.id.toString() === currentSourceBranch}
                           >

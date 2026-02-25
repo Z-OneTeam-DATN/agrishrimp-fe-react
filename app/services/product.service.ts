@@ -74,11 +74,21 @@ export const ProductService = {
     return response.data;
   },
 
+
+
   // Tìm kiếm theo tên, SKU, hoặc Barcode
-  searchVariants: async (keyword: string) => {
-    const response = await apiJava.get(`/product-variants/search`, {
-      params: { keyword }
-    });
-    return response.data;
-  },
+  searchVariants: async (keyword: string, branchId?: string | number) => {
+      const params: any = { keyword: keyword || "" };
+
+      // NẾU CÓ TRUYỀN CHI NHÁNH TỪ GIAO DIỆN XUỐNG, ĐƯA VÀO PARAMS
+      if (branchId) {
+        params.branchId = branchId;
+      }
+
+      const response = await apiJava.get(`/product-variants/search`, {
+        params: params
+      });
+      return response.data;
+    },
+
 };
