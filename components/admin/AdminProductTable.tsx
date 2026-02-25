@@ -43,7 +43,7 @@ interface Variant {
   id: number;
   sku: string;
   barcode: string;
-  costPrice: number;
+  costPrice: number | null; // ✅ Cập nhật: Cho phép null
   price: number;
   wholesalePrice: number;
   quantity: number;
@@ -311,14 +311,18 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                         </p>
 
                         {p.variants.map((v) => {
-                          const margin =
-                            v.price > 0
-                              ? Math.round(((v.price - v.costPrice) / v.price) * 100)
-                              : 0;
+                          // ✅ CỜ XÁC ĐỊNH: Có hiển thị giá vốn hay không? (Chỉ Admin mới có !== null)
+                          const hasCostPrice = v.costPrice !== null && v.costPrice !== undefined;
+
+                          // Chỉ tính biên lợi nhuận nếu là Admin (có giá vốn)
+                          const margin = (v.price > 0 && hasCostPrice)
+                              ? Math.round(((v.price - v.costPrice!) / v.price) * 100)
+                              : null;
+
                           const marginColor =
-                            margin > 30
+                            margin !== null && margin > 30
                               ? "text-emerald-600"
-                              : margin < 10
+                              : margin !== null && margin < 10
                               ? "text-rose-600"
                               : "text-amber-600";
 
@@ -329,15 +333,13 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                                   .join(" / ")
                               : null;
 
-                          const variantStatus = STATUS_MAP[v.status];
-
                           return (
                             <div
                               key={v.id}
                               className="grid grid-cols-12 gap-3 items-center p-2 bg-white border border-slate-100 rounded-[2px] hover:border-blue-200 transition-colors"
                             >
-                              {/* Ảnh + SKU + thuộc tính */}
-                              <div className="col-span-4 flex items-center gap-3">
+                              {/* ✅ NẾU KHÔNG CÓ GIÁ VỐN -> MỞ RỘNG CỘT TÊN THÀNH col-span-6 ĐỂ GIỮ BỐ CỤC ĐẸP */}
+                              <div className={cn("flex items-center gap-3", hasCostPrice ? "col-span-4" : "col-span-6")}>
                                 <div className="w-8 h-8 border border-slate-200 rounded-[2px] flex items-center justify-center bg-slate-50 overflow-hidden shrink-0">
                                   {v.imageUrl ? (
                                     <img
@@ -364,7 +366,7 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                                 </div>
                               </div>
 
-                              {/* Kho */}
+                              {/* Kho (Số lượng động tùy thuộc tài khoản đăng nhập) */}
                               <div className="col-span-2 text-center">
                                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
                                   Tồn kho
@@ -374,15 +376,17 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                                 </p>
                               </div>
 
-                              {/* Giá vốn */}
-                              <div className="col-span-2 text-right">
-                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
-                                  Giá vốn
-                                </p>
-                                <p className="text-[11px] font-bold text-slate-400">
-                                  {formatPrice(v.costPrice)}
-                                </p>
-                              </div>
+                              {/* ✅ Giá vốn: Chỉ hiển thị khối này khi hasCostPrice = true */}
+                              {hasCostPrice && (
+                                <div className="col-span-2 text-right">
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5">
+                                    Giá vốn
+                                  </p>
+                                  <p className="text-[11px] font-bold text-slate-400">
+                                    {formatPrice(v.costPrice!)}
+                                  </p>
+                                </div>
+                              )}
 
                               {/* Giá sỉ */}
                               <div className="col-span-2 text-right">
@@ -397,7 +401,8 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                               {/* Giá lẻ + biên lợi nhuận */}
                               <div className="col-span-2 text-right pr-1">
                                 <div className="flex items-center justify-end gap-2">
-                                  {v.price > 0 && (
+                                  {/* ✅ Biên lợi nhuận: Chỉ tính và hiện nếu là Admin (Có Giá vốn) */}
+                                  {margin !== null && (
                                     <span
                                       className={cn(
                                         "text-[9px] font-bold uppercase px-1 bg-slate-50 border border-slate-100 rounded-[2px]",

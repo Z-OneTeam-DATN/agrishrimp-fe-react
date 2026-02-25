@@ -75,7 +75,7 @@ export default function ProductsPage() {
           id: v.id,
           sku: v.sku || "",
           barcode: v.barcode || "",
-          costPrice: v.costPrice ?? 0,
+          costPrice: v.costPrice ?? null,
           price: v.price ?? 0,
           wholesalePrice: v.wholesalePrice ?? 0,
           quantity: v.quantity || 0,
