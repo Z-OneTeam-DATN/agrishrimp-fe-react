@@ -153,11 +153,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
     const currentVariant = product.variants[selectedVariantIndex];
 
-    if (quantity > (currentVariant.quantity || 999)) {
-       toast.warning("Số lượng vượt quá tồn kho!");
-       return;
-    }
-
     setIsAdding(true);
     try {
       await cartService.updateQuantity(currentVariant.id, quantity);

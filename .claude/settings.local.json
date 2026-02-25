@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(head:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cd \"D:\\\\DuAnAgriShrimp\\\\agrishrimp-fe-react\" && npm install react-speech-recognition @types/react-speech-recognition 2>&1)"
     ]
   }
 }

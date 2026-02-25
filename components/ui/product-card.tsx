@@ -105,7 +105,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
 
-    if (product.isOutOfStock) return;
     if (!firstVariant) {
       toast.error("Sản phẩm không có phân loại!");
       return;
@@ -161,15 +160,13 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Cart hover button */}
-        {!product.isOutOfStock && (
-          <button 
-            onClick={handleQuickAdd}
-            disabled={isAdding}
-            className="hidden md:flex absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-teal-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 z-10 active:scale-90 disabled:opacity-50"
-          >
-            {isAdding ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
-          </button>
-        )}
+        <button
+          onClick={handleQuickAdd}
+          disabled={isAdding}
+          className="hidden md:flex absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-teal-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 z-10 active:scale-90 disabled:opacity-50"
+        >
+          {isAdding ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
+        </button>
       </div>
 
       {/* Content */}

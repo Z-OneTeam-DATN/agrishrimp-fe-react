@@ -79,13 +79,9 @@ export default function CartPage() {
   }, []);
 
   // --- ACTIONS ---
-  const updateQuantity = async (variantId: number, currentQty: number, delta: number, stock: number) => {
+  const updateQuantity = async (variantId: number, currentQty: number, delta: number) => {
     const newQty = currentQty + delta;
     if (newQty < 1) return;
-    if (newQty > stock) {
-      toast.warning("Đã đạt giới hạn tồn kho!");
-      return;
-    }
 
     // ✅ BẬT LOADING CHO ITEM NÀY
     setUpdatingItems(prev => ({ ...prev, [variantId]: true }));
@@ -261,11 +257,11 @@ export default function CartPage() {
 
                         <div className="flex items-center md:w-32 md:justify-center">
                           <div className="flex items-center border border-gray-300 rounded overflow-hidden h-8 bg-white shadow-sm">
-                            <button onClick={() => updateQuantity(item.variantId, item.quantity, -1, item.stock)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
+                            <button onClick={() => updateQuantity(item.variantId, item.quantity, -1)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
                               <Minus size={14} />
                             </button>
                             <input type="number" className="w-10 h-full text-center text-sm font-semibold border-x border-gray-200 focus:outline-none" value={item.quantity} readOnly />
-                            <button onClick={() => updateQuantity(item.variantId, item.quantity, 1, item.stock)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
+                            <button onClick={() => updateQuantity(item.variantId, item.quantity, 1)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
                               <Plus size={14} />
                             </button>
                           </div>

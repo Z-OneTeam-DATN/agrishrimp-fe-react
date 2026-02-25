@@ -13,8 +13,11 @@ import {
   UserPlus,
   LogOut,
   ChevronDown,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
@@ -36,6 +39,25 @@ export default function Header() {
   const { logout, isLoading: isLoggingOut } = useLogout();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+
+  const { transcript, listening, browserSupportsSpeechRecognition, resetTranscript } =
+    useSpeechRecognition();
+
+  // Khi transcript thay đổi (đang nói), cập nhật ô tìm kiếm
+  useEffect(() => {
+    if (transcript) {
+      handleSearch(transcript);
+    }
+  }, [transcript]);
+
+  const handleVoiceSearch = () => {
+    if (listening) {
+      SpeechRecognition.stopListening();
+    } else {
+      resetTranscript();
+      SpeechRecognition.startListening({ language: "vi-VN", continuous: false });
+    }
+  };
 
   const handleSearch = (keyword: string) => {
     setSearchKeyword(keyword);
@@ -249,7 +271,7 @@ export default function Header() {
               <div className="flex-1 relative h-[34px]">
                 <input
                   type="text"
-                  placeholder="Tìm sản phẩm, bệnh..."
+                  placeholder={listening ? "Đang nghe..." : "Tìm sản phẩm, bệnh..."}
                   value={searchKeyword}
                   onChange={(e) => handleSearch(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -257,6 +279,21 @@ export default function Header() {
                   suppressHydrationWarning={true}
                 />
               </div>
+              {browserSupportsSpeechRecognition && (
+                <button
+                  type="button"
+                  onClick={handleVoiceSearch}
+                  title={listening ? "Dừng nghe" : "Tìm kiếm bằng giọng nói"}
+                  className={`h-[34px] w-9 flex items-center justify-center transition-colors bg-white ${
+                    listening
+                      ? "text-red-500 animate-pulse"
+                      : "text-gray-400 hover:text-teal-600"
+                  }`}
+                  suppressHydrationWarning={true}
+                >
+                  {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+              )}
               <button
                 onClick={() => {
                   if (searchKeyword.trim()) {

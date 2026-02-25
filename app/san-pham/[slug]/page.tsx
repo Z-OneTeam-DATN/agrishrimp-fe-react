@@ -145,7 +145,7 @@ export default function ProductDetailPage({
   };
 
   const handleAddToCart = async (e: React.MouseEvent, buyNow: boolean) => {
-    if (!product || product.isOutOfStock) return;
+    if (!product) return;
     const variant = product.variants?.[selectedVariantIndex];
     if (!variant?.id) {
       toast.error("Sản phẩm chưa có phân loại!");
@@ -432,40 +432,32 @@ export default function ProductDetailPage({
                   </div>
 
                   {/* CTA buttons */}
-                  {product.isOutOfStock ? (
-                    <div className="flex gap-3">
-                      <div className="flex-1 bg-gray-300 text-gray-500 py-3 px-6 rounded-xl font-bold text-xs uppercase tracking-widest text-center cursor-not-allowed">
-                        Hết hàng
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={(e) => handleAddToCart(e, true)}
-                        disabled={isAdding}
-                        className="flex-[2] bg-teal-600 hover:bg-teal-700 text-white py-3 px-6 rounded-xl font-bold text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-teal-100 flex items-center justify-center"
-                      >
-                        {isAdding ? (
-                          <Loader2 className="animate-spin" size={16} />
-                        ) : (
-                          "Mua ngay"
-                        )}
-                      </button>
-                      <button
-                        onClick={(e) => handleAddToCart(e, false)}
-                        disabled={isAdding}
-                        className="flex-1 border border-teal-600 text-teal-700 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
-                      >
-                        {isAdding ? (
-                          <Loader2 className="animate-spin" size={16} />
-                        ) : (
-                          <>
-                            <ShoppingCart size={15} /> Giỏ hàng
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={(e) => handleAddToCart(e, true)}
+                      disabled={isAdding}
+                      className="flex-[2] bg-teal-600 hover:bg-teal-700 text-white py-3 px-6 rounded-xl font-bold text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-teal-100 flex items-center justify-center"
+                    >
+                      {isAdding ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        "Mua ngay"
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => handleAddToCart(e, false)}
+                      disabled={isAdding}
+                      className="flex-1 border border-teal-600 text-teal-700 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      {isAdding ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <>
+                          <ShoppingCart size={15} /> Giỏ hàng
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
