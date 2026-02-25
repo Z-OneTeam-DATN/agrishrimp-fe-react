@@ -7,59 +7,52 @@ import { InventoryExportTable } from "@/components/inventory/InventoryExportTabl
 import { InventoryExportReceiptTable } from "@/components/inventory/InventoryExportReceiptTable";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, RefreshCcw, FileText, AlertCircle, Trash2 } from "lucide-react";
+import { Loader2, RefreshCcw, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Import Service bạn vừa tạo ở Bước 1 (Sửa lại đường dẫn import cho đúng dự án của bạn)
+import { InventoryExportApiService } from "@/app/services/inventory.service";
 
 export default function AdminExportListPage() {
   const [activeTab, setActiveTab] = useState("commands");
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // State quản lý danh sách các phiếu được tích chọn
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
 
+  // 1. Hàm lấy dữ liệu đã được tối ưu bằng axios
   const fetchList = useCallback(async () => {
     setIsLoading(true);
-    setSelectedIds([]); // Reset chọn khi load lại trang hoặc đổi tab
+    setSelectedIds([]);
     try {
-      const endpoint = activeTab === "commands"
-        ? "/api/v1/inventory/export-commands"
-        : "/api/v1/inventory/export-receipts";
+      const result = activeTab === "commands"
+        ? await InventoryExportApiService.getAllExportCommands()
+        : await InventoryExportApiService.getAllExportReceipts();
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
-
-      const response = await fetch(`http://localhost:8080${endpoint}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        }
-      });
-
-      if (!response.ok) throw new Error("Lỗi server");
-
-      const result = await response.json();
+      // result ở đây chính là response.data trả về từ axios
       setData(Array.isArray(result) ? result : (result.content || []));
     } catch (error: any) {
-      toast.error(`Không thể tải dữ liệu: ${error.message}`);
+      // Axios sẽ bọc lỗi API vào error.response.data
+      const errorMsg = error.response?.data?.message || error.message || "Lỗi server";
+      toast.error(`Không thể tải dữ liệu: ${errorMsg}`);
       setData([]);
     } finally {
       setIsLoading(false);
     }
   }, [activeTab]);
 
-  // Hàm xóa 1 phiếu
+  // 2. Hàm xóa 1 phiếu đã được tối ưu
   const handleDeleteCommand = async (id: string | number) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
-    const response = await fetch(`http://localhost:8080/api/v1/inventory/export-commands/${id}`, {
-      method: "DELETE",
-      headers: { ...(token ? { "Authorization": `Bearer ${token}` } : {}) }
-    });
-    if (!response.ok) throw new Error("Không thể xóa");
-    await fetchList();
+    try {
+      await InventoryExportApiService.deleteExportCommand(id);
+      toast.success("Xóa lệnh xuất thành công");
+      await fetchList();
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || "Không thể xóa";
+      toast.error(errorMsg);
+    }
   };
 
-  // Hàm xóa NHIỀU phiếu cùng lúc
+  // 3. Hàm xóa nhiều phiếu đã được tối ưu
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
 
@@ -67,26 +60,21 @@ export default function AdminExportListPage() {
     if (!confirmDelete) return;
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+      // Dùng Promise.all với service mới
+      await Promise.all(
+        selectedIds.map(id => InventoryExportApiService.deleteExportCommand(id))
+      );
 
-      // Gửi mảng ID lên Backend (Backend cần API DELETE nhận List ID hoặc loop xóa)
-      // Nếu Backend chưa có API bulk, ta dùng Promise.all để xóa từng cái
-      await Promise.all(selectedIds.map(id =>
-        fetch(`http://localhost:8080/api/v1/inventory/export-commands/${id}`, {
-          method: "DELETE",
-          headers: { ...(token ? { "Authorization": `Bearer ${token}` } : {}) }
-        })
-      ));
-
-      toast.success(`Đã dọn dẹp ${selectedIds.length} phiếu vào thùng rác thành công`);
+      toast.success(`Đã dọn dẹp ${selectedIds.length} phiếu thành công`);
       await fetchList();
     } catch (error) {
-      toast.error("Xóa hàng loạt thất bại");
+      toast.error("Xóa hàng loạt thất bại, có thể vài phiếu không hợp lệ");
     }
   };
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
+  // =============== PHẦN GIAO DIỆN (UI) GIỮ NGUYÊN ===============
   return (
     <div className="space-y-0 flex flex-col h-full -m-4 md:-m-5 bg-[#f8f9fa] min-h-screen">
       <div className="px-6 pt-6 pb-2 flex items-center justify-between bg-white border-b">
@@ -98,7 +86,6 @@ export default function AdminExportListPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* NÚT THÙNG RÁC - CHỈ HIỆN KHI CÓ ITEM ĐƯỢC CHỌN */}
           {selectedIds.length > 0 && (
             <Button
               variant="destructive"
@@ -136,7 +123,9 @@ export default function AdminExportListPage() {
               <div className="flex-1">
                 <AdminSearchFilter placeholder="Tìm kiếm..." onRefresh={fetchList} />
               </div>
-              <Button variant="ghost" size="sm" onClick={fetchList} disabled={isLoading}><RefreshCcw size={16} className={cn(isLoading && "animate-spin")} /></Button>
+              <Button variant="ghost" size="sm" onClick={fetchList} disabled={isLoading}>
+                <RefreshCcw size={16} className={cn(isLoading && "animate-spin")} />
+              </Button>
           </div>
 
           <div className="flex-1 relative">

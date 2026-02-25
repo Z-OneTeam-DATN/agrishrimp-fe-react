@@ -14,7 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { cn, formatNumber } from "@/lib/utils";
+
+// --- IMPORT CÁC SERVICE ĐÃ ĐƯỢC CẤU HÌNH APIJAVA ---
 import { ProductService } from "@/app/services/product.service";
+import { branchService } from "@/app/services/branchService";
+import { supplierService } from "@/app/services/supplier.service";
+import { InventoryExportApiService } from "@/app/services/inventory.service";
+
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type ExportType = "INTERNAL" | "RETURN";
@@ -67,32 +73,29 @@ export default function NewExportCommandPage() {
   const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- 3. useEffect: Gọi API lấy danh mục ---
+  // --- 3. useEffect: Gọi API lấy danh mục BẰNG CÁC SERVICE MỚI ---
   useEffect(() => {
     const loadMasterData = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
-        const headers = {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        };
-
         const [resB, resS, resP] = await Promise.all([
-          fetch("http://localhost:8080/api/branches", { headers }),
-          fetch("http://localhost:8080/api/suppliers", { headers }),
-          ProductService.getAll()
+          branchService.getAll(),
+          // Gọi lấy tất cả supplier (có thể tùy chỉnh lại tham số page/size nếu cần)
+          supplierService.getAll(undefined, undefined, undefined, 0, 100),
+          InventoryExportApiService.getAllProductsForExport()
         ]);
 
-        if (resB.ok) setBranches(await resB.json());
-        if (resS.ok) {
-           const supplierData = await resS.json();
-           setSuppliers(Array.isArray(supplierData.content) ? supplierData.content : (Array.isArray(supplierData) ? supplierData : []));
+        if (resB) setBranches(resB);
+        if (resS) {
+           const supplierData = resS.content || resS; // Xử lý PageResponse
+           setSuppliers(Array.isArray(supplierData) ? supplierData : []);
         }
         if (resP) setAllProducts(resP);
       } catch (err) {
         console.error("Lỗi kết nối API:", err);
+        toast.error("Không thể tải dữ liệu danh mục. Vui lòng kiểm tra lại kết nối.");
       }
     };
+
     loadMasterData();
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -169,13 +172,13 @@ export default function NewExportCommandPage() {
     setItems(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
-  // --- 5. Hàm Submit ---
+  // --- 5. Hàm Submit SỬ DỤNG SERVICE MỚI ---
   const handleCreate = async () => {
     if (items.length === 0) return toast.error("Vui lòng chọn ít nhất 1 sản phẩm!");
     if (!selectedBranchId) return toast.error("Vui lòng chọn kho xuất!");
     if (!selectedTargetId) return toast.error("Vui lòng chọn đối tượng nhận!");
 
-    // CỐ ĐỊNH LẤY ID NGƯỜI DÙNG: Bọc nhiều trường hợp để không bị undefined
+    // CỐ ĐỊNH LẤY ID NGƯỜI DÙNG
     const currentUserId = currentUser?.id || currentUser?.userId || currentUser?.sub;
 
     if (!currentUserId) {
@@ -193,7 +196,7 @@ export default function NewExportCommandPage() {
       targetBranchId: exportType === "INTERNAL" ? parseInt(selectedTargetId) : null,
       specificReceiver: form.specificReceiver,
       shippingAddress: form.shippingAddress,
-      createdById: currentUserId, // Đã fix chắc chắn có ID
+      createdById: currentUserId,
       details: items.map(it => ({
         productVariantId: it.productVariantId,
         requestedQuantity: it.quantity,
@@ -203,25 +206,14 @@ export default function NewExportCommandPage() {
     };
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
-      const res = await fetch("http://localhost:8080/api/v1/inventory/export-commands", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {}) // ĐÍNH KÈM TOKEN ĐỂ KHÔNG BỊ 401
-        },
-        body: JSON.stringify(payload)
-      });
+      // DÙNG SERVICE THAY VÌ FETCH
+      await InventoryExportApiService.createExportCommand(payload);
 
-      if (res.ok) {
-        toast.success("Tạo lệnh xuất kho thành công!");
-        router.push("/admin/exports");
-      } else {
-        const err = await res.text();
-        toast.error("Lỗi server: " + err);
-      }
-    } catch (e) {
-      toast.error("Không thể kết nối đến server.");
+      toast.success("Tạo lệnh xuất kho thành công!");
+      router.push("/admin/exports");
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.message || e.message || "Lỗi server";
+      toast.error(`Tạo lệnh xuất thất bại: ${errorMsg}`);
     }
   };
 
@@ -258,6 +250,7 @@ export default function NewExportCommandPage() {
       }
   }, [selectedTargetId, exportType]);
 
+  // =============== GIAO DIỆN GIỮ NGUYÊN HOÀN TOÀN ===============
   return (
     <div className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen text-[#1f1f1f]">
       {/* Page Header */}

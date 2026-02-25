@@ -124,14 +124,16 @@ export const ProductSchema = z
 
 export type Product = z.infer<typeof ProductSchema>;
 
-// Warehouse Receipt Schema
+
 export const ReceiptItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string(),
-  imageUrl: z.string().optional(), // Đổi tên cho khớp với UI
+  imageUrl: z.string().optional(),
   unit: z.string().default("Cái"),
   plannedQuantity: z.coerce.number().min(0.001, "Số lượng phải > 0"),
   actualQuantity: z.coerce.number().min(0).optional().default(0),
+  // Thêm maxQuantity để lưu tồn kho hiện tại, phục vụ validate
+  maxQuantity: z.number().optional(),
   lotNumber: z.string().min(1, "Số lô là bắt buộc"),
   expiryDate: z.string().min(1, "Hạn dùng là bắt buộc"),
   importPrice: z.coerce.number().min(0, "Giá nhập không được âm"),
@@ -140,15 +142,16 @@ export const ReceiptItemSchema = z.object({
 
 export const ReceiptSchema = z.object({
   receiptType: z.string().default("NHAP_MUA"),
-  supplierCode: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
-  supplierName: z.string().min(1, "Tên nhà cung cấp không được để trống"),
+  supplierCode: z.string().optional(),
+  supplierName: z.string().optional(),
+  importType: z.enum(["SUPPLIER", "INTERNAL"]).default("SUPPLIER"),
+  sourceBranchId: z.string().optional(),
   receiptCode: z.string().optional(),
   warehouseId: z.string().default("HH"),
   branchName: z.string().min(1, "Vui lòng chọn chi nhánh"),
   importStatus: z.enum(["IMPORTED", "PO"]).default("IMPORTED"),
   deliverer: z.string().min(1, "Vui lòng nhập người giao"),
   entryDate: z.string().min(1, "Vui lòng chọn ngày nhập"),
-  // Chuyển sang optional để không chặn form nếu UI chưa có ô nhập
   referenceCode: z.string().optional().default(""),
   description: z.string().optional().default(""),
   status: z.enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"]).default("PENDING"),
@@ -156,6 +159,36 @@ export const ReceiptSchema = z.object({
   paymentAmount: z.coerce.number().min(0).optional().default(0),
   note: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
+}).superRefine((data, ctx) => {
+  // Validate điều kiện Chọn nguồn
+  if (data.importType === "SUPPLIER") {
+    if (!data.supplierCode || !data.supplierName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng chọn nhà cung cấp",
+        path: ["supplierCode"],
+      });
+    }
+  } else if (data.importType === "INTERNAL") {
+    if (!data.sourceBranchId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng chọn kho xuất hàng đi",
+        path: ["sourceBranchId"],
+      });
+    }
+
+    // BẮT LỖI SỐ LƯỢNG VƯỢT QUÁ TỒN KHO XUẤT
+    data.items.forEach((item, index) => {
+      if (item.maxQuantity !== undefined && item.plannedQuantity > item.maxQuantity) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Vượt quá tồn kho (Tối đa: ${item.maxQuantity})`,
+          path: ["items", index, "plannedQuantity"], // Trỏ đúng vào ô quantity bị lỗi
+        });
+      }
+    });
+  }
 });
 
 export type Receipt = z.infer<typeof ReceiptSchema>;
