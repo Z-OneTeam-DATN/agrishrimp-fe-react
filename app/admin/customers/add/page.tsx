@@ -53,6 +53,7 @@ export default function AddCustomerPage() {
     control,
     watch,
     setValue,
+    getValues, // Đã lấy getValues ra để dùng
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(CustomerSchema),
@@ -62,9 +63,10 @@ export default function AddCustomerPage() {
     },
   });
 
-  // Watch giá trị Tỉnh và Huyện để gọi API tiếp theo
+  // Watch giá trị Tỉnh, Huyện, Xã để gọi API và fill text
   const selectedProvince = watch("provinceId");
   const selectedDistrict = watch("districtId");
+  const selectedWard = watch("wardId"); // Lắng nghe thêm giá trị xã
 
   // 1. Load Tỉnh/Thành khi mount
   useEffect(() => {
@@ -101,6 +103,27 @@ export default function AddCustomerPage() {
         });
     }
   }, [selectedDistrict, setValue]);
+
+  // 👇 4. Tự động điền chuỗi địa chỉ khi chọn đủ Tỉnh, Huyện, Xã
+  useEffect(() => {
+    if (selectedProvince && selectedDistrict && selectedWard) {
+      const pName = provinces.find((p) => p.id === selectedProvince)?.full_name || "";
+      const dName = districts.find((d) => d.id === selectedDistrict)?.full_name || "";
+      const wName = wards.find((w) => w.id === selectedWard)?.full_name || "";
+
+      if (pName && dName && wName) {
+        // Format theo dạng: Phường X, Quận Y, Tỉnh Z
+        const autoString = `${wName}, ${dName}, ${pName}`;
+        const currentAddress = getValues("addressDetail") || "";
+
+        // Nếu chuỗi đang trống hoặc không chứa cái format cũ, ghi đè chuỗi mới vào
+        if (!currentAddress || !currentAddress.includes(autoString)) {
+          setValue("addressDetail", autoString, { shouldValidate: true });
+        }
+      }
+    }
+  }, [selectedProvince, selectedDistrict, selectedWard, provinces, districts, wards, setValue, getValues]);
+
 
   const onSave = async (data: CustomerFormValues) => {
     setIsSubmitting(true);
@@ -343,8 +366,8 @@ export default function AddCustomerPage() {
                 </Label>
                 <Input
                   {...register("addressDetail")}
-                  placeholder="Nhập địa chỉ chính xác..."
-                  className="h-[34px] text-[13px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none"
+                  placeholder="Hệ thống sẽ tự điền Phường/Xã, bạn gõ thêm số nhà nhé..."
+                  className="h-[34px] text-[13px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none bg-yellow-50/50"
                 />
               </div>
             </div>

@@ -331,3 +331,45 @@ export const AdminBranchSchema = z.object({
 });
 
 export type AdminBranchForm = z.infer<typeof AdminBranchSchema>;
+
+
+// Bắt lỗi Customer Form (Hồ sơ khách hàng AgriShrimp)
+export const CustomerSchema = z.object({
+  id: z.number().optional(),
+  
+  // 1. Thông tin định danh
+  name: z
+    .string()
+    .min(2, "Họ và tên phải có ít nhất 2 ký tự")
+    .max(100, "Họ và tên quá dài"),
+    
+  phone: z
+    .string()
+    .min(10, "Số điện thoại phải có ít nhất 10 số")
+    .regex(
+      /^(0|84)(3|5|7|8|9)([0-9]{8})$/,
+      "Định dạng số điện thoại Việt Nam không đúng"
+    ),
+    
+  email: z
+    .string()
+    .min(1, "Email không được để trống")
+    .email("Định dạng email không hợp lệ"),
+    
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).default("MALE"),
+
+  // 2. Địa chỉ
+  provinceId: z.string().min(1, "Vui lòng chọn Tỉnh/Thành phố"),
+  districtId: z.string().min(1, "Vui lòng chọn Quận/Huyện"),
+  wardId: z.string().min(1, "Vui lòng chọn Phường/Xã"),
+  addressDetail: z
+    .string()
+    .min(5, "Vui lòng nhập địa chỉ chi tiết")
+    .max(255, "Địa chỉ quá dài"),
+
+  // 3. Trạng thái & Ghi chú
+  status: z.enum(["ACTIVE", "LOCKED"]).default("ACTIVE"),
+  note: z.string().max(1000, "Ghi chú tối đa 1000 ký tự").optional().or(z.literal("")),
+});
+
+export type CustomerFormValues = z.infer<typeof CustomerSchema>;
