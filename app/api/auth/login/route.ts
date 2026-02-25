@@ -43,6 +43,17 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === "production",
     });
 
+    // Marker cookie (non-HttpOnly) để client-side JS biết user đã đăng nhập
+    response.cookies.set({
+      name: "hasSession",
+      value: "1",
+      path: "/",
+      httpOnly: false,
+      expires: expiresDateRefreshToken,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+
     return response;
   } catch (e) {
     if (e instanceof AxiosError) {

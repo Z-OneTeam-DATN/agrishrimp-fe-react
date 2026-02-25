@@ -335,7 +335,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <div className="flex items-center gap-4 mb-8">
                     <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
                       <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors"><Minus size={14} /></button>
-                      <span className="w-8 text-center font-bold text-sm leading-8">{quantity}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1) setQuantity(val);
+                        }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (isNaN(val) || val < 1) setQuantity(1);
+                        }}
+                        className="w-12 text-center font-bold text-sm border-x border-slate-200 focus:outline-none bg-white"
+                      />
                       <button onClick={() => setQuantity(q => q + 1)} className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors"><Plus size={14} /></button>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase italic">Giao hàng toàn quốc</span>

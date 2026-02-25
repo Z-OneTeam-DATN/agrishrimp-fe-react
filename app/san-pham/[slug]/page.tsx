@@ -416,9 +416,20 @@ export default function ProductDetailPage({
                       >
                         <Minus size={14} />
                       </button>
-                      <span className="w-10 text-center font-bold text-sm">
-                        {quantity}
-                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1) setQuantity(val);
+                        }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (isNaN(val) || val < 1) setQuantity(1);
+                        }}
+                        className="w-12 text-center font-bold text-sm border-x border-slate-200 focus:outline-none bg-white"
+                      />
                       <button
                         onClick={() => setQuantity((q) => q + 1)}
                         className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors"

@@ -31,7 +31,7 @@ export default function LayoutClient({
       useEffect(() => {
         const hydrateAuth = async () => {
           // Chỉ thực hiện hydrate nếu có refreshToken trong cookie
-          const hasToken = Cookies.get("refreshToken");
+          const hasToken = Cookies.get("hasSession");
           if (!hasToken) {
             setLoadingAuth(false);
             return;

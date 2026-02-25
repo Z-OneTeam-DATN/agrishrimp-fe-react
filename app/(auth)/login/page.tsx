@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import LoginForm from "@/components/auth/LoginForm";
+import GoogleLoginBtn from "@/components/auth/GoogleLoginBtn";
 
 export const metadata = {
   title: "Đăng nhập - AgriShrimp",
@@ -131,16 +132,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <button className="w-full bg-white border border-slate-200 hover:border-teal-500 hover:bg-teal-50/20 text-slate-700 font-semibold rounded-xl py-3 px-4 flex items-center justify-center gap-3 transition-all duration-300 shadow-sm hover:shadow-md mb-5 group text-sm">
-              <div className="relative w-5 h-5">
-                <img
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  alt="Google"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <span>Đăng nhập với Google</span>
-            </button>
+            <GoogleLoginBtn />
 
             <div className="relative flex items-center gap-4 py-1 mb-5">
               <div className="flex-grow h-px bg-slate-200"></div>

@@ -2,7 +2,6 @@
 
 import { useGoogleLogin } from "@react-oauth/google";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -11,8 +10,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage } from "@/lib/axios";
 
 export default function GoogleLoginBtn() {
-  const router = useRouter();
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const setAccessAndRefreshToken = useAuthStore((state) => state.setAccessAndRefreshToken);
   const [isInternalLoading, setIsInternalLoading] = useState(false);
 
   /**
@@ -24,15 +22,14 @@ export default function GoogleLoginBtn() {
       return AuthService.loginWithGoogleNext(googleAccessToken);
     },
     onSuccess: (res) => {
-      // 1. Lưu vào zustand state
-      setAuth(res.accessToken, res.refreshToken);
-      
+      // 1. Lưu token + user data vào zustand
+      setAccessAndRefreshToken(res);
+
       // 2. Thông báo thành công
       toast.success("Đăng nhập với Google thành công!");
-      
-      // 3. Điều hướng về Dashboard hoặc Home
-      router.push("/");
-      router.refresh();
+
+      // 3. Full page reload để layoutClient hydrate lại user đầy đủ từ API
+      window.location.href = "/";
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);
