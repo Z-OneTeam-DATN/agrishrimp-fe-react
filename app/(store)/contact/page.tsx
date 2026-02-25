@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import StoreBanner from "@/components/site/SiteBanner_Store";
-import { ChevronRight, Send, CheckCircle2, MapPin, Phone } from "lucide-react";
+import { ChevronRight, Send, CheckCircle2, MapPin, Phone, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PublicBranchService } from "@/app/services/publicBranch.service";
+import { BranchDTO } from "@/app/types/branch.type";
 
 // --- IMPORT SCHEMA VỪA TẠO ---
 import {
@@ -13,15 +15,25 @@ import {
   type StoreContactType,
 } from "@/app/types/store_contact.schema";
 
-// Dữ liệu chi nhánh (Mock Data)
-const BRANCHES = [
-  { name: "CN Cần Thơ", address: "Đường 3/2, Q. Ninh Kiều, TP. Cần Thơ" },
-  { name: "CN Bạc Liêu", address: "Trần Phú, P.7, TP. Bạc Liêu" },
-  { name: "CN Cà Mau", address: "Ngô Quyền, P.9, TP. Cà Mau" },
-];
-
 export default function ContactPage() {
   const [isSuccess, setIsSuccess] = useState(false);
+  const [branches, setBranches] = useState<BranchDTO[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(true);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const data = await PublicBranchService.getAll();
+        setBranches(data);
+      } catch (error) {
+        console.error("Error fetching branches:", error);
+      } finally {
+        setIsLoadingBranches(false);
+      }
+    };
+
+    fetchBranches();
+  }, []);
 
   // Khởi tạo React Hook Form dùng Schema và Type đã import
   const {
@@ -212,33 +224,45 @@ export default function ContactPage() {
             Hệ thống Chi nhánh AgriShrimp
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {BRANCHES.map((branch, index) => (
-              <div
-                key={index}
-                className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="bg-white p-6 flex items-center justify-center border-b border-gray-100 h-40">
-                  <div className="text-[#329965] flex flex-col items-center opacity-50">
-                    <MapPin size={48} strokeWidth={1} />
-                    <span className="text-xs mt-2 uppercase tracking-widest">
-                      Logo AgriShrimp
-                    </span>
+          {isLoadingBranches ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-[#329965] animate-spin mb-2" />
+              <p className="text-gray-500 text-sm">Đang tải danh sách chi nhánh...</p>
+            </div>
+          ) : branches.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {branches.map((branch) => (
+                <div
+                  key={branch.id}
+                  className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  <div className="bg-white p-6 flex items-center justify-center border-b border-gray-100 h-40">
+                    <div className="text-[#329965] flex flex-col items-center opacity-50">
+                      <MapPin size={48} strokeWidth={1} />
+                      <span className="text-xs mt-2 uppercase tracking-widest text-center">
+                        AgriShrimp<br/>{branch.branchType}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 text-center">
+                    <h5 className="font-bold text-[#329965] mb-2">
+                      {branch.name}
+                    </h5>
+                    <p className="text-xs text-gray-500 mb-3 min-h-[48px]">
+                      {branch.addressDetail}, {branch.wardName}, {branch.districtName}, {branch.provinceName}
+                    </p>
+                    <div className="inline-flex items-center text-sm font-bold text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200">
+                      <Phone size={14} className="mr-2 text-[#329965]" /> {branch.phone}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 text-center">
-                  <h5 className="font-bold text-[#329965] mb-2">
-                    {branch.name}
-                  </h5>
-                  <p className="text-xs text-gray-500 mb-3">{branch.address}</p>
-                  <div className="inline-flex items-center text-sm font-bold text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200">
-                    <Phone size={14} className="mr-2 text-[#329965]" /> 1800
-                    6324
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              Hiện chưa có thông tin chi nhánh.
+            </div>
+          )}
         </div>
       </div>
     </>

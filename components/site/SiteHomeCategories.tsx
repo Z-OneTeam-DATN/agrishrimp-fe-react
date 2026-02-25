@@ -4,13 +4,14 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { LayoutGrid, Loader2 } from "lucide-react";
 
-import { getCategories } from "@/app/services/CategoryService";
+import { getPublicCategories } from "@/app/services/CategoryService";
 
 interface Category {
   id: number;
   name: string;
   imageUrl?: string;
   slug?: string;
+  parentId?: number | null;
 }
 
 export default function HomeCategories() {
@@ -21,12 +22,10 @@ export default function HomeCategories() {
     const fetchParentCategories = async () => {
       try {
         setIsLoading(true);
-        const data = await getCategories();
+        const data = await getPublicCategories();
 
-        const parentCategories = data.filter((cat: any) => !cat.parentId);
+        const parentCategories = data.filter((cat: any) => !cat.parentId || cat.parentId === 0);
         setCategories(parentCategories);
-
-        console.log("Dữ liệu danh mục từ API:", parentCategories);
       } catch (error) {
         console.error("Lỗi tải danh mục:", error);
       } finally {

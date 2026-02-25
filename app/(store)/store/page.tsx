@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
@@ -10,54 +10,49 @@ import {
   LayoutGrid,
   List,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
-import ProductCard from "@/components/ui/product-card";
+import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import StoreSidebar from "@/components/shop/StoreSidebar";
 import StoreBanner from "@/components/site/SiteBanner_Store";
-
-// --- MOCK DATA: DANH MỤC & THƯƠNG HIỆU ---
-const CATEGORIES = [
-  { name: "Vi sinh xử lý đáy", count: 127, active: true },
-  { name: "Làm sạch nước & Cắt tảo", count: 78 },
-  { name: "Dinh dưỡng & Tăng trọng", count: 74 },
-  { name: "Thuốc trị bệnh gan tụy", count: 62 },
-  { name: "Thuốc trị đường ruột", count: 50 },
-  { name: "Khoáng tạt & Kích lột", count: 45 },
-  { name: "Hóa chất xử lý nước", count: 30 },
-  { name: "Vitamin & Acid Amin", count: 25 },
-  { name: "Dụng cụ đo môi trường", count: 57 },
-  { name: "Máy sục khí & Quạt nước", count: 15 },
-];
-
-const BRANDS = [
-  { id: "apa", name: "APA", count: 127 },
-  { id: "bayer", name: "Bayer", count: 78 },
-  { id: "cp", name: "CP Group", count: 74 },
-  { id: "thanglong", name: "Thăng Long", count: 62 },
-  { id: "grobest", name: "Grobest", count: 55 },
-  { id: "unipresident", name: "Uni-President", count: 40 },
-];
-
-const PRODUCTS = Array.from({ length: 20 }).map((_, i) => ({
-  id: i + 1,
-  name:
-    i % 2 === 0
-      ? "Vi sinh xử lý đáy ao APA MINER"
-      : "Thức ăn tôm thẻ Grow Best",
-  price: i % 2 === 0 ? "150.000 ₫" : "550.000 ₫",
-  oldPrice: i % 3 === 0 ? "180.000 ₫" : undefined,
-  image: "https://apanano.com/wp-content/uploads/APA-MINER-POX_Shrimp.jpg",
-  category: i % 2 === 0 ? "Xử lý nước" : "Dinh dưỡng",
-  rating: 4.5,
-  reviewCount: 120,
-  sold: i * 50 + 10,
-  tag: i === 0 ? "BÁN CHẠY" : ((i === 3 ? "HOT" : null) as any),
-}));
+import { PublicProductService } from "@/app/services/publicProduct.service";
+import { PublicProductListItem } from "@/app/types/product.schema";
+import { getPublicCategories } from "@/app/services/CategoryService";
+import { getPublicBrands } from "@/app/services/brand.service";
+import { CategoryDTO } from "@/app/types/category.type";
+import { BrandDTO } from "@/app/types/brand.type";
 
 export default function StorePage() {
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000000]);
+  const [products, setProducts] = useState<PublicProductListItem[]>([]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [brands, setBrands] = useState<BrandDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
   const [minInput, setMinInput] = useState<number | "">(0);
-  const [maxInput, setMaxInput] = useState<number | "">(5000000);
+  const [maxInput, setMaxInput] = useState<number | "">(10000000);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [prodRes, catRes, brandRes] = await Promise.all([
+          PublicProductService.getList({ size: 12 }),
+          getPublicCategories(),
+          getPublicBrands(),
+        ]);
+        setProducts(prodRes.content);
+        setTotalElements(prodRes.totalElements);
+        setCategories(catRes);
+        setBrands(brandRes);
+      } catch (error) {
+        console.error("Lỗi khi tải dữ liệu:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSliderChange = (value: number | number[]) => {
     if (Array.isArray(value)) {
@@ -95,15 +90,7 @@ export default function StorePage() {
       <div className="container mx-auto px-4">
         <StoreBanner />
 
-        <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-          <Link href="/" className="hover:text-[#329965] transition-colors">
-            Trang chủ
-          </Link>
-          <ChevronRight size={16} className="mx-2" />
-          <span className="text-[#329965] font-bold">Cửa hàng vật tư</span>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
           <aside className="lg:col-span-3 hidden lg:block">
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100 sticky top-24">
               <div className="mb-6">
@@ -111,24 +98,25 @@ export default function StorePage() {
                   <List size={16} /> Danh Mục
                 </h6>
                 <ul className="space-y-2">
-                  {CATEGORIES.map((cat, idx) => (
-                    <li key={idx}>
+                  {loading && Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-6 bg-gray-50 animate-pulse rounded"></div>
+                  ))}
+                  {categories.filter(c => !c.parentId).map((cat) => (
+                    <li key={cat.id}>
                       <Link
-                        href="#"
-                        className={`text-sm flex items-center justify-between group ${cat.active ? "text-[#329965] font-bold" : "text-gray-600 hover:text-[#329965]"}`}
+                        href={`/store?categoryId=${cat.id}`}
+                        className="text-sm flex items-center justify-between group text-gray-600 hover:text-[#329965] transition-colors"
                       >
                         <span className="flex items-center gap-2">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${cat.active ? "bg-[#329965]" : "bg-gray-300 group-hover:bg-[#329965]"}`}
-                          ></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-[#329965]"></span>
                           {cat.name}
-                        </span>
-                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                          {cat.count}
                         </span>
                       </Link>
                     </li>
                   ))}
+                  {!loading && categories.length === 0 && (
+                    <div className="text-xs text-gray-400 italic">Không có danh mục</div>
+                  )}
                 </ul>
               </div>
 
@@ -204,7 +192,10 @@ export default function StorePage() {
                   <LayoutGrid size={16} /> Thương Hiệu
                 </h6>
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                  {BRANDS.map((brand) => (
+                  {loading && Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-6 bg-gray-50 animate-pulse rounded"></div>
+                  ))}
+                  {brands.map((brand) => (
                     <label
                       key={brand.id}
                       className="flex items-center gap-3 cursor-pointer group"
@@ -216,48 +207,38 @@ export default function StorePage() {
                       <span className="text-sm text-gray-600 group-hover:text-[#329965] transition-colors flex-1">
                         {brand.name}
                       </span>
-                      <span className="text-xs text-gray-400">
-                        ({brand.count})
-                      </span>
                     </label>
                   ))}
+                  {!loading && brands.length === 0 && (
+                    <div className="text-xs text-gray-400 italic">Không có thương hiệu</div>
+                  )}
                 </div>
               </div>
             </div>
           </aside>
 
           <main className="lg:col-span-9">
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-bold text-gray-800 flex items-baseline gap-2">
-                  Tất cả sản phẩm
-                  <span className="text-sm font-normal text-gray-500">
-                    (2656 sản phẩm)
-                  </span>
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-4 text-sm overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-                <span className="text-gray-500 whitespace-nowrap">
-                  Sắp xếp:
-                </span>
-                <button className="font-bold text-[#329965] whitespace-nowrap">
-                  Bán chạy
-                </button>
-                <button className="text-gray-600 hover:text-[#329965] whitespace-nowrap">
-                  Mới nhất
-                </button>
-                <button className="text-gray-600 hover:text-[#329965] whitespace-nowrap">
-                  Giá thấp ➜ cao
-                </button>
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-              {PRODUCTS.map((prod) => (
-                <ProductCard key={prod.id} {...prod} />
-              ))}
+              {loading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <ProductCardSkeleton key={i} />
+                  ))
+                : products.map((prod) => (
+                    <ProductCard key={prod.id} product={prod} />
+                  ))}
             </div>
+
+            {!loading && products.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200">
+                <div className="text-gray-400 mb-2">Không tìm thấy sản phẩm nào</div>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="text-[#329965] font-bold hover:underline"
+                >
+                  Thử lại
+                </button>
+              </div>
+            )}
 
             <div className="flex justify-center md:justify-end">
               <nav className="flex gap-1">

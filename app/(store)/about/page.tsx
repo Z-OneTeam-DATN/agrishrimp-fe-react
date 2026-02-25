@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import StoreBanner from "@/components/site/SiteBanner_Store";
@@ -12,7 +13,10 @@ import {
   Phone,
   CheckCircle2,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
+import { PublicBranchService } from "@/app/services/publicBranch.service";
+import { BranchDTO } from "@/app/types/branch.type";
 
 // 1. Dữ liệu tĩnh (Features)
 const FEATURES = [
@@ -42,23 +46,24 @@ const FEATURES = [
   },
 ];
 
-// 2. Dữ liệu chi nhánh (Branches)
-const BRANCHES = [
-  {
-    name: "CN Cần Thơ (Trụ sở)",
-    address: "Số 123, Đường 30/4, Q. Ninh Kiều, TP. Cần Thơ",
-  },
-  {
-    name: "CN Bạc Liêu",
-    address: "Số 55, Đường Trần Phú, TP. Bạc Liêu",
-  },
-  {
-    name: "CN Cà Mau",
-    address: "Số 78, Đường Ngô Quyền, TP. Cà Mau",
-  },
-];
-
 export default function AboutPage() {
+  const [branches, setBranches] = useState<BranchDTO[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(true);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const data = await PublicBranchService.getAll();
+        setBranches(data);
+      } catch (error) {
+        console.error("Error fetching branches:", error);
+      } finally {
+        setIsLoadingBranches(false);
+      }
+    };
+
+    fetchBranches();
+  }, []);
   return (
     <>
       {/* Banner */}
@@ -171,39 +176,48 @@ export default function AboutPage() {
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {BRANCHES.map((branch, index) => (
-              <div
-                key={index}
-                className="h-full border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col"
-              >
-                {/* Placeholder Image cho chi nhánh */}
-                <div className="h-40 bg-gray-200 flex items-center justify-center text-gray-400">
-                  <Store size={48} strokeWidth={1.5} />
-                </div>
-
-                <div className="p-4 text-center flex-1 flex flex-col justify-between">
-                  <div>
-                    <h5 className="font-bold text-[#329965] mb-2">
-                      {branch.name}
-                    </h5>
-                    <p className="text-xs text-gray-500 mb-4">
-                      {branch.address}
-                    </p>
+          {isLoadingBranches ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-[#329965] animate-spin mb-2" />
+              <p className="text-gray-500 text-sm">Đang tải danh sách chi nhánh...</p>
+            </div>
+          ) : branches.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {branches.map((branch) => (
+                <div
+                  key={branch.id}
+                  className="h-full border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col"
+                >
+                  {/* Placeholder Image cho chi nhánh */}
+                  <div className="h-40 bg-gray-100 flex items-center justify-center text-gray-400">
+                    <Store size={48} strokeWidth={1.5} />
                   </div>
 
-                  {/* --- CHỖ BỊ LỖI ĐÃ ĐƯỢC SỬA TẠI ĐÂY --- */}
-                  <a
-                    href="tel:18006324"
-                    className="inline-flex items-center justify-center px-4 py-2 border border-[#329965] text-[#329965] rounded-full text-sm font-medium hover:bg-[#329965] hover:text-white transition-colors mx-auto"
-                  >
-                    <Phone size={14} className="mr-2" /> 1800 6324
-                  </a>
-                  {/* Đã sửa thẻ đóng </div> thành </a> */}
+                  <div className="p-4 text-center flex-1 flex flex-col justify-between">
+                    <div>
+                      <h5 className="font-bold text-[#329965] mb-2">
+                        {branch.name}
+                      </h5>
+                      <p className="text-xs text-gray-500 mb-4 min-h-[48px]">
+                        {branch.addressDetail}, {branch.wardName}, {branch.districtName}, {branch.provinceName}
+                      </p>
+                    </div>
+
+                    <a
+                      href={`tel:${branch.phone}`}
+                      className="inline-flex items-center justify-center px-4 py-2 border border-[#329965] text-[#329965] rounded-full text-sm font-medium hover:bg-[#329965] hover:text-white transition-colors mx-auto"
+                    >
+                      <Phone size={14} className="mr-2" /> {branch.phone}
+                    </a>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              Hiện chưa có thông tin chi nhánh.
+            </div>
+          )}
         </div>
       </div>
     </>

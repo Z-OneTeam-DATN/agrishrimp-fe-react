@@ -10,10 +10,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { HomeService } from "@/app/services/home.service";
+import { getPublicCategories } from "@/app/services/CategoryService";
+import { CategoryDTO } from "@/app/types/category.type";
 import { cartService } from "@/app/services/cart.service"; 
 import { useCartStore } from "@/stores/useCartStore";
 import { ProductDetail, ProductListItem } from "@/app/types/product.schema";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatCurrency } from "@/lib/utils";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -22,6 +24,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { updateCountLocal } = useCartStore();
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [relatedProducts, setRelatedProducts] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
@@ -34,12 +37,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [detailData, allProducts] = await Promise.all([
+        const [detailData, allProducts, cats] = await Promise.all([
           HomeService.getProductBySlug(id),
-          HomeService.getProducts()
+          HomeService.getProducts(),
+          getPublicCategories()
         ]);
 
         setProduct(detailData);
+        setCategories(cats);
         if (detailData.imageUrls?.length > 0) setActiveImage(detailData.imageUrls[0]);
 
         const suggestions = allProducts
@@ -148,11 +153,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
     const currentVariant = product.variants[selectedVariantIndex];
 
-    if (quantity > (currentVariant.quantity || 999)) {
-       toast.warning("Số lượng vượt quá tồn kho!");
-       return;
-    }
-
     setIsAdding(true);
     try {
       await cartService.updateQuantity(currentVariant.id, quantity);
@@ -168,14 +168,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         animateFlyToCart(e);
         toast.success("Đã thêm sản phẩm vào giỏ hàng!");
       }
-    } catch (error: any) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error("Vui lòng đăng nhập để mua hàng!");
-        router.push("/login"); 
-      } else {
-        toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
-      }
-    } finally {
+        } catch (error: any) {
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            toast.error("Vui lòng đăng nhập để mua hàng!");
+            setTimeout(() => {
+              router.push("/login");
+            }, 1500);
+          } else {
+            toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
+          }
+        } finally {
+    
       setIsAdding(false);
     }
   };
@@ -188,17 +191,36 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const currentVariant = product.variants?.[selectedVariantIndex] || product.variants?.[0];
 
+  const currentCategory = categories.find(c => c.id === product.categoryId);
+  const parentCategory = currentCategory?.parentId 
+    ? categories.find(c => c.id === currentCategory.parentId) 
+    : null;
+
   return (
     <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
       {/* 1. BREADCRUMB */}
       <div className="bg-white border-b border-slate-50">
         <div className="container mx-auto px-4 py-2.5">
-          <nav className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
+          <nav className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider flex-wrap">
             <Link href="/" className="hover:text-teal-600 transition-colors">Trang chủ</Link>
+            {parentCategory && (
+              <>
+                <ChevronRight size={10} />
+                <Link href={`/category/${parentCategory.id}`} className="hover:text-teal-600 transition-colors">
+                  {parentCategory.name}
+                </Link>
+              </>
+            )}
+            {product.categoryName && (
+              <>
+                <ChevronRight size={10} />
+                <Link href={`/category/${product.categoryId}`} className="hover:text-teal-600 transition-colors">
+                  {product.categoryName}
+                </Link>
+              </>
+            )}
             <ChevronRight size={10} />
-            <span className="text-slate-400">{product.categoryName}</span>
-            <ChevronRight size={10} />
-            <span className="text-slate-600">{product.name}</span>
+            <span className="text-slate-600 line-clamp-1 max-w-[200px]">{product.name}</span>
           </nav>
         </div>
       </div>
@@ -215,7 +237,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <div className="md:col-span-5 space-y-3">
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-50 border border-slate-100 group">
                     <Image
-                      src={activeImage || "/placeholder.png"}
+                      src={activeImage || "/placeholder.svg"}
                       alt={product.name}
                       fill
                       className="object-contain p-6 transition-transform duration-500 group-hover:scale-105"
@@ -262,24 +284,49 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                   <div className="bg-slate-50/80 p-4 rounded-xl mb-6">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Giá khuyến mãi</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Giá bán</span>
                       <span className="text-2xl font-extrabold text-red-600 tracking-tight">
-                        {currentVariant ? `${formatNumber(currentVariant.price)} ₫` : "Liên hệ"}
+                        {currentVariant ? formatCurrency(currentVariant.price) : "Liên hệ"}
                       </span>
                     </div>
                   </div>
 
-                  {/* VARIANT SELECTION */}
+                  {/* Danh mục hấp dẫn */}
                   <div className="mb-6">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-3 tracking-widest">Quy cách sản phẩm</label>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-4 w-1 bg-teal-600 rounded-full"></div>
+                      <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Danh mục hấp dẫn</h4>
+                    </div>
                     <div className="flex flex-wrap gap-2">
+                      {categories.filter(c => c.parentId !== null).slice(0, 10).map(cat => (
+                        <Link 
+                          key={cat.id} 
+                          href={`/category/${cat.id}`}
+                          className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-medium text-slate-600 hover:border-teal-500 hover:text-teal-600 transition-all shadow-sm"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* VARIANT SELECTION - Updated to match requested style */}
+                  <div className="mb-6">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-3 tracking-widest">Lựa chọn phân loại (Trọng lượng / Quy cách)</label>
+                    <div className="flex flex-wrap gap-2.5">
                       {product.variants?.map((v, index) => (
                         <button
                           key={v.id}
                           onClick={() => handleSelectVariant(index)}
-                          className={`flex items-center px-3 py-1.5 border rounded-lg transition-all ${selectedVariantIndex === index ? "border-teal-600 bg-teal-50 text-teal-700 font-bold shadow-sm" : "border-slate-200 hover:border-teal-300 text-slate-600 font-semibold"}`}
+                          className={`flex items-center px-4 py-2 border rounded-xl text-xs transition-all font-bold ${
+                            selectedVariantIndex === index 
+                              ? "border-teal-600 bg-teal-600 text-white shadow-md scale-[1.02]" 
+                              : "border-slate-200 bg-white hover:border-teal-300 text-slate-600 hover:bg-slate-50"
+                          }`}
                         >
-                          <span className="text-xs">{v.unit}</span>
+                          {v.attributeValues && v.attributeValues.length > 0 
+                            ? v.attributeValues.map(av => av.value).join(" / ") 
+                            : v.unit || v.sku}
                         </button>
                       ))}
                     </div>
@@ -323,9 +370,30 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
               <div className="p-6 text-slate-600 text-sm leading-relaxed">
                 {activeTab === "desc" ? (
-                  <div className="whitespace-pre-line">{product.description}</div>
+                  <div 
+                    className="prose prose-sm max-w-none prose-headings:text-slate-800 prose-a:text-teal-600"
+                    dangerouslySetInnerHTML={{ __html: product.description || "<p className='text-slate-400 italic'>Đang cập nhật mô tả...</p>" }}
+                  />
                 ) : (
                   <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
+                    <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
+                      <span className="text-slate-400">Thương hiệu:</span>
+                      <span className="font-bold">{product.brandName || "Tomboy Feed"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
+                      <span className="text-slate-400">Danh mục:</span>
+                      <span className="font-bold">{product.categoryName || "Thức Ăn Tôm"}</span>
+                    </div>
+                    {currentVariant && (
+                      <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
+                        <span className="text-slate-400">Quy cách:</span>
+                        <span className="font-bold">
+                          {currentVariant.attributeValues && currentVariant.attributeValues.length > 0 
+                            ? currentVariant.attributeValues.map(av => av.value).join(" / ") 
+                            : currentVariant.unit || "N/A"}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
                       <span className="text-slate-400">Xuất xứ:</span>
                       <span className="font-bold">{product.origin || "Việt Nam"}</span>
@@ -362,13 +430,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="space-y-5">
                 {relatedProducts.length > 0 ? (
                   relatedProducts.map((prod) => (
-                    <Link key={prod.id} href={`/product/${prod.slug || prod.id}`} className="flex gap-3 group items-start">
+                    <Link key={prod.id} href={`/san-pham/${prod.slug || prod.id}`} className="flex gap-3 group items-start">
                       <div className="w-12 h-12 relative rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100 transition-transform group-hover:scale-105">
-                        <Image src={prod.imageUrls?.[0] || "/placeholder.png"} alt={prod.name} fill className="object-cover" />
+                        <Image src={prod.imageUrls?.[0] || "/placeholder.svg"} alt={prod.name} fill className="object-cover" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="text-[10px] font-bold text-slate-700 line-clamp-2 mb-0.5 group-hover:text-teal-600 transition-colors leading-normal">{prod.name}</div>
-                        <div className="text-xs font-bold text-red-500 tracking-tight">{formatNumber(prod.variants?.[0]?.price || 0)} ₫</div>
+                        <div className="text-xs font-bold text-red-500 tracking-tight">{formatCurrency(prod.variants?.[0]?.price || 0)}</div>
                       </div>
                     </Link>
                   ))

@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Các trang công khai (Public pages - KHÔNG cần đăng nhập)
+const PUBLIC_PATHS = [
+  "/",
+  "/san-pham",
+  "/product",
+  "/category",
+  "/store",
+  "/about",
+  "/contact",
+];
+
 // Các trang chỉ dành cho người chưa đăng nhập (Auth pages)
 const AUTH_PATHS = ["/login", "/signup", "/reset-password"];
 
@@ -39,6 +50,11 @@ function decodeJwt(token: string) {
 export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
+  // Redirect /store to /account as requested by user
+  if (path === "/store") {
+    return NextResponse.redirect(new URL("/account", req.url));
+  }
+
   // Bỏ qua các đường dẫn static và api
   if (
     path.startsWith("/_next") ||
@@ -53,10 +69,16 @@ export function middleware(req: NextRequest) {
   const refreshToken = req.cookies.get("refreshToken")?.value;
   const token = accessToken ?? refreshToken;
 
+  const isPublicPath = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
   const isAuthPath = AUTH_PATHS.some((p) => path.startsWith(p));
   const isProtectedPath =
     PROTECTED_PATHS.some((p) => path.startsWith(p)) ||
     path.startsWith("/admin");
+
+  // 0. Nếu là trang công khai -> cho qua luôn
+  if (isPublicPath) {
+    return NextResponse.next();
+  }
 
   // 1. Nếu đã đăng nhập mà cố vào trang login/signup -> về trang chủ
   if (token && isAuthPath) {

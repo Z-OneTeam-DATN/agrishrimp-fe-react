@@ -46,6 +46,9 @@ export interface ProductListItem {
   brandName: string;
   imageUrls: string[];
   variants: ProductVariant[];
+  soldCount?: number;
+  ratingAverage?: number;
+  reviewCount?: number;
 }
 
 export interface UnitConversion {
@@ -100,4 +103,75 @@ export interface UpdateProductRequest {
   brand: string;
   description: string;
   variants: UpdateProductVariantRequest[];
+}
+
+// --- PUBLIC API TYPES (no auth required, no costPrice/quantity/status/warehouseId) ---
+
+export interface PageResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number; // 0-based current page
+  size: number;
+}
+
+export interface PublicVariantAttributeValue {
+  attributeId: number;
+  attributeName: string;
+  attributeCode: string;
+  valueId: number;
+  value: string;
+}
+
+export interface PublicProductVariant {
+  id: number;
+  sku: string;
+  barcode: string;
+  costPrice: number;
+  price: number;
+  wholesalePrice: number;
+  quantity: number;
+  shippingWeight: number;
+  unit: string;
+  imageUrl: string;
+  status: string;
+  attributeValues: PublicVariantAttributeValue[];
+  unitConversions: UnitConversion[];
+}
+
+export interface PublicProductCategory {
+  id: number;
+  name: string;
+}
+
+export interface PublicProductListItem {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  shortDesc?: string;
+  imageUrls: string[];
+  isOutOfStock: boolean;
+  origin?: string;
+  brandName?: string;
+  categoryName?: string;
+  category?: PublicProductCategory;
+  variants: PublicProductVariant[];
+  soldCount?: number;
+  ratingAverage?: number;
+  reviewCount?: number;
+}
+
+export interface PublicProductDetail {
+  id: number;
+  name: string;
+  slug: string;
+  shortDesc?: string;
+  description: string;
+  imageUrls: string[];
+  isOutOfStock: boolean;
+  origin?: string;
+  brandName: string;
+  category: PublicProductCategory;
+  variants: PublicProductVariant[];
 }

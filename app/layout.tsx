@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import LayoutClient from "./layoutClient";
-import GoogleAuthProvider from "@/components/providers/GoogleOAuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Agri Shrimp - Giải pháp nuôi tôm thông minh",
   description: "Hệ thống quản lý Agri Shrimp",
+  icons: {
+    icon: "/images/logo_arishrimp.jpg",
+  },
 };
-
-export const dynamic = "force-dynamic";
 
 export default function RootLayout({
   children,
@@ -27,9 +27,7 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <GoogleAuthProvider>
-          <LayoutClient>{children}</LayoutClient>
-        </GoogleAuthProvider>
+        <LayoutClient>{children}</LayoutClient>
       </body>
     </html>
   );

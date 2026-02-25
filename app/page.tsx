@@ -58,26 +58,16 @@ export default function Home() {
             <h5 className="font-bold text-xl uppercase text-[#d32f2f] flex items-center gap-2">
               <Trophy className="fill-red-600 text-red-600" /> Top Bán Chạy Nhất
             </h5>
-            <Link href="/store?sort=best-sell" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
+            <Link href="/account" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
               Xem tất cả <ChevronRight size={16} />
             </Link>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {bestSellers.map((product, index) => (
+            {bestSellers.map((product) => (
               <ProductCard
                 key={product.id}
-                // Sử dụng slug cho URL đẹp và SEO tốt
-                id={product.slug || product.id}
-                name={product.name}
-                category={product.categoryName}
-                image={product.imageUrls?.[0]}
-                price={product.variants?.[0]?.price}
-                oldPrice={product.variants?.[0]?.oldPrice}
-                sold={product.soldCount || 0}
-                rating={product.ratingAverage || 5}
-                reviewCount={product.reviewCount || 0}
-                tag={index === 0 ? "TOP 1" : "BEST"}
+                product={product}
               />
             ))}
           </div>
@@ -91,7 +81,7 @@ export default function Home() {
             <h5 className="font-bold text-xl uppercase text-[#009688] flex items-center gap-2">
               <Sparkles className="text-[#009688] fill-[#009688]/20" strokeWidth={2.5} /> Sản Phẩm Gợi Ý
             </h5>
-            <Link href="/store" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
+            <Link href="/account" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
               Xem tất cả <ChevronRight size={16} />
             </Link>
           </div>
@@ -100,13 +90,7 @@ export default function Home() {
             {allProducts.map((product) => (
               <ProductCard
                 key={product.id}
-                id={product.slug || product.id}
-                name={product.name}
-                category={product.categoryName}
-                image={product.imageUrls?.[0]}
-                price={product.variants?.[0]?.price}
-                sold={product.soldCount || 0}
-                rating={product.ratingAverage || 5}
+                product={product}
               />
             ))}
           </div>

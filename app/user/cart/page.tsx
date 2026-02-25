@@ -13,6 +13,7 @@ import {
   Ticket,
   ChevronRight,
   ChevronLeft,
+  Loader2,
 } from "lucide-react";
 
 // --- INTERFACES ---
@@ -44,6 +45,7 @@ const VOUCHERS: Voucher[] = [
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingItems, setUpdatingItems] = useState<Record<number, boolean>>({}); // ✅ QUẢN LÝ TRẠNG THÁI ĐANG UPDATE THEO VARIANT ID
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const router = useRouter();
@@ -52,6 +54,7 @@ export default function CartPage() {
   // 3. Cập nhật lại hàm fetchCart
   const fetchCart = async () => {
     try {
+      setLoading(true);
       const data = await cartService.getMyCart();
       const formattedItems = data.map((item: any) => ({
         ...item,
@@ -76,14 +79,13 @@ export default function CartPage() {
   }, []);
 
   // --- ACTIONS ---
-  const updateQuantity = async (variantId: number, currentQty: number, delta: number, stock: number) => {
+  const updateQuantity = async (variantId: number, currentQty: number, delta: number) => {
     const newQty = currentQty + delta;
     if (newQty < 1) return;
-    if (newQty > stock) {
-      toast.warning("Đã đạt giới hạn tồn kho!");
-      return;
-    }
 
+    // ✅ BẬT LOADING CHO ITEM NÀY
+    setUpdatingItems(prev => ({ ...prev, [variantId]: true }));
+    
     try {
       // 1. Gọi API cập nhật (+1 hoặc -1)
       await cartService.updateQuantity(variantId, delta);
@@ -96,17 +98,23 @@ export default function CartPage() {
       );
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi cập nhật số lượng");
+    } finally {
+      // ✅ TẮT LOADING
+      setUpdatingItems(prev => ({ ...prev, [variantId]: false }));
     }
   };
 
-  const removeItem = async (cartItemId: number) => {
+  const removeItem = async (cartItemId: number, variantId: number) => {
     if (confirm("Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?")) {
+      setUpdatingItems(prev => ({ ...prev, [variantId]: true }));
       try {
         await cartService.removeItem(cartItemId);
         toast.success("Đã xóa khỏi giỏ hàng");
         setItems((prev) => prev.filter((item) => item.id !== cartItemId));
       } catch (error) {
         toast.error("Lỗi khi xóa sản phẩm");
+      } finally {
+        setUpdatingItems(prev => ({ ...prev, [variantId]: false }));
       }
     }
   };
@@ -214,10 +222,10 @@ export default function CartPage() {
               {/* CART LIST */}
               <div className="divide-y divide-gray-100">
                 {items.map((item) => (
-                  <div key={item.id} className="relative flex p-3 md:p-4 hover:bg-gray-50 transition-colors gap-3 bg-white group">
+                  <div key={item.id} className={`relative flex p-3 md:p-4 hover:bg-gray-50 transition-colors gap-3 bg-white group ${updatingItems[item.variantId] ? "opacity-60 pointer-events-none" : ""}`}>
                     {/* BUTTON XÓA */}
-                    <button onClick={() => removeItem(item.id)} className="absolute top-2 right-2 p-2 text-gray-300 hover:text-red-500 transition-colors z-10 md:static md:w-10 md:flex md:justify-center">
-                      <Trash2 size={18} />
+                    <button onClick={() => removeItem(item.id, item.variantId)} className="absolute top-2 right-2 p-2 text-gray-300 hover:text-red-500 transition-colors z-10 md:static md:w-10 md:flex md:justify-center">
+                      {updatingItems[item.variantId] ? <Loader2 size={18} className="animate-spin text-teal-600" /> : <Trash2 size={18} />}
                     </button>
 
                     {/* CHECKBOX */}
@@ -249,11 +257,11 @@ export default function CartPage() {
 
                         <div className="flex items-center md:w-32 md:justify-center">
                           <div className="flex items-center border border-gray-300 rounded overflow-hidden h-8 bg-white shadow-sm">
-                            <button onClick={() => updateQuantity(item.variantId, item.quantity, -1, item.stock)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
+                            <button onClick={() => updateQuantity(item.variantId, item.quantity, -1)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
                               <Minus size={14} />
                             </button>
                             <input type="number" className="w-10 h-full text-center text-sm font-semibold border-x border-gray-200 focus:outline-none" value={item.quantity} readOnly />
-                            <button onClick={() => updateQuantity(item.variantId, item.quantity, 1, item.stock)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
+                            <button onClick={() => updateQuantity(item.variantId, item.quantity, 1)} className="w-8 h-full flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors text-gray-600">
                               <Plus size={14} />
                             </button>
                           </div>
