@@ -19,7 +19,6 @@ export const ProductService = {
   }): Promise<ProductListItem[]> => {
     const response = await apiJava.get(`${ProductService.PREFIX}`, { 
       params,
-      isPublic: true 
     } as any);
     return response.data;
   },
@@ -58,14 +57,13 @@ export const ProductService = {
     return response.data;
   },
 
-  // 7. API Hỗ trợ (Metadata cho Dropdowns)
   getCategories: async (): Promise<any[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/categories`, { isPublic: true } as any);
+    const response = await apiJava.get(`${ProductService.PREFIX}/categories`);
     return response.data;
   },
 
   getBrands: async (): Promise<any[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/brands`, { isPublic: true } as any);
+    const response = await apiJava.get(`${ProductService.PREFIX}/brands`);
     return response.data;
   },
 
