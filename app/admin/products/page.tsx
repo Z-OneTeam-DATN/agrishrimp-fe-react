@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminProductTable } from "@/components/admin/AdminProductTable";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
@@ -139,8 +141,7 @@ export default function ProductsPage() {
   };
 
   const handleEdit = (id: number) => {
-    // router.push(`/admin/products/${id}/edit`);
-    toast.info(`Chức năng chỉnh sửa sản phẩm ${id} đang được phát triển.`);
+    router.push(`/admin/products/${id}/edit`);
   };
 
   useEffect(() => {

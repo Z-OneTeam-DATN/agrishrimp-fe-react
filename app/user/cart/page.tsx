@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { cartService } from "@/app/services/cart.service";
 import { useRouter } from "next/navigation";
+import { useCartStore } from "@/stores/useCartStore"; // ✅ Thêm dòng này
 import {
   Minus,
   Plus,
@@ -156,6 +157,7 @@ export default function CartPage() {
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [voucherInput, setVoucherInput] = useState("");
   const router = useRouter();
+  const { fetchCartCount } = useCartStore(); // ✅ Lấy hàm fetchCartCount từ store
 
   const fetchCart = async () => {
     try {
@@ -187,6 +189,7 @@ export default function CartPage() {
           item.variantId === variantId ? { ...item, quantity: newQty } : item
         )
       );
+      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi cập nhật số lượng");
     } finally {
@@ -201,6 +204,7 @@ export default function CartPage() {
       await cartService.removeItem(cartItemId);
       toast.success("Đã xóa khỏi giỏ hàng");
       setItems((prev) => prev.filter((item) => item.id !== cartItemId));
+      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header
     } catch {
       toast.error("Lỗi khi xóa sản phẩm");
     } finally {
@@ -465,9 +469,8 @@ export default function CartPage() {
             </div>
 
             {/* Checkout btn */}
-            <Link
-              href="/user/checkout"
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
+                        <Link
+                        href="/checkout"              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
                 totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"
               }`}
             >
@@ -485,9 +488,8 @@ export default function CartPage() {
             <p className="text-xs text-gray-400">Tổng thanh toán</p>
             <p className="text-base font-bold text-gray-900">{formatMoney(finalTotal)}</p>
           </div>
-          <Link
-            href="/user/checkout"
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
+                      <Link
+                      href="/checkout"            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
               totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"
             }`}
           >

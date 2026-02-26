@@ -5,8 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useCartStore } from "@/stores/useCartStore";
 import { cartService } from "@/app/services/cart.service";
 import { orderService } from "@/app/services/order.service";
+import { prepareOrder, confirmOrder } from "@/app/services/orderService";
 import { addressService } from "@/app/services/address.service";
 import { branchService } from "@/app/services/branchService";
 import AddressForm from "@/components/profile/AddressForm";
@@ -230,19 +232,66 @@ export default function CheckoutPage() {
           variantId: item.variantId,
           quantity: item.quantity,
         })),
+        paymentMethod: paymentMethod,
       };
-      console.log("Dữ liệu gửi xuống Backend:", payload);
-      await orderService.checkout(payload);
+      
+      console.log("Sending checkout payload:", payload);
+      // Sử dụng orderService từ order.service.ts (old flow)
+      const response = await orderService.checkout(payload);
+      console.log("Phản hồi từ Backend (Checkout):", response);
+
+      if (paymentMethod === "PAYOS") {
+        // Kiểm tra nhiều trường có thể chứa URL thanh toán
+        let checkoutUrl = response?.checkoutUrl || response?.paymentUrl || response?.payUrl || response?.url;
+        
+        // Nếu không có URL nhưng có ID, thử lấy lại link thanh toán
+        const orderId = response?.orderId || response?.id;
+        if (!checkoutUrl && orderId) {
+          try {
+            const { getPaymentLink } = await import("@/app/services/orderService");
+            checkoutUrl = await getPaymentLink(orderId);
+          } catch (linkError) {
+            console.error("Lỗi khi lấy lại link thanh toán:", linkError);
+          }
+        }
+
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+          return;
+        } else {
+          console.error("PAYOS selected but no checkout URL found. Response:", response);
+          toast.error("Máy chủ không trả về liên kết thanh toán. Vui lòng thử lại hoặc chọn phương thức khác!");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      const finalOrderId = response?.orderId || response?.id;
+      const finalOrderCode = response?.orderCode || response?.code;
+
+      if (!finalOrderId) {
+        console.error("No order ID returned from backend:", response);
+        toast.error("Đã có lỗi xảy ra khi xử lý đơn hàng!");
+        setIsSubmitting(false);
+        return;
+      }
+
       toast.success("🎉 Đặt hàng thành công! Cảm ơn bạn.");
-      router.push("/user/checkout/success");
+      useCartStore.getState().clearCart();
+      useCartStore.getState().fetchCartCount();
+      router.push(
+        `/order-success?orderId=${finalOrderId}&orderCode=${encodeURIComponent(
+          finalOrderCode || ""
+        )}&method=offline`
+      );
       router.refresh();
     } catch (error: any) {
       console.error("Toàn bộ lỗi API:", error);
       const errData = error.response?.data;
       const errMsg =
         typeof errData === "object"
-          ? errData.detail || errData.message
-          : errData || "Lỗi xử lý đặt hàng!";
+          ? errData.detail || errData.message || errData.error
+          : errData || error.message || "Lỗi xử lý đặt hàng!";
       toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -466,10 +515,10 @@ export default function CheckoutPage() {
                     icon: "https://cdn-icons-png.flaticon.com/512/2331/2331941.png",
                   },
                   {
-                    val: "VNPAY",
-                    label: "Ví VNPAY / QR Code",
-                    sub: "Quét mã QR thanh toán tiện lợi",
-                    icon: "https://cdn.haitrieu.com/wp-content/uploads/2022/10/Icon-VNPAY-QR.png",
+                    val: "PAYOS",
+                    label: "Thanh toán online (payOS)",
+                    sub: "QR Code / thẻ ATM / thẻ tín dụng",
+                    icon: "https://incanhsat.com/wp-content/uploads/2020/12/logo-payos.png",
                   },
                 ].map((pm) => (
                   <label
@@ -600,7 +649,7 @@ export default function CheckoutPage() {
                   {isSubmitting ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    <>Đặt hàng <ArrowRight size={15} /></>
+                    <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={15} /></>
                   )}
                 </button>
                 <p className="text-center text-[11px] text-gray-400 mt-3 leading-relaxed">
@@ -631,7 +680,7 @@ export default function CheckoutPage() {
             {isSubmitting ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
-              <>Đặt hàng <ArrowRight size={14} /></>
+              <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={14} /></>
             )}
           </button>
         </div>

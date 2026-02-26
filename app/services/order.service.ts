@@ -33,6 +33,7 @@ export interface CheckoutPayload {
   voucherCode?: string | null;
   branchId: number | null;
   items: { variantId: number; quantity: number }[];
+  paymentMethod: string; // ✅ THÊM DÒNG NÀY ĐỂ CHỌN PT THANH TOÁN
 }
 
 export const orderService = {

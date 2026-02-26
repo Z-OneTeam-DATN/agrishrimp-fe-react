@@ -81,7 +81,7 @@ export function ProductCardSkeleton() {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
-  const { updateCountLocal } = useCartStore();
+  const { fetchCartCount } = useCartStore(); // ✅ Thay đổi ở đây
   const [isAdding, setIsAdding] = useState(false);
 
   if (!product) return null;
@@ -113,7 +113,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     setIsAdding(true);
     try {
       await cartService.updateQuantity(firstVariant.id, 1);
-      updateCountLocal(1);
+      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header bằng cách gọi API
       animateFlyToCart(e);
       toast.success(`Đã thêm ${product.name} vào giỏ hàng`);
     } catch (error: any) {

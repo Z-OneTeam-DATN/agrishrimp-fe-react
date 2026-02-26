@@ -2,7 +2,7 @@ import { apiJava } from "@/lib/axios";
 
 // Sửa lại đường dẫn khớp với @RequestMapping("/api/v1/inventory") của Java
 // Lưu ý: Nếu trong lib/axios bạn đã có sẵn tiền tố "/api" rồi thì chỉ cần thêm "/v1/inventory"
-const BASE_URL = "/inventory";
+const BASE_URL = "/v1/inventory";
 
 export const InventoryApiService = {
 

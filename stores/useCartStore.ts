@@ -1,31 +1,109 @@
 // stores/useCartStore.ts
-import { create } from "zustand";
-import { cartService } from "@/app/services/cart.service";
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { cartService } from "@/app/services/cart.service"
+import type { CartItem, DeliveryInfo, PrepareOrderResponse } from "@/app/types/order.types"
 
 interface CartStore {
-  itemCount: number;
-  fetchCartCount: () => Promise<void>;
-  updateCountLocal: (delta: number) => void; // Dùng để cộng/trừ ảo cho UI mượt
+  // ─── Header badge (hiện có) ────────────────────────────────────
+  itemCount: number
+  fetchCartCount: () => Promise<void>
+  updateCountLocal: (delta: number) => void
+
+  // ─── Checkout state (thêm mới) ─────────────────────────────────
+  items: CartItem[]
+  deliveryInfo: DeliveryInfo | null
+  prepareOrderResponse: PrepareOrderResponse | null
+  prepareToken: string | null
+
+  setItems: (items: CartItem[]) => void
+  addItem: (item: CartItem) => void
+  removeItem: (productVariantId: number) => void
+  updateQuantity: (productVariantId: number, quantity: number) => void
+  clearCart: () => void
+  setDeliveryInfo: (info: DeliveryInfo) => void
+  setPrepareResponse: (response: PrepareOrderResponse, token: string) => void
+  clearPrepareResponse: () => void
 }
 
-export const useCartStore = create<CartStore>((set, get) => ({
-  itemCount: 0,
-  
-  // Gọi API lấy tổng số lượng trong giỏ
-  fetchCartCount: async () => {
-    try {
-      const data = await cartService.getMyCart();
-      // Tính tổng số lượng của tất cả sản phẩm (Có thể đổi thành data.length nếu chỉ muốn đếm số đầu mục sản phẩm)
-      const total = data.reduce((sum: number, item: any) => sum + item.quantity, 0);
-      set({ itemCount: total });
-    } catch (error) {
-      set({ itemCount: 0 });
-    }
-  },
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
+      // ─── Header badge ──────────────────────────────────────────
+      itemCount: 0,
 
-  // Cập nhật local ngay lập tức khi bấm nút (không cần chờ API load lại)
-  updateCountLocal: (delta: number) => {
-    const current = get().itemCount;
-    set({ itemCount: Math.max(0, current + delta) });
-  }
-}));
+      fetchCartCount: async () => {
+        try {
+          const data = await cartService.getMyCart()
+          const total = data.reduce(
+            (sum: number, item: any) => sum + item.quantity,
+            0
+          )
+          set({ itemCount: total })
+        } catch {
+          set({ itemCount: 0 })
+        }
+      },
+
+      updateCountLocal: (delta: number) => {
+        const current = get().itemCount
+        set({ itemCount: Math.max(0, current + delta) })
+      },
+
+      // ─── Checkout state ────────────────────────────────────────
+      items: [],
+      deliveryInfo: null,
+      prepareOrderResponse: null,
+      prepareToken: null,
+
+      setItems: (items) => set({ items }),
+
+      addItem: (item) => {
+        const existing = get().items.find(
+          (i) => i.productVariantId === item.productVariantId
+        )
+        if (existing) {
+          set({
+            items: get().items.map((i) =>
+              i.productVariantId === item.productVariantId
+                ? { ...i, quantity: i.quantity + item.quantity }
+                : i
+            ),
+          })
+        } else {
+          set({ items: [...get().items, item] })
+        }
+      },
+
+      removeItem: (productVariantId) =>
+        set({
+          items: get().items.filter(
+            (i) => i.productVariantId !== productVariantId
+          ),
+        }),
+
+      updateQuantity: (productVariantId, quantity) =>
+        set({
+          items: get().items.map((i) =>
+            i.productVariantId === productVariantId ? { ...i, quantity } : i
+          ),
+        }),
+
+      clearCart: () =>
+        set({ items: [], deliveryInfo: null, prepareOrderResponse: null, prepareToken: null }),
+
+      setDeliveryInfo: (info) => set({ deliveryInfo: info }),
+
+      setPrepareResponse: (response, token) =>
+        set({ prepareOrderResponse: response, prepareToken: token }),
+
+      clearPrepareResponse: () =>
+        set({ prepareOrderResponse: null, prepareToken: null }),
+    }),
+    {
+      name: "cart-storage",
+      // Chỉ persist items và deliveryInfo — KHÔNG persist prepareOrderResponse
+      partialize: (s) => ({ items: s.items, deliveryInfo: s.deliveryInfo }),
+    }
+  )
+)

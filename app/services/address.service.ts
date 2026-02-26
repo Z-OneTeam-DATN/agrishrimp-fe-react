@@ -1,20 +1,21 @@
+import axios from "axios";
 import { apiJava } from "@/lib/axios";
 
 export const locationService = {
   // Lấy danh sách Tỉnh/Thành phố
   getProvinces: async () => {
-    const res = await apiJava.get("/api/locations/provinces");
-    return res.data;
+    const res = await axios.get("https://provinces.open-api.vn/api/p/");
+    return res.data.map((p: any) => ({ ...p, id: p.code }));
   },
   // Lấy danh sách Quận/Huyện dựa theo ID Tỉnh
   getDistricts: async (provinceId: number) => {
-    const res = await apiJava.get(`/api/locations/districts/${provinceId}`);
-    return res.data;
+    const res = await axios.get(`https://provinces.open-api.vn/api/p/${provinceId}?depth=2`);
+    return (res.data.districts || []).map((d: any) => ({ ...d, id: d.code }));
   },
   // Lấy danh sách Phường/Xã dựa theo ID Huyện
   getWards: async (districtId: number) => {
-    const res = await apiJava.get(`/api/locations/wards/${districtId}`);
-    return res.data;
+    const res = await axios.get(`https://provinces.open-api.vn/api/d/${districtId}?depth=2`);
+    return (res.data.wards || []).map((w: any) => ({ ...w, id: w.code, code: w.code.toString() }));
   },
 };
 

@@ -24,9 +24,9 @@ export const ProductService = {
   },
 
   // 2. Xem chi tiết sản phẩm (Bao gồm SKUs)
-  getById: async (id: string | number): Promise<ProductDetail> => {
+  getById: async (id: string | number, isPublic: boolean = false): Promise<ProductDetail> => {
     const response = await apiJava.get(`${ProductService.PREFIX}/${id}`, { 
-      isPublic: true 
+      isPublic 
     } as any);
     return response.data;
   },
@@ -68,7 +68,7 @@ export const ProductService = {
   },
 
   getAttributes: async (): Promise<Attribute[]> => {
-    const response = await apiJava.get(`${ProductService.PREFIX}/attributes`, { isPublic: true } as any);
+    const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
     return response.data;
   },
 
