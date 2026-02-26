@@ -152,7 +152,7 @@ export default function NewTransferPage() {
         transferDate: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
         deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
         items: formData.items.map((item: any) => ({
-          variantId: Number(item.variantId) || 1,
+         sku: item.productCode,
           quantity: Number(item.quantity),
           quantityRequested: Number(item.quantity),
           quantityReal: 0,
@@ -220,33 +220,30 @@ export default function NewTransferPage() {
   }, [searchTerm, currentSourceBranch]);
 
   const handleSelectProduct = (variant: any) => {
-    const isExist = fields.some((f: any) => f.variantId === variant.id);
-    if (isExist) {
-      toast.error("Sản phẩm này đã có trong danh sách!");
-      return;
-    }
+      // 1. Kiểm tra trùng dựa trên SKU giống Nhập kho
+      const isExist = fields.some((f: any) => f.productCode === variant.sku);
+      if (isExist) {
+        toast.error("Sản phẩm này đã có trong danh sách!");
+        return;
+      }
 
-    let displayName = variant.productName || "Tên sản phẩm";
-    if (variant.sku) displayName += ` - ${variant.sku}`;
-    if (variant.attributeValues && variant.attributeValues.length > 0) {
-      const attributes = variant.attributeValues.map((attr: any) => attr.value).join(", ");
-      displayName += ` (${attributes})`;
-    }
+      let displayName = variant.productName || "Sản phẩm";
+      if (variant.sku) displayName += ` [${variant.sku}]`;
 
-    append({
-      variantId: variant.id,
-      productCode: variant.sku || variant.barcode,
-      productName: displayName,
-      unit: variant.unit || "Cái",
-      quantity: 1,
-      availableQuantity: variant.quantity || 0,
-      itemNote: "",
-    });
+      // 2. Append dữ liệu - Dùng variant.sku làm định danh chính
+      append({
+        variantId: variant.id,
+        productCode: variant.sku, // <--- SKU là duy nhất
+        productName: displayName,
+        unit: variant.unit || "Cái",
+        quantity: 1,
+        availableQuantity: variant.quantity || 0,
+        itemNote: "",
+      });
 
-    setSearchTerm("");
-    setSearchResults([]);
-    setShowDropdown(false);
-    toast.success("Đã thêm sản phẩm vào phiếu!");
+      setSearchTerm("");
+      setShowDropdown(false);
+      toast.success("Đã thêm biến thể thành công!");
   };
 
   return (
