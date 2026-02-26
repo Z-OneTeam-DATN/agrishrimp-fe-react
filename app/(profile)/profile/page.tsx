@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -9,14 +10,69 @@ import {
   CheckCircle2,
   RotateCcw,
   XCircle,
-  Star,
   Bot,
   Ticket,
   Bell,
   MapPin,
+  Loader2
 } from "lucide-react";
+import { toast } from "sonner";
+import { AuthService } from "@/app/services/auth.service";
+import { addressService } from "@/app/services/address.service";
 
 export default function ProfilePage() {
+  //  1. Khai báo State để lưu dữ liệu động
+  const [user, setUser] = useState<any>(null);
+  const [defaultAddress, setDefaultAddress] = useState<any>(null);
+  const [addressCount, setAddressCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  //  2. Hàm gọi API lấy dữ liệu User và Địa chỉ
+  const fetchDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Lấy thông tin user
+      const currentUser = await AuthService.me();
+      setUser(currentUser);
+
+      // Lấy danh sách địa chỉ
+      try {
+        const addresses = await addressService.getAll();
+        if (Array.isArray(addresses)) {
+          setAddressCount(addresses.length); // Đếm số lượng địa chỉ
+          if (addresses.length > 0) {
+            // Tìm địa chỉ mặc định, nếu không có thì lấy cái đầu tiên
+            const defAddr = addresses.find((a: any) => a.isDefault) || addresses[0];
+            setDefaultAddress(defAddr);
+          }
+        }
+      } catch (addrError) {
+        console.warn("Lỗi tải địa chỉ:", addrError);
+      }
+
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        toast.error("Vui lòng đăng nhập lại!");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  //  3. Gọi hàm fetch khi vừa vào trang
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Hiển thị vòng xoay loading trong lúc chờ gọi API
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-[400px]">
+        <Loader2 className="animate-spin text-emerald-600" size={32} />
+      </div>
+    );
+  }
+
   return (
     <>
       {/* 1. KHỐI ĐƠN HÀNG */}
@@ -57,7 +113,7 @@ export default function ProfilePage() {
             <div className="w-10 h-10 mb-2 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Truck size={20} />
             </div>
-            {/* Badge số lượng */}
+            {/* Badge số lượng (Có thể gọi API đếm đơn hàng đang giao để thay vào đây sau) */}
             <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
               1
             </span>
@@ -109,7 +165,7 @@ export default function ProfilePage() {
 
       {/* 2. KHỐI THÔNG TIN & ĐỊA CHỈ */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">
-        {/* Cột Thông tin cá nhân (7 phần) */}
+        {/* Cột Thông tin cá nhân */}
         <div className="md:col-span-7">
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 h-full">
             <div className="flex justify-between items-center mb-4">
@@ -124,42 +180,31 @@ export default function ProfilePage() {
               </Link>
             </div>
 
+            {/*  ĐÃ ĐỔI SANG DỮ LIỆU ĐỘNG */}
             <div className="space-y-3">
               <div className="flex justify-between border-b border-gray-50 pb-2">
                 <span className="text-gray-500 text-sm">Họ và tên</span>
                 <span className="font-medium text-gray-900 text-sm">
-                  Võ Thị Mỹ Thanh
+                  {user?.fullName || "Chưa cập nhật"}
                 </span>
               </div>
               <div className="flex justify-between border-b border-gray-50 pb-2">
                 <span className="text-gray-500 text-sm">Email</span>
                 <span className="font-medium text-gray-900 text-sm">
-                  thanhthenhwifi@gmail.com
+                  {user?.email || "Chưa có email"}
                 </span>
               </div>
               <div className="flex justify-between border-b border-gray-50 pb-2">
                 <span className="text-gray-500 text-sm">Số điện thoại</span>
                 <span className="font-medium text-gray-900 text-sm">
-                  0909 *** 888
-                </span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-gray-500 text-sm">
-                  Tổng tiền 30 ngày:
-                </span>
-                <span className="bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-1 rounded text-xs font-bold flex items-center">
-                  <Star
-                    size={12}
-                    className="mr-1 fill-yellow-500 text-yellow-500"
-                  />{" "}
-                  35.000.000 ₫
+                  {user?.phoneNumber || "Chưa cập nhật"}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Cột Địa chỉ mặc định (5 phần) */}
+        {/* Cột Địa chỉ mặc định */}
         <div className="md:col-span-5">
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 h-full flex flex-col">
             <div className="flex justify-between items-center mb-4">
@@ -174,24 +219,33 @@ export default function ProfilePage() {
               </Link>
             </div>
 
-            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-4 flex-1 relative group hover:border-[#329965] transition-colors">
-              <div className="font-bold text-gray-900 text-sm mb-1 flex items-center">
-                <MapPin size={14} className="text-[#329965] mr-1" /> Thanh Võ
-                <span className="font-normal text-gray-500 ml-1">
-                  | (+84) 909 123 456
-                </span>
+            {/*  KIỂM TRA: Nếu có địa chỉ thì hiện, không thì báo trống */}
+            {defaultAddress ? (
+              <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-4 flex-1 relative group hover:border-[#329965] transition-colors flex flex-col">
+                <div className="font-bold text-gray-900 text-sm mb-1 flex items-center">
+                  <MapPin size={14} className="text-[#329965] mr-1" /> {defaultAddress.receiverName}
+                  <span className="font-normal text-gray-500 ml-1 border-l border-gray-300 pl-1">
+                    {defaultAddress.receiverPhone}
+                  </span>
+                </div>
+                <hr className="my-2 border-gray-200" />
+                <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                  {defaultAddress.addressDetail}
+                </p>
+                <div className="text-right mt-auto">
+                  <span className="text-[10px] text-gray-400 italic">
+                    {addressCount} địa chỉ đã thêm
+                  </span>
+                </div>
               </div>
-              <hr className="my-2 border-gray-200" />
-              <p className="text-xs text-gray-600 leading-relaxed mb-3">
-                123 Đường 3/2, Phường Xuân Khánh, Quận Ninh Kiều, Thành phố Cần
-                Thơ
-              </p>
-              <div className="text-right mt-auto">
-                <span className="text-[10px] text-gray-400 italic">
-                  2 địa chỉ đã thêm
-                </span>
+            ) : (
+              <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-4 flex flex-1 items-center justify-center flex-col text-gray-400">
+                <p className="text-sm mb-2">Chưa có địa chỉ nào</p>
+                <Link href="/profile/address" className="text-[#329965] text-xs font-bold hover:underline">
+                  Thêm địa chỉ ngay
+                </Link>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
