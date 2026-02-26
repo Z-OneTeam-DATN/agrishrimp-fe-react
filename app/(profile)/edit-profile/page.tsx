@@ -22,7 +22,7 @@ export default function EditProfilePage() {
     setIsLoading(true);
     try {
       const currentUser = await AuthService.me();
-      console.log("Dữ liệu trả về từ API /me:", currentUser); // ✅ LOG ĐỂ KIỂM TRA
+      console.log("Dữ liệu trả về từ API /me:", currentUser);
       setUser(currentUser);
 
       try {
@@ -56,23 +56,22 @@ export default function EditProfilePage() {
 
   const isGoogleAuth = user?.provider === "GOOGLE";
 
-  // ✅ HÀM GIẢI MÃ GIỚI TÍNH "BẤT BẠI": Xử lý cả kiểu Số và kiểu Chữ từ Backend
   const parseGender = (rawGender: any) => {
     if (rawGender === 0 || rawGender === "0" || rawGender === "MALE") return "MALE";
     if (rawGender === 1 || rawGender === "1" || rawGender === "FEMALE") return "FEMALE";
     if (rawGender === 2 || rawGender === "2" || rawGender === "OTHER") return "OTHER";
-    return "OTHER"; // Mặc định
+    return "OTHER";
   };
 
   const userData = {
     fullname: user?.fullName || user?.displayName || "",
     email: user?.email || "",
     phone: user?.phoneNumber || "",
-    gender: parseGender(user?.gender), // Sử dụng hàm giải mã
-    // Cố gắng bắt mọi key có thể chứa ngày sinh
+    gender: parseGender(user?.gender),
     birthday: (user?.dateOfBirth || user?.birthday || user?.dob)
       ? new Date(user?.dateOfBirth || user?.birthday || user?.dob)
       : new Date("1995-05-20"),
+    // ✅ Luôn ưu tiên lấy ảnh từ state 'user' để hiển thị ảnh mới nhất
     avatarUrl: user?.avatarUrl || "https://hinhcute.net/wp-content/uploads/2025/06/anh-26-meme-dang-yeu.jpg",
   };
 
@@ -86,20 +85,20 @@ export default function EditProfilePage() {
             initialValues={userData}
             isGoogleAuth={isGoogleAuth}
             onUpdateSuccess={(newPayload) => {
-              // Merge data mới vào UI
+              // ✅ SỬA TẠI ĐÂY: Cập nhật toàn bộ payload (bao gồm cả avatarUrl) vào state user
               setUser((prev: any) => ({
                 ...prev,
                 fullName: newPayload.fullName,
                 phoneNumber: newPayload.phoneNumber,
                 gender: newPayload.gender,
-                dateOfBirth: newPayload.dateOfBirth
+                dateOfBirth: newPayload.dateOfBirth,
+                avatarUrl: newPayload.avatarUrl // ⬅️ Dòng này cực kỳ quan trọng để giữ ảnh mới
               }));
             }}
           />
         </div>
 
         <div className="md:col-span-5 space-y-8">
-          {/* Thông tin liên lạc */}
           <div className="pb-6 border-b border-gray-100">
             <div className="font-bold mb-4 text-[11px] text-gray-400 uppercase tracking-widest">Thông tin liên lạc</div>
             <div className="space-y-5">
@@ -113,7 +112,6 @@ export default function EditProfilePage() {
             </div>
           </div>
 
-          {/* Bảo mật */}
           {!isGoogleAuth && (
             <div className="pb-6 border-b border-gray-100">
               <div className="font-bold mb-4 text-[11px] text-gray-400 uppercase tracking-widest">Bảo mật</div>
@@ -127,7 +125,6 @@ export default function EditProfilePage() {
             </div>
           )}
 
-          {/* Địa chỉ mặc định */}
           <div>
             <div className="flex justify-between items-center mb-4">
               <div className="font-bold text-[11px] text-gray-400 uppercase tracking-widest">Địa chỉ mặc định</div>
