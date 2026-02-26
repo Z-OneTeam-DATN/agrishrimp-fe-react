@@ -6,7 +6,9 @@ import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
 import { InventoryApiService } from "@/app/services/inventory.service";
 import { toast } from "sonner";
-import { Loader2, FileText, AlertCircle } from "lucide-react";
+import { Loader2, FileText, AlertCircle, RefreshCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,13 +27,8 @@ const warehouseFilters = [
   { label: "Kho Bạc Liêu", value: "bac-lieu" },
 ];
 
-const statusFilters = [
-  { label: "Tất cả trạng thái", value: "all" },
-  { label: "Đã nhập kho", value: "IMPORTED" },
-  { label: "Phiếu tạm", value: "PO" },
-];
-
 export default function AdminReceiptListPage() {
+  const [activeTab, setActiveTab] = useState("pending"); // "pending" | "history"
   const [receipts, setReceipts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteReceipt, setDeleteReceipt] = useState<{id: number, code: string} | null>(null);
@@ -54,12 +51,12 @@ export default function AdminReceiptListPage() {
           code: item.code || `PNK-${item.id}`,
           date: item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chưa xác định",
           supplier: displayPartner,
-          importType: item.importType, // Giữ lại để Table xử lý style
+          importType: item.importType,
           warehouse: item.branchName || "Kho mặc định",
           total: item.totalAmount || 0,
           paid: item.paymentAmount || 0,
           debt: item.debtAmount || 0,
-          status: item.status || "PO",
+          status: item.status || "PENDING", // Trả về PENDING hoặc COMPLETED từ backend
           creator: item.deliverer || "Hệ thống",
         };
       });
@@ -89,47 +86,104 @@ export default function AdminReceiptListPage() {
     }
   };
 
+  // 1. Lọc dữ liệu theo tab hiện tại
+  const displayData = receipts.filter((item) => {
+    if (activeTab === "pending") {
+      return item.status === "PENDING" || item.status === "PO";
+    } else {
+      return item.status === "COMPLETED" || item.status === "IMPORTED";
+    }
+  });
+
   return (
-    <div className="space-y-3">
-      <AdminPageHeader
-        title="Quản lý phiếu nhập hàng"
-        addBtnLabel="Tạo phiếu nhập"
-        addBtnHref="/admin/receipts/new"
-      />
+    <div className="space-y-0 flex flex-col h-full -m-4 md:-m-5 bg-[#f8f9fa] min-h-screen">
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-        <AdminSearchFilter
-          placeholder="Tìm mã phiếu, nhà cung cấp..."
-          filter1Placeholder="Lọc theo kho"
-          filter1Options={warehouseFilters}
-          filter2Placeholder="Trạng thái"
-          filter2Options={statusFilters}
-          onRefresh={fetchReceipts}
-        />
+      {/* 2. Phần Header (Giống mẫu Export) */}
+      <div className="px-6 pt-6 pb-2 flex items-center justify-between bg-white border-b">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-[20px] font-black uppercase tracking-tight text-slate-800 flex items-center gap-2">
+            <FileText className="text-blue-600" size={24}/>
+            {activeTab === "pending" ? "Quản lý đơn chờ nhập kho" : "Lịch sử phiếu nhập kho"}
+          </h1>
+        </div>
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white">
-            <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-              Đang đồng bộ dữ liệu AgriShrimp...
-            </p>
-          </div>
-        ) : receipts.length > 0 ? (
-          <InventoryReceiptTable
-             receipts={receipts}
-             onDeleteClick={(id, code) => setDeleteReceipt({id, code})}
+        <div className="flex items-center gap-3">
+          <AdminPageHeader
+            title=""
+            addBtnLabel="Tạo phiếu nhập mới"
+            addBtnHref="/admin/receipts/new"
           />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
-            <div className="bg-slate-50 p-4 rounded-full mb-3">
-              <FileText className="opacity-20" size={40} />
-            </div>
-            <p className="text-xs font-bold uppercase tracking-tight">Không có phiếu nhập nào</p>
-            <p className="text-[11px] mt-1 text-slate-400">Vui lòng kiểm tra lại bộ lọc hoặc tạo phiếu mới</p>
-          </div>
-        )}
+        </div>
       </div>
 
+      {/* 3. Phần Tabs (Giống mẫu Export) */}
+      <div className="bg-white border-b px-6 flex items-center h-[48px] gap-8">
+        {[
+          { id: "pending", label: "CHỜ XỬ LÝ" },
+          { id: "history", label: "LỊCH SỬ ĐÃ NHẬP" }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "h-full text-[12px] font-black border-b-2 px-1 tracking-wider transition-all",
+              activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-600"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 4. Phần Content */}
+      <div className="p-6 flex-1 overflow-auto">
+        <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col min-h-[500px]">
+
+          <div className="flex items-center justify-between pr-4 bg-slate-50/50 border-b">
+            <div className="flex-1">
+              <AdminSearchFilter
+                placeholder="Tìm mã phiếu, nhà cung cấp..."
+                filter1Placeholder="Lọc theo kho"
+                filter1Options={warehouseFilters}
+                onRefresh={fetchReceipts}
+              />
+            </div>
+            <Button variant="ghost" size="sm" onClick={fetchReceipts} disabled={isLoading}>
+              <RefreshCcw size={16} className={cn(isLoading && "animate-spin")} />
+            </Button>
+          </div>
+
+          <div className="flex-1 relative">
+            {isLoading ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+                <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                  Đang đồng bộ dữ liệu AgriShrimp...
+                </p>
+              </div>
+            ) : displayData.length === 0 ? (
+              <div className="py-24 flex flex-col items-center justify-center text-slate-400">
+                <div className="bg-slate-50 p-4 rounded-full mb-3">
+                  <FileText className="opacity-20" size={40} />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-tight">Không có dữ liệu</p>
+                <p className="text-[11px] mt-1 text-slate-400">
+                  {activeTab === "pending"
+                    ? "Hiện không có đơn nào đang chờ nhập kho."
+                    : "Chưa có lịch sử nhập kho nào được ghi nhận."}
+                </p>
+              </div>
+            ) : (
+              <InventoryReceiptTable
+                 receipts={displayData}
+                 onDeleteClick={(id, code) => setDeleteReceipt({id, code})}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Popup Xóa */}
       <AlertDialog open={!!deleteReceipt} onOpenChange={() => setDeleteReceipt(null)}>
         <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">
           <AlertDialogHeader>
@@ -154,6 +208,7 @@ export default function AdminReceiptListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

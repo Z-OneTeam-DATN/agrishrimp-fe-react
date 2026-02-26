@@ -59,4 +59,17 @@ getAllProductsForExport: async () => {
     const response = await apiJava.get(`/products`);
     return response.data;
   },
+// Hàm chốt phiếu xuất (trừ kho)
+  completeExportCommand: async (id: number | string) => {
+    const response = await apiJava.post(`${BASE_URL}/export-commands/${id}/complete`);
+    return response.data;
+  },
+getExportCommandDetail: async (id: number | string) => {
+    const response = await apiJava.get(`${BASE_URL}/export-commands/${id}`);
+    return response.data;
+  },
+updateExportCommand: async (id: number | string, payload: any) => {
+    const response = await apiJava.put(`${BASE_URL}/export-commands/${id}`, payload);
+    return response.data;
+  },
 };

@@ -103,11 +103,13 @@ function AdminReceiptFormContent() {
   const importType = watch("importType");
   const sourceBranchId = watch("sourceBranchId");
 
-  // XÁC ĐỊNH ID KHO NHẬP VÀO
-  const targetBranchId = React.useMemo(() => {
-    const branch = branches.find(b => (b.name || b.branchName || b.id.toString()) === currentTargetBranch);
-    return branch?.id?.toString() || "";
+  // XÁC ĐỊNH ID KHO NHẬP VÀO VÀ CHECK QUYỀN
+  const selectedDestBranch = React.useMemo(() => {
+    return branches.find(b => (b.name || b.branchName || b.id.toString()) === currentTargetBranch);
   }, [branches, currentTargetBranch]);
+
+  const targetBranchId = selectedDestBranch?.id?.toString() || "";
+  const isDestMainBranch = !selectedDestBranch || selectedDestBranch.branchType === "WAREHOUSE";
 
   // TÍNH TOÁN TỔNG
   const subTotal = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0) * (Number(item.importPrice) || 0), 0);
@@ -134,7 +136,7 @@ function AdminReceiptFormContent() {
             productCode: item.productCode || "",
             productName: item.productName || "",
             plannedQuantity: item.quantity || 1,
-            maxQuantity: 0,
+            maxQuantity: 0, // Edit mode sẽ bypass vụ check max Qty (hoặc fetch thủ công nếu muốn)
             importPrice: item.price || 0,
             newSellingPrice: item.newSellingPrice || 0,
             lotNumber: item.lotNumber || "",
@@ -316,10 +318,9 @@ function AdminReceiptFormContent() {
           productCode: productCode,
           productName: variant.productName || variant.unit || "Sản phẩm không tên",
           plannedQuantity: 1,
-          maxQuantity: Number(variant.quantity) || 0,
+          maxQuantity: Number(variant.quantity) || 0, // Lưu tồn kho để check
           lotNumber: "",
           expiryDate: "",
-          // Luôn lấy giá nhập của sản phẩm bất kể nguồn nào
           importPrice: Number(variant.costPrice) || 0,
           newSellingPrice: Number(variant.price) || 0,
           imageUrl: variant.imageUrl || "",
@@ -358,13 +359,11 @@ function AdminReceiptFormContent() {
         importStatus: data.importStatus,
         paymentAmount: data.importType === "INTERNAL" ? 0 : (Number(data.paymentAmount) || 0),
         tags: tags,
-
         items: data.items.map(item => ({
           productCode: item.productCode,
           plannedQuantity: Number(item.plannedQuantity),
           lotNumber: item.lotNumber,
           expiryDate: item.expiryDate,
-          // Vẫn giữ lại importPrice kể cả khi là INTERNAL
           importPrice: Number(item.importPrice),
           newSellingPrice: Number(item.newSellingPrice)
         }))
@@ -439,7 +438,8 @@ function AdminReceiptFormContent() {
                       <SelectValue placeholder="Chọn nguồn nhập" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none z-[9999]">
-                      <SelectItem value="SUPPLIER">Nhập mua từ Nhà cung cấp</SelectItem>
+                      {/* CHỈ HIỂN THỊ NGUỒN NHÀ CUNG CẤP NẾU KHO ĐÍCH LÀ KHO TỔNG */}
+                      {isDestMainBranch && <SelectItem value="SUPPLIER">Nhập mua từ Nhà cung cấp</SelectItem>}
                       <SelectItem value="INTERNAL">Nhập chuyển từ Kho nội bộ</SelectItem>
                     </SelectContent>
                  </Select>
@@ -585,14 +585,24 @@ function AdminReceiptFormContent() {
                 name="branchName"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={(v) => { field.onChange(v); replace([]); }} value={field.value} disabled={isLoadingBranches || isReadOnly}>
+                  <Select onValueChange={(val) => {
+                      field.onChange(val);
+                      replace([]);
+
+                      // Tự động gạt về Nội Bộ nếu chọn kho lẻ
+                      const b = branches.find(x => (x.name || x.branchName) === val);
+                      if (b && b.branchType !== 'WAREHOUSE' && watch('importType') === 'SUPPLIER') {
+                          setValue('importType', 'INTERNAL');
+                          toast.warning("Kho lẻ chỉ được phép nhận hàng nội bộ. Đã tự động đổi nguồn.");
+                      }
+                  }} value={field.value} disabled={isLoadingBranches || isReadOnly}>
                     <SelectTrigger className={`h-9 text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0 font-medium ${errors.branchName ? "border-rose-500" : ""}`}>
                       <SelectValue placeholder={isLoadingBranches ? "Đang tải..." : "Chọn chi nhánh"} />
                     </SelectTrigger>
                     <SelectContent className="rounded-none z-[9999]">
                       {branches.map((branch) => (
                         <SelectItem key={branch.id} value={branch.name || branch.branchName || branch.id.toString()}>
-                          {branch.name || branch.branchName}
+                          {(branch.name || branch.branchName).toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">{branch.branchType === "WAREHOUSE" ? "(Kho tổng)" : "(Kho lẻ)"}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -765,7 +775,6 @@ function AdminReceiptFormContent() {
                           )}
                         </TableCell>
                         <TableCell className="p-3">
-                          {/* ĐÃ BỎ isImportPriceReadOnly VÀ css BG-SLATE-100 NẾU INTERNAL */}
                           <Input
                             readOnly={isReadOnly}
                             type="number"
