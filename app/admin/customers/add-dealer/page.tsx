@@ -10,15 +10,11 @@ import {
   ChevronLeft,
   Building2,
   User,
-  Mail,
   Phone,
   MapPin,
   CreditCard,
   Percent,
-  FileText,
-  Camera,
   Briefcase,
-  BadgeCheck,
   Landmark,
   Upload,
 } from "lucide-react";
@@ -32,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 export default function AddDealerPage() {

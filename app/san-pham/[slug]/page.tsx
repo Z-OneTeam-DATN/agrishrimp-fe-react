@@ -97,7 +97,7 @@ export default function ProductDetailPage({
 }) {
   const { slug } = React.use(params);
   const router = useRouter();
-  const { updateCountLocal } = useCartStore();
+  const { fetchCartCount } = useCartStore(); // ✅ Thay đổi ở đây
 
   const [product, setProduct] = useState<PublicProductDetail | null>(null);
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
@@ -154,7 +154,7 @@ export default function ProductDetailPage({
     setIsAdding(true);
     try {
       await cartService.updateQuantity(variant.id, quantity);
-      updateCountLocal(quantity);
+      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header
       if (buyNow) {
         router.push("/user/cart");
       } else {

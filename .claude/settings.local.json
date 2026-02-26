@@ -3,7 +3,9 @@
     "allow": [
       "Bash(head:*)",
       "Bash(grep:*)",
-      "Bash(cd \"D:\\\\DuAnAgriShrimp\\\\agrishrimp-fe-react\" && npm install react-speech-recognition @types/react-speech-recognition 2>&1)"
+      "Bash(cd \"D:\\\\DuAnAgriShrimp\\\\agrishrimp-fe-react\" && npm install react-speech-recognition @types/react-speech-recognition 2>&1)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)"
     ]
   }
 }

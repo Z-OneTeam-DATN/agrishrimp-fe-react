@@ -1,83 +1,107 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
-import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
-import { AdminOrderTable } from "@/components/admin/AdminOrderTable"; // Huy sẽ tạo file này tiếp theo
+import { AdminOrderTable } from "@/components/admin/AdminOrderTable";
+import { toast } from "sonner";
 
-// Mock dữ liệu đơn hàng theo style AgriShrimp
-const orders = [
-  {
-    id: "DH-2026-001",
-    customerName: "Nguyễn Hoàng Gia Huy",
-    customerPhone: "0901234567",
-    totalAmount: "12.500.000 ₫",
-    status: "Hoàn thành",
-    paymentStatus: "Đã thanh toán",
-    branch: "Chi nhánh Cần Thơ",
-    createdAt: "14/02/2026 08:30",
-  },
-  {
-    id: "DH-2026-002",
-    customerName: "Lê Văn Tám",
-    customerPhone: "0912333444",
-    totalAmount: "3.200.000 ₫",
-    status: "Đang giao",
-    paymentStatus: "Chờ thanh toán",
-    branch: "Tổng kho Bạc Liêu",
-    createdAt: "14/02/2026 10:15",
-  },
-];
+// Hàm dịch ENUM Trạng thái đơn
+const translateStatus = (status: string) => {
+  const map: Record<string, string> = {
+    PENDING: "Chờ xử lý",
+    CONFIRMED: "Đã xác nhận",
+    SHIPPING: "Đang giao",
+    COMPLETED: "Hoàn thành",
+    CANCELLED: "Đã hủy",
+    RETURNED: "Trả hàng",
+  };
+  return map[status] || status;
+};
 
-const statusFilters = [
-  { label: "Tất cả trạng thái", value: "all" },
-  { label: "Hoàn thành", value: "completed" },
-  { label: "Đang giao", value: "shipping" },
-  { label: "Đã hủy", value: "cancelled" },
-];
+// Hàm dịch ENUM Thanh toán
+const translatePaymentStatus = (status: string) => {
+  return status === "PAID" ? "Đã thanh toán" : "Chưa thanh toán";
+};
 
-const paymentFilters = [
-  { label: "Tất cả thanh toán", value: "all" },
-  { label: "Đã thanh toán", value: "paid" },
-  { label: "Chờ thanh toán", value: "pending" },
-];
+// Hàm format tiền tệ
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+};
 
 export default function OrderListPage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleRefresh = () => {
+  // Hàm gọi API lấy dữ liệu
+  const fetchOrders = async () => {
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 500);
-    console.log("Refreshing orders...");
+    try {
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+      if (!token) {
+        toast.error("Không tìm thấy Token! Vui lòng đăng nhập lại.");
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await axios.get("http://localhost:8080/api/orders/admin/all", {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+      });
+
+      // Format lại dữ liệu từ Backend
+      const formattedData = response.data.map((item: any) => ({
+        id: item.code,
+        customerName: item.customerName,
+        customerPhone: item.customerPhone,
+        totalAmount: formatCurrency(item.finalAmount),
+        status: translateStatus(item.status),
+        paymentStatus: translatePaymentStatus(item.paymentStatus),
+        branch: item.branchName,
+        createdAt: new Date(item.createdAt).toLocaleString('vi-VN', {
+            hour: '2-digit', minute: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        }),
+      }));
+
+      setOrders(formattedData);
+    } catch (error: any) {
+      console.error("Lỗi khi tải đơn hàng:", error);
+      if (error.response && error.response.status === 401) {
+        toast.error("Phiên đăng nhập đã hết hạn hoặc không có quyền (401). Vui lòng đăng nhập lại hệ thống!");
+      } else {
+        toast.error("Không thể tải danh sách đơn hàng.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   return (
     <div className="space-y-3">
-      {/* 1. Header đồng bộ style */}
       <AdminPageHeader
         title="Quản lý đơn hàng bán"
         addBtnLabel="Tạo đơn hàng mới"
         addBtnHref="/admin/orders/add"
       />
 
-      {/* 2. Khung tìm kiếm và lọc */}
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-        <AdminSearchFilter
-          placeholder="Tìm mã đơn, tên khách hàng, số điện thoại..."
-          filter1Placeholder="Trạng thái đơn"
-          filter1Options={statusFilters}
-          filter2Placeholder="Thanh toán"
-          filter2Options={paymentFilters}
-          onRefresh={handleRefresh}
-        />
-
-        {/* 3. Bảng hiển thị dữ liệu (Huy sẽ dùng component table tương tự AdminProductTable) */}
         {isLoading ? (
-          <div className="p-20 text-center text-[12px] font-bold text-slate-400 uppercase animate-pulse">
+          <div className="p-20 text-center text-[12px] font-bold text-slate-400 uppercase animate-pulse flex justify-center items-center gap-2">
+            <svg className="animate-spin h-5 w-5 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
             Đang tải dữ liệu đơn hàng...
           </div>
         ) : (
-          <AdminOrderTable orders={orders} />
+          <AdminOrderTable orders={orders} onRefresh={fetchOrders} />
         )}
       </div>
     </div>

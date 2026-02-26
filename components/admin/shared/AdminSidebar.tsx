@@ -54,8 +54,11 @@ export default function AdminSidebar() {
 
   // Tự động mở nhóm menu nếu đang truy cập trang con bên trong
   useEffect(() => {
-    if (pathname.startsWith("/admin/orders") || pathname.startsWith("/admin/orders-")) {
+    if (pathname.startsWith("/admin/orders") && !pathname.startsWith("/admin/orders-")) {
       setOpenGroups(prev => prev.includes("orders") ? prev : [...prev, "orders"]);
+    }
+    if (pathname.startsWith("/admin/orders-")) {
+      setOpenGroups(prev => prev.includes("orders-processing") ? prev : [...prev, "orders-processing"]);
     }
   }, [pathname]);
 
@@ -127,21 +130,6 @@ export default function AdminSidebar() {
           <div className="space-y-0.5">
             <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={pathname === "/admin"} color="text-emerald-500" />
             <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
-            
-            {/* Nhóm Xử Lý Đơn Hàng (Cũ) */}
-            <SidebarGroup
-              label="Xử lý đơn hàng"
-              icon={ShoppingCart}
-              isOpen={openGroups.includes("orders-processing")}
-              onToggle={() => toggleGroup("orders-processing")}
-              active={pathname.startsWith("/admin/orders-")}
-            >
-              <SidebarLink href="/admin/orders-confirmation" icon={CheckSquare} label="Chờ xác nhận" active={pathname === "/admin/orders-confirmation"} isChild />
-              <SidebarLink href="/admin/orders-processing" icon={Box} label="Chờ xử lý" active={pathname === "/admin/orders-processing"} isChild />
-              <SidebarLink href="/admin/orders-packing" icon={Printer} label="In & đóng gói" active={pathname === "/admin/orders-packing"} isChild />
-              <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
-              <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
-            </SidebarGroup>
           </div>
         </section>
 
@@ -202,6 +190,20 @@ export default function AdminSidebar() {
                 active={pathname.startsWith("/admin/orders/incomplete")} 
                 isChild 
               />
+            </SidebarGroup>
+
+            <SidebarGroup
+              label="Xử lý đơn hàng"
+              icon={ShoppingCart}
+              isOpen={openGroups.includes("orders-processing")}
+              onToggle={() => toggleGroup("orders-processing")}
+              active={pathname.startsWith("/admin/orders-")}
+            >
+              <SidebarLink href="/admin/orders-confirmation" icon={CheckSquare} label="Chờ xác nhận" active={pathname === "/admin/orders-confirmation"} isChild />
+              <SidebarLink href="/admin/orders-processing" icon={Box} label="Chờ xử lý" active={pathname === "/admin/orders-processing"} isChild />
+              <SidebarLink href="/admin/orders-packing" icon={Printer} label="In & đóng gói" active={pathname === "/admin/orders-packing"} isChild />
+              <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
+              <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
             </SidebarGroup>
           </div>
         </section>

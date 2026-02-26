@@ -21,7 +21,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { id } = React.use(params);
   const router = useRouter();
 
-  const { updateCountLocal } = useCartStore();
+  const { fetchCartCount } = useCartStore(); // ✅ Thay đổi ở đây
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
@@ -158,7 +158,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       await cartService.updateQuantity(currentVariant.id, quantity);
       
       // Cập nhật số lượng trên Header
-      updateCountLocal(quantity);
+      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header bằng cách gọi API
       
       if (isBuyNow) {
         // MUA NGAY -> Không cần bay, đi thẳng qua giỏ hàng

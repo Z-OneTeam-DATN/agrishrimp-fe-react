@@ -5,7 +5,6 @@ import {
   CancelReasonFormValues,
 } from "@/app/types/order.schema";
 
-// 1. Định nghĩa Interface cho Đơn đổi trả (Return Order)
 export interface ReturnOrder {
   id: string;
   orderId: string;
@@ -18,7 +17,6 @@ export interface ReturnOrder {
   shopResponse?: string;
 }
 
-// Interface cho Form gửi yêu cầu trả hàng
 export interface ReturnRequestData {
   orderId: string;
   productId: string;
@@ -27,24 +25,21 @@ export interface ReturnRequestData {
   images: File[];
 }
 
-// Interface cho payload Đặt hàng (Checkout)
 export interface CheckoutPayload {
   shippingAddress: string;
   phone: string;
   fullName: string;
   note: string;
   voucherCode?: string | null;
-  branchId: number | null; // ✅ THÊM DÒNG NÀY ĐỂ TRUYỀN ID KHO XUẤT HÀNG
+  branchId: number | null;
   items: { variantId: number; quantity: number }[];
+  paymentMethod: string; // ✅ THÊM DÒNG NÀY ĐỂ CHỌN PT THANH TOÁN
 }
 
-// ✅ SỬA LẠI THÀNH CONST OBJECT ĐỂ ĐỒNG BỘ VỚI CÁC SERVICE KHÁC
 export const orderService = {
-  PREFIX: "/orders", // ✅ ĐÃ XÓA CHỮ /api ĐỂ KHÔNG BỊ LẶP LẠI THÀNH /api/api/...
+  PREFIX: "/orders",
 
-  // ==========================================
-  // LẤY DANH SÁCH ĐƠN HÀNG (CỦA USER)
-  // ==========================================
+  // 1. LẤY DANH SÁCH ĐƠN HÀNG (CỦA USER)
   getOrders: async (status?: OrderStatus): Promise<Order[]> => {
     const params = status && status !== "ALL" ? { status } : {};
     const response = await apiJava.get<Order[]>(orderService.PREFIX, {
@@ -53,24 +48,20 @@ export const orderService = {
     return response.data;
   },
 
-  // ==========================================
-  // LẤY DANH SÁCH YÊU CẦU TRẢ HÀNG (CỦA USER)
-  // ==========================================
+  // 2. LẤY DANH SÁCH YÊU CẦU TRẢ HÀNG (CỦA USER)
   getReturnOrders: async (): Promise<ReturnOrder[]> => {
     const response = await apiJava.get<ReturnOrder[]>(`${orderService.PREFIX}/returns`);
     return response.data;
   },
 
-  // ==========================================
-  // GỬI YÊU CẦU TRẢ HÀNG
-  // ==========================================
+  // 3. GỬI YÊU CẦU TRẢ HÀNG
   submitReturnRequest: async (data: ReturnRequestData): Promise<void> => {
     const formData = new FormData();
     formData.append("orderId", data.orderId);
     formData.append("productId", data.productId);
     formData.append("reason", data.reason);
     formData.append("description", data.description);
-    
+
     if (data.images) {
       data.images.forEach((file) => formData.append("images", file));
     }
@@ -80,20 +71,33 @@ export const orderService = {
     });
   },
 
-  // ==========================================
-  // HỦY ĐƠN HÀNG
-  // ==========================================
+  // 4. HỦY ĐƠN HÀNG
   cancelOrder: async (orderId: string, data: CancelReasonFormValues): Promise<void> => {
     await apiJava.post(`${orderService.PREFIX}/${orderId}/cancel`, data);
   },
 
-  // ==========================================
-  // ĐẶT HÀNG (CHECKOUT)
-  // ==========================================
+  // 5. ĐẶT HÀNG (CHECKOUT)
   checkout: async (payload: CheckoutPayload): Promise<any> => {
-
     const response = await apiJava.post(`${orderService.PREFIX}/checkout`, payload);
-    
     return response.data;
+  },
+
+  // ==========================================
+  // MODULE 2: CÁC API DÀNH CHO ADMIN BÊN DƯỚI
+  // ==========================================
+
+  // 6. LẤY TOÀN BỘ ĐƠN HÀNG (ADMIN)
+  getAdminOrders: async (): Promise<any[]> => {
+    const response = await apiJava.get(`${orderService.PREFIX}/admin/all`);
+    return response.data;
+  },
+
+ // 7. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (ADMIN)
+   updateOrderStatus: async (orderId: string | number, status: string): Promise<void> => {
+     // Sửa chữ null thành {} ở dòng bên dưới:
+     await apiJava.put(`${orderService.PREFIX}/admin/${orderId}/status`, {}, {
+       params: { status }
+     });
+
   }
 };

@@ -42,8 +42,10 @@ export interface ProductListItem {
   status: string;
   origin: string;
   baseSku: string;
-  categoryName: string;
-  brandName: string;
+  categoryName?: string;
+  brandName?: string;
+  category?: { id: number; name: string };
+  brand?: { id: number; name: string };
   imageUrls: string[];
   variants: ProductVariant[];
   soldCount?: number;
@@ -74,11 +76,10 @@ export interface ProductVariant {
   unitConversions: UnitConversion[];
 }
 
-export interface ProductDetail extends Omit<ProductListItem, "categoryName" | "brandName"> {
+export interface ProductDetail extends ProductListItem {
   description: string;
-  brand: string;
   origin: string;
-  categoryId: number;
+  categoryId?: number;
 }
 
 export interface CreateProductRequest {
@@ -93,15 +94,25 @@ export interface CreateProductRequest {
 
 export interface UpdateProductVariantRequest {
   sku: string;
+  barcode?: string;
+  costPrice?: number;
   price: number;
-  attributes: VariantAttributeValue[];
+  wholesalePrice?: number;
+  initialStock?: number;
+  shippingWeight?: number;
+  image?: string;
+  attributeValueIds?: number[];
+  unitConversions?: UnitConversion[];
 }
 
 export interface UpdateProductRequest {
   name: string;
   categoryId: number;
-  brand: string;
-  description: string;
+  brand?: string;
+  origin?: string;
+  description?: string;
+  status?: string;
+  images?: string[];
   variants: UpdateProductVariantRequest[];
 }
 

@@ -1,5 +1,14 @@
 
 import { apiJava } from "@/lib/axios";
+import type { FindNearestBranchPayload, NearestBranch } from "@/app/types/branch.types";
+
+/** Tìm chi nhánh gần nhất theo tọa độ — gọi POST /branches/nearest */
+export async function findNearestBranches(
+  payload: FindNearestBranchPayload
+): Promise<NearestBranch[]> {
+  const res = await apiJava.post("/branches/nearest", payload, { isPublic: true } as any);
+  return res.data;
+}
 
 export const branchService = {
   PREFIX: "/branches",

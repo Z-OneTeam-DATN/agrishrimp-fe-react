@@ -46,7 +46,7 @@ export const updateProfileSchema = z.object({
       /(84|0[3|5|7|8|9])+([0-9]{8})\b/g,
       "Số điện thoại không đúng định dạng",
     ),
-  gender: z.enum(["male", "female", "other"]),
+ gender: z.string().optional(),
 
   birthday: z.preprocess(
     (arg) => {
