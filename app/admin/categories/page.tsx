@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
-import { getCategories, deleteCategory } from "@/app/services/CategoryService";
+import { getCategories, deleteCategory, toggleCategoryStatus } from "@/app/services/CategoryService";
 import { toast } from "sonner";
 import {
   AlertCircle,
@@ -15,7 +15,10 @@ import {
   Trash2,
   Folder,
   FolderOpen,
-  ImageIcon
+  ImageIcon,
+  Eye,
+  EyeOff,
+  AlertTriangle
 } from "lucide-react";
 
 import {
@@ -46,9 +49,13 @@ export default function CategoryManagementPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  // State dành cho modal xác nhận Ẩn/Hiện danh mục
+  const [statusModal, setStatusModal] = useState<{id: number, name: string, currentStatus: string} | null>(null);
+
   const router = useRouter();
 
-  // Hàm xây dựng cấu trúc cây từ mảng phẳng (Flat Array to Tree)
+  // Hàm xây dựng cấu trúc cây từ mảng phẳng
   const buildCategoryTree = (data: any[]): Category[] => {
     if (!Array.isArray(data)) return [];
 
@@ -119,6 +126,20 @@ export default function CategoryManagementPage() {
     }
   };
 
+  // Xử lý khi xác nhận Ẩn/Hiện
+  const handleToggleStatus = async () => {
+    if (!statusModal) return;
+    try {
+      await toggleCategoryStatus(statusModal.id, statusModal.currentStatus);
+      toast.success(statusModal.currentStatus === "Hiển thị" ? "Đã ẩn danh mục và sản phẩm liên quan!" : "Đã hiển thị lại danh mục!");
+      loadData();
+    } catch (error) {
+      toast.error("Không thể cập nhật trạng thái!");
+    } finally {
+      setStatusModal(null);
+    }
+  };
+
   // Hàm render đệ quy từng dòng của bảng
   const renderCategoryRow = (category: Category, level: number = 0) => {
     const hasChildren = category.children && category.children.length > 0;
@@ -127,7 +148,10 @@ export default function CategoryManagementPage() {
 
     return (
       <React.Fragment key={category.id}>
-        <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+        <tr className={cn(
+          "border-b border-slate-100 transition-colors group",
+          category.status === "Đang ẩn" ? "bg-slate-50/50 opacity-75 hover:opacity-100" : "hover:bg-slate-50"
+        )}>
           <td className="p-3 text-sm text-slate-500 text-center font-bold font-mono">
             #{category.id}
           </td>
@@ -135,10 +159,7 @@ export default function CategoryManagementPage() {
           <td className="p-3 text-sm text-slate-700 font-medium">
             <div className="flex items-center gap-2" style={{ paddingLeft: `${paddingLeft}px` }}>
               {hasChildren ? (
-                <button
-                  onClick={() => toggleExpand(category.id)}
-                  className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors"
-                >
+                <button onClick={() => toggleExpand(category.id)} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
                   {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </button>
               ) : (
@@ -151,15 +172,12 @@ export default function CategoryManagementPage() {
                 <span className="w-[18px] h-[18px] rounded-full bg-slate-200 block shrink-0" />
               )}
 
-              <div className="relative w-9 h-9 rounded border border-slate-200 overflow-hidden shrink-0 ml-2 bg-white">
+              <div className={cn(
+                "relative w-9 h-9 rounded border border-slate-200 overflow-hidden shrink-0 ml-2 bg-white",
+                category.status === "Đang ẩn" && "grayscale" // Làm mờ ảnh nếu đang ẩn
+              )}>
                 {category.image ? (
-                  <Image
-                    src={category.image}
-                    alt={category.name}
-                    fill
-                    className="object-cover"
-                    sizes="36px"
-                  />
+                  <Image src={category.image} alt={category.name} fill className="object-cover" sizes="36px" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-300">
                     <ImageIcon size={14} />
@@ -167,39 +185,51 @@ export default function CategoryManagementPage() {
                 )}
               </div>
 
-              <span className={cn("truncate ml-2", level === 0 ? "font-bold text-slate-800" : "font-normal text-slate-600")}>
+              <span className={cn(
+                "truncate ml-2",
+                level === 0 ? "font-bold text-slate-800" : "font-normal text-slate-600",
+                category.status === "Đang ẩn" && "line-through text-slate-400" // Gạch ngang tên nếu bị ẩn
+              )}>
                 {category.name}
               </span>
             </div>
           </td>
 
           <td className="p-3 text-sm text-slate-500 truncate max-w-[200px]">{category.description}</td>
+
           <td className="p-3">
             <span className={cn(
               "text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wide",
               category.status === "Hiển thị"
-                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                : "bg-slate-100 text-slate-500 border-slate-200"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-600 border-amber-200"
             )}>
               {category.status}
             </span>
           </td>
+
           <td className="p-3 text-right">
             <div className="flex justify-end gap-2">
+              {/* ✅ NÚT ẨN / HIỆN DANH MỤC */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                onClick={() => handleEdit(category.id)}
+                className={cn(
+                  "h-8 w-8",
+                  category.status === "Hiển thị"
+                    ? "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700" // Trạng thái là Mở Mắt (Xanh) -> click để ẩn
+                    : "text-amber-500 hover:bg-amber-50 hover:text-amber-600"       // Trạng thái là Nhắm Mắt (Cam) -> click để hiện
+                )}
+                title={category.status === "Hiển thị" ? "Ẩn danh mục này" : "Hiển thị danh mục này"}
+                onClick={() => setStatusModal({ id: category.id, name: category.name, currentStatus: category.status })}
               >
+                {category.status === "Hiển thị" ? <Eye size={16} /> : <EyeOff size={16} />}
+              </Button>
+
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleEdit(category.id)}>
                 <Edit size={15} />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-red-600 hover:bg-red-50"
-                onClick={() => setDeleteId(category.id)}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => setDeleteId(category.id)}>
                 <Trash2 size={15} />
               </Button>
             </div>
@@ -215,17 +245,10 @@ export default function CategoryManagementPage() {
 
   return (
     <div className="space-y-3">
-      <AdminPageHeader
-        title="Quản lý danh mục hàng hóa"
-        addBtnLabel="Thêm danh mục"
-        addBtnHref="/admin/categories/add"
-      />
+      <AdminPageHeader title="Quản lý danh mục hàng hóa" addBtnLabel="Thêm danh mục" addBtnHref="/admin/categories/add" />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-        <AdminSearchFilter
-          placeholder="Tìm tên danh mục..."
-          onRefresh={loadData}
-        />
+        <AdminSearchFilter placeholder="Tìm tên danh mục..." onRefresh={loadData} />
 
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -243,9 +266,7 @@ export default function CategoryManagementPage() {
                 categories.map((cat) => renderCategoryRow(cat))
               ) : (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400 italic">
-                    Chưa có danh mục nào.
-                  </td>
+                  <td colSpan={5} className="p-8 text-center text-slate-400 italic">Chưa có danh mục nào.</td>
                 </tr>
               )}
             </tbody>
@@ -253,6 +274,7 @@ export default function CategoryManagementPage() {
         </div>
       </div>
 
+      {/* MODAL XÓA */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">
           <AlertDialogHeader>
@@ -265,18 +287,41 @@ export default function CategoryManagementPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300">
-              Hủy bỏ
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold"
-            >
+            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold">
               Đồng ý xóa
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MODAL MỚI: XÁC NHẬN ẨN/HIỆN DANH MỤC */}
+      <AlertDialog open={!!statusModal} onOpenChange={() => setStatusModal(null)}>
+        <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[420px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-amber-600 font-bold text-[16px] uppercase tracking-tight flex items-center gap-2">
+              <AlertTriangle size={20} /> Xác nhận thay đổi trạng thái
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 text-[13px] leading-relaxed">
+              {statusModal?.currentStatus === "Hiển thị" ? (
+                <>
+                  Bạn sắp chuyển danh mục <strong className="text-slate-900">"{statusModal.name}"</strong> sang trạng thái Ẩn. <br /><br />
+                  <span className="text-red-500 font-medium">Lưu ý quan trọng:</span> Toàn bộ sản phẩm thuộc danh mục này cũng sẽ tự động bị ẩn khỏi trang chủ và cửa hàng. Bạn có chắc chắn?
+                </>
+              ) : (
+                <>Bạn muốn hiển thị lại danh mục <strong className="text-slate-900">"{statusModal?.name}"</strong> lên trang chủ?</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleToggleStatus} className="bg-amber-500 hover:bg-amber-600 text-white h-[32px] text-[12px] font-bold">
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

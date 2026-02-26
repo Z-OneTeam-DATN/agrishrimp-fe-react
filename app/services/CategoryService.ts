@@ -47,3 +47,14 @@ export const updateCategory = async (id: number, data: any) => {
   const response = await apiJava.put(`${PREFIX}/${id}`, data);
   return response.data;
 };
+
+export const toggleCategoryStatus = async (id: number, currentStatus: string) => {
+  const category = await getCategoryById(id);
+  const newStatus = currentStatus === "Hiển thị" || currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+
+  const response = await apiJava.put(`${PREFIX}/${id}`, {
+    ...category,
+    status: newStatus
+  });
+  return response.data;
+};

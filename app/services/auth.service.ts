@@ -20,9 +20,13 @@ export class AuthService {
   }
 
   static async me(): Promise<UserType> {
-    const response = await apiJava.get<UserType>(`${this.PREFIX}/me`);
-    return response.data;
-  }
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+
+      const response = await apiJava.get<UserType>(`${this.PREFIX}/me`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return response.data;
+    }
 
   static async login(userData: LoginFormValues): Promise<AuthResponse> {
     const response = await apiJava.post<AuthResponse>(
