@@ -63,4 +63,9 @@ export const transferService = {
     const response = await apiJava.put(`${transferService.PREFIX}/${id}/receive`, items);
     return response.data;
   },
+
+ delete: async (id: string) => {
+    const response = await apiJava.delete(`${transferService.PREFIX}/${id}`);
+    return response.data;
+  },
 };
