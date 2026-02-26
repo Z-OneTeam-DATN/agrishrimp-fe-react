@@ -114,7 +114,7 @@ function AdminReceiptFormContent() {
   // TÍNH TOÁN TỔNG
   const subTotal = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0) * (Number(item.importPrice) || 0), 0);
   const totalQty = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0), 0);
-  const debtAmount = importType === "INTERNAL" ? 0 : Math.max(0, subTotal - watchPaymentAmount);
+  const debtAmount = importType === "INTERNAL" ? 0 : subTotal - watchPaymentAmount;
 
   // --- USE EFFECTS ---
 
@@ -854,13 +854,15 @@ function AdminReceiptFormContent() {
               <div className="pt-4 border-t">
                 <p className="text-[12px] font-bold text-slate-800 uppercase">Thanh toán cho NCC</p>
                 <div className="relative mt-2">
-                  <Input readOnly={isReadOnly} type="number" {...register("paymentAmount", { valueAsNumber: true })} className={`h-10 text-[16px] font-black text-blue-600 border-[#ccc] text-right bg-blue-50/30 ${isReadOnly ? "bg-slate-100" : ""}`} />
-                </div>
+                <Input readOnly={isReadOnly} type="number" {...register("paymentAmount", { valueAsNumber: true })} className={`h-10 text-[16px] font-black text-blue-600 border-[#ccc] text-right bg-blue-50/30 ${errors.paymentAmount ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-100" : ""}`} />
+                {errors.paymentAmount && <p className="text-rose-500 text-[10px] mt-1">{errors.paymentAmount.message}</p>}</div>
               </div>
-              <div className="pt-4 flex justify-between items-center border-t border-slate-200">
-                <span className="text-[12px] font-black text-slate-900 uppercase">Còn nợ</span>
-                <span className="text-[16px] font-black text-rose-600">{formatNumber(debtAmount)} ₫</span>
-              </div>
+             <div className="pt-4 flex justify-between items-center border-t border-slate-200">
+               <span className="text-[12px] font-black text-slate-900 uppercase">Còn nợ</span>
+               <span className={`text-[16px] font-black ${debtAmount < 0 ? "text-blue-600" : "text-rose-600"}`}>
+                 {debtAmount < 0 ? `Trả dư: ${formatNumber(Math.abs(debtAmount))}` : formatNumber(debtAmount)} ₫
+               </span>
+             </div>
             </>
           ) : (
             <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-sm text-center">

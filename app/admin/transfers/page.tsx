@@ -9,8 +9,6 @@ import {
   Clock,
   AlertTriangle,
   TrendingUp,
-  Calendar,
-  User as UserIcon,
   Warehouse,
   Search,
   Printer,
@@ -20,7 +18,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { transferService } from "@/app/services/transfer.service"; // ⚠️ Gọi API thật
+import { transferService } from "@/app/services/transfer.service";
 
 // Format hiển thị ngày giờ chuẩn VN
 const formatDateTime = (dateString: string) => {
@@ -38,30 +36,26 @@ const formatDateTime = (dateString: string) => {
 export default function AdminTransferListPage() {
   const [activeTab, setActiveTab] = useState("outbound");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  
+
   // State API
   const [transfers, setTransfers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("all");
 
-  const handleSelectAll = (ids: string[]) => {
-    setSelectedIds(ids);
-  };
-
   // Fetch API thật
   useEffect(() => {
     const fetchTransfers = async () => {
       setIsLoading(true);
       try {
-        const data = await transferService.getAll(keyword, status, 0, 50); // Lấy tạm 50 dòng
-        
+        const data = await transferService.getAll(keyword, status, 0, 50);
+
         const mappedData = data.content.map((t: any) => ({
           id: t.id.toString(),
           code: t.transferCode,
           date: formatDateTime(t.createdAt),
           deadline: formatDateTime(t.deadline),
-          age: "Mới tạo", 
+          age: "Mới tạo",
           priority: t.priority || "NORMAL",
           fromWarehouse: t.fromBranchName || "Kho xuất",
           toWarehouse: t.toBranchName || "Kho nhận",
@@ -86,6 +80,26 @@ export default function AdminTransferListPage() {
     fetchTransfers();
   }, [keyword, status]);
 
+  // Hàm xử lý xóa phiếu
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn phiếu điều chuyển này không?")) return;
+
+    try {
+      await transferService.delete(id);
+
+      // Xóa thành công thì lọc item đó ra khỏi state để UI cập nhật tức thì
+      setTransfers((prev) => prev.filter((t) => t.id !== id));
+
+      // Gỡ ID khỏi danh sách chọn (nếu đang chọn)
+      setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
+
+      alert("Đã xóa phiếu thành công!");
+    } catch (error) {
+      console.error("Lỗi khi xóa phiếu:", error);
+      alert("Không thể xóa phiếu. Vui lòng thử lại!");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <AdminPageHeader
@@ -94,11 +108,13 @@ export default function AdminTransferListPage() {
         addBtnHref="/admin/transfers/new"
         secondaryBtnLabel="Xuất Excel"
         secondaryBtnIcon={Download}
+        /* COMMENT LẠI HÀNG XUẤT HÀNG NHẬP */
+        /*
         tabs={[
           {
             id: "outbound",
             label: "Hàng Xuất (Gửi đi)",
-            count: transfers.length, // Lấy số lượng thật
+            count: transfers.length,
             color: "text-blue-600",
           },
           {
@@ -108,48 +124,10 @@ export default function AdminTransferListPage() {
             color: "text-orange-600",
           },
         ]}
+        */
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
-
-      {/* Dashboard Mini */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
-        <div className="bg-white border border-[#dcdcdc] p-4 flex items-center gap-4 shadow-sm">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 flex items-center justify-center rounded-none border border-blue-100">
-            <Truck size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Đang vận chuyển
-            </p>
-            <h4 className="text-[20px] font-black text-slate-800">
-              {transfers.filter(t => t.status === 'SHIPPING').length}
-            </h4>
-          </div>
-        </div>
-        <div className="bg-white border border-[#dcdcdc] p-4 flex items-center gap-4 shadow-sm">
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 flex items-center justify-center rounded-none border border-emerald-100">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Giá trị hàng đi
-            </p>
-            <h4 className="text-[20px] font-black text-emerald-700">Đang tính...</h4>
-          </div>
-        </div>
-        <div className="bg-white border border-[#dcdcdc] p-4 flex items-center gap-4 shadow-sm border-l-4 border-l-rose-500">
-          <div className="w-12 h-12 bg-rose-50 text-rose-600 flex items-center justify-center rounded-none border border-rose-100">
-            <Clock size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-1">
-              <AlertTriangle size={10} /> Phiếu quá hạn
-            </p>
-            <h4 className="text-[20px] font-black text-rose-700">0</h4>
-          </div>
-        </div>
-      </div>
 
       <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden mb-8">
         {selectedIds.length > 0 ? (
@@ -189,7 +167,7 @@ export default function AdminTransferListPage() {
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-white border border-slate-200 px-2 h-9">
                 <Warehouse size={14} className="text-slate-400" />
-                <select 
+                <select
                   className="text-[11px] font-black outline-none bg-transparent h-full cursor-pointer uppercase tracking-tighter"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
@@ -212,6 +190,7 @@ export default function AdminTransferListPage() {
             mode={activeTab}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
+            onDelete={handleDelete}
           />
         )}
       </div>

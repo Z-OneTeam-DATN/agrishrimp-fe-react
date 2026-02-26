@@ -54,7 +54,8 @@ export default function InventoryAuditPage() {
         addBtnHref="/admin/inventory-checks/new"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+      {/* COMMENT LẠI 4 CARD DASHBOARD MINI CHO GỌN UI */}
+      {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
         <div className="bg-white border border-[#dcdcdc] p-4 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-50 text-blue-600 flex items-center justify-center rounded-lg">
@@ -108,6 +109,7 @@ export default function InventoryAuditPage() {
           </div>
         </div>
       </div>
+      */}
 
       <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden mb-8">
         {selectedIds.length > 0 && (

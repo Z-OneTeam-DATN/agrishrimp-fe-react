@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
   X, Plus, Trash2, FileText, ChevronLeft, Save, ShoppingBag, Warehouse, UserCheck,
-  MapPin, User, Phone, CalendarIcon, Hash, Search, ChevronDown, ChevronRight, BadgeCheck, Loader2, Package
+  MapPin, User, Phone, CalendarIcon, Hash, Search, BadgeCheck, Loader2, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { cn, formatNumber } from "@/lib/utils";
 import { branchService } from "@/app/services/branchService";
 import { supplierService } from "@/app/services/supplier.service";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
+import { ProductService } from "@/app/services/product.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // =================================================================
@@ -86,7 +87,6 @@ function AdminExportFormContent() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const generateNoteCode = (type: string) => {
@@ -123,7 +123,6 @@ function AdminExportFormContent() {
   const watchTargetId = watch("targetId");
   const watchItems = watch("items");
 
-  // Kiểm tra loại kho đang chọn để quyết định giao diện
   const selectedBranchInfo = branches.find(b => b.id?.toString() === watchBranchId);
   const isMainBranch = !selectedBranchInfo || selectedBranchInfo.branchType === "WAREHOUSE";
 
@@ -173,17 +172,39 @@ function AdminExportFormContent() {
     }
   }, [isEditMode, exportId, router, reset]);
 
+  // SỬ DỤNG HÀM searchVariants GIỐNG NHƯ BÊN NHẬP KHO
+  useEffect(() => {
+    if (!showDropdown) return;
+
+    const fetchProducts = async () => {
+      if (!watchBranchId) {
+        toast.warning("Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm");
+        setShowDropdown(false);
+        return;
+      }
+
+      try {
+        const data = await ProductService.searchVariants(searchTerm, watchBranchId);
+        const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
+        setAllProducts(productList);
+      } catch (error) {
+        toast.error("Không thể tải danh sách sản phẩm");
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchProducts, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, showDropdown, watchBranchId]);
+
   useEffect(() => {
     const loadMasterData = async () => {
       try {
-        const [resB, resS, resP] = await Promise.all([
+        const [resB, resS] = await Promise.all([
           branchService.getAll(),
           supplierService.getAll(undefined, undefined, undefined, 0, 100),
-          InventoryExportApiService.getAllProductsForExport()
         ]);
         if (resB) setBranches(resB);
         if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : []);
-        if (resP) setAllProducts(resP);
       } catch (err) { toast.error("Lỗi tải danh mục"); }
     };
     loadMasterData();
@@ -237,7 +258,7 @@ function AdminExportFormContent() {
     append({
       productVariantId: variant.id,
       sku: variant.sku,
-      name: `${productName} - ${variant.packaging || variant.unit}`,
+      name: `${productName} ${variant.packaging ? `- ${variant.packaging}` : ''}`,
       unit: variant.unit || "Cái",
       stock: variant.quantity || 0,
       quantity: 1,
@@ -246,32 +267,6 @@ function AdminExportFormContent() {
     });
     setShowDropdown(false);
   };
-
-  const selectAllVariants = (product: any) => {
-    if (isReadOnly) return;
-    let count = 0;
-    product.variants.forEach((v: any) => {
-      if (!watchItems.some(item => item.productVariantId === v.id)) {
-        append({
-          productVariantId: v.id,
-          sku: v.sku,
-          name: `${product.name} - ${v.packaging || v.unit}`,
-          unit: v.unit || "Cái",
-          stock: v.quantity || 0,
-          quantity: 1,
-          price: v.price || 0,
-          returnReason: ""
-        });
-        count++;
-      }
-    });
-    if(count > 0) toast.success(`Đã thêm ${count} sản phẩm`);
-    setShowDropdown(false);
-  };
-
-  const filteredProducts = allProducts.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.baseSku?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const onSubmit = async (data: ExportCommandFormValues) => {
     if (isReadOnly) return;
@@ -357,7 +352,6 @@ function AdminExportFormContent() {
                       <SelectTrigger className="rounded-none h-10 w-full shadow-none border-slate-200"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-none">
                         <SelectItem value="INTERNAL">Xuất dùng nội bộ</SelectItem>
-                        {/* CHỈ KHO TỔNG MỚI ĐƯỢC CHỌN XUẤT TRẢ NCC */}
                         {isMainBranch && <SelectItem value="RETURN">Xuất trả NCC</SelectItem>}
                       </SelectContent>
                     </Select>
@@ -402,29 +396,51 @@ function AdminExportFormContent() {
                     <Input readOnly={isReadOnly} placeholder={isReadOnly ? "Phiếu đã xuất" : "Tìm theo tên, SKU, danh mục..."} className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly ? 'bg-slate-50' : ''}`} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} />
                   </div>
 
-                  {showDropdown && !isReadOnly && searchTerm.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-[100] bg-white border border-[#dcdcdc] shadow-xl mt-1 max-h-[400px] overflow-y-auto">
-                      {filteredProducts.map(product => (
-                        <div key={product.id} className="border-b last:border-0">
-                          <div className="p-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3">
-                            <input type="checkbox" className="h-4 w-4 accent-blue-600" onChange={() => selectAllVariants(product)} checked={product.variants?.every((v: any) => watchItems.some(it => it.productVariantId === v.id))} />
-                            <div className="flex-1 flex items-center gap-2" onClick={() => setExpandedProducts(prev => ({ ...prev, [product.id]: !prev[product.id] }))}>
-                              {expandedProducts[product.id] ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
-                              <div><div className="text-[13px] font-bold text-slate-700">{product.name}</div><div className="text-[11px] text-slate-400 uppercase font-bold">{product.baseSku} • {product.categoryName}</div></div>
+                  {showDropdown && !isReadOnly && (
+                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm overflow-hidden flex flex-col z-[9999]">
+                      <div className="max-h-[400px] overflow-y-auto">
+                        {allProducts.length > 0 ? (
+                          allProducts.map((variant) => (
+                            <div
+                              key={variant.id || variant.sku}
+                              className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer flex justify-between items-center group"
+                              onClick={() => addVariantToTable(variant, variant.productName || variant.unit)}
+                            >
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
+                                    {variant.imageUrl ? (
+                                      <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
+                                    ) : <Package size={16} className="text-slate-300" />}
+                                 </div>
+                                 <div>
+                                   <p className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">
+                                     {variant.productName || variant.unit} {variant.packaging ? `- ${variant.packaging}` : ''}
+                                   </p>
+                                   <p className="text-[11px] text-slate-500 mt-0.5">
+                                     SKU: <span className="font-mono text-blue-600">{variant.sku}</span>
+                                   </p>
+                                 </div>
+                              </div>
+
+                              <div className="text-right">
+                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.price || 0)} ₫</p>
+                                <p className={cn(
+                                    "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
+                                    variant.quantity > 0
+                                      ? "text-blue-600 bg-blue-50 border-blue-100"
+                                      : "text-rose-600 bg-rose-50 border-rose-100"
+                                )}>
+                                   Tồn kho xuất: {variant.quantity || 0}
+                                </p>
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-slate-500 text-[12px]">
+                             {searchTerm ? "Không tìm thấy sản phẩm nào." : "Hãy gõ từ khóa để tìm kiếm..."}
                           </div>
-                          {expandedProducts[product.id] && (
-                            <div className="bg-slate-50/50 border-t border-slate-100">
-                              {product.variants?.map((v: any) => (
-                                <div key={v.id} className="flex items-center justify-between p-3 pl-12 hover:bg-blue-50 border-b border-slate-50" onClick={() => addVariantToTable(v, product.name)}>
-                                  <div className="text-[12px] font-medium text-blue-700">{v.packaging || v.unit} <span className="text-slate-400 text-[11px] ml-2">({v.sku})</span></div>
-                                  <div className="text-[12px] font-black text-slate-700">{formatNumber(v.price)}</div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -458,7 +474,12 @@ function AdminExportFormContent() {
                             <TableRow className="hover:bg-slate-50/50">
                               <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
                               <TableCell className="font-mono text-[12px] text-slate-500">{watchItems[index]?.sku}</TableCell>
-                              <TableCell className="font-bold text-[13px] text-slate-700">{watchItems[index]?.name}</TableCell>
+                              <TableCell className="font-bold text-[13px] text-slate-700">
+                                {watchItems[index]?.name}
+                                <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                                  Tồn kho xuất: {watchItems[index]?.stock || 0}
+                                </div>
+                              </TableCell>
 
                               <TableCell className="p-1">
                                 <Input readOnly={isReadOnly} type="number" {...register(`items.${index}.quantity`)} className={`h-8 text-right font-black rounded-none text-blue-600 focus:bg-white ${hasQtyError ? "border-rose-500" : "border-blue-200"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
@@ -466,13 +487,13 @@ function AdminExportFormContent() {
 
                               {watchExportType === "RETURN" && (
                                 <TableCell className="p-1">
-                                  <Input readOnly={isReadOnly} placeholder="Nhập lý do lỗi..." {...register(`items.${index}.returnReason`)} className={`h-8 text-[12px] rounded-none focus:bg-white ${hasReasonError ? "border-rose-500" : "border-rose-100 focus:border-rose-400"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
+                                  <Input readOnly={isReadOnly} placeholder="Nhập lý do..." {...register(`items.${index}.returnReason`)} className={`h-8 text-[12px] rounded-none focus:bg-white ${hasReasonError ? "border-rose-500" : "border-rose-100"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
                                 </TableCell>
                               )}
 
                               <TableCell className="text-right text-[12px] font-medium">{formatNumber(watchItems[index]?.price || 0)}</TableCell>
                               <TableCell className="text-center">
-                                {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>}
+                                {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>}
                               </TableCell>
                             </TableRow>
                             {(hasQtyError || hasReasonError) && (
@@ -496,33 +517,30 @@ function AdminExportFormContent() {
 
         <div className="lg:col-span-4 space-y-5">
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2">
-                <BadgeCheck size={16} className="text-blue-600"/> Người tạo phiếu
-             </div>
+             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><BadgeCheck size={16} className="text-blue-600"/> Người tạo phiếu</div>
              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Tên nhân viên</Label>
-                <Input readOnly {...register("creatorName")} className="rounded-none text-[13px] h-10 w-full border-slate-200 bg-slate-50 text-slate-500 font-bold cursor-not-allowed shadow-none" />
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Tên nhân viên</Label>
+                <Input readOnly {...register("creatorName")} className="rounded-none text-[13px] h-10 border-slate-200 bg-slate-50 text-slate-500 font-bold cursor-not-allowed" />
              </div>
           </div>
 
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Chọn chi nhánh xuất hàng (*)</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Chọn chi nhánh xuất hàng (*)</Label>
                 <Controller
                   name="branchId"
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={(val) => {
                         field.onChange(val);
-                        // ---- TỰ ĐỘNG CHUYỂN LOẠI XUẤT NẾU CHỌN KHO LẺ ----
                         const b = branches.find(x => x.id.toString() === val);
-                       if (b && b.branchType !== 'WAREHOUSE' && watchExportType === 'RETURN') {
+                        if (b && b.branchType !== 'WAREHOUSE' && watchExportType === 'RETURN') {
                             setValue('exportType', 'INTERNAL');
                             toast.warning("Kho lẻ chỉ được phép xuất nội bộ. Đã tự động chuyển loại phiếu.");
                         }
                     }} value={field.value} disabled={isReadOnly || isEditMode}>
-                       <SelectTrigger className={`rounded-none font-bold h-10 w-full shadow-none ${errors.branchId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn kho xuất --" /></SelectTrigger>
+                       <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn kho xuất --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
                          {branches.map(b => (
                            <SelectItem key={b.id} value={b.id.toString()}>
@@ -536,21 +554,21 @@ function AdminExportFormContent() {
                 {errors.branchId && <p className="text-rose-500 text-[10px] mt-1">{errors.branchId.message}</p>}
              </div>
              <div className="space-y-1.5 pt-1">
-                <Label className="text-[10px] font-bold uppercase text-rose-500 flex items-center gap-1 mb-1 tracking-wider"><MapPin size={12} /> Địa chỉ kho xuất</Label>
-                <Textarea readOnly value={branches.find(b => b.id.toString() === watchBranchId)?.addressDetail || ""} className="min-h-[40px] text-[12px] border-[#e2e8f0] rounded-none bg-slate-50/80 resize-none text-slate-600 cursor-default shadow-none" placeholder="Địa chỉ tự động hiển thị..."/>
+                <Label className="text-[10px] font-bold uppercase text-rose-500 flex items-center gap-1 mb-1"><MapPin size={12} /> Địa chỉ kho xuất</Label>
+                <Textarea readOnly value={branches.find(b => b.id.toString() === watchBranchId)?.addressDetail || ""} className="min-h-[40px] text-[12px] border-slate-200 rounded-none bg-slate-50 resize-none text-slate-600" placeholder="Địa chỉ tự động hiển thị..."/>
              </div>
           </div>
 
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><UserCheck size={16}/> Đối tượng nhận</div>
              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Chọn đối tượng nhận (*)</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Chọn đối tượng nhận (*)</Label>
                 <Controller
                   name="targetId"
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode}>
-                       <SelectTrigger className={`rounded-none h-10 w-full font-bold shadow-none ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn đối tượng --" /></SelectTrigger>
+                       <SelectTrigger className={`rounded-none h-10 font-bold ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn đối tượng --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
                           {watchExportType === "INTERNAL"
                             ? branches.filter(b => b.id?.toString() !== watchBranchId).map(b => <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>)
@@ -562,20 +580,14 @@ function AdminExportFormContent() {
                 />
                 {errors.targetId && <p className="text-rose-500 text-[10px] mt-1">{errors.targetId.message}</p>}
              </div>
-             {watchTargetId && (
-                 <div className="bg-blue-50/50 p-3 border border-blue-100 space-y-2 mt-2 rounded-sm w-full">
-                     <div className="flex items-center gap-2 text-[12px] text-slate-700"><User size={14} className="text-blue-500" /><span className="font-bold tracking-tight">{targetInfo.name}</span></div>
-                     <div className="flex items-center gap-2 text-[12px] text-slate-700"><Phone size={14} className="text-green-500" /><span className="font-bold tracking-tight">{targetInfo.phone}</span></div>
-                 </div>
-             )}
              <div className="space-y-1.5 pt-2 flex flex-col">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1 tracking-wider">Tên người nhận (*)</Label>
-                 <Input readOnly={isReadOnly} {...register("specificReceiver")} className={`rounded-none text-[13px] h-10 w-full shadow-none ${errors.specificReceiver ? "border-rose-500" : "border-slate-200"} ${isReadOnly ? 'bg-slate-50' : ''}`} placeholder="Tên người đại diện nhận..." />
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Tên người nhận (*)</Label>
+                 <Input readOnly={isReadOnly} {...register("specificReceiver")} className={`rounded-none text-[13px] h-10 ${errors.specificReceiver ? "border-rose-500" : "border-slate-200"}`} placeholder="Tên người nhận..." />
                  {errors.specificReceiver && <p className="text-rose-500 text-[10px] mt-1">{errors.specificReceiver.message}</p>}
              </div>
              <div className="space-y-1.5 flex flex-col">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1 tracking-wider">Địa chỉ giao hàng (*)</Label>
-                 <Textarea readOnly={isReadOnly} {...register("shippingAddress")} className={`rounded-none min-h-[60px] text-[13px] w-full shadow-none ${errors.shippingAddress ? "border-rose-500" : "border-slate-200"} ${isReadOnly ? 'bg-slate-50' : ''}`} placeholder="Địa chỉ giao hàng thực tế..." />
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Địa chỉ giao hàng (*)</Label>
+                 <Textarea readOnly={isReadOnly} {...register("shippingAddress")} className={`rounded-none min-h-[60px] text-[13px] ${errors.shippingAddress ? "border-rose-500" : "border-slate-200"}`} placeholder="Địa chỉ giao hàng thực tế..." />
                  {errors.shippingAddress && <p className="text-rose-500 text-[10px] mt-1">{errors.shippingAddress.message}</p>}
              </div>
           </div>
@@ -584,9 +596,13 @@ function AdminExportFormContent() {
 
       <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t p-[12px_30px] flex justify-between items-center z-[999] shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
          <div className="text-[12px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-4">
-            <span>Tổng số lượng: <span className="text-slate-800 font-black text-[14px]">{watchItems.reduce((acc, i) => acc + (i.quantity || 0), 0)}</span></span>
+            <span>Tổng số lượng: <span className="text-slate-800 font-black text-[14px]">
+               {watchItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)}
+            </span></span>
             <div className="h-4 w-[1px] bg-slate-300"></div>
-            <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">{formatNumber(totalAmount)} ₫</span></span>
+            <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">
+               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} ₫
+            </span></span>
          </div>
          <div className="flex gap-3">
            <Button type="button" variant="outline" className="rounded-none uppercase px-8 border-slate-300 bg-white" onClick={() => router.back()}>{isReadOnly ? "Quay lại" : "Hủy bỏ"}</Button>

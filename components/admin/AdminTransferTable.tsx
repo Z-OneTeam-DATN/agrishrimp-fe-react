@@ -1,21 +1,16 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation"; // 1. Import useRouter để điều hướng
+import { useRouter } from "next/navigation";
 import {
   Pencil,
   Trash2,
   Eye,
   Copy,
   Clock,
-  AlertCircle,
   DollarSign,
-  Package,
   ArrowRight,
-  User as UserIcon,
   Truck,
-  MapPin,
-  ArrowRightLeft,
 } from "lucide-react";
 import {
   Table,
@@ -40,6 +35,7 @@ interface AdminTransferTableProps {
   mode: string;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  onDelete: (id: string) => void;
 }
 
 export function AdminTransferTable({
@@ -47,21 +43,21 @@ export function AdminTransferTable({
   mode,
   selectedIds,
   onSelectionChange,
+  onDelete,
 }: AdminTransferTableProps) {
-  const router = useRouter(); // 2. Khởi tạo router
+  const router = useRouter();
 
-  // 7. Cố định màu chuẩn ERP
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "PENDING":
-        return "bg-amber-50 text-amber-600 border-amber-100"; // Chờ xuất - Vàng
+        return "bg-amber-50 text-amber-600 border-amber-100";
       case "TRANSIT":
-      case "SHIPPING": // Thêm trường hợp SHIPPING nếu backend trả về tên này
-        return "bg-blue-50 text-blue-600 border-blue-100"; // Đang chuyển - Xanh dương
+      case "SHIPPING":
+        return "bg-blue-50 text-blue-600 border-blue-100";
       case "COMPLETED":
-        return "bg-emerald-50 text-emerald-600 border-emerald-100"; // Đã nhận - Xanh lá
+        return "bg-emerald-50 text-emerald-600 border-emerald-100";
       case "OVERDUE":
-        return "bg-rose-50 text-rose-600 border-rose-100"; // Quá hạn - Đỏ
+        return "bg-rose-50 text-rose-600 border-rose-100";
       default:
         return "bg-slate-50 text-slate-500 border-slate-100";
     }
@@ -69,32 +65,13 @@ export function AdminTransferTable({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "PENDING":
-        return "CHỜ XUẤT KHO";
+      case "PENDING": return "CHỜ XUẤT KHO";
       case "TRANSIT":
-      case "SHIPPING":
-        return "ĐANG CHUYỂN";
-      case "COMPLETED":
-        return "ĐÃ NHẬN";
-      case "OVERDUE":
-        return "QUÁ HẠN";
-      case "CANCELLED":
-        return "ĐÃ HỦY";
-      default:
-        return status;
-    }
-  };
-
-  const getPriorityStyle = (priority: string) => {
-    switch (priority) {
-      case "HIGH":
-        return "text-rose-600 font-black";
-      case "NORMAL":
-        return "text-amber-600 font-bold";
-      case "LOW":
-        return "text-slate-400 font-medium";
-      default:
-        return "";
+      case "SHIPPING": return "ĐANG CHUYỂN";
+      case "COMPLETED": return "ĐÃ NHẬN";
+      case "OVERDUE": return "QUÁ HẠN";
+      case "CANCELLED": return "ĐÃ HỦY";
+      default: return status;
     }
   };
 
@@ -113,7 +90,6 @@ export function AdminTransferTable({
     }
   };
 
-  // 3. Hàm xử lý khi nhấn xem chi tiết
   const handleViewDetail = (id: any) => {
     router.push(`/admin/transfers/${id}`);
   };
@@ -121,36 +97,31 @@ export function AdminTransferTable({
   return (
     <TooltipProvider>
       <div className="w-full">
-        <Table className="table-custom border-collapse min-w-[1400px]">
+        <Table className="table-custom border-collapse min-w-[1200px]">
           <TableHeader>
             <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
               <TableHead className="w-[40px] text-center p-2 pl-4">
                 <Checkbox
-                  checked={
-                    selectedIds.length === data.length && data.length > 0
-                  }
+                  checked={selectedIds.length === data.length && data.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
-              <TableHead className="w-[140px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
+              <TableHead className="w-[160px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
                 Mã phiếu / Ngày
               </TableHead>
               <TableHead className="w-[100px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
                 Mức độ
               </TableHead>
-              <TableHead className="w-[220px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
+              <TableHead className="w-[280px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
                 Lộ trình (Gửi → Nhận)
               </TableHead>
-              <TableHead className="w-[150px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
-                Dự kiến nhận (DL)
-              </TableHead>
-              <TableHead className="w-[180px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
+              <TableHead className="w-[200px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
                 Người giao / Tài xế
               </TableHead>
               <TableHead className="w-[130px] text-right font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
                 Số lượng SP
               </TableHead>
-              <TableHead className="w-[120px] text-right font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
+              <TableHead className="w-[140px] text-right font-black text-[#1f1f1f] text-[10px] uppercase p-2 whitespace-nowrap">
                 Giá trị hàng
               </TableHead>
               <TableHead className="w-[130px] font-black text-[#1f1f1f] text-[10px] uppercase p-2 text-center whitespace-nowrap">
@@ -163,14 +134,11 @@ export function AdminTransferTable({
           </TableHeader>
           <TableBody>
             {data.map((item) => {
-              // 3. Logic phân quyền hành động theo trạng thái
-              const canDelete =
-                item.status === "PENDING" || item.status === "DRAFT";
+              const canDelete = item.status === "PENDING" || item.status === "DRAFT";
 
               return (
                 <TableRow
                   key={item.id}
-                  // 4. Gắn sự kiện click vào Row để xem chi tiết
                   onClick={() => handleViewDetail(item.id)}
                   className={cn(
                     "hover:bg-blue-50/20 border-b border-[#eee] transition-colors cursor-pointer group",
@@ -181,7 +149,7 @@ export function AdminTransferTable({
                     <Checkbox
                       checked={selectedIds.includes(item.id)}
                       onCheckedChange={() => toggleSelect(item.id)}
-                      onClick={(e) => e.stopPropagation()} // Ngăn chặn nhảy trang khi click checkbox
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </TableCell>
 
@@ -197,12 +165,7 @@ export function AdminTransferTable({
                   </TableCell>
 
                   <TableCell className="p-2 whitespace-nowrap">
-                    <div
-                      className={cn(
-                        "flex items-center gap-1.5",
-                        getStatusStyle(item.status), // Sử dụng màu status cho đồng bộ hoặc giữ nguyên getPriorityStyle
-                      )}
-                    >
+                    <div className="flex items-center gap-1.5">
                       <div
                         className={cn(
                           "w-1.5 h-1.5 rounded-full",
@@ -213,12 +176,8 @@ export function AdminTransferTable({
                               : "bg-slate-300",
                         )}
                       />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">
-                        {item.priority === "HIGH"
-                          ? "Khẩn"
-                          : item.priority === "NORMAL"
-                            ? "Bình thường"
-                            : "Thấp"}
+                      <span className="text-[10px] font-black uppercase tracking-tighter text-slate-600">
+                        {item.priority === "HIGH" ? "Khẩn" : item.priority === "NORMAL" ? "Bình thường" : "Thấp"}
                       </span>
                     </div>
                   </TableCell>
@@ -234,27 +193,9 @@ export function AdminTransferTable({
                           {item.toBranchName || item.toWarehouse}
                         </span>
                       </div>
-                      <div
-                        className={cn(
-                          "flex items-center gap-1.5 text-[10px] font-black",
-                          item.isOverdue ? "text-rose-600" : "text-slate-400",
-                        )}
-                      >
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400">
                         <Clock size={10} /> {item.age || 'Vừa xong'}
                       </div>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="p-2 whitespace-nowrap">
-                    <div
-                      className={cn(
-                        "text-[11px] font-black px-2 py-1 border border-dashed rounded-none inline-block",
-                        item.isOverdue
-                          ? "border-rose-200 text-rose-600 bg-rose-50"
-                          : "border-slate-200 text-slate-600",
-                      )}
-                    >
-                      {item.deadline ? new Date(item.deadline).toLocaleDateString('vi-VN') : '--'}
                     </div>
                   </TableCell>
 
@@ -286,15 +227,10 @@ export function AdminTransferTable({
                       {item.totalValue > 10000000 && (
                         <Tooltip>
                           <TooltipTrigger>
-                            <DollarSign
-                              size={14}
-                              className="text-emerald-600 animate-bounce"
-                            />
+                            <DollarSign size={14} className="text-emerald-600" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p className="text-[10px] font-bold">
-                              Hàng giá trị cao (Cần kiểm soát)
-                            </p>
+                            <p className="text-[10px] font-bold">Hàng giá trị cao</p>
                           </TooltipContent>
                         </Tooltip>
                       )}
@@ -302,47 +238,26 @@ export function AdminTransferTable({
                   </TableCell>
 
                   <TableCell className="p-2 text-center whitespace-nowrap">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={cn(
-                            "text-[9px] font-black px-2 py-0.5 rounded border tracking-widest uppercase cursor-help",
-                            getStatusStyle(item.status),
-                          )}
-                        >
-                          {getStatusLabel(item.status)}
-                        </span>
-                      </TooltipTrigger>
-                      {/* 5. Tooltip Nhật ký nhanh - Đã fix lỗi Hydration (div -> span) */}
-                      <TooltipContent className="bg-slate-900 border-none p-2 rounded-none">
-                        <div className="space-y-1.5">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-1">
-                            Nhật ký xử lý:
-                          </p>
-                          <p className="text-[10px] text-white flex items-center gap-2">
-                            <span className="w-1 h-1 bg-emerald-500 rounded-full inline-block" />
-                            Lập phiếu: {new Date(item.createdAt).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
-                          </p>
-                          <p className="text-[10px] text-white flex items-center gap-2">
-                            <span className="w-1 h-1 bg-blue-500 rounded-full inline-block" />
-                            Trạng thái: {item.status}
-                          </p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
+                    <span
+                      className={cn(
+                        "text-[9px] font-black px-2 py-0.5 rounded border tracking-widest uppercase",
+                        getStatusStyle(item.status),
+                      )}
+                    >
+                      {getStatusLabel(item.status)}
+                    </span>
                   </TableCell>
 
                   <TableCell
                     className="p-2 text-right pr-4 whitespace-nowrap"
-                    onClick={(e) => e.stopPropagation()} // Ngăn nhảy trang khi click cụm nút hành động
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 hover:bg-slate-100"
-                        title="Xem chi tiết"
-                        onClick={() => handleViewDetail(item.id)} // 5. Nút icon xem chi tiết
+                        onClick={() => handleViewDetail(item.id)}
                       >
                         <Eye size={14} className="text-slate-600" />
                       </Button>
@@ -351,7 +266,6 @@ export function AdminTransferTable({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 hover:bg-blue-50"
-                        title="Sao chép phiếu"
                       >
                         <Copy size={14} className="text-blue-600" />
                       </Button>
@@ -360,16 +274,14 @@ export function AdminTransferTable({
                         variant="ghost"
                         size="icon"
                         className={cn(
-                          "h-7 w-7 hover:bg-rose-50 transition-colors",
-                          !canDelete &&
-                            "opacity-20 cursor-not-allowed hover:bg-transparent",
+                          "h-7 w-7 hover:bg-rose-50",
+                          !canDelete && "opacity-20 cursor-not-allowed hover:bg-transparent",
                         )}
                         disabled={!canDelete}
-                        title={
-                          canDelete
-                            ? "Xóa phiếu"
-                            : "Không thể xóa phiếu đã chuyển"
-                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(item.id);
+                        }}
                       >
                         <Trash2 size={14} className="text-rose-600" />
                       </Button>
@@ -383,30 +295,12 @@ export function AdminTransferTable({
 
         <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
           <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">
-            Hiển thị 1 - {data.length} trên tổng số {data.length} bản ghi
+            Tổng số: {data.length} bản ghi
           </p>
           <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 px-2 text-[10px] font-black border-slate-300 rounded-none uppercase"
-            >
-              Trước
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 w-6 p-0 text-[10px] font-black bg-blue-600 text-white border-blue-600 rounded-none"
-            >
-              1
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 px-2 text-[10px] font-black border-slate-300 rounded-none uppercase"
-            >
-              Sau
-            </Button>
+            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-black border-slate-300 rounded-none uppercase">Trước</Button>
+            <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-[10px] font-black bg-blue-600 text-white border-blue-600 rounded-none">1</Button>
+            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-black border-slate-300 rounded-none uppercase">Sau</Button>
           </div>
         </div>
       </div>

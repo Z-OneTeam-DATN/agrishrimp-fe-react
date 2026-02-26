@@ -156,7 +156,13 @@ export const ReceiptSchema = z.object({
   description: z.string().optional().default(""),
   status: z.enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"]).default("PENDING"),
   items: z.array(ReceiptItemSchema).min(1, "Cần ít nhất một mặt hàng"),
-  paymentAmount: z.coerce.number().min(0).optional().default(0),
+  paymentAmount: z.coerce
+      .number({
+        invalid_type_error: "Số tiền thanh toán phải là số",
+      })
+      .min(0, "Số tiền thanh toán không được nhỏ hơn 0")
+      .optional()
+      .default(0),
   note: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
 }).superRefine((data, ctx) => {
@@ -198,7 +204,9 @@ export const ExportItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string(),
   unit: z.string(),
-  quantity: z.coerce.number().min(0.001, "Số lượng phải lớn hơn 0"),
+  quantity: z.coerce.number({ invalid_type_error: "Vui lòng nhập số" })
+      .int("Số lượng phải là số nguyên")
+      .min(1, "Số lượng xuất phải lớn hơn 0"),
   lotNumber: z.string().optional(),
 });
 
