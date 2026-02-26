@@ -137,6 +137,7 @@ export default function AdminExportListPage() {
                 <InventoryExportTable
                   exports={data}
                   onDelete={handleDeleteCommand}
+                  onRefresh={fetchList}
                   selectedIds={selectedIds}
                   setSelectedIds={setSelectedIds}
                 />

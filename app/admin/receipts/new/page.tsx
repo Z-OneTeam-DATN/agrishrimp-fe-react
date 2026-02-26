@@ -103,16 +103,18 @@ function AdminReceiptFormContent() {
   const importType = watch("importType");
   const sourceBranchId = watch("sourceBranchId");
 
-  // XÁC ĐỊNH ID KHO NHẬP VÀO
-  const targetBranchId = React.useMemo(() => {
-    const branch = branches.find(b => (b.name || b.branchName || b.id.toString()) === currentTargetBranch);
-    return branch?.id?.toString() || "";
+  // XÁC ĐỊNH ID KHO NHẬP VÀO VÀ CHECK QUYỀN
+  const selectedDestBranch = React.useMemo(() => {
+    return branches.find(b => (b.name || b.branchName || b.id.toString()) === currentTargetBranch);
   }, [branches, currentTargetBranch]);
+
+  const targetBranchId = selectedDestBranch?.id?.toString() || "";
+  const isDestMainBranch = !selectedDestBranch || selectedDestBranch.branchType === "WAREHOUSE";
 
   // TÍNH TOÁN TỔNG
   const subTotal = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0) * (Number(item.importPrice) || 0), 0);
   const totalQty = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0), 0);
-  const debtAmount = Math.max(0, subTotal - watchPaymentAmount);
+  const debtAmount = importType === "INTERNAL" ? 0 : Math.max(0, subTotal - watchPaymentAmount);
 
   // --- USE EFFECTS ---
 
@@ -133,9 +135,8 @@ function AdminReceiptFormContent() {
           const mappedItems = (data.items || []).map((item: any) => ({
             productCode: item.productCode || "",
             productName: item.productName || "",
-            unit: item.unit || "Cái",
             plannedQuantity: item.quantity || 1,
-            maxQuantity: 999999, // Cho phép sửa thoải mái nếu phiếu cũ
+            maxQuantity: 0, // Edit mode sẽ bypass vụ check max Qty (hoặc fetch thủ công nếu muốn)
             importPrice: item.price || 0,
             newSellingPrice: item.newSellingPrice || 0,
             lotNumber: item.lotNumber || "",
@@ -143,8 +144,10 @@ function AdminReceiptFormContent() {
             imageUrl: item.imageUrl || ""
           }));
 
+          const resolvedImportType = data.importType || (data.sourceBranchId ? "INTERNAL" : "SUPPLIER");
+
           reset({
-            importType: data.importType || (data.sourceBranchId ? "INTERNAL" : "SUPPLIER"),
+            importType: resolvedImportType,
             sourceBranchId: data.sourceBranchId ? data.sourceBranchId.toString() : "",
             receiptCode: data.code || "",
             supplierName: data.supplierName || "",
@@ -162,7 +165,7 @@ function AdminReceiptFormContent() {
           replace(mappedItems);
           setTags(data.tags || []);
 
-          if (data.supplierName || data.supplierCode) {
+          if (resolvedImportType === "SUPPLIER" && (data.supplierName || data.supplierCode)) {
              try {
                 const supplierRes = await supplierService.getAll(data.supplierCode || data.supplierName, undefined, "ACTIVE", 0, 1);
                 if (supplierRes && supplierRes.content && supplierRes.content.length > 0) {
@@ -313,10 +316,9 @@ function AdminReceiptFormContent() {
       } else {
         append({
           productCode: productCode,
-          productName: variant.productName || "Sản phẩm không tên",
-          unit: variant.unit || "Cái",
+          productName: variant.productName || variant.unit || "Sản phẩm không tên",
           plannedQuantity: 1,
-          maxQuantity: Number(variant.quantity) || 0,
+          maxQuantity: Number(variant.quantity) || 0, // Lưu tồn kho để check
           lotNumber: "",
           expiryDate: "",
           importPrice: Number(variant.costPrice) || 0,
@@ -355,9 +357,8 @@ function AdminReceiptFormContent() {
         entryDate: data.entryDate,
         note: data.note,
         importStatus: data.importStatus,
-        paymentAmount: Number(data.paymentAmount) || 0,
+        paymentAmount: data.importType === "INTERNAL" ? 0 : (Number(data.paymentAmount) || 0),
         tags: tags,
-
         items: data.items.map(item => ({
           productCode: item.productCode,
           plannedQuantity: Number(item.plannedQuantity),
@@ -431,13 +432,14 @@ function AdminReceiptFormContent() {
                      field.onChange(v);
                      handleClearSupplier();
                      setValue("sourceBranchId", "");
-                     replace([]);
+                     replace([]); // Clear sản phẩm khi đổi nguồn
                  }} disabled={isReadOnly}>
                     <SelectTrigger className="h-10 text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0 font-bold bg-slate-50">
                       <SelectValue placeholder="Chọn nguồn nhập" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none z-[9999]">
-                      <SelectItem value="SUPPLIER">Nhập mua từ Nhà cung cấp</SelectItem>
+                      {/* CHỈ HIỂN THỊ NGUỒN NHÀ CUNG CẤP NẾU KHO ĐÍCH LÀ KHO TỔNG */}
+                      {isDestMainBranch && <SelectItem value="SUPPLIER">Nhập mua từ Nhà cung cấp</SelectItem>}
                       <SelectItem value="INTERNAL">Nhập chuyển từ Kho nội bộ</SelectItem>
                     </SelectContent>
                  </Select>
@@ -583,14 +585,24 @@ function AdminReceiptFormContent() {
                 name="branchName"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={(v) => { field.onChange(v); replace([]); }} value={field.value} disabled={isLoadingBranches || isReadOnly}>
+                  <Select onValueChange={(val) => {
+                      field.onChange(val);
+                      replace([]);
+
+                      // Tự động gạt về Nội Bộ nếu chọn kho lẻ
+                      const b = branches.find(x => (x.name || x.branchName) === val);
+                      if (b && b.branchType !== 'WAREHOUSE' && watch('importType') === 'SUPPLIER') {
+                          setValue('importType', 'INTERNAL');
+                          toast.warning("Kho lẻ chỉ được phép nhận hàng nội bộ. Đã tự động đổi nguồn.");
+                      }
+                  }} value={field.value} disabled={isLoadingBranches || isReadOnly}>
                     <SelectTrigger className={`h-9 text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0 font-medium ${errors.branchName ? "border-rose-500" : ""}`}>
                       <SelectValue placeholder={isLoadingBranches ? "Đang tải..." : "Chọn chi nhánh"} />
                     </SelectTrigger>
                     <SelectContent className="rounded-none z-[9999]">
                       {branches.map((branch) => (
                         <SelectItem key={branch.id} value={branch.name || branch.branchName || branch.id.toString()}>
-                          {branch.name || branch.branchName}
+                          {(branch.name || branch.branchName).toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">{branch.branchType === "WAREHOUSE" ? "(Kho tổng)" : "(Kho lẻ)"}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -662,7 +674,7 @@ function AdminReceiptFormContent() {
                                </div>
                                <div>
                                  <p className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">
-                                   {variant.productName}
+                                   {variant.productName || variant.unit}
                                  </p>
                                  <p className="text-[11px] text-slate-500 mt-0.5">
                                    SKU: <span className="font-mono text-blue-600">{variant.sku}</span>
@@ -711,23 +723,23 @@ function AdminReceiptFormContent() {
             <TableHeader>
               <TableRow className="bg-[#fcfcfc] border-b border-[#eee]">
                 <TableHead className="w-[50px] text-center p-3 text-[11px] font-bold text-slate-400">STT</TableHead>
-                <TableHead className="font-bold text-slate-400 text-[11px] p-3">Sản phẩm</TableHead>
-                <TableHead className="w-[80px] text-[11px] font-bold text-slate-400 p-3 text-center">ĐVT</TableHead>
+                <TableHead className="w-[250px] font-bold text-slate-400 text-[11px] p-3">Sản phẩm</TableHead>
                 <TableHead className="w-[130px] font-bold text-slate-400 text-[11px] p-3 text-center">Số lô</TableHead>
                 <TableHead className="w-[130px] font-bold text-slate-400 text-[11px] p-3 text-center">Hạn dùng</TableHead>
-                <TableHead className="w-[100px] text-[11px] font-bold text-slate-400 p-3 text-right">Số lượng</TableHead>
-                <TableHead className="w-[120px] text-[11px] font-bold text-slate-400 p-3 text-right">Giá nhập</TableHead>
-                <TableHead className="w-[120px] font-bold text-emerald-600 text-[11px] p-3 text-right">Giá bán</TableHead>
-                <TableHead className="w-[120px] text-[11px] font-bold text-slate-400 p-3 text-right">Thành tiền</TableHead>
+                <TableHead className="w-[130px] text-[11px] font-bold text-slate-400 p-3 text-right">Số lượng</TableHead>
+                <TableHead className="w-[130px] text-[11px] font-bold text-slate-400 p-3 text-right">Giá nhập</TableHead>
+                <TableHead className="w-[130px] font-bold text-emerald-600 text-[11px] p-3 text-right">Giá bán</TableHead>
+                <TableHead className="w-[150px] text-[11px] font-bold text-slate-400 p-3 text-right">Thành tiền</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {fields.length === 0 ? (
-                <TableRow><TableCell colSpan={10} className="h-64 text-center text-slate-300 font-bold uppercase tracking-widest">Chưa có sản phẩm nào</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="h-64 text-center text-slate-300 font-bold uppercase tracking-widest">Chưa có sản phẩm nào</TableCell></TableRow>
               ) : (
                 fields.map((field: any, index) => {
                   const currentItem = watchItems[index] as any;
+
                   return (
                     <React.Fragment key={field.id}>
                       <TableRow className="border-b hover:bg-slate-50/30 transition-colors">
@@ -743,7 +755,6 @@ function AdminReceiptFormContent() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="p-3 text-center font-bold text-slate-500">{currentItem?.unit}</TableCell>
                         <TableCell className="p-3">
                           <Input readOnly={isReadOnly} {...register(`items.${index}.lotNumber`)} className={`h-8 text-[12px] border-[#ccc] rounded-none text-center font-bold ${errors.items?.[index]?.lotNumber ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`} />
                         </TableCell>
@@ -764,7 +775,12 @@ function AdminReceiptFormContent() {
                           )}
                         </TableCell>
                         <TableCell className="p-3">
-                          <Input readOnly={isReadOnly} type="number" {...register(`items.${index}.importPrice`, { valueAsNumber: true })} className={`h-8 text-[12px] text-right font-bold text-blue-600 ${errors.items?.[index]?.importPrice ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`} />
+                          <Input
+                            readOnly={isReadOnly}
+                            type="number"
+                            {...register(`items.${index}.importPrice`, { valueAsNumber: true })}
+                            className={`h-8 text-[12px] text-right font-bold text-blue-600 ${errors.items?.[index]?.importPrice ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`}
+                          />
                         </TableCell>
                         <TableCell className="p-3">
                           <Input readOnly={isReadOnly} type="number" {...register(`items.${index}.newSellingPrice`, { valueAsNumber: true })} className={`h-8 text-[12px] text-right font-bold text-emerald-700 bg-emerald-50/30 ${isReadOnly ? "bg-slate-50" : ""}`} />
@@ -776,7 +792,7 @@ function AdminReceiptFormContent() {
                       </TableRow>
                       {(errors.items?.[index]?.lotNumber || errors.items?.[index]?.expiryDate || errors.items?.[index]?.plannedQuantity || errors.items?.[index]?.importPrice) && (
                         <TableRow className="bg-rose-50/30">
-                          <TableCell colSpan={10} className="p-1 px-4">
+                          <TableCell colSpan={9} className="p-1 px-4">
                             <div className="flex gap-4 text-[10px] text-rose-500 font-medium">
                               {errors.items?.[index]?.lotNumber && <span>• {(errors.items?.[index]?.lotNumber as any)?.message}</span>}
                               {errors.items?.[index]?.expiryDate && <span>• {(errors.items?.[index]?.expiryDate as any)?.message}</span>}
@@ -822,24 +838,36 @@ function AdminReceiptFormContent() {
             <span className="text-slate-500 font-bold uppercase">Số lượng hàng</span>
             <span className="text-slate-900 font-black">{totalQty}</span>
           </div>
+
           <div className="flex justify-between items-center text-[13px]">
             <span className="text-slate-500 font-bold uppercase">Tổng tiền hàng</span>
             <span className="text-slate-900 font-black">{formatNumber(subTotal)} ₫</span>
           </div>
-          <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-center">
-            <span className="text-[12px] font-black text-slate-900 uppercase">Cần trả {importType === "SUPPLIER" ? "NCC" : "Kho bộ"}</span>
-            <span className="text-[18px] font-black text-slate-900">{formatNumber(subTotal)} ₫</span>
-          </div>
-          <div className="pt-4 border-t">
-            <p className="text-[12px] font-bold text-slate-800 uppercase">Thanh toán cho {importType === "SUPPLIER" ? "NCC" : "Kho bộ"}</p>
-            <div className="relative mt-2">
-              <Input readOnly={isReadOnly} type="number" {...register("paymentAmount", { valueAsNumber: true })} className={`h-10 text-[16px] font-black text-blue-600 border-[#ccc] text-right bg-blue-50/30 ${isReadOnly ? "bg-slate-100" : ""}`} />
+
+          {/* NẾU NHẬP TỪ NCC MỚI HIỆN THÔNG TIN THANH TOÁN (Cần trả, Thanh toán, Còn nợ) */}
+          {importType === "SUPPLIER" ? (
+            <>
+              <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-center">
+                <span className="text-[12px] font-black text-slate-900 uppercase">Cần trả NCC</span>
+                <span className="text-[18px] font-black text-slate-900">{formatNumber(subTotal)} ₫</span>
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-[12px] font-bold text-slate-800 uppercase">Thanh toán cho NCC</p>
+                <div className="relative mt-2">
+                  <Input readOnly={isReadOnly} type="number" {...register("paymentAmount", { valueAsNumber: true })} className={`h-10 text-[16px] font-black text-blue-600 border-[#ccc] text-right bg-blue-50/30 ${isReadOnly ? "bg-slate-100" : ""}`} />
+                </div>
+              </div>
+              <div className="pt-4 flex justify-between items-center border-t border-slate-200">
+                <span className="text-[12px] font-black text-slate-900 uppercase">Còn nợ</span>
+                <span className="text-[16px] font-black text-rose-600">{formatNumber(debtAmount)} ₫</span>
+              </div>
+            </>
+          ) : (
+            <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-sm text-center">
+               <p className="text-[12px] text-blue-700 font-bold uppercase">Luân chuyển nội bộ</p>
+               <p className="text-[11px] text-slate-500 mt-1">Không phát sinh thanh toán chi phí với đối tác bên ngoài.</p>
             </div>
-          </div>
-          <div className="pt-4 flex justify-between items-center border-t border-slate-200">
-            <span className="text-[12px] font-black text-slate-900 uppercase">Còn nợ</span>
-            <span className="text-[16px] font-black text-rose-600">{formatNumber(debtAmount)} ₫</span>
-          </div>
+          )}
         </div>
       </div>
 

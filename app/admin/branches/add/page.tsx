@@ -62,7 +62,7 @@ export default function AddBranchPage() {
       ward: "",
       addressDetail: "",
       status: "active",
-      branchType: "store",
+      branchType: "STORE",
 
     },
   });
@@ -286,8 +286,8 @@ export default function AddBranchPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
-                        <SelectItem value="hub" className="font-bold text-blue-600">KHO TRUNG TÂM / TRỤ SỞ</SelectItem>
-                        <SelectItem value="store" className="font-bold text-slate-600">CỬA HÀNG BÁN LẺ</SelectItem>
+                        <SelectItem value="WAREHOUSE" className="font-bold text-blue-600">KHO TỔNG / TRỤ SỞ</SelectItem>
+                        <SelectItem value="STORE" className="font-bold text-slate-600">CỬA HÀNG BÁN LẺ</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
