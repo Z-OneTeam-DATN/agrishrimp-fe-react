@@ -14,28 +14,74 @@ import {
   CheckCircle2,
   UserCircle,
   Wallet,
+  PackageCheck,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { customerService } from "@/app/services/customer.service";
 
-// 1. Cập nhật Interface khớp chính xác với DTO từ Backend
+// Định nghĩa Interface cho Đơn hàng khớp với Backend
+interface OrderData {
+  id: number;
+  code: string;
+  finalAmount: number;
+  status: string;
+  createdAt: string;
+}
+
 interface CustomerData {
   userId: number;
   fullName: string;
   email: string;
   phone: string;
-  provider: string; // LOCAL hoặc GOOGLE
-  userStatus: string; // Trạng thái tài khoản (Gốc)
+  provider: string;
+  userStatus: string;
   createdAt: string;
-  
-  // Dữ liệu từ bảng Customer (Có thể null)
   customerId?: number;
   customerStatus?: string;
   addressDetail?: string;
+  totalOrders?: number;
+  totalSpent?: number;
+  reputationScore?: number;
+  avatarUrl?: string;
 }
+
+// Hàm hỗ trợ dịch trạng thái đơn hàng
+const translateOrderStatus = (status: string) => {
+  switch (status) {
+    case 'PENDING': return 'Chờ xử lý';
+    case 'CONFIRMED': return 'Đã xác nhận';
+    case 'SHIPPING': return 'Đang giao hàng';
+    case 'COMPLETED': return 'Hoàn thành';
+    case 'CANCELLED': return 'Đã hủy';
+    case 'RETURNED': return 'Hoàn trả';
+    default: return status;
+  }
+};
+
+// Hàm hỗ trợ lấy màu sắc cho trạng thái đơn hàng
+const getOrderStatusColor = (status: string) => {
+  switch (status) {
+    case 'COMPLETED': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    case 'CANCELLED': 
+    case 'RETURNED': return 'bg-rose-50 text-rose-600 border-rose-100';
+    case 'SHIPPING': return 'bg-blue-50 text-blue-600 border-blue-100';
+    case 'CONFIRMED': return 'bg-purple-50 text-purple-600 border-purple-100';
+    case 'PENDING': return 'bg-orange-50 text-orange-600 border-orange-100';
+    default: return 'bg-slate-50 text-slate-600 border-slate-200';
+  }
+};
 
 export default function CustomerDetailPage({
   params,
@@ -43,21 +89,32 @@ export default function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
-
-  // Giải nén params theo chuẩn Next.js 15
   const resolvedParams = use(params);
   const customerId = resolvedParams.id;
 
   const [customer, setCustomer] = useState<CustomerData | null>(null);
+  const [orders, setOrders] = useState<OrderData[]>([]); // State lưu danh sách đơn hàng
   const [isLoading, setIsLoading] = useState(true);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false); // State loading riêng cho đơn hàng
   const [mounted, setMounted] = useState(false);
 
-  // Tránh lỗi Hydration
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Fetch dữ liệu từ API
+  // Hàm fetch Nhật ký giao dịch
+  const fetchOrders = async (userId: number) => {
+    setIsOrdersLoading(true);
+    try {
+      const data = await customerService.getCustomerOrders(userId);
+      setOrders(data || []);
+    } catch (error) {
+      console.error("Lỗi fetch đơn hàng:", error);
+    } finally {
+      setIsOrdersLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchDetail = async () => {
       if (!mounted) return;
@@ -65,7 +122,9 @@ export default function CustomerDetailPage({
       try {
         const data = await customerService.getById(Number(customerId));
         setCustomer(data);
-      } catch (error: any) {
+        // Sau khi lấy được thông tin khách hàng, gọi luôn API lấy đơn hàng
+        fetchOrders(Number(customerId));
+      } catch (error) {
         console.error("Lỗi fetch:", error);
         toast.error("Không thể tải thông tin khách hàng");
         router.push("/admin/customers");
@@ -120,26 +179,36 @@ export default function CustomerDetailPage({
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-50 flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-4 border-2 border-blue-100 shadow-sm relative group">
-                <User size={40} />
-                {/* Hiện Provider (GOOGLE/LOCAL) thay vì Role cũ */}
+              <div className="relative mb-4 group">
+                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 border-2 border-blue-100 shadow-sm overflow-hidden">
+                  {customer?.avatarUrl ? (
+                    <img 
+                      src={customer.avatarUrl} 
+                      alt={customer?.fullName || "Avatar"} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <User size={40} />
+                  )}
+                </div>
                 {customer?.provider && (
                   <span className={cn(
-                    "absolute -bottom-1 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase",
+                    "absolute -bottom-2 left-1/2 -translate-x-1/2 text-white text-[8px] font-black px-2.5 py-0.5 rounded-full uppercase whitespace-nowrap shadow-sm border border-white/20",
                     customer.provider === 'GOOGLE' ? "bg-red-500" : "bg-blue-600"
                   )}>
                     {customer.provider}
                   </span>
                 )}
               </div>
-              <h2 className="text-[16px] font-black text-slate-800 uppercase leading-tight mb-1">
+
+              <h2 className="text-[16px] font-black text-slate-800 uppercase leading-tight mb-1 mt-2">
                 {customer?.fullName || "Chưa cập nhật tên"}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                Mã định danh:{" "}
-                {customer?.userId
-                  ? `USR-${customer.userId}`
-                  : "KHÔNG CÓ TÀI KHOẢN"}
+                Mã định danh: {customer?.userId ? `USR-${customer.userId}` : "KHÔNG CÓ TÀI KHOẢN"}
               </p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 w-full">
@@ -147,13 +216,17 @@ export default function CustomerDetailPage({
                   <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1 flex items-center justify-center gap-1">
                     <Wallet size={10} /> Chi tiêu
                   </p>
-                  <p className="text-[14px] font-black text-emerald-700">0 ₫</p>
+                  <p className="text-[14px] font-black text-emerald-700">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.totalSpent || 0)}
+                  </p>
                 </div>
                 <div className="bg-blue-50/50 p-3 border border-blue-100 text-center">
                   <p className="text-[9px] font-bold text-blue-600 uppercase mb-1 flex items-center justify-center gap-1">
                     <ShoppingCart size={10} /> Đơn hàng
                   </p>
-                  <p className="text-[14px] font-black text-blue-700">0</p>
+                  <p className="text-[14px] font-black text-blue-700">
+                    {customer?.totalOrders || 0}
+                  </p>
                 </div>
               </div>
             </div>
@@ -162,42 +235,30 @@ export default function CustomerDetailPage({
               <div className="flex items-start gap-3">
                 <Phone size={14} className="text-slate-300 mt-1" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                    Đường dây liên lạc
-                  </span>
-                  <span className="text-[13px] font-bold text-slate-700">
-                    {customer?.phone || "N/A"}
-                  </span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Đường dây liên lạc</span>
+                  <span className="text-[13px] font-bold text-slate-700">{customer?.phone || "N/A"}</span>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Mail size={14} className="text-slate-300 mt-1" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                    Hòm thư điện tử
-                  </span>
-                  <span className="text-[13px] font-bold text-slate-700">
-                    {customer?.email || "Chưa cập nhật"}
-                  </span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hòm thư điện tử</span>
+                  <span className="text-[13px] font-bold text-slate-700">{customer?.email || "Chưa cập nhật"}</span>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <MapPin size={14} className="text-slate-300 mt-1" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                    Địa chỉ thường trú
-                  </span>
-                  <span className="text-[12px] font-medium text-slate-600 leading-snug">
-                    {customer?.addressDetail || "Chưa cập nhật địa chỉ cụ thể"}
-                  </span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Địa chỉ giao dịch</span>
+                  <span className="text-[12px] font-medium text-slate-600 leading-snug">{customer?.addressDetail || "Chưa cập nhật địa chỉ"}</span>
                 </div>
               </div>
               
+              {/* Dịch trạng thái người dùng sang Tiếng Việt */}
               <div className="pt-2 border-t border-slate-50 flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase">
                   Trạng thái vận hành
                 </span>
-                {/* SỬ DỤNG userStatus ĐỂ CHECK ĐÚNG CHUẨN */}
                 <span
                   className={cn(
                     "text-[10px] font-black px-2 py-0.5 rounded-none border uppercase tracking-tighter",
@@ -206,9 +267,7 @@ export default function CustomerDetailPage({
                       : "bg-rose-50 text-rose-600 border-rose-100",
                   )}
                 >
-                  {customer?.userStatus === "ACTIVE"
-                    ? "ĐANG HOẠT ĐỘNG"
-                    : "TẠM KHÓA"}
+                  {customer?.userStatus === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : "ĐANG TẠM KHÓA"}
                 </span>
               </div>
             </div>
@@ -234,13 +293,64 @@ export default function CustomerDetailPage({
             </TabsList>
 
             <TabsContent value="history" className="mt-4">
-              <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden text-center p-20">
-                <div className="flex flex-col items-center gap-2">
-                  <ShoppingCart size={32} className="text-slate-100" />
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    Hiện tại khách hàng chưa phát sinh đơn hàng
-                  </p>
-                </div>
+              <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden min-h-[400px]">
+                <Table>
+                  <TableHeader className="bg-slate-50/80">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest p-4">Mã đơn</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest p-4">Ngày giao dịch</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest p-4 text-right">Tổng tiền</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest p-4 text-center">Trạng thái</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isOrdersLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-40 text-center">
+                          <div className="flex flex-col items-center gap-2 opacity-50">
+                            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest">Đang tải lịch sử...</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : orders.length > 0 ? (
+                      orders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-slate-50/50 cursor-pointer transition-colors group">
+                          <TableCell className="p-4">
+                            <span className="text-[12px] font-black text-blue-600 group-hover:underline uppercase">#{order.code}</span>
+                          </TableCell>
+                          <TableCell className="p-4">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                              <Clock size={12} className="text-slate-300" />
+                              {new Date(order.createdAt).toLocaleDateString('vi-VN')}
+                            </div>
+                          </TableCell>
+                          <TableCell className="p-4 text-right text-[13px] font-black text-slate-700">
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.finalAmount || 0)}
+                          </TableCell>
+                          <TableCell className="p-4 text-center">
+                            {/* Gọi hàm chuyển đổi màu sắc và text */}
+                            <span className={cn(
+                              "text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-tighter border",
+                              getOrderStatusColor(order.status)
+                            )}>
+                              {translateOrderStatus(order.status)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-60 text-center">
+                          <div className="flex flex-col items-center justify-center gap-2 opacity-20">
+                            <PackageCheck size={48} />
+                            <p className="text-[11px] font-black uppercase tracking-[0.2em]">Khách hàng chưa có giao dịch</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </TabsContent>
 
@@ -253,19 +363,20 @@ export default function CustomerDetailPage({
                     </div>
                     <div>
                       <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                        Tỉ lệ thanh toán đúng hạn
+                        Tỉ lệ nhận hàng thành công
                       </p>
-                      <p className="text-[24px] font-black text-orange-700 leading-none">
-                        -- %
+                      <p className={cn(
+                          "text-[24px] font-black leading-none",
+                          (customer?.reputationScore || 0) >= 80 ? "text-emerald-600" : "text-orange-700"
+                      )}>
+                        {customer?.reputationScore || 0} %
                       </p>
                     </div>
                   </div>
                   <div className="text-right bg-emerald-50 px-4 py-2 border border-emerald-100">
-                    <p className="text-[10px] font-bold text-emerald-600 uppercase">
-                      Phân loại
-                    </p>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase">Phân loại</p>
                     <p className="text-[13px] font-black text-emerald-700 uppercase">
-                      Đối tác mới
+                      {(customer?.reputationScore || 0) >= 80 ? "Đối tác uy tín" : "Đối tác mới"}
                     </p>
                   </div>
                 </div>
