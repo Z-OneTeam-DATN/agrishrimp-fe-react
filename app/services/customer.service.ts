@@ -40,4 +40,14 @@ export const customerService = {
     const response = await apiJava.delete(`${customerService.PREFIX}/${id}`);
     return response.data;
   },
+
+  toggleStatus: async (userId: number) => {
+    const response = await apiJava.patch(`${customerService.PREFIX}/${userId}/toggle-status`);
+    return response.data;
+  },
+
+  getCustomerOrders: async (userId: number) => {
+    const response = await apiJava.get(`/admin/orders/user/${userId}`);
+    return response.data; 
+  },
 };
