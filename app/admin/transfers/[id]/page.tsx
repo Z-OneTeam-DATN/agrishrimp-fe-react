@@ -114,12 +114,14 @@ export default function TransferDetailPage() {
   };
 
   const submitInspect = () => {
-    const payload = inspectItems.map((i: any) => ({
-      variantId: i.variantId,
+    const payload = inspectItems.map((i) => ({
+      variantId: i.variantId, // <--- Kiểm tra xem variantId này có bị giống nhau ở mọi dòng không?
       quantityReal: Number(i.quantityReal || 0),
       note: i.note || ""
     }));
-    handleApiCall(() => transferService.receive(id as string, payload), "Đã ghi nhận kiểm đếm và nhập kho!");
+
+    console.log("Payload gửi đi:", payload); // Thêm dòng này để debug
+    handleApiCall(() => transferService.receive(id, payload), "...");
     setShowInspectModal(false);
   };
 

@@ -131,23 +131,18 @@ export default function AddBranchPage() {
   }, [selectedDistrict, isLoading]);
 
   // 4. Fill dữ liệu khi ở chế độ Edit
-  useEffect(() => {
-    if (isEditMode && branchId && isInitialLoaded) {
-      const fetchFullDetail = async () => {
-        try {
-          setIsLoading(true);
-          // Đã sửa: branchService chữ thường và bỏ res.data
-          const res = await branchService.getById(branchId);
-          const data = res;
+useEffect(() => {
+  if (isEditMode && branchId && isInitialLoaded) {
+    const fetchFullDetail = async () => {
+      try {
+        setIsLoading(true);
+        // 1. Lấy dữ liệu chi nhánh từ Backend
+        const data = await branchService.getById(branchId);
 
-          const [distRes, wardRes] = await Promise.all([
-            axios.get(`https://provinces.open-api.vn/api/p/${data.provinceId}?depth=2`),
-            axios.get(`https://provinces.open-api.vn/api/d/${data.districtId}?depth=2`)
-          ]);
-
-          setDistricts(distRes.data.districts || []);
-          setWards(wardRes.data.wards || []);
-
+        // 2. Kiểm tra dữ liệu hợp lệ trước khi gọi API tỉnh thành
+        if (!data.provinceId) {
+          console.warn("Chi nhánh này chưa có dữ liệu tỉnh thành");
+          // Vẫn cho phép hiện thông tin cơ bản
           reset({
             id: data.branchCode,
             name: data.name,
@@ -155,23 +150,48 @@ export default function AddBranchPage() {
             phone: data.phone,
             email: data.email || "",
             addressDetail: data.addressDetail,
-            province: String(data.provinceId),
-            district: String(data.districtId),
-            ward: String(data.wardId),
             status: data.status.toLowerCase(),
             managerId: data.managerIds?.[0] ? String(data.managerIds[0]) : "",
           });
-        } catch (error) {
-          toast.error("Lỗi tải thông tin chi nhánh!");
-        } finally {
-          setIsLoading(false);
+          return;
         }
-      };
-      fetchFullDetail();
-    } else if (!isEditMode && isInitialLoaded) {
-      setValue("id", "CN-" + Math.floor(100 + Math.random() * 900));
-    }
-  }, [isEditMode, branchId, isInitialLoaded, reset, setValue]);
+
+        // 3. Chỉ gọi API tỉnh thành khi đã có ID chắc chắn (tránh lỗi null)
+        const [distRes, wardRes] = await Promise.all([
+          axios.get(`https://provinces.open-api.vn/api/p/${data.provinceId}?depth=2`),
+          axios.get(`https://provinces.open-api.vn/api/d/${data.districtId}?depth=2`)
+        ]);
+
+        // 4. Cập nhật state danh sách trước khi reset form
+        setDistricts(distRes.data.districts || []);
+        setWards(wardRes.data.wards || []);
+
+        // 5. Reset form với đầy đủ dữ liệu để các ô Select hiển thị đúng nhãn (label)
+        reset({
+          id: data.branchCode,
+          name: data.name,
+          branchType: data.branchType,
+          phone: data.phone,
+          email: data.email || "",
+          addressDetail: data.addressDetail,
+          province: String(data.provinceId),
+          district: String(data.districtId),
+          ward: String(data.wardId),
+          status: data.status.toLowerCase(),
+          managerId: data.managerIds?.[0] ? String(data.managerIds[0]) : "",
+        });
+      } catch (error) {
+        console.error("Lỗi fetch chi tiết:", error);
+        toast.error("Không thể tải thông tin chi nhánh!");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchFullDetail();
+  } else if (!isEditMode && isInitialLoaded) {
+    setValue("id", "CN-" + Math.floor(100 + Math.random() * 900));
+  }
+}, [isEditMode, branchId, isInitialLoaded, reset]);
 
   const onSubmit = async (data: AdminBranchForm) => {
     try {
@@ -286,8 +306,8 @@ export default function AddBranchPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
-                        <SelectItem value="WAREHOUSE" className="font-bold text-blue-600">KHO TỔNG / TRỤ SỞ</SelectItem>
-                        <SelectItem value="STORE" className="font-bold text-slate-600">CỬA HÀNG BÁN LẺ</SelectItem>
+                        <SelectItem value="WAREHOUSE" className="font-bold text-blue-600">KHO TRUNG TÂM / TRỤ SỞ</SelectItem>
+                            <SelectItem value="STORE" className="font-bold text-slate-600">CỬA HÀNG BÁN LẺ</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
