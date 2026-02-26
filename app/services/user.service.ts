@@ -122,20 +122,20 @@ export class UserService {
     return response.data;
   }
 
-  static async uploadAvatar(body: FormData): Promise<AvatarImage> {
-    const config = this.getConfig();
-    const response = await apiJava.post<AvatarImage>(
-      `${this.PREFIX}/upload-avatar`,
-      body,
-      {
-        headers: {
-          ...config.headers,
-          // Axios sẽ tự động set Content-Type là multipart/form-data khi body là FormData
-        },
-      },
-    );
-    return response.data;
-  }
+ static async uploadAvatar(body: FormData): Promise<AvatarImage> {
+   const config = this.getConfig();
+   const response = await apiJava.post<AvatarImage>(
+     `${this.PREFIX}/upload-avatar`,
+     body,
+     {
+       headers: {
+         ...config.headers,
+         "Content-Type": "multipart/form-data",
+       },
+     },
+   );
+   return response.data;
+ }
 
   // --- WebSocket Stomp ---
   static connectUser = (stompClient: Client, user: UserType) => {

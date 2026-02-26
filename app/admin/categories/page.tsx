@@ -119,8 +119,14 @@ export default function CategoryManagementPage() {
       await deleteCategory(deleteId);
       toast.success("Đã xóa danh mục thành công!");
       loadData();
-    } catch (error) {
-      toast.error("Có lỗi xảy ra khi xóa danh mục!");
+    } catch (error: any) {
+      // ✅ Lấy đúng thông báo "Danh mục đã có sản phẩm" từ Backend trả về
+      const serverMessage = error.response?.data?.message || "Có lỗi xảy ra khi xóa danh mục!";
+
+      // Hiển thị thông báo cụ thể lên màn hình cho người dùng
+      toast.error(serverMessage);
+
+      console.error("Lỗi xóa danh mục:", error);
     } finally {
       setDeleteId(null);
     }
