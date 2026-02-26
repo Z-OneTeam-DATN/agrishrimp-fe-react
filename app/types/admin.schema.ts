@@ -167,9 +167,7 @@ export const SupplierSchema = z.object({
     .max(15, "Mã số thuế không hợp lệ (tối đa 15 số)")
     .regex(/^[0-9-]+$/, "Mã số thuế chỉ bao gồm số và dấu gạch nối"),
 
-  category: z.enum(["feed", "med", "tool"], {
-    errorMap: () => ({ message: "Vui lòng chọn nhóm hàng hóa chính" }),
-  }),
+    category: z.string().min(1, { message: "Vui lòng chọn nhóm hàng chính" }),
 
   // 2. Thông tin liên hệ
   contactName: z
