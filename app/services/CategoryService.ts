@@ -18,11 +18,12 @@ export const getPublicCategories = async (): Promise<CategoryDTO[]> => {
 
 export const getCategories = async () => {
   try {
-    const response = await apiJava.get(PREFIX, { isPublic: true } as any);
+    const response = await apiJava.get(PREFIX);
     return response.data || [];
   } catch (error) {
     console.error("Lỗi khi lấy danh sách danh mục:", error);
-    return [];
+
+    throw error;
   }
 };
 

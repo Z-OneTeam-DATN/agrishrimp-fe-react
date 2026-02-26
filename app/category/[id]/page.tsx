@@ -35,7 +35,7 @@ export default function CategoryPage() {
 
   const [showMobileFilter, setShowMobileFilter] = useState(false);
 
-  // 1. Tải danh mục
+  // 1. Tải toàn bộ danh mục (Chỉ chạy 1 lần)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -48,11 +48,11 @@ export default function CategoryPage() {
     fetchCategories();
   }, []);
 
-  // 2. Tải sản phẩm
+  // 2. Logic xử lý Tải sản phẩm & Hiển thị Sidebar (Chạy khi có ID hoặc Danh mục thay đổi)
   useEffect(() => {
-    const fetchProducts = async () => {
-      if (!currentCategoryId) return;
-      
+    const fetchProductsAndSetSidebar = async () => {
+      if (!currentCategoryId || allCategories.length === 0) return;
+
       const idNum = Number(currentCategoryId);
       if (isNaN(idNum)) {
         console.error("Invalid category ID, redirecting...");
@@ -60,10 +60,54 @@ export default function CategoryPage() {
         return;
       }
 
+      // --- PHÂN TÍCH DANH MỤC ---
+      const currentCat = allCategories.find((c) => c.id === idNum);
+      let idsToFetch = [idNum]; // Mặc định là sẽ lấy sản phẩm của ID hiện tại
+
+      if (currentCat) {
+        setCurrentCategoryName(currentCat.name);
+
+        // Tìm xem nó có danh mục con không
+        const children = allCategories.filter((c) => c.parentId === idNum && c.status === "ACTIVE");
+
+        if (children.length > 0) {
+          // TRƯỜNG HỢP 1: ĐANG Ở DANH MỤC CHA
+          // Gắn menu bên trái là các danh mục con
+          setSubCategories(children);
+          // Gom ID của cha và TẤT CẢ các con để gọi API chung
+          idsToFetch = [idNum, ...children.map(c => c.id)];
+        } else if (currentCat.parentId) {
+          // TRƯỜNG HỢP 2: ĐANG Ở DANH MỤC CON
+          // Gắn menu bên trái là các danh mục "anh em" (cùng cha) để khách dễ bấm chuyển đổi
+          const siblings = allCategories.filter((c) => c.parentId === currentCat.parentId && c.status === "ACTIVE");
+          setSubCategories(siblings);
+          // Đang ở danh mục con thì chỉ lấy sản phẩm của riêng nó thôi
+          idsToFetch = [idNum];
+        } else {
+          // Danh mục độc lập (Không cha, không con)
+          setSubCategories([]);
+        }
+      }
+
+      // --- TIẾN HÀNH FETCH SẢN PHẨM ---
       setIsLoadingProducts(true);
       try {
-        const data = await PublicProductService.getByCategory(idNum);
-        setProducts(data || []);
+        // Tạo mảng các request gọi API cho từng ID trong mảng idsToFetch
+        const promises = idsToFetch.map(id => PublicProductService.getByCategory(id));
+        const results = await Promise.all(promises);
+
+        // Gộp kết quả lại thành 1 mảng phẳng và LỌC TRÙNG LẶP (Dựa vào ID sản phẩm)
+        const mergedProducts: ProductListItem[] = [];
+        const seenIds = new Set();
+
+        results.flat().forEach((p) => {
+          if (p && !seenIds.has(p.id)) {
+            seenIds.add(p.id);
+            mergedProducts.push(p);
+          }
+        });
+
+        setProducts(mergedProducts);
       } catch (error) {
         console.error("Lỗi sản phẩm:", error);
         setProducts([]);
@@ -71,33 +115,17 @@ export default function CategoryPage() {
         setIsLoadingProducts(false);
       }
     };
-    fetchProducts();
-  }, [currentCategoryId, router]);
 
-  // 3. Xử lý logic hiển thị Sidebar
-  useEffect(() => {
-    if (allCategories.length > 0) {
-      const idNum = Number(currentCategoryId);
-      const currentCat = allCategories.find((c) => c.id === idNum);
-      if (currentCat) {
-        setCurrentCategoryName(currentCat.name);
-        const children = allCategories.filter((c) => c.parentId === idNum && c.status === "ACTIVE");
-        setSubCategories(children.length === 0 && currentCat.parentId
-          ? allCategories.filter((c) => c.parentId === currentCat.parentId && c.status === "ACTIVE")
-          : children);
-      }
-    }
-  }, [allCategories, currentCategoryId]);
+    fetchProductsAndSetSidebar();
+  }, [currentCategoryId, allCategories, router]);
 
-  // Lọc sản phẩm trên Client (Hiện tại chỉ trả về tất cả sản phẩm vì đã bỏ lọc giá)
   const filteredProducts = useMemo(() => {
     return products;
   }, [products]);
 
-  // --- BIẾN JSX BỘ LỌC (Ổn định để tránh lỗi slider re-render) ---
+  // --- BIẾN JSX BỘ LỌC TÌM KIẾM ---
   const filterContentHtml = (
     <div className="space-y-8">
-      {/* Danh mục liên quan */}
       <div>
         <h6 className="font-bold text-gray-800 uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
           <List size={16} /> Danh Mục Liên Quan
@@ -127,7 +155,6 @@ export default function CategoryPage() {
 
       <hr className="border-gray-100" />
 
-      {/* Tất cả danh mục */}
       <div>
         <h6 className="font-bold text-gray-800 uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
           <LayoutGrid size={16} /> Tất Cả Danh Mục
