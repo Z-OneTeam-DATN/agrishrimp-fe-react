@@ -1,44 +1,31 @@
 import { apiJava } from "@/lib/axios";
-import { CategoryDTO } from "@/app/types/category.type";
 
 const PREFIX = "/categories";
 
-export const getPublicCategories = async (): Promise<CategoryDTO[]> => {
+// Lấy danh sách danh mục (có lọc theo từ khóa và trạng thái)
+export const getCategories = async (keyword?: string, status?: string) => {
   try {
-    const response = await apiJava.get(`/public/categories`, { isPublic: true } as any);
-    const data = response.data;
-    if (Array.isArray(data)) return data;
-    if (data?.data && Array.isArray(data.data)) return data.data;
-    return [];
-  } catch (e) {
-    console.error("Không thể tải danh sách danh mục:", e);
-    return [];
-  }
-};
+    const params = new URLSearchParams();
+    if (keyword) params.append("keyword", keyword);
+    if (status) params.append("status", status);
 
-export const getCategories = async () => {
-  try {
-    const response = await apiJava.get(PREFIX);
+    const response = await apiJava.get(`${PREFIX}?${params.toString()}`);
     return response.data || [];
   } catch (error) {
     console.error("Lỗi khi lấy danh sách danh mục:", error);
-
     throw error;
   }
-};
-
-export const createCategory = async (data: any) => {
-  const response = await apiJava.post(PREFIX, data);
-  return response.data;
-};
-
-export const deleteCategory = async (id: number) => {
-  await apiJava.delete(`${PREFIX}/${id}`);
 };
 
 // Lấy chi tiết 1 danh mục theo ID
 export const getCategoryById = async (id: number) => {
   const response = await apiJava.get(`${PREFIX}/${id}`);
+  return response.data;
+};
+
+// Tạo danh mục mới
+export const createCategory = async (data: any) => {
+  const response = await apiJava.post(PREFIX, data);
   return response.data;
 };
 
@@ -48,8 +35,15 @@ export const updateCategory = async (id: number, data: any) => {
   return response.data;
 };
 
+// Xóa danh mục
+export const deleteCategory = async (id: number) => {
+  await apiJava.delete(`${PREFIX}/${id}`);
+};
+
+// Thay đổi trạng thái ẩn/hiện
 export const toggleCategoryStatus = async (id: number, currentStatus: string) => {
   const category = await getCategoryById(id);
+  // Đảo ngược trạng thái
   const newStatus = currentStatus === "Hiển thị" || currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
   const response = await apiJava.put(`${PREFIX}/${id}`, {
@@ -57,4 +51,15 @@ export const toggleCategoryStatus = async (id: number, currentStatus: string) =>
     status: newStatus
   });
   return response.data;
+};
+
+// Lấy danh mục công khai cho trang chủ
+export const getPublicCategories = async () => {
+  try {
+    const response = await apiJava.get(`/public/categories`, { isPublic: true } as any);
+    return response.data || [];
+  } catch (e) {
+    console.error("Không thể tải danh mục công khai:", e);
+    return [];
+  }
 };
