@@ -14,10 +14,23 @@ const nextConfig = {
       },
     ],
   },
-  logging: {
-    fetches: {
-      fullUrl: true,
-    },
+  experimental: {
+    // Chỉ compile đúng export được dùng thay vì import cả package
+    // Giảm số modules cần compile mỗi lần load trang mới
+    optimizePackageImports: [
+      "framer-motion",
+      "recharts",
+      "react-chartjs-2",
+      "chart.js",
+      "embla-carousel-react",
+      "embla-carousel-autoplay",
+      "@tanstack/react-query",
+      "react-hook-form",
+      "@hookform/resolvers",
+      "sonner",
+      "date-fns",
+      "zustand",
+    ],
   },
 };
 

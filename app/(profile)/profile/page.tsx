@@ -19,12 +19,21 @@ import {
 import { toast } from "sonner";
 import { AuthService } from "@/app/services/auth.service";
 import { addressService } from "@/app/services/address.service";
+import { orderService } from "@/app/services/order.service";
+import { OrderStatus } from "@/app/types/order.types";
 
 export default function ProfilePage() {
   //  1. Khai báo State để lưu dữ liệu động
   const [user, setUser] = useState<any>(null);
   const [defaultAddress, setDefaultAddress] = useState<any>(null);
   const [addressCount, setAddressCount] = useState<number>(0);
+  const [orderCounts, setOrderCounts] = useState<Record<string, number>>({
+    PROCESSING: 0,
+    SHIPPING: 0,
+    COMPLETED: 0,
+    CANCELLED: 0,
+    RETURNED: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   //  2. Hàm gọi API lấy dữ liệu User và Địa chỉ
@@ -48,6 +57,28 @@ export default function ProfilePage() {
         }
       } catch (addrError) {
         console.warn("Lỗi tải địa chỉ:", addrError);
+      }
+
+      // Lấy danh sách đơn hàng để đếm trạng thái
+      try {
+        const orders = await orderService.getMyOrders("ALL");
+        const counts: Record<string, number> = {
+          PROCESSING: 0,
+          SHIPPING: 0,
+          COMPLETED: 0,
+          CANCELLED: 0,
+          RETURNED: 0,
+        };
+        orders.forEach((o: any) => {
+          if (o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PROCESSING") {
+            counts.PROCESSING++;
+          } else if (counts[o.status] !== undefined) {
+            counts[o.status]++;
+          }
+        });
+        setOrderCounts(counts);
+      } catch (orderError) {
+        console.warn("Lỗi tải đơn hàng:", orderError);
       }
 
     } catch (error: any) {
@@ -94,12 +125,17 @@ export default function ProfilePage() {
         <div className="grid grid-cols-5 gap-2 text-center">
           {/* Item 1: Đang xử lý */}
           <Link
-            href="/orders/list?status=processing"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
+            href="/orders/list?status=PROCESSING"
+            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
           >
             <div className="w-10 h-10 mb-2 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Box size={20} />
             </div>
+            {orderCounts.PROCESSING > 0 && (
+              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                {orderCounts.PROCESSING}
+              </span>
+            )}
             <span className="text-xs md:text-sm text-gray-600 group-hover:text-blue-600 font-medium">
               Đang xử lý
             </span>
@@ -107,16 +143,17 @@ export default function ProfilePage() {
 
           {/* Item 2: Đang giao */}
           <Link
-            href="/orders/list?status=shipping"
+            href="/orders/list?status=SHIPPING"
             className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
           >
             <div className="w-10 h-10 mb-2 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Truck size={20} />
             </div>
-            {/* Badge số lượng (Có thể gọi API đếm đơn hàng đang giao để thay vào đây sau) */}
-            <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-              1
-            </span>
+            {orderCounts.SHIPPING > 0 && (
+              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                {orderCounts.SHIPPING}
+              </span>
+            )}
             <span className="text-xs md:text-sm text-gray-600 group-hover:text-yellow-600 font-medium">
               Đang giao
             </span>
@@ -124,12 +161,17 @@ export default function ProfilePage() {
 
           {/* Item 3: Đã giao */}
           <Link
-            href="/orders/list?status=completed"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
+            href="/orders/list?status=COMPLETED"
+            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
           >
             <div className="w-10 h-10 mb-2 rounded-full bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <CheckCircle2 size={20} />
             </div>
+            {orderCounts.COMPLETED > 0 && (
+              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                {orderCounts.COMPLETED}
+              </span>
+            )}
             <span className="text-xs md:text-sm text-gray-600 group-hover:text-green-600 font-medium">
               Đã giao
             </span>
@@ -137,12 +179,17 @@ export default function ProfilePage() {
 
           {/* Item 4: Hoàn trả */}
           <Link
-            href="/orders/return/list"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
+            href="/orders/list?status=RETURNED"
+            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
           >
             <div className="w-10 h-10 mb-2 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <RotateCcw size={20} />
             </div>
+            {orderCounts.RETURNED > 0 && (
+              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                {orderCounts.RETURNED}
+              </span>
+            )}
             <span className="text-xs md:text-sm text-gray-600 group-hover:text-orange-600 font-medium">
               Hoàn trả
             </span>
@@ -150,12 +197,17 @@ export default function ProfilePage() {
 
           {/* Item 5: Đã hủy */}
           <Link
-            href="/orders/list?status=cancelled"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
+            href="/orders/list?status=CANCELLED"
+            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
           >
             <div className="w-10 h-10 mb-2 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <XCircle size={20} />
             </div>
+            {orderCounts.CANCELLED > 0 && (
+              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                {orderCounts.CANCELLED}
+              </span>
+            )}
             <span className="text-xs md:text-sm text-gray-600 group-hover:text-red-600 font-medium">
               Đã hủy
             </span>

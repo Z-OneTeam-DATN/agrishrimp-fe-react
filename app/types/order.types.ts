@@ -102,4 +102,63 @@ export interface ConfirmOrderResponse {
 /** COD: tiền mặt khi nhận | CASH: tiền mặt tại cửa hàng | TRANSFER: chuyển khoản | PAYOS: thanh toán online */
 export type PaymentMethod = 'COD' | 'CASH' | 'TRANSFER' | 'PAYOS'
 
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED'
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED' | 'RETURNED'
+
+export interface MyOrder {
+  id: number;
+  code: string;
+  customerName: string;
+  customerPhone: string;
+  finalAmount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: 'PAID' | 'UNPAID';
+  status: OrderStatus;
+  branchName: string;
+  createdAt: string;
+  shippingAddress: string;
+  checkoutUrl: string | null;
+  items: MyOrderItem[];
+}
+
+export interface MyOrderItem {
+  id: number;
+  productName: string;
+  sku: string;
+  image: string;
+  quantity: number;
+  price: number;
+  totalPrice: number;
+}
+
+// ============================================
+// BRANCH ORDER MANAGEMENT (API /branch/orders)
+// ============================================
+
+export interface BranchOrderItem {
+  id: number;
+  productName: string;
+  sku: string;
+  image: string | null;
+  quantity: number;
+  price: number;
+  totalPrice: number;
+}
+
+export interface BranchOrder {
+  orderId: number;
+  orderCode: string;
+  customerName: string;
+  customerPhone: string;
+  shippingAddress: string;
+  createdAt: string;
+  paymentMethod: string;
+  paymentStatus: 'PAID' | 'UNPAID';
+  orderStatus: OrderStatus;
+  subOrderId: number;
+  subOrderStatus: OrderStatus;
+  subtotal: number;
+  shippingFee: number;
+  estimatedDays: string | null;
+  carrier: string | null;
+  items: BranchOrderItem[];
+}

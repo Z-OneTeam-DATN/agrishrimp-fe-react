@@ -28,6 +28,16 @@ export async function GET(request: NextRequest) {
     const data = await res.json()
 
     if (data.status !== "success") {
+      // Fallback cho môi trường local hoặc IP không hợp lệ
+      if (data.message === "reserved range" || data.message === "private range") {
+        return NextResponse.json({
+          lat: 10.0364634, // Tọa độ mặc định: Cần Thơ
+          lng: 105.7874211,
+          city: "Can Tho (Local)",
+          source: "ip-local",
+        })
+      }
+
       return NextResponse.json(
         { error: data.message || "IP lookup thất bại" },
         { status: 500 }

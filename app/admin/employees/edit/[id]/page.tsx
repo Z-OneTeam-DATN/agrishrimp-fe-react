@@ -36,6 +36,7 @@ export default function EditEmployeePage() {
     const [branches, setBranches] = useState<BranchType[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [userEmail, setUserEmail] = useState<string>("");
 
     const {
         register,
@@ -53,7 +54,6 @@ export default function EditEmployeePage() {
     const currentStatus = watch("status");
     const currentBranchId = watch("branchId");
     const currentRoleId = watch("roleId");
-    const userEmail = watch("email");
 
     useEffect(() => {
         async function loadInitData() {
@@ -76,11 +76,13 @@ export default function EditEmployeePage() {
                 const branchesList = Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || [];
                 setBranches(branchesList);
 
+                // Lưu email riêng (không nằm trong schema update)
+                setUserEmail(userRes.email || "");
+
                 // Populate form
                 reset({
                     fullName: userRes.fullName || "",
                     employeeCode: userRes.employeeCode || "",
-                    email: userRes.email || "",
                     phoneNumber: userRes.phoneNumber || "",
                     citizenId: userRes.citizenId || "",
                     dateOfBirth: userRes.dateOfBirth ? userRes.dateOfBirth.split('T')[0] : "",

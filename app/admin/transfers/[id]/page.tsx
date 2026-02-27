@@ -121,7 +121,7 @@ export default function TransferDetailPage() {
     }));
 
     console.log("Payload gửi đi:", payload); // Thêm dòng này để debug
-    handleApiCall(() => transferService.receive(id, payload), "...");
+    handleApiCall(() => transferService.receive(id as string, payload), "...");
     setShowInspectModal(false);
   };
 

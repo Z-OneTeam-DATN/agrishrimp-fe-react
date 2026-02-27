@@ -152,7 +152,7 @@ export function InventoryTopbar() {
                   {getUserDisplayName()}
                 </p>
                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mt-1">
-                  {user?.role || "Warehouse Pro"}
+                  {user?.role?.displayName || "Warehouse Pro"}
                 </p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">

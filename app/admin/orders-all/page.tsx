@@ -1,299 +1,347 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Search,
-  Download,
-  Filter,
-  Settings,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-  ArrowUpDown,
-  Minus
+  Search, Settings, ChevronDown, ChevronsRight, ChevronUp,
+  CheckCircle, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { orderService } from "@/app/services/order.service";
+import { BranchOrder, OrderStatus } from "@/app/types/order.types";
 
-const MOCK_ALL_PARCELS = [
-  {
-    orderId: "#1002",
-    parcelCode: "FUN0000002",
-    parcelStatus: "Đã xử lý",
-    deliveryStatus: "Chờ lấy hàng",
-    packingStatus: "Chờ đóng gói",
-    processedDate: "14/02/2026 11:03"
-  },
-  {
-    orderId: "#1001",
-    parcelCode: "FUN0000001",
-    parcelStatus: "Đã xử lý",
-    deliveryStatus: "Chờ lấy hàng",
-    packingStatus: "Chờ đóng gói",
-    processedDate: "14/02/2026 11:01"
-  }
+const TABS = [
+  { id: "all", label: "Tất cả" },
+  { id: "SHIPPING", label: "Đang giao hàng" },
+  { id: "COMPLETED", label: "Hoàn thành" },
+  { id: "CANCELLED", label: "Đã hủy" },
+  { id: "RETURNED", label: "Trả hàng" },
 ];
 
-const STATS = [
-  { label: "Đang vận chuyển", value: 0 },
-  { label: "Đang hoàn hàng", value: 0 },
-  { label: "Chờ xác nhận hoàn", value: 0 },
-  { label: "Đã giao hàng", value: 0 },
-  { label: "Đã hủy giao hàng", value: 0 },
-];
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 
-export default function AllParcelsPage() {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+export default function AllOrdersPage() {
+  const [activeTab, setActiveTab] = useState("all");
+  const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [orders, setOrders] = useState<BranchOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [detailCache, setDetailCache] = useState<Record<number, BranchOrder>>({});
+  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
 
-  const toggleSelectAll = () => {
-    if (selectedItems.length === MOCK_ALL_PARCELS.length) {
+  const fetchOrders = useCallback(async (tab: string, q?: string) => {
+    setIsLoading(true);
+    setExpandedId(null);
+    try {
+      const status = tab === "all" ? undefined : tab;
+      const data = await orderService.getBranchOrders(status, q || undefined);
+      setOrders(data);
       setSelectedItems([]);
-    } else {
-      setSelectedItems(MOCK_ALL_PARCELS.map(item => item.orderId));
+    } catch {
+      toast.error("Không thể tải danh sách đơn hàng.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchOrders(activeTab); }, [activeTab, fetchOrders]);
+
+  const handleToggleRow = async (orderId: number) => {
+    if (expandedId === orderId) { setExpandedId(null); return; }
+    setExpandedId(orderId);
+    if (!detailCache[orderId]) {
+      setLoadingDetailId(orderId);
+      try {
+        const detail = await orderService.getBranchOrderById(orderId);
+        setDetailCache(prev => ({ ...prev, [orderId]: detail }));
+      } catch {
+        toast.error("Không thể tải chi tiết đơn hàng.");
+      } finally {
+        setLoadingDetailId(null);
+      }
     }
   };
 
-  const toggleSelectItem = (id: string) => {
+  const handleComplete = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
+    e.stopPropagation();
+    try {
+      await orderService.updateBranchOrderStatus(orderId, "COMPLETED");
+      toast.success(`Đơn hàng ${orderCode} đã hoàn thành!`);
+      fetchOrders(activeTab, search);
+    } catch {
+      toast.error("Lỗi khi cập nhật trạng thái đơn hàng.");
+    }
+  };
+
+  const toggleSelectAll = () => {
     setSelectedItems(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+      prev.length === orders.length ? [] : orders.map(o => o.orderId)
+    );
+  };
+
+  const toggleSelectItem = (id: number) => {
+    setSelectedItems(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
   return (
     <div className="p-4 space-y-4 bg-slate-50 min-h-screen">
+      <h1 className="text-[18px] font-bold text-slate-800">
+        Tất cả đơn hàng: <span className="font-normal text-slate-600">({orders.length} đơn)</span>
+      </h1>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-[18px] font-bold text-slate-800">
-          Tất cả kiện hàng: <span className="font-normal text-slate-600">Cửa hàng chính</span>
-        </h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-[32px] bg-white border-slate-300 text-slate-600 text-[12px] font-bold">
-            <Download size={14} className="mr-2" /> Xuất file
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-6 bg-white rounded-[4px] border border-[#dcdcdc] shadow-sm divide-y md:divide-y-0 md:divide-x divide-slate-100">
-        <div className="p-4 flex items-center justify-center md:justify-start">
-            <Button variant="outline" className="h-[32px] text-[12px] text-slate-600 border-slate-200 bg-slate-50">
-                <Calendar size={14} className="mr-2 text-slate-500" /> 7 ngày qua
-            </Button>
-        </div>
-
-        {STATS.map((stat, index) => (
-            <div key={index} className="p-4 flex flex-col justify-center">
-                <span className="text-[12px] text-slate-500 mb-1">{stat.label}</span>
-                <span className="text-[20px] font-bold text-slate-800 leading-none">{stat.value}</span>
-            </div>
-        ))}
-      </div>
-
-      <div className="bg-white p-3 rounded-[4px] border border-[#dcdcdc] shadow-sm space-y-3">
-        <div className="flex gap-2">
-          <Button variant="ghost" size="icon" className="h-[34px] w-[34px] border border-slate-300 text-slate-400 shrink-0">
-             <span className="text-xs">✕</span>
-          </Button>
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <Input
-              placeholder="Tìm kiếm theo mã đơn hàng, vận đơn, kiện hàng"
-              className="pl-9 h-[34px] text-[13px] border-slate-300 bg-white focus:border-blue-500"
-            />
-          </div>
-          <Button variant="outline" className="h-[34px] text-[12px] text-slate-600 border-slate-300 bg-slate-50">
-            Lưu bộ lọc
-          </Button>
-          <Button variant="outline" className="h-[34px] text-[12px] text-slate-600 border-slate-300 bg-white">
-            Sắp xếp <ChevronDown size={14} className="ml-1" />
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <FilterButton label="Xem tất cả" icon />
-          <FilterButton label="Trạng thái kiện hàng" />
-          <FilterButton label="Đơn hàng hủy" />
-          <FilterButton label="Trạng thái in" />
-          <FilterButton label="Trạng thái đóng gói" />
-          <FilterButton label="Trạng thái giao hàng" />
-          <FilterButton label="Trạng thái bàn giao" />
+      <div className="bg-white p-3 rounded-[4px] border border-[#dcdcdc] shadow-sm">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Input
+            placeholder="Tìm theo mã đơn hoặc tên khách hàng, nhấn Enter để tìm"
+            className="pl-9 h-[34px] text-[13px] border-slate-300 bg-white"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && fetchOrders(activeTab, search)}
+          />
         </div>
       </div>
 
       <div className="bg-white rounded-[4px] border border-[#dcdcdc] shadow-sm overflow-hidden">
-        <div className="flex items-center border-b border-[#eee] px-4">
-            <button className="py-3 px-4 text-[13px] font-bold border-b-2 border-blue-600 text-blue-600">
-                Tất cả
+        <div className="flex items-center border-b border-[#eee] px-4 overflow-x-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "py-3 px-4 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap",
+                activeTab === tab.id
+                  ? "border-blue-600 text-blue-600 font-bold"
+                  : "border-transparent text-slate-600 hover:text-blue-500"
+              )}
+            >
+              {tab.label}
             </button>
+          ))}
         </div>
-
-        {selectedItems.length > 0 && (
-          <div className="flex items-center gap-4 bg-blue-50 px-4 py-2 border-b border-blue-100">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600 rounded-[2px] p-[1px]">
-                <Minus size={12} className="text-white" />
-              </div>
-              <span className="text-[13px] text-slate-700">Đã chọn {selectedItems.length} kiện hàng</span>
-            </div>
-
-            <div className="h-4 w-[1px] bg-blue-200"></div>
-
-            <button className="text-[13px] text-blue-600 font-medium hover:text-blue-700 flex items-center gap-1">
-              In hàng loạt <ChevronDown size={12} />
-            </button>
-            <button className="text-[13px] text-blue-600 font-medium hover:text-blue-700 flex items-center gap-1">
-              Đánh dấu in <ChevronDown size={12} />
-            </button>
-            <button className="text-[13px] text-blue-600 font-medium hover:text-blue-700">
-              Chuyển trạng thái đóng gói
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-[28px] bg-white border-slate-300 text-slate-700 text-[12px] font-medium ml-auto">
-                  Thao tác khác <ChevronDown size={12} className="ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem className="text-[13px] py-2 cursor-pointer">Thêm nhân viên đóng gói</DropdownMenuItem>
-                <DropdownMenuItem className="text-[13px] py-2 cursor-pointer">Xóa nhân viên đóng gói</DropdownMenuItem>
-                <DropdownMenuItem className="text-[13px] py-2 cursor-pointer">Giao hàng hàng loạt</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
 
         <div className="w-full overflow-x-auto">
           <Table>
             <TableHeader className="bg-[#f4f6f8]">
-              <TableRow className="border-b border-slate-200 hover:bg-[#f4f6f8]">
+              <TableRow className="border-b border-slate-200 h-10">
                 <TableHead className="w-[40px] pl-4"><Settings size={14} className="text-slate-400" /></TableHead>
                 <TableHead className="w-[40px]">
                   <Checkbox
                     className="border-slate-300 data-[state=checked]:bg-blue-600"
-                    checked={selectedItems.length === MOCK_ALL_PARCELS.length && MOCK_ALL_PARCELS.length > 0}
+                    checked={selectedItems.length === orders.length && orders.length > 0}
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
                 <TableHead className="text-[12px] font-bold text-slate-800">Mã đơn hàng</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Mã kiện hàng</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Trạng thái kiện hàng</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Trạng thái giao hàng</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Trạng thái đóng gói</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">
-                    <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600">
-                        Ngày xử lý <ArrowUpDown size={12} />
-                    </div>
-                </TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800">Khách hàng</TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800">Ngày đặt</TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800 text-right">Tiền hàng</TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800 text-center">Thanh toán</TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800 text-center">Trạng thái</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {MOCK_ALL_PARCELS.map((item, index) => (
-                <TableRow
-                  key={index}
-                  className={cn(
-                    "border-b border-slate-100 hover:bg-slate-50 transition-colors",
-                    selectedItems.includes(item.orderId) && "bg-blue-50/30"
-                  )}
-                >
-                  <TableCell className="pl-4 text-center text-slate-400">
-                     <Settings size={14} className="opacity-0" />
-                  </TableCell>
-                  <TableCell>
-                    <Checkbox
-                      className="border-slate-300 data-[state=checked]:bg-blue-600"
-                      checked={selectedItems.includes(item.orderId)}
-                      onCheckedChange={() => toggleSelectItem(item.orderId)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-[13px] font-medium text-blue-600 hover:underline cursor-pointer">
-                      {item.orderId}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-[13px] text-slate-700">{item.parcelCode}</TableCell>
-                  <TableCell>
-                    <span className="px-2.5 py-0.5 rounded-[12px] text-[11px] bg-slate-100 text-slate-500 border border-slate-200">
-                        {item.parcelStatus}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={item.deliveryStatus} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={item.packingStatus} />
-                  </TableCell>
-                  <TableCell className="text-[13px] text-slate-700">{item.processedDate}</TableCell>
-                </TableRow>
-              ))}
+              {isLoading ? (
+                <TableRow><TableCell colSpan={8} className="h-32 text-center text-slate-400">Đang tải dữ liệu...</TableCell></TableRow>
+              ) : orders.length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="h-32 text-center text-slate-500">Không có đơn hàng nào.</TableCell></TableRow>
+              ) : (
+                orders.map((order) => {
+                  const isExpanded = expandedId === order.orderId;
+                  const detail = detailCache[order.orderId];
+                  const isLoadingDetail = loadingDetailId === order.orderId;
+
+                  return (
+                    <React.Fragment key={order.orderId}>
+                      <TableRow
+                        className={cn(
+                          "border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors",
+                          selectedItems.includes(order.orderId) && "bg-blue-50/20",
+                          isExpanded && "bg-blue-50/30"
+                        )}
+                        onClick={() => handleToggleRow(order.orderId)}
+                      >
+                        <TableCell className="pl-4 text-center text-slate-400">
+                          {isExpanded ? <ChevronDown size={14} className="text-blue-600" /> : <ChevronsRight size={14} />}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            className="border-slate-300 data-[state=checked]:bg-blue-600"
+                            checked={selectedItems.includes(order.orderId)}
+                            onCheckedChange={() => toggleSelectItem(order.orderId)}
+                          />
+                        </TableCell>
+                        <TableCell><span className="text-[13px] font-medium text-blue-600">{order.orderCode}</span></TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-[13px] text-blue-600">{order.customerName}</span>
+                            <span className="text-[11px] text-slate-400">{order.customerPhone}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-[13px] text-slate-700">
+                          {new Date(order.createdAt).toLocaleString("vi-VN")}
+                        </TableCell>
+                        <TableCell className="text-[13px] font-medium text-slate-800 text-right">
+                          {formatCurrency(order.subtotal)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <PaymentBadge status={order.paymentStatus} />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <StatusBadge status={order.subOrderStatus} />
+                        </TableCell>
+                      </TableRow>
+
+                      {isExpanded && (
+                        <TableRow className="bg-[#f8fbff] hover:bg-[#f8fbff]">
+                          <TableCell colSpan={8} className="p-0 border-b border-blue-100">
+                            <div className="flex flex-col md:flex-row p-4 gap-6">
+                              <div className="w-full md:w-[25%] space-y-3 border-r border-slate-200 pr-4">
+                                <div>
+                                  <h3 className="text-[12px] font-bold text-slate-800 mb-1">Địa chỉ giao hàng</h3>
+                                  <p className="text-[12px] text-slate-600 leading-relaxed">{order.shippingAddress}</p>
+                                </div>
+                                {order.carrier && (
+                                  <div>
+                                    <h3 className="text-[12px] font-bold text-slate-800 mb-1">Đơn vị vận chuyển</h3>
+                                    <p className="text-[12px] text-slate-600">{order.carrier}</p>
+                                  </div>
+                                )}
+                                {order.estimatedDays && (
+                                  <div>
+                                    <h3 className="text-[12px] font-bold text-slate-800 mb-1">Dự kiến giao</h3>
+                                    <p className="text-[12px] text-slate-600">
+                                      {new Date(order.estimatedDays).toLocaleDateString("vi-VN")}
+                                    </p>
+                                  </div>
+                                )}
+                                <div>
+                                  <h3 className="text-[12px] font-bold text-slate-800 mb-1">Phương thức TT</h3>
+                                  <p className="text-[12px] text-slate-600">{order.paymentMethod}</p>
+                                </div>
+                                <div>
+                                  <h3 className="text-[12px] font-bold text-slate-800 mb-1">Phí vận chuyển</h3>
+                                  <p className="text-[12px] text-slate-600">{formatCurrency(order.shippingFee)}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex-1">
+                                <div className="flex justify-between items-center mb-3">
+                                  <h3 className="text-[12px] font-bold text-slate-800">Chi tiết sản phẩm</h3>
+                                  {order.subOrderStatus === "SHIPPING" && (
+                                    <Button
+                                      size="sm"
+                                      className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
+                                      onClick={(e) => handleComplete(e, order.orderId, order.orderCode)}
+                                    >
+                                      <CheckCircle size={14} className="mr-1.5" /> Hoàn thành
+                                    </Button>
+                                  )}
+                                </div>
+
+                                <div className="border border-slate-200 rounded-[3px] overflow-hidden bg-white">
+                                  <table className="w-full text-left">
+                                    <thead className="bg-[#f4f6f8] text-[11px] font-bold text-slate-600 uppercase">
+                                      <tr>
+                                        <th className="p-2 pl-3">Sản phẩm</th>
+                                        <th className="p-2 text-center">Số lượng</th>
+                                        <th className="p-2 text-right">Đơn giá</th>
+                                        <th className="p-2 text-right pr-3">Thành tiền</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {isLoadingDetail ? (
+                                        <tr><td colSpan={4} className="p-4 text-center text-[12px] text-slate-400">Đang tải...</td></tr>
+                                      ) : detail?.items?.length ? (
+                                        detail.items.map((item, idx) => (
+                                          <tr key={idx} className="border-b border-slate-100 last:border-0">
+                                            <td className="p-2 pl-3">
+                                              <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden shrink-0 bg-slate-50 flex items-center justify-center">
+                                                  {item.image ? (
+                                                    <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                                  ) : (
+                                                    <Package size={14} className="text-slate-300" />
+                                                  )}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                  <span className="text-[12px] font-medium text-blue-600">{item.productName}</span>
+                                                  <span className="text-[11px] text-slate-400">SKU: {item.sku}</span>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td className="p-2 text-center text-[12px] text-slate-700">{item.quantity}</td>
+                                            <td className="p-2 text-right text-[12px] text-slate-700">{formatCurrency(item.price)}</td>
+                                            <td className="p-2 text-right pr-3 text-[12px] font-bold text-slate-800">{formatCurrency(item.totalPrice)}</td>
+                                          </tr>
+                                        ))
+                                      ) : (
+                                        <tr><td colSpan={4} className="p-4 text-center text-[12px] text-slate-500 italic">Không có dữ liệu sản phẩm.</td></tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="px-4 pb-2 pt-2 border-t border-slate-100">
+                              <button
+                                onClick={() => setExpandedId(null)}
+                                className="flex items-center text-[12px] font-medium text-blue-600 hover:text-blue-800"
+                              >
+                                <ChevronUp size={14} className="mr-1" /> Thu gọn
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-        </div>
-
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#eee] bg-white">
-          <span className="text-[12px] text-slate-500 font-medium">
-            Từ 1 đến {MOCK_ALL_PARCELS.length} trên tổng {MOCK_ALL_PARCELS.length}
-          </span>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-                <span className="text-[12px] text-slate-600">Hiển thị</span>
-                <select className="h-[28px] text-[12px] border border-slate-300 rounded bg-white px-2 focus:outline-none focus:border-blue-500">
-                    <option>20</option>
-                    <option>50</option>
-                    <option>100</option>
-                </select>
-                <span className="text-[12px] text-slate-600">Kết quả</span>
-            </div>
-
-            <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600" disabled>
-                    <ChevronLeft size={16} />
-                </Button>
-                <Button variant="default" size="icon" className="h-7 w-7 bg-blue-600 text-[12px] font-bold hover:bg-blue-700">
-                    1
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600" disabled>
-                    <ChevronRight size={16} />
-                </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-const FilterButton = ({ label, icon }: { label: string, icon?: boolean }) => (
-  <Button variant="outline" className="h-[30px] px-3 text-[12px] font-medium text-slate-600 bg-white border-slate-300 hover:bg-slate-50 hover:text-blue-600 transition-all">
-    {icon && <Filter size={12} className="mr-1.5" />}
-    {label}
-    <ChevronDown size={12} className="ml-1.5 opacity-70" />
-  </Button>
-);
+const STATUS_MAP: Record<string, { label: string; styles: string }> = {
+  PENDING:    { label: "Chờ xác nhận",   styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]" },
+  CONFIRMED:  { label: "Đã xác nhận",    styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]" },
+  PROCESSING: { label: "Đang đóng gói",  styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]" },
+  SHIPPING:   { label: "Đang giao",      styles: "bg-[#f9f0ff] text-[#722ed1] border-[#d3adf7]" },
+  COMPLETED:  { label: "Hoàn thành",     styles: "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]" },
+  CANCELLED:  { label: "Đã hủy",         styles: "bg-[#fff1f0] text-[#f5222d] border-[#ffa39e]" },
+  RETURNED:   { label: "Trả hàng",       styles: "bg-slate-100 text-slate-600 border-slate-200" },
+};
 
-const StatusBadge = ({ status }: { status: string }) => {
-    const styles = "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]";
+const StatusBadge = ({ status }: { status: OrderStatus | string }) => {
+  const mapped = STATUS_MAP[status] ?? { label: status, styles: "bg-slate-100 text-slate-600 border-slate-200" };
+  return (
+    <span className={cn("px-2.5 py-0.5 rounded-[10px] text-[11px] border", mapped.styles)}>
+      ○ {mapped.label}
+    </span>
+  );
+};
 
-    return (
-        <span className={cn("px-2.5 py-0.5 rounded-[12px] text-[11px] border", styles)}>
-             {status}
-        </span>
-    )
-}
+const PaymentBadge = ({ status }: { status: "PAID" | "UNPAID" }) => {
+  const styles = status === "PAID"
+    ? "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]"
+    : "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]";
+  return (
+    <span className={cn("px-2.5 py-0.5 rounded-[10px] text-[11px] border", styles)}>
+      ○ {status === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
+    </span>
+  );
+};

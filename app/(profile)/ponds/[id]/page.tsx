@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import PondForm from "@/components/ponds/PondForm";
 import { PondFormValues } from "@/app/types/pond.schema";
@@ -18,9 +18,10 @@ const getPondById = (id: string) => {
   };
 };
 
-export default function EditPondPage({ params }: { params: { id: string } }) {
+export default function EditPondPage() {
+  const params = useParams();
   const router = useRouter();
-  const pondData = getPondById(params.id); // Lấy dữ liệu ao cần sửa
+  const pondData = getPondById(params.id as string); // Lấy dữ liệu ao cần sửa
 
   const handleUpdate = (data: PondFormValues) => {
     // Gọi API cập nhật tại đây

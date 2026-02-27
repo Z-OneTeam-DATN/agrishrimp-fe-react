@@ -60,7 +60,7 @@ export default function MustChangePasswordPage() {
         window.location.href = "/";
       }, 2000);
     } catch (error) {
-      toast.error(getErrorMessage(error) || "Lỗi khi đổi mật khẩu.");
+      toast.error(getErrorMessage(error as any) || "Lỗi khi đổi mật khẩu.");
     } finally {
       setLoading(false);
     }

@@ -19,21 +19,21 @@ import {
 
 export default function PendingOrders() {
   const items = [
-    { label: "Chờ duyệt", count: 0, icon: FileSearch, color: "text-blue-500" },
+    { label: "Chờ duyệt", count: 12, icon: FileSearch, color: "text-blue-500" },
     {
       label: "Chờ thanh toán",
-      count: 0,
+      count: 8,
       icon: CreditCard,
-      color: "text-blue-500",
+      color: "text-amber-500",
     },
-    { label: "Chờ đóng gói", count: 0, icon: Package, color: "text-blue-500" },
-    { label: "Chờ lấy hàng", count: 0, icon: Truck, color: "text-blue-500" },
-    { label: "Đang giao hàng", count: 0, icon: Share2, color: "text-blue-500" },
+    { label: "Chờ đóng gói", count: 24, icon: Package, color: "text-indigo-500" },
+    { label: "Chờ lấy hàng", count: 5, icon: Truck, color: "text-emerald-500" },
+    { label: "Đang giao hàng", count: 32, icon: Share2, color: "text-cyan-500" },
     {
       label: "Hủy giao - Chờ nhận",
-      count: 0,
+      count: 3,
       icon: Ban,
-      color: "text-blue-500",
+      color: "text-red-500",
     },
   ];
 
@@ -62,7 +62,7 @@ export default function PendingOrders() {
             className="p-6 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors cursor-pointer group"
           >
             <div
-              className={`p-2 rounded-md bg-blue-50 group-hover:bg-blue-100 transition-colors`}
+              className={`p-2 rounded-md bg-gray-50 group-hover:bg-white group-hover:shadow-sm transition-all`}
             >
               <item.icon size={20} className={item.color} />
             </div>

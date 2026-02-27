@@ -11,10 +11,12 @@ export function OrderTabs() {
   const tabs = [
     { label: "Tất cả", value: "ALL" },
     { label: "Chờ xác nhận", value: "PENDING" },
+    { label: "Đã xác nhận", value: "CONFIRMED" },
+    { label: "Đang xử lý", value: "PROCESSING" },
     { label: "Đang giao", value: "SHIPPING" },
     { label: "Đã giao", value: "COMPLETED" },
-    { label: "Trả hàng/Hoàn tiền", value: "RETURN_REQUESTED" },
     { label: "Đã hủy", value: "CANCELLED" },
+    { label: "Trả hàng", value: "RETURNED" },
   ];
 
   return (

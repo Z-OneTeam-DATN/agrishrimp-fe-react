@@ -8,7 +8,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
+
+const data = [
+  { name: "20/02", revenue: 4000000, orders: 24 },
+  { name: "21/02", revenue: 3000000, orders: 18 },
+  { name: "22/02", revenue: 5000000, orders: 32 },
+  { name: "23/02", revenue: 4500000, orders: 28 },
+  { name: "24/02", revenue: 6000000, orders: 38 },
+  { name: "25/02", revenue: 7500000, orders: 45 },
+  { name: "26/02", revenue: 8200000, orders: 52 },
+];
+
+const proportionData = [
+  { name: "Thức ăn", value: 45 },
+  { name: "Thuốc thú y", value: 25 },
+  { name: "Khoáng chất", value: 20 },
+  { name: "Thiết bị", value: 10 },
+];
+
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
 
 export default function SalesPerformance() {
   const [activeTab, setActiveTab] = useState("revenue");
@@ -46,6 +77,8 @@ export default function SalesPerformance() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                <SelectItem value="cn1">Chi nhánh Quận 1</SelectItem>
+                <SelectItem value="cn2">Chi nhánh Quận 7</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -62,22 +95,71 @@ export default function SalesPerformance() {
           </div>
         </div>
       </div>
-      <div className="p-12 flex flex-col items-center justify-center min-h-[300px]">
-        <div className="relative w-48 h-48 opacity-40 grayscale">
-          {/* Placeholder for the empty state illustration */}
-          <img
-            src="/images/no-data.png"
-            alt="No data"
-            className="w-full h-full object-contain"
-            onError={(e) => {
-              e.currentTarget.src =
-                "https://cdn-icons-png.flaticon.com/512/7486/7486744.png";
-            }}
-          />
-        </div>
-        <p className="mt-4 text-sm text-gray-400 font-medium italic">
-          Chưa có dữ liệu
-        </p>
+      <div className="p-6 h-[350px]">
+        {activeTab === "revenue" ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tickFormatter={(value) => `${value / 1000000}M`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #f1f5f9",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorRevenue)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={proportionData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {proportionData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend verticalAlign="bottom" height={36} iconType="circle" />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

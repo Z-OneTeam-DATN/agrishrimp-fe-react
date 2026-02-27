@@ -48,3 +48,6 @@ export const branchService = {
     return res.data;
   },
 };
+
+// Alias để tương thích với các file import theo kiểu PascalCase
+export const BranchService = branchService;

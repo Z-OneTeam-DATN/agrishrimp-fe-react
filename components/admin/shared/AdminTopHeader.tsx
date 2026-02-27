@@ -220,7 +220,7 @@ export default function AdminTopHeader() {
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  {user?.role?.slug === "admin" || user?.role === "ADMIN"
+                  {user?.role?.slug === "admin" || user?.role?.slug === "ADMIN"
                     ? "Quyền hạn cao nhất"
                     : "Thông tin tài khoản"}
                 </span>
