@@ -155,7 +155,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
     setIsAdding(true);
     try {
-      await cartService.updateQuantity(currentVariant.id, quantity);
+      await cartService.updateQuantity(currentVariant.id!, quantity);
       
       // Cập nhật số lượng trên Header
       fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header bằng cách gọi API
@@ -326,7 +326,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         >
                           {v.attributeValues && v.attributeValues.length > 0 
                             ? v.attributeValues.map(av => av.value).join(" / ") 
-                            : v.unit || v.sku}
+                            : (v as any).unit || v.sku}
                         </button>
                       ))}
                     </div>
@@ -403,7 +403,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         <span className="font-bold">
                           {currentVariant.attributeValues && currentVariant.attributeValues.length > 0 
                             ? currentVariant.attributeValues.map(av => av.value).join(" / ") 
-                            : currentVariant.unit || "N/A"}
+                            : (currentVariant as any).unit || "N/A"}
                         </span>
                       </div>
                     )}

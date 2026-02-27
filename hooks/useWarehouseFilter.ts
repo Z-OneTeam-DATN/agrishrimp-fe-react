@@ -16,7 +16,7 @@ export function useWarehouseFilter<T extends { warehouseId?: number | string }>(
   
   // Normalize user role and warehouseId
   const role = (typeof user?.role === "object" ? user.role?.slug : user?.role)?.toUpperCase();
-  const userWarehouseId = user?.warehouseId;
+  const userWarehouseId = (user as any)?.warehouseId;
 
   const filteredData = useMemo(() => {
     if (!data) return [];

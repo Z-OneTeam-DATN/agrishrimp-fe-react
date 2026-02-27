@@ -474,11 +474,11 @@ export default function NewTransferPage() {
                           type="number"
                           step="any"
                           {...register(`items.${index}.quantity`)}
-                          className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", errors?.items?.[index]?.quantity ? "border-rose-500" : "border-blue-200")}
+                          className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", (errors?.items as any)?.[index]?.quantity ? "border-rose-500" : "border-blue-200")}
                         />
                         {/* HIỂN THỊ LỖI ITEMS */}
-                        {errors?.items?.[index]?.quantity && (
-                          <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{errors.items[index].quantity?.message as string}</p>
+                        {(errors?.items as any)?.[index]?.quantity && (
+                          <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].quantity?.message as string}</p>
                         )}
                       </TableCell>
                       <TableCell className="p-1">

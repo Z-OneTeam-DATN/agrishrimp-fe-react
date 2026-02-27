@@ -14,17 +14,17 @@ export default function InventoryInfo() {
   const items = [
     {
       label: "Sản phẩm dưới định mức",
-      value: "0",
+      value: "15",
       hasAlert: true,
     },
     {
       label: "Số tồn kho chi nhánh",
-      value: "0",
+      value: "1,240",
       hasAlert: false,
     },
     {
       label: "Giá trị tồn kho chi nhánh",
-      value: "0",
+      value: "450,000,000 đ",
       hasAlert: false,
     },
   ];
@@ -42,6 +42,8 @@ export default function InventoryInfo() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+              <SelectItem value="cn1">Chi nhánh Quận 1</SelectItem>
+              <SelectItem value="cn2">Chi nhánh Quận 7</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -131,7 +131,7 @@ const errorHandlers: Record<
         const hasTokenInStore = !!useAuthStore.getState().accessToken;
 
         if (hasTokenInRequest && hasTokenInStore) {
-          toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+          toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", { id: "session-expired" });
         }
       }
     }
@@ -139,25 +139,25 @@ const errorHandlers: Record<
   },
 
   500: async (e) => {
-    if (isClient()) toast.error("Lỗi hệ thống máy chủ. Vui lòng thử lại.");
+    if (isClient()) toast.error("Lỗi hệ thống máy chủ. Vui lòng thử lại.", { id: "error-500" });
     return Promise.reject(e);
   },
   502: async (e) => {
-    if (isClient()) toast.error("Máy chủ không phản hồi (502).");
+    if (isClient()) toast.error("Máy chủ không phản hồi (502).", { id: "error-502" });
     return Promise.reject(e);
   },
   503: async (e) => {
-    if (isClient()) toast.error("Dịch vụ tạm thời gián đoạn (503).");
+    if (isClient()) toast.error("Dịch vụ tạm thời gián đoạn (503).", { id: "error-503" });
     return Promise.reject(e);
   },
 
   default: async (e) => Promise.reject(e),
 };
 
-const createApi = (baseURL: string): AxiosInstance => {
+const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
   const axiosInstance = axios.create({
     baseURL,
-    timeout: 15000,
+    timeout,
     headers: { "Content-Type": "application/json" },
     withCredentials: true,
   });
@@ -225,6 +225,7 @@ const createApi = (baseURL: string): AxiosInstance => {
         if (isClient()) {
           toast.error(
             "Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng hoặc liên hệ quản trị viên.",
+            { id: "network-error" },
           );
         }
         return Promise.reject(error);
@@ -289,7 +290,7 @@ const createApi = (baseURL: string): AxiosInstance => {
               const isProtectedPath = ["/profile", "/orders", "/user/checkout", "/admin"].some(p => path.startsWith(p));
               
               if (isProtectedPath) {
-                toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
+                toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.", { id: "session-expired" });
                 window.location.href = "/login";
               }
             }
@@ -315,9 +316,11 @@ const createApi = (baseURL: string): AxiosInstance => {
 
 const apiJava = createApi(
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api",
+  30000,
 );
 const apiNext = createApi(
   process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000/api",
+  40000,
 );
 
 export { apiJava, apiNext, createApi, getErrorMessage };

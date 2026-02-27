@@ -31,3 +31,13 @@ export function formatMessageTimestamp(
 
   return format(messageDate, "P p", { locale: vi });
 }
+
+export function formatDate(date: string | number | Date, pattern: string = "dd/MM/yyyy HH:mm"): string {
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "N/A";
+    return format(d, pattern, { locale: vi });
+  } catch {
+    return "N/A";
+  }
+}

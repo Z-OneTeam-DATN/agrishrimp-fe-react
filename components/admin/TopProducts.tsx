@@ -11,6 +11,41 @@ import {
 import { MoreHorizontal } from "lucide-react";
 
 export default function TopProducts() {
+  const products = [
+    {
+      id: 1,
+      name: "Thức ăn tôm Grobest",
+      category: "Thức ăn",
+      sales: 150,
+      revenue: "45.000.000 đ",
+      image: "https://placehold.co/40x40?text=Grobest",
+    },
+    {
+      id: 2,
+      name: "Men vi sinh BZT Digester",
+      category: "Thuốc thú y",
+      sales: 85,
+      revenue: "22.100.000 đ",
+      image: "https://placehold.co/40x40?text=BZT",
+    },
+    {
+      id: 3,
+      name: "Khoáng tạt Mix 2000",
+      category: "Khoáng chất",
+      sales: 64,
+      revenue: "12.800.000 đ",
+      image: "https://placehold.co/40x40?text=Mix",
+    },
+    {
+      id: 4,
+      name: "Máy sục khí 2HP",
+      category: "Thiết bị",
+      sales: 12,
+      revenue: "36.000.000 đ",
+      image: "https://placehold.co/40x40?text=Machine",
+    },
+  ];
+
   return (
     <div className="bg-white border border-gray-200 rounded-sm shadow-sm h-full flex flex-col">
       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
@@ -34,21 +69,42 @@ export default function TopProducts() {
           </button>
         </div>
       </div>
-      <div className="p-8 flex-1 flex flex-col items-center justify-center min-h-[250px]">
-        <div className="relative w-40 h-40 opacity-40 grayscale">
-          <img
-            src="/images/no-product.png"
-            alt="No product"
-            className="w-full h-full object-contain"
-            onError={(e) => {
-              e.currentTarget.src =
-                "https://cdn-icons-png.flaticon.com/512/3502/3502114.png";
-            }}
-          />
+      <div className="flex-1">
+        <div className="divide-y divide-gray-100">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-sm overflow-hidden border border-gray-100">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-800 line-clamp-1">
+                    {product.name}
+                  </p>
+                  <p className="text-[10px] text-gray-500">{product.category}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold text-blue-600">
+                  {product.revenue}
+                </p>
+                <p className="text-[10px] text-gray-400">Đã bán: {product.sales}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <p className="mt-4 text-sm text-gray-400 font-medium italic">
-          Chưa có sản phẩm
-        </p>
+        <div className="p-3 border-t border-gray-100 text-center">
+          <button className="text-xs text-blue-500 font-medium hover:underline">
+            Xem tất cả sản phẩm
+          </button>
+        </div>
       </div>
     </div>
   );

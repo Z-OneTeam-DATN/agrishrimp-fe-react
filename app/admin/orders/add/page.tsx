@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft, Search, Plus, Box, Info, ChevronDown, ChevronUp, X, CheckCircle2, Trash2, AlertTriangle, ArrowRight, RefreshCcw, Pencil
+  ChevronLeft, Search, Plus, Box, Info, ChevronDown, ChevronUp, X, CheckCircle2, Trash2, AlertTriangle, ArrowRight, RefreshCcw, Pencil, Navigation
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,18 +20,25 @@ import { toast } from "sonner";
 
 // --- MOCK DATA API ĐỊA CHÍNH (Giả lập DB) ---
 const LOCATION_DB: any = {
-    provinces: [ { id: "01", name: "Thành phố Hà Nội" }, { id: "79", name: "Thành phố Hồ Chí Minh" }, { id: "24", name: "Tỉnh Bắc Kạn" } ],
+    provinces: [ 
+        { id: "01", name: "Thành phố Hà Nội" }, 
+        { id: "79", name: "Thành phố Hồ Chí Minh" }, 
+        { id: "24", name: "Tỉnh Bắc Kạn" },
+        { id: "92", name: "Thành phố Cần Thơ" } 
+    ],
     districts: {
         "01": [ { id: "001", name: "Quận Ba Đình" }, { id: "002", name: "Quận Hoàn Kiếm" }, { id: "003", name: "Quận Tây Hồ" } ],
         "79": [ { id: "760", name: "Quận 1" }, { id: "761", name: "Quận 12" }, { id: "764", name: "Quận Gò Vấp" } ],
-        "24": [ { id: "100", name: "Huyện Chợ Mới" } ]
+        "24": [ { id: "100", name: "Huyện Chợ Mới" } ],
+        "92": [ { id: "916", name: "Quận Ninh Kiều" }, { id: "917", name: "Quận Bình Thủy" }, { id: "918", name: "Quận Cái Răng" } ]
     },
     wards: {
         "001": [{ id: "00001", name: "Phường Phúc Xá" }, { id: "00004", name: "Phường Trúc Bạch" }], 
         "002": [{ id: "00037", name: "Phường Phúc Tân" }, { id: "00040", name: "Phường Đồng Xuân" }], 
         "760": [{ id: "26734", name: "Phường Tân Định" }, { id: "26740", name: "Phường Đa Kao" }], 
         "764": [{ id: "27196", name: "Phường 1" }, { id: "27199", name: "Phường 3" }, { id: "27208", name: "Phường 13" }],
-        "100": [{ id: "999", name: "Xã Thanh Mai" }]
+        "100": [{ id: "999", name: "Xã Thanh Mai" }],
+        "916": [{ id: "31147", name: "Phường Cái Khế" }, { id: "31150", name: "Phường An Hòa" }]
     }
 };
 
@@ -100,12 +107,54 @@ export default function CreateOrderPage() {
   const [isNewAddressFormat, setIsNewAddressFormat] = useState(false); 
   const [isCustomerDetailCollapsed, setIsCustomerDetailCollapsed] = useState(false);
 
+  // State cho địa chỉ trong modal (thêm mới khách hàng)
+  const [modalAddress, setModalAddress] = useState({
+    provinceId: "",
+    districtId: "",
+    wardId: "",
+    detail: ""
+  });
+
+  const [modalDistricts, setModalDistricts] = useState<any[]>([]);
+  const [modalWards, setModalWards] = useState<any[]>([]);
+
+  // Auto-fill địa chỉ cụ thể
+  useEffect(() => {
+    if (modalAddress.provinceId && modalAddress.districtId && modalAddress.wardId) {
+      const p = LOCATION_DB.provinces.find((i:any) => i.id === modalAddress.provinceId)?.name;
+      const d = modalDistricts.find((i:any) => i.id === modalAddress.districtId)?.name;
+      const w = modalWards.find((i:any) => i.id === modalAddress.wardId)?.name;
+      
+      if (p && d && w) {
+        setModalAddress(prev => ({
+          ...prev,
+          detail: `${w}, ${d}, ${p}`
+        }));
+      }
+    }
+  }, [modalAddress.provinceId, modalAddress.districtId, modalAddress.wardId, modalDistricts, modalWards]);
+
   // --- LOGIC ---
+  const handleModalProvinceChange = (val: string) => {
+    setModalAddress({ provinceId: val, districtId: "", wardId: "", detail: "" });
+    setModalDistricts(LOCATION_DB.districts[val] || []);
+    setModalWards([]);
+  };
+
+  const handleModalDistrictChange = (val: string) => {
+    setModalAddress(prev => ({ ...prev, districtId: val, wardId: "", detail: "" }));
+    setModalWards(LOCATION_DB.wards[val] || []);
+  };
+
+  const handleModalWardChange = (val: string) => {
+    setModalAddress(prev => ({ ...prev, wardId: val }));
+  };
+
   const handleAddProductMock = () => { const existing = orderItems.find(i => i.id === MOCK_PRODUCT.id); if (existing) { setOrderItems(orderItems.map(i => i.id === MOCK_PRODUCT.id ? { ...i, quantity: i.quantity + 1 } : i)); } else { setOrderItems([...orderItems, { ...MOCK_PRODUCT }]); } toast.success("Đã thêm sản phẩm"); };
   const updateQuantity = (id: number | string, delta: number) => { setOrderItems(prev => prev.map(item => { if (item.id === id) return { ...item, quantity: Math.max(1, item.quantity + delta) }; return item; })); };
   const removeProduct = (id: number | string) => { setOrderItems(prev => prev.filter(i => i.id !== id)); }
   const handleConfirmBatch = () => { if (activeProductId !== null) { setOrderItems(prev => prev.map(item => { if (item.id === activeProductId) { return { ...item, selectedBatch: { name: "DEFAULT", quantity: 1 } }; } return item; })); setShowBatchModal(false); setActiveProductId(null); toast.success("Đã phân bổ lô thành công"); } };
-  const handleRemoveBatch = (itemId: number) => { setOrderItems(prev => prev.map(item => { if (item.id === itemId) { const newItem = { ...item }; delete newItem.selectedBatch; return newItem; } return item; })); };
+  const handleRemoveBatch = (itemId: number | string) => { setOrderItems(prev => prev.map(item => { if (item.id === itemId) { const newItem = { ...item }; delete newItem.selectedBatch; return newItem; } return item; })); };
   const handleOpenNoteModal = (item: any) => { setActiveProductId(item.id); setTempNote(item.note || ""); setShowNoteModal(true); };
   const handleSaveNote = () => { if (activeProductId !== null) { setOrderItems(prev => prev.map(item => { if (item.id === activeProductId) { return { ...item, note: tempNote.trim() }; } return item; })); setShowNoteModal(false); setActiveProductId(null); setTempNote(""); toast.success("Đã lưu ghi chú"); } };
   const handleApplyDiscount = () => { let discountVal = 0; const currentTotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0); if (discountForm.isManual) { const val = Number(discountForm.manualValue) || 0; if (discountForm.manualType === "value") { discountVal = val; } else { discountVal = (currentTotal * val) / 100; } } setAppliedDiscount(discountVal); setShowDiscountModal(false); toast.success("Đã áp dụng giảm giá"); };
@@ -124,8 +173,19 @@ export default function CreateOrderPage() {
   const handleRemoveBatchTag = (itemId: number | string) => { setOrderItems(prev => prev.map(item => { if (item.id === itemId) { const newItem = { ...item }; delete newItem.selectedBatch; return newItem; } return item; })); }
 
   const handleSaveNewCustomer = () => {
-      setCustomer({ name: "Bình Nguyễn", phone: "0986543987", email: "Không có email", totalSpent: 0, lastOrder: "#1002", group: "Không áp dụng nhóm khách hàng", address: "7890, Xã Thanh Mai, Huyện Chợ Mới, Bắc Kạn, Vietnam", billingAddress: "7890, Xã Thanh Mai, Huyện Chợ Mới, Bắc Kạn, Vietnam" });
-      setShowAddCustomerModal(false); setIsCustomerSearchFocused(false); toast.success("Thêm khách hàng thành công");
+      setCustomer({ 
+        name: "Bình Nguyễn", 
+        phone: "0986543987", 
+        email: "Không có email", 
+        totalSpent: 0, 
+        lastOrder: "#1002", 
+        group: "Không áp dụng nhóm khách hàng", 
+        address: modalAddress.detail, 
+        billingAddress: modalAddress.detail 
+      });
+      setShowAddCustomerModal(false); 
+      setIsCustomerSearchFocused(false); 
+      toast.success("Thêm khách hàng thành công");
   }
   const handleUpdateCustomerInfo = () => { toast.success("Đã cập nhật thông tin khách hàng"); setShowEditGroupModal(false); setShowEditContactModal(false); setShowEditAddressModal(null); }
   
@@ -302,7 +362,7 @@ export default function CreateOrderPage() {
       {showNoteModal && (<div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-white rounded-md shadow-xl w-[500px] max-w-[95vw] overflow-hidden"><div className="flex justify-between items-center px-4 py-3 border-b border-slate-200"><h2 className="text-[16px] font-bold text-slate-800">Thêm ghi chú</h2><button onClick={() => setShowNoteModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button></div><div className="p-4"><Textarea placeholder="Nhập nội dung ghi chú" className="h-24 text-[13px]" value={tempNote} onChange={(e) => setTempNote(e.target.value)}/></div><div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2"><Button variant="outline" onClick={() => setShowNoteModal(false)}>Hủy</Button><Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveNote}>Lưu</Button></div></div></div>)}
       {showCustomProductModal && (<div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-white rounded-md shadow-xl w-[600px] max-w-[95vw] overflow-hidden"><div className="flex justify-between items-center px-4 py-3 border-b border-slate-200"><h2 className="text-[16px] font-bold text-slate-800">Thêm sản phẩm hoặc dịch vụ tùy chỉnh</h2><button onClick={() => setShowCustomProductModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button></div><div className="p-4 space-y-3"><div className="space-y-1"><label className="text-[13px] font-medium text-red-500">Tên sản phẩm*</label><Input placeholder="Nhập tên sản phẩm (tối đa 320 ký tự)" className="h-9 text-[13px]" value={customProduct.name} onChange={(e) => setCustomProduct({...customProduct, name: e.target.value})}/></div><div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[13px] font-medium text-red-500">Giá bán*</label><div className="relative"><Input placeholder="Nhập giá bán" className="h-9 text-[13px] pr-8" type="number" value={customProduct.price} onChange={(e) => setCustomProduct({...customProduct, price: e.target.value})}/><span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">đ</span></div></div><div className="space-y-1"><label className="text-[13px] font-medium">Số lượng</label><Input type="number" className="h-9 text-[13px]" value={customProduct.quantity} onChange={(e) => setCustomProduct({...customProduct, quantity: Number(e.target.value)})}/></div></div><div className="space-y-2 pt-1"><div className="flex items-center space-x-2"><Checkbox id="tax" checked={customProduct.isTaxable} onCheckedChange={(c) => setCustomProduct({...customProduct, isTaxable: !!c})}/><label htmlFor="tax" className="text-[13px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Tính thuế cho sản phẩm này</label></div><div className="flex items-center space-x-2"><Checkbox id="ship" checked={customProduct.isShippable} onCheckedChange={(c) => setCustomProduct({...customProduct, isShippable: !!c})}/><label htmlFor="ship" className="text-[13px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Đây là sản phẩm có vận chuyển</label></div></div>{customProduct.isShippable && (<div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200"><label className="text-[13px] font-medium text-slate-600">Khối lượng</label><div className="flex"><Input type="number" className="h-9 text-[13px] rounded-r-none border-r-0 w-[200px]" value={customProduct.weight} onChange={(e) => setCustomProduct({...customProduct, weight: Number(e.target.value)})}/><Select defaultValue="g" value={customProduct.weightUnit} onValueChange={(val) => setCustomProduct({...customProduct, weightUnit: val})}><SelectTrigger className="h-9 w-[60px] rounded-l-none bg-slate-50 text-[13px]"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="g">g</SelectItem><SelectItem value="kg">kg</SelectItem></SelectContent></Select></div></div>)}</div><div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2"><Button variant="outline" onClick={() => setShowCustomProductModal(false)}>Hủy</Button><Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAddCustomProduct} disabled={!isValidCustomProduct}>Áp dụng</Button></div></div></div>)}
       {showInvoiceModal && (<div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-white rounded-md shadow-xl w-[700px] max-w-[95vw] overflow-hidden"><div className="flex justify-between items-center px-4 py-3 border-b border-slate-200"><h2 className="text-[16px] font-bold text-slate-800">Thông tin xuất hóa đơn</h2><button onClick={() => setShowInvoiceModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button></div><div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto"><div className="space-y-3"><div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Mã số thuế</label><div className="flex"><Input placeholder="Nhập mã số thuế" className={cn("h-9 text-[13px] rounded-r-none border-r-0", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice} /><Button variant="outline" className={cn("h-9 rounded-l-none bg-slate-50 text-[13px] font-normal border-l-0", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}>Lấy thông tin</Button></div></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Tên công ty</label><Input placeholder="Nhập tên công ty" className={cn("h-9 text-[13px]", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/></div></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Địa chỉ</label><Input placeholder="Nhập địa chỉ" className={cn("h-9 text-[13px]", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/></div><div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Tên người mua</label><Input placeholder="Nhập tên người mua" className={cn("h-9 text-[13px]", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Căn cước công dân</label><Input placeholder="Nhập căn cước công dân" className={cn("h-9 text-[13px]", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/></div></div><div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Mã đơn vị quan hệ ngân sách</label><Input placeholder="Nhập mã đơn vị quan hệ ngân sách" className={cn("h-9 text-[13px]", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Số điện thoại</label><div className="relative"><Input placeholder="Nhập số điện thoại" className={cn("h-9 text-[13px] pr-10", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/><span className="absolute right-2 top-1/2 -translate-y-1/2">🇻🇳</span></div></div></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Email nhận hóa đơn</label><Input placeholder="Nhập email nhận hóa đơn" className={cn("h-9 text-[13px]", isNoInvoice && "bg-slate-100 cursor-not-allowed")} disabled={isNoInvoice}/></div></div><div className="pt-2"><div className="flex items-start space-x-2"><Checkbox id="no-invoice" checked={isNoInvoice} onCheckedChange={(c) => setIsNoInvoice(!!c)}/><div className="grid gap-1.5 leading-none"><label htmlFor="no-invoice" className="text-[13px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Người mua không lấy hóa đơn</label><p className="text-[11px] text-slate-500 text-muted-foreground">Với hóa đơn chưa có thông tin người mua, hệ thống hiện tên người mua theo thông tin đã cấu hình <span className="text-blue-600 cursor-pointer hover:underline">tại đây</span></p></div></div></div></div><div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2"><Button variant="outline" onClick={() => setShowInvoiceModal(false)}>Hủy</Button><Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setShowInvoiceModal(false)}>Xác nhận</Button></div></div></div>)}
-      {showDiscountModal && (<div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-white rounded-md shadow-xl w-[550px] max-w-[95vw] overflow-hidden"><div className="flex justify-between items-center px-4 py-3 border-b border-slate-200"><h2 className="text-[16px] font-bold text-slate-800">Thêm giảm giá</h2><button onClick={() => setShowDiscountModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button></div><div className="p-4 space-y-4"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Mã giảm giá</label><Input placeholder="Vui lòng nhập mã giảm giá của bạn..." className="h-10 text-[13px]" value={discountForm.code} onChange={(e) => setDiscountForm({...discountForm, code: e.target.value})}/></div><div className="space-y-3 pt-1"><div className="space-y-2"><div className="flex items-center space-x-2"><Checkbox id="auto-promo" checked={discountForm.isAuto} onCheckedChange={(c) => setDiscountForm({...discountForm, iAuto: !!c, isManual: false})} /><label htmlFor="auto-promo" className="text-[13px] font-medium cursor-pointer">Tự động thêm chương trình khuyến mại phù hợp</label></div>{discountForm.isAuto && (<p className="pl-6 text-[12px] text-slate-400 animate-in fade-in slide-in-from-top-1">Không có chương trình khuyến mại phù hợp được áp dụng</p>)}</div><div className="space-y-3"><div className="flex items-center space-x-2"><Checkbox id="manual-disc" checked={discountForm.isManual} onCheckedChange={(c) => setDiscountForm({...discountForm, isManual: !!c, isAuto: false})} /><label htmlFor="manual-disc" className="text-[13px] font-medium cursor-pointer">Thêm giảm giá thủ công cho đơn hàng</label></div>{discountForm.isManual && (<div className="pl-6 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200"><div className="flex items-center gap-3"><div className="flex border border-blue-200 rounded overflow-hidden shrink-0"><button className={cn("px-4 py-1.5 text-[12px] font-bold transition-colors", discountForm.manualType === "value" ? "bg-blue-600 text-white" : "bg-white text-blue-600")} onClick={() => setDiscountForm({...discountForm, manualType: "value"})}>Giá trị</button><button className={cn("px-5 py-1.5 text-[12px] font-bold transition-colors", discountForm.manualType === "percent" ? "bg-blue-600 text-white" : "bg-white text-blue-600")} onClick={() => setDiscountForm({...discountForm, manualType: "percent"})}>%</button></div><div className="relative flex-1"><Input type="number" className="h-9 pr-8 text-right font-bold" value={discountForm.manualValue} onChange={(e) => setDiscountForm({...discountForm, manualValue: e.target.value})}/><span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[12px]">{discountForm.manualType === "value" ? "đ" : "%"}</span></div></div><div className="space-y-1"><label className="text-[12px] text-slate-500 font-medium">Lý do giảm giá</label><Input placeholder="Nhập lý do giảm giá..." className="h-9 text-[13px]" value={discountForm.reason} onChange={(e) => setDiscountForm({...discountForm, reason: e.target.value})}/></div></div>)}</div></div></div><div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2"><Button variant="outline" onClick={() => setShowDiscountModal(false)}>Hủy</Button><Button className="bg-blue-600 hover:bg-blue-700 px-6 font-bold" onClick={handleApplyDiscount}>Thêm</Button></div></div></div>)}
+      {showDiscountModal && (<div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-white rounded-md shadow-xl w-[550px] max-w-[95vw] overflow-hidden"><div className="flex justify-between items-center px-4 py-3 border-b border-slate-200"><h2 className="text-[16px] font-bold text-slate-800">Thêm giảm giá</h2><button onClick={() => setShowDiscountModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button></div><div className="p-4 space-y-4"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Mã giảm giá</label><Input placeholder="Vui lòng nhập mã giảm giá của bạn..." className="h-10 text-[13px]" value={discountForm.code} onChange={(e) => setDiscountForm({...discountForm, code: e.target.value})}/></div><div className="space-y-3 pt-1"><div className="space-y-2"><div className="flex items-center space-x-2"><Checkbox id="auto-promo" checked={discountForm.isAuto} onCheckedChange={(c) => setDiscountForm({...discountForm, isAuto: !!c, isManual: false})} /><label htmlFor="auto-promo" className="text-[13px] font-medium cursor-pointer">Tự động thêm chương trình khuyến mại phù hợp</label></div>{discountForm.isAuto && (<p className="pl-6 text-[12px] text-slate-400 animate-in fade-in slide-in-from-top-1">Không có chương trình khuyến mại phù hợp được áp dụng</p>)}</div><div className="space-y-3"><div className="flex items-center space-x-2"><Checkbox id="manual-disc" checked={discountForm.isManual} onCheckedChange={(c) => setDiscountForm({...discountForm, isManual: !!c, isAuto: false})} /><label htmlFor="manual-disc" className="text-[13px] font-medium cursor-pointer">Thêm giảm giá thủ công cho đơn hàng</label></div>{discountForm.isManual && (<div className="pl-6 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200"><div className="flex items-center gap-3"><div className="flex border border-blue-200 rounded overflow-hidden shrink-0"><button className={cn("px-4 py-1.5 text-[12px] font-bold transition-colors", discountForm.manualType === "value" ? "bg-blue-600 text-white" : "bg-white text-blue-600")} onClick={() => setDiscountForm({...discountForm, manualType: "value"})}>Giá trị</button><button className={cn("px-5 py-1.5 text-[12px] font-bold transition-colors", discountForm.manualType === "percent" ? "bg-blue-600 text-white" : "bg-white text-blue-600")} onClick={() => setDiscountForm({...discountForm, manualType: "percent"})}>%</button></div><div className="relative flex-1"><Input type="number" className="h-9 pr-8 text-right font-bold" value={discountForm.manualValue} onChange={(e) => setDiscountForm({...discountForm, manualValue: e.target.value})}/><span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[12px]">{discountForm.manualType === "value" ? "đ" : "%"}</span></div></div><div className="space-y-1"><label className="text-[12px] text-slate-500 font-medium">Lý do giảm giá</label><Input placeholder="Nhập lý do giảm giá..." className="h-9 text-[13px]" value={discountForm.reason} onChange={(e) => setDiscountForm({...discountForm, reason: e.target.value})}/></div></div>)}</div></div></div><div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2"><Button variant="outline" onClick={() => setShowDiscountModal(false)}>Hủy</Button><Button className="bg-blue-600 hover:bg-blue-700 px-6 font-bold" onClick={handleApplyDiscount}>Thêm</Button></div></div></div>)}
 
       {/* 7. Modal Phí giao hàng */}
       {showShippingFeeModal && (<div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-white rounded-md shadow-xl w-[900px] max-w-[95vw] flex overflow-hidden h-[550px]"><div className="w-[320px] bg-[#f9fafb] border-r border-slate-200 flex flex-col"><div className="p-4 border-b border-slate-200"><h2 className="text-[16px] font-bold text-slate-800">Thêm phí giao hàng</h2></div><div className="p-4 space-y-4 flex-1 overflow-y-auto"><div className="space-y-1"><label className="text-[12px] font-bold text-slate-700">Địa chỉ lấy hàng</label><Select defaultValue="main"><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="main">Cửa hàng chính</SelectItem></SelectContent></Select></div><div className="space-y-3"><label className="text-[12px] font-bold text-slate-700">Địa chỉ giao hàng</label><div className="space-y-1"><label className="text-[11px] text-slate-500">Khu vực</label><Select value={shippingAddress.province} onValueChange={handleProvinceChange}><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn khu vực"/></SelectTrigger><SelectContent>{LOCATION_DB.provinces.map((p:any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select>{!shippingAddress.province && <p className="text-[11px] text-red-500">Thiếu thông tin khu vực giao hàng</p>}</div>{shippingAddress.province && (<div className="space-y-1 animate-in fade-in slide-in-from-top-1"><label className="text-[11px] text-slate-500">Quận/Huyện</label><Select value={shippingAddress.district} onValueChange={handleDistrictChange}><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn quận huyện"/></SelectTrigger><SelectContent>{districts.map(d => (<SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>))}</SelectContent></Select></div>)}<div className="space-y-1"><label className="text-[11px] text-slate-500">Phường xã</label><Select value={shippingAddress.ward} onValueChange={handleWardChange} disabled={!shippingAddress.district}><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn Phường xã"/></SelectTrigger><SelectContent>{wards.map(w => (<SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>))}</SelectContent></Select>{!shippingAddress.ward && <p className="text-[11px] text-red-500">Thiếu thông tin phường xã</p>}</div></div><div className="pt-2 border-t border-slate-200"><div className="flex justify-between mb-2"><span className="text-[12px] font-bold">Thông tin gói hàng</span><span className="text-[11px] text-blue-600 cursor-pointer">Cấu hình gói hàng</span></div><div className="space-y-2"><div className="space-y-1"><label className="text-[11px] text-slate-500">Giá trị</label><div className="relative"><Input className="h-8 text-[12px] pr-8 bg-white" defaultValue="110,000" /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">đ</span></div></div><div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label className="text-[11px] text-slate-500">Tiền thu hộ COD</label><div className="relative"><Input className="h-8 text-[12px] pr-8 bg-white" defaultValue="110,000" /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">đ</span></div></div><div className="space-y-1"><label className="text-[11px] text-slate-500">Khối lượng</label><div className="relative"><Input className="h-8 text-[12px] pr-8 bg-white" defaultValue="5,000" /><span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400">g</span></div></div></div></div></div></div></div><div className="flex-1 flex flex-col bg-white"><div className="p-4 border-b border-slate-200 flex justify-end gap-2"><Button variant="outline" onClick={() => setShowShippingFeeModal(false)}>Hủy</Button><Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveShippingFee}>Lưu</Button></div><div className="p-6 overflow-y-auto flex-1">{!shippingAddress.ward ? (<div className="bg-orange-50 border border-orange-200 rounded p-3 mb-6 flex gap-3"><AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={16} /><div className="text-[13px] text-slate-800"><span className="font-bold">Để lấy thông tin phí vận chuyển đã cấu hình và phí gợi ý của đối tác vận chuyển, bạn cần:</span><ul className="list-disc pl-5 mt-1 text-slate-600"><li>Bổ sung địa chỉ giao hàng</li></ul></div></div>) : (<div className="mb-6 animate-in fade-in slide-in-from-top-2"><div className="flex justify-between items-center mb-3"><h3 className="font-bold text-[13px]">Phí gợi ý của đối tác vận chuyển</h3><span className="text-[12px] text-blue-600 cursor-pointer flex items-center gap-1"><ArrowRight size={12}/> Sắp xếp đối tác</span></div><div className="border border-slate-200 rounded-md"><div className="bg-slate-50 p-2 text-[11px] text-slate-500 text-center border-b border-slate-200">Không có dịch vụ nào phù hợp</div><div className="divide-y divide-slate-100">{SHIPPING_PARTNERS.map(partner => (<div key={partner.id} className="p-4 flex items-start gap-4 hover:bg-slate-50 transition-colors"><div className="w-[100px] font-bold text-slate-700">{partner.name}</div><div className="flex-1">{partner.connected ? (partner.error ? (<div className="bg-orange-50 border border-orange-200 rounded p-2 text-[12px] text-orange-700 flex gap-2"><AlertTriangle size={14} className="shrink-0 mt-0.5"/><div><span className="font-bold">Rất tiếc!</span><p>{partner.error} <span className="text-blue-600 cursor-pointer hover:underline">tại đây</span></p></div></div>) : (<div><span className="text-[13px] font-bold">{partner.price?.toLocaleString()}đ</span></div>)) : (<div className="flex justify-between items-center"><span className="text-[12px] text-slate-400 italic">Dịch vụ vận chuyển không khả dụng</span><Button variant="outline" className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50 text-[12px]" onClick={() => setShowPartnerConnectModal(true)}>Kết nối ngay</Button></div>)}</div></div>))}</div></div></div>)}<div><div className="flex justify-between items-center mb-3"><h3 className="font-bold text-[13px]">Phí cấu hình</h3><span className="text-[12px] text-blue-600 cursor-pointer">Cấu hình phí vận chuyển</span></div><div className="border border-slate-200 rounded-md p-4"><RadioGroup value={shippingFeeConfig.type} onValueChange={(val: any) => setShippingFeeConfig({...shippingFeeConfig, type: val})}>{shippingAddress.ward && (<div className="flex items-center justify-between py-2 border-b border-dashed border-slate-200 mb-2 animate-in fade-in"><div className="flex items-center space-x-2"><RadioGroupItem value="delivery" id="delivery" className="text-blue-600 border-slate-300" /><Label htmlFor="delivery" className="font-normal text-[13px]">Giao hàng tận nơi</Label></div><span className="text-[13px] font-bold">35,000đ</span></div>)}<div className="flex items-center space-x-2 mb-2"><RadioGroupItem value="custom" id="custom" className="text-blue-600 border-slate-300" /><Label htmlFor="custom" className="font-normal text-[13px]">Phí Khác</Label></div>{shippingFeeConfig.type === "custom" && (<div className="pl-6 animate-in fade-in slide-in-from-top-1"><div className="relative w-[200px]"><Input className="h-8 text-[13px] pr-8" value={shippingFeeConfig.customFee} onChange={(e) => setShippingFeeConfig({...shippingFeeConfig, customFee: e.target.value})}/><span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">đ</span></div></div>)}</RadioGroup></div></div></div></div></div></div>)}
@@ -355,15 +415,67 @@ export default function CreateOrderPage() {
                              <div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Postal/Zipcode</label><Input placeholder="Nhập Postal/Zipcode" className="h-9 text-[13px]" /></div>
                          </div>
                          <div className="bg-slate-50 p-4 rounded-md space-y-4">
-                             <div className="flex items-center space-x-2">
-                                 <Switch id="new-address-mode" checked={isNewAddressFormat} onCheckedChange={setIsNewAddressFormat} />
-                                 <Label htmlFor="new-address-mode" className="text-[13px] font-bold text-slate-700 flex items-center gap-1">Địa chỉ mới <Info size={12} className="text-blue-500"/></Label>
+                             <div className="flex items-center justify-between">
+                                 <div className="flex items-center space-x-2">
+                                     <Switch id="new-address-mode" checked={isNewAddressFormat} onCheckedChange={setIsNewAddressFormat} />
+                                     <Label htmlFor="new-address-mode" className="text-[13px] font-bold text-slate-700 flex items-center gap-1">Địa chỉ mới <Info size={12} className="text-blue-500"/></Label>
+                                 </div>
+                                 <Button variant="ghost" className="h-7 text-[11px] text-teal-600 flex items-center gap-1 px-2"><Navigation size={12}/> Dùng vị trí hiện tại</Button>
                              </div>
-                             {isNewAddressFormat ? (
-                                 <div className="grid grid-cols-2 gap-4 animate-in fade-in"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Tỉnh/Thành phố</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn tỉnh/thành phố"/></SelectTrigger><SelectContent><SelectItem value="hcm">Hồ Chí Minh</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Phường/Xã</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn phường/xã"/></SelectTrigger><SelectContent><SelectItem value="p1">Phường 1</SelectItem></SelectContent></Select></div><div className="col-span-2 space-y-1"><label className="text-[13px] font-medium text-slate-600">Địa chỉ cụ thể</label><Input placeholder="Nhập địa chỉ cụ thể" className="h-9 text-[13px] bg-white" /></div></div>
-                             ) : (
-                                 <div className="grid grid-cols-2 gap-4 animate-in fade-in"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Tỉnh/Thành phố</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn tỉnh/thành phố"/></SelectTrigger><SelectContent><SelectItem value="hcm">Hồ Chí Minh</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Quận/Huyện</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn quận/huyện"/></SelectTrigger><SelectContent><SelectItem value="q1">Quận 1</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Phường/Xã</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn phường/xã"/></SelectTrigger><SelectContent><SelectItem value="p1">Phường 1</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Địa chỉ cụ thể</label><Input placeholder="Nhập địa chỉ cụ thể" className="h-9 text-[13px] bg-white" defaultValue="7890"/></div></div>
-                             )}
+                             
+                             <div className="grid grid-cols-2 gap-4 animate-in fade-in">
+                                 <div className="space-y-1">
+                                     <label className="text-[13px] font-medium text-slate-600">Tỉnh/Thành phố</label>
+                                     <Select value={modalAddress.provinceId} onValueChange={handleModalProvinceChange}>
+                                         <SelectTrigger className="h-9 text-[13px] bg-white">
+                                             <SelectValue placeholder="Chọn tỉnh/thành phố"/>
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                             {LOCATION_DB.provinces.map((p:any) => (
+                                                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                             ))}
+                                         </SelectContent>
+                                     </Select>
+                                 </div>
+
+                                 <div className="space-y-1">
+                                     <label className="text-[13px] font-medium text-slate-600">Quận/Huyện *</label>
+                                     <Select value={modalAddress.districtId} onValueChange={handleModalDistrictChange} disabled={!modalAddress.provinceId}>
+                                         <SelectTrigger className="h-9 text-[13px] bg-white">
+                                             <SelectValue placeholder="Chọn quận/huyện"/>
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                             {modalDistricts.map((d:any) => (
+                                                 <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                             ))}
+                                         </SelectContent>
+                                     </Select>
+                                 </div>
+
+                                 <div className="space-y-1">
+                                     <label className="text-[13px] font-medium text-slate-600">Phường/Xã *</label>
+                                     <Select value={modalAddress.wardId} onValueChange={handleModalWardChange} disabled={!modalAddress.districtId}>
+                                         <SelectTrigger className="h-9 text-[13px] bg-white">
+                                             <SelectValue placeholder="Chọn phường/xã"/>
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                             {modalWards.map((w:any) => (
+                                                 <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                                             ))}
+                                         </SelectContent>
+                                     </Select>
+                                 </div>
+
+                                 <div className="col-span-2 space-y-1">
+                                     <label className="text-[13px] font-medium text-slate-600">Địa chỉ cụ thể *</label>
+                                     <Input 
+                                        placeholder="Nhập địa chỉ cụ thể" 
+                                        className="h-9 text-[13px] bg-white" 
+                                        value={modalAddress.detail} 
+                                        onChange={(e) => setModalAddress(prev => ({ ...prev, detail: e.target.value }))}
+                                     />
+                                 </div>
+                             </div>
                          </div>
                      </div>
                  </div>
@@ -451,15 +563,67 @@ export default function CreateOrderPage() {
                          <div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Postal/Zipcode</label><Input placeholder="Nhập Postal/Zipcode" className="h-9 text-[13px]" /></div>
                      </div>
                      <div className="bg-slate-50 p-4 rounded-md space-y-4">
-                         <div className="flex items-center space-x-2">
-                             <Switch id="edit-address-mode" checked={isNewAddressFormat} onCheckedChange={setIsNewAddressFormat} />
-                             <Label htmlFor="edit-address-mode" className="text-[13px] font-bold text-slate-700 flex items-center gap-1">Địa chỉ mới <Info size={12} className="text-blue-500"/></Label>
+                         <div className="flex items-center justify-between">
+                             <div className="flex items-center space-x-2">
+                                 <Switch id="edit-address-mode" checked={isNewAddressFormat} onCheckedChange={setIsNewAddressFormat} />
+                                 <Label htmlFor="edit-address-mode" className="text-[13px] font-bold text-slate-700 flex items-center gap-1">Địa chỉ mới <Info size={12} className="text-blue-500"/></Label>
+                             </div>
+                             <Button variant="ghost" className="h-7 text-[11px] text-teal-600 flex items-center gap-1 px-2"><Navigation size={12}/> Dùng vị trí hiện tại</Button>
                          </div>
-                         {isNewAddressFormat ? (
-                             <div className="grid grid-cols-2 gap-4 animate-in fade-in"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Tỉnh/Thành phố</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn tỉnh/thành phố"/></SelectTrigger><SelectContent><SelectItem value="bk">Bắc Kạn</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Phường/Xã</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn phường/xã"/></SelectTrigger><SelectContent><SelectItem value="xtm">Xã Thanh Mai</SelectItem></SelectContent></Select></div><div className="col-span-2 space-y-1"><label className="text-[13px] font-medium text-slate-600">Địa chỉ cụ thể</label><Input placeholder="Nhập địa chỉ cụ thể" className="h-9 text-[13px] bg-white" defaultValue="7890"/></div></div>
-                         ) : (
-                             <div className="grid grid-cols-2 gap-4 animate-in fade-in"><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Tỉnh/Thành phố</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn tỉnh/thành phố"/></SelectTrigger><SelectContent><SelectItem value="bk">Bắc Kạn</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Quận/Huyện</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn quận/huyện"/></SelectTrigger><SelectContent><SelectItem value="hcm">Huyện Chợ Mới</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Phường/Xã</label><Select><SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Chọn phường/xã"/></SelectTrigger><SelectContent><SelectItem value="xtm">Xã Thanh Mai</SelectItem></SelectContent></Select></div><div className="space-y-1"><label className="text-[13px] font-medium text-slate-600">Địa chỉ cụ thể</label><Input placeholder="Nhập địa chỉ cụ thể" className="h-9 text-[13px] bg-white" defaultValue="7890"/></div></div>
-                         )}
+                         
+                         <div className="grid grid-cols-2 gap-4 animate-in fade-in">
+                             <div className="space-y-1">
+                                 <label className="text-[13px] font-medium text-slate-600">Tỉnh/Thành phố</label>
+                                 <Select value={modalAddress.provinceId} onValueChange={handleModalProvinceChange}>
+                                     <SelectTrigger className="h-9 text-[13px] bg-white">
+                                         <SelectValue placeholder="Chọn tỉnh/thành phố"/>
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                         {LOCATION_DB.provinces.map((p:any) => (
+                                             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                         ))}
+                                     </SelectContent>
+                                 </Select>
+                             </div>
+
+                             <div className="space-y-1">
+                                 <label className="text-[13px] font-medium text-slate-600">Quận/Huyện *</label>
+                                 <Select value={modalAddress.districtId} onValueChange={handleModalDistrictChange} disabled={!modalAddress.provinceId}>
+                                     <SelectTrigger className="h-9 text-[13px] bg-white">
+                                         <SelectValue placeholder="Chọn quận/huyện"/>
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                         {modalDistricts.map((d:any) => (
+                                             <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                         ))}
+                                     </SelectContent>
+                                 </Select>
+                             </div>
+
+                             <div className="space-y-1">
+                                 <label className="text-[13px] font-medium text-slate-600">Phường/Xã *</label>
+                                 <Select value={modalAddress.wardId} onValueChange={handleModalWardChange} disabled={!modalAddress.districtId}>
+                                     <SelectTrigger className="h-9 text-[13px] bg-white">
+                                         <SelectValue placeholder="Chọn phường/xã"/>
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                         {modalWards.map((w:any) => (
+                                             <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                                         ))}
+                                     </SelectContent>
+                                 </Select>
+                             </div>
+
+                             <div className="col-span-2 space-y-1">
+                                 <label className="text-[13px] font-medium text-slate-600">Địa chỉ cụ thể *</label>
+                                 <Input 
+                                    placeholder="Nhập địa chỉ cụ thể" 
+                                    className="h-9 text-[13px] bg-white" 
+                                    value={modalAddress.detail} 
+                                    onChange={(e) => setModalAddress(prev => ({ ...prev, detail: e.target.value }))}
+                                 />
+                             </div>
+                         </div>
                      </div>
                  </div>
                  <div className="px-6 py-4 border-t border-slate-200 flex justify-between items-center bg-white">

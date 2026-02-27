@@ -6,7 +6,6 @@ import {
   FileText,
   RotateCcw,
   XCircle,
-  ChevronDown,
 } from "lucide-react";
 import {
   Select,
@@ -20,31 +19,39 @@ export default function DailyBusinessResults() {
   const stats = [
     {
       label: "Doanh thu",
-      value: "0",
+      value: "15.420.000 đ",
       icon: DollarSign,
       iconBg: "bg-blue-600",
       color: "text-blue-600",
+      change: "+12.5%",
+      isPositive: true,
     },
     {
       label: "Đơn hàng mới",
-      value: "0",
+      value: "42",
       icon: FileText,
       iconBg: "bg-emerald-500",
       color: "text-emerald-500",
+      change: "+8.2%",
+      isPositive: true,
     },
     {
       label: "Đơn trả hàng",
-      value: "0",
+      value: "2",
       icon: RotateCcw,
       iconBg: "bg-orange-400",
       color: "text-orange-400",
+      change: "-15%",
+      isPositive: false,
     },
     {
       label: "Đơn hủy",
-      value: "0",
+      value: "1",
       icon: XCircle,
       iconBg: "bg-red-500",
       color: "text-red-500",
+      change: "-50%",
+      isPositive: false,
     },
   ];
 
@@ -61,6 +68,9 @@ export default function DailyBusinessResults() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+              <SelectItem value="cn1">Chi nhánh Quận 1</SelectItem>
+              <SelectItem value="cn2">Chi nhánh Quận 7</SelectItem>
+              <SelectItem value="cn3">Chi nhánh Thủ Đức</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -71,8 +81,17 @@ export default function DailyBusinessResults() {
             <div className={`${stat.iconBg} p-2 rounded-full text-white`}>
               <stat.icon size={20} />
             </div>
-            <div>
-              <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
+                <span
+                  className={`text-[10px] font-bold ${
+                    stat.isPositive ? "text-emerald-500" : "text-red-500"
+                  }`}
+                >
+                  {stat.change}
+                </span>
+              </div>
               <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
             </div>
           </div>

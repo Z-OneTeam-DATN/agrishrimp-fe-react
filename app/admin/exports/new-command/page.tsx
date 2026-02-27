@@ -270,7 +270,7 @@ function AdminExportFormContent() {
 
   const onSubmit = async (data: ExportCommandFormValues) => {
     if (isReadOnly) return;
-    const currentUserId = currentUser?.id || currentUser?.userId || currentUser?.sub;
+    const currentUserId = currentUser?.id;
 
     const payload = {
       code: data.noteCode,

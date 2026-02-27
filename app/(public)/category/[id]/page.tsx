@@ -9,7 +9,7 @@ import {
   Filter, List, X, SlidersHorizontal, Loader2, PackageX, LayoutGrid
 } from "lucide-react";
 import ProductCard from "@/components/ui/product-card";
-import { ProductListItem } from "@/app/types/product.schema";
+import { PublicProductListItem } from "@/app/types/product.schema";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
@@ -30,7 +30,7 @@ export default function CategoryPage() {
   const [allCategories, setAllCategories] = useState<CategoryDTO[]>([]);
   const [subCategories, setSubCategories] = useState<CategoryDTO[]>([]);
   const [currentCategoryName, setCurrentCategoryName] = useState("Tất cả sản phẩm");
-  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [products, setProducts] = useState<PublicProductListItem[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   const [showMobileFilter, setShowMobileFilter] = useState(false);
@@ -97,7 +97,7 @@ export default function CategoryPage() {
         const results = await Promise.all(promises);
 
         // Gộp kết quả lại thành 1 mảng phẳng và LỌC TRÙNG LẶP (Dựa vào ID sản phẩm)
-        const mergedProducts: ProductListItem[] = [];
+        const mergedProducts: PublicProductListItem[] = [];
         const seenIds = new Set();
 
         results.flat().forEach((p) => {

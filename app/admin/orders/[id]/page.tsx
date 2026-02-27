@@ -60,7 +60,7 @@ const SHIPPING_PARTNERS_MOCK = [
     { id: "viettel", name: "Viettel Post", logo: "Viettel", connected: false },
 ];
 
-export default function OrderDetailPage({ params }: { params: { id: string } }) {
+export default function OrderDetailPage() {
   const router = useRouter();
 
   // --- STATES QUẢN LÝ LOGIC CHUNG ---
@@ -120,7 +120,8 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const order = {
     id: "#1002",
     createdAt: "15/02/2026 01:10",
-    fulfillmentStatusLabel: fulfillmentStatus === 'delivered' ? "Đã giao hàng" : (fulfillmentStatus === 'shipping' ? "Đang giao hàng" : (fulfillmentStatus === 'ready_to_pack' ? "Đang giao dịch" : "Chưa xử lý")), 
+    paymentStatusLabel: paymentStatus === 'paid' ? "Đã thanh toán" : "Chưa thanh toán",
+    fulfillmentStatusLabel: fulfillmentStatus === 'delivered' ? "Đã giao hàng" : (fulfillmentStatus === 'shipping' ? "Đang giao hàng" : (fulfillmentStatus === 'ready_to_pack' ? "Đang giao dịch" : "Chưa xử lý")),
     customer: {
       name: "Bình Nguyễn",
       phone: "0986543987",
@@ -160,6 +161,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const handleCancelFulfillmentMode = () => { setIsFulfillmentMode(false); setFulfillmentItems([]); }
   const handleOpenBatchModal = (item: any) => { setActiveProductId(item.id); setBatchRows([{ id: 1, code: "DEFAULT", quantity: 1, expiry: "---", status: "Còn hạn" }, { id: 2, code: "Lô Mới 2026", quantity: 0, expiry: "01/01/2026", status: "Còn hạn" }]); setShowBatchModal(true); };
   const handleBatchQtyChange = (index: number, value: string) => { const newQty = Number(value); const newRows = [...batchRows]; newRows[index].quantity = newQty; if (newRows.length === 2) { const otherIndex = index === 0 ? 1 : 0; newRows[otherIndex].quantity = 1 - newQty; } setBatchRows(newRows); };
+  const handleDeleteBatchRow = (index: number) => { setBatchRows(prev => prev.filter((_, i) => i !== index)); };
   const handleConfirmBatch = () => { if (activeProductId !== null) { setFulfillmentItems(prev => prev.map(item => { if (item.id === activeProductId) { return { ...item, selectedBatch: { name: batchRows[0].code, quantity: item.quantity } }; } return item; })); setShowBatchModal(false); setActiveProductId(null); toast.success("Đã chọn lô thành công"); } };
   const handleSubmitFulfillment = () => { const missingBatch = fulfillmentItems.find(i => !i.selectedBatch); if (missingBatch) { toast.error("Vui lòng chọn lô cho tất cả sản phẩm"); return; } setShowRequestPackingModal(true); }
   const handleFinalizePackingRequest = () => { setShowRequestPackingModal(false); setIsFulfillmentMode(false); setFulfillmentStatus('ready_to_pack'); const packerName = STAFF_LIST.find(s => s.id === selectedPacker)?.name || "Admin Z-OneTeam"; addHistoryLog("Yêu cầu đóng gói", `Gán cho nhân viên: ${packerName}`); toast.success("Tạo yêu cầu đóng gói thành công"); }

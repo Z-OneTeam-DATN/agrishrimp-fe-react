@@ -5,7 +5,14 @@
       "Bash(grep:*)",
       "Bash(cd \"D:\\\\DuAnAgriShrimp\\\\agrishrimp-fe-react\" && npm install react-speech-recognition @types/react-speech-recognition 2>&1)",
       "mcp__ide__getDiagnostics",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git:*)",
+      "Bash(find:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

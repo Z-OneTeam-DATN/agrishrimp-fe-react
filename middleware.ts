@@ -107,7 +107,6 @@ export function middleware(req: NextRequest) {
       const restrictedForManager = [
         "/admin/employees",
         "/admin/branches",
-        "/admin/products",
         "/admin/categories",
         "/admin/variants",
         "/admin/financial",

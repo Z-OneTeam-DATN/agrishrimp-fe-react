@@ -4,7 +4,7 @@ import {
   SignupFormValues,
   ProfileFormValues,
   AvatarImage,
-  EditProfileFormValues,
+  ProfileFormValues as EditProfileFormValues,
   ChangePasswordFormValues,
   AddressFormValues,
 } from "@/app/types/user.schema";

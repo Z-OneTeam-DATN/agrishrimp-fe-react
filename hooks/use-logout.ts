@@ -25,22 +25,26 @@ export const useLogout = () => {
     onSuccess: () => {
       // 1. Xóa thông tin trong Zustand
       clearAuth();
-      
+
       // 2. Xóa toàn bộ React Query cache (Queries + Mutations)
       queryClient.clear();
-      
-      // 3. Thông báo cho người dùng
+
+      // 3. Xóa cache user khỏi sessionStorage
+      try { sessionStorage.removeItem("_u"); } catch {}
+
+      // 4. Thông báo cho người dùng
       toast.success("Bạn đã đăng xuất thành công.");
-      
-      // 4. Điều hướng cưỡng bức về trang Login (Hard redirect)
+
+      // 5. Điều hướng cưỡng bức về trang Login (Hard redirect)
       window.location.href = "/login";
     },
-    
+
     onError: (error) => {
       console.error("Logout process error:", error);
       // Dù có lỗi API vẫn nên ép logout ở phía FE
       clearAuth();
       queryClient.clear();
+      try { sessionStorage.removeItem("_u"); } catch {}
       window.location.href = "/login";
     }
   });

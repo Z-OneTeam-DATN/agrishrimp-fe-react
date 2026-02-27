@@ -26,7 +26,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { OrderService } from "@/app/services/order.service";
+import { orderService } from "@/app/services/order.service";
 import { useRouter } from "next/navigation";
 
 interface CancelOrderModalProps {
@@ -78,7 +78,7 @@ export function CancelOrderModal({
     }
 
     try {
-      await OrderService.cancelOrder(orderId, values);
+      await orderService.cancelOrder(orderId, values);
       toast.success("Yêu cầu hủy đơn hàng đã được gửi.");
       onOrderCancelled?.();
       onClose();

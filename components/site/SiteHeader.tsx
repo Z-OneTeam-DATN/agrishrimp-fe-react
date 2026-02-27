@@ -135,7 +135,7 @@ export default function Header() {
               <Avatar className="h-9 w-9 border-2 border-white/30 shadow-md ring-1 ring-black/5">
                 {/* ✅ SỬA TẠI ĐÂY: Dùng trực tiếp avatarUrl từ API trả về */}
                 <AvatarImage
-                  src={user?.avatarUrl ?? ""}
+                  src={user?.avatar?.imageUrl ?? ""}
                   alt={getUserDisplayName()}
                   className="object-cover"
                 />
@@ -256,7 +256,7 @@ export default function Header() {
           </div>
 
           <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
-            <Link href="/shop" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+            <Link href="/store" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
               <Store size={22} className="mb-0.5" />
               <span>Cửa hàng</span>
             </Link>

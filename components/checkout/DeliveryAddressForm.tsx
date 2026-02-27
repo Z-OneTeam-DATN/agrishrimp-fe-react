@@ -64,6 +64,26 @@ export function DeliveryAddressForm({ onSubmit, defaultValues }: DeliveryAddress
   })
 
   const selectedDistrictId = watch("districtId")
+  const selectedWardCode = watch("wardCode")
+
+  // Auto-fill address logic
+  useEffect(() => {
+    if (selectedDistrictId && selectedWardCode) {
+      const selectedDistrict = districts.find(d => d.id === selectedDistrictId)
+      const selectedWard = wards.find(w => w.code === selectedWardCode)
+      
+      if (selectedDistrict && selectedWard) {
+        // Only auto-fill if the current address is empty or just matches the previous auto-fill
+        const currentAddress = watch("address")
+        const autoFillValue = `${selectedWard.name}, ${selectedDistrict.name}, Cần Thơ`
+        
+        // If user hasn't typed anything yet, or current value is part of the sequence
+        if (!currentAddress || currentAddress.includes(selectedDistrict.name) || currentAddress.includes(selectedWard.name)) {
+          setValue("address", autoFillValue)
+        }
+      }
+    }
+  }, [selectedDistrictId, selectedWardCode, districts, wards, setValue])
 
   // Load districts on mount
   useEffect(() => {
@@ -92,6 +112,7 @@ export function DeliveryAddressForm({ onSubmit, defaultValues }: DeliveryAddress
       try {
         const data = await locationService.getWards(selectedDistrictId)
         setWards(data ?? [])
+        // Reset ward but don't clear address if it was manually edited
         setValue("wardCode", "")
         setValue("wardName", "")
       } catch {
@@ -130,27 +151,6 @@ export function DeliveryAddressForm({ onSubmit, defaultValues }: DeliveryAddress
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
-      {/* Địa chỉ cụ thể */}
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Địa chỉ cụ thể <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            {...register("address")}
-            type="text"
-            placeholder="Số nhà, tên đường..."
-            className={`w-full pl-8 pr-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-teal-400 ${
-              errors.address ? "border-red-300 bg-red-50" : "border-gray-200"
-            }`}
-          />
-        </div>
-        {errors.address && (
-          <p className="text-xs text-red-500 mt-1">{errors.address.message}</p>
-        )}
-      </div>
-
       {/* Tỉnh/Thành phố — hardcode Cần Thơ */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -241,6 +241,27 @@ export function DeliveryAddressForm({ onSubmit, defaultValues }: DeliveryAddress
         )}
         Dùng vị trí hiện tại
       </button>
+
+      {/* Địa chỉ cụ thể */}
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          Địa chỉ cụ thể <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            {...register("address")}
+            type="text"
+            placeholder="Số nhà, tên đường..."
+            className={`w-full pl-8 pr-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-teal-400 ${
+              errors.address ? "border-red-300 bg-red-50" : "border-gray-200"
+            }`}
+          />
+        </div>
+        {errors.address && (
+          <p className="text-xs text-red-500 mt-1">{errors.address.message}</p>
+        )}
+      </div>
 
       {/* Submit */}
       <button

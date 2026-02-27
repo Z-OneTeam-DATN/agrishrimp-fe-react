@@ -145,9 +145,9 @@ function OrderSuccessContent() {
           {/* Trạng thái phương thức thanh toán */}
           {isPaid && isOfflinePayment && (
             <p className="text-xs text-teal-600 mt-1">
-              {method === "COD"
+              {order?.paymentMethod === "COD"
                 ? "Thanh toán khi nhận hàng"
-                : method === "TRANSFER"
+                : order?.paymentMethod === "TRANSFER"
                 ? "Chờ xác nhận chuyển khoản"
                 : "Tiền mặt tại cửa hàng"}
             </p>
@@ -165,7 +165,7 @@ function OrderSuccessContent() {
         )}
 
         {/* ── Thông báo chuyển khoản ── */}
-        {isPaid && isOfflinePayment && method === "TRANSFER" && (
+        {isPaid && isOfflinePayment && order?.paymentMethod === "TRANSFER" && (
           <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100">
             <p className="text-xs text-indigo-700 text-center">
               Đơn hàng sẽ được xác nhận trong vòng <strong>2 giờ</strong> sau khi nhận được tiền chuyển khoản.
