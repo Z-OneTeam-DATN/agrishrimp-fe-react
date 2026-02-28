@@ -32,7 +32,7 @@ export interface Category {
 }
 
 export default function CategoryManagementPage() {
-  const [categories, setCategories] = useState<Category[]>([]); // Dữ liệu cây gốc (chứa tất cả)
+  const [categories, setCategories] = useState<Category[]>([]);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [statusModal, setStatusModal] = useState<{id: number, name: string, currentStatus: string} | null>(null);
@@ -43,15 +43,16 @@ export default function CategoryManagementPage() {
   const [parentList, setParentList] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // States lưu trữ bộ lọc (Frontend Filter)
   const [currentKeyword, setCurrentKeyword] = useState("");
   const [currentStatus, setCurrentStatus] = useState("all");
+
+  // ✅ Thêm state để bắt lỗi riêng cho ô input tên danh mục
+  const [nameError, setNameError] = useState<string>("");
 
   const [formData, setFormData] = useState({
     name: "", parentId: "none", status: "ACTIVE", image: ""
   });
 
-  // Thuật toán xây dựng cây: LUÔN DÙNG DỮ LIỆU ALL
   const buildCategoryTree = (data: any[]): Category[] => {
     if (!Array.isArray(data)) return [];
     const categoryMap: Record<number, Category> = {};
@@ -80,10 +81,8 @@ export default function CategoryManagementPage() {
     return tree;
   };
 
-  // Load toàn bộ dữ liệu 1 lần
   const loadData = async () => {
     try {
-      // LUÔN LẤY TẤT CẢ (không truyền filter xuống API nữa)
       const data = await getCategories("", undefined);
       setCategories(buildCategoryTree(data));
 
@@ -99,6 +98,7 @@ export default function CategoryManagementPage() {
   const handleAddNew = () => {
     setEditingId(null);
     setFormData({ name: "", parentId: "none", status: "ACTIVE", image: "" });
+    setNameError(""); // ✅ Reset lỗi khi mở form mới
     setIsModalOpen(true);
   };
 
@@ -112,6 +112,7 @@ export default function CategoryManagementPage() {
         parentId: data.parentId ? String(data.parentId) : "none"
       });
       setEditingId(id);
+      setNameError(""); // ✅ Reset lỗi khi mở form sửa
       setIsModalOpen(true);
     } catch (error) {
       toast.error("Không tải được chi tiết danh mục!");
@@ -119,10 +120,16 @@ export default function CategoryManagementPage() {
   };
 
   const handleSaveForm = async () => {
-    if(!formData.name.trim()) return toast.error("Vui lòng nhập tên danh mục!");
+    // ✅ Kiểm tra lỗi trống ở phía Frontend
+    if(!formData.name.trim()) {
+      setNameError("Vui lòng nhập tên danh mục!");
+      return;
+    }
 
     try {
       setIsSaving(true);
+      setNameError(""); // Xóa lỗi cũ trước khi gọi API
+
       const payload = {
         name: formData.name,
         imageUrl: formData.image,
@@ -138,13 +145,15 @@ export default function CategoryManagementPage() {
         toast.success("Thêm mới danh mục thành công!");
       }
       setIsModalOpen(false);
-      loadData(); // Load lại toàn bộ
+      loadData();
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail
                         || error.response?.data?.message
                         || error.response?.data?.error
                         || "Có lỗi xảy ra, vui lòng kiểm tra lại thông tin!";
-      toast.error(errorMessage);
+
+      // ✅ Bắt lỗi từ Backend (ví dụ: Trùng tên) và nhét thẳng vào dưới ô Input
+      setNameError(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -188,27 +197,16 @@ export default function CategoryManagementPage() {
     }
   };
 
-  // ✅ LOGIC RENDER CÓ CHỨA BỘ LỌC FRONTEND
   const renderCategoryRow = (category: Category, level: number = 0) => {
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedRows[category.id];
     const paddingLeft = level * 30 + 10;
 
-    // KIỂM TRA BỘ LỌC
     const matchKeyword = category.name.toLowerCase().includes(currentKeyword.toLowerCase());
-
-    // Mapping trạng thái Backend ra UI
     const targetStatusText = currentStatus === "ACTIVE" ? "Hiển thị" : currentStatus === "INACTIVE" ? "Đang ẩn" : "all";
     const matchStatus = currentStatus === "all" || category.status === targetStatusText;
-
-    // Nếu không khớp từ khóa, và không có đứa con nào khớp từ khóa -> Ẩn luôn nhánh này
     const anyChildMatches = category.children?.some(c => c.name.toLowerCase().includes(currentKeyword.toLowerCase()));
 
-    // ĐIỂM MẤU CHỐT:
-    // Nếu chọn bộ lọc trạng thái (VD: Đang hiển thị) nhưng danh mục này bị Ẩn
-    // -> Cứ RENDER nó, nhưng LÀM MỜ NÓ, không cho phép nó biến mất.
-
-    // Chỉ ẩn hẳn dòng khi TỪ KHÓA TÌM KIẾM không khớp với nó và không khớp với con nó.
     if (!matchKeyword && !anyChildMatches && currentKeyword !== "") {
         return null;
     }
@@ -217,7 +215,6 @@ export default function CategoryManagementPage() {
       <React.Fragment key={category.id}>
         <tr className={cn(
             "border-b border-slate-100 transition-colors group",
-            // Nếu không khớp bộ lọc trạng thái -> Hạ độ sáng (opacity) cực thấp để phân biệt
             !matchStatus ? "opacity-30 bg-slate-100" :
             category.status === "Đang ẩn" ? "bg-slate-50/50 opacity-75 hover:opacity-100" : "hover:bg-slate-50"
         )}>
@@ -286,12 +283,11 @@ export default function CategoryManagementPage() {
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
         <AdminSearchFilter
           placeholder="Tìm tên danh mục..."
-          // KHÔNG LOAD LẠI DATA TỪ SERVER, CHỈ LƯU STATE ĐỂ REACT TỰ RENDER LẠI
           onSearch={(text) => setCurrentKeyword(text)}
           onRefresh={() => {
             setCurrentKeyword("");
             setCurrentStatus("all");
-            loadData(); // Nút refresh thì nên lấy cục data mới nhất
+            loadData();
           }}
           filter2Options={[
             { label: "Tất cả trạng thái", value: "all" },
@@ -339,13 +335,25 @@ export default function CategoryManagementPage() {
              {/* Cột trái: Thông tin */}
              <div className="space-y-5">
                 <div className="space-y-2">
-                   <Label className="text-[11px] font-bold text-slate-500 uppercase">Tên danh mục *</Label>
+                   {/* ✅ Label đổi sang màu đỏ nếu có lỗi */}
+                   <Label className={cn("text-[11px] font-bold uppercase", nameError ? "text-red-500" : "text-slate-500")}>
+                     Tên danh mục *
+                   </Label>
                    <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => {
+                      setFormData({...formData, name: e.target.value});
+                      // ✅ Tự động ẩn thông báo lỗi khi người dùng bắt đầu gõ lại
+                      if (nameError) setNameError("");
+                    }}
                     placeholder="VD: Thuốc thú y, Thức ăn..."
-                    className="focus-visible:ring-emerald-500 h-10 font-medium"
+                    // ✅ Khung input chuyển đỏ khi có lỗi
+                    className={cn("focus-visible:ring-emerald-500 h-10 font-medium", nameError && "border-red-500 focus-visible:ring-red-500")}
                    />
+                   {/* ✅ Hiển thị dòng chữ lỗi màu đỏ */}
+                   {nameError && (
+                     <p className="text-[12px] font-medium text-red-500 mt-1">{nameError}</p>
+                   )}
                 </div>
 
                 <div className="space-y-2">
