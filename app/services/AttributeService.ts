@@ -13,13 +13,16 @@ export const getAttributeById = async (id: number) => {
 };
 
 export const createAttribute = async (data: any) => {
-  return await apiJava.post(PREFIX, data);
+  const response = await apiJava.post(PREFIX, data);
+  return response.data;
 };
 
 export const updateAttribute = async (id: number, data: any) => {
-  return await apiJava.put(`${PREFIX}/${id}`, data);
+  const response = await apiJava.put(`${PREFIX}/${id}`, data);
+  return response.data;
 };
 
 export const deleteAttribute = async (id: number) => {
-  return await apiJava.delete(`${PREFIX}/${id}`);
+  const response = await apiJava.delete(`${PREFIX}/${id}`);
+  return response.data;
 };

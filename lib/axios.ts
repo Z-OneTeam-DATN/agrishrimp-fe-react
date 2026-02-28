@@ -139,7 +139,7 @@ const errorHandlers: Record<
   },
 
   500: async (e) => {
-    if (isClient()) toast.error("Lỗi hệ thống máy chủ. Vui lòng thử lại.", { id: "error-500" });
+//     if (isClient()) toast.error("Lỗi hệ thống máy chủ. Vui lòng thử lại.", { id: "error-500" });
     return Promise.reject(e);
   },
   502: async (e) => {

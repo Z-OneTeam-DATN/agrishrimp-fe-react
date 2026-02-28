@@ -71,7 +71,7 @@ export default function EditProfilePage() {
     birthday: (user?.dateOfBirth || user?.birthday || user?.dob)
       ? new Date(user?.dateOfBirth || user?.birthday || user?.dob)
       : new Date("1995-05-20"),
-    // ✅ Luôn ưu tiên lấy ảnh từ state 'user' để hiển thị ảnh mới nhất
+    //  Luôn ưu tiên lấy ảnh từ state 'user' để hiển thị ảnh mới nhất
     avatarUrl: user?.avatarUrl || "https://hinhcute.net/wp-content/uploads/2025/06/anh-26-meme-dang-yeu.jpg",
   };
 
@@ -85,7 +85,7 @@ export default function EditProfilePage() {
             initialValues={userData}
             isGoogleAuth={isGoogleAuth}
             onUpdateSuccess={(newPayload) => {
-              // ✅ SỬA TẠI ĐÂY: Cập nhật toàn bộ payload (bao gồm cả avatarUrl) vào state user
+              //  SỬA TẠI ĐÂY: Cập nhật toàn bộ payload (bao gồm cả avatarUrl) vào state user
               setUser((prev: any) => ({
                 ...prev,
                 fullName: newPayload.fullName,
