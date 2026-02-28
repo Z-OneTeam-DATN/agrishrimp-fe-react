@@ -293,7 +293,7 @@ export default function ProfilePage() {
             ) : (
               <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-4 flex flex-1 items-center justify-center flex-col text-gray-400">
                 <p className="text-sm mb-2">Chưa có địa chỉ nào</p>
-                <Link href="/profile/address" className="text-[#329965] text-xs font-bold hover:underline">
+                <Link href="/address" className="text-[#329965] text-xs font-bold hover:underline">
                   Thêm địa chỉ ngay
                 </Link>
               </div>

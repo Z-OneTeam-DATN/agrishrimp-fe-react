@@ -314,6 +314,11 @@ export const AdminBranchSchema = z.object({
     .string()
     .min(5, "Vui lòng nhập địa chỉ chi tiết (số nhà, tên đường)")
     .max(255, "Địa chỉ quá dài"),
+status: z
+    .enum(["ACTIVE", "MAINT", "INACTIVE", "active", "inactive"]) // Cho phép cả 2 để an toàn
+    .transform(val => val.toUpperCase()) // Luôn chuyển về HOA khi submit
+    .default("ACTIVE"),
+
 
   status: z
     .enum(["ACTIVE", "MAINT", "INACTIVE", "active", "inactive"]) // Cho phép cả 2 để an toàn
@@ -323,6 +328,7 @@ export const AdminBranchSchema = z.object({
   branchType: z.enum(["WAREHOUSE", "STORE", "hub", "store"], {
     errorMap: () => ({ message: "Vui lòng chọn loại hình chi nhánh" }),
   }).transform(val => (val === "hub" ? "WAREHOUSE" : val.toUpperCase())),
+
 
 });
 
