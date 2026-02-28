@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  X, Search, Info, Settings, Plus, Trash2, Package, Save, Image as ImageIcon, Download, Loader2, User, Clock, ChevronLeft, Warehouse
+  X, Search, Info, Settings, Plus, Trash2, Package, Save, Image as ImageIcon, Download, Loader2, User, Clock, ChevronLeft, Warehouse, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { ReceiptSchema, Receipt } from "@/app/types/inventory.schema";
 import { toast } from "sonner";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 import { supplierService } from "@/app/services/supplier.service";
 import { Supplier } from "@/app/types/supplier.type";
@@ -34,14 +34,18 @@ function AdminReceiptFormContent() {
   const receiptId = searchParams.get("id");
   const isEditMode = Boolean(receiptId);
 
+  // 1. Lấy thông tin user
+  const { data: currentUser, isLoading: isUserLoading } = useCurrentUser();
+
+  // 2. Định nghĩa biến kiểm tra quyền (Dựa trên roleId hoặc slug từ BE trả về)
+  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
+
   const [isReadOnly, setIsReadOnly] = useState(false);
 
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(isEditMode);
-
-  const { data: user, isLoading: isUserLoading } = useCurrentUser();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
@@ -120,73 +124,38 @@ function AdminReceiptFormContent() {
 
   // 1. Fetch Dữ liệu khi Sửa (Edit Mode)
   useEffect(() => {
-    if (isEditMode && receiptId && !hasFetched.current) {
-      hasFetched.current = true;
+      if (isEditMode && receiptId && !hasFetched.current) {
+        hasFetched.current = true;
+        const fetchDetail = async () => {
+          try {
+            setIsInitialLoading(true);
+            const data = await InventoryApiService.getReceiptDetail(receiptId);
+            if (data.status === "COMPLETED") setIsReadOnly(true);
 
-      const fetchDetail = async () => {
-        try {
-          setIsInitialLoading(true);
-          const data = await InventoryApiService.getReceiptDetail(receiptId);
+            reset({
+              importType: data.importType || (data.sourceBranchId ? "INTERNAL" : "SUPPLIER"),
+              sourceBranchId: data.sourceBranchId ? data.sourceBranchId.toString() : "",
+              receiptCode: data.code || "", supplierName: data.supplierName || "", supplierCode: data.supplierCode || "",
+              branchName: data.branchName || "", deliverer: data.deliverer || "",
+              entryDate: data.entryDate ? new Date(data.entryDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+              note: data.note || "", paymentAmount: data.paymentAmount || 0,
+              importStatus: data.status === "PENDING" ? "PO" : "IMPORTED", tags: data.tags || [], items: []
+            });
 
-          if (data.status === "COMPLETED") {
-            setIsReadOnly(true);
-          }
-
-          const mappedItems = (data.items || []).map((item: any) => ({
-            productCode: item.productCode || "",
-            productName: item.productName || "",
-            plannedQuantity: item.quantity || 1,
-            maxQuantity: 0, // Edit mode sẽ bypass vụ check max Qty (hoặc fetch thủ công nếu muốn)
-            importPrice: item.price || 0,
-            newSellingPrice: item.newSellingPrice || 0,
-            lotNumber: item.lotNumber || "",
-            expiryDate: item.expiryDate || "",
-            imageUrl: item.imageUrl || ""
-          }));
-
-          const resolvedImportType = data.importType || (data.sourceBranchId ? "INTERNAL" : "SUPPLIER");
-
-          reset({
-            importType: resolvedImportType,
-            sourceBranchId: data.sourceBranchId ? data.sourceBranchId.toString() : "",
-            receiptCode: data.code || "",
-            supplierName: data.supplierName || "",
-            supplierCode: data.supplierCode || "",
-            branchName: data.branchName || "",
-            deliverer: data.deliverer || "",
-            entryDate: data.entryDate ? new Date(data.entryDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-            note: data.note || "",
-            paymentAmount: data.paymentAmount || 0,
-            importStatus: data.status === "PENDING" ? "PO" : "IMPORTED",
-            tags: data.tags || [],
-            items: [],
-          });
-
-          replace(mappedItems);
-          setTags(data.tags || []);
-
-          if (resolvedImportType === "SUPPLIER" && (data.supplierName || data.supplierCode)) {
-             try {
-                const supplierRes = await supplierService.getAll(data.supplierCode || data.supplierName, undefined, "ACTIVE", 0, 1);
-                if (supplierRes && supplierRes.content && supplierRes.content.length > 0) {
-                    setSelectedSupplier(supplierRes.content[0]);
-                } else {
-                    setSelectedSupplier({ name: data.supplierName, code: data.supplierCode || "N/A", phone: "Liên hệ NCC", email: "N/A" } as any);
-                }
-             } catch (err) {
-                 setSelectedSupplier({ name: data.supplierName, code: data.supplierCode || "N/A", phone: "N/A", email: "N/A" } as any);
-             }
-          }
-        } catch (error) {
-          toast.error("Không thể tải thông tin phiếu nhập");
-          router.push("/admin/receipts");
-        } finally {
-          setIsInitialLoading(false);
-        }
-      };
-      fetchDetail();
-    }
-  }, [isEditMode, receiptId, reset, replace, router]);
+            replace((data.items || []).map((item: any) => ({
+              productCode: item.productCode || "", productName: item.productName || "",
+              plannedQuantity: item.quantity || 1, maxQuantity: 0,
+              importPrice: item.price || 0, newSellingPrice: item.newSellingPrice || 0,
+              lotNumber: item.lotNumber || "", expiryDate: item.expiryDate || "", imageUrl: item.imageUrl || ""
+            })));
+            setTags(data.tags || []);
+          } catch (error) {
+            toast.error("Không thể tải thông tin phiếu"); router.push("/admin/receipts");
+          } finally { setIsInitialLoading(false); }
+        };
+        fetchDetail();
+      }
+    }, [isEditMode, receiptId, reset, replace, router]);
 
   // 2. Fetch danh sách chi nhánh
   useEffect(() => {
@@ -206,12 +175,12 @@ function AdminReceiptFormContent() {
 
   // 3. Set nhân viên mặc định
   useEffect(() => {
-    if (user && !isEditMode) {
-      setValue("deliverer", user.fullName || user.displayName || "Quản trị viên");
+    if (currentUser && !isEditMode) {
+      setValue("deliverer", currentUser.fullName || currentUser.displayName || "Quản trị viên");
     }
-  }, [user, setValue, isEditMode]);
+  }, [currentUser, setValue, isEditMode]);
 
-  // 4. Tìm kiếm Sản Phẩm
+  // 4. Tìm kiếm Sản Phẩm (Lấy theo tổng tồn kho chi nhánh)
   useEffect(() => {
     if (!isProductDropdownOpen) return;
 
@@ -343,47 +312,30 @@ function AdminReceiptFormContent() {
 
   // --- SUBMIT ---
   const onSubmit = async (data: Receipt) => {
-    if (isReadOnly) return;
-
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        importType: data.importType,
-        sourceBranchId: data.importType === "INTERNAL" ? Number(data.sourceBranchId) : null,
-        supplierCode: data.importType === "SUPPLIER" ? data.supplierCode : null,
-        receiptCode: data.receiptCode,
-        branchName: data.branchName,
-        deliverer: data.deliverer,
-        entryDate: data.entryDate,
-        note: data.note,
-        importStatus: data.importStatus,
-        paymentAmount: data.importType === "INTERNAL" ? 0 : (Number(data.paymentAmount) || 0),
-        tags: tags,
-        items: data.items.map(item => ({
-          productCode: item.productCode,
-          plannedQuantity: Number(item.plannedQuantity),
-          lotNumber: item.lotNumber,
-          expiryDate: item.expiryDate,
-          importPrice: Number(item.importPrice),
-          newSellingPrice: Number(item.newSellingPrice)
-        }))
-      };
-
-      if (isEditMode && receiptId) {
-        await InventoryApiService.updateReceipt(receiptId, payload);
-        toast.success("Cập nhật phiếu nhập hàng thành công!");
-      } else {
-        await InventoryApiService.createReceipt(payload);
-        toast.success("Tạo phiếu nhập hàng thành công!");
-      }
-      router.push("/admin/receipts");
-    } catch (error: any) {
-      console.error("Submit error:", error);
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi lưu phiếu nhập");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      if (isReadOnly) return;
+      setIsSubmitting(true);
+      try {
+        const payload = {
+          importType: data.importType,
+          sourceBranchId: data.importType === "INTERNAL" ? Number(data.sourceBranchId) : null,
+          supplierCode: data.importType === "SUPPLIER" ? data.supplierCode : null,
+          receiptCode: data.receiptCode, branchName: data.branchName, deliverer: data.deliverer,
+          entryDate: data.entryDate, note: data.note, importStatus: data.importStatus,
+          paymentAmount: data.importType === "INTERNAL" ? 0 : (Number(data.paymentAmount) || 0), tags: tags,
+          items: data.items.map(item => ({
+            productCode: item.productCode, plannedQuantity: Number(item.plannedQuantity),
+            lotNumber: item.lotNumber, expiryDate: item.expiryDate,
+            importPrice: Number(item.importPrice), newSellingPrice: Number(item.newSellingPrice)
+          }))
+        };
+        if (isEditMode) await InventoryApiService.updateReceipt(receiptId as string, payload);
+        else await InventoryApiService.createReceipt(payload);
+        toast.success("Lưu phiếu nhập thành công!");
+        router.push("/admin/receipts");
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || "Lỗi lưu phiếu");
+      } finally { setIsSubmitting(false); }
+    };
 
   if (isInitialLoading) {
     return (
@@ -414,6 +366,19 @@ function AdminReceiptFormContent() {
         <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
           {isEditMode ? (isReadOnly ? "Chi tiết phiếu nhập hàng (Đã nhập)" : "Cập nhật phiếu nhập hàng") : "Tạo phiếu nhập hàng mới"}
         </h1>
+      </div>
+
+      {/* ✅ THÔNG BÁO QUYỀN TRỰC QUAN */}
+      <div className={cn(
+          "p-3 border flex items-center gap-3 rounded-sm shadow-sm",
+          isAdmin ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-amber-50 border-amber-200 text-amber-700"
+      )}>
+        <AlertCircle size={18} />
+        <p className="text-[12px] font-bold uppercase tracking-wide">
+          {isAdmin
+            ? "Chế độ Quản trị: Tồn kho sẽ được cập nhật ngay sau khi lưu."
+            : "Chế độ Nhân viên: Phiếu sẽ được lưu ở trạng thái chờ duyệt."}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 relative z-20">
@@ -880,13 +845,16 @@ function AdminReceiptFormContent() {
         </Button>
 
         {!isReadOnly && (
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="min-w-[180px] text-[12px] font-black bg-blue-600 text-white uppercase rounded-none shadow-md"
-          >
-            {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Save size={18} className="mr-2" /> Lưu phiếu nhập</>}
-          </Button>
+         <Button type="submit" disabled={isSubmitting} className="min-w-[180px] text-[12px] font-black bg-blue-600 text-white uppercase rounded-none shadow-md">
+           {isSubmitting ? (
+             <Loader2 className="animate-spin mr-2" />
+           ) : (
+             <>
+               <Save size={18} className="mr-2" />
+               {isAdmin ? "LƯU & DUYỆT NGAY" : "LƯU & GỬI DUYỆT"}
+             </>
+           )}
+         </Button>
         )}
       </div>
     </form>

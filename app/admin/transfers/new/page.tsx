@@ -90,7 +90,7 @@ export default function NewTransferPage() {
     formState: { errors },
   } = useForm<any>({
     resolver: zodResolver(TransferSchema),
-    mode: "onTouched", // Validate ngay khi người dùng rời khỏi ô input
+    mode: "onTouched",
     defaultValues: {
       transferType: "BETWEEN_WAREHOUSES",
       description: sourceCode ? `Xuất điều chuyển theo yêu cầu ${sourceCode}` : "",

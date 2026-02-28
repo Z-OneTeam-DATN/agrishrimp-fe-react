@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function TransferDetailPage() {
   const { id } = useParams();
@@ -23,6 +24,13 @@ export default function TransferDetailPage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { data: currentUser } = useCurrentUser();
+
+  // Kiểm tra quyền Admin
+  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
+
+  // Quyền duyệt xuất: CHỈ DÀNH CHO ADMIN
+  const canApproveShip = isAdmin;
 
   // Modal States
   const [showChangeBranchModal, setShowChangeBranchModal] = useState(false);
@@ -57,7 +65,6 @@ export default function TransferDetailPage() {
       const updated = await transferService.getById(id as string);
       setTransfer(updated);
     } catch (error: any) {
-      // FIX LỖI OBJECT NHIỀU LỚP CỦA REACT TOAST TẠI ĐÂY
       const errData = error.response?.data;
       let errMsg = "Lỗi xử lý hệ thống";
       if (typeof errData === 'string') {
@@ -105,22 +112,21 @@ export default function TransferDetailPage() {
 
   // 5. Kiểm đếm & Nhận hàng
   const openInspectModal = () => {
-    setInspectItems((transfer?.items || []).map((i: any) => ({ 
-      ...i, 
-      quantityReal: i.quantityRequested, 
-      note: "" 
+    setInspectItems((transfer?.items || []).map((i: any) => ({
+      ...i,
+      quantityReal: i.quantityRequested,
+      note: ""
     })));
     setShowInspectModal(true);
   };
 
   const submitInspect = () => {
     const payload = inspectItems.map((i) => ({
-      variantId: i.variantId, // <--- Kiểm tra xem variantId này có bị giống nhau ở mọi dòng không?
+      variantId: i.variantId,
       quantityReal: Number(i.quantityReal || 0),
       note: i.note || ""
     }));
 
-    console.log("Payload gửi đi:", payload); // Thêm dòng này để debug
     handleApiCall(() => transferService.receive(id as string, payload), "...");
     setShowInspectModal(false);
   };
@@ -211,9 +217,11 @@ export default function TransferDetailPage() {
          </div>
          <div className="flex items-center gap-2">
             <Button variant="outline" className="h-8 text-[11px] font-bold border-slate-300 rounded-none px-3 text-slate-600"><Printer size={14} className="mr-1.5" /> IN PHIẾU</Button>
-            {transfer.status === "PENDING" && (
-              <Button onClick={handleApprove} disabled={isProcessing} className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-none">DUYỆT XUẤT KHO</Button>
-            )}
+           {transfer.status === "PENDING" && canApproveShip && (
+             <Button onClick={handleApprove} className="bg-blue-600">
+               XÁC NHẬN XUẤT KHO (BẮT ĐẦU VẬN CHUYỂN)
+             </Button>
+           )}
             {["SHIPPING", "TRANSIT"].includes(transfer.status) && (
               <React.Fragment>
                   <Button onClick={handleReceiveAll} disabled={isProcessing} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-none"><CheckSquare size={14} className="mr-1.5"/> ĐÃ NHẬN ĐỦ</Button>

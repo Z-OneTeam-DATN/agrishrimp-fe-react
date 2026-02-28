@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
   X, Plus, Trash2, FileText, ChevronLeft, Save, ShoppingBag, Warehouse, UserCheck,
-  MapPin, User, Phone, CalendarIcon, Hash, Search, BadgeCheck, Loader2, Package
+  MapPin, User, Phone, CalendarIcon, Hash, Search, BadgeCheck, Loader2, Package, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,41 +28,14 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 // 1. ĐỊNH NGHĨA ZOD SCHEMA ĐỂ BẮT LỖI (VALIDATION)
 // =================================================================
 const ExportItemSchema = z.object({
-  productVariantId: z.number(),
-  sku: z.string(),
-  name: z.string(),
-  unit: z.string(),
-  stock: z.number(),
-  price: z.number(),
-  quantity: z.coerce.number({ invalid_type_error: "Vui lòng nhập số" })
-    .min(1, "Số lượng xuất phải lớn hơn 0"),
-  returnReason: z.string().optional()
+  productVariantId: z.number(), sku: z.string(), name: z.string(), unit: z.string(), stock: z.number(), price: z.number(),
+  quantity: z.coerce.number().min(1, "Số lượng xuất phải lớn hơn 0"), returnReason: z.string().optional()
 });
 
 const ExportCommandSchema = z.object({
-  noteCode: z.string(),
-  exportType: z.enum(["INTERNAL", "RETURN"]),
-  referenceCode: z.string().optional(),
-  expectedDate: z.string().min(1, "Vui lòng chọn ngày xuất"),
-  note: z.string().min(1, "Vui lòng nhập lý do/diễn giải"),
-  branchId: z.string().min(1, "Vui lòng chọn kho xuất"),
-  targetId: z.string().min(1, "Vui lòng chọn đối tượng nhận"),
-  specificReceiver: z.string().min(1, "Vui lòng nhập người nhận"),
-  shippingAddress: z.string().min(1, "Vui lòng nhập địa chỉ"),
-  creatorName: z.string(),
-  items: z.array(ExportItemSchema).min(1, "Vui lòng chọn ít nhất 1 sản phẩm")
-}).superRefine((data, ctx) => {
-  if (data.exportType === "RETURN") {
-    data.items.forEach((item, index) => {
-      if (!item.returnReason || item.returnReason.trim() === "") {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Vui lòng nhập lý do trả (lỗi, hết hạn...)",
-          path: ["items", index, "returnReason"]
-        });
-      }
-    });
-  }
+  noteCode: z.string(), exportType: z.enum(["INTERNAL", "RETURN"]), expectedDate: z.string().min(1, "Chọn ngày"),
+  note: z.string().min(1, "Nhập lý do"), branchId: z.string().min(1, "Chọn kho xuất"), targetId: z.string().min(1, "Chọn đối tượng"),
+  specificReceiver: z.string(), shippingAddress: z.string(), items: z.array(ExportItemSchema).min(1, "Chọn ít nhất 1 SP")
 });
 
 type ExportCommandFormValues = z.infer<typeof ExportCommandSchema>;
@@ -76,7 +49,9 @@ function AdminExportFormContent() {
   const exportId = searchParams.get("id");
   const isEditMode = Boolean(exportId);
 
+  // ✅ ĐÚNG: Hook phải nằm ở đây (bên trong component)
   const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,60 +104,35 @@ function AdminExportFormContent() {
   const totalAmount = watchItems.reduce((acc, item) => acc + ((item.quantity || 0) * (item.price || 0)), 0);
 
   useEffect(() => {
-    if (isEditMode && exportId) {
-      const fetchDetail = async () => {
-        setIsInitialLoading(true);
-        try {
-          const data = await InventoryExportApiService.getExportCommandDetail(exportId);
+      if (isEditMode && exportId) {
+        InventoryExportApiService.getExportCommandDetail(exportId).then(data => {
           if (data.status === "COMPLETED") setIsReadOnly(true);
-
-          const type = data.exportType || "INTERNAL";
-          const target = type === "INTERNAL" ? data.partnerBranchId : data.supplierId;
-
           reset({
-            exportType: type,
-            noteCode: data.code,
-            referenceCode: data.referenceCode || "",
-            note: data.note || "",
+            exportType: data.exportType || "INTERNAL", noteCode: data.code, note: data.note || "",
             expectedDate: data.entryDate || new Date().toLocaleDateString('en-CA'),
-            branchId: data.branchId?.toString() || "",
-            targetId: target?.toString() || "",
-            specificReceiver: data.deliverer || "",
-            shippingAddress: data.shippingAddress || "",
-            creatorName: data.creatorName || "",
+            branchId: data.branchId?.toString() || "", targetId: (data.exportType === "INTERNAL" ? data.partnerBranchId : data.supplierId)?.toString() || "",
+            specificReceiver: data.deliverer || "", shippingAddress: data.shippingAddress || "",
             items: (data.details || []).map((item: any) => ({
-              productVariantId: item.productVariantId,
-              sku: item.sku,
-              name: item.productName || "Sản phẩm lỗi",
-              unit: item.unit || "Cái",
-              stock: 0,
-              quantity: item.quantityRequested,
-              price: item.price || 0,
-              returnReason: item.note || ""
+              productVariantId: item.productVariantId, sku: item.sku, name: item.productName || "SP", unit: "Cái",
+              stock: 0, quantity: item.quantityRequested, price: item.price || 0, returnReason: item.note || ""
             }))
           });
-        } catch (err) {
+          setIsInitialLoading(false);
+        }).catch(() => {
           toast.error("Không thể tải chi tiết phiếu xuất");
           router.push("/admin/exports");
-        } finally {
-          setIsInitialLoading(false);
-        }
-      };
-      fetchDetail();
-    }
-  }, [isEditMode, exportId, router, reset]);
+        });
+      }
+    }, [isEditMode, exportId, reset, router]);
 
-  // SỬ DỤNG HÀM searchVariants GIỐNG NHƯ BÊN NHẬP KHO
   useEffect(() => {
     if (!showDropdown) return;
-
     const fetchProducts = async () => {
       if (!watchBranchId) {
         toast.warning("Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm");
         setShowDropdown(false);
         return;
       }
-
       try {
         const data = await ProductService.searchVariants(searchTerm, watchBranchId);
         const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
@@ -191,7 +141,6 @@ function AdminExportFormContent() {
         toast.error("Không thể tải danh sách sản phẩm");
       }
     };
-
     const debounceTimer = setTimeout(fetchProducts, 300);
     return () => clearTimeout(debounceTimer);
   }, [searchTerm, showDropdown, watchBranchId]);
@@ -247,7 +196,7 @@ function AdminExportFormContent() {
       setValue("specificReceiver", targetInfo.name);
       setValue("shippingAddress", targetInfo.address);
     }
-  }, [watchTargetId, watchExportType, isEditMode, setValue]);
+  }, [watchTargetId, watchExportType, isEditMode, setValue, targetInfo]);
 
   const addVariantToTable = (variant: any, productName: string) => {
     if (isReadOnly) return;
@@ -271,7 +220,6 @@ function AdminExportFormContent() {
   const onSubmit = async (data: ExportCommandFormValues) => {
     if (isReadOnly) return;
     const currentUserId = currentUser?.id;
-
     const payload = {
       code: data.noteCode,
       exportType: data.exportType,
@@ -332,6 +280,18 @@ function AdminExportFormContent() {
                 <Hash size={12}/> Mã: <span className="text-blue-600">{watch("noteCode")}</span>
             </p>
         </div>
+      </div>
+
+      <div className={cn(
+          "mt-2 p-3 border flex items-center gap-3 rounded-sm shadow-sm",
+          isAdmin ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-amber-50 border-amber-200 text-amber-700"
+      )}>
+        <AlertCircle size={18} />
+        <p className="text-[12px] font-bold uppercase tracking-wide">
+          {isAdmin
+            ? "Chế độ Quản trị: Hệ thống sẽ tự động chốt đơn và cập nhật tồn kho ngay lập tức."
+            : "Chế độ Nhân viên: Đơn sau khi lưu sẽ ở trạng thái Chờ Duyệt bởi Quản trị viên."}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -607,8 +567,15 @@ function AdminExportFormContent() {
          <div className="flex gap-3">
            <Button type="button" variant="outline" className="rounded-none uppercase px-8 border-slate-300 bg-white" onClick={() => router.back()}>{isReadOnly ? "Quay lại" : "Hủy bỏ"}</Button>
            {!isReadOnly && (
-             <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white rounded-none uppercase font-black px-10 transition-all shadow-md active:scale-95">
-               {isSubmitting ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save size={18} className="mr-2"/>} {isEditMode ? "Cập nhật lệnh xuất" : "Tạo lệnh xuất"}
+             <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white rounded-none font-black px-10">
+               {isSubmitting ? (
+                 <Loader2 className="animate-spin mr-2" />
+               ) : (
+                 <>
+                   <Save size={18} className="mr-2" />
+                   {isAdmin ? "LƯU & DUYỆT NGAY" : "LƯU & GỬI DUYỆT"}
+                 </>
+               )}
              </Button>
            )}
          </div>
