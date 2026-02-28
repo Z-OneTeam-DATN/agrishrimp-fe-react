@@ -53,11 +53,8 @@ export default function AdminSidebar() {
 
   // Tự động mở nhóm menu nếu đang truy cập trang con bên trong
   useEffect(() => {
-    if (pathname.startsWith("/admin/orders") && !pathname.startsWith("/admin/orders-")) {
+    if (pathname.startsWith("/admin/orders")) {
       setOpenGroups(prev => prev.includes("orders") ? prev : [...prev, "orders"]);
-    }
-    if (pathname.startsWith("/admin/orders-")) {
-      setOpenGroups(prev => prev.includes("orders-processing") ? prev : [...prev, "orders-processing"]);
     }
   }, [pathname]);
 
@@ -133,15 +130,65 @@ export default function AdminSidebar() {
           </div>
         </section>
 
-        {/* SECTION: QUẢN TRỊ - Only for ADMIN */}
-        {isAdmin && (
+        {/* SECTION: BÁO CÁO */}
+        {hasPermission("ROLE_MANAGE") && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Báo cáo
+            </p>
+            <div className="space-y-0.5">
+              <SidebarLink
+                href="/admin/reports/sales"
+                icon={TrendingUp}
+                label="Doanh thu"
+                active={isActive("/admin/reports/sales")}
+                color="text-blue-500"
+              />
+              <SidebarLink
+                href="/admin/reports/inventory"
+                icon={Warehouse}
+                label="Báo cáo kho"
+                active={isActive("/admin/reports/inventory")}
+                color="text-amber-500"
+              />
+              {isAdmin && (
+                <SidebarLink
+                  href="/admin/financial"
+                  icon={FileBarChart}
+                  label="Tài chính"
+                  active={isActive("/admin/financial")}
+                  color="text-emerald-500"
+                />
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: QUẢN TRỊ */}
+        {(isAdmin || hasPermission("ROLE_MANAGE")) && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
               Quản trị
             </p>
             <div className="space-y-0.5">
-              <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
-              <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
+              {isAdmin && (
+                <>
+                  <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
+                  <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
+                </>
+              )}
+              {hasPermission("ROLE_MANAGE") && (
+                <>
+                  <SidebarLink
+                    href="/admin/suppliers"
+                    icon={Truck}
+                    label="Nhà cung cấp"
+                    active={isActive("/admin/suppliers")}
+                    badge={supplierCount}
+                    color="text-orange-400"
+                  />
+                </>
+              )}
             </div>
           </section>
         )}
@@ -155,11 +202,11 @@ export default function AdminSidebar() {
           </p>
           <div className="space-y-0.5">
             <SidebarGroup
-              label="Đơn hàng"
+              label="Quản lý Đơn hàng"
               icon={ShoppingCart}
               isOpen={openGroups.includes("orders")}
               onToggle={() => toggleGroup("orders")}
-              active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}
+              active={pathname.startsWith("/admin/orders")}
             >
               <SidebarLink
                 href="/admin/orders"
@@ -168,6 +215,9 @@ export default function AdminSidebar() {
                 active={pathname === "/admin/orders" || (pathname.startsWith("/admin/orders/") && !pathname.includes("return"))}
                 isChild
               />
+              <SidebarLink href="/admin/orders-processing" icon={Box} label="Điều hành & Gom đơn" active={pathname === "/admin/orders-processing"} isChild />
+              <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
+              <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
               <SidebarLink
                 href="/admin/orders/return"
                 icon={RotateCcw}
@@ -176,20 +226,16 @@ export default function AdminSidebar() {
                 isChild
               />
             </SidebarGroup>
-
-            <SidebarGroup
-              label="Xử lý đơn hàng"
-              icon={ShoppingCart}
-              isOpen={openGroups.includes("orders-processing")}
-              onToggle={() => toggleGroup("orders-processing")}
-              active={pathname.startsWith("/admin/orders-")}
-            >
-              <SidebarLink href="/admin/orders-confirmation" icon={CheckSquare} label="Chờ xác nhận" active={pathname === "/admin/orders-confirmation"} isChild />
-              <SidebarLink href="/admin/orders-processing" icon={Box} label="Chờ xử lý" active={pathname === "/admin/orders-processing"} isChild />
-              <SidebarLink href="/admin/orders-packing" icon={Printer} label="In & đóng gói" active={pathname === "/admin/orders-packing"} isChild />
-              <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
-              <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
-            </SidebarGroup>
+            {hasPermission("ROLE_MANAGE") && (
+              <SidebarLink
+                href="/admin/customers"
+                icon={Users}
+                label="Khách hàng"
+                active={isActive("/admin/customers")}
+                badge={customerCount}
+                color="text-blue-400"
+              />
+            )}
           </div>
         </section>
 
@@ -243,65 +289,6 @@ export default function AdminSidebar() {
             <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
           </div>
         </section>
-        {/* SECTION: ĐỐI TÁC */}
-        {hasPermission("ROLE_MANAGE") && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Đối tác
-            </p>
-            <div className="space-y-0.5">
-              <SidebarLink
-                href="/admin/suppliers"
-                icon={Truck}
-                label="Nhà cung cấp"
-                active={isActive("/admin/suppliers")}
-                badge={supplierCount}
-                color="text-orange-400"
-              />
-              <SidebarLink
-                href="/admin/customers"
-                icon={Users}
-                label="Khách hàng"
-                active={isActive("/admin/customers")}
-                badge={customerCount}
-                color="text-blue-400"
-              />
-            </div>
-          </section>
-        )}
-        {/* SECTION: BÁO CÁO */}
-        {hasPermission("ROLE_MANAGE") && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Báo cáo
-            </p>
-            <div className="space-y-0.5">
-              <SidebarLink
-                href="/admin/reports/sales"
-                icon={TrendingUp}
-                label="Doanh thu"
-                active={isActive("/admin/reports/sales")}
-                color="text-blue-500"
-              />
-              <SidebarLink
-                href="/admin/reports/inventory"
-                icon={Warehouse}
-                label="Báo cáo kho"
-                active={isActive("/admin/reports/inventory")}
-                color="text-amber-500"
-              />
-              {isAdmin && (
-                <SidebarLink
-                  href="/admin/financial"
-                  icon={FileBarChart}
-                  label="Tài chính"
-                  active={isActive("/admin/financial")}
-                  color="text-emerald-500"
-                />
-              )}
-            </div>
-          </section>
-        )}
       </div>
 
       <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50">
