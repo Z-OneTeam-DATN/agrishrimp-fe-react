@@ -1,6 +1,34 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+/**
+ * Mapping route prefix → permission code bắt buộc để truy cập.
+ * Middleware sẽ đọc authorities từ JWT và kiểm tra theo bảng này.
+ * Admin (role ADMIN) luôn bypass toàn bộ bảng này.
+ */
+const ADMIN_ROUTE_PERMISSIONS: { path: string; permission: string }[] = [
+  { path: "/admin/reports/sales",      permission: "REPORT_REVENUE_VIEW" },
+  { path: "/admin/reports/inventory",  permission: "REPORT_INVENTORY_VIEW" },
+  { path: "/admin/financial",          permission: "REPORT_FINANCE_VIEW" },
+  { path: "/admin/employees",          permission: "STAFF_VIEW" },
+  { path: "/admin/branches",           permission: "BRANCH_VIEW" },
+  { path: "/admin/roles",              permission: "ROLE_VIEW" },
+  { path: "/admin/orders",             permission: "ORDER_VIEW" },
+  { path: "/admin/orders-processing",  permission: "ORDER_VIEW" },
+  { path: "/admin/orders-handover",    permission: "ORDER_VIEW" },
+  { path: "/admin/orders-all",         permission: "ORDER_VIEW" },
+  { path: "/admin/customers",          permission: "CUSTOMER_VIEW" },
+  { path: "/admin/products",           permission: "PRODUCT_VIEW" },
+  { path: "/admin/categories",         permission: "CATEGORY_VIEW" },
+  { path: "/admin/variants",           permission: "ATTRIBUTE_VIEW" },
+  { path: "/admin/suppliers",          permission: "SUPPLIER_VIEW" },
+  { path: "/admin/receipts",           permission: "IMPORT_VIEW" },
+  { path: "/admin/exports",            permission: "EXPORT_VIEW" },
+  { path: "/admin/transfers",          permission: "TRANSFER_VIEW" },
+  { path: "/admin/inventory-checks",   permission: "IMPORT_VIEW" },
+  { path: "/admin/settings",           permission: "SETTING_VIEW" },
+];
+
 // Các trang công khai (Public pages - KHÔNG cần đăng nhập)
 const PUBLIC_PATHS = [
   "/",
@@ -90,33 +118,44 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 3. RBAC Check for /admin
+    // 3. RBAC Check for /admin
   if (accessToken && path.startsWith("/admin")) {
     const payload = decodeJwt(accessToken);
     if (!payload) return NextResponse.next();
 
-    const role = (payload.role || "").toUpperCase();
+    // Trang 403 luôn được phép truy cập (tránh redirect loop)
+    if (path === "/admin/forbidden") return NextResponse.next();
 
-    // USER không được vào admin
+    // 1. Trích xuất Role (Dựa vào JWT)
+    let role = (payload.role || "").toUpperCase();
+    const authorities: string[] = Array.isArray(payload.authorities)
+      ? payload.authorities.map((a: any) => (typeof a === "string" ? a : a.authority || "").toUpperCase())
+      : [];
+      
+    // Chuẩn hóa role
+    if (!role) {
+      const roleAuth = authorities.find(a => a.startsWith("ROLE_"));
+      if (roleAuth) role = roleAuth.replace("ROLE_", "");
+    } else if (role.startsWith("ROLE_")) {
+      role = role.replace("ROLE_", "");
+    }
+
+    // USER hoàn toàn không có quyền vào /admin
     if (role === "USER") {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
-    // MANAGER bị hạn chế một số khu vực hệ thống
-    if (role === "MANAGER") {
-      const restrictedForManager = [
-        "/admin/employees",
-        "/admin/branches",
-        "/admin/categories",
-        "/admin/variants",
-        "/admin/financial",
-      ];
-
-      if (restrictedForManager.some((p) => path.startsWith(p))) {
-        // Redirect về Dashboard admin hoặc trang 403
-        return NextResponse.redirect(new URL("/admin", req.url));
-      }
-    }
+    /**
+     * LƯU Ý QUAN TRỌNG: 
+     * Vì danh sách permissions chi tiết (REPORT_REVENUE_VIEW, v.v.) được fetch qua API /me/permissions 
+     * và KHÔNG nằm trong JWT, Middleware (chạy ở Edge Runtime) không thể kiểm tra granular permissions.
+     * 
+     * Do đó:
+     * 1. Middleware chỉ chặn tầng cao nhất (Role != USER).
+     * 2. Việc phân quyền chi tiết (ẩn/hiện menu, chặn truy cập trang cụ thể) 
+     *    sẽ do Hook usePermissions() và các Component/Page đảm nhận ở phía Client.
+     */
+    return NextResponse.next();
   }
 
   return NextResponse.next();

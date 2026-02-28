@@ -18,6 +18,7 @@ const GoogleAuthProvider = dynamic(() => import("@/components/providers/GoogleOA
 
 // ── Cache helpers (sessionStorage, xóa khi đóng tab) ──────────────────────
 const CACHE_KEY = "_u";
+const PERMS_CACHE_KEY = "_p";
 
 const readCache = (): unknown => {
   try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || ""); } catch { return null; }
@@ -27,8 +28,22 @@ const writeCache = (user: unknown) => {
   try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(user)); } catch {}
 };
 
+const readPermissionsCache = (): string[] => {
+  try {
+    const data = JSON.parse(sessionStorage.getItem(PERMS_CACHE_KEY) || "");
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+};
+
+const writePermissionsCache = (perms: string[]) => {
+  try { sessionStorage.setItem(PERMS_CACHE_KEY, JSON.stringify(perms)); } catch {}
+};
+
 const clearCache = () => {
-  try { sessionStorage.removeItem(CACHE_KEY); } catch {}
+  try {
+    sessionStorage.removeItem(CACHE_KEY);
+    sessionStorage.removeItem(PERMS_CACHE_KEY);
+  } catch {}
 };
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -38,7 +53,7 @@ export default function LayoutClient({
   const pathname = usePathname();
   const router = useRouter();
   const queryClientRef = useRef<QueryClient>();
-  const { user, setUser, setAccessToken, setAccessAndRefreshToken, clearAuth, setLoadingAuth, isLoadingAuth } = useAuthStore();
+  const { user, setUser, setAccessToken, setAccessAndRefreshToken, clearAuth, setLoadingAuth, isLoadingAuth, setPermissions } = useAuthStore();
 
   // Chạy đồng bộ trước khi browser paint:
   // Nếu không có session cookie → tắt spinner và xóa cache ngay
@@ -63,15 +78,29 @@ export default function LayoutClient({
           if (tokenData?.accessToken) setAccessToken(tokenData.accessToken);
         } catch {}
 
-        // Bước 2: Hiện trang ngay với dữ liệu cũ
+        // Bước 2: Load permissions từ cache trước để sidebar render đúng ngay lập tức
+        const cachedPerms = readPermissionsCache();
+        if (cachedPerms.length > 0) setPermissions(cachedPerms);
+
+        // Bước 3: Hiện trang ngay với dữ liệu cũ
         setUser(cachedUser as any);
         setLoadingAuth(false);
 
-        // Bước 3: Xác minh + cập nhật ở background (không block UI)
+        // Bước 4: Xác minh + cập nhật ở background — user và permissions song song
         try {
-          const fresh = await AuthService.meNext();
-          writeCache(fresh);
-          setUser(fresh);
+          const [freshResult, permsResult] = await Promise.allSettled([
+            AuthService.meNext(),
+            AuthService.getMyPermissionsNext(),
+          ]);
+
+          if (freshResult.status === "fulfilled" && freshResult.value) {
+            writeCache(freshResult.value);
+            setUser(freshResult.value);
+          }
+          if (permsResult.status === "fulfilled" && permsResult.value.length > 0) {
+            writePermissionsCache(permsResult.value);
+            setPermissions(permsResult.value);
+          }
         } catch {
           // Token hết hạn → refresh
           try {
@@ -86,18 +115,25 @@ export default function LayoutClient({
         // ── SLOW PATH: Lần đầu đăng nhập, chưa có cache → hiện spinner ─
         setLoadingAuth(true);
         try {
-          const [userResult, tokenResult] = await Promise.allSettled([
+          const [userResult, tokenResult, permsResult] = await Promise.allSettled([
             AuthService.meNext(),
             AuthService.meTokenNext(),
+            AuthService.getMyPermissionsNext(),
           ]);
 
           if (tokenResult.status === "fulfilled" && tokenResult.value?.accessToken) {
             setAccessToken(tokenResult.value.accessToken);
           }
 
+          // Set permissions TRƯỚC setUser (setUser sẽ release isLoadingAuth: false)
+          if (permsResult.status === "fulfilled" && permsResult.value.length > 0) {
+            writePermissionsCache(permsResult.value);
+            setPermissions(permsResult.value);
+          }
+
           if (userResult.status === "fulfilled" && userResult.value) {
             writeCache(userResult.value); // Lưu cache cho các lần sau
-            setUser(userResult.value);
+            setUser(userResult.value);   // ← releases isLoadingAuth: false — permissions đã sẵn sàng
           } else {
             try {
               const refreshData = await AuthService.refreshAuthTokenNext();
@@ -117,7 +153,7 @@ export default function LayoutClient({
     };
 
     hydrateAuth();
-  }, [setUser, setAccessToken, setAccessAndRefreshToken, clearAuth, setLoadingAuth]);
+  }, [setUser, setAccessToken, setAccessAndRefreshToken, clearAuth, setLoadingAuth, setPermissions]);
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
   const isChangePasswordPage = pathname === "/change-password";

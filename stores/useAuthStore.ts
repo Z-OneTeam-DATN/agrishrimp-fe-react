@@ -15,12 +15,14 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
   warehouseId: number | null;
+  permissions: string[];
   setAccessToken: (token: string | null) => void;
   setRefreshToken: (token: string | null) => void;
   setAccessAndRefreshToken: (data: AuthResponse) => void;
   setUser: (user?: UserType) => void;
   setAuth: (accessToken: string | null, refreshToken: string | null) => void;
   setLoadingAuth: (isLoading: boolean) => void;
+  setPermissions: (permissions: string[]) => void;
   clearAuth: () => void;
 }
 
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isAuthenticated: false,
   isLoadingAuth: true,
   warehouseId: null,
+  permissions: [],
   setAccessToken: (accessToken) => {
     let warehouseId = null;
     if (accessToken) {
@@ -101,6 +104,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setAuth: (accessToken: string | null, refreshToken: string | null) =>
     set({ accessToken, refreshToken, isAuthenticated: !!accessToken }),
   setLoadingAuth: (isLoadingAuth: boolean) => set({ isLoadingAuth }),
+  setPermissions: (permissions: string[]) => set({ permissions }),
   clearAuth: () =>
     set({
       accessToken: null,
@@ -109,5 +113,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
       isAuthenticated: false,
       isLoadingAuth: false,
       warehouseId: null,
+      permissions: [],
     }),
 }));

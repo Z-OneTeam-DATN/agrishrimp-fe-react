@@ -12,6 +12,7 @@ import { UserResponse } from "@/app/types/employee.schema";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export default function EmployeeManagementPage() {
@@ -40,9 +41,12 @@ export default function EmployeeManagementPage() {
   const fetchInitData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
+      const fetchRoles = hasPermission(P.ROLE_VIEW) ? RoleService.getAll() : Promise.resolve([]);
+      const fetchBranches = hasPermission(P.BRANCH_VIEW) ? branchService.getAll() : Promise.resolve([]);
+
       const [rolesRes, branchesRes] = await Promise.all([
-        RoleService.getAll(),
-        branchService.getAll()
+        fetchRoles,
+        fetchBranches
       ]);
       
       let rolesList = (Array.isArray(rolesRes) ? rolesRes : (rolesRes as any).content || [])
@@ -64,7 +68,7 @@ export default function EmployeeManagementPage() {
     } catch (e) {
       console.error("Error fetching filter data", e);
     }
-  }, [isAuthenticated, currentUser]);
+  }, [isAuthenticated, currentUser, hasPermission, isAdmin]);
 
   const fetchEmployees = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -115,9 +119,10 @@ export default function EmployeeManagementPage() {
       <div className="bg-white px-6 py-4 border-b border-slate-100">
         <AdminPageHeader 
           title="Quản lý nhân sự & Hệ thống" 
-          addBtnLabel={hasPermission("USER_CREATE") ? "Thêm nhân viên mới" : undefined}
+          addBtnLabel="Thêm nhân viên mới"
           addBtnHref="/admin/employees/add" 
-          secondaryBtnLabel={hasPermission("ROLE_MANAGE") ? "Quản lý quyền" : undefined}
+          permission={P.STAFF_CREATE}
+          secondaryBtnLabel={hasPermission(P.ROLE_VIEW) ? "Quản lý quyền" : undefined}
           secondaryBtnHref="/admin/employees/roles"
           secondaryBtnIcon={ShieldCheck}
         />

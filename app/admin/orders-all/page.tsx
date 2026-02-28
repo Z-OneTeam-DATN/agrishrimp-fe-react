@@ -16,6 +16,10 @@ import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import { BranchOrder, OrderStatus } from "@/app/types/order.types";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { useRouter } from "next/navigation";
+
 const TABS = [
   { id: "all", label: "Tất cả" },
   { id: "SHIPPING", label: "Đang giao hàng" },
@@ -28,6 +32,9 @@ const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 
 export default function AllOrdersPage() {
+  const { hasPermission, isLoadingAuth } = usePermissions();
+  const router = useRouter();
+  
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -36,6 +43,12 @@ export default function AllOrdersPage() {
   const [detailCache, setDetailCache] = useState<Record<number, BranchOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!isLoadingAuth && !hasPermission(P.ORDER_VIEW)) {
+      router.push("/admin/forbidden");
+    }
+  }, [isLoadingAuth, hasPermission, router]);
 
   const fetchOrders = useCallback(async (tab: string, q?: string) => {
     setIsLoading(true);
@@ -238,7 +251,7 @@ export default function AllOrdersPage() {
                               <div className="flex-1">
                                 <div className="flex justify-between items-center mb-3">
                                   <h3 className="text-[12px] font-bold text-slate-800">Chi tiết sản phẩm</h3>
-                                  {order.subOrderStatus === "SHIPPING" && (
+                                  {order.subOrderStatus === "SHIPPING" && hasPermission(P.ORDER_COMPLETE) && (
                                     <Button
                                       size="sm"
                                       className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"

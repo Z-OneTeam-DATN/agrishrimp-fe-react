@@ -14,6 +14,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 // 👇 Bổ sung trường avatar vào Interface
 interface CustomerData {
   userId: number;
@@ -49,6 +52,9 @@ export function AdminCustomerTable({
   totalElements,
   onPageChange
 }: AdminCustomerTableProps) {
+  const { hasPermission } = usePermissions();
+  const canAction = hasPermission(P.CUSTOMER_VIEW) || hasPermission(P.CUSTOMER_UPDATE);
+
   return (
     <div className="w-full">
       <Table className="table-custom border-collapse w-full">
@@ -60,7 +66,7 @@ export function AdminCustomerTable({
             <TableHead className="w-[12%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Chi tiêu (₫)</TableHead>
             <TableHead className="w-[10%] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Đơn hàng</TableHead>
             <TableHead className="w-[10%] font-bold text-[#1f1f1f] text-[11px] uppercase p-3 text-center">Trạng thái</TableHead>
-            <TableHead className="w-[8%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3 pr-5">Hành động</TableHead>
+            {canAction && <TableHead className="w-[8%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3 pr-5">Hành động</TableHead>}
           </TableRow>
         </TableHeader>
 
@@ -137,35 +143,41 @@ export function AdminCustomerTable({
                   </span>
                 </TableCell>
 
-                <TableCell className="p-3 text-right pr-5">
-                  <div className="flex items-center justify-end gap-1">
-                    <Link href={`/admin/customers/${cus.userId}`} onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all rounded-md">
-                        <Eye size={18} />
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation(); 
-                        onToggleStatus(cus.userId, cus.userStatus);
-                      }}
-                      className={cn(
-                        "h-8 w-8 transition-all rounded-md",
-                        cus.userStatus === "ACTIVE" ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700" : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                {canAction && (
+                  <TableCell className="p-3 text-right pr-5">
+                    <div className="flex items-center justify-end gap-1">
+                      {hasPermission(P.CUSTOMER_VIEW) && (
+                        <Link href={`/admin/customers/${cus.userId}`} onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all rounded-md">
+                            <Eye size={18} />
+                          </Button>
+                        </Link>
                       )}
-                      title={cus.userStatus === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                    >
-                      {cus.userStatus === "ACTIVE" ? <Lock size={16} /> : <Unlock size={16} />}
-                    </Button>
-                  </div>
-                </TableCell>
+                      {hasPermission(P.CUSTOMER_UPDATE) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation(); 
+                            onToggleStatus(cus.userId, cus.userStatus);
+                          }}
+                          className={cn(
+                            "h-8 w-8 transition-all rounded-md",
+                            cus.userStatus === "ACTIVE" ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700" : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                          )}
+                          title={cus.userStatus === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                        >
+                          {cus.userStatus === "ACTIVE" ? <Lock size={16} /> : <Unlock size={16} />}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="h-40 text-center">
+              <TableCell colSpan={canAction ? 7 : 6} className="h-40 text-center">
                 <div className="flex flex-col items-center justify-center gap-2">
                   <p className="text-[12px] text-slate-400 italic font-bold uppercase tracking-widest">
                     Không có dữ liệu hiển thị

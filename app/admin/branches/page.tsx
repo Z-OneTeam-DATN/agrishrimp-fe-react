@@ -19,6 +19,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { useRouter } from "next/navigation";
+
 const statusFilters = [
   { label: "Tất cả trạng thái", value: "all" },
   { label: "Đang hoạt động", value: "ACTIVE" },
@@ -26,11 +30,21 @@ const statusFilters = [
 ];
 
 export default function BranchManagementPage() {
+  const { hasPermission } = usePermissions();
+  const router = useRouter();
   const [branches, setBranches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // State để quản lý AlertDialog xóa
   const [deleteBranch, setDeleteBranch] = useState<{id: number, name: string} | null>(null);
+
+  useEffect(() => {
+    if (!hasPermission(P.BRANCH_VIEW)) {
+      router.push("/admin/forbidden");
+      return;
+    }
+    fetchBranches();
+  }, [hasPermission]);
 
   const fetchBranches = async () => {
     setIsLoading(true);
@@ -72,6 +86,7 @@ export default function BranchManagementPage() {
         title="Hệ thống chi nhánh & Kho hàng"
         addBtnLabel="Thêm chi nhánh"
         addBtnHref="/admin/branches/add"
+        permission={P.BRANCH_CREATE}
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden mb-8">

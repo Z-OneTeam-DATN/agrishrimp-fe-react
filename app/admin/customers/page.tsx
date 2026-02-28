@@ -8,9 +8,14 @@ import { customerService } from "@/app/services/customer.service";
 import { toast } from "sonner";
 import { AlertTriangle, X } from "lucide-react"; // Thêm icon cho Modal
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { useRouter } from "next/navigation";
 
 export default function CustomerManagementPage() {
+  const { hasPermission, isLoadingAuth } = usePermissions();
+  const router = useRouter();
+  
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
@@ -21,6 +26,12 @@ export default function CustomerManagementPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targetUser, setTargetUser] = useState<{ id: number; status: string } | null>(null);
+
+  useEffect(() => {
+    if (!isLoadingAuth && !hasPermission(P.CUSTOMER_VIEW)) {
+      router.push("/admin/forbidden");
+    }
+  }, [isLoadingAuth, hasPermission, router]);
 
   const fetchCustomers = async () => {
     setIsLoading(true);
@@ -90,6 +101,7 @@ export default function CustomerManagementPage() {
         title="Quản lý danh sách khách hàng"
         addBtnLabel="Thêm khách hàng"
         addBtnHref="/admin/customers/add"
+        permission={P.CUSTOMER_CREATE}
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">

@@ -9,11 +9,22 @@ import { ProductService } from "@/app/services/product.service";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 export default function ProductsPage() {
+  const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
+
+  // 0. Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!isLoadingAuth && !hasPermission(P.PRODUCT_VIEW)) {
+      router.push("/admin/forbidden");
+    }
+  }, [isLoadingAuth, hasPermission, router]);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -160,6 +171,7 @@ export default function ProductsPage() {
         title="Hệ thống sản phẩm"
         addBtnLabel="Thêm sản phẩm"
         addBtnHref="/admin/products/add"
+        permission={P.PRODUCT_CREATE}
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">

@@ -34,6 +34,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 interface AttributeValueDisplay {
   attributeName: string;
   value: string;
@@ -86,7 +89,10 @@ function formatPrice(n: number) {
 }
 
 export function AdminProductTable({ products, onDelete, onEdit, onDisable }: AdminProductTableProps) {
+  const { hasPermission } = usePermissions();
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
+
+  const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -168,9 +174,11 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
             <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">
               Trạng thái
             </TableHead>
-            <TableHead className="w-[130px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">
-              Hành động
-            </TableHead>
+            {canAction && (
+              <TableHead className="w-[130px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">
+                Hành động
+              </TableHead>
+            )}
           </TableRow>
         </TableHeader>
 
@@ -259,46 +267,54 @@ export function AdminProductTable({ products, onDelete, onEdit, onDisable }: Adm
                   </TableCell>
 
                   {/* Hành động */}
-                  <TableCell
-                    className="p-2 text-right pr-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-slate-100"
-                        onClick={() => onEdit?.(p.id)}
-                        title="Chỉnh sửa"
-                      >
-                        <Pencil size={14} className="text-blue-600" />
-                      </Button>
+                  {canAction && (
+                    <TableCell
+                      className="p-2 text-right pr-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-end gap-1">
+                        {hasPermission(P.PRODUCT_UPDATE) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-slate-100"
+                            onClick={() => onEdit?.(p.id)}
+                            title="Chỉnh sửa"
+                          >
+                            <Pencil size={14} className="text-blue-600" />
+                          </Button>
+                        )}
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-amber-50"
-                        onClick={() => openDisableConfirm(p.id)}
-                        disabled={isInactive}
-                        title="Ngừng kinh doanh"
-                      >
-                        <Ban
-                          size={14}
-                          className={isInactive ? "text-slate-300" : "text-amber-600"}
-                        />
-                      </Button>
+                        {hasPermission(P.PRODUCT_UPDATE) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-amber-50"
+                            onClick={() => openDisableConfirm(p.id)}
+                            disabled={isInactive}
+                            title="Ngừng kinh doanh"
+                          >
+                            <Ban
+                              size={14}
+                              className={isInactive ? "text-slate-300" : "text-amber-600"}
+                            />
+                          </Button>
+                        )}
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-rose-50"
-                        onClick={() => openDeleteConfirm(p.id)}
-                        title="Xóa vĩnh viễn"
-                      >
-                        <Trash2 size={14} className="text-rose-600" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                        {hasPermission(P.PRODUCT_DELETE) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-rose-50"
+                            onClick={() => openDeleteConfirm(p.id)}
+                            title="Xóa vĩnh viễn"
+                          >
+                            <Trash2 size={14} className="text-rose-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
 
                 {/* Expanded — danh sách biến thể */}

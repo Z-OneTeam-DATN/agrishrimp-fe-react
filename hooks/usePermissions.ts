@@ -5,92 +5,69 @@ import { jwtDecode } from "jwt-decode";
 type JwtAuthPayload = {
   exp?: number;
   sub?: string;
-  // Spring Security standard: ROLE_ADMIN, USER_MANAGE, USER_CREATE...
-  authorities?: string[];
-  // Fallback formats
-  roles?: string[];
-  permissions?: string[];
-  scope?: string;
-  role?: string;
+  authorities?: string[]; // Spring Security: chứa permission codes của user
 };
 
-/** Decode JWT và trả về danh sách authorities (không throw) */
+/** Decode JWT, trả về authorities[] (không throw) */
 function getJwtAuthorities(token: string | null): string[] {
   if (!token) return [];
   try {
-    const decoded = jwtDecode<JwtAuthPayload>(token);
-    return (
-      decoded.authorities ||
-      decoded.roles ||
-      decoded.permissions ||
-      (decoded.scope ? decoded.scope.split(" ") : []) ||
-      (decoded.role ? [decoded.role] : []) ||
-      []
-    );
+    const { authorities } = jwtDecode<JwtAuthPayload>(token);
+    return Array.isArray(authorities) ? authorities : [];
   } catch {
     return [];
   }
 }
 
+/**
+ * Hook kiểm tra phân quyền động.
+ *
+ * Nguyên tắc: KHÔNG check role slug — chỉ check permission codes.
+ * Permissions được lấy từ API /me/permissions sau khi đăng nhập,
+ * lưu vào store. Fallback về JWT authorities nếu store chưa có.
+ */
 export function usePermissions() {
-  const { user, accessToken } = useAuthStore();
+  const { user, accessToken, permissions: storePermissions } = useAuthStore();
+
+  /** Lấy toàn bộ permission codes của user hiện tại */
+  const getAuthorities = useCallback((): string[] => {
+    // Ưu tiên: permissions từ API (nguồn sự thật)
+    if (storePermissions.length > 0) return storePermissions;
+
+    // Fallback: decode từ JWT (dùng khi store chưa load xong)
+    const fromJwt = getJwtAuthorities(accessToken);
+    if (fromJwt.length > 0) return fromJwt;
+
+    // Last resort: từ user object
+    return (
+      user?.permissions ??
+      (typeof user?.role === "object" ? user?.role?.permissions : undefined) ??
+      []
+    );
+  }, [storePermissions, accessToken, user]);
 
   const hasPermission = useCallback(
-    (permission: string) => {
+    (permission: string): boolean => {
       if (!user) return false;
-
-      // 1. Check role object slug (set nếu Java backend trả về slug)
-      const roleSlug =
-        typeof user.role === "object" ? user.role?.slug : user.role;
-      if (
-        roleSlug?.toLowerCase() === "admin" ||
-        roleSlug?.toLowerCase() === "super_admin"
-      )
-        return true;
-
-      // 2. Decode JWT để lấy authorities (Spring Security format)
-      //    Ví dụ: ["ROLE_ADMIN", "USER_MANAGE", "USER_CREATE", "ROLE_MANAGE"]
-      const jwtAuthorities = getJwtAuthorities(accessToken);
-      if (jwtAuthorities.length > 0) {
-        // Admin bypass qua JWT
-        const isAdminInJwt = jwtAuthorities.some((a) => {
-          const clean = a.replace(/^ROLE_/i, "").toLowerCase();
-          return clean === "admin" || clean === "super_admin";
-        });
-        if (isAdminInJwt) return true;
-
-        // Kiểm tra permission cụ thể trong JWT
-        if (jwtAuthorities.includes(permission)) return true;
-      }
-
-      // 3. Fallback: kiểm tra permissions đã lưu trong store
-      const storedPermissions =
-        user.permissions ||
-        (typeof user.role === "object" ? user.role?.permissions : []) ||
-        [];
-      return storedPermissions.includes(permission);
+      
+      // Admin bypass: Nếu role là ADMIN thì luôn có quyền
+      const role = (typeof user.role === "object" ? user.role.slug : user.role)?.toUpperCase() || "";
+      if (role === "ADMIN" || role === "ROLE_ADMIN") return true;
+      
+      return getAuthorities().includes(permission);
     },
-    [user, accessToken]
+    [user, getAuthorities]
   );
 
   const hasAnyPermission = useCallback(
-    (permissions: string[]) => {
-      return permissions.some((p) => hasPermission(p));
-    },
+    (permissions: string[]): boolean => permissions.some(hasPermission),
     [hasPermission]
   );
 
   const hasAllPermissions = useCallback(
-    (permissions: string[]) => {
-      return permissions.every((p) => hasPermission(p));
-    },
+    (permissions: string[]): boolean => permissions.every(hasPermission),
     [hasPermission]
   );
 
-  return {
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
-    role: user?.role,
-  };
+  return { hasPermission, hasAnyPermission, hasAllPermissions };
 }
