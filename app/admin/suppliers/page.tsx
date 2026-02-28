@@ -15,33 +15,17 @@ export default function SupplierListPage() {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [keyword, setKeyword] = useState("");
-    const [categoryId, setCategoryId] = useState("all");
     const [status, setStatus] = useState("all");
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
-    const [dynamicCategories, setDynamicCategories] = useState<{ label: string; value: string }[]>([]);
     const pageSize = 5;
-
-    const fetchDynamicCategories = async () => {
-        try {
-            const data = await supplierService.getCategories();
-            const options = data.map((cat: { id: number | string; name: string }) => ({
-                label: cat.name,
-                value: cat.id.toString(),
-            }));
-            setDynamicCategories(options);
-        } catch (error) {
-            console.error("Không load được danh mục động:", error);
-        }
-    };
 
     const fetchSuppliers = async () => {
         setIsLoading(true);
         try {
             const data = await supplierService.getAll(
                 keyword,
-                categoryId === "all" ? undefined : categoryId,
                 status === "all" ? undefined : status,
                 currentPage,
                 pageSize,
@@ -59,16 +43,12 @@ export default function SupplierListPage() {
     };
 
     useEffect(() => {
-        fetchDynamicCategories();
-    }, []);
-
-    useEffect(() => {
         fetchSuppliers();
         const handleUpdate = () => fetchSuppliers();
         window.addEventListener("supplierUpdated", handleUpdate);
         return () => window.removeEventListener("supplierUpdated", handleUpdate);
 
-    }, [keyword, currentPage, categoryId, status]);
+    }, [keyword, currentPage, status]);
 
     const handleSearch = (val: string) => {
         setKeyword(val);
@@ -78,22 +58,30 @@ export default function SupplierListPage() {
     return (
         <div className="space-y-3 pb-10">
             <AdminPageHeader
-                title="Quản lý nhà cung cấp hàng hóa"
+                title="Quản lý nhà cung cấp"
                 addBtnLabel="Thêm nhà cung cấp"
                 addBtnHref="/admin/suppliers/add"
             />
 
             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
+                {/* 👇 ĐÃ CẬP NHẬT FILTER Ở ĐÂY 👇 */}
                 <AdminSearchFilter
                     placeholder="Tìm tên, MST, SĐT..."
                     onSearch={handleSearch}
                     onRefresh={fetchSuppliers}
-                    filter1Options={dynamicCategories}
+
+                    // Ẩn các bộ lọc không cần thiết
+                    hideSort={true}
+                    hideFilter2={true}
+
+                    // Chuyển Filter 1 thành bộ lọc trạng thái
+                    filter1Placeholder="Tất cả trạng thái"
+                    filter1Options={[
+                        { label: "Tất cả trạng thái", value: "all" },
+                        { label: "Đang giao dịch", value: "ACTIVE" },
+                        { label: "Tạm ngừng", value: "INACTIVE" }
+                    ]}
                     onFilter1Change={(val) => {
-                        setCategoryId(val);
-                        setCurrentPage(0);
-                    }}
-                    onFilter2Change={(val) => {
                         setStatus(val);
                         setCurrentPage(0);
                     }}
@@ -109,67 +97,31 @@ export default function SupplierListPage() {
                 ) : suppliers.length > 0 ? (
                     <>
                         <AdminSupplierTable suppliers={suppliers} />
-
-                        {/* 👇 THANH PHÂN TRANG CHUẨN XỊN NHƯ SHOPEE NẰM Ở ĐÂY */}
                         <div className="flex items-center justify-between px-5 py-3 border-t border-[#eee] bg-[#f8f9fa]">
                             <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
                                 Đang hiển thị {suppliers.length} / Tổng số {totalElements} kết quả
                             </p>
-
                             {totalPages > 0 && (
                                 <div className="flex items-center gap-1.5">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setCurrentPage(currentPage - 1)}
-                                        disabled={currentPage === 0}
-                                        className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
-                                    >
+                                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 0} className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all">
                                         <ChevronLeft size={14} className="mr-1" /> Trước
                                     </Button>
-
                                     <div className="flex items-center gap-1">
                                         {Array.from({ length: totalPages }).map((_, index) => {
-                                            // Chỉ hiện trang đầu, cuối, trang hiện tại, trước và sau trang hiện tại 1 đơn vị
-                                            if (
-                                                index === 0 ||
-                                                index === totalPages - 1 ||
-                                                (index >= currentPage - 1 && index <= currentPage + 1)
-                                            ) {
+                                            if (index === 0 || index === totalPages - 1 || (index >= currentPage - 1 && index <= currentPage + 1)) {
                                                 return (
-                                                    <Button
-                                                        key={index}
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setCurrentPage(index)}
-                                                        className={cn(
-                                                            "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all",
-                                                            currentPage === index
-                                                                ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
-                                                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                        )}
-                                                    >
+                                                    <Button key={index} variant="outline" size="sm" onClick={() => setCurrentPage(index)} className={cn("h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all", currentPage === index ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50")}>
                                                         {index + 1}
                                                     </Button>
                                                 );
                                             }
-
-                                            // Hiện dấu ... thay cho những trang bị ẩn
                                             if (index === currentPage - 2 || index === currentPage + 2) {
                                                 return <span key={index} className="text-slate-400 text-[10px] px-1 tracking-widest">...</span>;
                                             }
-
                                             return null;
                                         })}
                                     </div>
-
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setCurrentPage(currentPage + 1)}
-                                        disabled={currentPage >= totalPages - 1}
-                                        className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
-                                    >
+                                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage >= totalPages - 1} className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all">
                                         Sau <ChevronRight size={14} className="ml-1" />
                                     </Button>
                                 </div>
