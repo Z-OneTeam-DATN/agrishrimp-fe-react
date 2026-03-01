@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
+import dynamic from "next/dynamic";
 import {
     X, Trash2, Save, ChevronLeft, Camera, Upload, AlertCircle, FileText, Layers, Loader2, ChevronDown, Check, Package, Info
 } from "lucide-react";
@@ -12,16 +13,31 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
-import { FileService } from "@/app/services/file.service";
 import { SettingService } from "@/app/services/setting.service";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Attribute } from "@/app/types/product.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+
+// 👉 TÍCH HỢP TRỰC TIẾP REACT QUILL NEW (Tắt SSR)
+import "react-quill-new/dist/quill.snow.css";
+const ReactQuill = dynamic(() => import("react-quill-new"), {
+    ssr: false,
+    loading: () => <div className="h-[250px] flex items-center justify-center bg-slate-50 text-slate-400 border border-dashed border-slate-300">Đang tải trình soạn thảo...</div>
+});
+
+const quillModules = {
+    toolbar: [
+        [{ header: [1, 2, 3, 4, 5, 6, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        [{ align: [] }],
+        ["link", "image"],
+        ["clean"],
+    ],
+};
 
 // ─── VALIDATION SCHEMA ───
 const variantSchema = z.object({
@@ -112,9 +128,9 @@ export default function EditProductPage() {
 
     const [categories, setCategories] = useState<any[]>([]);
     const [brands, setBrands] = useState<string[]>([]);
-    const [attributes, setAttributes] = useState<any[]>([]); // Dùng any để nhận mảng valueDetails
+    const [attributes, setAttributes] = useState<any[]>([]);
 
-    const [systemProfitMargin, setSystemProfitMargin] = useState<number>(30);
+    // 👉 Bỏ biến systemProfitMargin vì giờ Backend đã tự động tính sellingPrice
 
     const { isLoadingAuth, isAuthenticated, user } = useAuthStore();
     const isAdmin = user?.role?.slug === "ADMIN";
@@ -142,13 +158,6 @@ export default function EditProductPage() {
                     setCategories(catRes || []);
                     setBrands(Array.from(new Set(brandRes?.map((b: any) => b.name) || [])) as string[]);
                     setAttributes(attrRes || []);
-
-                    try {
-                        const marginRes = await SettingService.getProfitMargin();
-                        setSystemProfitMargin(Number(marginRes?.margin || 30));
-                    } catch (e) {
-                        setSystemProfitMargin(30);
-                    }
 
                     // Đổ dữ liệu
                     const mappedData: any = {
@@ -293,19 +302,18 @@ export default function EditProductPage() {
         try {
             setIsLoading(true);
 
-            // 1. Tách ảnh cũ (URL) và ảnh mới (File)
             const existingMainImages = productImageFiles.filter(img => typeof img === 'string');
             const newMainImageFiles = productImageFiles.filter(img => typeof img !== 'string');
 
             const productData: any = {
                 name: data.name.trim(), categoryId: Number(data.categoryId), brand: data.brand?.trim() || "",
                 origin: data.origin?.trim() || "", description: data.description || "", status: data.status,
-                images: existingMainImages, // Báo cho Backend giữ lại các ảnh cũ này
+                images: existingMainImages,
                 variants: rawVariants.map((v: any, vIdx: number) => {
                     const img = variantImageFiles[vIdx];
                     return {
                         sku: v.sku.trim(), barcode: v.barcode?.trim() || "",
-                        image: typeof img === 'string' ? img : null, // Nếu là ảnh cũ thì gửi link, ảnh mới gửi null
+                        image: typeof img === 'string' ? img : null,
                         attributeValueIds: v.attributeValueIds || [],
                     };
                 }),
@@ -314,12 +322,10 @@ export default function EditProductPage() {
             const formData = new FormData();
             formData.append("data", new Blob([JSON.stringify(productData)], { type: "application/json" }));
 
-            // 2. Gửi ảnh sản phẩm chính MỚI lên
             newMainImageFiles.forEach((file) => {
                 formData.append("productImages", file as File);
             });
 
-            // 3. Gửi ảnh biến thể (giữ đúng vị trí Index để BE map chuẩn)
             variantImageFiles.forEach((file) => {
                 if (file && typeof file !== 'string') {
                     formData.append("variantImages", file as File);
@@ -403,7 +409,23 @@ export default function EditProductPage() {
 
                     <div className="bg-white border border-[#dcdcdc] p-5 shadow-sm">
                         <SectionHeader num="2" icon={FileText} title="Mô tả hàng hóa" />
-                        <Textarea {...register("description")} placeholder="Nhập mô tả sản phẩm..." className="min-h-[120px] border-[#ccc] text-[13px] shadow-none resize-y" />
+
+                        {/* 👉 TÍCH HỢP SOẠN THẢO VĂN BẢN VÀO ĐÂY, SỬ DỤNG { ref, ...fieldProps } */}
+                        <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
+                            <Controller
+                                name="description"
+                                control={control}
+                                render={({ field: { ref, ...fieldProps } }) => (
+                                    <ReactQuill
+                                        theme="snow"
+                                        value={fieldProps.value || ""}
+                                        onChange={fieldProps.onChange}
+                                        modules={quillModules}
+                                        placeholder="Nhập nội dung mô tả chi tiết sản phẩm (Hỗ trợ chèn ảnh, bảng, link...)"
+                                    />
+                                )}
+                            />
+                        </div>
                     </div>
 
                     <div className="bg-white border border-[#dcdcdc] shadow-sm">
@@ -457,7 +479,6 @@ export default function EditProductPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* 👉 FIX LỖI "TÀNG HÌNH" THUỘC TÍNH BẰNG MẢNG valueDetails TỪ BACKEND */}
                                                 {attributes.length > 0 && (
                                                     <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 border border-dashed border-slate-200 mt-2">
                                                         {attributes.map((attr, attrIdx) => {
@@ -524,16 +545,21 @@ export default function EditProductPage() {
                                                                 </thead>
                                                                 <tbody className="divide-y divide-slate-50">
                                                                 {batches.map((b: any, bIdx: number) => {
-                                                                    const importPrice = b.importPrice || 0;
-                                                                    const dynamicSellingPrice = importPrice * (1 + systemProfitMargin / 100);
+                                                                    // 👉 FIX LỖI TÍNH GIÁ BÁN (Lấy trực tiếp từ Backend)
+                                                                    const importPrice = b.importPrice;
+                                                                    const sellingPrice = b.sellingPrice || 0;
 
                                                                     return (
                                                                         <tr key={`batch-${field.id}-${b.inventoryId || bIdx}`} className="hover:bg-slate-50">
-                                                                            <td className="p-2 text-[11px] font-mono font-bold text-slate-700">{b.batchNumber}</td>
+                                                                            <td className="p-2 text-[11px] font-mono font-bold text-slate-700">{b.batchNumber || "Mặc định"}</td>
                                                                             <td className="p-2 text-[10px] font-medium text-slate-500">{b.branchName}</td>
                                                                             <td className="p-2 text-[11px] font-black text-slate-700 text-center">{b.quantity}</td>
-                                                                            {isAdmin && <td className="p-2 text-[11px] font-bold text-blue-600 text-right">{importPrice.toLocaleString('vi-VN')} ₫</td>}
-                                                                            <td className="p-2 text-[11px] font-black text-emerald-600 text-right">{dynamicSellingPrice.toLocaleString('vi-VN')} ₫</td>
+                                                                            {isAdmin && (
+                                                                                <td className="p-2 text-[11px] font-bold text-blue-600 text-right">
+                                                                                    {importPrice != null ? `${importPrice.toLocaleString('vi-VN')} ₫` : "—"}
+                                                                                </td>
+                                                                            )}
+                                                                            <td className="p-2 text-[11px] font-black text-emerald-600 text-right">{sellingPrice.toLocaleString('vi-VN')} ₫</td>
                                                                         </tr>
                                                                     );
                                                                 })}

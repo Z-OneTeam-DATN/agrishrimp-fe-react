@@ -148,6 +148,14 @@ export interface PublicProductVariant {
   status: string;
   attributeValues: PublicVariantAttributeValue[];
   unitConversions: UnitConversion[];
+
+    batches?: {
+        inventoryId: number;
+        batchNumber: string;
+        quantity: number;
+        sellingPrice: number;
+        branchName: string;
+    }[];
 }
 
 export interface PublicProductCategory {

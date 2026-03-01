@@ -125,6 +125,9 @@ export default function ProductsPage() {
                     imageUrl: v.imageUrl || null,
                     status: v.status || "",
                     attributeValues: v.attributeValues || [],
+                    price: v.price || 0,
+                    importPrice: v.importPrice || null,
+                    batches: v.batches || [],
                 })),
             }));
 
