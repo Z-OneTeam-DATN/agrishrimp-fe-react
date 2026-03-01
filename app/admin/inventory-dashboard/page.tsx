@@ -1,118 +1,113 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   RotateCw,
   Clock,
   ChevronRight,
-  Layers,
   ArrowDownToLine,
   ArrowUpFromLine,
-  ShoppingCart,
-  FileSearch,
   Truck,
-  AlertCircle,
+  FileText,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface StatItem {
-  val: number;
-  label: string;
-  colorClass: string;
-  bgClass: string;
-  width: string;
-}
+// --- IMPORT CÁC API SERVICES ---
+import { InventoryApiService, InventoryExportApiService } from "@/app/services/inventory.service";
+import { transferService } from "@/app/services/transfer.service";
 
-interface DashCardProps {
-  title: string;
-  totalAction: string;
+// Interface cho một thẻ Phiếu riêng lẻ
+interface TicketData {
+  id: string;
+  code: string;
+  typeLabel: string;
+  statusLabel: string;
+  time: string;
   icon: React.ElementType;
   iconColor: string;
-  stats: StatItem[];
-  time: string;
+  href: string;
 }
 
-const BusinessCard = ({
-  title,
-  totalAction,
-  icon: Icon,
-  iconColor,
-  stats,
-  time,
-}: DashCardProps) => {
+// Component hiển thị Từng Phiếu Một
+const TicketCard = ({ data }: { data: TicketData }) => {
+  const router = useRouter();
+  const Icon = data.icon;
+
+  // Hàm format thời gian đẹp
+  const formatTime = (isoString: string) => {
+    if (!isoString) return "--";
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
   return (
-    <div className="bg-white border border-slate-200 rounded-none shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full overflow-hidden group">
-      <div className="p-3 flex justify-between items-start gap-2">
-        <div className="flex gap-2.5 min-w-0 flex-1">
+    <div className="bg-white border border-slate-200 rounded-none shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-300 flex flex-col h-full overflow-hidden group">
+      <div className="p-4 flex justify-between items-start gap-2">
+        <div className="flex gap-3 min-w-0 flex-1 items-center">
           <div
             className={cn(
-              "p-2 rounded-none flex-shrink-0 transition-colors",
-              iconColor,
+              "p-2.5 rounded-none flex-shrink-0 transition-colors",
+              data.iconColor
             )}
           >
-            <Icon size={18} />
+            <Icon size={20} strokeWidth={2.5} />
           </div>
           <div className="min-w-0">
-            <h5
-              className="text-[14px] font-bold text-slate-800 leading-tight truncate uppercase"
-              title={title}
-            >
-              {title}
+            <h5 className="text-[11px] font-bold text-slate-500 leading-tight truncate uppercase tracking-widest">
+              {data.typeLabel}
             </h5>
-            <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5 whitespace-nowrap font-bold">
-              <Clock size={10} className="flex-shrink-0" /> CẬP NHẬT: {time}
+            <p className="text-[16px] font-black text-slate-800 mt-0.5 whitespace-nowrap tracking-tight">
+              {data.code}
             </p>
           </div>
         </div>
-        <button className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-none border border-blue-100 flex items-center gap-0.5 flex-shrink-0 whitespace-nowrap hover:bg-blue-600 hover:text-white transition-all uppercase">
-          {totalAction} <ChevronRight size={10} className="flex-shrink-0" />
-        </button>
+        {/* Status Badge */}
+        <span
+          className={cn(
+            "text-[10px] font-black px-2 py-1 uppercase tracking-tighter whitespace-nowrap border rounded-sm",
+            data.statusLabel === "Chờ xuất" ||
+              data.statusLabel === "Chờ xử lý" ||
+              data.statusLabel === "Chờ duyệt"
+              ? "bg-amber-50 text-amber-600 border-amber-200"
+              : "bg-cyan-50 text-cyan-600 border-cyan-200"
+          )}
+        >
+          {data.statusLabel}
+        </span>
       </div>
 
-      <div className="px-4 py-2 flex items-center justify-between gap-1 overflow-hidden">
-        {stats.map((item, idx) => (
-          <React.Fragment key={idx}>
-            <div className="flex flex-col items-start min-w-0 group/item flex-1">
-              <span
-                className={cn(
-                  "text-[16px] font-black tracking-tight whitespace-nowrap",
-                  item.colorClass,
-                )}
-              >
-                {item.val}
-              </span>
-              <span
-                className="text-[9px] text-slate-400 font-bold whitespace-nowrap uppercase tracking-tighter truncate w-full"
-                title={item.label}
-              >
-                {item.label}
-              </span>
-            </div>
-            {idx < stats.length - 1 && (
-              <div className="h-6 w-[1px] bg-slate-100 flex-shrink-0 mx-1" />
-            )}
-          </React.Fragment>
-        ))}
-      </div>
-
-      <div className="px-4 mt-3 mb-4">
-        <div className="flex h-1.5 w-full rounded-none overflow-hidden bg-slate-100 ring-1 ring-slate-50 flex-shrink-0">
-          {stats.map((item, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                "h-full transition-all duration-500 flex-shrink-0",
-                item.bgClass,
-              )}
-              style={{ width: item.width }}
-            />
-          ))}
+      <div className="px-4 py-2 flex items-center justify-between border-t border-slate-50 bg-slate-50/30">
+        <div className="flex flex-col">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter flex items-center gap-1">
+            <Clock size={10} /> Thời gian tạo
+          </span>
+          <span className="text-[12px] font-bold text-slate-600 mt-0.5">
+            {formatTime(data.time)}
+          </span>
         </div>
       </div>
 
-      <div className="mt-auto bg-slate-50/30 p-2 border-t border-slate-100 flex justify-center flex-shrink-0">
-        <button className="text-[10px] font-black text-slate-400 uppercase hover:text-blue-600 flex items-center gap-1.5 transition-colors whitespace-nowrap">
-          <RotateCw size={10} className="flex-shrink-0" /> Làm mới dữ liệu
+      <div className="p-3 border-t border-slate-100 flex justify-between items-center bg-white">
+        <span className="text-[11px] font-medium text-slate-400">
+          Cần được xử lý
+        </span>
+        <button
+          onClick={() => router.push(data.href)}
+          className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 hover:bg-blue-600 hover:text-white transition-all uppercase flex items-center gap-1 border border-blue-100"
+        >
+          Xử lý phiếu <ChevronRight size={12} />
         </button>
       </div>
     </div>
@@ -120,283 +115,144 @@ const BusinessCard = ({
 };
 
 export default function WarehouseDashboard() {
-  const businessWorkflows = [
-    {
-      title: "Lệnh nhập kho",
-      totalAction: "35 Cần làm",
-      icon: ArrowDownToLine,
-      iconColor: "bg-emerald-50 text-emerald-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 5,
-          label: "Quá hạn",
-          colorClass: "text-rose-500",
-          bgClass: "bg-rose-500",
-          width: "15%",
-        },
-        {
-          val: 4,
-          label: "Chờ nhận",
-          colorClass: "text-emerald-600",
-          bgClass: "bg-emerald-500",
-          width: "15%",
-        },
-        {
-          val: 14,
-          label: "Chờ kiểm",
-          colorClass: "text-amber-500",
-          bgClass: "bg-amber-500",
-          width: "40%",
-        },
-        {
-          val: 17,
-          label: "Khác",
-          colorClass: "text-slate-400",
-          bgClass: "bg-slate-300",
-          width: "30%",
-        },
-      ],
-    },
-    {
-      title: "Lệnh xuất kho",
-      totalAction: "33 Cần làm",
-      icon: ArrowUpFromLine,
-      iconColor: "bg-blue-50 text-blue-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 10,
-          label: "Quá hạn",
-          colorClass: "text-rose-500",
-          bgClass: "bg-rose-500",
-          width: "25%",
-        },
-        {
-          val: 4,
-          label: "Chờ lấy",
-          colorClass: "text-blue-600",
-          bgClass: "bg-blue-500",
-          width: "10%",
-        },
-        {
-          val: 8,
-          label: "Đóng gói",
-          colorClass: "text-indigo-500",
-          bgClass: "bg-indigo-500",
-          width: "20%",
-        },
-        {
-          val: 21,
-          label: "Đã xong",
-          colorClass: "text-emerald-500",
-          bgClass: "bg-emerald-400",
-          width: "45%",
-        },
-      ],
-    },
-    {
-      title: "Đơn mua hàng",
-      totalAction: "17 Cần làm",
-      icon: ShoppingCart,
-      iconColor: "bg-indigo-50 text-indigo-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 4,
-          label: "Quá hạn",
-          colorClass: "text-rose-500",
-          bgClass: "bg-rose-500",
-          width: "20%",
-        },
-        {
-          val: 3,
-          label: "Chưa duyệt",
-          colorClass: "text-amber-600",
-          bgClass: "bg-amber-500",
-          width: "20%",
-        },
-        {
-          val: 14,
-          label: "Đang giao",
-          colorClass: "text-indigo-600",
-          bgClass: "bg-indigo-500",
-          width: "60%",
-        },
-      ],
-    },
-    {
-      title: "Kiểm kê định kỳ",
-      totalAction: "08 Đang chạy",
-      icon: FileSearch,
-      iconColor: "bg-purple-50 text-purple-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 5,
-          label: "Chưa khớp",
-          colorClass: "text-amber-600",
-          bgClass: "bg-amber-500",
-          width: "60%",
-        },
-        {
-          val: 3,
-          label: "Đang kiểm",
-          colorClass: "text-purple-600",
-          bgClass: "bg-purple-500",
-          width: "40%",
-        },
-      ],
-    },
-    {
-      title: "Điều chuyển kho",
-      totalAction: "20 Yêu cầu",
-      icon: Truck,
-      iconColor: "bg-cyan-50 text-cyan-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 5,
-          label: "Chờ xe",
-          colorClass: "text-rose-500",
-          bgClass: "bg-rose-500",
-          width: "20%",
-        },
-        {
-          val: 12,
-          label: "Đang đi",
-          colorClass: "text-cyan-600",
-          bgClass: "bg-cyan-500",
-          width: "50%",
-        },
-        {
-          val: 8,
-          label: "Đã đến",
-          colorClass: "text-emerald-600",
-          bgClass: "bg-emerald-500",
-          width: "30%",
-        },
-      ],
-    },
-    {
-      title: "Đơn hàng chi nhánh",
-      totalAction: "15 Đơn",
-      icon: ShoppingCart,
-      iconColor: "bg-pink-50 text-pink-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 3,
-          label: "Mới",
-          colorClass: "text-blue-600",
-          bgClass: "bg-blue-500",
-          width: "20%",
-        },
-        {
-          val: 7,
-          label: "Chờ lấy",
-          colorClass: "text-amber-600",
-          bgClass: "bg-amber-500",
-          width: "50%",
-        },
-        {
-          val: 5,
-          label: "Đang giao",
-          colorClass: "text-indigo-600",
-          bgClass: "bg-indigo-500",
-          width: "30%",
-        },
-      ],
-    },
-    {
-      title: "Hạn dùng & Cảnh báo",
-      totalAction: "Rà soát",
-      icon: AlertCircle,
-      iconColor: "bg-orange-50 text-orange-600",
-      time: "08:00",
-      stats: [
-        {
-          val: 2,
-          label: "Hết hạn",
-          colorClass: "text-rose-600",
-          bgClass: "bg-rose-600",
-          width: "20%",
-        },
-        {
-          val: 12,
-          label: "Sắp hết",
-          colorClass: "text-amber-600",
-          bgClass: "bg-amber-500",
-          width: "80%",
-        },
-      ],
-    },
-    {
-      title: "Vận chuyển & Logistics",
-      totalAction: "Chi tiết",
-      icon: Layers,
-      iconColor: "bg-slate-100 text-slate-700",
-      time: "08:00",
-      stats: [
-        {
-          val: 4,
-          label: "Tài xế",
-          colorClass: "text-slate-700",
-          bgClass: "bg-slate-500",
-          width: "40%",
-        },
-        {
-          val: 1,
-          label: "Sự cố",
-          colorClass: "text-rose-500",
-          bgClass: "bg-rose-500",
-          width: "10%",
-        },
-        {
-          val: 8,
-          label: "Hoàn tất",
-          colorClass: "text-emerald-600",
-          bgClass: "bg-emerald-500",
-          width: "50%",
-        },
-      ],
-    },
-  ];
+  const [tasks, setTasks] = useState<TicketData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Gọi song song API lấy dữ liệu Phiếu
+      const [receiptsRes, exportPendingRes, transfersRes] = await Promise.all([
+        InventoryApiService.getAllReceipts().catch(() => []),
+        InventoryExportApiService.getAllExportCommands().catch(() => []), // Lấy lệnh xuất đang chờ xử lý
+        transferService.getAll("", "all", 0, 50).catch(() => ({ content: [] })),
+      ]);
+
+      const allTasks: TicketData[] = [];
+
+      // 1. Phân tích Nhập Kho (Lấy những phiếu đang chờ)
+      const rawReceipts = Array.isArray(receiptsRes) ? receiptsRes : receiptsRes?.content || [];
+      rawReceipts
+        .filter((r: any) => r.status === "PENDING" || r.status === "PO")
+        .forEach((r: any) => {
+          allTasks.push({
+            id: r.id,
+            code: r.code || `PNK-${r.id}`,
+            typeLabel: "Lệnh nhập kho",
+            statusLabel: r.status === "PO" ? "Chờ duyệt" : "Chờ xử lý",
+            time: r.createdAt || r.entryDate || new Date().toISOString(),
+            icon: ArrowDownToLine,
+            iconColor: "bg-emerald-50 text-emerald-600",
+            href: `/admin/receipts`,
+          });
+        });
+
+      // 2. Phân tích Xuất Kho (API ExportCommands mặc định trả về phiếu Pending)
+      const pendingExports = Array.isArray(exportPendingRes) ? exportPendingRes : [];
+      pendingExports.forEach((e: any) => {
+        allTasks.push({
+          id: e.id,
+          code: e.code || `PXK-${e.id}`,
+          typeLabel: "Lệnh xuất kho",
+          statusLabel: "Chờ xuất",
+          time: e.createdAt || e.entryDate || new Date().toISOString(),
+          icon: ArrowUpFromLine,
+          iconColor: "bg-blue-50 text-blue-600",
+          href: `/admin/exports`,
+        });
+      });
+
+      // 3. Phân tích Điều Chuyển
+      const rawTransfers = transfersRes?.content || [];
+      rawTransfers
+        .filter((t: any) => t.status === "PENDING" || t.status === "SHIPPING")
+        .forEach((t: any) => {
+          allTasks.push({
+            id: t.id,
+            code: t.transferCode || `PDC-${t.id}`,
+            typeLabel: "Điều chuyển kho",
+            statusLabel: t.status === "PENDING" ? "Chờ xuất" : "Đang đi",
+            time: t.createdAt || t.transferDate || new Date().toISOString(),
+            icon: Truck,
+            iconColor: "bg-purple-50 text-purple-600",
+            href: `/admin/transfers`,
+          });
+        });
+
+      // Sắp xếp danh sách phiếu theo thứ tự: Mới nhất nằm lên trên cùng
+      allTasks.sort(
+        (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
+      );
+
+      setTasks(allTasks);
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu dashboard:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="space-y-6 pb-10">
+      {/* HEADER BÀN LÀM VIỆC */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-5 gap-4">
         <div>
           <h1 className="text-[22px] font-black text-slate-900 tracking-tight uppercase">
             Bàn làm việc kho
           </h1>
           <p className="text-slate-500 text-[12px] mt-1 flex items-center gap-2 font-medium">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Hệ thống vận hành ổn định. Bạn có{" "}
-            <b className="text-slate-800">12 nhiệm vụ</b> kho cần xử lý.
+            <span
+              className={cn(
+                "flex h-2 w-2 rounded-full",
+                isLoading ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+              )}
+            ></span>
+            Hệ thống vận hành {isLoading ? "đang tải dữ liệu..." : "ổn định"}. Bạn có{" "}
+            <b className="text-slate-800">{tasks.length} phiếu</b> đang chờ xử lý.
           </p>
         </div>
+        <button
+          onClick={() => {
+            fetchDashboardData();
+          }}
+          className="text-[12px] font-bold text-slate-600 bg-white border border-slate-200 px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-all uppercase"
+        >
+          <RotateCw size={14} className={cn(isLoading && "animate-spin")} />
+          Làm mới
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {businessWorkflows.map((card, index) => (
-          <BusinessCard key={index} {...card} />
-        ))}
-      </div>
-
-      <div className="bg-amber-50 border border-amber-100 p-5 rounded-none flex items-start gap-4">
-        <AlertCircle className="text-amber-600 mt-0.5" size={24} />
-        <div>
-          <h6 className="text-[14px] font-black text-amber-900 uppercase tracking-tight">
-            Thông báo vận hành quan trọng
-          </h6>
-          <p className="text-[13px] text-amber-800/80 font-medium mt-1">
-            Kho lạnh chi nhánh Cần Thơ đang đạt ngưỡng 95% công suất. Vui lòng
-            xem xét điều chuyển hàng hóa sang các kho lân cận để đảm bảo chất
-            lượng bảo quản.
+      {/* DANH SÁCH PHIẾU */}
+      {isLoading ? (
+        <div className="py-24 flex flex-col items-center justify-center bg-white border border-slate-200 rounded-none shadow-sm">
+          <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+            Đang tải dữ liệu phiếu...
           </p>
         </div>
-      </div>
+      ) : tasks.length === 0 ? (
+        <div className="py-24 flex flex-col items-center justify-center bg-white border border-slate-200 rounded-none shadow-sm">
+          <div className="bg-slate-50 p-4 rounded-full mb-4">
+            <FileText className="text-slate-300" size={48} strokeWidth={1.5} />
+          </div>
+          <p className="text-lg font-black text-slate-700 tracking-tight">
+            XIN CHÚC MỪNG!
+          </p>
+          <p className="text-[13px] font-medium text-slate-500 mt-1">
+            Hiện tại không có phiếu nhập, xuất hay điều chuyển nào cần xử lý.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {tasks.map((task) => (
+            <TicketCard key={`${task.typeLabel}-${task.id}`} data={task} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
