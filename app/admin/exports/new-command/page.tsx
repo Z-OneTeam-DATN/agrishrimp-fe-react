@@ -51,7 +51,6 @@ function AdminExportFormContent() {
   const exportId = searchParams.get("id");
   const isEditMode = Boolean(exportId);
 
-  // ✅ ĐÚNG: Hook phải nằm ở đây (bên trong component)
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const isAdmin = hasPermission(P.EXPORT_APPROVE);
@@ -117,7 +116,7 @@ function AdminExportFormContent() {
             specificReceiver: data.deliverer || "", shippingAddress: data.shippingAddress || "",
             items: (data.details || []).map((item: any) => ({
               productVariantId: item.productVariantId, sku: item.sku, name: item.productName || "SP", unit: "Cái",
-              stock: 0, quantity: item.quantityRequested, price: item.price || 0, returnReason: item.note || ""
+              stock: item.stock || 0, quantity: item.quantityRequested, price: item.price || 0, returnReason: item.note || ""
             }))
           });
           setIsInitialLoading(false);
@@ -214,7 +213,8 @@ function AdminExportFormContent() {
       unit: variant.unit || "Cái",
       stock: variant.quantity || 0,
       quantity: 1,
-      price: variant.price || 0,
+      // 👇 ĐÃ CẬP NHẬT Ở ĐÂY: Lấy importPrice để làm giá trị xuất kho
+      price: variant.importPrice || variant.price || 0,
       returnReason: ""
     });
     setShowDropdown(false);
@@ -222,6 +222,13 @@ function AdminExportFormContent() {
 
   const onSubmit = async (data: ExportCommandFormValues) => {
     if (isReadOnly) return;
+
+    const invalidItems = data.items.filter(item => item.quantity > item.stock);
+    if (invalidItems.length > 0) {
+      toast.error(`Sản phẩm ${invalidItems[0].name} có số lượng xuất vượt quá tồn kho hiện tại.`);
+      return;
+    }
+
     const currentUserId = currentUser?.id;
     const payload = {
       code: data.noteCode,
@@ -386,7 +393,8 @@ function AdminExportFormContent() {
                               </div>
 
                               <div className="text-right">
-                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.price || 0)} ₫</p>
+                                {/* 👇 ĐÃ SỬA CẢ HIỂN THỊ TẠI DROPDOWN THÀNH GIÁ NHẬP */}
+                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} ₫</p>
                                 <p className={cn(
                                     "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
                                     variant.quantity > 0
@@ -420,7 +428,7 @@ function AdminExportFormContent() {
                         {watchExportType === "RETURN" && (
                           <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">Lý do trả hàng</TableHead>
                         )}
-                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Đơn giá</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Giá Vốn</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                      </TableRow>
                   </TableHeader>
@@ -431,21 +439,37 @@ function AdminExportFormContent() {
                       fields.map((field, index) => {
                         const hasQtyError = errors.items?.[index]?.quantity;
                         const hasReasonError = errors.items?.[index]?.returnReason;
+                        const currentItem = watchItems[index] as any;
 
                         return (
                           <React.Fragment key={field.id}>
                             <TableRow className="hover:bg-slate-50/50">
                               <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
-                              <TableCell className="font-mono text-[12px] text-slate-500">{watchItems[index]?.sku}</TableCell>
+                              <TableCell className="font-mono text-[12px] text-slate-500">{currentItem?.sku}</TableCell>
                               <TableCell className="font-bold text-[13px] text-slate-700">
-                                {watchItems[index]?.name}
+                                {currentItem?.name}
                                 <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
-                                  Tồn kho xuất: {watchItems[index]?.stock || 0}
+                                  Tồn kho xuất: {currentItem?.stock || 0}
                                 </div>
                               </TableCell>
 
                               <TableCell className="p-1">
-                                <Input readOnly={isReadOnly} type="number" {...register(`items.${index}.quantity`)} className={`h-8 text-right font-black rounded-none text-blue-600 focus:bg-white ${hasQtyError ? "border-rose-500" : "border-blue-200"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
+                                <Input
+                                  readOnly={isReadOnly}
+                                  type="number"
+                                  {...register(`items.${index}.quantity`)}
+                                  className={cn(
+                                    "h-8 text-right font-black rounded-none text-blue-600 focus:bg-white",
+                                    (hasQtyError || currentItem?.quantity > currentItem?.stock) ? "border-rose-500" : "border-blue-200",
+                                    isReadOnly ? "bg-slate-50 border-transparent" : ""
+                                  )}
+                                />
+                                {/* 👇 CẢNH BÁO VƯỢT TỒN KHO */}
+                                {!isReadOnly && currentItem?.quantity > currentItem?.stock && (
+                                   <div className="text-[10px] text-rose-500 font-bold mt-1 text-right animate-pulse">
+                                     Vượt tồn kho!
+                                   </div>
+                                )}
                               </TableCell>
 
                               {watchExportType === "RETURN" && (
@@ -454,7 +478,7 @@ function AdminExportFormContent() {
                                 </TableCell>
                               )}
 
-                              <TableCell className="text-right text-[12px] font-medium">{formatNumber(watchItems[index]?.price || 0)}</TableCell>
+                              <TableCell className="text-right text-[12px] font-medium">{formatNumber(currentItem?.price || 0)}</TableCell>
                               <TableCell className="text-center">
                                 {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>}
                               </TableCell>
