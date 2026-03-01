@@ -7,7 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   X, Settings, HelpCircle, Save, ChevronLeft,
   Building2, User, Mail, Phone, MapPin,
-  AlertCircle, Loader2, Search, Map, LayoutGrid, Tags
+  AlertCircle, Loader2, Search, Map, LayoutGrid, Tags,
+  Navigation, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ export default function AddBranchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [staffs, setStaffs] = useState<any[]>([]);
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
+  const [isGettingGPS, setIsGettingGPS] = useState(false);
 
   // 0. Kiểm tra quyền truy cập
   useEffect(() => {
@@ -78,12 +80,35 @@ export default function AddBranchPage() {
       addressDetail: "",
       status: "active",
       branchType: "STORE",
-
+      lat: undefined,
+      lng: undefined,
     },
   });
 
   const selectedProvince = watch("province");
   const selectedDistrict = watch("district");
+  const watchedLat = watch("lat");
+  const watchedLng = watch("lng");
+
+  const handleGetGPS = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt không hỗ trợ định vị GPS");
+      return;
+    }
+    setIsGettingGPS(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setValue("lat", parseFloat(pos.coords.latitude.toFixed(6)));
+        setValue("lng", parseFloat(pos.coords.longitude.toFixed(6)));
+        toast.success("Đã lấy tọa độ GPS thành công!");
+        setIsGettingGPS(false);
+      },
+      () => {
+        toast.error("Không thể lấy vị trí. Vui lòng nhập thủ công.");
+        setIsGettingGPS(false);
+      }
+    );
+  };
 
   // Logic lọc dữ liệu dựa trên searchTerm
   const filteredProvinces = useMemo(() =>
@@ -194,6 +219,8 @@ useEffect(() => {
           ward: String(data.wardId),
           status: data.status.toLowerCase(),
           managerId: data.managerIds?.[0] ? String(data.managerIds[0]) : "",
+          lat: data.lat ?? undefined,
+          lng: data.lng ?? undefined,
         });
       } catch (error) {
         console.error("Lỗi fetch chi tiết:", error);
@@ -223,6 +250,8 @@ useEffect(() => {
         wardId: Number(data.ward),
         status: data.status.toUpperCase(),
         managerIds: data.managerId ? [Number(data.managerId)] : [],
+        lat: data.lat ?? null,
+        lng: data.lng ?? null,
       };
 
       if (isEditMode) {
@@ -435,6 +464,64 @@ useEffect(() => {
                   className="h-[34px] text-[13px] border-[#ccc] rounded-none focus:border-emerald-500 shadow-none"
                 />
                 {errors.addressDetail && <p className="text-[10px] text-red-500 font-bold">{errors.addressDetail.message}</p>}
+              </div>
+
+              {/* Tọa độ GPS */}
+              <div className="md:col-span-3 border-t border-dashed border-slate-200 pt-4 mt-1">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Navigation size={12} /> Tọa độ địa lý (dùng cho tìm chi nhánh gần nhất)
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGetGPS}
+                      disabled={isGettingGPS}
+                      className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                    >
+                      {isGettingGPS ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        <Navigation size={11} />
+                      )}
+                      Lấy GPS hiện tại
+                    </button>
+                    {watchedLat && watchedLng && (
+                      <a
+                        href={`https://www.google.com/maps?q=${watchedLat},${watchedLng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-1 text-[11px] font-bold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+                      >
+                        <ExternalLink size={11} /> Xem bản đồ
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black text-slate-400 uppercase">Vĩ độ (Latitude)</Label>
+                    <Input
+                      {...register("lat", { valueAsNumber: true })}
+                      type="number"
+                      step="0.000001"
+                      placeholder="Ví dụ: 10.045162"
+                      className="h-[34px] text-[13px] border-[#ccc] rounded-none font-mono focus:border-emerald-500 shadow-none"
+                    />
+                    {errors.lat && <p className="text-[10px] text-red-500 font-bold">{errors.lat.message}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black text-slate-400 uppercase">Kinh độ (Longitude)</Label>
+                    <Input
+                      {...register("lng", { valueAsNumber: true })}
+                      type="number"
+                      step="0.000001"
+                      placeholder="Ví dụ: 105.746857"
+                      className="h-[34px] text-[13px] border-[#ccc] rounded-none font-mono focus:border-emerald-500 shadow-none"
+                    />
+                    {errors.lng && <p className="text-[10px] text-red-500 font-bold">{errors.lng.message}</p>}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

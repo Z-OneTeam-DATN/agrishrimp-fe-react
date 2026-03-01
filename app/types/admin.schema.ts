@@ -253,6 +253,18 @@ export const AdminBranchSchema = z.object({
         .min(5, "Vui lòng nhập địa chỉ chi tiết (số nhà, tên đường)")
         .max(255, "Địa chỉ quá dài"),
 
+    lat: z
+        .number({ invalid_type_error: "Vĩ độ phải là số" })
+        .min(-90, "Vĩ độ không hợp lệ")
+        .max(90, "Vĩ độ không hợp lệ")
+        .optional(),
+
+    lng: z
+        .number({ invalid_type_error: "Kinh độ phải là số" })
+        .min(-180, "Kinh độ không hợp lệ")
+        .max(180, "Kinh độ không hợp lệ")
+        .optional(),
+
     status: z
         .enum(["ACTIVE", "MAINT", "INACTIVE", "active", "inactive"]) // Cho phép cả 2 để an toàn
         .transform(val => val.toUpperCase()) // Luôn chuyển về HOA khi submit

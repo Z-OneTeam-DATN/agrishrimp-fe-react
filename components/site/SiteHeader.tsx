@@ -15,7 +15,9 @@ import {
   ChevronDown,
   Mic,
   MicOff,
+  Camera,
 } from "lucide-react";
+import ImageSearchModal from "@/components/site/ImageSearchModal";
 import { useRouter } from "next/navigation";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -38,6 +40,7 @@ export default function Header() {
   const { logout, isLoading: isLoggingOut } = useLogout();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [isImageSearchOpen, setIsImageSearchOpen] = useState(false);
 
   const { transcript, listening, browserSupportsSpeechRecognition, resetTranscript } =
     useSpeechRecognition();
@@ -208,6 +211,7 @@ export default function Header() {
   };
 
   return (
+    <>
     <header className="bg-brand-gradient text-white py-2 sticky top-0 z-50 shadow-lg">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between gap-2 md:gap-4">
@@ -241,6 +245,13 @@ export default function Header() {
                   {listening ? <MicOff size={16} /> : <Mic size={16} />}
                 </button>
               )}
+              <button
+                onClick={() => setIsImageSearchOpen(true)}
+                title="Tìm kiếm bằng hình ảnh"
+                className="h-[34px] w-9 flex items-center justify-center transition-colors bg-white text-gray-400 hover:text-[#2d6a4f]"
+              >
+                <Camera size={16} />
+              </button>
               <button onClick={() => searchKeyword && router.push(`/san-pham?keyword=${searchKeyword}`)} className="h-[34px] px-5 bg-orange-500 hover:bg-orange-600 rounded-r-full text-white transition-colors">
                 <Search size={16} strokeWidth={3} />
               </button>
@@ -278,5 +289,10 @@ export default function Header() {
         </div>
       </div>
     </header>
+
+    {isImageSearchOpen && (
+      <ImageSearchModal onClose={() => setIsImageSearchOpen(false)} />
+    )}
+  </>
   );
 }

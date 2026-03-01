@@ -34,9 +34,11 @@ interface Ward {
 interface DeliveryAddressFormProps {
   onSubmit: (info: DeliveryInfo) => void
   defaultValues?: DeliveryInfo
+  submitLabel?: string
+  submitDisabled?: boolean
 }
 
-export function DeliveryAddressForm({ onSubmit, defaultValues }: DeliveryAddressFormProps) {
+export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "Xác nhận địa chỉ", submitDisabled = false }: DeliveryAddressFormProps) {
   const [districts, setDistricts] = useState<District[]>([])
   const [wards, setWards] = useState<Ward[]>([])
   const [isLoadingDistricts, setIsLoadingDistricts] = useState(false)
@@ -266,10 +268,10 @@ export function DeliveryAddressForm({ onSubmit, defaultValues }: DeliveryAddress
       {/* Submit */}
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || submitDisabled}
         className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Tiếp tục
+        {submitLabel}
       </button>
     </form>
   )

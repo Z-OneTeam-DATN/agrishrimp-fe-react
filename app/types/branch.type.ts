@@ -13,5 +13,8 @@ export interface BranchDTO {
   districtName: string;
   wardName: string;
   managerNames: string[];
+  managerIds?: number[];
   status: "ACTIVE" | "INACTIVE";
+  lat?: number;
+  lng?: number;
 }
