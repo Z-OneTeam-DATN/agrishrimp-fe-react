@@ -137,7 +137,7 @@ export const ReceiptItemSchema = z.object({
   lotNumber: z.string().min(1, "Số lô là bắt buộc"),
   expiryDate: z.string().min(1, "Hạn dùng là bắt buộc"),
   importPrice: z.coerce.number().min(0, "Giá nhập không được âm"),
-  newSellingPrice: z.coerce.number().min(0).optional(),
+
 });
 
 export const ReceiptSchema = z.object({

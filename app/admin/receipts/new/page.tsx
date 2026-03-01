@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  X, Search, Info, Settings, Plus, Trash2, Package, Save, Image as ImageIcon, Download, Loader2, User, Clock, ChevronLeft, Warehouse, AlertCircle
+  X, Search, Plus, Trash2, Package, Save, Image as ImageIcon, Download, Loader2, User, Clock, ChevronLeft, Warehouse, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,14 +34,10 @@ function AdminReceiptFormContent() {
   const receiptId = searchParams.get("id");
   const isEditMode = Boolean(receiptId);
 
-  // 1. Lấy thông tin user
   const { data: currentUser, isLoading: isUserLoading } = useCurrentUser();
-
-  // 2. Định nghĩa biến kiểm tra quyền (Dựa trên roleId hoặc slug từ BE trả về)
   const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
 
   const [isReadOnly, setIsReadOnly] = useState(false);
-
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,7 +65,6 @@ function AdminReceiptFormContent() {
 
   const hasFetched = useRef(false);
 
-  // --- FORM SETUP ---
   const {
     register, handleSubmit, control, setValue, watch, getValues, reset,
     formState: { errors },
@@ -100,14 +95,12 @@ function AdminReceiptFormContent() {
     name: "items",
   });
 
-  // --- WATCHERS ---
   const watchItems = watch("items") || [];
   const watchPaymentAmount = watch("paymentAmount") || 0;
   const currentTargetBranch = watch("branchName");
   const importType = watch("importType");
   const sourceBranchId = watch("sourceBranchId");
 
-  // XÁC ĐỊNH ID KHO NHẬP VÀO VÀ CHECK QUYỀN
   const selectedDestBranch = React.useMemo(() => {
     return branches.find(b => (b.name || b.branchName || b.id.toString()) === currentTargetBranch);
   }, [branches, currentTargetBranch]);
@@ -115,14 +108,10 @@ function AdminReceiptFormContent() {
   const targetBranchId = selectedDestBranch?.id?.toString() || "";
   const isDestMainBranch = !selectedDestBranch || selectedDestBranch.branchType === "WAREHOUSE";
 
-  // TÍNH TOÁN TỔNG
   const subTotal = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0) * (Number(item.importPrice) || 0), 0);
   const totalQty = watchItems.reduce((acc, item) => acc + (Number(item.plannedQuantity) || 0), 0);
   const debtAmount = importType === "INTERNAL" ? 0 : subTotal - watchPaymentAmount;
 
-  // --- USE EFFECTS ---
-
-  // 1. Fetch Dữ liệu khi Sửa (Edit Mode)
   useEffect(() => {
       if (isEditMode && receiptId && !hasFetched.current) {
         hasFetched.current = true;
@@ -144,8 +133,8 @@ function AdminReceiptFormContent() {
 
             replace((data.items || []).map((item: any) => ({
               productCode: item.productCode || "", productName: item.productName || "",
-              plannedQuantity: item.quantity || 1, maxQuantity: 0,
-              importPrice: item.price || 0, newSellingPrice: item.newSellingPrice || 0,
+              plannedQuantity: item.quantity || 1, maxQuantity: item.maxQuantity || 0,
+              importPrice: item.price || 0,
               lotNumber: item.lotNumber || "", expiryDate: item.expiryDate || "", imageUrl: item.imageUrl || ""
             })));
             setTags(data.tags || []);
@@ -157,7 +146,6 @@ function AdminReceiptFormContent() {
       }
     }, [isEditMode, receiptId, reset, replace, router]);
 
-  // 2. Fetch danh sách chi nhánh
   useEffect(() => {
     const fetchBranches = async () => {
       setIsLoadingBranches(true);
@@ -173,20 +161,17 @@ function AdminReceiptFormContent() {
     fetchBranches();
   }, [setValue, isEditMode]);
 
-  // 3. Set nhân viên mặc định
   useEffect(() => {
     if (currentUser && !isEditMode) {
       setValue("deliverer", currentUser.fullName || currentUser.displayName || "Quản trị viên");
     }
   }, [currentUser, setValue, isEditMode]);
 
-  // 4. Tìm kiếm Sản Phẩm (Lấy theo tổng tồn kho chi nhánh)
   useEffect(() => {
     if (!isProductDropdownOpen) return;
 
     const fetchProducts = async () => {
       let queryBranchId = "";
-
       if (importType === "INTERNAL") {
          if (!sourceBranchId) {
             toast.warning("Vui lòng chọn 'Kho xuất hàng đi' trước khi thêm sản phẩm");
@@ -215,7 +200,6 @@ function AdminReceiptFormContent() {
     return () => clearTimeout(debounceTimer);
   }, [searchProductText, isProductDropdownOpen, importType, sourceBranchId, targetBranchId]);
 
-  // 5. Tìm kiếm nhà cung cấp
   useEffect(() => {
     const fetchSuppliers = async () => {
       if (!searchSupplierText.trim() && !isSupplierDropdownOpen) return;
@@ -229,7 +213,6 @@ function AdminReceiptFormContent() {
     return () => clearTimeout(debounceTimer);
   }, [searchSupplierText, isSupplierDropdownOpen]);
 
-  // 6. Xử lý click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsSupplierDropdownOpen(false);
@@ -242,7 +225,6 @@ function AdminReceiptFormContent() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- HANDLERS ---
   const handleSelectSupplier = (supplier: Supplier) => {
     if (isReadOnly) return;
     setValue("supplierCode", supplier.code);
@@ -287,16 +269,15 @@ function AdminReceiptFormContent() {
           productCode: productCode,
           productName: variant.productName || variant.unit || "Sản phẩm không tên",
           plannedQuantity: 1,
-          maxQuantity: Number(variant.quantity) || 0, // Lưu tồn kho để check
+          maxQuantity: Number(variant.quantity) || 0,
           lotNumber: "",
           expiryDate: "",
-          importPrice: Number(variant.costPrice) || 0,
-          newSellingPrice: Number(variant.price) || 0,
+          importPrice: 0,
           imageUrl: variant.imageUrl || "",
         } as any);
       }
     });
-    toast.success(`Đã thêm ${checkedItems.length} sản phẩm`);
+    toast.success(`Đã thêm ${checkedItems.length} sản phẩm. Hãy nhập giá nhập thực tế.`);
     setIsProductDropdownOpen(false);
     setCheckedItems([]);
   };
@@ -310,7 +291,6 @@ function AdminReceiptFormContent() {
     }
   };
 
-  // --- SUBMIT ---
   const onSubmit = async (data: Receipt) => {
       if (isReadOnly) return;
       setIsSubmitting(true);
@@ -325,7 +305,7 @@ function AdminReceiptFormContent() {
           items: data.items.map(item => ({
             productCode: item.productCode, plannedQuantity: Number(item.plannedQuantity),
             lotNumber: item.lotNumber, expiryDate: item.expiryDate,
-            importPrice: Number(item.importPrice), newSellingPrice: Number(item.newSellingPrice)
+            importPrice: Number(item.importPrice)
           }))
         };
         if (isEditMode) await InventoryApiService.updateReceipt(receiptId as string, payload);
@@ -368,7 +348,6 @@ function AdminReceiptFormContent() {
         </h1>
       </div>
 
-      {/* ✅ THÔNG BÁO QUYỀN TRỰC QUAN */}
       <div className={cn(
           "p-3 border flex items-center gap-3 rounded-sm shadow-sm",
           isAdmin ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-amber-50 border-amber-200 text-amber-700"
@@ -382,11 +361,7 @@ function AdminReceiptFormContent() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 relative z-20">
-
-        {/* NGUỒN NHẬP HÀNG */}
         <div className="md:col-span-7 bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm flex flex-col gap-4">
-
-          {/* LOẠI PHIẾU NHẬP */}
           <div className="border-b pb-4">
              <Label className="text-[12px] font-bold text-slate-700 mb-2 block uppercase tracking-wider">Nguồn nhập hàng (*)</Label>
              <Controller
@@ -397,13 +372,12 @@ function AdminReceiptFormContent() {
                      field.onChange(v);
                      handleClearSupplier();
                      setValue("sourceBranchId", "");
-                     replace([]); // Clear sản phẩm khi đổi nguồn
+                     replace([]);
                  }} disabled={isReadOnly}>
                     <SelectTrigger className="h-10 text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0 font-bold bg-slate-50">
                       <SelectValue placeholder="Chọn nguồn nhập" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none z-[9999]">
-                      {/* CHỈ HIỂN THỊ NGUỒN NHÀ CUNG CẤP NẾU KHO ĐÍCH LÀ KHO TỔNG */}
                       {isDestMainBranch && <SelectItem value="SUPPLIER">Nhập mua từ Nhà cung cấp</SelectItem>}
                       <SelectItem value="INTERNAL">Nhập chuyển từ Kho nội bộ</SelectItem>
                     </SelectContent>
@@ -412,7 +386,6 @@ function AdminReceiptFormContent() {
              />
           </div>
 
-          {/* RẼ NHÁNH GIAO DIỆN THEO NGUỒN */}
           {importType === "SUPPLIER" ? (
              <div className="relative">
                 <Label className="text-[12px] font-bold text-slate-500 mb-2 block">Thông tin Nhà cung cấp</Label>
@@ -427,8 +400,6 @@ function AdminReceiptFormContent() {
                       placeholder={isReadOnly ? "Phiếu đã nhập kho" : "Tìm theo tên, SĐT, mã nhà cung cấp... (F4)"}
                       className={`pl-10 h-10 border-[#ccc] rounded-none focus-visible:ring-blue-500/20 shadow-none text-[13px] ${errors.supplierCode ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`}
                     />
-                    {errors.supplierCode && <p className="text-rose-500 text-[11px] mt-1 font-medium">{errors.supplierCode.message}</p>}
-
                     {isSupplierDropdownOpen && !isReadOnly && (
                       <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl z-[9999]">
                         <div className="p-3 border-b border-slate-200 flex items-center gap-2 text-blue-600 bg-blue-50/50 hover:bg-blue-100 cursor-pointer transition-colors"
@@ -506,8 +477,6 @@ function AdminReceiptFormContent() {
                       </Select>
                     )}
                  />
-                 {errors.sourceBranchId && <p className="text-rose-500 text-[11px] mt-1 font-medium">{errors.sourceBranchId.message}</p>}
-
                  {sourceBranchId && (
                     <div className="mt-2 text-[12px] text-slate-600 bg-orange-50/50 p-3 border border-orange-100 rounded-sm flex items-center gap-2">
                        <Warehouse size={16} className="text-orange-500"/>
@@ -518,10 +487,8 @@ function AdminReceiptFormContent() {
           )}
         </div>
 
-        {/* THÔNG TIN ĐƠN NHẬP HÀNG */}
         <div className="md:col-span-5 bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm space-y-3">
           <h2 className="text-[13px] font-bold text-slate-700 mb-4 border-b pb-2">Thông tin đơn nhập hàng</h2>
-
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[12px] font-bold text-slate-500">Trạng thái phiếu</Label>
             <div className="col-span-8">
@@ -542,7 +509,6 @@ function AdminReceiptFormContent() {
               />
             </div>
           </div>
-
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[12px] font-bold text-slate-500">Nhập vào kho</Label>
             <div className="col-span-8">
@@ -553,8 +519,6 @@ function AdminReceiptFormContent() {
                   <Select onValueChange={(val) => {
                       field.onChange(val);
                       replace([]);
-
-                      // Tự động gạt về Nội Bộ nếu chọn kho lẻ
                       const b = branches.find(x => (x.name || x.branchName) === val);
                       if (b && b.branchType !== 'WAREHOUSE' && watch('importType') === 'SUPPLIER') {
                           setValue('importType', 'INTERNAL');
@@ -574,16 +538,14 @@ function AdminReceiptFormContent() {
                   </Select>
                 )}
               />
-              {errors.branchName && <p className="text-rose-500 text-[10px] mt-1">{errors.branchName.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[12px] font-bold text-slate-500">Nhân viên</Label>
             <div className="col-span-8 relative">
               <Input {...register("deliverer")} readOnly placeholder={isUserLoading ? "Đang tải..." : "Tên nhân viên"}
-                className={`h-9 text-[13px] border-[#ccc] rounded-none shadow-none font-medium bg-slate-50 cursor-default focus-visible:ring-0 ${errors.deliverer ? "border-rose-500" : ""}`} />
+                className={`h-9 text-[13px] border-[#ccc] rounded-none shadow-none font-medium bg-slate-50 cursor-default focus-visible:ring-0`} />
               <User size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              {errors.deliverer && <p className="text-rose-500 text-[10px] mt-1">{errors.deliverer.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-12 items-center gap-2">
@@ -591,13 +553,11 @@ function AdminReceiptFormContent() {
             <div className="col-span-8 relative">
               <Input readOnly={isReadOnly} type="date" {...register("entryDate")} className={`h-9 text-[13px] border-[#ccc] rounded-none shadow-none font-medium pr-10 ${errors.entryDate ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`} />
               <Clock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              {errors.entryDate && <p className="text-rose-500 text-[10px] mt-1">{errors.entryDate.message}</p>}
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Middle Section: Product Table */}
       <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-visible relative z-10">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-3 flex-1">
@@ -610,7 +570,7 @@ function AdminReceiptFormContent() {
                 value={searchProductText}
                 onChange={(e) => { setSearchProductText(e.target.value); setIsProductDropdownOpen(true); }}
                 onFocus={() => setIsProductDropdownOpen(true)}
-                placeholder={isReadOnly ? "Phiếu này đã nhập kho, không thể thêm sản phẩm" : "Tìm tên, mã SKU, Barcode... (F3)"}
+                placeholder={isReadOnly ? "Phiếu này đã nhập kho" : "Tìm tên, mã SKU, Barcode... (F3)"}
                 className={`pl-10 h-10 border-[#ccc] rounded-none focus-visible:ring-blue-500/20 shadow-none text-[13px] ${isReadOnly ? "bg-slate-50" : ""}`}
               />
               {isProductDropdownOpen && !isReadOnly && (
@@ -619,7 +579,7 @@ function AdminReceiptFormContent() {
                     {isLoadingProducts ? (
                       <div className="flex items-center justify-center p-4">
                         <Loader2 size={20} className="animate-spin mr-2 text-blue-600" />
-                        <span className="text-[12px]">Đang tải danh sách...</span>
+                        <span className="text-[12px]">Đang tải...</span>
                       </div>
                     ) : products.length > 0 ? (
                       products.map((variant) => (
@@ -647,20 +607,17 @@ function AdminReceiptFormContent() {
                                </div>
                              </div>
                           </div>
-
                           <div className="text-right">
-                            <p className="text-[13px] font-bold text-rose-600">{formatNumber(variant.costPrice || 0)} ₫</p>
                             <p className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-sm mt-1 inline-block border border-blue-100">
-                               Tồn {importType === "INTERNAL" ? "kho xuất" : "tại kho"}: {variant.quantity || 0}
+                               Tồn: {variant.quantity || 0}
                             </p>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-slate-500 text-[12px]">Không tìm thấy sản phẩm nào.</div>
+                      <div className="p-4 text-center text-slate-500 text-[12px]">Không tìm thấy sản phẩm.</div>
                     )}
                   </div>
-
                   {checkedItems.length > 0 && (
                     <div className="sticky bottom-0 left-0 w-full p-3 bg-blue-50 border-t border-blue-100 flex justify-between items-center z-[110] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                       <span className="text-[12px] font-bold text-blue-700">Đã chọn {checkedItems.length}</span>
@@ -672,19 +629,11 @@ function AdminReceiptFormContent() {
                 </div>
               )}
             </div>
-            {!isReadOnly && (
-              <>
-                <Button type="button" variant="outline" className="h-10 text-[12px] border-[#ccc] rounded-none">Chọn nhiều</Button>
-                <Button type="button" variant="outline" className="h-10 text-[12px] border-emerald-200 bg-emerald-50 text-emerald-700 rounded-none">
-                  <Download size={16} className="mr-2" /> Nhập Excel
-                </Button>
-              </>
-            )}
           </div>
         </div>
 
         <div className="min-h-[300px] overflow-x-auto relative z-0">
-          <Table className="min-w-[1200px]">
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow className="bg-[#fcfcfc] border-b border-[#eee]">
                 <TableHead className="w-[50px] text-center p-3 text-[11px] font-bold text-slate-400">STT</TableHead>
@@ -692,19 +641,17 @@ function AdminReceiptFormContent() {
                 <TableHead className="w-[130px] font-bold text-slate-400 text-[11px] p-3 text-center">Số lô</TableHead>
                 <TableHead className="w-[130px] font-bold text-slate-400 text-[11px] p-3 text-center">Hạn dùng</TableHead>
                 <TableHead className="w-[130px] text-[11px] font-bold text-slate-400 p-3 text-right">Số lượng</TableHead>
-                <TableHead className="w-[130px] text-[11px] font-bold text-slate-400 p-3 text-right">Giá nhập</TableHead>
-                <TableHead className="w-[130px] font-bold text-emerald-600 text-[11px] p-3 text-right">Giá bán</TableHead>
+                <TableHead className="w-[150px] text-[11px] font-bold text-blue-600 p-3 text-right">Giá nhập (*)</TableHead>
                 <TableHead className="w-[150px] text-[11px] font-bold text-slate-400 p-3 text-right">Thành tiền</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {fields.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="h-64 text-center text-slate-300 font-bold uppercase tracking-widest">Chưa có sản phẩm nào</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="h-64 text-center text-slate-300 font-bold uppercase tracking-widest">Chưa có sản phẩm nào</TableCell></TableRow>
               ) : (
                 fields.map((field: any, index) => {
                   const currentItem = watchItems[index] as any;
-
                   return (
                     <React.Fragment key={field.id}>
                       <TableRow className="border-b hover:bg-slate-50/30 transition-colors">
@@ -721,64 +668,69 @@ function AdminReceiptFormContent() {
                           </div>
                         </TableCell>
                         <TableCell className="p-3">
-                          <Input readOnly={isReadOnly} {...register(`items.${index}.lotNumber`)} className={`h-8 text-[12px] border-[#ccc] rounded-none text-center font-bold ${errors.items?.[index]?.lotNumber ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`} />
+                          <Input readOnly={isReadOnly} {...register(`items.${index}.lotNumber`)} className={`h-8 text-[12px] border-[#ccc] rounded-none text-center font-bold ${isReadOnly ? "bg-slate-50" : ""}`} />
                         </TableCell>
                         <TableCell className="p-3">
-                          <Input readOnly={isReadOnly} type="date" {...register(`items.${index}.expiryDate`)} className={`h-8 text-[12px] border-[#ccc] rounded-none ${errors.items?.[index]?.expiryDate ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`} />
+                          <Input readOnly={isReadOnly} type="date" {...register(`items.${index}.expiryDate`)} className={`h-8 text-[12px] border-[#ccc] rounded-none ${isReadOnly ? "bg-slate-50" : ""}`} />
                         </TableCell>
                         <TableCell className="p-3">
                           <Input
                             readOnly={isReadOnly}
                             type="number"
                             {...register(`items.${index}.plannedQuantity`, { valueAsNumber: true })}
-                            className={`h-8 text-[12px] text-right font-bold ${errors.items?.[index]?.plannedQuantity ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`}
+                            className={cn(
+                              "h-8 text-[12px] text-right font-bold rounded-none",
+                              isReadOnly ? "bg-slate-50 border-[#ccc]" : "bg-white",
+                              (errors.items?.[index]?.plannedQuantity || (importType === "INTERNAL" && currentItem?.plannedQuantity > currentItem?.maxQuantity))
+                                ? "border-rose-500 focus-visible:ring-rose-500"
+                                : "border-[#ccc]"
+                            )}
                           />
+
                           {!isReadOnly && importType === "INTERNAL" && currentItem?.maxQuantity !== undefined && (
-                             <div className="text-[10px] text-blue-600 font-bold mt-1 text-right bg-blue-50 px-1 py-0.5 rounded-sm inline-block w-full">
-                                Tồn kho xuất: {currentItem.maxQuantity}
-                             </div>
+                            <div className="mt-1 flex flex-col items-end gap-0.5">
+                              <span className="text-[10px] text-blue-600 font-bold bg-blue-50/80 px-1.5 py-0.5 rounded-sm border border-blue-100">
+                                Tồn kho: {currentItem.maxQuantity}
+                              </span>
+
+                              {currentItem.plannedQuantity > currentItem.maxQuantity && (
+                                <span className="text-[10px] text-rose-500 font-bold animate-pulse">
+                                  Vượt quá tồn kho!
+                                </span>
+                              )}
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell className="p-3">
+                        <TableCell className="p-3 bg-blue-50/30">
                           <Input
                             readOnly={isReadOnly}
                             type="number"
-                            {...register(`items.${index}.importPrice`, { valueAsNumber: true })}
-                            className={`h-8 text-[12px] text-right font-bold text-blue-600 ${errors.items?.[index]?.importPrice ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-50" : ""}`}
+                            {...register(`items.${index}.importPrice`, {
+                              valueAsNumber: true,
+                              min: { value: 0, message: "Giá không được âm" }
+                            })}
+                            placeholder="Nhập giá..."
+                            className={cn(
+                              "h-9 text-[13px] text-right font-black border-blue-200 focus:border-blue-500 rounded-none shadow-sm text-blue-700",
+                              errors.items?.[index]?.importPrice ? "border-rose-500" : "",
+                              isReadOnly ? "bg-slate-50" : "bg-white"
+                            )}
                           />
-                        </TableCell>
-                        <TableCell className="p-3">
-                          <Input readOnly={isReadOnly} type="number" {...register(`items.${index}.newSellingPrice`, { valueAsNumber: true })} className={`h-8 text-[12px] text-right font-bold text-emerald-700 bg-emerald-50/30 ${isReadOnly ? "bg-slate-50" : ""}`} />
                         </TableCell>
                         <TableCell className="p-3 text-right font-bold text-[13px] text-slate-900">{formatNumber((Number(currentItem?.plannedQuantity) || 0) * (Number(currentItem?.importPrice) || 0))}</TableCell>
                         <TableCell className="p-3 text-center">
                           {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-rose-600"><Trash2 size={16} /></button>}
                         </TableCell>
                       </TableRow>
-                      {(errors.items?.[index]?.lotNumber || errors.items?.[index]?.expiryDate || errors.items?.[index]?.plannedQuantity || errors.items?.[index]?.importPrice) && (
-                        <TableRow className="bg-rose-50/30">
-                          <TableCell colSpan={9} className="p-1 px-4">
-                            <div className="flex gap-4 text-[10px] text-rose-500 font-medium">
-                              {errors.items?.[index]?.lotNumber && <span>• {(errors.items?.[index]?.lotNumber as any)?.message}</span>}
-                              {errors.items?.[index]?.expiryDate && <span>• {(errors.items?.[index]?.expiryDate as any)?.message}</span>}
-                              {errors.items?.[index]?.plannedQuantity && <span>• {(errors.items?.[index]?.plannedQuantity as any)?.message}</span>}
-                              {errors.items?.[index]?.importPrice && <span>• {(errors.items?.[index]?.importPrice as any)?.message}</span>}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
                     </React.Fragment>
                   );
                 })
               )}
             </TableBody>
           </Table>
-          {errors.items?.root && <p className="p-4 text-rose-500 text-sm font-bold bg-rose-50">{errors.items.root.message}</p>}
-          {errors.items && !Array.isArray(errors.items) && <p className="p-4 text-rose-500 text-sm font-bold bg-rose-50">{(errors.items as any).message}</p>}
         </div>
       </div>
 
-      {/* 3. Bottom Summary Section */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pt-6">
         <div className="md:col-span-5 space-y-6">
           <div className="space-y-2">
@@ -803,13 +755,10 @@ function AdminReceiptFormContent() {
             <span className="text-slate-500 font-bold uppercase">Số lượng hàng</span>
             <span className="text-slate-900 font-black">{totalQty}</span>
           </div>
-
           <div className="flex justify-between items-center text-[13px]">
             <span className="text-slate-500 font-bold uppercase">Tổng tiền hàng</span>
             <span className="text-slate-900 font-black">{formatNumber(subTotal)} ₫</span>
           </div>
-
-          {/* NẾU NHẬP TỪ NCC MỚI HIỆN THÔNG TIN THANH TOÁN (Cần trả, Thanh toán, Còn nợ) */}
           {importType === "SUPPLIER" ? (
             <>
               <div className="pt-3 border-t border-dashed border-slate-300 flex justify-between items-center">
@@ -819,8 +768,8 @@ function AdminReceiptFormContent() {
               <div className="pt-4 border-t">
                 <p className="text-[12px] font-bold text-slate-800 uppercase">Thanh toán cho NCC</p>
                 <div className="relative mt-2">
-                <Input readOnly={isReadOnly} type="number" {...register("paymentAmount", { valueAsNumber: true })} className={`h-10 text-[16px] font-black text-blue-600 border-[#ccc] text-right bg-blue-50/30 ${errors.paymentAmount ? "border-rose-500" : ""} ${isReadOnly ? "bg-slate-100" : ""}`} />
-                {errors.paymentAmount && <p className="text-rose-500 text-[10px] mt-1">{errors.paymentAmount.message}</p>}</div>
+                <Input readOnly={isReadOnly} type="number" {...register("paymentAmount", { valueAsNumber: true })} className={`h-10 text-[16px] font-black text-blue-600 border-[#ccc] text-right bg-blue-50/30 ${isReadOnly ? "bg-slate-100" : ""}`} />
+                </div>
               </div>
              <div className="pt-4 flex justify-between items-center border-t border-slate-200">
                <span className="text-[12px] font-black text-slate-900 uppercase">Còn nợ</span>
@@ -832,28 +781,19 @@ function AdminReceiptFormContent() {
           ) : (
             <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-sm text-center">
                <p className="text-[12px] text-blue-700 font-bold uppercase">Luân chuyển nội bộ</p>
-               <p className="text-[11px] text-slate-500 mt-1">Không phát sinh thanh toán chi phí với đối tác bên ngoài.</p>
+               <p className="text-[11px] text-slate-500 mt-1">Không phát sinh thanh toán chi phí.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 4. Fixed Footer Actions */}
       <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t p-[12px_30px] flex items-center justify-end gap-[15px] z-[999]">
         <Button type="button" variant="outline" onClick={() => router.back()} className="min-w-[110px] text-[12px] font-bold uppercase border-[#ccc] bg-white rounded-none">
           {isReadOnly ? "Quay lại" : "Hủy bỏ"}
         </Button>
-
         {!isReadOnly && (
          <Button type="submit" disabled={isSubmitting} className="min-w-[180px] text-[12px] font-black bg-blue-600 text-white uppercase rounded-none shadow-md">
-           {isSubmitting ? (
-             <Loader2 className="animate-spin mr-2" />
-           ) : (
-             <>
-               <Save size={18} className="mr-2" />
-               {isAdmin ? "LƯU & DUYỆT NGAY" : "LƯU & GỬI DUYỆT"}
-             </>
-           )}
+           {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <><Save size={18} className="mr-2" />{isAdmin ? "LƯU & DUYỆT NGAY" : "LƯU & GỬI DUYỆT"}</>}
          </Button>
         )}
       </div>

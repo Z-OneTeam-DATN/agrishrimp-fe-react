@@ -1,130 +1,138 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
-import { AdminTransferTable } from "@/components/admin/AdminTransferTable";
-import {
-  Download,
-  Truck,
-  Clock,
-  AlertTriangle,
-  TrendingUp,
-  Warehouse,
-  Search,
-  Printer,
-  Trash2,
-  CheckCircle2,
-  X,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
+import { InventoryApiService } from "@/app/services/inventory.service";
+import { toast } from "sonner";
+import { Loader2, AlertCircle, X, Printer, CheckCircle2, Trash2, Search, FileText } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { transferService } from "@/app/services/transfer.service";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-// Format hiển thị ngày giờ chuẩn VN
-const formatDateTime = (dateString: string) => {
-  if (!dateString) return "--";
-  const d = new Date(dateString);
-  return d.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).replace(",", "");
-};
-
-export default function AdminTransferListPage() {
-  const [activeTab, setActiveTab] = useState("outbound");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // State API
-  const [transfers, setTransfers] = useState<any[]>([]);
+export default function AdminReceiptListPage() {
+  // Thay đổi State activeTab
+  const [activeTab, setActiveTab] = useState("pending"); // "pending" | "history"
+  const [receipts, setReceipts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
-  const [status, setStatus] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleteReceipt, setDeleteReceipt] = useState<{ id: number; code: string } | null>(null);
 
-  // Fetch API thật
-  useEffect(() => {
-    const fetchTransfers = async () => {
-      setIsLoading(true);
-      try {
-        const data = await transferService.getAll(keyword, status, 0, 50);
-
-        const mappedData = data.content.map((t: any) => ({
-          id: t.id.toString(),
-          code: t.transferCode,
-          date: formatDateTime(t.createdAt),
-          deadline: formatDateTime(t.deadline),
-          age: "Mới tạo",
-          priority: t.priority || "NORMAL",
-          fromWarehouse: t.fromBranchName || "Kho xuất",
-          toWarehouse: t.toBranchName || "Kho nhận",
-          transporter: t.transporter || "--",
-          totalQty: t.totalQuantity || 0,
-          itemCount: t.itemCount || 0,
-          totalValue: t.totalValue || 0,
-          status: t.status,
-          creator: "Admin",
-          isHighValue: t.totalValue > 50000000,
-          isOverdue: t.deadline && new Date(t.deadline) < new Date(),
-        }));
-
-        setTransfers(mappedData);
-      } catch (error) {
-        console.error("Lỗi lấy danh sách:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTransfers();
-  }, [keyword, status]);
-
-  // Hàm xử lý xóa phiếu
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn phiếu điều chuyển này không?")) return;
-
+  const fetchReceipts = async () => {
+    setIsLoading(true);
     try {
-      await transferService.delete(id);
+      const data = await InventoryApiService.getAllReceipts();
+      const rawData = Array.isArray(data) ? data : (data?.content || []);
 
-      // Xóa thành công thì lọc item đó ra khỏi state để UI cập nhật tức thì
-      setTransfers((prev) => prev.filter((t) => t.id !== id));
+      const formattedData = rawData.map((item: any) => {
+        // LOGIC: Nếu không có supplierName (hoặc là N/A) và là phiếu nội bộ, hiện tên kho nguồn
+        let displayPartner = item.supplierName;
+        if (!displayPartner || displayPartner === "N/A") {
+          displayPartner = item.importType === "INTERNAL" ? "[Nội bộ] Kho điều chuyển" : "N/A";
+        }
 
-      // Gỡ ID khỏi danh sách chọn (nếu đang chọn)
-      setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
+        return {
+          id: item.id,
+          code: item.code || `PNK-${item.id}`,
+          date: item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chưa xác định",
+          supplier: displayPartner,
+          importType: item.importType,
+          warehouse: item.branchName || "Kho mặc định",
+          total: item.totalAmount || 0,
+          paid: item.paymentAmount || 0,
+          debt: item.debtAmount || 0,
+          status: item.status || "PENDING", // PENDING hoặc COMPLETED
+          creator: item.deliverer || "Hệ thống",
+        };
+      });
 
-      alert("Đã xóa phiếu thành công!");
-    } catch (error) {
-      console.error("Lỗi khi xóa phiếu:", error);
-      alert("Không thể xóa phiếu. Vui lòng thử lại!");
+      setReceipts(formattedData);
+    } catch (error: any) {
+      toast.error("Không thể kết nối đến máy chủ để tải danh sách phiếu");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchReceipts();
+  }, []);
+
+  const confirmDelete = async () => {
+    if (!deleteReceipt) return;
+    try {
+      await InventoryApiService.deleteReceipt(deleteReceipt.id.toString());
+      toast.success(`Đã xóa phiếu nhập "${deleteReceipt.code}" thành công!`);
+      // Update UI immediately without refetching for better UX
+      setReceipts((prev) => prev.filter((r) => r.id !== deleteReceipt.id));
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteReceipt.id.toString()));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Lỗi khi xóa phiếu nhập!");
+    } finally {
+      setDeleteReceipt(null);
+    }
+  };
+
+  // ✅ LOGIC LỌC DỮ LIỆU THEO TAB (Sử dụng useMemo)
+  const displayData = useMemo(() => {
+    return receipts.filter((item) => {
+      // 1. Lọc theo Tab
+      let matchesTab = false;
+      if (activeTab === "pending") {
+        matchesTab = item.status === "PENDING" || item.status === "PO";
+      } else {
+        matchesTab = item.status === "COMPLETED" || item.status === "IMPORTED";
+      }
+
+      // 2. Lọc theo Keyword (Mã phiếu hoặc Nhà cung cấp)
+      let matchesKeyword = true;
+      if (keyword.trim()) {
+        const lowerKeyword = keyword.toLowerCase();
+        matchesKeyword =
+          item.code.toLowerCase().includes(lowerKeyword) ||
+          item.supplier.toLowerCase().includes(lowerKeyword);
+      }
+
+      return matchesTab && matchesKeyword;
+    });
+  }, [receipts, activeTab, keyword]);
+
+  // Tính toán số lượng huy hiệu cho Tabs
+  const pendingCount = receipts.filter(t => t.status === "PENDING" || t.status === "PO").length;
+  const historyCount = receipts.filter(t => t.status === "COMPLETED" || t.status === "IMPORTED").length;
+
   return (
     <div className="space-y-4">
+      {/* Sử dụng Component AdminPageHeader giống mẫu */}
       <AdminPageHeader
-        title="Quản lý điều chuyển kho"
-        addBtnLabel="Lập lệnh điều chuyển"
-        addBtnHref="/admin/transfers/new"
-        secondaryBtnLabel="Xuất Excel"
-        secondaryBtnIcon={Download}
-        /* COMMENT LẠI HÀNG XUẤT HÀNG NHẬP */
-        /*
+        title="Quản lý nhập kho"
+        addBtnLabel="Tạo phiếu nhập mới"
+        addBtnHref="/admin/receipts/new"
         tabs={[
           {
-            id: "outbound",
-            label: "Hàng Xuất (Gửi đi)",
-            count: transfers.length,
-            color: "text-blue-600",
+            id: "pending",
+            label: "Chờ xử lý",
+            count: pendingCount,
+            color: "text-amber-600",
           },
           {
-            id: "inbound",
-            label: "Hàng Nhập (Sắp về)",
-            count: 0,
-            color: "text-orange-600",
+            id: "history",
+            label: "Lịch sử",
+            count: historyCount,
+            color: "text-slate-600",
           },
         ]}
-        */
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
@@ -134,19 +142,23 @@ export default function AdminTransferListPage() {
           <div className="p-3 bg-slate-900 text-white flex items-center justify-between animate-in slide-in-from-top duration-300">
             <div className="flex items-center gap-4">
               <span className="text-[12px] font-black uppercase tracking-widest">
-                Đã chọn {selectedIds.length} phiếu điều chuyển
+                Đã chọn {selectedIds.length} phiếu nhập kho
               </span>
               <div className="h-4 w-[1px] bg-slate-700" />
               <div className="flex items-center gap-2">
                 <Button variant="ghost" className="h-8 text-[11px] font-bold text-white hover:bg-slate-800 uppercase tracking-tighter">
                   <Printer size={14} className="mr-1.5" /> In phiếu loạt
                 </Button>
-                <Button variant="ghost" className="h-8 text-[11px] font-bold text-white hover:bg-slate-800 uppercase tracking-tighter">
-                  <CheckCircle2 size={14} className="mr-1.5" /> Xác nhận nhận hàng
-                </Button>
-                <Button variant="ghost" className="h-8 text-[11px] font-bold text-rose-400 hover:bg-rose-900/30 uppercase tracking-tighter">
-                  <Trash2 size={14} className="mr-1.5" /> Hủy hàng loạt
-                </Button>
+                {activeTab === "pending" && (
+                  <>
+                    <Button variant="ghost" className="h-8 text-[11px] font-bold text-white hover:bg-slate-800 uppercase tracking-tighter">
+                      <CheckCircle2 size={14} className="mr-1.5" /> Duyệt hàng loạt
+                    </Button>
+                    <Button variant="ghost" className="h-8 text-[11px] font-bold text-rose-400 hover:bg-rose-900/30 uppercase tracking-tighter">
+                      <Trash2 size={14} className="mr-1.5" /> Hủy hàng loạt
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-white">
@@ -158,42 +170,71 @@ export default function AdminTransferListPage() {
             <div className="relative flex-1 min-w-[250px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <Input
-                placeholder="Tìm mã phiếu, người chuyển, tài xế..."
+                placeholder="Tìm mã phiếu, nhà cung cấp..."
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 className="h-9 pl-10 text-[13px] border-slate-200 focus:border-blue-500 rounded-none shadow-none bg-white"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-white border border-slate-200 px-2 h-9">
-                <Warehouse size={14} className="text-slate-400" />
-                <select
-                  className="text-[11px] font-black outline-none bg-transparent h-full cursor-pointer uppercase tracking-tighter"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="all">Trạng thái: Tất cả</option>
-                  <option value="PENDING">Chờ xuất kho</option>
-                  <option value="SHIPPING">Đang vận chuyển</option>
-                  <option value="COMPLETED">Đã hoàn thành</option>
-                </select>
-              </div>
-            </div>
+            {/* Nếu cần Dropdown lọc kho như thiết kế cũ thì có thể đặt ở đây */}
           </div>
         )}
 
-        {isLoading ? (
-          <div className="py-10 text-center text-slate-400 font-bold text-sm">Đang tải dữ liệu...</div>
-        ) : (
-          <AdminTransferTable
-            data={transfers}
-            mode={activeTab}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-            onDelete={handleDelete}
-          />
-        )}
+        <div className="relative">
+          {isLoading ? (
+            <div className="py-24 flex flex-col items-center justify-center bg-white/80 z-10 text-slate-400">
+              <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
+              <p className="text-[11px] font-black uppercase tracking-widest">
+                Đang tải dữ liệu...
+              </p>
+            </div>
+          ) : displayData.length === 0 ? (
+            <div className="py-24 flex flex-col items-center justify-center text-slate-400">
+              <div className="bg-slate-50 p-4 rounded-full mb-3">
+                <FileText className="opacity-20" size={40} />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-tight">Không có dữ liệu</p>
+              <p className="text-[11px] mt-1 text-slate-400">
+                {activeTab === "pending"
+                  ? "Hiện không có đơn nào đang chờ xử lý."
+                  : "Chưa có lịch sử nhập kho nào được ghi nhận."}
+              </p>
+            </div>
+          ) : (
+            // Component Table của bạn (cần nhận prop selectedIds và onSelectionChange nếu bạn đã code checkbox bên trong)
+            <InventoryReceiptTable
+              receipts={displayData}
+              onDeleteClick={(id, code) => setDeleteReceipt({ id, code })}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Popup Xóa Phiếu Nhập */}
+      <AlertDialog open={!!deleteReceipt} onOpenChange={() => setDeleteReceipt(null)}>
+        <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-bold text-[16px] uppercase tracking-tight flex items-center gap-2">
+              <AlertCircle size={20} /> Xác nhận xóa phiếu tạm
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 text-[13px]">
+              Bạn có chắc chắn muốn xóa phiếu nhập <span className="font-bold text-slate-900">"{deleteReceipt?.code}"</span>? <br />
+              <span className="text-[11px] text-rose-500 font-medium italic">*Hành động này không thể hoàn tác.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300 rounded-[3px]">
+              HỦY BỎ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold rounded-[3px]"
+            >
+              ĐỒNG Ý XÓA
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

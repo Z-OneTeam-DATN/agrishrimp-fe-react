@@ -217,7 +217,7 @@ export const AdminBranchSchema = z.object({
     id: z
         .string()
         .min(1, "Mã chi nhánh không được để trống")
-        .regex(/^[a-zA-Z0-9-]+$/, "Mã chi nhánh chỉ chứa chữ, số và dấu gạch ngang")
+        .regex(/^[a-zA-Z0-9-_]+$/, "Mã chi nhánh chỉ chứa chữ, số và dấu gạch ngang")
         .max(20, "Mã chi nhánh quá dài"),
 
     name: z
