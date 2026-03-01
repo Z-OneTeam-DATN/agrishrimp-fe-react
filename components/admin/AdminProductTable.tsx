@@ -12,6 +12,7 @@ import {
     Camera,
     Ban,
     Package,
+    Box,
 } from "lucide-react";
 
 import {
@@ -36,7 +37,19 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
+
+const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ";
+
+interface Batch {
+    inventoryId: number;
+    branchName: string;
+    batchNumber: string;
+    quantity: number;
+    importPrice: number | null;
+    sellingPrice: number;
+}
 
 interface AttributeValueDisplay {
     attributeName: string;
@@ -48,6 +61,9 @@ interface Variant {
     sku: string;
     barcode: string;
     quantity: number; // Tổng tồn kho từ các lô hàng
+    price: number;
+    importPrice: number | null;
+    batches: Batch[];
     imageUrl: string | null;
     status: string;
     attributeValues: AttributeValueDisplay[];
@@ -85,6 +101,8 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 
 export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable }: AdminProductTableProps) {
     const { hasPermission } = usePermissions();
+    const { user } = useAuthStore();
+    const isAdmin = user?.role?.slug === "ADMIN"; // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
     const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
@@ -241,7 +259,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                         </span>
                                     </TableCell>
 
-                                    {/* Hành động (Hiển thị dựa trên Quyền) */}
+                                    {/* Hành động */}
                                     {canAction && (
                                         <TableCell className="p-2 text-right pr-4" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-end gap-1">
@@ -265,49 +283,101 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                     )}
                                 </TableRow>
 
-                                {/* Expanded — danh sách biến thể */}
+                                {/* ─── EXPANDED: DANH SÁCH BIẾN THỂ VÀ BẢNG LÔ HÀNG ─── */}
                                 {isExpanded && (
                                     <TableRow className="bg-[#fdfdfd]">
-                                        {/* Đổi colSpan linh hoạt dựa trên canAction */}
                                         <TableCell colSpan={canAction ? 8 : 7} className="p-0 border-b border-[#eee]">
-                                            <div className="pl-[50px] pr-4 py-3 space-y-2">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2 mb-2">
+                                            <div className="pl-[50px] pr-4 py-4 space-y-4">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                                                     <Layers size={12} /> Biến thể hàng hóa ({p.variants.length} SKU)
                                                 </p>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div className="flex flex-col gap-4">
                                                     {p.variants.map((v) => {
                                                         const attrLabel = v.attributeValues.length > 0
                                                             ? v.attributeValues.map((a) => `${a.attributeName}: ${a.value}`).join(" / ")
                                                             : "Chưa phân loại";
 
                                                         return (
-                                                            <div key={v.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-[2px] hover:border-blue-200 transition-colors">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-9 h-9 border border-slate-200 rounded-[2px] flex items-center justify-center bg-slate-50 overflow-hidden shrink-0">
-                                                                        {v.imageUrl ? (
-                                                                            <img src={v.imageUrl} className="w-full h-full object-cover p-0.5" alt={v.sku} />
-                                                                        ) : (
-                                                                            <Camera size={14} className="text-slate-300" />
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="flex flex-col">
-                                                                        <p className="text-[11px] font-bold text-slate-700 uppercase">{attrLabel}</p>
-                                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                                            <span className="text-[10px] text-blue-600 font-mono font-bold bg-blue-50 px-1 rounded">{v.sku}</span>
-                                                                            {v.barcode && <span className="text-[9px] text-slate-400 font-mono">BC: {v.barcode}</span>}
+                                                            <div key={v.id} className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden transition-all hover:border-emerald-200">
+
+                                                                {/* PHẦN ĐẦU: THÔNG TIN BIẾN THỂ */}
+                                                                <div className="flex items-center justify-between p-3 border-b border-slate-100 bg-slate-50/50">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-10 h-10 border border-slate-200 rounded-[2px] flex items-center justify-center bg-white overflow-hidden shrink-0">
+                                                                            {v.imageUrl ? (
+                                                                                <img src={v.imageUrl} className="w-full h-full object-cover p-0.5" alt={v.sku} />
+                                                                            ) : (
+                                                                                <Camera size={14} className="text-slate-300" />
+                                                                            )}
                                                                         </div>
+                                                                        <div className="flex flex-col">
+                                                                            <p className="text-[11px] font-bold text-slate-700 uppercase">{attrLabel}</p>
+                                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                                <span className="text-[10px] text-blue-600 font-mono font-bold bg-blue-50 px-1 rounded">{v.sku}</span>
+                                                                                {v.barcode && <span className="text-[9px] text-slate-400 font-mono">BC: {v.barcode}</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5 flex items-center justify-end gap-1">
+                                                                            <Package size={10} /> Tổng tồn kho
+                                                                        </p>
+                                                                        <p className="text-[13px] font-black text-emerald-600">
+                                                                            {v.quantity.toLocaleString("vi-VN")} <span className="text-[10px] font-medium text-slate-400">SP</span>
+                                                                        </p>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="text-right pl-3 border-l border-slate-100">
-                                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mb-0.5 flex items-center justify-end gap-1">
-                                                                        <Package size={10} /> Tồn kho hệ thống
-                                                                    </p>
-                                                                    <p className="text-[13px] font-black text-emerald-600">
-                                                                        {v.quantity.toLocaleString("vi-VN")} <span className="text-[10px] font-medium text-slate-400">SP</span>
-                                                                    </p>
+                                                                {/* PHẦN DƯỚI: BẢNG CHI TIẾT LÔ HÀNG Y HỆT TRANG EDIT */}
+                                                                <div className="bg-white">
+                                                                    <div className="px-3 py-2 border-b flex justify-between items-center bg-[#f4f6f8]">
+                                                                        <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1.5">
+                                                                            <Box size={12} className="text-blue-600"/> Lô hàng hiện tại
+                                                                        </span>
+                                                                    </div>
+
+                                                                    {v.batches && v.batches.length > 0 ? (
+                                                                        <div className="overflow-x-auto">
+                                                                            <table className="w-full text-left">
+                                                                                <thead className="bg-white border-b">
+                                                                                <tr>
+                                                                                    <th className="p-2 pl-4 text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">Mã Lô</th>
+                                                                                    <th className="p-2 text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">Vị trí</th>
+                                                                                    <th className="p-2 text-[9px] font-bold text-slate-400 uppercase text-center whitespace-nowrap">Tồn</th>
+                                                                                    {isAdmin && <th className="p-2 text-[9px] font-bold text-blue-500 uppercase text-right whitespace-nowrap">Giá vốn</th>}
+                                                                                    <th className="p-2 pr-4 text-[9px] font-bold text-emerald-600 uppercase text-right whitespace-nowrap">Giá bán niêm yết</th>
+                                                                                </tr>
+                                                                                </thead>
+                                                                                <tbody className="divide-y divide-slate-50">
+                                                                                {v.batches.map((b: any, bIdx: number) => (
+                                                                                    <tr key={`batch-${v.id}-${b.inventoryId || bIdx}`} className="hover:bg-slate-50 transition-colors">
+                                                                                        <td className="p-2 pl-4 text-[11px] font-mono font-bold text-slate-700 whitespace-nowrap">
+                                                                                            {b.batchNumber || "Mặc định"}
+                                                                                            {bIdx === 0 && <span className="ml-2 text-[8px] bg-blue-100 text-blue-700 px-1 py-[2px] rounded uppercase">Đang xuất</span>}
+                                                                                        </td>
+                                                                                        <td className="p-2 text-[10px] font-medium text-slate-500 whitespace-nowrap">{b.branchName}</td>
+                                                                                        <td className="p-2 text-[11px] font-black text-slate-700 text-center">{b.quantity}</td>
+                                                                                        {isAdmin && (
+                                                                                            <td className="p-2 text-[11px] font-bold text-blue-600 text-right whitespace-nowrap">
+                                                                                                {b.importPrice != null ? `${b.importPrice.toLocaleString('vi-VN')} ₫` : "—"}
+                                                                                            </td>
+                                                                                        )}
+                                                                                        <td className="p-2 pr-4 text-[11px] font-black text-emerald-600 text-right whitespace-nowrap">
+                                                                                            {b.sellingPrice ? `${b.sellingPrice.toLocaleString('vi-VN')} ₫` : "—"}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="p-4 flex items-center justify-center bg-white">
+                                                                            <p className="text-[11px] font-medium text-slate-400">Không có lô hàng nào (Hết hàng).</p>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
+
                                                             </div>
                                                         );
                                                     })}
@@ -322,6 +392,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                 </TableBody>
             </Table>
 
+            {/* Dialog Xác nhận */}
             <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <AlertDialogContent className="rounded-none border-[#dcdcdc] shadow-xl">
                     <AlertDialogHeader className="space-y-3">
