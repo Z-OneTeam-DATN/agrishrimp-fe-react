@@ -40,10 +40,14 @@ export const ProductService = {
   },
 
   // 4. Cập nhật sản phẩm & Biến thể
-  update: async (id: string | number, data: UpdateProductRequest): Promise<ApiResponse> => {
-    const response = await apiJava.put(`${ProductService.PREFIX}/${id}`, data);
-    return response.data;
-  },
+    update: async (id: string | number, data: FormData | any) => {
+        const response = await apiJava.put(`/products/${id}`, data, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return response.data;
+    },
 
   // 5. Xóa sản phẩm
   delete: async (id: string | number): Promise<ApiResponse> => {
