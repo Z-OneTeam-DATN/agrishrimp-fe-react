@@ -23,20 +23,34 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 export default function ProductsPage() {
     const router = useRouter();
-    const { user } = useAuthStore();
+
+    const { user, isLoadingAuth } = useAuthStore();
     const isAdmin = user?.role?.slug === "ADMIN";
+
+    // Hook phân quyền
+    const { hasPermission } = usePermissions();
 
     const [products, setProducts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
 
+    // 0. Kiểm tra quyền truy cập route
+    useEffect(() => {
+        if (!isLoadingAuth && !hasPermission(P.PRODUCT_VIEW)) {
+            router.push("/admin/forbidden");
+        }
+    }, [isLoadingAuth, hasPermission, router]);
+
     // Filter states
     const [filters, setFilters] = useState({
         keyword: "",
         categoryId: "all",
-        status: "ACTIVE",
+        status: "ACTIVE", // Default theo specification
     });
 
     const [debouncedKeyword, setDebouncedKeyword] = useState("");
@@ -197,6 +211,11 @@ export default function ProductsPage() {
     const totalPages = Math.ceil(products.length / pageSize);
     const currentProducts = products.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
+    // Tránh render chớp giao diện (flickering) khi chưa check xong quyền
+    if (isLoadingAuth) {
+        return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-slate-400 w-8 h-8" /></div>;
+    }
+
     return (
         <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 border border-[#dcdcdc] rounded-[4px] shadow-sm">
@@ -224,7 +243,6 @@ export default function ProductsPage() {
                                 <div className="py-4">
                                     <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
                                     <div className="relative">
-                                        {/* 👉 Bỏ chặn onChange, cho phép gõ tự do, lỗi sẽ bắt ở hàm Save */}
                                         <Input
                                             type="number"
                                             min="0"
@@ -248,12 +266,15 @@ export default function ProductsPage() {
                         </Dialog>
                     )}
 
-                    <Button
-                        onClick={() => router.push("/admin/products/add")}
-                        className="h-[38px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[3px] uppercase px-5"
-                    >
-                        + Thêm sản phẩm
-                    </Button>
+                    {/* Chỉ show nút Thêm sản phẩm nếu có quyền */}
+                    {hasPermission(P.PRODUCT_CREATE) && (
+                        <Button
+                            onClick={() => router.push("/admin/products/add")}
+                            className="h-[38px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[3px] uppercase px-5"
+                        >
+                            + Thêm sản phẩm
+                        </Button>
+                    )}
                 </div>
             </div>
 

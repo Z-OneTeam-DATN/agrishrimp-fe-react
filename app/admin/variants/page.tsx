@@ -36,6 +36,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { useRouter } from "next/navigation";
+
 // --- HÀM TIỆN ÍCH CHUYỂN ĐỔI TÊN THÀNH MÃ ---
 const generateCodeFromName = (name: string) => {
   if (!name) return "";
@@ -58,8 +62,18 @@ export interface Attribute {
 }
 
 export default function AttributeManagementPage() {
+  const { hasPermission, isLoadingAuth } = usePermissions();
+  const router = useRouter();
+  
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  // 0. Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!isLoadingAuth && !hasPermission(P.ATTRIBUTE_VIEW)) {
+      router.push("/admin/forbidden");
+    }
+  }, [isLoadingAuth, hasPermission, router]);
 
   // State Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -87,6 +101,7 @@ export default function AttributeManagementPage() {
   }, [nameValue, editingId, setValue]);
 
   const loadData = async () => {
+    if (!hasPermission(P.ATTRIBUTE_VIEW)) return;
     try {
       const data = await getAttributes();
       setAttributes(data || []);
@@ -96,8 +111,8 @@ export default function AttributeManagementPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!isLoadingAuth) loadData();
+  }, [isLoadingAuth]);
 
   const openAddModal = () => {
     setEditingId(null);
@@ -175,13 +190,17 @@ export default function AttributeManagementPage() {
     }
   };
 
+  const canAction = hasPermission(P.ATTRIBUTE_UPDATE) || hasPermission(P.ATTRIBUTE_DELETE);
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-bold text-slate-800">Quản lý Thuộc tính Sản phẩm</h1>
-        <Button onClick={openAddModal} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9">
-          + Thêm thuộc tính
-        </Button>
+        {hasPermission(P.ATTRIBUTE_CREATE) && (
+          <Button onClick={openAddModal} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9">
+            + Thêm thuộc tính
+          </Button>
+        )}
       </div>
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
@@ -196,7 +215,7 @@ export default function AttributeManagementPage() {
                 <th className="p-3">Mã Code</th>
                 <th className="p-3">Các giá trị</th>
                 <th className="p-3">Trạng thái</th>
-                <th className="p-3 text-right">Hành động</th>
+                {canAction && <th className="p-3 text-right">Hành động</th>}
               </tr>
             </thead>
             <tbody>
@@ -219,20 +238,26 @@ export default function AttributeManagementPage() {
                         {attr.status === "ACTIVE" ? "Hiển thị" : "Đang ẩn"}
                       </span>
                     </td>
-                    <td className="p-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => openEditModal(attr)}>
-                          <Edit size={15} />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => setDeleteId(attr.id)}>
-                          <Trash2 size={15} />
-                        </Button>
-                      </div>
-                    </td>
+                    {canAction && (
+                      <td className="p-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          {hasPermission(P.ATTRIBUTE_UPDATE) && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => openEditModal(attr)}>
+                              <Edit size={15} />
+                            </Button>
+                          )}
+                          {hasPermission(P.ATTRIBUTE_DELETE) && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => setDeleteId(attr.id)}>
+                              <Trash2 size={15} />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Chưa có dữ liệu.</td></tr>
+                <tr><td colSpan={canAction ? 6 : 5} className="p-8 text-center text-slate-400 italic">Chưa có dữ liệu.</td></tr>
               )}
             </tbody>
           </table>

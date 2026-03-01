@@ -24,7 +24,11 @@ import { AdminBranchSchema, AdminBranchForm } from "@/app/types/admin.schema";
 import { branchService } from '@/app/services/branchService';
 import axios from "axios";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 export default function AddBranchPage() {
+  const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -35,6 +39,17 @@ export default function AddBranchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [staffs, setStaffs] = useState<any[]>([]);
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
+
+  // 0. Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!isLoadingAuth) {
+      if (isEditMode && !hasPermission(P.BRANCH_UPDATE)) {
+        router.push("/admin/forbidden");
+      } else if (!isEditMode && !hasPermission(P.BRANCH_CREATE)) {
+        router.push("/admin/forbidden");
+      }
+    }
+  }, [isLoadingAuth, isEditMode, hasPermission, router]);
 
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);

@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+import { usePermissions } from "@/hooks/usePermissions";
+
 interface AdminPageHeaderProps {
   title: string;
   addBtnLabel?: string;
   addBtnHref?: string;
   onAddClick?: () => void;
+  permission?: string;
   secondaryBtnLabel?: string;
   secondaryBtnHref?: string;
   secondaryBtnIcon?: LucideIcon;
@@ -25,6 +28,7 @@ export function AdminPageHeader({
   addBtnLabel, 
   addBtnHref,
   onAddClick,
+  permission,
   secondaryBtnLabel,
   secondaryBtnHref,
   secondaryBtnIcon: SecondaryIcon,
@@ -33,6 +37,9 @@ export function AdminPageHeader({
   onTabChange,
   tabs
 }: AdminPageHeaderProps) {
+  const { hasPermission } = usePermissions();
+  const canAdd = !permission || hasPermission(permission);
+
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-1">
       <div className="flex items-center gap-4">
@@ -77,7 +84,7 @@ export function AdminPageHeader({
           )
         )}
 
-        {(addBtnHref || onAddClick) && (
+        {canAdd && (addBtnHref || onAddClick) && (
           addBtnHref ? (
             <Link href={addBtnHref}>
               <Button className="h-[40px] px-4 text-[14px] font-bold bg-[#4169E1] hover:bg-blue-700 text-white rounded-md shadow-md transition-all">

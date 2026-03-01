@@ -20,6 +20,11 @@ export class AuthService {
     return response.data;
   }
 
+  static async getMyPermissionsNext(): Promise<string[]> {
+    const response = await apiNext.get<string[]>(`${this.PREFIX}/permissions`);
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
   static async me(): Promise<UserType> {
       const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
 

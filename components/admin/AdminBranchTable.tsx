@@ -22,6 +22,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 interface Branch {
   id: number;
   branchCode: string;
@@ -45,6 +48,8 @@ interface AdminBranchTableProps {
 
 export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTableProps) {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canAction = hasPermission(P.BRANCH_UPDATE) || hasPermission(P.BRANCH_DELETE);
 
   return (
     <div className="w-full">
@@ -69,9 +74,11 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
             <TableHead className="w-[130px] font-bold text-[11px] uppercase p-2 text-center text-[#1f1f1f]">
               Trạng thái
             </TableHead>
-            <TableHead className="w-[100px] text-right font-bold text-[11px] uppercase p-2 pr-6 text-[#1f1f1f]">
-              Thao tác
-            </TableHead>
+            {canAction && (
+              <TableHead className="w-[100px] text-right font-bold text-[11px] uppercase p-2 pr-6 text-[#1f1f1f]">
+                Thao tác
+              </TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -163,39 +170,45 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                   </span>
                 </TableCell>
 
-                <TableCell className="p-2 text-right pr-6">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 hover:bg-slate-100"
-                      onClick={() => router.push(`/admin/branches/add?id=${branch.id}`)}
-                    >
-                      <Pencil size={14} className="text-blue-600" />
-                    </Button>
-                    
-                    {isHQ ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-20 cursor-not-allowed"
-                        disabled
-                        title="Không thể xóa kho tổng"
-                      >
-                        <Trash2 size={14} className="text-slate-400" />
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-rose-50"
-                        onClick={() => onDeleteClick(branch.id, branch.name)}
-                      >
-                        <Trash2 size={14} className="text-rose-600" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
+                {canAction && (
+                  <TableCell className="p-2 text-right pr-6">
+                    <div className="flex justify-end gap-1">
+                      {hasPermission(P.BRANCH_UPDATE) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 hover:bg-slate-100"
+                          onClick={() => router.push(`/admin/branches/add?id=${branch.id}`)}
+                        >
+                          <Pencil size={14} className="text-blue-600" />
+                        </Button>
+                      )}
+                      
+                      {hasPermission(P.BRANCH_DELETE) && (
+                        isHQ ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-20 cursor-not-allowed"
+                            disabled
+                            title="Không thể xóa kho tổng"
+                          >
+                            <Trash2 size={14} className="text-slate-400" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-rose-50"
+                            onClick={() => onDeleteClick(branch.id, branch.name)}
+                          >
+                            <Trash2 size={14} className="text-rose-600" />
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             );
           })}

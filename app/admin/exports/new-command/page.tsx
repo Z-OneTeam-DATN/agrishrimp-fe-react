@@ -23,6 +23,8 @@ import { supplierService } from "@/app/services/supplier.service";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
 import { ProductService } from "@/app/services/product.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 // =================================================================
 // 1. ĐỊNH NGHĨA ZOD SCHEMA ĐỂ BẮT LỖI (VALIDATION)
@@ -51,7 +53,8 @@ function AdminExportFormContent() {
 
   // ✅ ĐÚNG: Hook phải nằm ở đây (bên trong component)
   const { data: currentUser } = useCurrentUser();
-  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
+  const { hasPermission } = usePermissions();
+  const isAdmin = hasPermission(P.EXPORT_APPROVE);
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

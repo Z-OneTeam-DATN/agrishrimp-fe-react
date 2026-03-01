@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Eye, Phone, User, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, Phone, User, MapPin, ChevronLeft, ChevronRight, Lock, Unlock } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 interface CustomerData {
     userId: number;
@@ -34,10 +36,11 @@ interface CustomerData {
 interface AdminCustomerTableProps {
     customers: CustomerData[];
     currentPage: number;
-    pageSize: number; // Thêm pageSize để tính STT
+    pageSize: number;
     totalPages: number;
     totalElements: number;
     onPageChange: (newPage: number) => void;
+    onToggleStatus: (userId: number, currentStatus: string) => void;
 }
 
 export function AdminCustomerTable({
@@ -46,8 +49,12 @@ export function AdminCustomerTable({
                                        pageSize,
                                        totalPages,
                                        totalElements,
-                                       onPageChange
+                                       onPageChange,
+                                       onToggleStatus
                                    }: AdminCustomerTableProps) {
+    const { hasPermission } = usePermissions();
+    const canAction = hasPermission(P.CUSTOMER_VIEW) || hasPermission(P.CUSTOMER_UPDATE);
+
     return (
         <div className="w-full">
             <Table className="table-custom border-collapse w-full">
@@ -59,7 +66,7 @@ export function AdminCustomerTable({
                         <TableHead className="w-[12%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Chi tiêu (₫)</TableHead>
                         <TableHead className="w-[10%] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Đơn hàng</TableHead>
                         <TableHead className="w-[10%] font-bold text-[#1f1f1f] text-[11px] uppercase p-3 text-center">Trạng thái</TableHead>
-                        <TableHead className="w-[8%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3 pr-5">Hành động</TableHead>
+                        {canAction && <TableHead className="w-[8%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3 pr-5">Hành động</TableHead>}
                     </TableRow>
                 </TableHeader>
 
@@ -72,7 +79,7 @@ export function AdminCustomerTable({
                                 <TableRow
                                     key={cus.userId}
                                     className="hover:bg-[#f8fbfd] border-b border-[#eee] transition-colors cursor-pointer"
-                                    onClick={() => (window.location.href = `/admin/customers/${cus.userId}`)}
+                                    onClick={() => hasPermission(P.CUSTOMER_VIEW) ? (window.location.href = `/admin/customers/${cus.userId}`) : undefined}
                                 >
                                     <TableCell className="p-3 pl-5 text-[12px] font-bold text-slate-500 text-center">{stt}</TableCell>
                                     <TableCell className="p-3">
@@ -93,15 +100,14 @@ export function AdminCustomerTable({
                                             </div>
                                             <div className="flex flex-col gap-0.5">
                                                 <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-bold text-slate-800 uppercase tracking-tight">
-                            {cus.fullName || "Chưa cập nhật tên"}
-                          </span>
-                                                    {/* Đã bỏ hiển thị provider (GOOGLE/LOCAL) */}
+                                                    <span className="text-[13px] font-bold text-slate-800 uppercase tracking-tight">
+                                                        {cus.fullName || "Chưa cập nhật tên"}
+                                                    </span>
                                                 </div>
                                                 <span className="text-[11px] text-slate-500 flex items-center gap-1 font-medium mt-0.5">
-                          <MapPin size={11} className="text-slate-400" />{" "}
+                                                    <MapPin size={11} className="text-slate-400" />{" "}
                                                     <span className="truncate max-w-[250px]">{cus.addressDetail || "Chưa cập nhật địa chỉ"}</span>
-                        </span>
+                                                </span>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -114,40 +120,60 @@ export function AdminCustomerTable({
                                         </div>
                                     </TableCell>
                                     <TableCell className="p-3 text-right">
-                    <span className="text-[13px] font-black text-emerald-600">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cus.totalSpent || 0)}
-                    </span>
+                                        <span className="text-[13px] font-black text-emerald-600">
+                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cus.totalSpent || 0)}
+                                        </span>
                                     </TableCell>
                                     <TableCell className="p-3 text-center font-bold text-slate-700 text-[13px]">
                                         {cus.totalOrders || 0}
                                     </TableCell>
                                     <TableCell className="p-3 text-center">
-                    <span
-                        className={cn(
-                            "text-[10px] font-bold px-2 py-1 rounded-[4px] tracking-wide uppercase whitespace-nowrap",
-                            cus.userStatus === "ACTIVE" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600",
-                        )}
-                    >
-                      {cus.userStatus === "ACTIVE" ? "Hoạt động" : "Bị Khóa"}
-                    </span>
+                                        <span
+                                            className={cn(
+                                                "text-[10px] font-bold px-2 py-1 rounded-[4px] tracking-wide uppercase whitespace-nowrap",
+                                                cus.userStatus === "ACTIVE" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600",
+                                            )}
+                                        >
+                                            {cus.userStatus === "ACTIVE" ? "Hoạt động" : "Bị Khóa"}
+                                        </span>
                                     </TableCell>
 
-                                    <TableCell className="p-3 text-right pr-5">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Link href={`/admin/customers/${cus.userId}`} onClick={(e) => e.stopPropagation()}>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all rounded-md">
-                                                    <Eye size={18} />
-                                                </Button>
-                                            </Link>
-                                            {/* Đã bỏ nút Khóa/Mở khóa ở đây */}
-                                        </div>
-                                    </TableCell>
+                                    {canAction && (
+                                        <TableCell className="p-3 text-right pr-5">
+                                            <div className="flex items-center justify-end gap-1">
+                                                {hasPermission(P.CUSTOMER_VIEW) && (
+                                                    <Link href={`/admin/customers/${cus.userId}`} onClick={(e) => e.stopPropagation()}>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all rounded-md">
+                                                            <Eye size={18} />
+                                                        </Button>
+                                                    </Link>
+                                                )}
+                                                {hasPermission(P.CUSTOMER_UPDATE) && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onToggleStatus(cus.userId, cus.userStatus);
+                                                        }}
+                                                        className={cn(
+                                                            "h-8 w-8 transition-all rounded-md",
+                                                            cus.userStatus === "ACTIVE" ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700" : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                                        )}
+                                                        title={cus.userStatus === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                                                    >
+                                                        {cus.userStatus === "ACTIVE" ? <Lock size={16} /> : <Unlock size={16} />}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             );
                         })
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={7} className="h-40 text-center">
+                            <TableCell colSpan={canAction ? 7 : 6} className="h-40 text-center">
                                 <div className="flex flex-col items-center justify-center gap-2">
                                     <p className="text-[12px] text-slate-400 italic font-bold uppercase tracking-widest">
                                         Không có dữ liệu hiển thị
@@ -159,7 +185,6 @@ export function AdminCustomerTable({
                 </TableBody>
             </Table>
 
-            {/* Phần Pagination giữ nguyên */}
             <div className="flex items-center justify-between px-5 py-3 border-t border-[#eee] bg-[#f8f9fa]">
                 <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
                     Đang hiển thị {customers?.length || 0} / Tổng số {totalElements} khách hàng

@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 interface AdminEmployeeTableProps {
   employees: UserResponse[];
@@ -76,6 +77,8 @@ export function AdminEmployeeTable({
     }
   };
 
+  const canAction = hasPermission(P.STAFF_UPDATE) || hasPermission(P.STAFF_DELETE);
+
   return (
     <div className="w-full">
       <Table className="table-custom border-collapse min-w-[1100px]">
@@ -88,7 +91,7 @@ export function AdminEmployeeTable({
             <TableHead className="w-[180px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Nơi công tác</TableHead>
             <TableHead className="w-[140px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Vai trò</TableHead>
             <TableHead className="w-[110px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
-            <TableHead className="w-[100px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Thao tác</TableHead>
+            {canAction && <TableHead className="w-[100px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Thao tác</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -136,32 +139,34 @@ export function AdminEmployeeTable({
                   {emp.status === "ACTIVE" ? "Hoạt động" : emp.status === "BANNED" ? "Bị chặn" : "Tạm khóa"}
                 </span>
               </TableCell>
-              <TableCell className="p-2 text-right pr-4">
-                <div className="flex justify-end gap-1">
-                  {hasPermission("USER_UPDATE") && (
-                    <Button
-                      variant="ghost" size="icon" className="h-7 w-7 hover:bg-sky-50"
-                      title="Gửi lại email tài khoản"
-                      disabled={resendingId === emp.id}
-                      onClick={() => handleResendCredentials(emp.id)}
-                    >
-                      <Mail size={14} className="text-sky-500" />
-                    </Button>
-                  )}
-                  {hasPermission("USER_UPDATE") && (
-                    <Link href={`/admin/employees/edit/${emp.id}`}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100">
-                        <Pencil size={14} className="text-blue-600" />
+              {canAction && (
+                <TableCell className="p-2 text-right pr-4">
+                  <div className="flex justify-end gap-1">
+                    {hasPermission(P.STAFF_UPDATE) && (
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 hover:bg-sky-50"
+                        title="Gửi lại email tài khoản"
+                        disabled={resendingId === emp.id}
+                        onClick={() => handleResendCredentials(emp.id)}
+                      >
+                        <Mail size={14} className="text-sky-500" />
                       </Button>
-                    </Link>
-                  )}
-                  {hasPermission("USER_DELETE") && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => setDeleteId(emp.id)}>
-                      <Trash2 size={14} className="text-rose-600" />
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
+                    )}
+                    {hasPermission(P.STAFF_UPDATE) && (
+                      <Link href={`/admin/employees/edit/${emp.id}`}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100">
+                          <Pencil size={14} className="text-blue-600" />
+                        </Button>
+                      </Link>
+                    )}
+                    {hasPermission(P.STAFF_DELETE) && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => setDeleteId(emp.id)}>
+                        <Trash2 size={14} className="text-rose-600" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

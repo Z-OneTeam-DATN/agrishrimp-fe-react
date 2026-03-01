@@ -35,6 +35,9 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+
 interface AttributeValueDisplay {
     attributeName: string;
     value: string;
@@ -81,6 +84,9 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 };
 
 export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable }: AdminProductTableProps) {
+    const { hasPermission } = usePermissions();
+    const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
+
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -154,7 +160,9 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                         <TableHead className="w-[130px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Thương hiệu</TableHead>
                         <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Tổng Tồn</TableHead>
                         <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
-                        <TableHead className="w-[130px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
+                        {canAction && (
+                            <TableHead className="w-[130px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
+                        )}
                     </TableRow>
                 </TableHeader>
 
@@ -189,8 +197,8 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                     {/* Ảnh */}
                                     <TableCell className="p-2">
                                         <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] flex items-center justify-center overflow-hidden shadow-sm">
-                                            {p.image ? (
-                                                <img src={p.image} alt={p.name} className="w-full h-full object-contain p-0.5" />
+                                            {p.imageUrls && p.imageUrls.length > 0 ? (
+                                                <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-contain p-0.5" />
                                             ) : (
                                                 <ImageIcon size={16} className="text-slate-200" />
                                             )}
@@ -202,25 +210,25 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                         <div className="flex flex-col">
                                             <span className="text-[#1f1f1f] font-bold text-[13px] leading-tight">{p.name}</span>
                                             <span className="text-slate-400 text-[10px] mt-0.5">
-                        {p.categoryName}
+                                                {p.categoryName}
                                                 {p.baseSku && <span className="ml-2 font-mono text-slate-300">#{p.baseSku}</span>}
-                      </span>
+                                            </span>
                                         </div>
                                     </TableCell>
 
                                     {/* Thương hiệu */}
                                     <TableCell className="p-2">
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase">
-                      <BadgeCheck size={12} className="text-emerald-500 shrink-0" />
-                        {p.brandName || "—"}
-                    </span>
+                                        <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase">
+                                            <BadgeCheck size={12} className="text-emerald-500 shrink-0" />
+                                            {p.brandName || "—"}
+                                        </span>
                                     </TableCell>
 
                                     {/* Tổng Tồn kho */}
                                     <TableCell className="p-2 text-center">
-                    <span className="text-[13px] font-black text-slate-700">
-                      {p.inventory.toLocaleString("vi-VN")}
-                    </span>
+                                        <span className="text-[13px] font-black text-slate-700">
+                                            {p.inventory.toLocaleString("vi-VN")}
+                                        </span>
                                         <p className="text-[9px] text-slate-400 uppercase font-bold">
                                             ({p.variants.length} SKU)
                                         </p>
@@ -228,31 +236,40 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
 
                                     {/* Trạng thái */}
                                     <TableCell className="p-2 text-center">
-                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap", statusInfo.className)}>
-                      {statusInfo.label}
-                    </span>
+                                        <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap", statusInfo.className)}>
+                                            {statusInfo.label}
+                                        </span>
                                     </TableCell>
 
-                                    {/* Hành động */}
-                                    <TableCell className="p-2 text-right pr-4" onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" onClick={() => onEdit?.(p.id)} title="Chỉnh sửa">
-                                                <Pencil size={14} className="text-blue-600" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-amber-50" onClick={() => openDisableConfirm(p.id)} disabled={isInactive} title="Ngừng kinh doanh">
-                                                <Ban size={14} className={isInactive ? "text-slate-300" : "text-amber-600"} />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => openDeleteConfirm(p.id)} title="Xóa vĩnh viễn">
-                                                <Trash2 size={14} className="text-rose-600" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
+                                    {/* Hành động (Hiển thị dựa trên Quyền) */}
+                                    {canAction && (
+                                        <TableCell className="p-2 text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex justify-end gap-1">
+                                                {hasPermission(P.PRODUCT_UPDATE) && (
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" onClick={() => onEdit?.(p.id)} title="Chỉnh sửa">
+                                                        <Pencil size={14} className="text-blue-600" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission(P.PRODUCT_UPDATE) && (
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-amber-50" onClick={() => openDisableConfirm(p.id)} disabled={isInactive} title="Ngừng kinh doanh">
+                                                        <Ban size={14} className={isInactive ? "text-slate-300" : "text-amber-600"} />
+                                                    </Button>
+                                                )}
+                                                {hasPermission(P.PRODUCT_DELETE) && (
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => openDeleteConfirm(p.id)} title="Xóa vĩnh viễn">
+                                                        <Trash2 size={14} className="text-rose-600" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
 
-                                {/* Expanded — danh sách biến thể (ẨN GIÁ) */}
+                                {/* Expanded — danh sách biến thể */}
                                 {isExpanded && (
                                     <TableRow className="bg-[#fdfdfd]">
-                                        <TableCell colSpan={8} className="p-0 border-b border-[#eee]">
+                                        {/* Đổi colSpan linh hoạt dựa trên canAction */}
+                                        <TableCell colSpan={canAction ? 8 : 7} className="p-0 border-b border-[#eee]">
                                             <div className="pl-[50px] pr-4 py-3 space-y-2">
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2 mb-2">
                                                     <Layers size={12} /> Biến thể hàng hóa ({p.variants.length} SKU)

@@ -5,14 +5,13 @@ const PREFIX = "/categories";
 // Lấy danh sách danh mục (có lọc theo từ khóa và trạng thái)
 export const getCategories = async (keyword?: string, status?: string) => {
   try {
-    const params = new URLSearchParams();
-    if (keyword) params.append("keyword", keyword);
-    if (status) params.append("status", status);
-
-    const response = await apiJava.get(`${PREFIX}?${params.toString()}`);
+    // Thử gọi không có params để debug lỗi 500
+    console.log("DEBUG: Calling GET /categories without params");
+    const response = await apiJava.get(PREFIX);
+    console.log("DEBUG: Categories response data:", response.data);
     return response.data || [];
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách danh mục:", error);
+  } catch (error: any) {
+    console.error("Lỗi khi lấy danh sách danh mục (DEBUG):", error.response?.data || error.message);
     throw error;
   }
 };
