@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
+import dynamic from "next/dynamic";
 import {
     X,
     Trash2,
@@ -41,14 +42,30 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Attribute } from "@/app/types/product.schema";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+
+// 👉 1. IMPORT THƯ VIỆN ĐÃ ĐƯỢC FIX LỖI (react-quill-new)
+import "react-quill-new/dist/quill.snow.css";
+const ReactQuill = dynamic(() => import("react-quill-new"), {
+    ssr: false,
+    loading: () => <div className="h-[250px] flex items-center justify-center bg-slate-50 text-slate-400 border border-dashed border-slate-300">Đang tải trình soạn thảo...</div>
+});
+
+const quillModules = {
+    toolbar: [
+        [{ header: [1, 2, 3, 4, 5, 6, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        [{ align: [] }],
+        ["link", "image"],
+        ["clean"],
+    ],
+};
 
 // ─── VALIDATION SCHEMA ───
 const variantSchema = z.object({
@@ -346,17 +363,13 @@ export default function AddProductPage() {
             return;
         }
 
-        // 1. LẤY DỮ LIỆU RAW TRƯỚC TIÊN ĐỂ CÓ MẢNG attributeValueIds
         const rawVariants = getValues("variants") || [];
 
-        // 2. LOGIC KIỂM TRA TRÙNG TỔ HỢP THUỘC TÍNH (TRỌNG LƯỢNG + QUY CÁCH)
         const attrCombos = rawVariants.map((v: any, index: number) => {
             const attrs = v.attributeValueIds || [];
 
-            // Nếu không chọn thuộc tính nào, gán một key riêng biệt theo index
             if (attrs.length === 0) return `empty-${index}`;
 
-            // Sắp xếp các ID tăng dần để so sánh chính xác tổ hợp.
             return [...attrs].sort((a: number, b: number) => a - b).join('_');
         });
 
@@ -364,11 +377,10 @@ export default function AddProductPage() {
         for (let i = 0; i < attrCombos.length; i++) {
             const combo = attrCombos[i];
 
-            // Bỏ qua check trùng đối với những biến thể chưa chọn gì
             if (!combo.startsWith('empty-')) {
                 if (uniqueCombos.has(combo)) {
                     toast.error(`Biến thể số ${i + 1} bị trùng lặp tổ hợp phân loại với biến thể khác!`);
-                    return; // Chặn submit
+                    return;
                 }
                 uniqueCombos.add(combo);
             }
@@ -402,12 +414,10 @@ export default function AddProductPage() {
                 })
             );
 
-            // Gửi ảnh sản phẩm chính
             productImageFiles.forEach((file) => {
                 formData.append("productImages", file);
             });
 
-            // Gửi ảnh biến thể chung một key "variantImages"
             variantImageFiles.forEach((file) => {
                 if (file) {
                     formData.append("variantImages", file);
@@ -557,11 +567,23 @@ export default function AddProductPage() {
 
                     <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
                         <SectionHeader num="2" icon={FileText} title="Đặc tính & Bài viết mô tả" />
-                        <Textarea
-                            {...register("description")}
-                            placeholder="Nhập nội dung mô tả chi tiết sản phẩm..."
-                            className="min-h-[120px] border-[#ccc] text-[13px] shadow-none resize-y rounded-none focus-visible:ring-emerald-500"
-                        />
+
+                        <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
+                            <Controller
+                                name="description"
+                                control={control}
+                                render={({ field: { ref, ...fieldProps } }) => (
+                                    <ReactQuill
+                                        theme="snow"
+                                        value={fieldProps.value || ""}
+                                        onChange={fieldProps.onChange}
+                                        modules={quillModules}
+                                        placeholder="Nhập nội dung mô tả chi tiết sản phẩm (Hỗ trợ chèn ảnh, bảng, link...)"
+                                    />
+                                )}
+                            />
+                        </div>
+
                     </div>
 
                     <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
@@ -628,7 +650,6 @@ export default function AddProductPage() {
 
                                             <div className="flex-1 space-y-4">
 
-                                                {/* 👉 CONTROLLER CHO THUỘC TÍNH - ÉP KIỂU NUMBER VÀ FIX LỖI KEY */}
                                                 {attributes.length > 0 && (
                                                     <div
                                                         className={cn(
@@ -657,9 +678,9 @@ export default function AddProductPage() {
                                                                             <Select
                                                                                 onValueChange={(val) => {
                                                                                     const current = selectField.value || [];
-                                                                                    // Lọc ra các ID thuộc về các thuộc tính KHÁC
+
                                                                                     const others = current.filter((id: number) => !attributeOptions.some((v: any) => Number(v.valueId) === id));
-                                                                                    // Thêm ID mới vào (nếu không chọn "none"), ÉP KIỂU SANG NUMBER
+
                                                                                     const newValue = val !== "none" ? [...others, Number(val)] : others;
                                                                                     selectField.onChange(newValue);
                                                                                 }}
@@ -671,7 +692,7 @@ export default function AddProductPage() {
                                                                                 <SelectContent className="rounded-none">
                                                                                     <SelectItem value="none">-- Bỏ chọn --</SelectItem>
                                                                                     {attributeOptions.map((v: any, vIdx: number) => {
-                                                                                        // TẠO KEY ĐỘC NHẤT, lấy ID dự phòng nếu v.valueId bị null
+
                                                                                         const safeId = v.valueId ?? vIdx;
                                                                                         const valString = String(safeId);
                                                                                         const displayValue = v.value || String(v);
