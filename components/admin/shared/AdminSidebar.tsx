@@ -64,7 +64,7 @@ export default function AdminSidebar() {
   const fetchCounts = async () => {
     try {
       const results = await Promise.allSettled([
-        supplierService.getAll(undefined, undefined, undefined, 0, 1),
+        supplierService.getAll(undefined, undefined, 0, 1),
         customerService.getAll("", "all", 0, 1)
       ]);
 

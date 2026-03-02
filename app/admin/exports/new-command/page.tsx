@@ -36,8 +36,10 @@ const ExportItemSchema = z.object({
 
 const ExportCommandSchema = z.object({
   noteCode: z.string(), exportType: z.enum(["INTERNAL", "RETURN"]), expectedDate: z.string().min(1, "Chọn ngày"),
+  referenceCode: z.string(),
   note: z.string().min(1, "Nhập lý do"), branchId: z.string().min(1, "Chọn kho xuất"), targetId: z.string().min(1, "Chọn đối tượng"),
-  specificReceiver: z.string(), shippingAddress: z.string(), items: z.array(ExportItemSchema).min(1, "Chọn ít nhất 1 SP")
+  specificReceiver: z.string(), shippingAddress: z.string(), creatorName: z.string(),
+  items: z.array(ExportItemSchema).min(1, "Chọn ít nhất 1 SP")
 });
 
 type ExportCommandFormValues = z.infer<typeof ExportCommandSchema>;
@@ -114,6 +116,7 @@ function AdminExportFormContent() {
             expectedDate: data.entryDate || new Date().toLocaleDateString('en-CA'),
             branchId: data.branchId?.toString() || "", targetId: (data.exportType === "INTERNAL" ? data.partnerBranchId : data.supplierId)?.toString() || "",
             specificReceiver: data.deliverer || "", shippingAddress: data.shippingAddress || "",
+            referenceCode: data.referenceCode || "", creatorName: data.creatorName || "",
             items: (data.details || []).map((item: any) => ({
               productVariantId: item.productVariantId, sku: item.sku, name: item.productName || "SP", unit: "Cái",
               stock: item.stock || 0, quantity: item.quantityRequested, price: item.price || 0, returnReason: item.note || ""
@@ -152,7 +155,7 @@ function AdminExportFormContent() {
       try {
         const [resB, resS] = await Promise.all([
           branchService.getAll(),
-          supplierService.getAll(undefined, undefined, undefined, 0, 100),
+          supplierService.getAll(undefined, undefined, 0, 100),
         ]);
         if (resB) setBranches(resB);
         if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : []);

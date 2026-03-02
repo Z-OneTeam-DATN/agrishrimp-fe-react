@@ -35,7 +35,7 @@ function AdminReceiptFormContent() {
   const isEditMode = Boolean(receiptId);
 
   const { data: currentUser, isLoading: isUserLoading } = useCurrentUser();
-  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
+  const isAdmin = currentUser?.role?.id === 1 || currentUser?.role?.displayName === 'Quản trị viên';
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -205,7 +205,7 @@ function AdminReceiptFormContent() {
       if (!searchSupplierText.trim() && !isSupplierDropdownOpen) return;
       setIsLoadingSuppliers(true);
       try {
-        const data = await supplierService.getAll(searchSupplierText, undefined, "ACTIVE", 0, 20);
+        const data = await supplierService.getAll(searchSupplierText, "ACTIVE", 0, 20);
         setSuppliers(data.content || []);
       } catch (error) { console.error(error); } finally { setIsLoadingSuppliers(false); }
     };

@@ -27,7 +27,7 @@ export default function TransferDetailPage() {
   const { data: currentUser } = useCurrentUser();
 
   // Kiểm tra quyền Admin
-  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleName === 'Quản trị viên';
+  const isAdmin = currentUser?.role?.id === 1 || currentUser?.role?.displayName === 'Quản trị viên';
 
   // Quyền duyệt xuất: CHỈ DÀNH CHO ADMIN
   const canApproveShip = isAdmin;
