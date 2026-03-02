@@ -82,9 +82,13 @@ function RelatedProductCard({ product }: { product: PublicProductListItem }) {
         <span className="text-[10px] font-bold text-slate-700 line-clamp-2 mb-0.5 group-hover:text-teal-600 transition-colors leading-normal">
           {product.name}
         </span>
-        <span className="text-xs font-bold text-red-500">
-          {formatNumber(product.variants?.[0]?.price ?? 0)} ₫
-        </span>
+        {product.variants?.[0]?.price ? (
+          <span className="text-xs font-bold text-red-500">
+            {formatNumber(product.variants[0].price)} ₫
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400 italic">Liên hệ</span>
+        )}
       </div>
     </Link>
   );
@@ -116,14 +120,20 @@ export default function ProductDetailPage({
       setLoading(true);
       setNotFound(false);
       try {
-        const [detail, listResult, cats] = await Promise.all([
-          PublicProductService.getBySlug(slug),
-          PublicProductService.getList({ size: 6 }),
+        const detail = await PublicProductService.getBySlug(slug);
+        const [listResult, cats] = await Promise.all([
+          PublicProductService.getList({ categoryId: detail.category?.id, size: 6 }),
           getPublicCategories(),
         ]);
         setProduct(detail);
         setCategories(cats);
-        setActiveImage(detail.imageUrls?.[0] ?? "/placeholder.svg");
+        const firstValidIdx = detail.variants?.findIndex((v) => v.price > 0) ?? 0;
+        const defaultIdx = firstValidIdx >= 0 ? firstValidIdx : 0;
+        setSelectedVariantIndex(defaultIdx);
+        const defaultVariant = detail.variants?.[defaultIdx];
+        setActiveImage(
+          defaultVariant?.imageUrl ?? detail.imageUrls?.[0] ?? "/placeholder.svg"
+        );
         setRelated(
           listResult.content.filter((p) => p.slug !== slug).slice(0, 5)
         );
@@ -350,7 +360,7 @@ export default function ProductDetailPage({
 
                   {/* Price block */}
                   <div className="bg-slate-50/80 p-4 rounded-xl mb-5">
-                    {currentVariant ? (
+                    {currentVariant?.price > 0 ? (
                       <div className="space-y-1">
                         <div>
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -369,18 +379,19 @@ export default function ProductDetailPage({
                   </div>
 
                   {/* Variant selector - Improved with clear text buttons */}
-                  {product.variants && product.variants.length > 0 && (
+                  {product.variants && product.variants.filter((v) => v.price > 0).length > 0 && (
                     <div className="mb-6 space-y-4">
                       <div className="flex items-center justify-between">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                           Chọn phân loại
                         </label>
                         <span className="text-[10px] font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded">
-                          {product.variants.length} tùy chọn
+                          {product.variants.filter((v) => v.price > 0).length} tùy chọn
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2.5">
                         {product.variants.map((v, idx) => {
+                          if (v.price <= 0) return null;
                           const isSelected = selectedVariantIndex === idx;
                           return (
                             <button

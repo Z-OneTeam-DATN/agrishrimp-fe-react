@@ -23,7 +23,6 @@ import {
 import { toast } from "sonner";
 import { AdminBranchSchema, AdminBranchForm } from "@/app/types/admin.schema";
 import { branchService } from '@/app/services/branchService';
-import axios from "axios";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -133,11 +132,10 @@ export default function AddBranchPage() {
       try {
         const [staffRes, provinceRes] = await Promise.all([
           branchService.getAllStaff(),
-          axios.get("https://provinces.open-api.vn/api/p/")
+          fetch("/api/ghn/province").then(r => r.json()),
         ]);
-        // Đã sửa: Map đúng theo format mới của branchService (không dùng .data)
         setStaffs(staffRes?.content || staffRes || []);
-        setProvinces(provinceRes.data);
+        setProvinces(provinceRes);
         setIsInitialLoaded(true);
       } catch (error) { console.error(error); }
     };
@@ -149,8 +147,8 @@ export default function AddBranchPage() {
     if (selectedProvince && selectedProvince !== "" && !isLoading) {
       const fetchDistricts = async () => {
         try {
-          const res = await axios.get(`https://provinces.open-api.vn/api/p/${selectedProvince}?depth=2`);
-          setDistricts(res.data.districts || []);
+          const data = await fetch(`/api/ghn/district?province_id=${selectedProvince}`).then(r => r.json());
+          setDistricts(data || []);
         } catch (error) { console.error(error); }
       };
       fetchDistricts();
@@ -162,8 +160,8 @@ export default function AddBranchPage() {
     if (selectedDistrict && selectedDistrict !== "" && !isLoading) {
       const fetchWards = async () => {
         try {
-          const res = await axios.get(`https://provinces.open-api.vn/api/d/${selectedDistrict}?depth=2`);
-          setWards(res.data.wards || []);
+          const data = await fetch(`/api/ghn/ward?district_id=${selectedDistrict}`).then(r => r.json());
+          setWards(data || []);
         } catch (error) { console.error(error); }
       };
       fetchWards();
@@ -197,14 +195,14 @@ useEffect(() => {
         }
 
         // 3. Chỉ gọi API tỉnh thành khi đã có ID chắc chắn (tránh lỗi null)
-        const [distRes, wardRes] = await Promise.all([
-          axios.get(`https://provinces.open-api.vn/api/p/${data.provinceId}?depth=2`),
-          axios.get(`https://provinces.open-api.vn/api/d/${data.districtId}?depth=2`)
+        const [distData, wardData] = await Promise.all([
+          fetch(`/api/ghn/district?province_id=${data.provinceId}`).then(r => r.json()),
+          fetch(`/api/ghn/ward?district_id=${data.districtId}`).then(r => r.json()),
         ]);
 
         // 4. Cập nhật state danh sách trước khi reset form
-        setDistricts(distRes.data.districts || []);
-        setWards(wardRes.data.wards || []);
+        setDistricts(distData || []);
+        setWards(wardData || []);
 
         // 5. Reset form với đầy đủ dữ liệu để các ô Select hiển thị đúng nhãn (label)
         reset({
@@ -216,7 +214,7 @@ useEffect(() => {
           addressDetail: data.addressDetail,
           province: String(data.provinceId),
           district: String(data.districtId),
-          ward: String(data.wardId),
+          ward: String(data.wardCode ?? data.wardId),
           status: data.status.toLowerCase(),
           managerId: data.managerIds?.[0] ? String(data.managerIds[0]) : "",
           lat: data.lat ?? undefined,
@@ -238,6 +236,8 @@ useEffect(() => {
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
+      // Tìm ward đã chọn để lấy cả wardId (int) lẫn wardCode (string)
+      const selectedWard = wards.find((w: any) => w.code === data.ward);
       const payload = {
         branchCode: data.id,
         name: data.name,
@@ -247,7 +247,8 @@ useEffect(() => {
         addressDetail: data.addressDetail,
         provinceId: Number(data.province),
         districtId: Number(data.district),
-        wardId: Number(data.ward),
+        wardId: selectedWard?.wardId ?? Number(data.ward),   // GHN WardID (int)
+        wardCode: selectedWard?.code ?? String(data.ward),   // GHN WardCode (string)
         status: data.status.toUpperCase(),
         managerIds: data.managerId ? [Number(data.managerId)] : [],
         lat: data.lat ?? null,
@@ -394,7 +395,7 @@ useEffect(() => {
                       <SelectContent className="rounded-none z-[1000] p-0">
                         {renderSearchInput("Tìm tỉnh...")}
                         <div className="max-h-[200px] overflow-y-auto">
-                          {filteredProvinces.map(p => <SelectItem key={p.code} value={String(p.code)}>{p.name}</SelectItem>)}
+                          {filteredProvinces.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                         </div>
                       </SelectContent>
                     </Select>
@@ -421,7 +422,7 @@ useEffect(() => {
                       <SelectContent className="rounded-none z-[1000] p-0">
                         {renderSearchInput("Tìm huyện...")}
                         <div className="max-h-[200px] overflow-y-auto">
-                          {filteredDistricts.map(d => <SelectItem key={d.code} value={String(d.code)}>{d.name}</SelectItem>)}
+                          {filteredDistricts.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
                         </div>
                       </SelectContent>
                     </Select>

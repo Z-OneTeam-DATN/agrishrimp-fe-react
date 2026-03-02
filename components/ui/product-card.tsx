@@ -217,16 +217,14 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Price */}
         <div className="mt-auto pt-2.5 border-t border-dashed border-gray-100">
-          {firstVariant ? (
-            <>
-              <div className="flex items-baseline gap-2">
-                <span className="text-base font-extrabold text-orange-500">
-                  {hasPriceRange
-                    ? `${formatNumber(minPrice!)} – ${formatNumber(maxPrice!)} ₫`
-                    : `${formatNumber(firstVariant.price)} ₫`}
-                </span>
-              </div>
-            </>
+          {minPrice !== null ? (
+            <div className="flex items-baseline gap-2">
+              <span className="text-base font-extrabold text-orange-500">
+                {hasPriceRange
+                  ? `${formatNumber(minPrice!)} – ${formatNumber(maxPrice!)} ₫`
+                  : `${formatNumber(minPrice!)} ₫`}
+              </span>
+            </div>
           ) : (
             <span className="text-sm text-gray-400 italic">Liên hệ</span>
           )}

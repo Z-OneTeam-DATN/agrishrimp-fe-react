@@ -1,21 +1,24 @@
-import axios from "axios";
 import { apiJava } from "@/lib/axios";
 
+/** Gọi GHN master-data qua Next.js proxy (token giữ server-side) */
 export const locationService = {
-  // Lấy danh sách Tỉnh/Thành phố
+  // { id: number, name: string }[]
   getProvinces: async () => {
-    const res = await axios.get("https://provinces.open-api.vn/api/p/");
-    return res.data.map((p: any) => ({ ...p, id: p.code }));
+    const res = await fetch("/api/ghn/province");
+    if (!res.ok) throw new Error("Không thể tải tỉnh/thành");
+    return res.json();
   },
-  // Lấy danh sách Quận/Huyện dựa theo ID Tỉnh
+  // { id: number, name: string }[]  — id = GHN DistrictID
   getDistricts: async (provinceId: number) => {
-    const res = await axios.get(`https://provinces.open-api.vn/api/p/${provinceId}?depth=2`);
-    return (res.data.districts || []).map((d: any) => ({ ...d, id: d.code }));
+    const res = await fetch(`/api/ghn/district?province_id=${provinceId}`);
+    if (!res.ok) throw new Error("Không thể tải quận/huyện");
+    return res.json();
   },
-  // Lấy danh sách Phường/Xã dựa theo ID Huyện
+  // { code: string, name: string }[] — code = GHN WardCode (e.g. "550113")
   getWards: async (districtId: number) => {
-    const res = await axios.get(`https://provinces.open-api.vn/api/d/${districtId}?depth=2`);
-    return (res.data.wards || []).map((w: any) => ({ ...w, id: w.code, code: w.code.toString() }));
+    const res = await fetch(`/api/ghn/ward?district_id=${districtId}`);
+    if (!res.ok) throw new Error("Không thể tải phường/xã");
+    return res.json();
   },
 };
 

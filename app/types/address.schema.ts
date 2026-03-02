@@ -10,7 +10,7 @@ export const addressSchema = z.object({
 
   provinceId: z.string().min(1, "Vui lòng chọn Tỉnh/Thành"),
   districtId: z.string().min(1, "Vui lòng chọn Quận/Huyện"),
-  wardId: z.string().min(1, "Vui lòng chọn Phường/Xã"),
+  wardCode: z.string().min(1, "Vui lòng chọn Phường/Xã"),
 
   specificAddress: z.string().min(5, "Địa chỉ cụ thể phải chi tiết hơn"),
 

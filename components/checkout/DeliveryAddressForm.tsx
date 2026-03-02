@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { MapPin, Loader2, Navigation } from "lucide-react"
+import { MapPin, Loader2, Navigation, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 import { locationService } from "@/app/services/address.service"
 import { resolveUserLocation } from "@/app/services/locationService"
@@ -26,8 +26,7 @@ interface District {
 }
 
 interface Ward {
-  id: number
-  code: string
+  code: string // GHN WardCode, e.g. "550113"
   name: string
 }
 
@@ -153,100 +152,104 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "X�
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
-      {/* Tỉnh/Thành phố — hardcode Cần Thơ */}
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Tỉnh/Thành phố
-        </label>
-        <div className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-500">
-          Cần Thơ
-        </div>
+      {/* Nút dùng vị trí hiện tại - Shopee style: placed near address */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleUseCurrentLocation}
+          disabled={isGettingLocation}
+          className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 font-semibold disabled:opacity-50"
+        >
+          {isGettingLocation ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Navigation size={12} />
+          )}
+          Sử dụng vị trí hiện tại
+        </button>
       </div>
 
-      {/* Quận/Huyện */}
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Quận/Huyện <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <select
-            {...register("districtId", { valueAsNumber: true })}
-            disabled={isLoadingDistricts}
-            className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-teal-400 appearance-none bg-white ${
-              errors.districtId ? "border-red-300 bg-red-50" : "border-gray-200"
-            } ${isLoadingDistricts ? "opacity-60" : ""}`}
-          >
-            <option value={0}>
-              {isLoadingDistricts ? "Đang tải..." : "Chọn quận/huyện"}
-            </option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Tỉnh/Thành phố — hardcode Cần Thơ */}
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+            Tỉnh/Thành phố
+          </label>
+          <div className="w-full px-3 py-2 border border-gray-100 rounded-sm text-sm bg-gray-50 text-gray-500 font-medium">
+            Cần Thơ
+          </div>
+        </div>
+
+        {/* Quận/Huyện */}
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+            Quận/Huyện <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <select
+              {...register("districtId", { valueAsNumber: true })}
+              disabled={isLoadingDistricts}
+              className={`w-full px-3 py-2 border rounded-sm text-sm focus:outline-none focus:border-teal-400 appearance-none bg-white font-medium ${
+                errors.districtId ? "border-red-300 bg-red-50" : "border-gray-200"
+              } ${isLoadingDistricts ? "opacity-60" : ""}`}
+            >
+              <option value={0}>
+                {isLoadingDistricts ? "Đang tải..." : "Chọn Quận/Huyện"}
               </option>
-            ))}
-          </select>
-          {isLoadingDistricts && (
-            <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+               {isLoadingDistricts ? <Loader2 size={12} className="animate-spin" /> : <ChevronDown size={14} />}
+            </div>
+          </div>
+          {errors.districtId && (
+            <p className="text-[10px] text-red-500 mt-1">{errors.districtId.message}</p>
           )}
         </div>
-        {errors.districtId && (
-          <p className="text-xs text-red-500 mt-1">{errors.districtId.message}</p>
-        )}
-      </div>
 
-      {/* Phường/Xã */}
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Phường/Xã <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <select
-            {...register("wardCode")}
-            disabled={isLoadingWards || !selectedDistrictId}
-            className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-teal-400 appearance-none bg-white ${
-              errors.wardCode ? "border-red-300 bg-red-50" : "border-gray-200"
-            } ${isLoadingWards || !selectedDistrictId ? "opacity-60" : ""}`}
-          >
-            <option value="">
-              {isLoadingWards
-                ? "Đang tải..."
-                : !selectedDistrictId
-                ? "Chọn quận/huyện trước"
-                : "Chọn phường/xã"}
-            </option>
-            {wards.map((w) => (
-              <option key={w.code} value={w.code}>
-                {w.name}
+        {/* Phường/Xã */}
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+            Phường/Xã <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <select
+              {...register("wardCode")}
+              disabled={isLoadingWards || !selectedDistrictId}
+              className={`w-full px-3 py-2 border rounded-sm text-sm focus:outline-none focus:border-teal-400 appearance-none bg-white font-medium ${
+                errors.wardCode ? "border-red-300 bg-red-50" : "border-gray-200"
+              } ${isLoadingWards || !selectedDistrictId ? "opacity-60" : ""}`}
+            >
+              <option value="">
+                {isLoadingWards
+                  ? "Đang tải..."
+                  : !selectedDistrictId
+                  ? "Chọn Quận/Huyện trước"
+                  : "Chọn Phường/Xã"}
               </option>
-            ))}
-          </select>
-          {isLoadingWards && (
-            <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
+              {wards.map((w) => (
+                <option key={w.code} value={w.code}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+               {isLoadingWards ? <Loader2 size={12} className="animate-spin" /> : <ChevronDown size={14} />}
+            </div>
+          </div>
+          {errors.wardCode && (
+            <p className="text-[10px] text-red-500 mt-1">{errors.wardCode.message}</p>
           )}
         </div>
-        {errors.wardCode && (
-          <p className="text-xs text-red-500 mt-1">{errors.wardCode.message}</p>
-        )}
       </div>
-
-      {/* Nút dùng vị trí hiện tại */}
-      <button
-        type="button"
-        onClick={handleUseCurrentLocation}
-        disabled={isGettingLocation}
-        className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 font-medium disabled:opacity-50"
-      >
-        {isGettingLocation ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : (
-          <Navigation size={14} />
-        )}
-        Dùng vị trí hiện tại
-      </button>
 
       {/* Địa chỉ cụ thể */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
           Địa chỉ cụ thể <span className="text-red-500">*</span>
         </label>
         <div className="relative">
@@ -255,24 +258,26 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "X�
             {...register("address")}
             type="text"
             placeholder="Số nhà, tên đường..."
-            className={`w-full pl-8 pr-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-teal-400 ${
+            className={`w-full pl-9 pr-3 py-2.5 border rounded-sm text-sm focus:outline-none focus:border-teal-400 font-medium ${
               errors.address ? "border-red-300 bg-red-50" : "border-gray-200"
             }`}
           />
         </div>
         {errors.address && (
-          <p className="text-xs text-red-500 mt-1">{errors.address.message}</p>
+          <p className="text-[10px] text-red-500 mt-1">{errors.address.message}</p>
         )}
       </div>
 
       {/* Submit */}
-      <button
-        type="submit"
-        disabled={isSubmitting || submitDisabled}
-        className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {submitLabel}
-      </button>
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={isSubmitting || submitDisabled}
+          className="px-8 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-sm transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
+        >
+          {submitLabel}
+        </button>
+      </div>
     </form>
   )
 }

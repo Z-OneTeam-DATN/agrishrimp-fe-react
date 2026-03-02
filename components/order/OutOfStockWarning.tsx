@@ -27,7 +27,7 @@ export function OutOfStockWarning({ items, onOrderPartial }: OutOfStockWarningPr
             key={item.productVariantId}
             className="flex items-center justify-between gap-3 text-sm"
           >
-            <span className="text-gray-700 min-w-0 truncate">{item.variantName}</span>
+            <span className="text-gray-700 min-w-0 truncate">{item.variantSku ?? item.variantName}</span>
             <span className="text-amber-700 shrink-0 text-xs">
               Yêu cầu <strong>{item.requestedQty}</strong> · Còn{" "}
               <strong>{item.availableQty}</strong>

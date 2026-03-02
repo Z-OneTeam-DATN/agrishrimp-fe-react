@@ -15,6 +15,9 @@ export interface DeliveryInfo {
   wardCode: string
   districtName?: string
   wardName?: string
+  receiverName?: string
+  receiverPhone?: string
+  userAddressId?: number
 }
 
 /** Item trong mỗi sub-order — khớp response BE */
@@ -45,19 +48,19 @@ export interface SubOrderDraft {
 
 export interface OutOfStockItem {
   productVariantId: number
-  variantName: string
-  variantSku?: string
+  variantSku: string
+  variantName?: string
   requestedQty: number
   availableQty: number
 }
 
 export interface PrepareOrderPayload {
-  userLat: number
-  userLng: number
-  deliveryAddress: string
-  deliveryDistrictId: number
-  deliveryWardCode: string
-  cart: CartItem[]
+  userAddressId: number
+  /** GPS tùy chọn — nếu có thì phí ship chính xác hơn */
+  userLat?: number
+  userLng?: number
+  /** Không gửi / gửi null → BE lấy toàn bộ giỏ hàng từ DB */
+  cart?: Array<{ productVariantId: number; quantity: number }>
 }
 
 /** Response từ POST /api/orders/prepare */
@@ -109,13 +112,18 @@ export interface MyOrder {
   code: string;
   customerName: string;
   customerPhone: string;
+  receiverPhone: string;
+  shippingAddress: string;
+  totalAmount: number;
+  shippingFee: number;
   finalAmount: number;
+  branchName: string;
+  branchPhone: string | null;
+  branchAddress: string | null;
   paymentMethod: PaymentMethod;
   paymentStatus: 'PAID' | 'UNPAID';
   status: OrderStatus;
-  branchName: string;
   createdAt: string;
-  shippingAddress: string;
   checkoutUrl: string | null;
   items: MyOrderItem[];
 }

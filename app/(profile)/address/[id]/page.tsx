@@ -29,14 +29,16 @@ export default function EditAddressPage({ params }: { params: Promise<{ id: stri
         }
 
         // Đổ dữ liệu từ API vào format của Form
+        // API trả về flat: provinceId, districtId, wardId (chứa GHN WardCode)
         setInitialData({
-          receiverName: currentAddress.receiverName,
-          receiverPhone: currentAddress.receiverPhone,
-          provinceId: currentAddress.province?.id || "",
-          districtId: currentAddress.district?.id || "",
-          wardId: currentAddress.ward?.id || "",
-          addressDetail: currentAddress.addressDetail,
-          isDefault: currentAddress.isDefault,
+          fullName: currentAddress.receiverName,
+          phone: currentAddress.receiverPhone,
+          provinceId: String(currentAddress.provinceId || ""),
+          districtId: String(currentAddress.districtId || ""),
+          wardCode: String(currentAddress.wardId || ""),
+          specificAddress: currentAddress.addressDetail,
+          isDefault: currentAddress.isDefault ?? false,
+          addressType: currentAddress.addressType || "Home",
         });
 
       } catch (error: any) {
@@ -58,7 +60,17 @@ export default function EditAddressPage({ params }: { params: Promise<{ id: stri
   const handleUpdate = async (data: any) => {
     setIsSubmitting(true);
     try {
-      await addressService.update(Number(id), data);
+      const payload = {
+        receiverName: data.fullName,
+        receiverPhone: data.phone,
+        addressDetail: data.specificAddress,
+        provinceId: Number(data.provinceId),
+        districtId: Number(data.districtId),
+        wardCode: data.wardCode,
+        isDefault: data.isDefault,
+        addressType: data.addressType,
+      };
+      await addressService.update(Number(id), payload);
       toast.success("✅ Cập nhật địa chỉ thành công!");
       router.push("/address"); // Quay lại trang danh sách
     } catch (error: any) {

@@ -163,7 +163,7 @@ export default function CheckoutPage() {
         addressDetail: data.specificAddress,
         provinceId: Number(data.provinceId),
         districtId: Number(data.districtId),
-        wardId: Number(data.wardId),
+        wardCode: data.wardCode,
         isDefault: data.isDefault,
       };
       const newAddress = await addressService.create(payload);

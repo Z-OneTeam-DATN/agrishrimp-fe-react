@@ -19,7 +19,7 @@ export function usePrepareOrder() {
 
       if (!data.canFulfill && data.outOfStockItems?.length) {
         const names = data.outOfStockItems
-          .map((i) => `${i.variantName} (yêu cầu ${i.requestedQty}, còn ${i.availableQty})`)
+          .map((i) => `${i.variantSku ?? i.variantName} (yêu cầu ${i.requestedQty}, còn ${i.availableQty})`)
           .join("; ")
         toast.warning(`Một số sản phẩm không đủ hàng: ${names}`)
       }
