@@ -127,11 +127,7 @@ export default function Header() {
     }
 
     return (
-      <div
-        className="relative flex items-center"
-        onMouseEnter={() => setIsDropdownOpen(true)}
-        onMouseLeave={() => setIsDropdownOpen(false)}
-      >
+      <div className="relative flex items-center">
         <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors outline-none">

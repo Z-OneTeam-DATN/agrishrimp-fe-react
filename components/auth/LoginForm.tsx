@@ -162,6 +162,13 @@ export default function LoginForm() {
             clearErrors("captchaToken");
           }}
           onExpire={() => setValue("captchaToken", "", { shouldValidate: true })}
+          onError={() => {
+            setValue("captchaToken", "", { shouldValidate: true });
+            setError("captchaToken", {
+              type: "server",
+              message: "Xác thực CAPTCHA thất bại. Vui lòng tải lại trang.",
+            });
+          }}
         />
         {errors.captchaToken && (
           <p className="text-xs text-red-500 font-medium">

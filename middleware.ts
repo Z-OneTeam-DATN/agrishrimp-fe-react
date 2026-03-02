@@ -96,6 +96,11 @@ export function middleware(req: NextRequest) {
   const accessToken = req.cookies.get("accessToken")?.value;
   const refreshToken = req.cookies.get("refreshToken")?.value;
   const token = accessToken ?? refreshToken;
+  const hasSession = req.cookies.get("hasSession")?.value;
+
+  // Nếu có auth cookie nhưng thiếu hasSession (ví dụ: đăng ký qua Spring trực tiếp),
+  // tự động đặt lại hasSession để frontend đồng bộ trạng thái.
+  const needsSessionSync = token && !hasSession;
 
   const isPublicPath = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
   const isAuthPath = AUTH_PATHS.some((p) => path.startsWith(p));
@@ -103,9 +108,25 @@ export function middleware(req: NextRequest) {
     PROTECTED_PATHS.some((p) => path.startsWith(p)) ||
     path.startsWith("/admin");
 
+  // Helper: attach hasSession cookie to any response when out of sync
+  const withSessionSync = (res: NextResponse) => {
+    if (needsSessionSync) {
+      res.cookies.set({
+        name: "hasSession",
+        value: "1",
+        path: "/",
+        httpOnly: false,
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        sameSite: "lax",
+        secure: req.nextUrl.protocol === "https:",
+      });
+    }
+    return res;
+  };
+
   // 0. Nếu là trang công khai -> cho qua luôn
   if (isPublicPath) {
-    return NextResponse.next();
+    return withSessionSync(NextResponse.next());
   }
 
   // 1. Nếu đã đăng nhập mà cố vào trang login/signup -> về trang chủ
@@ -146,19 +167,19 @@ export function middleware(req: NextRequest) {
     }
 
     /**
-     * LƯU Ý QUAN TRỌNG: 
-     * Vì danh sách permissions chi tiết (REPORT_REVENUE_VIEW, v.v.) được fetch qua API /me/permissions 
+     * LƯU Ý QUAN TRỌNG:
+     * Vì danh sách permissions chi tiết (REPORT_REVENUE_VIEW, v.v.) được fetch qua API /me/permissions
      * và KHÔNG nằm trong JWT, Middleware (chạy ở Edge Runtime) không thể kiểm tra granular permissions.
-     * 
+     *
      * Do đó:
      * 1. Middleware chỉ chặn tầng cao nhất (Role != USER).
-     * 2. Việc phân quyền chi tiết (ẩn/hiện menu, chặn truy cập trang cụ thể) 
+     * 2. Việc phân quyền chi tiết (ẩn/hiện menu, chặn truy cập trang cụ thể)
      *    sẽ do Hook usePermissions() và các Component/Page đảm nhận ở phía Client.
      */
-    return NextResponse.next();
+    return withSessionSync(NextResponse.next());
   }
 
-  return NextResponse.next();
+  return withSessionSync(NextResponse.next());
 }
 
 export const config = {

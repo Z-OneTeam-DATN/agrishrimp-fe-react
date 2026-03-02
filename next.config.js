@@ -2,6 +2,14 @@
 const nextConfig = {
   output: "standalone",
   distDir: "dist",
+  async rewrites() {
+    return [
+      {
+        source: "/be-api/:path*",
+        destination: "http://be:8080/api/:path*",
+      },
+    ];
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

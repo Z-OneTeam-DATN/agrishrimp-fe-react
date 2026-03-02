@@ -11,6 +11,7 @@ import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { RegisterSchema, RegisterFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -44,7 +45,17 @@ export default function SignupForm() {
       console.log("Submitting Register Payload:", data);
       return AuthService.register(data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Spring set httpOnly auth cookies on signup. Read them via the Next.js
+      // me-token route so the Zustand store has an accessToken immediately —
+      // otherwise apiJava sends no Authorization header and cart calls 401.
+      try {
+        const authData = await AuthService.meTokenNext();
+        useAuthStore.getState().setAccessAndRefreshToken(authData);
+      } catch {
+        // If hydration fails, middleware will repair the hasSession desync
+        // on the next page load and the auth flow will recover.
+      }
       router.refresh();
       router.push("/");
     },
@@ -170,6 +181,13 @@ export default function SignupForm() {
           onExpire={() =>
             setValue("captchaToken", "", { shouldValidate: true })
           }
+          onError={() => {
+            setValue("captchaToken", "", { shouldValidate: true });
+            setError("captchaToken", {
+              type: "server",
+              message: "Xác thực CAPTCHA thất bại. Vui lòng tải lại trang.",
+            });
+          }}
         />
         {errors.captchaToken && (
           <p className="text-xs text-red-500 font-medium mt-1">

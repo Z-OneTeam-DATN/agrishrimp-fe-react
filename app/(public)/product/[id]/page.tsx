@@ -14,7 +14,7 @@ import { getPublicCategories } from "@/app/services/CategoryService";
 import { CategoryDTO } from "@/app/types/category.type";
 import { cartService } from "@/app/services/cart.service"; 
 import { useCartStore } from "@/stores/useCartStore";
-import { ProductDetail, ProductListItem } from "@/app/types/product.schema";
+import { ProductDetail, PublicProductListItem } from "@/app/types/product.schema";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +25,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
-  const [relatedProducts, setRelatedProducts] = useState<ProductListItem[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<PublicProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [activeImage, setActiveImage] = useState<string | null>(null);
@@ -191,7 +191,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const currentVariant = product.variants?.[selectedVariantIndex] || product.variants?.[0];
 
-  const currentCategory = categories.find(c => c.id === product.categoryId);
+  const currentCategory = categories.find(c => c.id === product.category?.id);
   const parentCategory = currentCategory?.parentId 
     ? categories.find(c => c.id === currentCategory.parentId) 
     : null;
@@ -211,11 +211,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </Link>
               </>
             )}
-            {product.categoryName && (
+            {product.category?.name && (
               <>
                 <ChevronRight size={10} />
-                <Link href={`/category/${product.categoryId}`} className="hover:text-teal-600 transition-colors">
-                  {product.categoryName}
+                <Link href={`/category/${product.category?.id}`} className="hover:text-teal-600 transition-colors">
+                  {product.category?.name}
                 </Link>
               </>
             )}
@@ -395,7 +395,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                     <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
                       <span className="text-slate-400">Danh mục:</span>
-                      <span className="font-bold">{product.categoryName || "Thức Ăn Tôm"}</span>
+                      <span className="font-bold">{product.category?.name || "Thức Ăn Tôm"}</span>
                     </div>
                     {currentVariant && (
                       <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">

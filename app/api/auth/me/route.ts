@@ -15,9 +15,11 @@ export async function GET() {
   }
 
   try {
-    // Gọi Java backend trực tiếp bằng axios với token từ cookie
+    // Use JAVA_API_URL (server-side internal URL) to avoid using the relative
+    // NEXT_PUBLIC_API_URL ("/be-api") which is invalid in Node.js context.
+    const javaApiUrl = process.env.JAVA_API_URL ?? "http://localhost:8080/api";
     const response = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+      `${javaApiUrl}/auth/me`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,

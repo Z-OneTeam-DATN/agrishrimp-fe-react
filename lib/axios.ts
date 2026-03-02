@@ -314,12 +314,25 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
   return axiosInstance;
 };
 
+// On the browser, NEXT_PUBLIC_API_URL is a relative path ("/be-api") that nginx
+// proxies to Spring — this is correct for client-side requests.
+// On the server (Next.js API routes / SSR), relative URLs are invalid in Node.js,
+// so we use JAVA_API_URL which points directly to the Spring container.
 const apiJava = createApi(
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api",
+  typeof window !== "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "/be-api")
+    : (process.env.JAVA_API_URL ?? "http://localhost:8080/api"),
   30000,
 );
+
+// On the browser, use a relative URL so requests go to the same origin
+// (avoids ERR_CONNECTION_REFUSED when NEXT_PUBLIC_APP_URL points to an
+// internal Docker address like http://localhost:3000 that is unreachable
+// from the client). On the server, use the absolute internal URL.
 const apiNext = createApi(
-  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000/api",
+  typeof window !== "undefined"
+    ? "/api"
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") + "/api",
   40000,
 );
 

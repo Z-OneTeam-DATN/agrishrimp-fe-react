@@ -11,8 +11,9 @@ export async function GET() {
   }
 
   try {
+    const javaApiUrl = process.env.JAVA_API_URL ?? "http://localhost:8080/api";
     const response = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/me/permissions`,
+      `${javaApiUrl}/me/permissions`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,

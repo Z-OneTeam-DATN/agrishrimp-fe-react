@@ -1,45 +1,27 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { Trophy, Sparkles, ChevronRight, Loader2 } from "lucide-react";
+import { Trophy, Sparkles, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import Banner from "@/components/site/SiteBanner";
 import SiteHomeCategories from "@/components/site/SiteHomeCategories";
-import ProductCard from "@/components/ui/product-card";
+import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import { HomeService } from "@/app/services/home.service";
 
 export default function Home() {
-  const [bestSellers, setBestSellers] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: bestSellers = [], isLoading: loadingBest } = useQuery({
+    queryKey: ["home", "best-sellers"],
+    queryFn: () => HomeService.getBestSellers(5),
+    staleTime: 5 * 60 * 1000, // cache 5 phút — quay về trang chủ hiển thị ngay
+  });
 
-  useEffect(() => {
-    const fetchHomeData = async () => {
-      try {
-        setLoading(true);
-        const [bestRes, allRes] = await Promise.all([
-          HomeService.getBestSellers(5),
-          HomeService.getProducts(),
-        ]);
-        setBestSellers(bestRes);
-        setAllProducts(allRes);
-      } catch (error) {
-        console.error("Lỗi khi load dữ liệu trang chủ:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHomeData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="animate-spin text-teal-600" size={40} />
-      </div>
-    );
-  }
+  const { data: allProducts = [], isLoading: loadingAll } = useQuery({
+    queryKey: ["home", "products"],
+    queryFn: () => HomeService.getProducts(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   return (
     <div className="flex flex-col gap-6 pb-20">
@@ -64,12 +46,11 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {bestSellers.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
+            {loadingBest
+              ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : bestSellers.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
           </div>
         </div>
       </section>
@@ -87,12 +68,11 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {allProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
+            {loadingAll
+              ? Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : allProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
           </div>
         </div>
       </section>
