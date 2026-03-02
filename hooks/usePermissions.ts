@@ -27,7 +27,7 @@ function getJwtAuthorities(token: string | null): string[] {
  * lưu vào store. Fallback về JWT authorities nếu store chưa có.
  */
 export function usePermissions() {
-  const { user, accessToken, permissions: storePermissions } = useAuthStore();
+  const { user, accessToken, permissions: storePermissions, isLoadingAuth } = useAuthStore();
 
   /** Lấy toàn bộ permission codes của user hiện tại */
   const getAuthorities = useCallback((): string[] => {
@@ -69,5 +69,5 @@ export function usePermissions() {
     [hasPermission]
   );
 
-  return { hasPermission, hasAnyPermission, hasAllPermissions };
+  return { hasPermission, hasAnyPermission, hasAllPermissions, isLoadingAuth };
 }

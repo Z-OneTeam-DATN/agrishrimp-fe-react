@@ -156,7 +156,7 @@ export default function CategoryManagementPage() {
   const handleToggleStatus = async () => {
     if (!statusModal) return;
     try {
-      await toggleCategoryStatus(statusModal.id);
+      await toggleCategoryStatus(statusModal.id, statusModal.currentStatus);
       toast.success(`Đã cập nhật trạng thái danh mục: ${statusModal.name}`);
       loadData(currentKeyword, currentStatus);
     } catch {

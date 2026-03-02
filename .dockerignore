@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+out
+build
+.git
+.gitignore
+README.md
+.idea
+.vscode
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

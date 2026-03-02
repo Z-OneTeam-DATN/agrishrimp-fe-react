@@ -1,23 +1,28 @@
 version: "3.8"
 
 services:
-  chat-webapp:
+  agrishrimp-webapp:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8001/api}
+        - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8080}
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    image: agrishrimp-webapp:latest
+    container_name: agrishrimp-webapp
     ports:
       - "3000:3000"
     environment:
-      # Backend API URL
+      # Although NEXT_PUBLIC_ is baked in at build time, 
+      # runtime variables can still be used for server-side logic if needed.
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8001/api}
-      # WebSocket Server URL
       - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8080}
-      # Next.js App URL
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     restart: unless-stopped
     networks:
-      - chat-network
+      - agrishrimp-network
 
 networks:
-  chat-network:
+  agrishrimp-network:
     driver: bridge
