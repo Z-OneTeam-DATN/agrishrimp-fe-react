@@ -175,7 +175,7 @@ export default function AllOrdersPage() {
                   const isLoadingDetail = loadingDetailId === order.orderId;
 
                   return (
-                    <React.Fragment key={order.orderId}>
+                      <React.Fragment key={order.subOrderId}>
                       <TableRow
                         className={cn(
                           "border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors",

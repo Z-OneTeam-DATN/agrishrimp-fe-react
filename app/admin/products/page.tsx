@@ -144,6 +144,7 @@ export default function ProductsPage() {
     const handleDelete = async (id: number) => {
         try {
             const res = await ProductService.delete(id);
+            // Nếu Backend trả về 200 OK
             if (res.success) {
                 toast.success(res.message || "Đã xóa sản phẩm thành công.");
                 fetchProducts();
@@ -152,7 +153,8 @@ export default function ProductsPage() {
             }
         } catch (error: any) {
             console.error("Failed to delete product:", error);
-            toast.error("Lỗi khi xóa sản phẩm.");
+            const errorMessage = error.response?.data?.message || "Lỗi khi xóa sản phẩm. Vui lòng thử lại!";
+            toast.error(errorMessage);
         }
     };
 
@@ -167,7 +169,8 @@ export default function ProductsPage() {
             }
         } catch (error: any) {
             console.error("Failed to disable product:", error);
-            toast.error("Lỗi khi cập nhật trạng thái.");
+            const errorMessage = error.response?.data?.message || "Lỗi khi cập nhật trạng thái.";
+            toast.error(errorMessage);
         }
     };
 

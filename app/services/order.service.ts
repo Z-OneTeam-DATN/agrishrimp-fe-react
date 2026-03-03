@@ -158,4 +158,35 @@ export const orderService = {
     });
     return response.data;
   },
+
+    // 12. Lấy danh sách đơn nhánh đang Đóng gói để chuẩn bị bàn giao
+    getReadyToShipSubOrders: async (): Promise<BranchOrder[]> => {
+        // Tận dụng lại API lấy đơn hàng chi nhánh nhưng lọc cứng status PROCESSING
+        const response = await apiJava.get<BranchOrder[]>("/branch/orders", {
+            params: { status: "PROCESSING" }
+        });
+        return response.data;
+    },
+
+    // 13. Gọi API tạo Phiếu Bàn Giao (Gom đơn)
+    createHandover: async (data: {
+        subOrderIds: number[],
+        carrier: string,
+        totalWeight: number
+    }): Promise<any> => {
+        const response = await apiJava.post("/branch/handovers", data);
+        return response.data;
+    },
+
+    // 14. Lấy danh sách lịch sử các Phiếu Bàn Giao đã tạo
+    getHandoverList: async (): Promise<any[]> => {
+        const response = await apiJava.get<any[]>("/branch/handovers");
+        return response.data;
+    },
+
+    // Thêm vào trong orderService
+    getHandoverDetail: async (id: number | string): Promise<any> => {
+        const response = await apiJava.get(`/branch/handovers/${id}`);
+        return response.data;
+    },
 };
