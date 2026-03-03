@@ -40,11 +40,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 
+// 1. Sửa interface thành imageUrl
 export interface Category {
   id: number;
   name: string;
   status: string;
-  image: string;
+  imageUrl: string;
   parentId: number | null;
   productCount: number;
   children?: Category[];
@@ -53,7 +54,7 @@ export interface Category {
 export default function CategoryManagementPage() {
   const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
-  
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -68,11 +69,11 @@ export default function CategoryManagementPage() {
   const [currentKeyword, setCurrentKeyword] = useState("");
   const [currentStatus, setCurrentStatus] = useState("all");
 
-  // ✅ Thêm state để bắt lỗi riêng cho ô input tên danh mục
   const [nameError, setNameError] = useState<string>("");
 
+  // 2. Sửa formData thành imageUrl
   const [formData, setFormData] = useState({
-    name: "", parentId: "none", status: "ACTIVE", image: ""
+    name: "", parentId: "none", status: "ACTIVE", imageUrl: ""
   });
 
   useEffect(() => {
@@ -123,8 +124,8 @@ export default function CategoryManagementPage() {
 
   const handleAddNew = () => {
     setEditingId(null);
-    setFormData({ name: "", parentId: "none", status: "ACTIVE", image: "" });
-    setNameError(""); // Reset lỗi
+    setFormData({ name: "", parentId: "none", status: "ACTIVE", imageUrl: "" });
+    setNameError("");
     setIsModalOpen(true);
   };
 
@@ -146,9 +147,9 @@ export default function CategoryManagementPage() {
         name: cat.name,
         parentId: cat.parentId ? String(cat.parentId) : "none",
         status: cat.status === "Hiển thị" ? "ACTIVE" : "INACTIVE",
-        image: cat.image,
+        imageUrl: cat.imageUrl || "", // 3. Map đúng biến imageUrl
       });
-      setNameError(""); // Reset lỗi
+      setNameError("");
       setIsModalOpen(true);
     }
   };
@@ -173,7 +174,7 @@ export default function CategoryManagementPage() {
       toast.success("Xóa danh mục thành công");
       loadData(currentKeyword, currentStatus);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Không thể xóa danh mục này (có thể có ràng buộc dữ liệu)");
+      toast.error(error.response?.data?.message || "Không thể xóa danh mục này");
     } finally {
       setDeleteId(null);
     }
@@ -184,7 +185,7 @@ export default function CategoryManagementPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, image: reader.result as string });
+        setFormData({ ...formData, imageUrl: reader.result as string }); // 4. Lưu ảnh vào imageUrl
       };
       reader.readAsDataURL(file);
     }
@@ -192,13 +193,12 @@ export default function CategoryManagementPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate tên danh mục
+
     if (!formData.name.trim()) {
       setNameError("Tên danh mục không được để trống!");
       return;
     }
-    setNameError(""); // Xóa lỗi nếu đã nhập
+    setNameError("");
 
     try {
       setIsSaving(true);
@@ -206,7 +206,7 @@ export default function CategoryManagementPage() {
         name: formData.name,
         parentId: formData.parentId === "none" ? null : Number(formData.parentId),
         status: formData.status,
-        image: formData.image,
+        imageUrl: formData.imageUrl, // 5. Gửi lên backend biến imageUrl
       };
 
       if (editingId) {
@@ -250,7 +250,8 @@ export default function CategoryManagementPage() {
                 <div className="w-6" />
               )}
               <div className="w-8 h-8 rounded border border-slate-200 bg-white overflow-hidden shadow-sm flex items-center justify-center shrink-0">
-                {category.image ? <Image src={category.image} alt={category.name} width={32} height={32} className="object-cover" /> : <Tag size={14} className="text-slate-300" />}
+                {/* Đã sửa object-cover thành object-contain và thêm p-0.5 */}
+                {category.imageUrl ? <Image src={category.imageUrl} alt={category.name} width={32} height={32} className="object-contain p-0.5" /> : <Tag size={14} className="text-slate-300" />}
               </div>
               <span className={cn("text-[13px] uppercase tracking-tight", level === 0 ? "font-black text-slate-800" : "font-bold text-slate-600")}>{category.name}</span>
             </div>
@@ -333,9 +334,10 @@ export default function CategoryManagementPage() {
           <form onSubmit={handleSave} className="p-6 space-y-5">
             <div className="flex flex-col items-center gap-3 mb-4">
               <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center relative overflow-hidden bg-slate-50 group">
-                {formData.image ? (
+                {/* Đã sửa object-cover thành object-contain và thêm p-1 */}
+                {formData.imageUrl ? (
                   <>
-                    <Image src={formData.image} alt="Preview" fill className="object-cover" />
+                    <Image src={formData.imageUrl} alt="Preview" fill className="object-contain p-1" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                       <ImageIcon className="text-white h-6 w-6" />
                     </div>
