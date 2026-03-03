@@ -265,7 +265,7 @@ export default function OrderListPage() {
                   const isLoadingDetail = loadingDetailId === order.orderId;
 
                   return (
-                    <React.Fragment key={order.orderId}>
+                      <React.Fragment key={order.subOrderId}>
                       {/* Row chính */}
                       <TableRow
                         className={cn(
