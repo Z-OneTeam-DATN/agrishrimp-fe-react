@@ -118,7 +118,7 @@ export default function AdminReceiptListPage() {
       <AdminPageHeader
         title="Quản lý nhập kho"
         addBtnLabel="Tạo phiếu nhập mới"
-        addBtnHref="/admin/receipts/new"
+        addBtnHref="/admin/transfers/new"
         tabs={[
           {
             id: "pending",
