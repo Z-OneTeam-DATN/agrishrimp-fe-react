@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addressSchema, AddressFormValues } from "@/app/types/address.schema";
 import { locationService } from "@/app/services/address.service";
 import { Save, ChevronLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
+import AddressSuggestionInput, { AddressSuggestion } from "./AddressSuggestionInput";
 
 interface AddressFormProps {
   initialValues?: AddressFormValues;
@@ -31,6 +32,13 @@ interface WardOption {
   code: string; // GHN WardCode, e.g. "550113"
   name: string;
 }
+
+/** Strip Vietnamese admin-level prefixes, lowercase — dùng để match GHN vs TrackAsia */
+const normalizeAddr = (str: string) =>
+  str
+    .replace(/^(Thành phố|Thành Phố|Tỉnh|Quận|Huyện|Thị xã|Thị Xã|Phường|Xã|Thị trấn|Thị Trấn)\s+/i, "")
+    .trim()
+    .toLowerCase();
 
 export default function AddressForm({
   initialValues,
@@ -65,6 +73,9 @@ export default function AddressForm({
   const [wards, setWards] = useState<WardOption[]>([]);
   const [loadingLoc, setLoadingLoc] = useState(false);
 
+  // Flag to skip cascade effects when auto-filling from a suggestion
+  const autoFillRef = useRef(false);
+
   const provinceId = watch("provinceId");
   const districtId = watch("districtId");
   const wardCode = watch("wardCode");
@@ -77,8 +88,9 @@ export default function AddressForm({
       .catch((err) => console.error("Lỗi tải tỉnh thành:", err));
   }, []);
 
-  // Tải quận/huyện khi đổi tỉnh
+  // Tải quận/huyện khi đổi tỉnh (bỏ qua khi auto-fill)
   useEffect(() => {
+    if (autoFillRef.current) return;
     if (!provinceId) {
       setDistricts([]);
       return;
@@ -90,8 +102,9 @@ export default function AddressForm({
       .finally(() => setLoadingLoc(false));
   }, [provinceId]);
 
-  // Tải phường/xã khi đổi quận/huyện
+  // Tải phường/xã khi đổi quận/huyện (bỏ qua khi auto-fill)
   useEffect(() => {
+    if (autoFillRef.current) return;
     if (!districtId) {
       setWards([]);
       return;
@@ -103,8 +116,9 @@ export default function AddressForm({
       .finally(() => setLoadingLoc(false));
   }, [districtId]);
 
-  // Tự động ghép chuỗi địa chỉ khi chọn đủ 3 cấp
+  // Tự động ghép chuỗi địa chỉ khi chọn đủ 3 cấp thủ công (bỏ qua khi auto-fill)
   useEffect(() => {
+    if (autoFillRef.current) return;
     if (provinceId && districtId && wardCode) {
       const selectedProvince = provinces.find((p) => p.id.toString() === provinceId.toString());
       const selectedDistrict = districts.find((d) => d.id.toString() === districtId.toString());
@@ -122,6 +136,67 @@ export default function AddressForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wardCode, provinces, districts, wards]);
+
+  /** Khi user chọn gợi ý từ TrackAsia → auto-fill province/district/ward */
+  const handleSelectSuggestion = async (suggestion: AddressSuggestion) => {
+    autoFillRef.current = true;
+    setLoadingLoc(true);
+
+    try {
+      // 1. Fill địa chỉ cụ thể bằng label đầy đủ
+      setValue("specificAddress", suggestion.label, { shouldValidate: true });
+
+      // 2. Match province
+      const matchedProvince = provinces.find(
+        (p) => normalizeAddr(p.name) === normalizeAddr(suggestion.province)
+      );
+      if (!matchedProvince) return;
+
+      setValue("provinceId", String(matchedProvince.id), { shouldValidate: true });
+      setValue("districtId", "");
+      setValue("wardCode", "");
+
+      // 3. Load + match district
+      const fetchedDistricts: DistrictOption[] = await locationService.getDistricts(matchedProvince.id);
+      setDistricts(fetchedDistricts ?? []);
+
+      const normDistrict = normalizeAddr(suggestion.district);
+      const matchedDistrict =
+        fetchedDistricts.find((d) => normalizeAddr(d.name) === normDistrict) ||
+        fetchedDistricts.find(
+          (d) =>
+            normalizeAddr(d.name).includes(normDistrict) ||
+            normDistrict.includes(normalizeAddr(d.name))
+        );
+
+      if (!matchedDistrict) return;
+
+      setValue("districtId", String(matchedDistrict.id), { shouldValidate: true });
+      setValue("wardCode", "");
+
+      // 4. Load + match ward
+      const fetchedWards: WardOption[] = await locationService.getWards(matchedDistrict.id);
+      setWards(fetchedWards ?? []);
+
+      const normWard = normalizeAddr(suggestion.ward);
+      const matchedWard =
+        fetchedWards.find((w) => normalizeAddr(w.name) === normWard) ||
+        fetchedWards.find(
+          (w) =>
+            normalizeAddr(w.name).includes(normWard) ||
+            normWard.includes(normalizeAddr(w.name))
+        );
+
+      if (matchedWard) {
+        setValue("wardCode", matchedWard.code, { shouldValidate: true });
+      }
+    } catch (err) {
+      console.error("Lỗi auto-fill địa chỉ:", err);
+    } finally {
+      autoFillRef.current = false;
+      setLoadingLoc(false);
+    }
+  };
 
   const inputClass = (hasError: boolean) => `
     w-full px-3 border rounded-lg text-sm outline-none transition-all bg-white text-gray-900 placeholder:text-gray-400
@@ -164,6 +239,25 @@ export default function AddressForm({
           </div>
         </div>
 
+        {/* Địa chỉ cụ thể với autocomplete */}
+        <div>
+          <label className={labelClass}>
+            Địa chỉ cụ thể <span className="text-red-500">*</span>
+            <span className="ml-1 text-[10px] text-[#329965] font-normal">(gõ để gợi ý tự động)</span>
+          </label>
+          <AddressSuggestionInput
+            value={specificAddress ?? ""}
+            onChange={(val) => setValue("specificAddress", val, { shouldValidate: true })}
+            onSelect={handleSelectSuggestion}
+            hasError={!!errors.specificAddress}
+            className={inputClass(!!errors.specificAddress)}
+            placeholder="Số nhà, tên đường..."
+          />
+          {errors.specificAddress && (
+            <span className="text-xs text-red-500 mt-0.5 block">{errors.specificAddress.message}</span>
+          )}
+        </div>
+
         {/* Tỉnh / Quận / Phường */}
         <div className="grid grid-cols-3 gap-2 relative">
           {loadingLoc && (
@@ -178,8 +272,10 @@ export default function AddressForm({
             <select
               {...register("provinceId", {
                 onChange: () => {
-                  setValue("districtId", "");
-                  setValue("wardCode", "");
+                  if (!autoFillRef.current) {
+                    setValue("districtId", "");
+                    setValue("wardCode", "");
+                  }
                 },
               })}
               className={inputClass(!!errors.provinceId)}
@@ -197,7 +293,9 @@ export default function AddressForm({
             <label className={labelClass}>Quận/Huyện <span className="text-red-500">*</span></label>
             <select
               {...register("districtId", {
-                onChange: () => setValue("wardCode", ""),
+                onChange: () => {
+                  if (!autoFillRef.current) setValue("wardCode", "");
+                },
               })}
               disabled={!provinceId}
               className={`${inputClass(!!errors.districtId)} disabled:bg-gray-100 disabled:text-gray-400`}
@@ -225,18 +323,6 @@ export default function AddressForm({
             </select>
             {errors.wardCode && <span className="text-xs text-red-500 mt-0.5 block">{errors.wardCode.message}</span>}
           </div>
-        </div>
-
-        {/* Địa chỉ cụ thể */}
-        <div>
-          <label className={labelClass}>Địa chỉ cụ thể <span className="text-red-500">*</span></label>
-          <textarea
-            {...register("specificAddress")}
-            rows={compact ? 2 : 3}
-            className={inputClass(!!errors.specificAddress)}
-            placeholder="Số nhà, tên đường..."
-          />
-          {errors.specificAddress && <span className="text-xs text-red-500 mt-0.5 block">{errors.specificAddress.message}</span>}
         </div>
 
         {/* Loại địa chỉ & Mặc định */}
