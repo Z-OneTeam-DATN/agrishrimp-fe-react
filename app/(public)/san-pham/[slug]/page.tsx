@@ -134,7 +134,7 @@ export default function ProductDetailPage({
                     defaultVariant?.imageUrl ?? detail.imageUrls?.[0] ?? "/placeholder.svg"
                 );
                 setRelated(
-                    listResult.content.filter((p) => p.slug !== slug).slice(0, 5)
+                    (listResult?.content ?? []).filter((p) => p.slug !== slug).slice(0, 5)
                 );
             } catch {
                 setNotFound(true);

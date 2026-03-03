@@ -48,7 +48,8 @@ export default function LoginForm() {
       const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
       setAccessAndRefreshToken(res);
       toast.success("Đăng nhập thành công!");
-      window.location.href = "/";
+      const role = (res.role || "").toUpperCase().replace("ROLE_", "");
+      window.location.href = (role === "ADMIN" || role === "MANAGER") ? "/admin" : "/";
     },
     onError: (error: any) => {
       const status = error?.response?.status;

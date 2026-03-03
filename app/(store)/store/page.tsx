@@ -41,8 +41,8 @@ export default function StorePage() {
           getPublicCategories(),
           getPublicBrands(),
         ]);
-        setProducts(prodRes.content);
-        setTotalElements(prodRes.totalElements);
+        setProducts(prodRes?.content ?? []);
+        setTotalElements(prodRes?.totalElements ?? 0);
         setCategories(catRes);
         setBrands(brandRes);
       } catch (error) {

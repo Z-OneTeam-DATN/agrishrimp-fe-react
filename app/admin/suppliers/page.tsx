@@ -31,9 +31,9 @@ export default function SupplierListPage() {
                 pageSize,
             );
 
-            setSuppliers(data.content);
-            setTotalPages(data.totalPages);
-            setTotalElements(data.totalElements);
+            setSuppliers(data?.content ?? []);
+            setTotalPages(data?.totalPages ?? 0);
+            setTotalElements(data?.totalElements ?? 0);
         } catch (error) {
             toast.error("Không thể tải danh sách nhà cung cấp");
             console.error(error);

@@ -7,7 +7,7 @@ import { OrderStatus } from "@/app/types/order.types";
 import { orderService } from "@/app/services/order.service";
 import { PackageX, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MyOrder } from "@/app/types/order.types";
 import { toast } from "sonner";
 
@@ -18,8 +18,9 @@ export default function OrderingPage() {
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const payosRetryRef = useRef(0);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     setIsError(false);
     try {
@@ -32,11 +33,26 @@ export default function OrderingPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchOrders();
   }, [statusFilter]);
+
+  // Fetch lại khi đổi tab
+  useEffect(() => {
+    payosRetryRef.current = 0;
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // Tự động re-fetch nếu có đơn PayOS chưa thanh toán (webhook chưa kịp xử lý)
+  useEffect(() => {
+    const hasPendingPayos = orders.some(
+      (o) => o.paymentMethod === "PAYOS" && o.paymentStatus === "UNPAID" && o.status === "PENDING"
+    );
+    if (!hasPendingPayos || payosRetryRef.current >= 3) return;
+    const t = setTimeout(() => {
+      payosRetryRef.current++;
+      fetchOrders();
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [orders, fetchOrders]);
 
   return (
     <>

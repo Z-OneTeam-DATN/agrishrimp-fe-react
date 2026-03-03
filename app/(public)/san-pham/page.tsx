@@ -167,9 +167,9 @@ function ProductListingInner() {
         page,
         size: PAGE_SIZE,
       });
-      setProducts(result.content);
-      setTotalPages(result.totalPages);
-      setTotalElements(result.totalElements);
+      setProducts(result?.content ?? []);
+      setTotalPages(result?.totalPages ?? 0);
+      setTotalElements(result?.totalElements ?? 0);
     } catch {
       setProducts([]);
       setTotalPages(0);

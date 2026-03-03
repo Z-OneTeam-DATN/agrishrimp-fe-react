@@ -29,7 +29,8 @@ export default function GoogleLoginBtn() {
       toast.success("Đăng nhập với Google thành công!");
 
       // 3. Full page reload để layoutClient hydrate lại user đầy đủ từ API
-      window.location.href = "/";
+      const role = (res.role || "").toUpperCase().replace("ROLE_", "");
+      window.location.href = (role === "ADMIN" || role === "MANAGER") ? "/admin" : "/";
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);
