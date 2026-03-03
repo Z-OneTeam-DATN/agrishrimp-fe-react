@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
-import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
-import { InventoryApiService } from "@/app/services/inventory.service";
+import { AdminTransferTable } from "@/components/admin/AdminTransferTable";
+import { apiJava } from "@/lib/axios";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, X, Printer, CheckCircle2, Trash2, Search, FileText } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, AlertCircle, X, Printer, CheckCircle2, Trash2, Search, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,144 +19,135 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function AdminReceiptListPage() {
-  // Thay đổi State activeTab
+export default function AdminTransferListPage() {
   const [activeTab, setActiveTab] = useState("pending"); // "pending" | "history"
-  const [receipts, setReceipts] = useState<any[]>([]);
+  const [transfers, setTransfers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [deleteReceipt, setDeleteReceipt] = useState<{ id: number; code: string } | null>(null);
+  const [deleteTransfer, setDeleteTransfer] = useState<{ id: string; code: string } | null>(null);
 
-  const fetchReceipts = async () => {
+  // Thêm State để lưu số lượng thống kê cho các Tab
+  const [counts, setCounts] = useState({ pending: 0, history: 0 });
+
+  // 1. Hàm gọi API lấy danh sách điều chuyển CÓ KÈM THAM SỐ
+  const fetchTransfers = async (tab: string, searchKeyword: string = "") => {
     setIsLoading(true);
     try {
-      const data = await InventoryApiService.getAllReceipts();
-      const rawData = Array.isArray(data) ? data : (data?.content || []);
+      // Xác định chuỗi trạng thái cần gửi xuống BE dựa vào Tab hiện tại
+      // Ghi chú: Hiện tại API Backend của bạn chỉ nhận 1 status (String),
+      // để lấy cả PENDING và SHIPPING cho tab "pending", lý tưởng nhất Backend nên nhận List<Status>.
+      // Nhưng với API hiện tại, ta sẽ gọi "all" và để Client lọc,
+      // HOẶC gọi 2 lần nếu muốn chia chính xác từ BE.
+      // Dưới đây là cách gọi "all" và lọc ở FE (giống cách bạn làm) nhưng tối ưu hơn.
 
-      const formattedData = rawData.map((item: any) => {
-        // LOGIC: Nếu không có supplierName (hoặc là N/A) và là phiếu nội bộ, hiện tên kho nguồn
-        let displayPartner = item.supplierName;
-        if (!displayPartner || displayPartner === "N/A") {
-          displayPartner = item.importType === "INTERNAL" ? "[Nội bộ] Kho điều chuyển" : "N/A";
+      const res = await apiJava.get("/transfers", {
+        params: {
+          keyword: searchKeyword || undefined,
+          status: "all", // Lấy tất cả để thống kê số lượng 2 Tab
+          size: 1000 // Tạm thời lấy số lượng lớn (Trong thực tế nên làm API thống kê riêng)
         }
-
-        return {
-          id: item.id,
-          code: item.code || `PNK-${item.id}`,
-          date: item.createdAt ? new Date(item.createdAt).toLocaleString("vi-VN") : "Chưa xác định",
-          supplier: displayPartner,
-          importType: item.importType,
-          warehouse: item.branchName || "Kho mặc định",
-          total: item.totalAmount || 0,
-          paid: item.paymentAmount || 0,
-          debt: item.debtAmount || 0,
-          status: item.status || "PENDING", // PENDING hoặc COMPLETED
-          creator: item.deliverer || "Hệ thống",
-        };
       });
 
-      setReceipts(formattedData);
+      const rawData = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      setTransfers(rawData);
+
+      // Cập nhật số lượng cho các Tab
+      const pendingQty = rawData.filter((t: any) => t.status === "PENDING" || t.status === "SHIPPING").length;
+      const historyQty = rawData.filter((t: any) => t.status === "COMPLETED" || t.status === "CANCELLED").length;
+      setCounts({ pending: pendingQty, history: historyQty });
+
     } catch (error: any) {
-      toast.error("Không thể kết nối đến máy chủ để tải danh sách phiếu");
+      toast.error("Không thể tải danh sách phiếu điều chuyển");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Gọi API khi component mount hoặc khi keyword thay đổi (có thể thêm debounce)
   useEffect(() => {
-    fetchReceipts();
+    fetchTransfers(activeTab, keyword);
   }, []);
 
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setKeyword(val);
+    // Trong thực tế nên dùng lodash.debounce tại đây để tránh gọi API liên tục
+    fetchTransfers(activeTab, val);
+  };
+
+  // 2. Hàm xóa phiếu (Chỉ cho phép xóa PENDING)
   const confirmDelete = async () => {
-    if (!deleteReceipt) return;
+    if (!deleteTransfer) return;
     try {
-      await InventoryApiService.deleteReceipt(deleteReceipt.id.toString());
-      toast.success(`Đã xóa phiếu nhập "${deleteReceipt.code}" thành công!`);
-      // Update UI immediately without refetching for better UX
-      setReceipts((prev) => prev.filter((r) => r.id !== deleteReceipt.id));
-      setSelectedIds((prev) => prev.filter((id) => id !== deleteReceipt.id.toString()));
+      await apiJava.delete(`/transfers/${deleteTransfer.id}`);
+      toast.success(`Đã xóa phiếu điều chuyển "${deleteTransfer.code}"`);
+
+      // Update UI và giảm count
+      setTransfers((prev) => prev.filter((t) => t.id !== deleteTransfer.id));
+      setCounts(prev => ({...prev, pending: prev.pending - 1}));
+
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi khi xóa phiếu nhập!");
+      toast.error(error.response?.data?.message || "Lỗi khi xóa phiếu!");
     } finally {
-      setDeleteReceipt(null);
+      setDeleteTransfer(null);
     }
   };
 
-  // ✅ LOGIC LỌC DỮ LIỆU THEO TAB (Sử dụng useMemo)
+  // 3. Logic lọc dữ liệu theo Tab (Lọc Client-side)
   const displayData = useMemo(() => {
-    return receipts.filter((item) => {
-      // 1. Lọc theo Tab
-      let matchesTab = false;
+    return transfers.filter((item) => {
       if (activeTab === "pending") {
-        matchesTab = item.status === "PENDING" || item.status === "PO";
+        return item.status === "PENDING" || item.status === "SHIPPING";
       } else {
-        matchesTab = item.status === "COMPLETED" || item.status === "IMPORTED";
+        return item.status === "COMPLETED" || item.status === "CANCELLED";
       }
-
-      // 2. Lọc theo Keyword (Mã phiếu hoặc Nhà cung cấp)
-      let matchesKeyword = true;
-      if (keyword.trim()) {
-        const lowerKeyword = keyword.toLowerCase();
-        matchesKeyword =
-          item.code.toLowerCase().includes(lowerKeyword) ||
-          item.supplier.toLowerCase().includes(lowerKeyword);
-      }
-
-      return matchesTab && matchesKeyword;
     });
-  }, [receipts, activeTab, keyword]);
-
-  // Tính toán số lượng huy hiệu cho Tabs
-  const pendingCount = receipts.filter(t => t.status === "PENDING" || t.status === "PO").length;
-  const historyCount = receipts.filter(t => t.status === "COMPLETED" || t.status === "IMPORTED").length;
+  }, [transfers, activeTab]);
 
   return (
     <div className="space-y-4">
-      {/* Sử dụng Component AdminPageHeader giống mẫu */}
       <AdminPageHeader
-        title="Quản lý nhập kho"
-        addBtnLabel="Tạo phiếu nhập mới"
-        addBtnHref="/admin/receipts/new"
+        title="Điều chuyển kho"
+        addBtnLabel="Tạo lệnh điều chuyển"
+        addBtnHref="/admin/transfers/new"
         tabs={[
           {
             id: "pending",
-            label: "Chờ xử lý",
-            count: pendingCount,
-            color: "text-amber-600",
+            label: "Đang xử lý",
+            count: counts.pending,
+            color: "text-blue-600",
           },
           {
             id: "history",
-            label: "Lịch sử",
-            count: historyCount,
+            label: "Hoàn thành / Hủy",
+            count: counts.history,
             color: "text-slate-600",
           },
         ]}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          setSelectedIds([]); // Reset select khi chuyển tab
+        }}
       />
 
       <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden mb-8">
+        {/* Bulk Actions (Thao tác hàng loạt) */}
         {selectedIds.length > 0 ? (
-          <div className="p-3 bg-slate-900 text-white flex items-center justify-between animate-in slide-in-from-top duration-300">
+          <div className="p-3 bg-slate-900 text-white flex items-center justify-between animate-in fade-in duration-300">
             <div className="flex items-center gap-4">
-              <span className="text-[12px] font-black uppercase tracking-widest">
-                Đã chọn {selectedIds.length} phiếu nhập kho
+              <span className="text-[12px] font-black uppercase">
+                Đã chọn {selectedIds.length} lệnh điều chuyển
               </span>
-              <div className="h-4 w-[1px] bg-slate-700" />
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" className="h-8 text-[11px] font-bold text-white hover:bg-slate-800 uppercase tracking-tighter">
-                  <Printer size={14} className="mr-1.5" /> In phiếu loạt
+              <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
+                <Button variant="ghost" className="h-8 text-[11px] font-bold text-white hover:bg-slate-800 uppercase">
+                  <Printer size={14} className="mr-1.5" /> In danh sách
                 </Button>
                 {activeTab === "pending" && (
-                  <>
-                    <Button variant="ghost" className="h-8 text-[11px] font-bold text-white hover:bg-slate-800 uppercase tracking-tighter">
-                      <CheckCircle2 size={14} className="mr-1.5" /> Duyệt hàng loạt
-                    </Button>
-                    <Button variant="ghost" className="h-8 text-[11px] font-bold text-rose-400 hover:bg-rose-900/30 uppercase tracking-tighter">
-                      <Trash2 size={14} className="mr-1.5" /> Hủy hàng loạt
-                    </Button>
-                  </>
+                   <Button variant="ghost" className="h-8 text-[11px] font-bold text-rose-400 hover:bg-rose-900/30 uppercase">
+                     <Trash2 size={14} className="mr-1.5" /> Hủy lệnh loạt
+                   </Button>
                 )}
               </div>
             </div>
@@ -166,69 +156,67 @@ export default function AdminReceiptListPage() {
             </Button>
           </div>
         ) : (
-          <div className="p-3 bg-slate-50 border-b border-[#eee] flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[250px]">
+          <div className="p-3 bg-slate-50 border-b border-[#eee] flex items-center gap-3">
+            <div className="relative flex-1 max-w-[400px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <Input
-                placeholder="Tìm mã phiếu, nhà cung cấp..."
+                placeholder="Tìm mã lệnh, kho xuất, kho nhập..."
                 value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                className="h-9 pl-10 text-[13px] border-slate-200 focus:border-blue-500 rounded-none shadow-none bg-white"
+                onChange={handleSearch}
+                className="h-9 pl-10 text-[13px] border-slate-200 focus:border-blue-500 rounded-none bg-white shadow-none"
               />
             </div>
-            {/* Nếu cần Dropdown lọc kho như thiết kế cũ thì có thể đặt ở đây */}
           </div>
         )}
 
         <div className="relative">
           {isLoading ? (
-            <div className="py-24 flex flex-col items-center justify-center bg-white/80 z-10 text-slate-400">
+            <div className="py-24 flex flex-col items-center justify-center text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
-              <p className="text-[11px] font-black uppercase tracking-widest">
-                Đang tải dữ liệu...
-              </p>
+              <p className="text-[11px] font-black uppercase tracking-widest">Đang truy xuất dữ liệu vận chuyển...</p>
             </div>
           ) : displayData.length === 0 ? (
             <div className="py-24 flex flex-col items-center justify-center text-slate-400">
               <div className="bg-slate-50 p-4 rounded-full mb-3">
-                <FileText className="opacity-20" size={40} />
+                <ArrowLeftRight className="opacity-20" size={40} />
               </div>
-              <p className="text-xs font-bold uppercase tracking-tight">Không có dữ liệu</p>
+              <p className="text-xs font-bold uppercase">Không có dữ liệu điều chuyển</p>
               <p className="text-[11px] mt-1 text-slate-400">
-                {activeTab === "pending"
-                  ? "Hiện không có đơn nào đang chờ xử lý."
-                  : "Chưa có lịch sử nhập kho nào được ghi nhận."}
+                {activeTab === "pending" ? "Không có phiếu nào đang chờ xử lý." : "Chưa có lịch sử điều chuyển nào."}
               </p>
             </div>
           ) : (
-            // Component Table của bạn (cần nhận prop selectedIds và onSelectionChange nếu bạn đã code checkbox bên trong)
-            <InventoryReceiptTable
-              receipts={displayData}
-              onDeleteClick={(id, code) => setDeleteReceipt({ id, code })}
+            <AdminTransferTable
+              data={displayData}
+              mode={activeTab}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              onDelete={(id) => {
+                const item = transfers.find(t => t.id === id);
+                setDeleteTransfer({ id, code: item?.transferCode || "N/A" });
+              }}
             />
           )}
         </div>
       </div>
 
-      {/* Popup Xóa Phiếu Nhập */}
-      <AlertDialog open={!!deleteReceipt} onOpenChange={() => setDeleteReceipt(null)}>
-        <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">
+      {/* Dialog xác nhận xóa */}
+      <AlertDialog open={!!deleteTransfer} onOpenChange={() => setDeleteTransfer(null)}>
+        <AlertDialogContent className="bg-white rounded-none border-slate-200 shadow-xl max-w-[400px]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold text-[16px] uppercase tracking-tight flex items-center gap-2">
-              <AlertCircle size={20} /> Xác nhận xóa phiếu tạm
+            <AlertDialogTitle className="text-red-600 font-black text-[16px] uppercase flex items-center gap-2">
+              <AlertCircle size={20} /> Xác nhận xóa lệnh điều chuyển
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-600 text-[13px]">
-              Bạn có chắc chắn muốn xóa phiếu nhập <span className="font-bold text-slate-900">"{deleteReceipt?.code}"</span>? <br />
-              <span className="text-[11px] text-rose-500 font-medium italic">*Hành động này không thể hoàn tác.</span>
+              Hành động này sẽ xóa vĩnh viễn lệnh <span className="font-bold text-slate-900">"{deleteTransfer?.code}"</span>. <br />
+              Dữ liệu tồn kho liên quan sẽ được giữ nguyên do phiếu chưa xuất kho.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300 rounded-[3px]">
-              HỦY BỎ
-            </AlertDialogCancel>
+            <AlertDialogCancel className="h-[32px] text-[12px] font-bold rounded-none">HỦY BỎ</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold rounded-[3px]"
+              className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold rounded-none"
             >
               ĐỒNG Ý XÓA
             </AlertDialogAction>
