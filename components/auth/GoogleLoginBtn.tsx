@@ -13,6 +13,8 @@ export default function GoogleLoginBtn() {
   const setAccessAndRefreshToken = useAuthStore((state) => state.setAccessAndRefreshToken);
   const [isInternalLoading, setIsInternalLoading] = useState(false);
 
+  if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return null;
+
   /**
    * Mutation gọi API Next.js Route (/api/auth/google-login)
    * Để thiết lập HttpOnly Cookie sau khi Java Backend verify xong Google Token

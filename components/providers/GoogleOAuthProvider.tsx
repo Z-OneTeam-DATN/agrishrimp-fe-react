@@ -11,12 +11,13 @@ export default function GoogleAuthProvider({
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
   if (!clientId) {
-    console.error(
-      "Chưa cấu hình NEXT_PUBLIC_GOOGLE_CLIENT_ID trong .env.local",
+    console.warn(
+      "Chưa cấu hình NEXT_PUBLIC_GOOGLE_CLIENT_ID trong .env.local — Google Login sẽ bị vô hiệu hoá.",
     );
-    return <>{children}</>;
   }
 
+  // Luôn render provider để tránh crash "must be used within GoogleOAuthProvider"
+  // khi hook useGoogleLogin được gọi bên trong children
   return (
     <GoogleOAuthProvider clientId={clientId}>{children}</GoogleOAuthProvider>
   );
