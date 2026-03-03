@@ -20,6 +20,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "chat-webapp-nghiadev.s3.ap-southeast-1.amazonaws.com",
       },
+      // Thêm cấu hình hostname của Cloudinary vào đây
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
     ],
   },
   experimental: {
