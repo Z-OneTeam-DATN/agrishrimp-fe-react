@@ -11,7 +11,7 @@ import {
   toggleCategoryStatus
 } from "@/app/services/CategoryService";
 import { toast } from "sonner";
-import { AlertCircle, Edit, Trash2, Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, X, Eye, EyeOff } from "lucide-react";
+import { Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 
 import {
   AlertDialog,
@@ -40,7 +40,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 
-// 1. Sửa interface thành imageUrl
 export interface Category {
   id: number;
   name: string;
@@ -68,10 +67,8 @@ export default function CategoryManagementPage() {
 
   const [currentKeyword, setCurrentKeyword] = useState("");
   const [currentStatus, setCurrentStatus] = useState("all");
-
   const [nameError, setNameError] = useState<string>("");
 
-  // 2. Sửa formData thành imageUrl
   const [formData, setFormData] = useState({
     name: "", parentId: "none", status: "ACTIVE", imageUrl: ""
   });
@@ -97,7 +94,6 @@ export default function CategoryManagementPage() {
         roots.push(map[item.id]);
       }
     });
-
     return roots;
   };
 
@@ -147,7 +143,7 @@ export default function CategoryManagementPage() {
         name: cat.name,
         parentId: cat.parentId ? String(cat.parentId) : "none",
         status: cat.status === "Hiển thị" ? "ACTIVE" : "INACTIVE",
-        imageUrl: cat.imageUrl || "", // 3. Map đúng biến imageUrl
+        imageUrl: cat.imageUrl || "",
       });
       setNameError("");
       setIsModalOpen(true);
@@ -185,7 +181,7 @@ export default function CategoryManagementPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, imageUrl: reader.result as string }); // 4. Lưu ảnh vào imageUrl
+        setFormData({ ...formData, imageUrl: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
@@ -206,7 +202,7 @@ export default function CategoryManagementPage() {
         name: formData.name,
         parentId: formData.parentId === "none" ? null : Number(formData.parentId),
         status: formData.status,
-        imageUrl: formData.imageUrl, // 5. Gửi lên backend biến imageUrl
+        imageUrl: formData.imageUrl,
       };
 
       if (editingId) {
@@ -219,10 +215,39 @@ export default function CategoryManagementPage() {
       setIsModalOpen(false);
       loadData(currentKeyword, currentStatus);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi lưu danh mục");
-    } finally {
-      setIsSaving(false);
-    }
+          console.error("Lỗi từ Server:", error.response?.data);
+
+          const responseData = error.response?.data;
+          let serverMsg = "Có lỗi xảy ra khi lưu danh mục"; // Giá trị mặc định
+
+          // 1. TRÍCH XUẤT LỖI TỪ ĐÚNG CẤU TRÚC JSON CỦA BACKEND
+          if (responseData?.detail) {
+            serverMsg = responseData.detail; // Lấy dữ liệu từ biến 'detail' theo log của bạn
+          } else if (responseData?.message) {
+            serverMsg = responseData.message; // Đề phòng trường hợp API khác trả về 'message'
+          } else if (typeof responseData === 'string') {
+            serverMsg = responseData;
+          }
+
+          // 2. KIỂM TRA MÃ TRẠNG THÁI TỪ HEADER VÀ TỪ BODY
+          const httpStatus = error.response?.status; // Mã trên mạng (vd: 400)
+          const bodyStatus = responseData?.statusCode; // Mã trong nội dung (vd: '409 CONFLICT')
+
+          // 3. KIỂM TRA ĐIỀU KIỆN TRÙNG LẶP
+          const isDuplicate =
+              httpStatus === 409 ||
+              (typeof bodyStatus === 'string' && bodyStatus.includes('409')) ||
+              serverMsg.toLowerCase().includes("tồn tại") ||
+              serverMsg.toLowerCase().includes("already exists");
+
+          if (isDuplicate) {
+            setNameError(serverMsg); // Hiện dòng đỏ dưới ô nhập với câu chữ chính xác từ server
+          } else {
+            toast.error(serverMsg); // Hiện Toast cho các lỗi khác
+          }
+        } finally {
+          setIsSaving(false);
+        }
   };
 
   const handleSearch = (val: string) => {
@@ -250,10 +275,15 @@ export default function CategoryManagementPage() {
                 <div className="w-6" />
               )}
               <div className="w-8 h-8 rounded border border-slate-200 bg-white overflow-hidden shadow-sm flex items-center justify-center shrink-0">
-                {/* Đã sửa object-cover thành object-contain và thêm p-0.5 */}
-                {category.imageUrl ? <Image src={category.imageUrl} alt={category.name} width={32} height={32} className="object-contain p-0.5" /> : <Tag size={14} className="text-slate-300" />}
+                {category.imageUrl ? (
+                   <Image src={category.imageUrl} alt={category.name} width={32} height={32} className="object-contain p-0.5" />
+                ) : (
+                   <Tag size={14} className="text-slate-300" />
+                )}
               </div>
-              <span className={cn("text-[13px] uppercase tracking-tight", level === 0 ? "font-black text-slate-800" : "font-bold text-slate-600")}>{category.name}</span>
+              <span className={cn("text-[13px] uppercase tracking-tight", level === 0 ? "font-black text-slate-800" : "font-bold text-slate-600")}>
+                {category.name}
+              </span>
             </div>
           </td>
           <td className="p-3 text-center">
@@ -321,7 +351,6 @@ export default function CategoryManagementPage() {
         </div>
       </div>
 
-      {/* MODAL THÊM / SỬA */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white">
           <DialogHeader className="p-6 border-b bg-slate-50">
@@ -334,7 +363,6 @@ export default function CategoryManagementPage() {
           <form onSubmit={handleSave} className="p-6 space-y-5">
             <div className="flex flex-col items-center gap-3 mb-4">
               <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center relative overflow-hidden bg-slate-50 group">
-                {/* Đã sửa object-cover thành object-contain và thêm p-1 */}
                 {formData.imageUrl ? (
                   <>
                     <Image src={formData.imageUrl} alt="Preview" fill className="object-contain p-1" />
@@ -354,8 +382,17 @@ export default function CategoryManagementPage() {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-500 uppercase">Tên danh mục *</Label>
-              <Input value={formData.name} onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setNameError(""); }} placeholder="VD: Thuốc thú y, Thức ăn..." className={cn("h-10 text-sm font-bold", nameError && "border-red-500 focus-visible:ring-red-200")} />
-              {nameError && <p className="text-[11px] text-red-500 font-bold">{nameError}</p>}
+              <Input
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  setNameError(""); // Tự động xóa lỗi khi người dùng bắt đầu gõ lại
+                }}
+                placeholder="VD: Thuốc thú y, Thức ăn..."
+                className={cn("h-10 text-sm font-bold", nameError && "border-red-500 focus-visible:ring-red-200")}
+              />
+              {/* Hiển thị lỗi đỏ ngay dưới ô Input */}
+              {nameError && <p className="text-[11px] text-red-500 font-bold animate-in fade-in slide-in-from-top-1">{nameError}</p>}
             </div>
 
             <div className="space-y-1.5">
