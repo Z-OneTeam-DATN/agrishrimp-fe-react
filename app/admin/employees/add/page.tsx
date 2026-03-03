@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    ChevronLeft, Users, Building2, 
-    ShieldCheck, Mail, Phone, MapPin, 
+    ChevronLeft, Users, Building2,
+    ShieldCheck, Mail, Phone, MapPin,
     Key, Loader2, Camera, UserCircle2, Briefcase, Fingerprint, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,8 @@ export default function AddEmployeePage() {
         defaultValues: {
             fullName: "",
             email: "",
-            password: `Agri@${new Date().getFullYear()}`, // Gợi ý Agri@2026
+            // ✅ Đặt cứng mật khẩu mặc định là 123456
+            password: "123456",
             phoneNumber: "",
             citizenId: "",
             addressDetail: "",
@@ -76,9 +77,9 @@ export default function AddEmployeePage() {
                     RoleService.getAll(),
                     BranchService.getAll()
                 ]);
-                
+
                 let rolesList = (Array.isArray(rolesRes) ? rolesRes : (rolesRes as any).content || []) as RoleType[];
-                
+
                 // 1. Cấm gán USER (5.8)
                 // 2. Cấm tự leo thang quyền (5.8) - Phải là ADMIN mới gán được ADMIN
                 rolesList = rolesList.filter(r => {
@@ -87,9 +88,10 @@ export default function AddEmployeePage() {
                     if (currentUser?.role?.slug !== "admin" && slug === "admin") return false;
                     return true;
                 });
-                
+
                 setRoles(rolesList);
 
+                // ✅ Tải danh sách chi nhánh
                 const branchesList = (Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || []) as BranchType[];
                 setBranches(branchesList);
             } catch (error) {
@@ -109,7 +111,7 @@ export default function AddEmployeePage() {
         try {
             setUploading(true);
             const formDataUpload = new FormData();
-            formDataUpload.append("file", file); 
+            formDataUpload.append("file", file);
             const response = await apiJava.post('/files/tmpUpload', formDataUpload, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
@@ -141,7 +143,7 @@ export default function AddEmployeePage() {
                     const message = parts.slice(1).join(" ");
                     setError(field, { type: "manual", message });
                 });
-                toast.error("Vữ liệu không hợp lệ. Vui lòng kiểm tra lại.");
+                toast.error("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.");
             } else {
                 toast.error(getErrorMessage(error) || "Lỗi khi tạo nhân viên.");
             }
@@ -170,7 +172,7 @@ export default function AddEmployeePage() {
                             <Users size={16} />
                             <span className="text-[11px] font-black uppercase text-slate-800 tracking-widest">1. Thông tin cá nhân</span>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
@@ -225,8 +227,13 @@ export default function AddEmployeePage() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400">Mã nhân viên (Để trống để tự sinh)</Label>
-                                <Input {...register("employeeCode")} className="h-9 text-[13px] bg-slate-50 font-bold" placeholder="Tự động" />
+                                <Label className="text-[10px] font-bold uppercase text-slate-400">Mã nhân viên</Label>
+                                {/* ✅ Khóa ô Mã nhân viên */}
+                                <Input
+                                    disabled
+                                    className="h-9 text-[13px] bg-slate-100 text-slate-400 font-bold cursor-not-allowed"
+                                    placeholder="Hệ thống sẽ tự động tạo (VD: NV-0001)"
+                                />
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Ngày vào làm *</Label>
@@ -272,6 +279,7 @@ export default function AddEmployeePage() {
                         </div>
                     </div>
 
+                    {/* ✅ Cột phải: Đã bỏ ô Mật khẩu, thêm thông báo */}
                     <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4 rounded-lg">
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Mail size={10} /> Email (Tài khoản) *</Label>
@@ -288,10 +296,14 @@ export default function AddEmployeePage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Key size={10} /> Mật khẩu khởi tạo *</Label>
-                            <Input type="password" {...register("password")} className={cn("h-9 text-[13px] bg-slate-50", errors.password && "border-red-500")} />
-                            {errors.password && <p className="text-[10px] text-red-500 font-bold leading-tight">{errors.password.message}</p>}
+
+                        {/* Box thông báo về mật khẩu */}
+                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-[4px] mt-4 flex items-start gap-2">
+                            <ShieldCheck size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-blue-800 leading-relaxed">
+                                <span className="font-bold">Bảo mật:</span> Mật khẩu mặc định của tài khoản là <code className="bg-white text-blue-700 px-1 py-0.5 rounded font-bold border border-blue-200 shadow-sm">123456</code>.
+                                Hệ thống sẽ tự động gửi email chứa thông tin đăng nhập đến hòm thư của nhân viên này.
+                            </p>
                         </div>
                     </div>
                 </div>
