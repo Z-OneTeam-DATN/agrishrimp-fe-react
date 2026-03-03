@@ -46,6 +46,7 @@ export default function GoogleLoginBtn() {
    * Khởi tạo Popup Google Login (Implicit Flow)
    */
   const googleLogin = useGoogleLogin({
+    scope: "openid email profile",
     onSuccess: (tokenResponse) => {
       console.log("Google Token Response:", tokenResponse);
       setIsInternalLoading(true);
@@ -85,7 +86,7 @@ export default function GoogleLoginBtn() {
       <span className="text-sm">
         {isLoading ? "Đang xử lý..." : "Tiếp tục với Google"}
       </span>
-      
+
       {/* Hiệu ứng tia sáng khi hover */}
       {!isLoading && (
         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-500/0 via-teal-500/5 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />

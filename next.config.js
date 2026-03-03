@@ -8,6 +8,14 @@ const nextConfig = {
         source: "/be-api/:path*",
         destination: "http://be:8080/api/:path*",
       },
+      {
+        source: "/api/public/:path*",
+        destination: "http://agri-shrimp-be:8080/api/public/:path*",
+      },
+      {
+        source: "/api/webhooks/:path*",
+        destination: "http://agri-shrimp-be:8080/api/webhooks/:path*",
+      },
     ];
   },
   eslint: {
