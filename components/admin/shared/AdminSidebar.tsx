@@ -29,6 +29,7 @@ import {
   List,
   Archive,
   RotateCcw,
+  Ticket, // Đã bổ sung icon Ticket ở đây
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -234,6 +235,16 @@ export default function AdminSidebar() {
                 isChild
               />
             </SidebarGroup>
+
+            {hasPermission(P.VOUCHER_VIEW) && ( // Đã thêm kiểm tra quyền nếu bạn có cài đặt
+                  <SidebarLink
+                    href="/admin/vouchers"
+                    icon={Ticket}
+                    label="Khuyến mãi & Voucher"
+                    active={isActive("/admin/vouchers")}
+                    color="text-pink-400"
+                  />
+                )}
             {hasPermission(P.CUSTOMER_VIEW) && (
               <SidebarLink
                 href="/admin/customers"

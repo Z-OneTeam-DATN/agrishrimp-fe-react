@@ -5,8 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cartService } from "@/app/services/cart.service";
+import { voucherService } from "@/app/services/voucher.service";
 import { useRouter } from "next/navigation";
-import { useCartStore } from "@/stores/useCartStore"; // ✅ Thêm dòng này
+import { useCartStore } from "@/stores/useCartStore";
 import {
   Minus,
   Plus,
@@ -21,7 +22,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-// --- INTERFACES ---
 interface CartItem {
   id: number;
   variantId: number;
@@ -38,22 +38,26 @@ interface CartItem {
 }
 
 interface Voucher {
+  id?: number;
   code: string;
-  discount: number;
+  title: string;
   description: string;
-  minOrder?: number;
+  discountType: "FIXED" | "PERCENT";
+  discountValue?: number;
+  value?: number;
+  minOrderValue: number;
+  maxDiscount?: number;
+  startDate: string;
+  endDate: string;
+  usageLimit: number;
+  status: string;
 }
 
-const VOUCHERS: Voucher[] = [
-  { code: "AGRI15K", discount: 15000, description: "Giảm 15.000đ phí vận chuyển", minOrder: 100000 },
-  { code: "GIAM50K", discount: 50000, description: "Giảm 50.000đ cho đơn từ 500k", minOrder: 500000 },
-  { code: "CHAO20K", discount: 20000, description: "Giảm 20.000đ cho khách mới", minOrder: 0 },
-];
+const formatMoney = (amount: number | undefined | null) => {
+  if (amount === undefined || amount === null) return "0₫";
+  return Number(amount).toLocaleString("vi-VN") + "₫";
+};
 
-const formatMoney = (amount: number) =>
-  amount.toLocaleString("vi-VN") + "₫";
-
-// --- SKELETON LOADER ---
 function CartSkeleton() {
   return (
     <div className="min-h-screen bg-slate-50 py-6">
@@ -90,7 +94,6 @@ function CartSkeleton() {
   );
 }
 
-// --- QUANTITY INPUT với typing ---
 function QtyInput({
   value,
   onUpdate,
@@ -153,11 +156,14 @@ export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingItems, setUpdatingItems] = useState<Record<number, boolean>>({});
+
+  const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [voucherInput, setVoucherInput] = useState("");
+
   const router = useRouter();
-  const { fetchCartCount } = useCartStore(); // ✅ Lấy hàm fetchCartCount từ store
+  const { fetchCartCount } = useCartStore();
 
   const fetchCart = async () => {
     try {
@@ -176,7 +182,27 @@ export default function CartPage() {
     }
   };
 
-  useEffect(() => { fetchCart(); }, []);
+  const fetchPublicVouchers = async () => {
+    try {
+      const res = await voucherService.getPublicVouchers();
+      const voucherArray = res.data ? res.data : res;
+
+      let arr = Array.isArray(voucherArray) ? voucherArray : [];
+
+      // ===== LỌC VOUCHER ĐÃ HẾT HẠN KHỎI GIAO DIỆN USER =====
+      const now = new Date().getTime();
+      arr = arr.filter((v: Voucher) => new Date(v.endDate).getTime() >= now);
+
+      setAvailableVouchers(arr);
+    } catch (error) {
+      console.error("Lỗi tải voucher", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCart();
+    fetchPublicVouchers();
+  }, []);
 
   const updateQuantity = async (variantId: number, currentQty: number, delta: number) => {
     const newQty = currentQty + delta;
@@ -189,7 +215,7 @@ export default function CartPage() {
           item.variantId === variantId ? { ...item, quantity: newQty } : item
         )
       );
-      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header
+      fetchCartCount();
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi cập nhật số lượng");
     } finally {
@@ -204,7 +230,7 @@ export default function CartPage() {
       await cartService.removeItem(cartItemId);
       toast.success("Đã xóa khỏi giỏ hàng");
       setItems((prev) => prev.filter((item) => item.id !== cartItemId));
-      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header
+      fetchCartCount();
     } catch {
       toast.error("Lỗi khi xóa sản phẩm");
     } finally {
@@ -218,23 +244,34 @@ export default function CartPage() {
   const toggleCheckAll = (checked: boolean) =>
     setItems((prev) => prev.map((item) => ({ ...item, checked })));
 
-  // --- CALCULATIONS ---
   const checkedItems = items.filter((i) => i.checked);
   const subTotal = checkedItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalCount = checkedItems.reduce((s, i) => s + i.quantity, 0);
   const isAllChecked = items.length > 0 && items.every((i) => i.checked);
 
   let discountValue = 0;
-  if (selectedVoucher && subTotal >= (selectedVoucher.minOrder || 0)) {
-    discountValue = selectedVoucher.discount;
+  if (selectedVoucher && subTotal >= (selectedVoucher.minOrderValue || 0)) {
+    const actualValue = Number(selectedVoucher.value || selectedVoucher.discountValue || 0);
+
+    if (selectedVoucher.discountType === "PERCENT") {
+      const calculatedDiscount = (subTotal * actualValue) / 100;
+      discountValue = selectedVoucher.maxDiscount
+        ? Math.min(calculatedDiscount, Number(selectedVoucher.maxDiscount))
+        : calculatedDiscount;
+    } else {
+      discountValue = actualValue;
+    }
+  } else if (selectedVoucher && subTotal < (selectedVoucher.minOrderValue || 0)) {
+    setSelectedVoucher(null);
   }
+
   const finalTotal = Math.max(0, subTotal - discountValue);
 
   const applyVoucherByCode = () => {
-    const found = VOUCHERS.find((v) => v.code === voucherInput.trim().toUpperCase());
-    if (!found) { toast.error("Mã voucher không hợp lệ"); return; }
-    if (subTotal < (found.minOrder || 0)) {
-      toast.error(`Đơn chưa đạt ${formatMoney(found.minOrder || 0)}`);
+    const found = availableVouchers.find((v) => v.code === voucherInput.trim().toUpperCase());
+    if (!found) { toast.error("Mã voucher không hợp lệ hoặc đã hết hạn"); return; }
+    if (subTotal < (found.minOrderValue || 0)) {
+      toast.error(`Đơn chưa đạt ${formatMoney(found.minOrderValue)}`);
       return;
     }
     setSelectedVoucher(found);
@@ -263,8 +300,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-10">
-
-      {/* ── BREADCRUMB HEADER ── */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 max-w-5xl">
           <nav className="flex items-center gap-1.5 py-4 text-sm text-gray-500">
@@ -276,127 +311,50 @@ export default function CartPage() {
       </div>
 
       <div className="container mx-auto px-4 max-w-5xl py-5">
-
         <div className="space-y-3">
-
-          {/* ── CART TABLE ── */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-
-            {/* Header row */}
             <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-              <input
-                type="checkbox"
-                id="check-all"
-                className="w-4 h-4 accent-teal-600 cursor-pointer"
-                checked={isAllChecked}
-                onChange={(e) => toggleCheckAll(e.target.checked)}
-              />
-              <label htmlFor="check-all" className="text-sm text-gray-600 cursor-pointer select-none">
-                Chọn tất cả
-              </label>
-              <span className="text-xs text-gray-400 ml-auto">
-                {checkedItems.length}/{items.length} sản phẩm được chọn
-              </span>
+              <input type="checkbox" id="check-all" className="w-4 h-4 accent-teal-600 cursor-pointer" checked={isAllChecked} onChange={(e) => toggleCheckAll(e.target.checked)} />
+              <label htmlFor="check-all" className="text-sm text-gray-600 cursor-pointer select-none">Chọn tất cả</label>
+              <span className="text-xs text-gray-400 ml-auto">{checkedItems.length}/{items.length} sản phẩm được chọn</span>
             </div>
 
-            {/* Column labels – desktop */}
-            <div
-              className="hidden md:grid px-5 py-2 border-b border-gray-100"
-              style={{ gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem" }}
-            >
+            <div className="hidden md:grid px-5 py-2 border-b border-gray-100" style={{ gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem" }}>
               {["", "Sản phẩm", "Đơn giá", "Số lượng", "Thành tiền", ""].map((h, i) => (
-                <span key={i} className={`text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${i >= 2 && i <= 4 ? "text-center" : ""} ${i === 4 ? "text-right" : ""}`}>
-                  {h}
-                </span>
+                <span key={i} className={`text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${i >= 2 && i <= 4 ? "text-center" : ""} ${i === 4 ? "text-right" : ""}`}>{h}</span>
               ))}
             </div>
 
-            {/* Items */}
             <div className="divide-y divide-gray-100">
               {items.map((item) => {
                 const isUpdating = updatingItems[item.variantId];
-
-                // Metadata dạng text — không dùng nhiều pills màu
-                const meta = [item.categoryName, item.brandName, item.productForm]
-                  .filter(Boolean)
-                  .join(" · ");
+                const meta = [item.categoryName, item.brandName, item.productForm].filter(Boolean).join(" · ");
                 const variantMeta = item.variant || "";
 
                 return (
-                  <div
-                    key={item.id}
-                    className={`px-5 py-4 transition-colors hover:bg-gray-50 ${isUpdating ? "opacity-50 pointer-events-none" : ""}`}
-                  >
-                    {/* DESKTOP */}
-                    <div
-                      className="hidden md:grid items-center gap-3"
-                      style={{ gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem" }}
-                    >
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-teal-600 cursor-pointer"
-                        checked={item.checked}
-                        onChange={() => toggleCheck(item.id)}
-                      />
-
-                      {/* Product */}
+                  <div key={item.id} className={`px-5 py-4 transition-colors hover:bg-gray-50 ${isUpdating ? "opacity-50 pointer-events-none" : ""}`}>
+                    <div className="hidden md:grid items-center gap-3" style={{ gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem" }}>
+                      <input type="checkbox" className="w-4 h-4 accent-teal-600 cursor-pointer" checked={item.checked} onChange={() => toggleCheck(item.id)} />
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
                           <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug mb-0.5">
-                            {item.name}
-                          </p>
-                          {meta && (
-                            <p className="text-xs text-gray-400 truncate">{meta}</p>
-                          )}
-                          {variantMeta && (
-                            <p className="text-xs text-gray-400 truncate">{variantMeta}</p>
-                          )}
+                          <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug mb-0.5">{item.name}</p>
+                          {meta && <p className="text-xs text-gray-400 truncate">{meta}</p>}
+                          {variantMeta && <p className="text-xs text-gray-400 truncate">{variantMeta}</p>}
                         </div>
                       </div>
-
-                      {/* Unit price */}
-                      <div className="text-center text-sm font-medium text-gray-700">
-                        {formatMoney(item.price)}
-                      </div>
-
-                      {/* Qty */}
+                      <div className="text-center text-sm font-medium text-gray-700">{formatMoney(item.price)}</div>
                       <div className="flex justify-center">
-                        {isUpdating ? (
-                          <Loader2 size={16} className="animate-spin text-teal-600" />
-                        ) : (
-                          <QtyInput
-                            value={item.quantity}
-                            disabled={isUpdating}
-                            onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)}
-                          />
-                        )}
+                        {isUpdating ? <Loader2 size={16} className="animate-spin text-teal-600" /> : <QtyInput value={item.quantity} disabled={isUpdating} onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)} />}
                       </div>
-
-                      {/* Line total */}
-                      <div className="text-right text-sm font-bold text-gray-900">
-                        {formatMoney(item.price * item.quantity)}
-                      </div>
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => removeItem(item.id, item.variantId)}
-                        className="flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="text-right text-sm font-bold text-gray-900">{formatMoney(item.price * item.quantity)}</div>
+                      <button onClick={() => removeItem(item.id, item.variantId)} className="flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors"><Trash2 size={15} /></button>
                     </div>
 
-                    {/* MOBILE */}
                     <div className="flex md:hidden gap-3">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-teal-600 cursor-pointer mt-0.5 shrink-0"
-                        checked={item.checked}
-                        onChange={() => toggleCheck(item.id)}
-                      />
+                      <input type="checkbox" className="w-4 h-4 accent-teal-600 cursor-pointer mt-0.5 shrink-0" checked={item.checked} onChange={() => toggleCheck(item.id)} />
                       <div className="relative w-[68px] h-[68px] rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
                         <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
                       </div>
@@ -411,15 +369,9 @@ export default function CartPage() {
                         {variantMeta && <p className="text-xs text-gray-400 mb-2 truncate">{variantMeta}</p>}
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-700">{formatMoney(item.price)}</span>
-                          <QtyInput
-                            value={item.quantity}
-                            disabled={isUpdating}
-                            onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)}
-                          />
+                          <QtyInput value={item.quantity} disabled={isUpdating} onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)} />
                         </div>
-                        <p className="text-right text-sm font-bold text-gray-900 mt-1">
-                          {formatMoney(item.price * item.quantity)}
-                        </p>
+                        <p className="text-right text-sm font-bold text-gray-900 mt-1">{formatMoney(item.price * item.quantity)}</p>
                       </div>
                     </div>
                   </div>
@@ -427,7 +379,6 @@ export default function CartPage() {
               })}
             </div>
 
-            {/* Table footer */}
             <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
               <Link href="/san-pham" className="text-sm text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1.5 transition-colors">
                 <ShoppingBag size={14} /> Tiếp tục mua sắm
@@ -435,9 +386,7 @@ export default function CartPage() {
             </div>
           </div>
 
-          {/* ── BOTTOM SUMMARY (Desktop) ── */}
           <div className="hidden md:flex items-center gap-5 bg-white border border-gray-200 rounded-xl px-5 py-4">
-            {/* Voucher */}
             <button
               onClick={() => setIsVoucherModalOpen(true)}
               className="flex items-center gap-2 text-sm text-gray-600 hover:text-teal-600 transition-colors border border-gray-200 rounded-lg px-3 py-2 hover:border-teal-400"
@@ -451,67 +400,40 @@ export default function CartPage() {
 
             <div className="flex-1" />
 
-            {/* Totals */}
             <div className="flex items-center gap-6 text-sm text-gray-600">
-              <span>
-                Tạm tính ({totalCount} sp):{" "}
-                <span className="font-medium text-gray-900">{formatMoney(subTotal)}</span>
-              </span>
-              {discountValue > 0 && (
-                <span className="text-gray-500">
-                  Giảm: <span className="font-medium text-gray-700">-{formatMoney(discountValue)}</span>
-                </span>
-              )}
-              <span className="text-gray-700">
-                Tổng:{" "}
-                <span className="text-lg font-bold text-gray-900">{formatMoney(finalTotal)}</span>
-              </span>
+              <span>Tạm tính ({totalCount} sp): <span className="font-medium text-gray-900">{formatMoney(subTotal)}</span></span>
+              {discountValue > 0 && <span className="text-gray-500">Giảm: <span className="font-medium text-gray-700">-{formatMoney(discountValue)}</span></span>}
+              <span className="text-gray-700">Tổng: <span className="text-lg font-bold text-gray-900">{formatMoney(finalTotal)}</span></span>
             </div>
 
-            {/* Checkout btn */}
-                        <Link
-                        href="/checkout"              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
-                totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"
-              }`}
-            >
+            <Link href="/checkout" className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
               Thanh toán <ArrowRight size={15} />
             </Link>
           </div>
-
         </div>
       </div>
 
-      {/* ── MOBILE BOTTOM BAR ── */}
       <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30">
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="flex-1">
             <p className="text-xs text-gray-400">Tổng thanh toán</p>
             <p className="text-base font-bold text-gray-900">{formatMoney(finalTotal)}</p>
           </div>
-                      <Link
-                      href="/checkout"            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${
-              totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"
-            }`}
-          >
+          <Link href="/checkout" className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
             Thanh toán ({totalCount}) <ArrowRight size={14} />
           </Link>
         </div>
       </div>
 
-      {/* ── VOUCHER MODAL ── */}
       {isVoucherModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setIsVoucherModalOpen(false)} />
           <div className="relative z-10 bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <span className="font-semibold text-gray-800">Mã giảm giá</span>
-              <button onClick={() => setIsVoucherModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X size={18} />
-              </button>
+              <button onClick={() => setIsVoucherModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={18} /></button>
             </div>
 
-            {/* Input */}
             <div className="px-5 py-3 border-b border-gray-100">
               <div className="flex gap-2">
                 <input
@@ -522,61 +444,58 @@ export default function CartPage() {
                   placeholder="Nhập mã voucher..."
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm"
                 />
-                <button
-                  onClick={applyVoucherByCode}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
+                <button onClick={applyVoucherByCode} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
                   Áp dụng
                 </button>
               </div>
             </div>
 
-            {/* Voucher list */}
             <div className="overflow-y-auto flex-1 p-4 space-y-2">
-              {VOUCHERS.map((voucher) => {
-                const eligible = subTotal >= (voucher.minOrder || 0);
+              {availableVouchers.map((voucher) => {
+                const eligible = subTotal >= (voucher.minOrderValue || 0);
                 const isSelected = selectedVoucher?.code === voucher.code;
+
+                const actualValue = Number(voucher.value || voucher.discountValue || 0);
+
+                const discountString = voucher.discountType === "PERCENT"
+                  ? `${actualValue}%`
+                  : `-${formatMoney(actualValue)}`;
+
                 return (
                   <button
                     key={voucher.code}
                     onClick={() => {
-                      if (!eligible) { toast.error(`Đơn chưa đạt ${formatMoney(voucher.minOrder || 0)}`); return; }
+                      if (!eligible) { toast.error(`Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`); return; }
                       setSelectedVoucher(voucher);
                       setIsVoucherModalOpen(false);
                       toast.success("Áp dụng voucher thành công!");
                     }}
                     className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
-                        : eligible
-                        ? "border-gray-200 hover:border-gray-300"
-                        : "border-gray-200 opacity-50"
+                      isSelected ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400" : eligible ? "border-gray-200 hover:border-gray-300" : "border-gray-200 opacity-50"
                     }`}
                   >
                     <div className="shrink-0 text-center min-w-[60px]">
-                      <p className="text-base font-bold text-teal-600">-{formatMoney(voucher.discount)}</p>
+                      <p className="text-base font-bold text-teal-600">{discountString}</p>
                       <p className="text-[10px] text-gray-400 font-mono mt-0.5">{voucher.code}</p>
                     </div>
                     <div className="w-px h-10 bg-gray-200 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{voucher.description}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Đơn tối thiểu {formatMoney(voucher.minOrder || 0)}</p>
-                      {!eligible && (
-                        <p className="text-xs text-red-400 mt-1">Cần thêm {formatMoney((voucher.minOrder || 0) - subTotal)}</p>
-                      )}
+                      <p className="text-sm font-medium text-gray-800">{voucher.discountType === "PERCENT" ? `Giảm ${actualValue}%` : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Đơn tối thiểu {formatMoney(voucher.minOrderValue)}</p>
+                      {!eligible && <p className="text-xs text-red-400 mt-1">Cần thêm {formatMoney((voucher.minOrderValue || 0) - subTotal)}</p>}
                     </div>
                     {isSelected && <CheckCircle2 size={16} className="text-teal-600 shrink-0" />}
                   </button>
                 );
               })}
+              {availableVouchers.length === 0 && (
+                <p className="text-center py-4 text-sm text-gray-400">Không có mã giảm giá nào vào lúc này.</p>
+              )}
             </div>
 
             {selectedVoucher && (
               <div className="px-5 py-3 border-t border-gray-100">
-                <button
-                  onClick={() => { setSelectedVoucher(null); setIsVoucherModalOpen(false); }}
-                  className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors"
-                >
+                <button onClick={() => { setSelectedVoucher(null); setIsVoucherModalOpen(false); }} className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors">
                   Bỏ chọn voucher
                 </button>
               </div>
