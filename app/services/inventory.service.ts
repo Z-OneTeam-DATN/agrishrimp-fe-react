@@ -73,3 +73,61 @@ updateExportCommand: async (id: number | string, payload: any) => {
     return response.data;
   },
 };
+
+export const InventoryCheckApiService = {
+  // A. Lấy danh sách phiếu (Cả PENDING và COMPLETED)
+  getAll: async () => {
+    const response = await apiJava.get("/inventory-checks");
+    return response.data;
+  },
+
+  // B. Tạo hoặc Cập nhật phiếu
+  // Payload có 'id' -> Cập nhật, không 'id' -> Tạo mới
+  saveCheck: async (payload: any) => {
+    const response = await apiJava.post("/inventory-checks", payload);
+    return response.data;
+  },
+
+  // C. Lấy chi tiết phiếu theo ID hoặc Mã (Code)
+  getDetail: async (codeOrId: string | number) => {
+    const response = await apiJava.get(`/inventory-checks/${codeOrId}`);
+    return response.data;
+  },
+
+  // D. Chốt phiếu - Cập nhật kho
+  completeCheck: async (id: number | string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/complete`);
+    return response.data;
+  },
+
+  // F. Xóa phiếu kiểm kê (PENDING)
+  deleteCheck: async (id: number | string) => {
+    const response = await apiJava.delete(`/inventory-checks/${id}`);
+    return response.data;
+  },
+
+  // E. Tìm kiếm sản phẩm dành riêng cho kiểm kê
+  searchProducts: async (keyword: string, branchId?: string | number) => {
+    const response = await apiJava.get("/inventory-checks/search-products", {
+      params: { keyword, branchId }
+    });
+    return response.data;
+  },
+
+  // Giữ lại các hàm cũ để tương thích ngược nếu cần, hoặc xóa nếu đã chuyển đổi hết
+  createCheckCommand: async (payload: any) => {
+    return InventoryCheckApiService.saveCheck(payload);
+  },
+  completeCheckCommand: async (id: number | string) => {
+    return InventoryCheckApiService.completeCheck(id);
+  },
+  getAllCheckCommands: async () => {
+    return InventoryCheckApiService.getAll();
+  },
+  getAllCheckReceipts: async () => {
+    return InventoryCheckApiService.getAll(); // Backend gộp chung
+  },
+  getCheckCommandDetailByCode: async (code: string) => {
+    return InventoryCheckApiService.getDetail(code);
+  },
+};

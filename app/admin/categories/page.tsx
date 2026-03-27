@@ -99,11 +99,22 @@ export default function CategoryManagementPage() {
 
   const loadData = async (keyword = "", status = "all") => {
     try {
-      const data = await getCategories(keyword, status);
-      setParentList(data || []);
-      const tree = buildCategoryTree(data || []);
+      const response = await getCategories(keyword, status);
+
+      // SỬA LỖI Ở ĐÂY: Trích xuất đúng mảng dữ liệu từ API response
+      let dataArray = [];
+      if (Array.isArray(response)) {
+        dataArray = response;
+      } else if (response && typeof response === 'object') {
+        // Kiểm tra các key phổ biến chứa mảng dữ liệu trả về từ backend
+        dataArray = response.data || response.content || response.items || response.result || [];
+      }
+
+      setParentList(dataArray);
+      const tree = buildCategoryTree(dataArray);
       setCategories(tree);
     } catch (error) {
+      console.error("Lỗi tải danh mục:", error);
       toast.error("Không thể tải danh sách danh mục");
     }
   };
@@ -150,13 +161,23 @@ export default function CategoryManagementPage() {
     }
   };
 
+  // Sửa lại đoạn gọi hàm trong page.tsx
   const handleToggleStatus = async () => {
     if (!statusModal) return;
     try {
-      await toggleCategoryStatus(statusModal.id, statusModal.currentStatus);
+      // Xác định trạng thái mới cần đổi
+      const newStatus = statusModal.currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      // LƯU Ý: Phải kiểm tra xem currentStatus của bạn đang lưu là 'ACTIVE' hay 'Hiển thị' để đảo ngược cho đúng.
+
+      // Tùy thuộc vào hàm toggleCategoryStatus của bạn viết như thế nào
+      await toggleCategoryStatus(statusModal.id, {
+          name: statusModal.name, // Truyền kèm name để pass qua @NotBlank
+          status: newStatus
+      });
+
       toast.success(`Đã cập nhật trạng thái danh mục: ${statusModal.name}`);
       loadData(currentKeyword, currentStatus);
-    } catch {
+    } catch (error) {
       toast.error("Không thể thay đổi trạng thái danh mục");
     } finally {
       setStatusModal(null);
@@ -315,6 +336,9 @@ export default function CategoryManagementPage() {
     );
   };
 
+  // SỬA LỖI BẢO VỆ Ở ĐÂY: Đảm bảo renderParentList luôn là mảng để tránh lỗi .filter is not a function
+  const renderParentList = Array.isArray(parentList) ? parentList : [];
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center mb-6">
@@ -401,7 +425,8 @@ export default function CategoryManagementPage() {
                 <SelectTrigger className="h-10 text-sm font-medium"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" className="font-bold">DANH MỤC GỐC</SelectItem>
-                  {parentList.filter(p => p.id !== editingId).map((p) => (
+                  {/* SỬ DỤNG BIẾN ĐÃ ĐƯỢC BẢO VỆ Ở ĐÂY */}
+                  {renderParentList.filter(p => p.id !== editingId).map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
