@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react"; // ✅ Thêm useEffect và useState
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,7 +13,7 @@ import {
   Ticket,
   LogOut,
 } from "lucide-react";
-import { AuthService } from "@/app/services/auth.service"; // ✅ Import AuthService
+import { useCurrentUser } from "@/hooks/useCurrentUser"; // ✅ Import useCurrentUser hook
 
 export default function ProfileSidebar({
   onLinkClick,
@@ -22,21 +21,7 @@ export default function ProfileSidebar({
   onLinkClick?: () => void;
 }) {
   const pathname = usePathname();
-  const [userData, setUserData] = useState<any>(null); // ✅ State lưu thông tin user
-
-  // ✅ Lấy dữ liệu user từ API
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const data = await AuthService.me();
-        setUserData(data);
-      } catch (error) {
-        console.error("Lỗi lấy thông tin user sidebar:", error);
-      }
-    };
-
-    fetchUserData();
-  }, [pathname]); // ✅ Fetch lại mỗi khi đổi trang để đảm bảo dữ liệu mới nhất (vừa đổi tên/ảnh)
+  const { data: userData } = useCurrentUser(); // ✅ Lấy dữ liệu user từ hook
 
   const isActive = (path: string) => pathname === path;
 

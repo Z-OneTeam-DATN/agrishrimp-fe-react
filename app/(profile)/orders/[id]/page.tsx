@@ -364,9 +364,25 @@ export default function OrderDetailPage({
 
                 {/* info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900 font-medium leading-snug line-clamp-2">
-                    {item.productName}
-                  </p>
+                  <div className="flex justify-between items-start gap-2">
+                    <p className="text-sm text-gray-900 font-medium leading-snug line-clamp-2">
+                      {item.productName}
+                    </p>
+                    {order.status === "COMPLETED" && (
+                      item.canReview === false ? (
+                        <span className="shrink-0 text-[10px] font-bold text-gray-400 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md uppercase tracking-wider cursor-not-allowed">
+                          Đã đánh giá
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/reviews/write/${item.productId}?orderId=${order.id}`}
+                          className="shrink-0 text-[10px] font-bold text-teal-600 hover:bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-md transition-all uppercase tracking-wider"
+                        >
+                          Đánh giá
+                        </Link>
+                      )
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5">Phân loại: {item.sku}</p>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-gray-400">x{item.quantity}</span>

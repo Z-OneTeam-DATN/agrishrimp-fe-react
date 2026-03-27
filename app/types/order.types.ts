@@ -126,16 +126,20 @@ export interface MyOrder {
   createdAt: string;
   checkoutUrl: string | null;
   items: MyOrderItem[];
+  canReview?: boolean;
 }
 
 export interface MyOrderItem {
   id: number;
+  productId?: number;
+  productSlug?: string;
   productName: string;
   sku: string;
   image: string;
   quantity: number;
   price: number;
   totalPrice: number;
+  canReview?: boolean;
 }
 
 // ============================================
@@ -144,6 +148,8 @@ export interface MyOrderItem {
 
 export interface BranchOrderItem {
   id: number;
+  productId?: number;
+  productSlug?: string;
   productName: string;
   sku: string;
   image: string | null;
