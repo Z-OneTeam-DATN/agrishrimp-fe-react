@@ -1,166 +1,274 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { dashboardService } from "@/app/services/dashboard.service";
+import { formatDate } from "@/lib/dateUtils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle, PieChart as PieChartIcon, TrendingUp, Calendar, Info } from "lucide-react";
+
 import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
   Tooltip,
-  PieChart,
-  Pie,
-  Cell,
   Legend,
-} from "recharts";
+  Filler,
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
 
-const data = [
-  { name: "20/02", revenue: 4000000, orders: 24 },
-  { name: "21/02", revenue: 3000000, orders: 18 },
-  { name: "22/02", revenue: 5000000, orders: 32 },
-  { name: "23/02", revenue: 4500000, orders: 28 },
-  { name: "24/02", revenue: 6000000, orders: 38 },
-  { name: "25/02", revenue: 7500000, orders: 45 },
-  { name: "26/02", revenue: 8200000, orders: 52 },
-];
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
-const proportionData = [
-  { name: "Thức ăn", value: 45 },
-  { name: "Thuốc thú y", value: 25 },
-  { name: "Khoáng chất", value: 20 },
-  { name: "Thiết bị", value: 10 },
-];
+interface SalesPerformanceProps {
+    branchId?: string;
+}
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
+    const [activeTab, setActiveTab] = useState("revenue");
+    const [days, setDays] = useState("7days");
+    const [isClient, setIsClient] = useState(false);
 
-export default function SalesPerformance() {
-  const [activeTab, setActiveTab] = useState("revenue");
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
-  return (
-    <div className="bg-white border border-gray-200 rounded-sm shadow-sm mt-4">
-      <div className="px-4 border-b border-gray-100 flex justify-between items-center">
-        <div className="flex">
-          <button
-            onClick={() => setActiveTab("revenue")}
-            className={`px-4 py-3 text-xs font-bold uppercase border-b-2 transition-colors ${
-              activeTab === "revenue"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Doanh thu bán hàng
-          </button>
-          <button
-            onClick={() => setActiveTab("proportion")}
-            className={`px-4 py-3 text-xs font-bold uppercase border-b-2 transition-colors ${
-              activeTab === "proportion"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Tỷ trọng bán hàng
-          </button>
+    const {
+        data: performanceResponse,
+        isLoading: isPerfLoading,
+        isError: isPerfError
+    } = useQuery({
+        queryKey: ["sales-performance", branchId, days],
+        queryFn: () => dashboardService.getSalesPerformance(branchId), 
+        enabled: activeTab === "revenue"
+    });
+
+    const {
+        data: distributionResponse,
+        isLoading: isDistLoading,
+        isError: isDistError
+    } = useQuery({
+        queryKey: ["category-distribution", branchId],
+        queryFn: () => dashboardService.getCategoryDistribution(branchId),
+        enabled: activeTab === "proportion"
+    });
+
+    // Cấu hình Chart Doanh thu
+    const chartData = useMemo(() => {
+        const raw = performanceResponse?.data || (Array.isArray(performanceResponse) ? performanceResponse : []);
+        return {
+            labels: raw.map((item: any) => formatDate(item.date, "dd/MM")),
+            datasets: [
+                {
+                    label: 'Doanh thu (VNĐ)',
+                    data: raw.map((item: any) => Number(item.revenue) || 0),
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    hoverBackgroundColor: '#2563eb',
+                    borderRadius: 6,
+                    barPercentage: 0.6,
+                },
+                {
+                    label: 'Lợi nhuận (VNĐ)',
+                    data: raw.map((item: any) => Number(item.profit) || 0),
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    hoverBackgroundColor: '#059669',
+                    borderRadius: 6,
+                    barPercentage: 0.6,
+                }
+            ],
+            rawData: raw
+        };
+    }, [performanceResponse]);
+
+    // Cấu hình Chart Tỷ trọng (Doughnut)
+    const doughnutData = useMemo(() => {
+        const raw = Array.isArray(distributionResponse) ? distributionResponse : 
+                    Array.isArray(distributionResponse?.data) ? distributionResponse?.data : [];
+        return {
+            labels: raw.map((item: any) => item.categoryName || "Khác"),
+            datasets: [
+                {
+                    data: raw.map((item: any) => Number(item.percentage) || 0),
+                    backgroundColor: [
+                        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'
+                    ],
+                    borderWidth: 4,
+                    borderColor: '#fff',
+                    hoverOffset: 15,
+                }
+            ]
+        };
+    }, [distributionResponse]);
+
+    if (!isClient) return <div className="mt-4"><Skeleton className="h-[500px] w-full" /></div>;
+
+    return (
+        <div className="bg-white border border-gray-200 rounded-sm shadow-sm mt-4 overflow-hidden">
+            {/* Header chuyên nghiệp */}
+            <div className="px-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50/30">
+                <div className="flex">
+                    <button
+                        onClick={() => setActiveTab("revenue")}
+                        className={`px-6 py-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+                            activeTab === "revenue" 
+                            ? "border-blue-600 text-blue-600 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]" 
+                            : "border-transparent text-gray-400 hover:text-gray-700"
+                        }`}
+                    >
+                        <TrendingUp size={16} />
+                        Hiệu suất doanh số
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("proportion")}
+                        className={`px-6 py-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+                            activeTab === "proportion" 
+                            ? "border-blue-600 text-blue-600 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]" 
+                            : "border-transparent text-gray-400 hover:text-gray-700"
+                        }`}
+                    >
+                        <PieChartIcon size={16} />
+                        Tỷ trọng nhóm hàng
+                    </button>
+                </div>
+
+                <div className="py-3 px-4 flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-1.5 text-gray-400">
+                        <Calendar size={14} />
+                        <span className="text-[10px] font-bold uppercase">Thời gian:</span>
+                    </div>
+                    <Select value={days} onValueChange={setDays}>
+                        <SelectTrigger className="h-8 text-[11px] w-36 font-bold bg-white border-gray-200 shadow-sm focus:ring-blue-500">
+                            <SelectValue placeholder="7 ngày qua" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="7days">7 ngày gần nhất</SelectItem>
+                            <SelectItem value="30days">30 ngày gần nhất</SelectItem>
+                            <SelectItem value="90days">Quý này</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* Nội dung Biểu đồ */}
+            <div className="p-8">
+                {isPerfLoading || isDistLoading ? (
+                    <div className="space-y-4">
+                        <Skeleton className="w-full h-[350px]" />
+                    </div>
+                ) : isPerfError || isDistError ? (
+                    <div className="h-[350px] flex flex-col items-center justify-center text-red-400 bg-red-50/20 rounded-lg border border-red-100 border-dashed">
+                        <AlertCircle size={40} className="mb-3 opacity-50" />
+                        <p className="text-sm font-bold uppercase tracking-tight">Không thể kết nối máy chủ dữ liệu</p>
+                        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-white border border-red-200 text-red-500 text-[10px] font-bold rounded-sm hover:bg-red-50 transition-colors">THỬ LẠI NGAY</button>
+                    </div>
+                ) : activeTab === "revenue" ? (
+                    <div className="animate-in fade-in zoom-in-95 duration-500">
+                        <div className="h-[350px] w-full relative">
+                            <Bar 
+                                data={chartData} 
+                                options={{
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    interaction: { mode: 'index' as const, intersect: false },
+                                    plugins: {
+                                        legend: { display: true, position: 'top' as const, align: 'end' as const, labels: { usePointStyle: true, pointStyle: 'circle', padding: 20, font: { size: 11, weight: 'bold' }, color: '#64748b' } },
+                                        tooltip: {
+                                            backgroundColor: '#1e293b',
+                                            padding: 12,
+                                            titleFont: { size: 13, weight: 'bold' },
+                                            bodyFont: { size: 12 },
+                                            cornerRadius: 4,
+                                            callbacks: {
+                                                label: (ctx) => ` ${ctx.dataset.label?.split(' ')[0]}: ${ctx.parsed.y.toLocaleString()} đ`
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        y: { 
+                                            beginAtZero: true,
+                                            border: { display: false },
+                                            grid: { color: '#f1f5f9' },
+                                            ticks: { 
+                                                font: { size: 10, weight: '500' },
+                                                color: '#94a3b8',
+                                                padding: 10,
+                                                callback: (val) => Number(val) >= 1000000 ? `${(Number(val)/1000000).toFixed(1)}M` : Number(val) >= 1000 ? `${(Number(val)/1000).toFixed(0)}K` : val
+                                            }
+                                        },
+                                        x: { 
+                                            border: { display: false },
+                                            grid: { display: false },
+                                            ticks: { font: { size: 10, weight: '500' }, color: '#94a3b8', padding: 10 } 
+                                        }
+                                    }
+                                }} 
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col md:flex-row items-center gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="h-[350px] w-full md:w-1/2 flex justify-center relative">
+                            <Doughnut 
+                                data={doughnutData} 
+                                options={{
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    cutout: '65%',
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            padding: 12,
+                                            callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%` }
+                                        }
+                                    }
+                                }}
+                            />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <PieChartIcon className="text-gray-100" size={80} />
+                                <p className="text-[10px] font-black text-gray-400 uppercase">Phân tích</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 space-y-3 w-full">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Info size={14} className="text-blue-500" />
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Chi tiết tỷ trọng doanh thu</p>
+                            </div>
+                            {doughnutData.labels.map((label: string, i: number) => (
+                                <div key={label} className="flex items-center justify-between p-3 rounded-sm hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: doughnutData.datasets[0].backgroundColor[i] }}></div>
+                                        <span className="text-xs font-bold text-gray-600">{label}</span>
+                                    </div>
+                                    <span className="text-xs font-black text-slate-800">{doughnutData.datasets[0].data[i]}%</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-        <div className="flex gap-2 py-2">
-          <div className="w-40">
-            <Select defaultValue="all">
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Tất cả chi nhánh" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                <SelectItem value="cn1">Chi nhánh Quận 1</SelectItem>
-                <SelectItem value="cn2">Chi nhánh Quận 7</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-32">
-            <Select defaultValue="7days">
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="7 ngày qua" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7days">7 ngày qua</SelectItem>
-                <SelectItem value="30days">30 ngày qua</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-      <div className="p-6 h-[350px]">
-        {activeTab === "revenue" ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
-                tickFormatter={(value) => `${value / 1000000}M`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #f1f5f9",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorRevenue)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={proportionData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {proportionData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend verticalAlign="bottom" height={36} iconType="circle" />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
-  );
+    );
 }

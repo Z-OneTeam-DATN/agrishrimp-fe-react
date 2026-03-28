@@ -6,52 +6,94 @@ import {
   Package,
   ShoppingBag,
   TrendingUp,
-  ArrowUpRight,
-  Handshake,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { dashboardService } from "@/app/services/dashboard.service";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function DashboardStats() {
-  const stats = [
+interface DashboardStatsProps {
+  branchId?: string;
+}
+
+export default function DashboardStats({ branchId }: DashboardStatsProps) {
+  const { data: stats, isLoading, isError } = useQuery({
+    queryKey: ["dashboard-stats", branchId],
+    queryFn: () => dashboardService.getStats(branchId),
+  });
+
+  const displayStats = [
     {
       label: "Tổng khách hàng",
-      value: "1,250",
-      change: "+12%",
+      value: stats?.totalCustomers?.toLocaleString() ?? "0",
       icon: Users,
       color: "text-blue-600",
       bg: "bg-blue-50",
     },
     {
       label: "Sản phẩm kinh doanh",
-      value: "458",
-      change: "+5",
+      value: stats?.totalProducts?.toLocaleString() ?? "0",
       icon: Package,
       color: "text-emerald-600",
       bg: "bg-emerald-50",
     },
     {
-      label: "Đại lý đối tác",
-      value: "42",
-      change: "Ổn định",
-      icon: Handshake,
+      label: "Tổng doanh thu",
+      value: (stats?.totalRevenue ?? 0).toLocaleString() + " đ",
+      icon: TrendingUp,
       color: "text-orange-600",
       bg: "bg-orange-50",
     },
     {
-      label: "Đơn hàng tháng này",
-      value: "856",
-      change: "+18%",
+      label: "Tổng đơn hàng",
+      value: stats?.totalOrders?.toLocaleString() ?? "0",
       icon: ShoppingBag,
       color: "text-purple-600",
       bg: "bg-purple-50",
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={i}
+            className="bg-white p-4 border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <Skeleton className="w-10 h-10 rounded-[4px]" />
+            </div>
+            <Skeleton className="h-3 w-24 mb-2" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={i}
+            className="bg-white p-4 border border-red-100 rounded-[4px] bg-red-50/10"
+          >
+            <p className="text-[10px] text-red-400 font-bold uppercase">Lỗi dữ liệu</p>
+            <p className="text-xs text-gray-400 mt-1">Không thể tải thông số</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-      {stats.map((stat, i) => (
+      {displayStats.map((stat, i) => (
         <div
           key={i}
-          className="bg-white p-4 border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+          className="bg-white p-4 border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md transition-shadow"
         >
           <div className="flex items-center justify-between mb-3">
             <div
@@ -62,9 +104,6 @@ export default function DashboardStats() {
             >
               <stat.icon size={20} className={stat.color} />
             </div>
-            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
-              <ArrowUpRight size={10} /> {stat.change}
-            </span>
           </div>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             {stat.label}
@@ -77,5 +116,3 @@ export default function DashboardStats() {
     </div>
   );
 }
-
-import { cn } from "@/lib/utils";
