@@ -109,54 +109,95 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       </div>
 
       {/* BODY: Product List */}
-      <Link
-        href={`/orders/${order.id}`}
-        className="block px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
-      >
+      <div className="px-4 py-1 bg-white">
         {order.items.map((item, index) => (
           <div
             key={index}
-            className={cn("flex gap-3 py-2", {
+            className={cn("flex items-center gap-3 py-3", {
               "border-b border-dashed border-gray-100":
                 index < order.items.length - 1,
             })}
           >
-            <div className="relative w-14 h-14 flex-shrink-0">
-              <Image
-                src={item.image || "/placeholder.png"}
-                alt={item.productName}
-                fill
-                className={`rounded border border-gray-200 object-cover ${order.status === "CANCELLED" ? "grayscale opacity-70" : ""}`}
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-gray-800 text-sm truncate">
-                {item.productName}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                x{item.quantity} | SKU: {item.sku}
-              </div>
-            </div>
-            <div
-              className={`text-right text-sm font-medium ${order.status === "CANCELLED" ? "text-gray-400" : "text-gray-900"}`}
+            {/* Clickable area for item details */}
+            <Link
+              href={`/orders/${order.id}`}
+              className="flex flex-1 gap-3 min-w-0 cursor-pointer group"
             >
-              {formatCurrency(item.price)}
+              <div className="relative w-16 h-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 group-hover:border-[#2d9f8d]/30 transition-colors">
+                <Image
+                  src={item.image || "/placeholder.png"}
+                  alt={item.productName}
+                  fill
+                  className={`object-cover transition-transform duration-300 group-hover:scale-105 ${order.status === "CANCELLED" ? "grayscale opacity-70" : ""}`}
+                />
+              </div>
+              <div className="flex-1 min-w-0 py-0.5">
+                <div className="font-semibold text-gray-800 text-sm truncate group-hover:text-[#2d9f8d] transition-colors">
+                  {item.productName}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                  <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">x{item.quantity}</span>
+                  <span className="text-gray-300">|</span>
+                  <span>SKU: {item.sku}</span>
+                </div>
+                <div
+                  className={`text-sm font-bold mt-1.5 sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}
+                >
+                  {formatCurrency(item.price)}
+                </div>
+              </div>
+            </Link>
+
+            {/* Price (Desktop) and Action Button */}
+            <div className="flex flex-col items-end gap-2">
+              <div
+                className={`hidden sm:block text-right text-sm font-bold ${order.status === "CANCELLED" ? "text-gray-400" : "text-gray-900"}`}
+              >
+                {formatCurrency(item.price)}
+              </div>
+
+              {order.status === "COMPLETED" && item.productId && (
+                item.canReview === false ? (
+                  <Button
+                    disabled
+                    variant="outline"
+                    className={cn(btnOutlineClass, "h-7 text-[10px] px-3 bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-70")}
+                  >
+                    Đã đánh giá
+                  </Button>
+                ) : (
+                  <Link href={`/reviews/write/${item.productId}?orderId=${order.id}`}>
+                    <Button
+                      variant="outline"
+                      className={cn(btnOutlineClass, "h-7 text-[10px] px-3 border-[#2d9f8d] text-[#2d9f8d] hover:bg-teal-50 hover:text-[#2d9f8d]")}
+                    >
+                      Viết đánh giá
+                    </Button>
+                  </Link>
+                )
+              )}
             </div>
           </div>
         ))}
-      </Link>
+      </div>
 
       {/* FOOTER: Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 py-3 border-t border-gray-100 gap-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 py-3 border-t border-gray-100 gap-3 bg-gray-50/20">
         <div className="flex flex-col">
           <div className="text-gray-600 text-sm">
             Tổng tiền:{" "}
-            <span className="text-base font-bold text-red-600 ml-1">
+            <span className="text-lg font-black text-red-600 ml-1">
               {formatCurrency(order.finalAmount)}
             </span>
           </div>
-          <div className="text-[11px] text-gray-400 mt-0.5">
-            Thanh toán: <span className="font-medium">{order.paymentMethod}</span> ({order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'})
+          <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+            <CreditCard size={10} />
+            Thanh toán: <span className="font-medium text-gray-600">{order.paymentMethod}</span>
+            <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
+              order.paymentStatus === 'PAID' ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
+            )}>
+              {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+            </span>
           </div>
         </div>
 
@@ -196,11 +237,13 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             <Button className={btnMainClass}>Chi tiết</Button>
           </Link>
 
-          {/* COMPLETED: Mua lại */}
+          {/* COMPLETED: Mua lại (Đã dời Đánh giá lên từng SP) */}
           {order.status === "COMPLETED" && (
-            <Button variant="outline" className={btnOutlineClass}>
-              Mua lại
-            </Button>
+            <>
+              <Button variant="outline" className={btnOutlineClass}>
+                Mua lại
+              </Button>
+            </>
           )}
         </div>
       </div>

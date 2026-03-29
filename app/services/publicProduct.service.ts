@@ -8,6 +8,10 @@ import {
 export const PublicProductService = {
   PREFIX: "/public/products",
 
+  /**
+   * Lấy danh sách sản phẩm (Public)
+   * Endpoint: GET /api/public/products
+   */
   getList: async (params?: {
     keyword?: string;
     categoryId?: number | string | null;
@@ -15,7 +19,6 @@ export const PublicProductService = {
     page?: number;
     size?: number;
   }): Promise<PageResponse<PublicProductListItem>> => {
-    // Remove null/undefined params
     const cleanParams = Object.fromEntries(
       Object.entries(params ?? {}).filter(
         ([, v]) => v !== null && v !== undefined && v !== ""
@@ -25,6 +28,30 @@ export const PublicProductService = {
       params: cleanParams,
       isPublic: true,
     } as any);
+    return response.data;
+  },
+
+  /**
+   * Lấy chi tiết sản phẩm theo Slug (Public)
+   * Endpoint: GET /api/public/products/slug/{slug}
+   */
+  getBySlug: async (slug: string): Promise<PublicProductDetail> => {
+    const response = await apiJava.get(
+      `${PublicProductService.PREFIX}/slug/${slug}`,
+      { isPublic: true } as any
+    );
+    return response.data;
+  },
+
+  /**
+   * Lấy thông tin sản phẩm theo ID (Public)
+   * Endpoint: GET /api/public/products/{id}
+   */
+  getById: async (id: number | string): Promise<PublicProductDetail> => {
+    const response = await apiJava.get(
+      `${PublicProductService.PREFIX}/${id}`,
+      { isPublic: true } as any
+    );
     return response.data;
   },
 
@@ -50,13 +77,5 @@ export const PublicProductService = {
       console.error("Lỗi khi lấy sản phẩm theo thương hiệu:", error);
       return [];
     }
-  },
-
-  getBySlug: async (slug: string): Promise<PublicProductDetail> => {
-    const response = await apiJava.get(
-      `${PublicProductService.PREFIX}/slug/${slug}`,
-      { isPublic: true } as any
-    );
-    return response.data;
   },
 };

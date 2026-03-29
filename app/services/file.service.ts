@@ -9,7 +9,9 @@ export class FileService {
       `${this.PREFIX}/tmpUpload`,
       body,
       {
-        headers: { "Content-Type": undefined },
+        headers: { 
+          "Content-Type": "multipart/form-data" 
+        },
       },
     );
     return response.data;

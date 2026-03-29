@@ -28,6 +28,8 @@ import {
     PublicProductVariant,
 } from "@/app/types/product.schema";
 import { formatNumber } from "@/lib/utils";
+import { ProductReviews } from "@/components/site/ProductReviews";
+import { useSearchParams } from "next/navigation";
 
 function getVariantLabel(variant: PublicProductVariant): string {
     if (variant.attributeValues && variant.attributeValues.length > 0) {
@@ -100,6 +102,7 @@ export default function ProductDetailPage({
 }) {
     const { slug } = React.use(params);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { fetchCartCount } = useCartStore();
 
     const [product, setProduct] = useState<PublicProductDetail | null>(null);
@@ -111,8 +114,14 @@ export default function ProductDetailPage({
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
     const [activeImage, setActiveImage] = useState<string>("/placeholder.svg");
     const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState<"desc" | "specs">("desc");
+    const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
     const [isAdding, setIsAdding] = useState(false);
+
+    useEffect(() => {
+        const tab = searchParams.get("tab");
+        if (tab === "reviews") setActiveTab("reviews");
+        else if (tab === "specs") setActiveTab("specs");
+    }, [searchParams]);
 
     useEffect(() => {
         const load = async () => {
@@ -519,17 +528,28 @@ export default function ProductDetailPage({
                                 >
                                     Thông số
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab("reviews")}
+                                    className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                        activeTab === "reviews"
+                                            ? "text-teal-600 border-b-2 border-teal-600"
+                                            : "text-slate-400 hover:text-slate-600"
+                                    }`}
+                                >
+                                    Đánh giá {product.reviewCount ? `(${product.reviewCount})` : ""}
+                                </button>
                             </div>
 
                             <div className="p-6 text-slate-600 text-sm leading-relaxed">
-                                {activeTab === "desc" ? (
+                                {activeTab === "desc" && (
                                     <div
                                         className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden whitespace-pre-wrap prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
                                         dangerouslySetInnerHTML={{
                                             __html: product.description || "<p class='text-slate-400 italic'>Đang cập nhật mô tả...</p>"
                                         }}
                                     />
-                                ) : (
+                                )}
+                                {activeTab === "specs" && (
                                     <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                                         {product.brandName && (
                                             <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
@@ -582,6 +602,9 @@ export default function ProductDetailPage({
                                             )}
                                         </div>
                                     </div>
+                                )}
+                                {activeTab === "reviews" && (
+                                    <ProductReviews productId={product.id} slug={slug} />
                                 )}
                             </div>
                         </div>

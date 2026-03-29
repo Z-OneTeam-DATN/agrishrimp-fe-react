@@ -16,6 +16,7 @@ import { cartService } from "@/app/services/cart.service";
 import { useCartStore } from "@/stores/useCartStore";
 import { ProductDetail, PublicProductListItem } from "@/app/types/product.schema";
 import { formatNumber, formatCurrency } from "@/lib/utils";
+import { ProductReviews } from "@/components/site/ProductReviews";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -30,7 +31,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<"desc" | "specs">("desc");
+  const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -380,14 +381,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex border-b border-slate-50">
                 <button onClick={() => setActiveTab("desc")} className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === "desc" ? "text-teal-600 border-b-2 border-teal-600" : "text-slate-400 hover:text-slate-600"}`}>Mô tả</button>
                 <button onClick={() => setActiveTab("specs")} className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === "specs" ? "text-teal-600 border-b-2 border-teal-600" : "text-slate-400 hover:text-slate-600"}`}>Thông số</button>
+                <button onClick={() => setActiveTab("reviews")} className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === "reviews" ? "text-teal-600 border-b-2 border-teal-600" : "text-slate-400 hover:text-slate-600"}`}>
+                  Đánh giá {product.reviewCount ? `(${product.reviewCount})` : ""}
+                </button>
               </div>
               <div className="p-6 text-slate-600 text-sm leading-relaxed">
-                {activeTab === "desc" ? (
+                {activeTab === "desc" && (
                   <div 
                     className="prose prose-sm max-w-none prose-headings:text-slate-800 prose-a:text-teal-600"
                     dangerouslySetInnerHTML={{ __html: product.description || "<p className='text-slate-400 italic'>Đang cập nhật mô tả...</p>" }}
                   />
-                ) : (
+                )}
+                {activeTab === "specs" && (
                   <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                     <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
                       <span className="text-slate-400">Thương hiệu:</span>
@@ -424,6 +429,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <span className="text-emerald-600 font-bold">Sẵn hàng tại kho</span>
                     </div>
                   </div>
+                )}
+                {activeTab === "reviews" && (
+                  <ProductReviews productId={product.id} />
                 )}
               </div>
             </div>
