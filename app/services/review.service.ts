@@ -54,7 +54,7 @@ export const ReviewService = {
 
   /**
    * Gửi đánh giá mới (Yêu cầu đăng nhập)
-   * Endpoint: POST /api/v1/reviews
+   * Endpoint: POST /api/reviews
    */
   submitReview: async (review: ReviewDTO): Promise<any> => {
     const payload = {
@@ -64,12 +64,13 @@ export const ReviewService = {
       comment: review.comment,
       imageUrls: review.imageUrls && review.imageUrls.length > 0 ? review.imageUrls : []
     };
-    const response = await apiJava.post(`/v1/reviews`, payload);
+    const response = await apiJava.post(`/reviews`, payload);
     return response.data;
   },
 
   /**
    * Kiểm tra xem người dùng có thể đánh giá sản phẩm không
+   * Endpoint: GET /api/reviews/can-review/{productId}
    */
   checkCanReview: async (productId: number): Promise<boolean> => {
     try {

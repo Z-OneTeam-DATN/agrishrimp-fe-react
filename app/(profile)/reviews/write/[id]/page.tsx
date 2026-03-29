@@ -73,14 +73,24 @@ export default function WriteReviewPage({ params }: { params: Promise<{ id: stri
           if (fileItem.file instanceof File) {
             const formData = new FormData();
             formData.append("file", fileItem.file);
-            const uploadResult = await FileService.tmpUpload(formData) as any;
+            const response = await FileService.tmpUpload(formData) as any;
             
-            // Ưu tiên imageUrl, nếu không có thì lấy tmpPath
-            const imgPath = uploadResult?.imageUrl || uploadResult?.tmpPath;
-            if (imgPath) imageUrls.push(imgPath);
+            // Log để debug cấu trúc trả về
+            console.log("DEBUG: Upload result:", response);
+
+            // Kiểm tra các trường hợp có thể trả về: 
+            // 1. response.url (Cloudinary trả về trực tiếp)
+            // 2. response.data.tmpPath (Backend local)
+            const imgPath = response?.url || response?.data?.url || response?.data?.tmpPath || response?.tmpPath || response?.data?.imageUrl || response?.imageUrl;
+            
+            if (imgPath) {
+              imageUrls.push(imgPath);
+            }
           }
         }
       }
+
+      console.log("DEBUG: Final imageUrls to send:", imageUrls);
 
       await ReviewService.submitReview({
         productId: pId,

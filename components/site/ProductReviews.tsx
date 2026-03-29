@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Star, MessageSquare, Loader2, Send, User, CheckCircle, Camera, X } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Star, MessageSquare, Loader2, User, CheckCircle } from "lucide-react";
 import { ReviewService, ReviewDTO } from "@/app/services/review.service";
-import { FileService } from "@/app/services/file.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useFileUpload } from "@/hooks/use-file-upload";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface ProductReviewsProps {
   productId: number;
@@ -18,19 +16,13 @@ interface ProductReviewsProps {
 }
 
 export function ProductReviews({ productId, slug }: ProductReviewsProps) {
-  const { data: user, isAuthenticated } = useCurrentUser();
+  const { isAuthenticated } = useCurrentUser();
   const [reviews, setReviews] = useState<ReviewDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [canReview, setCanReview] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchReviews();
-    if (isAuthenticated && productId) {
-       checkPermission();
-    }
-  }, [productId, slug, isAuthenticated]);
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setLoading(true);
     try {
       let data: ReviewDTO[] = [];
@@ -42,7 +34,7 @@ export function ProductReviews({ productId, slug }: ProductReviewsProps) {
              const fallbackData = await ReviewService.getReviewsByProduct(productId);
              if (fallbackData.length > 0) data = fallbackData;
           }
-        } catch (slugError) {
+        } catch {
           // Fallback sang ID nếu API slug bị 500
           if (productId) {
             data = await ReviewService.getReviewsByProduct(productId);
@@ -57,15 +49,40 @@ export function ProductReviews({ productId, slug }: ProductReviewsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId, slug]);
 
-  const checkPermission = async () => {
+  const checkPermission = useCallback(async () => {
     try {
       const allowed = await ReviewService.checkCanReview(productId);
       setCanReview(allowed);
-    } catch (error) {
+    } catch {
       setCanReview(false);
     }
+  }, [productId]);
+
+  useEffect(() => {
+    fetchReviews();
+    if (isAuthenticated && productId) {
+       checkPermission();
+    }
+  }, [productId, slug, isAuthenticated, fetchReviews, checkPermission]);
+
+  const getFullImageUrl = (path?: string) => {
+    if (!path) return "/placeholder.png";
+    if (path.startsWith("http")) return path;
+    
+    // Nếu path bắt đầu bằng /api/public, giữ nguyên để khớp với rewrite agri-shrimp-be trong next.config.js
+    if (path.startsWith("/api/public")) {
+      return path;
+    }
+
+    // Nếu path bắt đầu bằng /api (nhưng không phải public), đổi thành /be-api để đi qua proxy chính xác
+    if (path.startsWith("/api")) {
+      return path.replace("/api", "/be-api");
+    }
+    
+    // Ngược lại, thêm /be-api vào đầu
+    return `/be-api${path.startsWith("/") ? "" : "/"}${path}`;
   };
 
   const renderStars = (count: number) => {
@@ -124,7 +141,14 @@ export function ProductReviews({ productId, slug }: ProductReviewsProps) {
                   <div className="shrink-0">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 group-hover:border-teal-200 transition-colors">
                       {review.userAvatar ? (
-                        <Image src={review.userAvatar} alt={review.userName || ""} width={48} height={48} className="object-cover" />
+                        <img 
+                          src={getFullImageUrl(review.userAvatar)} 
+                          alt={review.userName || ""} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "/placeholder.png";
+                          }}
+                        />
                       ) : (
                         <User size={24} className="text-slate-400" />
                       )}
@@ -156,8 +180,19 @@ export function ProductReviews({ productId, slug }: ProductReviewsProps) {
                     {review.imageUrls && review.imageUrls.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {review.imageUrls.map((url, idx) => (
-                          <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-100 shadow-sm cursor-zoom-in hover:scale-105 transition-transform">
-                            <Image src={url} alt={`Review ${idx}`} fill className="object-cover" />
+                          <div 
+                            key={idx} 
+                            className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-100 shadow-sm cursor-zoom-in hover:scale-105 transition-transform"
+                            onClick={() => setSelectedImage(getFullImageUrl(url))}
+                          >
+                            <img 
+                              src={getFullImageUrl(url)} 
+                              alt={`Review ${idx}`} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "/placeholder.png";
+                              }}
+                            />
                           </div>
                         ))}
                       </div>
@@ -182,6 +217,24 @@ export function ProductReviews({ productId, slug }: ProductReviewsProps) {
           </div>
         )}
       </div>
+
+      {/* Lightbox Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none flex items-center justify-center">
+          {selectedImage && (
+            <div className="relative w-full aspect-square max-h-[80vh]">
+              <img 
+                src={selectedImage} 
+                alt="Review Large" 
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/placeholder.png";
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
