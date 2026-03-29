@@ -173,6 +173,21 @@ export default function ProductsPage() {
         }
     };
 
+    const handleEnable = async (id: number) => {
+        try {
+            const res = await ProductService.enable(id);
+            if (res.success) {
+                toast.success(res.message || "Đã kích hoạt kinh doanh sản phẩm.");
+                fetchProducts();
+            } else {
+                toast.error(res.message);
+            }
+        } catch (error: any) {
+            const errorMessage = getErrorMessage(error);
+            toast.error(errorMessage);
+        }
+    };
+
     const handleEdit = (id: number) => {
         router.push(`/admin/products/${id}/edit`);
     };
@@ -315,6 +330,7 @@ export default function ProductsPage() {
                             onDelete={handleDelete}
                             onEdit={handleEdit}
                             onDisable={handleDisable}
+                            onEnable={handleEnable}
                         />
 
                         {products.length > 0 && (

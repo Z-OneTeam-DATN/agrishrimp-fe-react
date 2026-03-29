@@ -11,6 +11,7 @@ import {
     Layers,
     Camera,
     Ban,
+    Play,
     Package,
     Box,
 } from "lucide-react";
@@ -91,6 +92,7 @@ interface AdminProductTableProps {
     onDelete?: (id: number) => void;
     onEdit?: (id: number) => void;
     onDisable?: (id: number) => void;
+    onEnable?: (id: number) => void;
 }
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
@@ -99,7 +101,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
     DRAFT:    { label: "Lưu nháp",         className: "bg-amber-50 text-amber-600 border-amber-100" },
 };
 
-export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable }: AdminProductTableProps) {
+export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable, onEnable }: AdminProductTableProps) {
     const { hasPermission } = usePermissions();
     const { user } = useAuthStore();
     const isAdmin = user?.role?.slug === "ADMIN"; // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
@@ -110,7 +112,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{
         id: number | null;
-        type: "delete" | "disable";
+        type: "delete" | "disable" | "enable";
         title: string;
         description: string;
         actionLabel: string;
@@ -156,12 +158,27 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
         setConfirmOpen(true);
     };
 
+    const openEnableConfirm = (id: number) => {
+        setConfirmConfig({
+            id,
+            type: "enable",
+            title: "Xác nhận kinh doanh lại",
+            description:
+                "Sản phẩm này sẽ được hiển thị trở lại trên cửa hàng để khách hàng có thể tìm kiếm và đặt mua.",
+            actionLabel: "Kinh doanh lại",
+            variant: "default",
+        });
+        setConfirmOpen(true);
+    };
+
     const handleConfirmAction = () => {
         if (confirmConfig.id === null) return;
         if (confirmConfig.type === "delete") {
             onDelete?.(confirmConfig.id);
-        } else {
+        } else if (confirmConfig.type === "disable") {
             onDisable?.(confirmConfig.id);
+        } else if (confirmConfig.type === "enable") {
+            onEnable?.(confirmConfig.id);
         }
         setConfirmOpen(false);
     };
@@ -269,9 +286,15 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                                     </Button>
                                                 )}
                                                 {hasPermission(P.PRODUCT_UPDATE) && (
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-amber-50" onClick={() => openDisableConfirm(p.id)} disabled={isInactive} title="Ngừng kinh doanh">
-                                                        <Ban size={14} className={isInactive ? "text-slate-300" : "text-amber-600"} />
-                                                    </Button>
+                                                    isInactive ? (
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-50" onClick={() => openEnableConfirm(p.id)} title="Kinh doanh lại">
+                                                            <Play size={14} className="text-emerald-600" />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-amber-50" onClick={() => openDisableConfirm(p.id)} title="Ngừng kinh doanh">
+                                                            <Ban size={14} className="text-amber-600" />
+                                                        </Button>
+                                                    )
                                                 )}
                                                 {hasPermission(P.PRODUCT_DELETE) && (
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => openDeleteConfirm(p.id)} title="Xóa vĩnh viễn">

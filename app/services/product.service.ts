@@ -61,6 +61,12 @@ export const ProductService = {
     return response.data;
   },
 
+  // 7. Kinh doanh lại
+  enable: async (id: string | number): Promise<ApiResponse> => {
+    const response = await apiJava.put(`${ProductService.PREFIX}/${id}/enable`, {});
+    return response.data;
+  },
+
   getCategories: async (): Promise<any[]> => {
     const response = await apiJava.get(`${ProductService.PREFIX}/categories`);
     return response.data;
