@@ -7,6 +7,7 @@ import { AdminProductTable } from "@/components/admin/AdminProductTable";
 import { ProductService } from "@/app/services/product.service";
 import { SettingService } from "@/app/services/setting.service";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/axios";
 import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,8 +153,7 @@ export default function ProductsPage() {
                 toast.error(res.message);
             }
         } catch (error: any) {
-            console.error("Failed to delete product:", error);
-            const errorMessage = error.response?.data?.message || "Lỗi khi xóa sản phẩm. Vui lòng thử lại!";
+            const errorMessage = getErrorMessage(error);
             toast.error(errorMessage);
         }
     };
@@ -168,8 +168,22 @@ export default function ProductsPage() {
                 toast.error(res.message);
             }
         } catch (error: any) {
-            console.error("Failed to disable product:", error);
-            const errorMessage = error.response?.data?.message || "Lỗi khi cập nhật trạng thái.";
+            const errorMessage = getErrorMessage(error);
+            toast.error(errorMessage);
+        }
+    };
+
+    const handleEnable = async (id: number) => {
+        try {
+            const res = await ProductService.enable(id);
+            if (res.success) {
+                toast.success(res.message || "Đã kích hoạt kinh doanh sản phẩm.");
+                fetchProducts();
+            } else {
+                toast.error(res.message);
+            }
+        } catch (error: any) {
+            const errorMessage = getErrorMessage(error);
             toast.error(errorMessage);
         }
     };
@@ -316,6 +330,7 @@ export default function ProductsPage() {
                             onDelete={handleDelete}
                             onEdit={handleEdit}
                             onDisable={handleDisable}
+                            onEnable={handleEnable}
                         />
 
                         {products.length > 0 && (
