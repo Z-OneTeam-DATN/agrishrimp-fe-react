@@ -57,7 +57,7 @@ export const ProductService = {
 
   // 6. Ngừng kinh doanh
   disable: async (id: string | number): Promise<ApiResponse> => {
-    const response = await apiJava.put(`${ProductService.PREFIX}/${id}/disable`);
+    const response = await apiJava.put(`${ProductService.PREFIX}/${id}/disable`, {});
     return response.data;
   },
 

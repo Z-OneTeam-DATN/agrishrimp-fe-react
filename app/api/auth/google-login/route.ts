@@ -1,4 +1,5 @@
 import { AuthService } from "@/app/services/auth.service";
+import { getErrorMessage } from "@/lib/axios";
 import { AxiosError } from "axios";
 import { jwtDecode, JwtPayload } from "jwt-decode";
 import { NextResponse } from "next/server";
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
   } catch (e) {
     if (e instanceof AxiosError) {
       return NextResponse.json(
-        { message: e.response?.data?.message || e.message },
+        { message: getErrorMessage(e) },
         { status: e.response?.status || 500 },
       );
     }
