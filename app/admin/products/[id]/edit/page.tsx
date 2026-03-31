@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
 import { SettingService } from "@/app/services/setting.service";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -133,7 +135,9 @@ export default function EditProductPage() {
     // 👉 Bỏ biến systemProfitMargin vì giờ Backend đã tự động tính sellingPrice
 
     const { isLoadingAuth, isAuthenticated, user } = useAuthStore();
+    const { hasPermission } = usePermissions();
     const isAdmin = user?.role?.slug === "ADMIN";
+    const canSeePrice = isAdmin || hasPermission(P.IMPORT_VIEW) || hasPermission(P.EXPORT_VIEW) || hasPermission(P.CHECK_VIEW);
 
     const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),
@@ -539,7 +543,7 @@ export default function EditProductPage() {
                                                                     <th className="p-2 text-[9px] font-bold text-slate-400 uppercase">Mã Lô</th>
                                                                     <th className="p-2 text-[9px] font-bold text-slate-400 uppercase">Vị trí</th>
                                                                     <th className="p-2 text-[9px] font-bold text-slate-400 uppercase text-center">Tồn</th>
-                                                                    {isAdmin && <th className="p-2 text-[9px] font-bold text-blue-500 uppercase text-right">Giá vốn</th>}
+                                                                    {canSeePrice && <th className="p-2 text-[9px] font-bold text-blue-500 uppercase text-right">Giá vốn</th>}
                                                                     <th className="p-2 text-[9px] font-bold text-emerald-600 uppercase text-right">Giá bán niêm yết</th>
                                                                 </tr>
                                                                 </thead>
@@ -554,7 +558,7 @@ export default function EditProductPage() {
                                                                             <td className="p-2 text-[11px] font-mono font-bold text-slate-700">{b.batchNumber || "Mặc định"}</td>
                                                                             <td className="p-2 text-[10px] font-medium text-slate-500">{b.branchName}</td>
                                                                             <td className="p-2 text-[11px] font-black text-slate-700 text-center">{b.quantity}</td>
-                                                                            {isAdmin && (
+                                                                            {canSeePrice && (
                                                                                 <td className="p-2 text-[11px] font-bold text-blue-600 text-right">
                                                                                     {importPrice != null ? `${importPrice.toLocaleString('vi-VN')} ₫` : "—"}
                                                                                 </td>

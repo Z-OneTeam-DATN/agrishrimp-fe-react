@@ -139,6 +139,7 @@ export interface PublicProductVariant {
   sku: string;
   barcode: string;
   costPrice: number;
+  importPrice?: number;
   price: number;
   wholesalePrice: number;
   quantity: number;
@@ -153,8 +154,10 @@ export interface PublicProductVariant {
         inventoryId: number;
         batchNumber: string;
         quantity: number;
+        importPrice?: number;
         sellingPrice: number;
         branchName: string;
+        expiryDate?: string;
     }[];
 }
 

@@ -104,7 +104,11 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable, onEnable }: AdminProductTableProps) {
     const { hasPermission } = usePermissions();
     const { user } = useAuthStore();
-    const isAdmin = user?.role?.slug === "ADMIN"; // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
+    
+    // 🔥 CẬP NHẬT: Cho phép Admin HOẶC nhân viên có quyền quản lý xuất/nhập kho thấy giá vốn
+    const isAdmin = user?.role?.slug === "ADMIN";
+    const canSeePrice = isAdmin || hasPermission(P.IMPORT_VIEW) || hasPermission(P.EXPORT_VIEW) || hasPermission(P.CHECK_VIEW);
+    
     const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
@@ -368,7 +372,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                                                                     <th className="p-2 pl-4 text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">Mã Lô</th>
                                                                                     <th className="p-2 text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">Vị trí</th>
                                                                                     <th className="p-2 text-[9px] font-bold text-slate-400 uppercase text-center whitespace-nowrap">Tồn</th>
-                                                                                    {isAdmin && <th className="p-2 text-[9px] font-bold text-blue-500 uppercase text-right whitespace-nowrap">Giá vốn</th>}
+                                                                                    {canSeePrice && <th className="p-2 text-[9px] font-bold text-blue-500 uppercase text-right whitespace-nowrap">Giá vốn</th>}
                                                                                     <th className="p-2 pr-4 text-[9px] font-bold text-emerald-600 uppercase text-right whitespace-nowrap">Giá bán niêm yết</th>
                                                                                 </tr>
                                                                                 </thead>
@@ -381,7 +385,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                                                                         </td>
                                                                                         <td className="p-2 text-[10px] font-medium text-slate-500 whitespace-nowrap">{b.branchName}</td>
                                                                                         <td className="p-2 text-[11px] font-black text-slate-700 text-center">{b.quantity}</td>
-                                                                                        {isAdmin && (
+                                                                                        {canSeePrice && (
                                                                                             <td className="p-2 text-[11px] font-bold text-blue-600 text-right whitespace-nowrap">
                                                                                                 {b.importPrice != null ? `${b.importPrice.toLocaleString('vi-VN')} ₫` : "—"}
                                                                                             </td>

@@ -53,10 +53,20 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TransferSchema } from "@/app/types/inventory.schema";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { P } from "@/lib/permissions";
 
 export default function NewTransferPage() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const { user } = useAuthStore();
+  
+  // 🔥 CẬP NHẬT: Cho phép tất cả nhân viên (không phải USER) thấy giá & lô
+  const isAdmin = user?.role?.slug === "ADMIN";
+  const canSeePrice = user?.role?.slug !== "USER"; 
+  
   const searchParams = useSearchParams();
   const sourceCode = searchParams.get("source");
 
@@ -219,31 +229,43 @@ export default function NewTransferPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, currentSourceBranch]);
 
-  const handleSelectProduct = (variant: any) => {
-      // 1. Kiểm tra trùng dựa trên SKU giống Nhập kho
-      const isExist = fields.some((f: any) => f.productCode === variant.sku);
+  const handleSelectProduct = (variant: any, customDisplayName?: string) => {
+      // 1. Kiểm tra trùng dựa trên SKU + Batch
+      const batchKey = variant.batchNumber || (variant.batches && variant.batches.length > 0 ? variant.batches[0].batchNumber : "default");
+      const isExist = fields.some((f: any) => f.productCode === variant.sku && (f.batchNumber || "default") === batchKey);
+      
       if (isExist) {
-        toast.error("Sản phẩm này đã có trong danh sách!");
+        toast.error("Lô hàng này đã có trong danh sách!");
         return;
       }
 
-      let displayName = variant.productName || "Sản phẩm";
-      if (variant.sku) displayName += ` [${variant.sku}]`;
+      let displayName = customDisplayName || variant.productName || "Sản phẩm";
+      if (!customDisplayName && variant.sku) displayName += ` [${variant.sku}]`;
 
-      // 2. Append dữ liệu - Dùng variant.sku làm định danh chính
+      // 🔥 LẤY THÔNG TIN LÔ (FIFO mặc định nếu không chọn đích danh lô)
+      const batchInfo = variant.batchNumber 
+        ? { number: variant.batchNumber, expiry: variant.expiryDate }
+        : (variant.batches && variant.batches.length > 0) 
+          ? { number: variant.batches[0].batchNumber, expiry: variant.batches[0].expiryDate }
+          : { number: "", expiry: "" };
+
+      // 2. Append dữ liệu
       append({
         variantId: variant.id,
-        productCode: variant.sku, // <--- SKU là duy nhất
+        productCode: variant.sku,
         productName: displayName,
         unit: variant.unit || "Cái",
         quantity: 1,
+        importPrice: variant.importPrice || 0,
         availableQuantity: variant.quantity || 0,
+        batchNumber: batchInfo.number,
+        expiryDate: batchInfo.expiry,
         itemNote: "",
       });
 
       setSearchTerm("");
       setShowDropdown(false);
-      toast.success("Đã thêm biến thể thành công!");
+      toast.success("Đã thêm hàng hóa thành công!");
   };
 
   return (
@@ -411,27 +433,67 @@ export default function NewTransferPage() {
                   />
 
                   {showDropdown && currentSourceBranch && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[300px] overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[400px] overflow-y-auto">
                       {isSearching ? (
                         <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
                       ) : searchResults.length > 0 ? (
                         searchResults.map((variant) => (
-                          <div
-                            key={variant.id}
-                            onMouseDown={() => handleSelectProduct(variant)}
-                            className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors"
-                          >
-                            <div>
-                              <p className="text-[12px] font-bold text-slate-800">{variant.productName || variant.unit}</p>
-                              <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
+                          <React.Fragment key={variant.id || variant.sku}>
+                            {/* Variant Item (Tổng quát) */}
+                            <div
+                              onMouseDown={() => handleSelectProduct(variant)}
+                              className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
+                                    {variant.imageUrl ? (
+                                      <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
+                                    ) : <Package size={16} className="text-slate-300" />}
+                                 </div>
+                                 <div>
+                                   <p className="text-[12px] font-bold text-slate-800 group-hover:text-blue-600">{variant.productName || variant.unit}</p>
+                                   <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
+                                 </div>
+                              </div>
+                              <div className="text-right">
+                                <p className={cn(
+                                  "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
+                                  (variant.quantity || 0) > 0
+                                    ? "text-blue-600 bg-blue-50 border-blue-100"
+                                    : "text-rose-600 bg-rose-50 border-rose-100"
+                                )}>
+                                  Tổng tồn: {variant.quantity || 0}
+                                </p>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className={cn("text-[11px] font-black", (variant.quantity || 0) > 0 ? "text-emerald-600" : "text-rose-500")}>
-                                Tồn: {variant.quantity || 0}
-                              </p>
-                              <p className="text-[10px] text-slate-400">Cái</p>
-                            </div>
-                          </div>
+
+                            {/* Batches Items (Chi tiết lô hàng nếu có) */}
+                            {variant.batches && variant.batches.length > 0 && variant.batches.map((batch: any) => (
+                              <div
+                                key={batch.inventoryId}
+                                onMouseDown={() => handleSelectProduct({
+                                  ...variant,
+                                  batchNumber: batch.batchNumber,
+                                  quantity: batch.quantity,
+                                  importPrice: batch.importPrice
+                                }, `${variant.productName || variant.unit} (Lô: ${batch.batchNumber})`)}
+                                className="flex items-center justify-between p-2 pl-12 hover:bg-emerald-50 border-b border-slate-50 cursor-pointer transition-colors bg-slate-50/30"
+                              >
+                                <div className="flex items-center gap-2">
+                                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                   <div>
+                                     <p className="text-[11px] font-bold text-slate-600">Lô: {batch.batchNumber}</p>
+                                     {batch.expiryDate && (
+                                       <p className="text-[10px] text-slate-400">Hạn dùng: <span className="text-rose-500 font-medium">{batch.expiryDate}</span></p>
+                                     )}
+                                   </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] text-slate-500 font-bold">Tồn lô: {batch.quantity}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </React.Fragment>
                         ))
                       ) : (
                         <div className="p-3 text-center text-[12px] text-slate-400">Không có sản phẩm nào</div>
@@ -443,21 +505,24 @@ export default function NewTransferPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <Table className="table-custom border-collapse min-w-[1250px]">
+              <Table className="table-custom border-collapse min-w-[1200px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-[#ccc]">
                     <TableHead className="w-[40px] text-center p-2 text-[10px] font-black uppercase text-slate-500">STT</TableHead>
                     <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">Hàng hóa</TableHead>
                     <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ĐVT</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Số lô / Hạn dùng</TableHead>
+                    {canSeePrice && (
+                      <TableHead className="w-[120px] text-right p-2 text-[10px] font-black uppercase text-blue-500">Giá vốn</TableHead>
+                    )}
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-emerald-600">Thực nhận</TableHead>
                     <TableHead className="p-2 text-[10px] font-black uppercase text-slate-500">Ghi chú</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fields.map((field, index) => (
+                  {fields.map((field: any, index: number) => (
                     <TableRow key={field.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
                       <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
                       <TableCell className="p-1">
@@ -469,6 +534,26 @@ export default function NewTransferPage() {
                       <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
                         {(watch(`items.${index}.availableQuantity`) || 0).toLocaleString("vi-VN")}
                       </TableCell>
+                      
+                      <TableCell className="text-[12px] text-slate-600">
+                        {watch(`items.${index}.batchNumber`) ? (
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-800">{watch(`items.${index}.batchNumber`)}</span>
+                            {watch(`items.${index}.expiryDate`) && (
+                              <span className="text-[10px] text-rose-500 font-medium">Hạn: {watch(`items.${index}.expiryDate`)}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 italic">Mặc định</span>
+                        )}
+                      </TableCell>
+
+                      {canSeePrice && (
+                        <TableCell className="p-1 text-right font-bold text-blue-600 pr-3 text-[12px]">
+                          {formatNumber(watch(`items.${index}.importPrice`) || 0)} ₫
+                        </TableCell>
+                      )}
+
                       <TableCell className="p-1 text-right">
                         <Input
                           type="number"
@@ -480,9 +565,6 @@ export default function NewTransferPage() {
                         {(errors?.items as any)?.[index]?.quantity && (
                           <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].quantity?.message as string}</p>
                         )}
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input type="number" {...register(`items.${index}.receivedQuantity`)} readOnly className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0 cursor-not-allowed" />
                       </TableCell>
                       <TableCell className="p-1">
                         <Input {...register(`items.${index}.itemNote`)} className="h-8 text-[11px] border-none italic bg-transparent focus:ring-0" placeholder="..." />

@@ -92,7 +92,7 @@ export default function AddEmployeePage() {
                 setRoles(rolesList);
 
                 // ✅ Tải danh sách chi nhánh
-                const branchesList = (Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || []) as BranchType[];
+                const branchesList = (Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || (branchesRes as any).data || []) as BranchType[];
                 setBranches(branchesList);
             } catch (error) {
                 toast.error("Không thể tải dữ liệu hệ thống.");
@@ -152,10 +152,15 @@ export default function AddEmployeePage() {
         }
     };
 
+    const onFormError = (err: any) => {
+        console.error("Validation Errors:", err);
+        toast.error("Vui lòng kiểm tra lại thông tin: " + Object.values(err).map((e: any) => e.message).join(", "));
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>;
 
     return (
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pb-[100px] bg-slate-50 min-h-screen">
+        <form onSubmit={handleSubmit(onFormSubmit, onFormError)} className="space-y-4 pb-[100px] bg-slate-50 min-h-screen">
             <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
                 <div className="flex items-center gap-4">
                     <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="text-slate-400">

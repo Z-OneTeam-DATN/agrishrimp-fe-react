@@ -31,6 +31,7 @@ import { P } from "@/lib/permissions";
 // =================================================================
 const ExportItemSchema = z.object({
   productVariantId: z.number(), sku: z.string(), name: z.string(), unit: z.string(), stock: z.number(), price: z.number(),
+  batchNumber: z.string().optional(), expiryDate: z.string().optional(),
   quantity: z.coerce.number().min(1, "Số lượng xuất phải lớn hơn 0"), returnReason: z.string().optional()
 });
 
@@ -55,7 +56,10 @@ function AdminExportFormContent() {
 
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
+  
+  // 🔥 CẬP NHẬT: Cho phép tất cả nhân viên (không phải USER) thấy giá & lô
   const isAdmin = hasPermission(P.EXPORT_APPROVE);
+  const canSeePrice = currentUser?.role?.slug !== "USER"; 
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -209,6 +213,17 @@ function AdminExportFormContent() {
       toast.warning("Sản phẩm đã có trong danh sách");
       return;
     }
+
+    // 🔥 Hỗ trợ linh hoạt các tên trường giá từ Backend
+    const unitPrice = variant.importPrice || variant.costPrice || variant.price || variant.sellingPrice || 0;
+    
+    // 🔥 LẤY THÔNG TIN LÔ (Ưu tiên lô được chọn, nếu không lấy lô đầu tiên làm FIFO)
+    const batchInfo = variant.batchNumber 
+      ? { number: variant.batchNumber, expiry: variant.expiryDate }
+      : (variant.batches && variant.batches.length > 0) 
+        ? { number: variant.batches[0].batchNumber, expiry: variant.batches[0].expiryDate }
+        : { number: "", expiry: "" };
+
     append({
       productVariantId: variant.id,
       sku: variant.sku,
@@ -216,8 +231,9 @@ function AdminExportFormContent() {
       unit: variant.unit || "Cái",
       stock: variant.quantity || 0,
       quantity: 1,
-      // 👇 ĐÃ CẬP NHẬT Ở ĐÂY: Lấy importPrice để làm giá trị xuất kho
-      price: variant.importPrice || variant.price || 0,
+      price: unitPrice,
+      batchNumber: batchInfo.number,
+      expiryDate: batchInfo.expiry,
       returnReason: ""
     });
     setShowDropdown(false);
@@ -374,40 +390,71 @@ function AdminExportFormContent() {
                       <div className="max-h-[400px] overflow-y-auto">
                         {allProducts.length > 0 ? (
                           allProducts.map((variant) => (
-                            <div
-                              key={variant.id || variant.sku}
-                              className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer flex justify-between items-center group"
-                              onClick={() => addVariantToTable(variant, variant.productName || variant.unit)}
-                            >
-                              <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
-                                    {variant.imageUrl ? (
-                                      <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
-                                    ) : <Package size={16} className="text-slate-300" />}
-                                 </div>
-                                 <div>
-                                   <p className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">
-                                     {variant.productName || variant.unit} {variant.packaging ? `- ${variant.packaging}` : ''}
-                                   </p>
-                                   <p className="text-[11px] text-slate-500 mt-0.5">
-                                     SKU: <span className="font-mono text-blue-600">{variant.sku}</span>
-                                   </p>
-                                 </div>
+                            <React.Fragment key={variant.id || variant.sku}>
+                              {/* Variant Item (Tổng quát) */}
+                              <div
+                                className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer flex justify-between items-center group"
+                                onClick={() => addVariantToTable(variant, variant.productName || variant.unit)}
+                              >
+                                <div className="flex items-center gap-3">
+                                   <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
+                                      {variant.imageUrl ? (
+                                        <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
+                                      ) : <Package size={16} className="text-slate-300" />}
+                                   </div>
+                                   <div>
+                                     <p className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">
+                                       {variant.productName || variant.unit} {variant.packaging ? `- ${variant.packaging}` : ''}
+                                     </p>
+                                     <p className="text-[11px] text-slate-500 mt-0.5">
+                                       SKU: <span className="font-mono text-blue-600">{variant.sku}</span>
+                                     </p>
+                                   </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <p className={cn(
+                                      "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
+                                      variant.quantity > 0
+                                        ? "text-blue-600 bg-blue-50 border-blue-100"
+                                        : "text-rose-600 bg-rose-50 border-rose-100"
+                                  )}>
+                                     Tổng tồn: {variant.quantity || 0}
+                                  </p>
+                                </div>
                               </div>
 
-                              <div className="text-right">
-                                {/* 👇 ĐÃ SỬA CẢ HIỂN THỊ TẠI DROPDOWN THÀNH GIÁ NHẬP */}
-                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} ₫</p>
-                                <p className={cn(
-                                    "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
-                                    variant.quantity > 0
-                                      ? "text-blue-600 bg-blue-50 border-blue-100"
-                                      : "text-rose-600 bg-rose-50 border-rose-100"
-                                )}>
-                                   Tồn kho xuất: {variant.quantity || 0}
-                                </p>
-                              </div>
-                            </div>
+                              {/* Batches Items (Chi tiết lô hàng nếu có) */}
+                              {variant.batches && variant.batches.length > 0 && variant.batches.map((batch: any) => (
+                                <div
+                                  key={batch.inventoryId}
+                                  className="p-2 pl-12 border-b border-slate-50 hover:bg-blue-50 transition-colors cursor-pointer flex justify-between items-center group bg-slate-50/50"
+                                  onClick={() => addVariantToTable(
+                                    { 
+                                      ...variant, 
+                                      quantity: batch.quantity, 
+                                      batchNumber: batch.batchNumber, // 🔥 BỔ SUNG
+                                      expiryDate: batch.expiryDate,   // 🔥 BỔ SUNG
+                                      importPrice: batch.importPrice,
+                                      costPrice: batch.importPrice,
+                                      price: batch.importPrice || variant.importPrice
+                                    },
+                                    `${variant.productName || variant.unit} (Lô: ${batch.batchNumber})`
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2">
+                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                     <div>
+                                       <p className="text-[11px] font-bold text-slate-600">Lô: {batch.batchNumber}</p>
+                                       {batch.expiryDate && <p className="text-[10px] text-slate-400">Hạn: {batch.expiryDate}</p>}
+                                     </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[10px] text-slate-500">Tồn lô: {batch.quantity}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </React.Fragment>
                           ))
                         ) : (
                           <div className="p-4 text-center text-slate-500 text-[12px]">
@@ -427,17 +474,20 @@ function AdminExportFormContent() {
                         <TableHead className="w-[40px] text-[10px] font-black uppercase text-slate-500 text-center tracking-wider">#</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Mã SKU</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tên sản phẩm</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Số lô / Hạn dùng</TableHead>
+                        {canSeePrice && (
+                          <TableHead className="text-right text-[10px] font-black uppercase text-blue-500 w-[120px] tracking-wider">Giá Vốn</TableHead>
+                        )}
                         <TableHead className="text-right text-[10px] font-black uppercase text-blue-600 w-[110px] tracking-wider">SL Xuất</TableHead>
                         {watchExportType === "RETURN" && (
                           <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">Lý do trả hàng</TableHead>
                         )}
-                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Giá Vốn</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                      </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fields.length === 0 ? (
-                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={canSeePrice ? 8 : 7} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
                     ) : (
                       fields.map((field, index) => {
                         const hasQtyError = errors.items?.[index]?.quantity;
@@ -455,6 +505,25 @@ function AdminExportFormContent() {
                                   Tồn kho xuất: {currentItem?.stock || 0}
                                 </div>
                               </TableCell>
+                              
+                              <TableCell className="text-[12px] text-slate-600">
+                                {currentItem?.batchNumber ? (
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-slate-800">{currentItem.batchNumber}</span>
+                                    {currentItem.expiryDate && (
+                                      <span className="text-[10px] text-rose-500 font-medium">Hạn: {currentItem.expiryDate}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-300 italic">Mặc định</span>
+                                )}
+                              </TableCell>
+
+                              {canSeePrice && (
+                                <TableCell className="text-right font-bold text-blue-600 text-[12px]">
+                                  {formatNumber(currentItem?.price || 0)} ₫
+                                </TableCell>
+                              )}
 
                               <TableCell className="p-1">
                                 <Input
@@ -481,14 +550,13 @@ function AdminExportFormContent() {
                                 </TableCell>
                               )}
 
-                              <TableCell className="text-right text-[12px] font-medium">{formatNumber(currentItem?.price || 0)}</TableCell>
                               <TableCell className="text-center">
                                 {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>}
                               </TableCell>
                             </TableRow>
                             {(hasQtyError || hasReasonError) && (
                               <TableRow className="bg-rose-50">
-                                <TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="p-1 px-4 text-[11px] text-rose-500 font-bold">
+                                <TableCell colSpan={canSeePrice ? 8 : 7} className="p-1 px-4 text-[11px] text-rose-500 font-bold">
                                   {hasQtyError && <span className="mr-4">• Lỗi SL: {hasQtyError.message}</span>}
                                   {hasReasonError && <span>• Lỗi Lý do: {hasReasonError.message}</span>}
                                 </TableCell>
@@ -588,10 +656,6 @@ function AdminExportFormContent() {
          <div className="text-[12px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-4">
             <span>Tổng số lượng: <span className="text-slate-800 font-black text-[14px]">
                {watchItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)}
-            </span></span>
-            <div className="h-4 w-[1px] bg-slate-300"></div>
-            <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">
-               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} ₫
             </span></span>
          </div>
          <div className="flex gap-3">

@@ -325,7 +325,7 @@ export default function AddBranchPage() {
                 <Label className="text-[10px] font-black uppercase text-slate-500">Quận / Huyện *</Label>
                 <Controller name="district" control={control} render={({ field }) => (
                     <Select onValueChange={(val) => { field.onChange(val); setValue("ward", ""); }} value={field.value} disabled={!watchedProvince}>
-                      <SelectTrigger className="h-[34px] text-[12px] border-[#ccc] rounded-none"><SelectValue placeholder="-- Chọn Huyện --" /></SelectTrigger>
+                      <SelectTrigger className={`h-[34px] text-[12px] border-[#ccc] rounded-none ${errors.district ? 'border-red-500' : ''}`}><SelectValue placeholder="-- Chọn Huyện --" /></SelectTrigger>
                       <SelectContent className="rounded-none z-[1000] p-0">
                         {renderSearchInput("Tìm huyện...")}
                         <div className="max-h-[200px] overflow-y-auto">
@@ -334,12 +334,13 @@ export default function AddBranchPage() {
                       </SelectContent>
                     </Select>
                   )} />
+                {errors.district && <span className="text-[10px] text-red-500 font-bold">{errors.district.message}</span>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-500">Phường / Xã *</Label>
                 <Controller name="ward" control={control} render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value} disabled={!watchedDistrict}>
-                      <SelectTrigger className="h-[34px] text-[12px] border-[#ccc] rounded-none"><SelectValue placeholder="-- Chọn Xã --" /></SelectTrigger>
+                      <SelectTrigger className={`h-[34px] text-[12px] border-[#ccc] rounded-none ${errors.ward ? 'border-red-500' : ''}`}><SelectValue placeholder="-- Chọn Xã --" /></SelectTrigger>
                       <SelectContent className="rounded-none z-[1000] p-0">
                         {renderSearchInput("Tìm xã...")}
                         <div className="max-h-[200px] overflow-y-auto">
@@ -348,6 +349,7 @@ export default function AddBranchPage() {
                       </SelectContent>
                     </Select>
                   )} />
+                {errors.ward && <span className="text-[10px] text-red-500 font-bold">{errors.ward.message}</span>}
               </div>
 
               <div className="md:col-span-3 space-y-1.5 relative" ref={suggestionRef}>

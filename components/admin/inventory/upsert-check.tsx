@@ -98,11 +98,14 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
 
   useEffect(() => {
     fetchBranches();
-    fetchEmployees();
     if (mode !== "create" && !initialData && code) {
       fetchDetail();
     }
   }, [code]);
+
+  useEffect(() => {
+    fetchEmployees(formData.branchId);
+  }, [formData.branchId]);
 
   const fetchBranches = async () => {
     try {
@@ -117,11 +120,20 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
     }
   };
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (branchId?: string) => {
     try {
-      const res = await EmployeeService.getAll({ status: "ACTIVE", size: 100 });
-      const list = Array.isArray(res) ? res : (res?.data || res?.content || []);
-      setEmployees(list);
+      const params: any = { status: "ACTIVE", size: 500 };
+      if (branchId) params.branchId = Number(branchId);
+      const res = await EmployeeService.getAll(params);
+      const list = Array.isArray(res) ? (res) : (res?.content || res?.data || []);
+      
+      // Lọc bỏ user và customer (người kiểm kê phải là nhân viên)
+      const filtered = list.filter((emp: any) => {
+        const roleSlug = emp.role?.slug?.toLowerCase() || "";
+        return roleSlug !== "user" && roleSlug !== "customer";
+      });
+
+      setEmployees(filtered);
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -385,7 +397,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                 disabled={mode === "view"} 
                 value={formData.checkedBy.split(", ")[0]} 
                 onValueChange={(v) => {
-                  const emp = employees.find(e => e.fullName === v || e.username === v);
+                  const emp = employees.find(e => e.fullName === v || e.employeeCode === v || e.email === v);
                   const name = emp ? emp.fullName : v;
                   if (formData.checkedBy.includes(name)) return;
                   const newVal = formData.checkedBy ? `${formData.checkedBy}, ${name}` : name;
@@ -397,7 +409,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                 </SelectTrigger>
                 <SelectContent>
                    {employees.map(e => (
-                     <SelectItem key={e.id} value={e.fullName}>{e.fullName} ({e.username})</SelectItem>
+                     <SelectItem key={e.id} value={e.fullName}>{e.fullName} ({e.employeeCode || e.email})</SelectItem>
                    ))}
                 </SelectContent>
               </Select>

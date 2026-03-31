@@ -11,11 +11,14 @@ import {
   FileText, Package, Settings, HelpCircle, X, ArrowDownToLine, 
   Plus, AlertCircle, History, Edit, Ban, CheckSquare
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { P } from "@/lib/permissions";
 
 export default function TransferDetailPage() {
   const { id } = useParams();
@@ -25,9 +28,12 @@ export default function TransferDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const { data: currentUser } = useCurrentUser();
+  const { hasPermission } = usePermissions();
+  const { user } = useAuthStore();
 
-  // Kiểm tra quyền Admin
-  const isAdmin = currentUser?.role?.id === 1 || currentUser?.role?.displayName === 'Quản trị viên';
+  // Kiểm tra quyền Admin & Xem giá
+  const isAdmin = user?.role?.slug === "ADMIN";
+  const canSeePrice = isAdmin || hasPermission(P.IMPORT_VIEW) || hasPermission(P.EXPORT_VIEW) || hasPermission(P.CHECK_VIEW);
 
   // Quyền duyệt xuất: CHỈ DÀNH CHO ADMIN
   const canApproveShip = isAdmin;
@@ -292,7 +298,9 @@ export default function TransferDetailPage() {
                    <tr>
                       <th className="p-4 text-left">Sản phẩm / SKU</th>
                       <th className="p-4 text-center">ĐVT</th>
+                      {canSeePrice && <th className="p-4 text-right text-blue-500">Giá vốn</th>}
                       <th className="p-4 text-right">SL Yêu cầu</th>
+                      {canSeePrice && <th className="p-4 text-right text-emerald-600">Thành tiền</th>}
                       <th className="p-4 text-right bg-emerald-50/30 text-emerald-600">Thực nhận</th>
                    </tr>
                 </thead>
@@ -301,7 +309,17 @@ export default function TransferDetailPage() {
                       <tr key={i} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
                          <td className="p-4"><p className="font-black text-slate-700 uppercase">{item.productName || "---"}</p><p className="text-[11px] font-mono text-blue-500 font-bold">{item.sku || "---"}</p></td>
                          <td className="p-4 text-center text-slate-500 font-bold">{item.unit || "---"}</td>
+                         {canSeePrice && (
+                            <td className="p-4 text-right font-bold text-blue-600">
+                               {formatNumber(item.importPrice || 0)} ₫
+                            </td>
+                         )}
                          <td className="p-4 text-right font-black text-slate-700 text-base">{item.quantityRequested || 0}</td>
+                         {canSeePrice && (
+                            <td className="p-4 text-right font-black text-emerald-700 text-base">
+                               {formatNumber((item.importPrice || 0) * (item.quantityRequested || 0))} ₫
+                            </td>
+                         )}
                          <td className="p-4 text-right font-black text-emerald-600 text-base bg-emerald-50/20">{item.quantityReal || 0}</td>
                       </tr>
                    ))}
