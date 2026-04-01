@@ -3,43 +3,38 @@ name: Deploy Frontend (agrishrimp-web)
 on:
   push:
     branches: [main]
-  workflow_dispatch:        # cho phép trigger thủ công
+  workflow_dispatch:
 
 concurrency:
   group: deploy-frontend
-  cancel-in-progress: false  # không cancel deploy đang chạy
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/agrishrimp-fe-react
   APP_PORT: 3004
-  SERVICE_NAME: webapp
 
 jobs:
   # ─────────────────────────────────────────────
-  # JOB 1: Build + Push Docker image lên GHCR
+  # JOB 1: Build + Push image (GitHub-hosted cloud)
+  # NEXT_PUBLIC_* bake vào image lúc build — không inject được runtime
   # ─────────────────────────────────────────────
   build:
     name: Build & Push Image
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_WRITE_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -48,15 +43,13 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
 
-      - name: Build and push Docker image
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # NEXT_PUBLIC_* phải bake vào image lúc build — KHÔNG thể inject runtime
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
@@ -68,66 +61,49 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────
-  # JOB 2: Deploy lên VPS
+  # JOB 2: Deploy (self-hosted runner trên máy)
   # ─────────────────────────────────────────────
   deploy:
-    name: Deploy to VPS
-    runs-on: ubuntu-latest
+    name: Deploy on Server
+    runs-on: [self-hosted, linux, agrishrimp]
     needs: build
     environment: production
-
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_SSH_PORT || 22 }}
-          script: |
-            set -e
-            cd /opt/agrishrimp
-
-            # Lưu tag hiện tại để rollback nếu cần
-            CURRENT_IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' agrishrimp-webapp 2>/dev/null || echo "none")
-            echo "Current image: $CURRENT_IMAGE"
-
-            # Auth GHCR (dùng PAT read:packages)
-            echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io \
-              -u ${{ github.actor }} --password-stdin
-
-            # Pull image mới
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-            # Restart chỉ service webapp — không ảnh hưởng db/redis/api
-            docker compose -f docker-compose.prod.yml up -d --no-deps --pull never webapp
-
-            # Chờ container khởi động
-            echo "Waiting for webapp to start..."
-            sleep 10
-
-            # ── Health check ──────────────────────────────
-            RETRIES=5
-            for i in $(seq 1 $RETRIES); do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${{ env.APP_PORT }})
-              if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 301 ] || [ "$HTTP_CODE" -eq 302 ]; then
-                echo "✅ Health check passed (HTTP $HTTP_CODE)"
-                exit 0
-              fi
-              echo "⏳ Attempt $i/$RETRIES failed (HTTP $HTTP_CODE). Retrying in 5s..."
-              sleep 5
-            done
-
-            # ── Auto-rollback nếu health check thất bại ──
-            echo "❌ Health check failed after $RETRIES attempts. Rolling back..."
-            if [ "$CURRENT_IMAGE" != "none" ]; then
-              docker tag "$CURRENT_IMAGE" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null || true
-              docker compose -f docker-compose.prod.yml up -d --no-deps --pull never webapp
-              echo "⏮️  Rolled back to previous image"
-            fi
-            exit 1
-
-      - name: Notify on failure
-        if: failure()
+      - name: Pull & restart webapp
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_WRITE_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
-          echo "::error::Deploy frontend FAILED. Check VPS logs: docker logs agrishrimp-webapp"
+          set -e
+          cd /opt/agrishrimp
+
+          CURRENT_IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' agrishrimp-webapp 2>/dev/null || echo "none")
+
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+          docker pull "$IMAGE:latest"
+
+          docker compose -f docker-compose.prod.yml up -d --no-deps --pull never webapp
+
+          echo "Waiting for Next.js..."
+          sleep 10
+
+          RETRIES=5
+          for i in $(seq 1 $RETRIES); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${{ env.APP_PORT }} || echo "000")
+            if [ "$CODE" = "200" ] || [ "$CODE" = "301" ] || [ "$CODE" = "302" ]; then
+              echo "✅ Health check passed (HTTP $CODE)"
+              exit 0
+            fi
+            echo "⏳ $i/$RETRIES — HTTP $CODE. Retry in 5s..."
+            sleep 5
+          done
+
+          echo "❌ Health check failed. Rolling back..."
+          if [ "$CURRENT_IMAGE" != "none" ]; then
+            docker tag "$CURRENT_IMAGE" "$IMAGE:latest" 2>/dev/null || true
+            docker compose -f docker-compose.prod.yml up -d --no-deps --pull never webapp
+            echo "⏮️  Rolled back"
+          fi
+          exit 1
