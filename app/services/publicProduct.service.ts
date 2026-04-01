@@ -1,4 +1,4 @@
-import { apiJava } from "@/lib/axios";
+import { apiJava, buildJavaApiUrl, type ApiPath } from "@/lib/axios";
 import {
   PageResponse,
   PublicProductListItem,
@@ -6,7 +6,7 @@ import {
 } from "@/app/types/product.schema";
 
 export const PublicProductService = {
-  PREFIX: "/public/products",
+  PREFIX: "/public/products" as const,
 
   /**
    * Lấy danh sách sản phẩm (Public)
@@ -24,10 +24,13 @@ export const PublicProductService = {
         ([, v]) => v !== null && v !== undefined && v !== ""
       )
     );
-    const response = await apiJava.get(PublicProductService.PREFIX, {
-      params: cleanParams,
-      isPublic: true,
-    } as any);
+    const response = await apiJava.get(
+      buildJavaApiUrl(PublicProductService.PREFIX),
+      {
+        params: cleanParams,
+        isPublic: true,
+      } as any,
+    );
     return response.data;
   },
 
@@ -37,7 +40,9 @@ export const PublicProductService = {
    */
   getBySlug: async (slug: string): Promise<PublicProductDetail> => {
     const response = await apiJava.get(
-      `${PublicProductService.PREFIX}/slug/${slug}`,
+      buildJavaApiUrl(
+        `${PublicProductService.PREFIX}/slug/${slug}` as ApiPath,
+      ),
       { isPublic: true } as any
     );
     return response.data;
@@ -49,7 +54,7 @@ export const PublicProductService = {
    */
   getById: async (id: number | string): Promise<PublicProductDetail> => {
     const response = await apiJava.get(
-      `${PublicProductService.PREFIX}/${id}`,
+      buildJavaApiUrl(`${PublicProductService.PREFIX}/${id}` as ApiPath),
       { isPublic: true } as any
     );
     return response.data;
@@ -57,9 +62,12 @@ export const PublicProductService = {
 
   getByCategory: async (categoryId: number | string): Promise<PublicProductListItem[]> => {
     try {
-      const response = await apiJava.get(`/public/categories/${categoryId}/products`, {
-        isPublic: true,
-      } as any);
+      const response = await apiJava.get(
+        buildJavaApiUrl(`/public/categories/${categoryId}/products` as ApiPath),
+        {
+          isPublic: true,
+        } as any,
+      );
       return response.data || [];
     } catch (error) {
       console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
@@ -69,9 +77,12 @@ export const PublicProductService = {
 
   getByBrand: async (brandId: number | string): Promise<PublicProductListItem[]> => {
     try {
-      const response = await apiJava.get(`/public/brands/${brandId}/products`, {
-        isPublic: true,
-      } as any);
+      const response = await apiJava.get(
+        buildJavaApiUrl(`/public/brands/${brandId}/products` as ApiPath),
+        {
+          isPublic: true,
+        } as any,
+      );
       return response.data || [];
     } catch (error) {
       console.error("Lỗi khi lấy sản phẩm theo thương hiệu:", error);

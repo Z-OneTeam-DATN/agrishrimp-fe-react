@@ -1,11 +1,14 @@
-import { apiJava } from "@/lib/axios";
+import { apiJava, buildJavaApiUrl, type ApiPath } from "@/lib/axios";
 import { BrandDTO } from "@/app/types/brand.type";
 
 export const getPublicBrands = async (): Promise<BrandDTO[]> => {
   try {
-    const response = await apiJava.get("/public/brands", {
-      isPublic: true,
-    } as any);
+    const response = await apiJava.get(
+      buildJavaApiUrl("/public/brands"),
+      {
+        isPublic: true,
+      } as any,
+    );
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lấy danh sách thương hiệu:", error);
@@ -15,9 +18,12 @@ export const getPublicBrands = async (): Promise<BrandDTO[]> => {
 
 export const getProductsByBrand = async (brandId: number): Promise<any[]> => {
   try {
-    const response = await apiJava.get(`/public/brands/${brandId}/products`, {
-      isPublic: true,
-    } as any);
+    const response = await apiJava.get(
+      buildJavaApiUrl(`/public/brands/${brandId}/products` as ApiPath),
+      {
+        isPublic: true,
+      } as any,
+    );
     return response.data;
   } catch (error) {
     console.error(`Lỗi khi lấy sản phẩm của thương hiệu ${brandId}:`, error);

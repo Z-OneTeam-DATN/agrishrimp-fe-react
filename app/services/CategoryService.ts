@@ -1,4 +1,4 @@
-import { apiJava } from "@/lib/axios";
+import { apiJava, buildJavaApiUrl } from "@/lib/axios";
 
 const PREFIX = "/categories";
 
@@ -95,7 +95,10 @@ export const toggleCategoryStatus = async (
 // Lấy danh mục công khai cho trang chủ
 export const getPublicCategories = async () => {
   try {
-    const response = await apiJava.get(`/public/categories`, { isPublic: true } as any);
+    const response = await apiJava.get(
+      buildJavaApiUrl("/public/categories"),
+      { isPublic: true } as any,
+    );
     return response.data || [];
   } catch (e) {
     console.error("Không thể tải danh mục công khai:", e);

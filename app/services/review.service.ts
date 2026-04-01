@@ -1,4 +1,4 @@
-import { apiJava } from "@/lib/axios";
+import { apiJava, buildJavaApiUrl, type ApiPath } from "@/lib/axios";
 
 export interface ReviewDTO {
   id?: number;
@@ -21,10 +21,12 @@ export const ReviewService = {
   getReviewsBySlug: async (slug: string): Promise<ReviewDTO[]> => {
     if (!slug || slug === "undefined") return [];
     try {
-      // Sử dụng apiJava (cổng /be-api ổn định)
-      const response = await apiJava.get(`/public/products/slug/${slug}/reviews`, { 
-        isPublic: true 
-      } as any);
+      const response = await apiJava.get(
+        buildJavaApiUrl(`/public/products/slug/${slug}/reviews` as ApiPath),
+        {
+          isPublic: true,
+        } as any,
+      );
       return response.data || [];
     } catch (error: any) {
       console.error("Lỗi API getReviewsBySlug:", error.response?.data || error.message);
@@ -41,10 +43,12 @@ export const ReviewService = {
       return [];
     }
     try {
-      // Sử dụng apiJava (cổng /be-api ổn định)
-      const response = await apiJava.get(`/public/products/${productId}/reviews`, { 
-        isPublic: true 
-      } as any);
+      const response = await apiJava.get(
+        buildJavaApiUrl(`/public/products/${productId}/reviews` as ApiPath),
+        {
+          isPublic: true,
+        } as any,
+      );
       return response.data || [];
     } catch (error: any) {
       console.error("Lỗi API getReviewsByProduct:", error.response?.data || error.message);

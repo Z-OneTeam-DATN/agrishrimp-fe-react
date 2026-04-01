@@ -9,6 +9,7 @@ import { jwtDecode, JwtPayload } from "jwt-decode";
 
 type Token = string;
 type NullableToken = Token | null;
+export type ApiPath = `/${string}`;
 
 type FailedQueueItem = {
   resolve: (token: Token) => void;
@@ -25,6 +26,31 @@ let failedQueue: FailedQueueItem[] = [];
 
 const isClient = () => typeof window !== "undefined";
 const isDev = process.env.NODE_ENV === "development";
+const DEFAULT_PUBLIC_API_BASE_URL = "https://api.agrishrimp.io.vn/api";
+const DEFAULT_SERVER_API_BASE_URL = "http://api:8004/api";
+
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const joinApiUrl = (baseURL: string, path: ApiPath) =>
+  `${trimTrailingSlash(baseURL)}${path}`;
+
+const getBrowserApiBaseUrl = () =>
+  trimTrailingSlash(
+    process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_PUBLIC_API_BASE_URL,
+  );
+
+const getServerApiBaseUrl = () =>
+  trimTrailingSlash(
+    process.env.JAVA_API_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      DEFAULT_SERVER_API_BASE_URL,
+  );
+
+export const buildJavaApiUrl = (path: ApiPath) =>
+  joinApiUrl(
+    typeof window !== "undefined" ? getBrowserApiBaseUrl() : getServerApiBaseUrl(),
+    path,
+  );
 
 const debugLog = (...args: unknown[]) => {
   if (isDev) console.log(...args);
@@ -314,14 +340,12 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
   return axiosInstance;
 };
 
-// On the browser, NEXT_PUBLIC_API_URL is a relative path ("/be-api") that nginx
-// proxies to Spring — this is correct for client-side requests.
-// On the server (Next.js API routes / SSR), relative URLs are invalid in Node.js,
-// so we use JAVA_API_URL which points directly to the Spring container.
+// Always resolve the Java API to an absolute URL so browser-side requests never
+// fall back to relative paths such as "/categories" or "/products".
 const apiJava = createApi(
   typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_API_URL ?? "/be-api")
-    : (process.env.JAVA_API_URL ?? "http://api:8004/api"),
+    ? getBrowserApiBaseUrl()
+    : getServerApiBaseUrl(),
   30000,
 );
 
