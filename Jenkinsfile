@@ -9,10 +9,11 @@ pipeline {
   environment {
     APP_NAME = 'agrishrimp-fe'
     APP_PORT = '3004'
-    NEXT_PUBLIC_API_URL = '/be-api'
+    NEXT_PUBLIC_API_URL = 'https://api.agrishrimp.io.vn/api'  // absolute URL — bake vào bundle
     NEXT_PUBLIC_APP_URL = 'https://agrishrimp.io.vn'
     NEXT_PUBLIC_BACKEND_ORIGIN = 'https://api.agrishrimp.io.vn'
-    JAVA_API_URL = 'http://api:8004/api'
+    NEXT_PUBLIC_SOCKET_URL = 'https://api.agrishrimp.io.vn'
+    JAVA_API_URL = 'http://localhost:8004/api'                // server-side SSR
   }
 
   stages {
