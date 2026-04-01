@@ -57,6 +57,8 @@ interface Branch {
   estimatedDays?: number;
 }
 
+const STORE_LABEL = "Cửa hàng AgriShrimp";
+
 const formatMoney = (amount: number | undefined | null) => {
   if (amount === undefined || amount === null) return "0₫";
   return Number(amount).toLocaleString("vi-VN") + " ₫";
@@ -239,7 +241,7 @@ export default function CheckoutPage() {
       return;
     }
     if (!selectedBranchId) {
-      toast.error("Không có chi nhánh nào đủ hàng. Vui lòng thử lại sau!");
+      toast.error("Không có cửa hàng nào đủ hàng. Vui lòng thử lại sau!");
       return;
     }
     setIsSubmitting(true);
@@ -389,9 +391,9 @@ export default function CheckoutPage() {
                 </div>
                 <div className="px-5 py-4">
                   {isFindingBranch ? (
-                    <div className="flex items-center gap-3 text-gray-400"><Loader2 size={15} className="animate-spin text-teal-500 shrink-0" /><span className="text-sm">Đang kiểm tra tồn kho tại các chi nhánh...</span></div>
+                    <div className="flex items-center gap-3 text-gray-400"><Loader2 size={15} className="animate-spin text-teal-500 shrink-0" /><span className="text-sm">Đang kiểm tra tồn kho tại cửa hàng...</span></div>
                   ) : availableBranches.length === 0 ? (
-                    <div className="flex items-center gap-3"><AlertTriangle size={15} className="text-red-500 shrink-0" /><div><p className="text-sm font-medium text-red-700">Không có chi nhánh đủ hàng</p><p className="text-xs text-red-400 mt-0.5">Vui lòng thử lại sau hoặc liên hệ hỗ trợ</p></div></div>
+                    <div className="flex items-center gap-3"><AlertTriangle size={15} className="text-red-500 shrink-0" /><div><p className="text-sm font-medium text-red-700">Không có cửa hàng đủ hàng</p><p className="text-xs text-red-400 mt-0.5">Vui lòng thử lại sau hoặc liên hệ hỗ trợ</p></div></div>
                   ) : (
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
@@ -619,7 +621,7 @@ export default function CheckoutPage() {
           />
           <div className="bg-white w-full sm:max-w-md relative z-10 shadow-xl rounded-t-2xl sm:rounded-2xl flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">Chọn chi nhánh xuất hàng</h3>
+              <h3 className="font-semibold text-gray-800">Chọn cửa hàng xử lý đơn</h3>
               <button
                 onClick={() => setIsBranchModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -628,7 +630,7 @@ export default function CheckoutPage() {
               </button>
             </div>
             <p className="text-xs text-gray-400 px-5 pt-3 pb-1">
-              Chỉ hiển thị chi nhánh có đủ tồn kho cho toàn bộ đơn hàng.
+              Chỉ hiển thị cửa hàng có đủ tồn kho cho toàn bộ đơn hàng.
             </p>
             <div className="overflow-y-auto flex-1 p-4 space-y-2">
               {availableBranches.map((branch) => (
@@ -643,8 +645,8 @@ export default function CheckoutPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 mb-0.5">{branch.name}</p>
-                      <p className="text-xs text-gray-400 mb-2">{branch.addressDetail}</p>
+                      <p className="text-sm font-semibold text-gray-900 mb-0.5">{STORE_LABEL}</p>
+                      <p className="text-xs text-gray-400 mb-2">Hệ thống sẽ tự sắp xếp cửa hàng phù hợp để xử lý đơn</p>
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">
                         <Truck size={10} /> {getDeliveryDateText(branch.estimatedDays)}
                       </span>

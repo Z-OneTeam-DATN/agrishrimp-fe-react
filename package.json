@@ -7,9 +7,9 @@
     "react-dom": "18.2.0"
   },
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev --turbo -p 3004",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3004",
     "lint": "next lint",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."

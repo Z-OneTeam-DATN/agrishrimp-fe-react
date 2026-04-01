@@ -162,6 +162,10 @@ export default function CheckoutPage() {
         }
     }
 
+    const imageByVariantId = Object.fromEntries(
+        cartItems.map((item) => [item.productVariantId, item.imageUrl as string | undefined])
+    ) as Record<number, string | undefined>
+
     const handleConfirm = () => {
         if (!prepareToken) { setShowTokenExpiredModal(true); return }
         confirmMutation.mutate({ prepareToken, paymentMethod, note: note.trim() || undefined })
@@ -352,7 +356,7 @@ export default function CheckoutPage() {
 
                                 {addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
                                     <div className="border border-red-100 bg-red-50 rounded-lg p-5 text-center">
-                                        <p className="text-sm font-semibold text-red-700 mb-1">Khu vực chưa có chi nhánh phục vụ</p>
+                                        <p className="text-sm font-semibold text-red-700 mb-1">Khu vực hiện chưa có cửa hàng phục vụ</p>
                                         <p className="text-xs text-red-400">Vui lòng chọn địa chỉ khác.</p>
                                     </div>
                                 )}
@@ -365,7 +369,10 @@ export default function CheckoutPage() {
                                                 onOrderPartial={prepareOrderResponse.subOrders.length > 0 ? () => {} : undefined}
                                             />
                                         )}
-                                        <PrepareOrderSummary prepareResponse={prepareOrderResponse} />
+                                        <PrepareOrderSummary
+                                            prepareResponse={prepareOrderResponse}
+                                            imageByVariantId={imageByVariantId}
+                                        />
                                     </div>
                                 )}
                             </div>

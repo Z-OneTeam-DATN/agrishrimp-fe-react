@@ -7,7 +7,7 @@ const BASE_URL = "/inventory";
 export const InventoryApiService = {
 
   getAllReceipts: async () => {
-    // Sẽ gọi: http://localhost:8080/api/v1/inventory/receipts
+    // Browser đi qua /be-api, còn SSR dùng JAVA_API_URL tới Spring Boot
     const response = await apiJava.get(`${BASE_URL}/receipts`);
     return response.data;
   },
@@ -18,7 +18,7 @@ export const InventoryApiService = {
   },
 
   createReceipt: async (payload: any) => {
-    // Sẽ gọi: http://localhost:8080/api/v1/inventory/receipts
+    // Browser đi qua /be-api, còn SSR dùng JAVA_API_URL tới Spring Boot
     const response = await apiJava.post(`${BASE_URL}/receipts`, payload);
     return response.data;
   },

@@ -158,7 +158,8 @@ export default function LayoutClient({
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup") || pathname?.startsWith("/reset-password");
   const isChangePasswordPage = pathname === "/change-password";
   const isAdminPage = pathname?.startsWith("/admin");
-  const isProtectedPath = ["/profile", "/orders", "/user/checkout"].some(p => pathname?.startsWith(p));
+  const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
+  const isProtectedPath = ["/profile", "/orders", "/user/checkout", "/ai-doctor"].some(p => pathname?.startsWith(p));
 
   // Redirect bắt buộc đổi mật khẩu
   useEffect(() => {
@@ -180,7 +181,7 @@ export default function LayoutClient({
     });
   }
 
-  const isHideLayout = isAdminPage || isAuthPage;
+  const isHideLayout = isAdminPage || isAuthPage || isAiDoctorPage;
 
   return (
     <GoogleAuthProvider>

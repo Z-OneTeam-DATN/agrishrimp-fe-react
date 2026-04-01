@@ -14,6 +14,9 @@ interface Category {
   parentId?: number | null;
 }
 
+const BACKEND_ORIGIN =
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
+
 export default function HomeCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +46,7 @@ export default function HomeCategories() {
 
       if (imagePath.startsWith("http")) return imagePath;
 
-      return `http://localhost:8080${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+      return `${BACKEND_ORIGIN}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
     };
 
   return (

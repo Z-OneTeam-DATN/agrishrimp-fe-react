@@ -321,18 +321,20 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
 const apiJava = createApi(
   typeof window !== "undefined"
     ? (process.env.NEXT_PUBLIC_API_URL ?? "/be-api")
-    : (process.env.JAVA_API_URL ?? "http://localhost:8080/api"),
+    : (process.env.JAVA_API_URL ?? "http://api:8004/api"),
   30000,
 );
 
 // On the browser, use a relative URL so requests go to the same origin
 // (avoids ERR_CONNECTION_REFUSED when NEXT_PUBLIC_APP_URL points to an
-// internal Docker address like http://localhost:3000 that is unreachable
-// from the client). On the server, use the absolute internal URL.
+// internal container-only address that is unreachable from the client).
+// On the server, use the absolute internal URL.
 const apiNext = createApi(
   typeof window !== "undefined"
     ? "/api"
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000") + "/api",
+    : (process.env.NEXT_SERVER_APP_URL ??
+        process.env.NEXT_PUBLIC_APP_URL ??
+        "https://agrishrimp.io.vn") + "/api",
   40000,
 );
 

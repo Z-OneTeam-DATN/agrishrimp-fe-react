@@ -92,7 +92,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 bg-gray-50/30">
         <div className="flex flex-col">
           <div className="font-bold text-gray-800 flex items-center text-sm">
-            <Store size={16} className="mr-2 text-gray-500" /> {order.branchName}
+            <Store size={16} className="mr-2 text-gray-500" /> Cửa hàng AgriShrimp
           </div>
           <div className="text-[11px] text-gray-400 ml-6 font-mono">
             Mã đơn: {order.code}

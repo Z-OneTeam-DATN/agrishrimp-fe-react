@@ -103,7 +103,7 @@ export default function AddBranchPage() {
       try {
         const [empRes, provResponse] = await Promise.all([
           EmployeeService.getAll({ size: 500, status: 'ACTIVE' }),
-          fetchWithAuth("http://localhost:8080/api/ghn/province"),
+          fetchWithAuth("/api/ghn/province"),
         ]);
 
         // Lọc chỉ lấy nhân viên có Role ID 1, 2, 3
@@ -135,8 +135,8 @@ export default function AddBranchPage() {
           // Fetch districts/wards trước để reset form không bị mất label
           if (data.provinceId) {
             const [distRes, wardRes] = await Promise.all([
-              fetchWithAuth(`http://localhost:8080/api/ghn/district?province_id=${data.provinceId}`),
-              fetchWithAuth(`http://localhost:8080/api/ghn/ward?district_id=${data.districtId}`)
+              fetchWithAuth(`/api/ghn/district?province_id=${data.provinceId}`),
+              fetchWithAuth(`/api/ghn/ward?district_id=${data.districtId}`)
             ]);
             setDistricts(extractArray(await distRes.json()));
             setWards(extractArray(await wardRes.json()));
@@ -172,14 +172,14 @@ export default function AddBranchPage() {
   // Logic lấy huyện/xã khi thay đổi select tay
   useEffect(() => {
     if (watchedProvince && isInitialLoaded && !isLoading) {
-      fetchWithAuth(`http://localhost:8080/api/ghn/district?province_id=${watchedProvince}`)
+      fetchWithAuth(`/api/ghn/district?province_id=${watchedProvince}`)
         .then(r => r.json()).then(data => setDistricts(extractArray(data)));
     }
   }, [watchedProvince, isInitialLoaded, isLoading]);
 
   useEffect(() => {
     if (watchedDistrict && isInitialLoaded && !isLoading) {
-      fetchWithAuth(`http://localhost:8080/api/ghn/ward?district_id=${watchedDistrict}`)
+      fetchWithAuth(`/api/ghn/ward?district_id=${watchedDistrict}`)
         .then(r => r.json()).then(data => setWards(extractArray(data)));
     }
   }, [watchedDistrict, isInitialLoaded, isLoading]);

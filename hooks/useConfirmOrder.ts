@@ -32,7 +32,7 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
         // COD / CASH / TRANSFER: đơn đã xong, clear cart và redirect
         clearCart()
         // Dùng cùng trang /order-success với payOS để tránh xung đột dynamic route
-        // Backend payOS config: return-url = http://localhost:3000/order-success
+        // Backend payOS config should return to https://agrishrimp.io.vn/order-success
         router.push(
           `/order-success?orderId=${data.orderId}&orderCode=${encodeURIComponent(data.orderCode)}&method=offline`
         )

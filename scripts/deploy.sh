@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="agrishrimp-fe"
-APP_PORT="${APP_PORT:-3000}"
+APP_PORT="${APP_PORT:-3004}"
 RUN_DIR=".run"
 PID_FILE="$RUN_DIR/$APP_NAME.pid"
 LOG_FILE="$RUN_DIR/$APP_NAME.log"

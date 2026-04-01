@@ -1,6 +1,6 @@
 import type { UserLocation } from "@/app/types/branch.types"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000/api"
+const LOCATION_API_PATH = "/api/location"
 
 /** Lấy GPS từ trình duyệt (timeout 6s) */
 export async function getGPSLocation(): Promise<UserLocation> {
@@ -27,7 +27,7 @@ export async function getGPSLocation(): Promise<UserLocation> {
 
 /** Lấy vị trí từ IP qua Next.js API Route (server-side, không lộ ra client) */
 export async function getIPLocation(): Promise<UserLocation> {
-  const res = await fetch(`${APP_URL}/location`)
+  const res = await fetch(LOCATION_API_PATH)
   if (!res.ok) {
     throw new Error("Không thể lấy vị trí từ IP")
   }

@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   try {
-    const javaApiUrl = process.env.JAVA_API_URL ?? "http://localhost:8080/api";
+    const javaApiUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
     const response = await axios.get(
       `${javaApiUrl}/me/permissions`,
       {

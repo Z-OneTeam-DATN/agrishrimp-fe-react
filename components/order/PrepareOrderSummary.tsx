@@ -6,9 +6,13 @@ import type { PrepareOrderResponse } from "@/app/types/order.types"
 
 interface PrepareOrderSummaryProps {
   prepareResponse: PrepareOrderResponse
+  imageByVariantId?: Record<number, string | undefined>
 }
 
-export function PrepareOrderSummary({ prepareResponse }: PrepareOrderSummaryProps) {
+export function PrepareOrderSummary({
+  prepareResponse,
+  imageByVariantId = {},
+}: PrepareOrderSummaryProps) {
   const { subOrders } = prepareResponse
   const hasMultipleBranches = subOrders.length > 1
   const hasEstimatingFee = subOrders.some((o) => o.shippingEstimate)
@@ -21,7 +25,7 @@ export function PrepareOrderSummary({ prepareResponse }: PrepareOrderSummaryProp
           <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-500" />
           <p>
             Đơn hàng được tách thành{" "}
-            <strong>{subOrders.length} kiện hàng</strong> từ các chi nhánh khác nhau.
+            <strong>{subOrders.length} kiện hàng</strong> từ hệ thống cửa hàng.
           </p>
         </div>
       )}
@@ -37,7 +41,12 @@ export function PrepareOrderSummary({ prepareResponse }: PrepareOrderSummaryProp
       {/* Sub-order cards */}
       <div className="space-y-3">
         {subOrders.map((subOrder, index) => (
-          <SubOrderCard key={subOrder.branchId} subOrder={subOrder} index={index} />
+          <SubOrderCard
+            key={subOrder.branchId}
+            subOrder={subOrder}
+            index={index}
+            imageByVariantId={imageByVariantId}
+          />
         ))}
       </div>
     </div>

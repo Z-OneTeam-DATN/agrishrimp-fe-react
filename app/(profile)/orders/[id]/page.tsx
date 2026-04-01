@@ -198,7 +198,6 @@ export default function OrderDetailPage({
 
   const cfg = statusConfig[order.status];
   const showStepper = order.status !== "CANCELLED" && order.status !== "RETURNED";
-  const isMultiBranch = order.branchName === "Nhiều chi nhánh";
   const progressPct =
     activeStep > 0
       ? (activeStep / (steps.length - 1)) * 100
@@ -317,22 +316,17 @@ export default function OrderDetailPage({
               </div>
             </div>
 
-            {/* Chi nhánh */}
+            {/* Cửa hàng */}
             <div className="px-4 py-3.5 flex gap-3">
               <div className="mt-0.5 w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                 <Store size={15} className="text-teal-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] text-teal-600 font-semibold uppercase tracking-wide mb-1">
-                  Chi nhánh xử lý
+                  Cửa hàng xử lý
                 </p>
-                <p className="text-sm font-semibold text-gray-900">{order.branchName}</p>
-                {!isMultiBranch && order.branchPhone && (
-                  <p className="text-sm text-gray-500 mt-0.5">{order.branchPhone}</p>
-                )}
-                {!isMultiBranch && order.branchAddress && (
-                  <p className="text-sm text-gray-500 mt-0.5">{order.branchAddress}</p>
-                )}
+                <p className="text-sm font-semibold text-gray-900">Cửa hàng AgriShrimp</p>
+                <p className="text-sm text-gray-500 mt-0.5">Đơn hàng được xử lý bởi hệ thống cửa hàng phù hợp.</p>
               </div>
             </div>
           </div>

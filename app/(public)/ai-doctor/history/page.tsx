@@ -1,292 +1,243 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Search,
-  ChevronRight,
   Activity,
-  FileText,
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
-  ChevronLeft, // Added for mobile header
+  FileText,
+  Loader2,
+  Search,
 } from "lucide-react";
 
-// --- TYPE DEFINITION ---
-type SeverityLevel = "HIGH" | "MEDIUM" | "LOW" | "HEALTHY";
+import { aiDoctorService } from "@/app/services/aiDoctor.service";
+import type {
+  AiDoctorDiseaseInfo,
+  AiDoctorHistoryItem,
+} from "@/app/types/ai-doctor.types";
 
-interface DiagnosisRecord {
-  id: string;
-  date: string;
-  time: string;
-  imageUrl: string;
-  diagnosis: string;
-  confidence: number;
-  severity: SeverityLevel;
-  note?: string;
-}
+const formatDateTime = (value?: string) => {
+  if (!value) return "Chưa có thời gian";
 
-// --- MOCK DATA ---
-const MOCK_HISTORY: DiagnosisRecord[] = [
-  {
-    id: "AI-20260205-001",
-    date: "05/02/2026",
-    time: "09:30",
-    imageUrl:
-      "https://nguoinuoitom.vn/wp-content/uploads/2024/03/tom-benh-dom-trang_1703128806.jpg",
-    diagnosis: "Hội chứng đốm trắng (WSSV)",
-    confidence: 95,
-    severity: "HIGH",
-    note: "Cần xử lý gấp, nguy cơ lây lan cao.",
-  },
-  {
-    id: "AI-20260204-012",
-    date: "04/02/2026",
-    time: "14:15",
-    imageUrl:
-      "https://thuysan247.com/wp-content/uploads/2020/03/benh-hoai-tu-gan-tuy-cap-tren-tom.jpg",
-    diagnosis: "Hoại tử gan tụy cấp (AHPND)",
-    confidence: 88,
-    severity: "HIGH",
-  },
-  {
-    id: "AI-20260201-008",
-    date: "01/02/2026",
-    time: "08:00",
-    imageUrl:
-      "https://tepbac.com/upload/news/ge_image/2019/07/tom-the-chan-trang-khoe-manh-1.jpg",
-    diagnosis: "Tôm khỏe mạnh",
-    confidence: 98,
-    severity: "HEALTHY",
-    note: "Tôm phát triển tốt, màu sắc đẹp.",
-  },
-  {
-    id: "AI-20260128-005",
-    date: "28/01/2026",
-    time: "16:45",
-    imageUrl:
-      "https://khoahocphattrien.vn/Images/Uploaded/Share/2016/09/20/tom-the.jpg",
-    diagnosis: "Nhiễm vi bào tử trùng (EHP)",
-    confidence: 75,
-    severity: "MEDIUM",
-    note: "Tôm chậm lớn, cần theo dõi thêm.",
-  },
-];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+};
+
+const getSeverityBadge = (disease?: AiDoctorDiseaseInfo) => {
+  const confidence = Number(disease?.confidencePercent || 0);
+  const label = disease?.nameVi?.toLowerCase() || "";
+
+  if (!disease?.nameVi) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-bold text-gray-700">
+        Chưa có kết quả
+      </span>
+    );
+  }
+
+  if (label.includes("khỏe")) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-700">
+        <CheckCircle2 size={12} />
+        Khỏe mạnh
+      </span>
+    );
+  }
+
+  if (confidence >= 80) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-700">
+        <AlertTriangle size={12} />
+        Nguy cơ cao
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-orange-700">
+      <Activity size={12} />
+      Cần theo dõi
+    </span>
+  );
+};
 
 export default function AiHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterSeverity, setFilterSeverity] = useState<string>("ALL");
 
-  // Logic lọc dữ liệu
-  const filteredHistory = MOCK_HISTORY.filter((record) => {
-    const matchesSearch =
-      record.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filterSeverity === "ALL" || record.severity === filterSeverity;
-    return matchesSearch && matchesFilter;
+  const historyQuery = useQuery({
+    queryKey: ["ai-doctor-history"],
+    queryFn: () => aiDoctorService.getHistory(),
   });
 
-  // Helper render badge trạng thái
-  const getSeverityBadge = (severity: SeverityLevel) => {
-    switch (severity) {
-      case "HIGH":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-            <AlertTriangle size={12} /> Nguy hiểm
-          </span>
-        );
-      case "MEDIUM":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
-            <Activity size={12} /> Cảnh báo
-          </span>
-        );
-      case "HEALTHY":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-            <CheckCircle2 size={12} /> Khỏe mạnh
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">
-            Không xác định
-          </span>
-        );
-    }
-  };
+  const filteredHistory = useMemo(() => {
+    const items = historyQuery.data?.items ?? [];
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) return items;
+
+    return items.filter((record: AiDoctorHistoryItem) => {
+      const diseaseName = record.disease?.nameVi?.toLowerCase() || "";
+      const diagnosisId = record.diagnosisId?.toLowerCase() || "";
+      return diseaseName.includes(keyword) || diagnosisId.includes(keyword);
+    });
+  }, [historyQuery.data?.items, searchTerm]);
 
   return (
-    <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans text-gray-800">
-      {/* Mobile Header (visible on small screens, hidden on large) */}
-      <div className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
+    <div className="min-h-screen bg-[#f8f9fa] pb-10 font-sans text-gray-800">
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white p-4 shadow-sm lg:hidden">
         <Link
-          href="/profile"
-          className="text-gray-600 hover:text-gray-800 p-1 -ml-1"
+          href="/ai-doctor"
+          className="p-1 text-gray-600 transition-colors hover:text-gray-800"
         >
           <ChevronLeft size={24} />
         </Link>
-        <h1 className="font-bold text-lg text-gray-800 truncate flex-1 text-center">
+        <h1 className="flex-1 truncate text-center text-lg font-bold text-gray-800">
           Lịch sử chẩn đoán AI
         </h1>
-        <div className="w-8"></div> {/* Placeholder for alignment */}
+        <div className="w-8" />
       </div>
 
-      <div className="lg:container lg:mx-auto px-4 py-4 lg:px-4 lg:py-6">
-        {" "}
-        {/* Adjusted padding */}
-        {/* Breadcrumb (hidden on small screens, visible on large) */}
-        <nav className="hidden lg:flex mb-6 text-sm text-gray-500 items-center">
+      <div className="w-full px-4 py-4 lg:px-6 lg:py-6 2xl:px-10">
+        <nav className="mb-6 hidden items-center text-sm text-gray-500 lg:flex">
           <Link href="/" className="hover:text-[#329965] hover:underline">
             Trang chủ
           </Link>
           <ChevronRight size={14} className="mx-2" />
-          <Link
-            href="/profile"
-            className="hover:text-[#329965] hover:underline"
-          >
+          <Link href="/profile" className="hover:text-[#329965] hover:underline">
             Tài khoản
           </Link>
           <ChevronRight size={14} className="mx-2" />
           <span className="font-bold text-gray-800">Lịch sử chẩn đoán AI</span>
         </nav>
-        {/* Main Content */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 min-h-[600px]">
-          {/* Header Card */}
-          <div className="flex justify-between items-center p-5 border-b border-gray-100">
-            <h5 className="font-bold text-gray-800 text-lg uppercase">
-              Hồ sơ bệnh án
-            </h5>
-            <Link href="/ai-doctor">
-              <button className="bg-[#329965] hover:bg-[#268050] text-white px-4 h-12 rounded-md text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
-                {" "}
-                {/* h-12 */}
-                <Activity size={18} /> Chẩn đoán mới
-              </button>
+
+        <div className="min-h-[560px] rounded-lg border border-gray-100 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-gray-100 p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h5 className="text-lg font-bold uppercase text-gray-800">Hồ sơ bệnh án AI</h5>
+              <p className="mt-1 text-sm text-gray-500">
+                Xem lại ca chẩn đoán và mở lại phác đồ điều trị đã lưu.
+              </p>
+            </div>
+
+            <Link
+              href="/ai-doctor"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#329965] px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#268050]"
+            >
+              <Activity size={18} />
+              Chẩn đoán mới
             </Link>
           </div>
 
-          {/* Body Card */}
           <div className="p-5">
-            {/* --- FILTERS --- */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
-              {/* Search */}
-              <div className="md:col-span-5 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <Search size={16} />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Tìm tên bệnh, mã..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 h-12 bg-gray-50 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-[#329965] transition-all" // h-12
-                />
+            <div className="relative mb-6">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <Search size={16} />
               </div>
-
-              {/* Date */}
-              <div className="md:col-span-3 relative">
-                <input
-                  type="date"
-                  className="w-full px-4 h-12 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-600 focus:outline-none focus:border-[#329965]" // h-12
-                />
-              </div>
-
-              {/* Select */}
-              <div className="md:col-span-4 relative">
-                <select
-                  value={filterSeverity}
-                  onChange={(e) => setFilterSeverity(e.target.value)}
-                  className="w-full px-4 h-12 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700 focus:outline-none focus:border-[#329965] cursor-pointer" // h-12
-                >
-                  <option value="ALL">Tất cả trạng thái</option>
-                  <option value="HIGH">Nguy hiểm</option>
-                  <option value="MEDIUM">Cảnh báo</option>
-                  <option value="HEALTHY">Khỏe mạnh</option>
-                </select>
-              </div>
+              <input
+                type="text"
+                placeholder="Tìm tên bệnh hoặc mã chẩn đoán..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-12 w-full rounded-md border border-gray-200 bg-gray-50 pl-9 pr-4 text-sm transition-all focus:border-[#329965] focus:outline-none"
+              />
             </div>
 
-            {/* --- LIST ITEM --- */}
-            <div className="space-y-4">
-              {filteredHistory.length > 0 ? (
-                filteredHistory.map((item) => (
+            {historyQuery.isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                <Loader2 size={28} className="mb-3 animate-spin text-[#329965]" />
+                Đang tải lịch sử chẩn đoán...
+              </div>
+            ) : historyQuery.isError ? (
+              <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-8 text-center">
+                <p className="font-semibold text-red-600">Không tải được lịch sử chẩn đoán.</p>
+                <p className="mt-2 text-sm text-red-500">
+                  Vui lòng kiểm tra đăng nhập hoặc thử lại sau.
+                </p>
+              </div>
+            ) : filteredHistory.length > 0 ? (
+              <div className="space-y-4">
+                {filteredHistory.map((item) => (
                   <div
-                    key={item.id}
-                    className="border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-start hover:border-[#329965] transition-colors bg-white group"
+                    key={item.diagnosisId}
+                    className="group flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-[#329965] md:flex-row md:items-start"
                   >
-                    {/* Image */}
-                    <div className="relative w-full md:w-20 h-20 shrink-0 rounded-md overflow-hidden bg-gray-100 border border-gray-100">
-                      {" "}
-                      {/* h-20 */}
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.diagnosis}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                    <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-md border border-gray-100 bg-gray-100 md:w-20">
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.disease?.nameVi || "Ảnh chẩn đoán"}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-gray-300">
+                          <FileText size={28} />
+                        </div>
+                      )}
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
-                          #{item.id}
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
+                          #{item.diagnosisId}
                         </span>
-                        <span className="text-xs text-gray-400 mx-1">|</span>
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                          <Clock size={12} /> {item.time}, {item.date}
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <Clock size={12} />
+                          {formatDateTime(item.createdAt)}
                         </span>
                       </div>
 
-                      <h6 className="text-base font-bold text-gray-800 mb-1 truncate group-hover:text-[#329965] transition-colors">
-                        {item.diagnosis}
+                      <h6 className="mb-2 truncate text-base font-bold text-gray-800 transition-colors group-hover:text-[#329965]">
+                        {item.disease?.nameVi || "Ca chẩn đoán đang xử lý"}
                       </h6>
 
-                      <div className="text-xs text-gray-500 mb-2 line-clamp-1 italic">
-                        {item.note || "Không có ghi chú."}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        {getSeverityBadge(item.severity)}
+                      <div className="mb-2 flex items-center gap-3">
+                        {getSeverityBadge(item.disease)}
                         <span className="text-xs text-gray-400">
                           Độ tin cậy:{" "}
                           <span className="font-bold text-gray-600">
-                            {item.confidence}%
+                            {item.disease?.confidencePercent != null
+                              ? `${Number(item.disease.confidencePercent).toFixed(1)}%`
+                              : "Chưa có"}
                           </span>
                         </span>
                       </div>
                     </div>
 
-                    {/* Action Button */}
-                    <div className="w-full md:w-auto mt-2 md:mt-0 flex flex-col justify-center h-full">
-                      <Link href={`/ai-doctor/result?id=${item.id}`}>
-                        <button className="w-full md:w-auto px-4 h-12 border border-[#329965] text-[#329965] hover:bg-[#eaf7f4] rounded-md text-xs font-bold transition-colors flex items-center justify-center gap-1 whitespace-nowrap">
-                          {" "}
-                          {/* h-12 */}
-                          <FileText size={14} /> Chi tiết
-                        </button>
+                    <div className="mt-2 flex w-full flex-col justify-center md:mt-0 md:w-auto">
+                      <Link
+                        href={`/ai-doctor/result?id=${item.diagnosisId}`}
+                        className="flex h-12 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-[#329965] px-4 text-xs font-bold text-[#329965] transition-colors hover:bg-[#eaf7f4]"
+                      >
+                        <FileText size={14} />
+                        Xem chi tiết
                       </Link>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-16">
-                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <FileText size={32} className="text-gray-300" />
-                  </div>
-                  <h3 className="text-gray-900 font-bold mb-1">
-                    Không tìm thấy dữ liệu
-                  </h3>
-                  <p className="text-gray-500 text-sm">
-                    Thử thay đổi bộ lọc hoặc tìm kiếm từ khóa khác.
-                  </p>
+                ))}
+              </div>
+            ) : (
+              <div className="py-16 text-center">
+                <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
+                  <FileText size={32} className="text-gray-300" />
                 </div>
-              )}
-            </div>
+                <h3 className="mb-1 font-bold text-gray-900">Chưa có lịch sử phù hợp</h3>
+                <p className="text-sm text-gray-500">
+                  Hãy thực hiện một ca chẩn đoán mới để lưu hồ sơ AI.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

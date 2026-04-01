@@ -23,7 +23,7 @@ export default function ProfileSidebar({
   const pathname = usePathname();
   const { data: userData } = useCurrentUser(); // ✅ Lấy dữ liệu user từ hook
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = (path: string) => pathname === path || pathname.startsWith(`${path}/`);
 
   const itemClass = (path: string) => `
     flex items-center px-3 py-2.5 rounded-md transition-colors text-sm font-bold mb-1
@@ -46,7 +46,7 @@ export default function ProfileSidebar({
       <div className="flex items-center gap-3 mb-5 border-b border-gray-100 pb-4">
         <div className="w-12 h-12 relative flex-shrink-0">
           <img
-            src={userData?.avatarUrl || "https://hinhcute.net/wp-content/uploads/2025/06/anh-26-meme-dang-yeu.jpg"} // ✅ Hiển thị ảnh từ API
+            src={userData?.avatar?.imageUrl || "https://hinhcute.net/wp-content/uploads/2025/06/anh-26-meme-dang-yeu.jpg"} // ✅ Hiển thị ảnh từ API
             alt="Avatar"
             className="w-full h-full object-cover rounded-full border border-gray-100 shadow-sm"
             onError={(e) => {
@@ -99,7 +99,7 @@ export default function ProfileSidebar({
         Tiện ích
       </div>
       <nav className="flex flex-col">
-        <Link href="/ai-doctor/history" onClick={handleLinkClick} className={itemClass("/ai-doctor/history")}>
+        <Link href="/ai-doctor" onClick={handleLinkClick} className={itemClass("/ai-doctor")}>
           <Bot size={18} className="mr-2.5" /> Chẩn đoán AI
         </Link>
         <Link href="/ponds" onClick={handleLinkClick} className={itemClass("/ponds")}>

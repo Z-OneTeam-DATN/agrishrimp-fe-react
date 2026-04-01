@@ -1,0 +1,79 @@
+import { apiJava } from "@/lib/axios";
+import type {
+  AiDoctorDiagnosisResponse,
+  AiDoctorHistoryListResponse,
+} from "@/app/types/ai-doctor.types";
+
+const DIAGNOSIS_STORAGE_PREFIX = "ai-doctor:diagnosis:";
+const LAST_DIAGNOSIS_ID_KEY = "ai-doctor:last-id";
+
+const canUseStorage = () => typeof window !== "undefined" && !!window.sessionStorage;
+
+const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
+  if (!canUseStorage()) return;
+
+  window.sessionStorage.setItem(
+    `${DIAGNOSIS_STORAGE_PREFIX}${diagnosis.diagnosisId}`,
+    JSON.stringify(diagnosis),
+  );
+  window.sessionStorage.setItem(LAST_DIAGNOSIS_ID_KEY, diagnosis.diagnosisId);
+};
+
+const getCachedDiagnosis = (diagnosisId: string) => {
+  if (!canUseStorage()) return null;
+
+  const raw = window.sessionStorage.getItem(`${DIAGNOSIS_STORAGE_PREFIX}${diagnosisId}`);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as AiDoctorDiagnosisResponse;
+  } catch {
+    return null;
+  }
+};
+
+const getLastDiagnosisId = () => {
+  if (!canUseStorage()) return null;
+  return window.sessionStorage.getItem(LAST_DIAGNOSIS_ID_KEY);
+};
+
+export const aiDoctorService = {
+  async diagnose(image: File, userSymptoms?: string) {
+    const formData = new FormData();
+    formData.append("image", image);
+
+    if (userSymptoms?.trim()) {
+      formData.append("userSymptoms", userSymptoms.trim());
+    }
+
+    const response = await apiJava.post<AiDoctorDiagnosisResponse>(
+      "/miniapp/diagnosis",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 90000,
+      },
+    );
+
+    persistDiagnosis(response.data);
+    return response.data;
+  },
+
+  async getHistory(page: number = 0, size: number = 20) {
+    const response = await apiJava.get<AiDoctorHistoryListResponse>("/miniapp/history", {
+      params: { page, size },
+    });
+    return response.data;
+  },
+
+  async getDiagnosisDetail(diagnosisId: string | number) {
+    const response = await apiJava.get<AiDoctorDiagnosisResponse>(
+      `/miniapp/diagnosis/${diagnosisId}`,
+    );
+    persistDiagnosis(response.data);
+    return response.data;
+  },
+
+  getCachedDiagnosis,
+  getLastDiagnosisId,
+};

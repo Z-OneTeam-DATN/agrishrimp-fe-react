@@ -1,16 +1,22 @@
 "use client"
 
+import Image from "next/image"
 import { ShoppingBag, Truck, Package } from "lucide-react"
 import type { SubOrderDraft } from "@/app/types/order.types"
 
 interface SubOrderCardProps {
   subOrder: SubOrderDraft
   index: number
+  imageByVariantId?: Record<number, string | undefined>
 }
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ"
 
-export function SubOrderCard({ subOrder, index }: SubOrderCardProps) {
+export function SubOrderCard({
+  subOrder,
+  index,
+  imageByVariantId = {},
+}: SubOrderCardProps) {
   return (
     <div className="bg-white border border-gray-200 overflow-hidden">
       {/* Shop header — Shopee style */}
@@ -18,11 +24,11 @@ export function SubOrderCard({ subOrder, index }: SubOrderCardProps) {
         <div className="flex items-center gap-2">
           <ShoppingBag size={15} className="text-teal-600 shrink-0" />
           <span className="text-sm font-semibold text-gray-800">
-            {subOrder.branchName}
+            Cửa hàng AgriShrimp
           </span>
         </div>
         <span className="text-[11px] text-teal-600 font-medium bg-teal-50 px-2 py-0.5 rounded-full">
-          Giao từ Cần Thơ
+          Xử lý bởi cửa hàng
         </span>
       </div>
 
@@ -36,11 +42,26 @@ export function SubOrderCard({ subOrder, index }: SubOrderCardProps) {
 
       {/* Items */}
       <div className="divide-y divide-gray-50">
-        {subOrder.items.map((item) => (
+        {subOrder.items.map((item) => {
+          const imageUrl = imageByVariantId[item.productVariantId]
+
+          return (
           <div key={item.productVariantId} className="flex items-center gap-3 px-4 py-3.5">
             {/* Product image placeholder */}
             <div className="w-16 h-16 border border-gray-100 bg-gray-50 shrink-0 rounded overflow-hidden flex items-center justify-center">
-              <Package size={20} className="text-gray-300" />
+              {imageUrl ? (
+                <div className="relative h-full w-full">
+                  <Image
+                    src={imageUrl}
+                    alt={item.variantName}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <Package size={20} className="text-gray-300" />
+              )}
             </div>
 
             {/* Name + SKU — takes remaining space */}
@@ -76,7 +97,7 @@ export function SubOrderCard({ subOrder, index }: SubOrderCardProps) {
               </span>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Shipping row */}

@@ -8,9 +8,11 @@ pipeline {
 
   environment {
     APP_NAME = 'agrishrimp-fe'
-    APP_PORT = '3000'
-    NEXT_PUBLIC_API_URL = 'http://127.0.0.1:8080/api'
-    NEXT_PUBLIC_APP_URL = 'http://127.0.0.1:3000/api'
+    APP_PORT = '3004'
+    NEXT_PUBLIC_API_URL = '/be-api'
+    NEXT_PUBLIC_APP_URL = 'https://agrishrimp.io.vn'
+    NEXT_PUBLIC_BACKEND_ORIGIN = 'https://api.agrishrimp.io.vn'
+    JAVA_API_URL = 'http://api:8004/api'
   }
 
   stages {

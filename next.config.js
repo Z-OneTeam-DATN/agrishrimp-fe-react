@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const internalApiBaseUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
+
 const nextConfig = {
   output: "standalone",
   distDir: "dist",
@@ -6,15 +8,15 @@ const nextConfig = {
     return [
       {
         source: "/be-api/:path*",
-        destination: "http://be:8080/api/:path*",
+        destination: `${internalApiBaseUrl}/:path*`,
       },
       {
         source: "/api/public/:path*",
-        destination: "http://agri-shrimp-be:8080/api/public/:path*",
+        destination: `${internalApiBaseUrl}/public/:path*`,
       },
       {
         source: "/api/webhooks/:path*",
-        destination: "http://agri-shrimp-be:8080/api/webhooks/:path*",
+        destination: `${internalApiBaseUrl}/webhooks/:path*`,
       },
     ];
   },

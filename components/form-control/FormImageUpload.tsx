@@ -50,7 +50,7 @@ export function FormImageUpload<T extends FieldValues>({
                 if (file) {
                   setFile(file);
                   onFileChange?.(file);
-                  field.onChange("http://localhost:3000/" + file.name);
+                  field.onChange(file.name);
                 }
               }}
             />

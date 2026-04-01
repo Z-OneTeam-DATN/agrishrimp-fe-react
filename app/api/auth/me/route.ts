@@ -17,7 +17,7 @@ export async function GET() {
   try {
     // Use JAVA_API_URL (server-side internal URL) to avoid using the relative
     // NEXT_PUBLIC_API_URL ("/be-api") which is invalid in Node.js context.
-    const javaApiUrl = process.env.JAVA_API_URL ?? "http://localhost:8080/api";
+    const javaApiUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
     const response = await axios.get(
       `${javaApiUrl}/auth/me`,
       {

@@ -9,27 +9,26 @@ services:
         # NEXT_PUBLIC_* phải truyền lúc build (baked vào JS bundle)
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
         - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+        - NEXT_PUBLIC_BACKEND_ORIGIN=${NEXT_PUBLIC_BACKEND_ORIGIN}
         - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
         - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
         - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
     image: agrishrimp-webapp:latest
     container_name: agrishrimp-webapp
     ports:
-      - "3000:3000"
+      - "3004:3004"
     environment:
       # NEXT_PUBLIC_* (runtime — Next.js standalone cần lại)
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - NEXT_PUBLIC_BACKEND_ORIGIN=${NEXT_PUBLIC_BACKEND_ORIGIN}
       - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
       - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
       - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
       # Server-side only (không expose ra browser)
-      - JAVA_API_URL=${JAVA_API_URL:-http://host.docker.internal:8080/api}
+      - JAVA_API_URL=${JAVA_API_URL:-http://api:8004/api}
       - GHN_TOKEN=${GHN_TOKEN}
       - NODE_ENV=production
-    extra_hosts:
-      # Cho phép container truy cập backend chạy trực tiếp trên host (port 8080)
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     networks:
       - agrishrimp-network

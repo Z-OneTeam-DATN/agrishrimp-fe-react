@@ -37,10 +37,17 @@ cp .env.example .env.local
 
 ```env
 # URL của Backend API (Java Spring Boot)
-NEXT_PUBLIC_API_URL=http://localhost:8001/api
+NEXT_PUBLIC_API_URL=http://localhost:8004/api
 
 # URL của Next.js App (dùng cho các API Route nội bộ)
-NEXT_PUBLIC_APP_URL=http://localhost:3000/api
+NEXT_PUBLIC_APP_URL=http://localhost:3004
+
+# Backend origin cho media tuyệt đối và socket local
+NEXT_PUBLIC_BACKEND_ORIGIN=http://localhost:8004
+NEXT_PUBLIC_SOCKET_URL=http://localhost:8004
+
+# URL backend dùng cho SSR / API route server-side
+JAVA_API_URL=http://localhost:8004/api
 ```
 
 > **Lưu ý:** Hãy đảm bảo Backend API đang chạy tại địa chỉ tương ứng.
@@ -53,7 +60,7 @@ Chạy server phát triển (Development server):
 npm run dev
 ```
 
-Truy cập [http://localhost:3000](http://localhost:3000) để xem ứng dụng.
+Truy cập [http://localhost:3004](http://localhost:3004) để xem ứng dụng.
 
 ## Các lệnh Scripts
 
