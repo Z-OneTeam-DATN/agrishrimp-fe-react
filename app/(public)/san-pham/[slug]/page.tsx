@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PublicProductService } from "@/app/services/publicProduct.service";
+import { ReviewService } from "@/app/services/review.service";
 import { cartService } from "@/app/services/cart.service";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { CategoryDTO } from "@/app/types/category.type";
@@ -116,6 +117,7 @@ export default function ProductDetailPage({
     const [quantity, setQuantity] = useState(1);
     const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
     const [isAdding, setIsAdding] = useState(false);
+    const [reviewCount, setReviewCount] = useState<number | null>(null);
 
     useEffect(() => {
         const tab = searchParams.get("tab");
@@ -153,6 +155,34 @@ export default function ProductDetailPage({
         };
         load();
     }, [slug]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadReviewCount = async () => {
+            if (!product?.id) {
+                setReviewCount(null);
+                return;
+            }
+
+            try {
+                const reviews = await ReviewService.getReviewsByProduct(product.id);
+                if (isMounted) {
+                    setReviewCount(reviews.length);
+                }
+            } catch {
+                if (isMounted) {
+                    setReviewCount(null);
+                }
+            }
+        };
+
+        loadReviewCount();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [product?.id]);
 
     // 👉 LỌC RA NHỮNG BIẾN THỂ CÒN HÀNG VÀ CÓ LÔ HÀNG (Dùng useMemo để tối ưu)
     const availableVariants = useMemo(() => {
@@ -235,6 +265,7 @@ export default function ProductDetailPage({
     const parentCategory = currentCategory?.parentId
         ? categories.find((c) => c.id === currentCategory.parentId)
         : null;
+    const reviewTabLabel = reviewCount && reviewCount > 0 ? `(${reviewCount})` : "";
 
     return (
         <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
@@ -536,7 +567,7 @@ export default function ProductDetailPage({
                                             : "text-slate-400 hover:text-slate-600"
                                     }`}
                                 >
-                                    Đánh giá {product.reviewCount ? `(${product.reviewCount})` : ""}
+                                    Đánh giá {reviewTabLabel}
                                 </button>
                             </div>
 

@@ -42,8 +42,11 @@ export interface TopProduct {
 }
 
 export interface CategoryDistribution {
-  name: string;
-  value: number;
+  categoryId: number;
+  categoryName: string;
+  totalRevenue: number;
+  totalQuantity: number;
+  percentage: number;
 }
 
 export interface SalesPerformanceData {

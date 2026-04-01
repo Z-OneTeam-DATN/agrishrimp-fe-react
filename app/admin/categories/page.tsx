@@ -8,7 +8,8 @@ import {
   deleteCategory,
   createCategory,
   updateCategory,
-  toggleCategoryStatus
+  toggleCategoryStatus,
+  type CategoryPayload
 } from "@/app/services/CategoryService";
 import { toast } from "sonner";
 import { Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff } from "lucide-react";
@@ -73,6 +74,12 @@ export default function CategoryManagementPage() {
     name: "", parentId: "none", status: "ACTIVE", imageUrl: ""
   });
 
+  const isActiveStatus = (status: string) =>
+    status === "ACTIVE" || status === "Hiển thị";
+
+  const getStatusLabel = (status: string) =>
+    isActiveStatus(status) ? "Hiển thị" : "Tạm ẩn";
+
   useEffect(() => {
     if (!isLoadingAuth && !hasPermission(P.CATEGORY_VIEW)) {
       router.push("/admin/forbidden");
@@ -99,16 +106,7 @@ export default function CategoryManagementPage() {
 
   const loadData = async (keyword = "", status = "all") => {
     try {
-      const response = await getCategories(keyword, status);
-
-      // SỬA LỖI Ở ĐÂY: Trích xuất đúng mảng dữ liệu từ API response
-      let dataArray = [];
-      if (Array.isArray(response)) {
-        dataArray = response;
-      } else if (response && typeof response === 'object') {
-        // Kiểm tra các key phổ biến chứa mảng dữ liệu trả về từ backend
-        dataArray = response.data || response.content || response.items || response.result || [];
-      }
+      const dataArray = await getCategories(keyword, status);
 
       setParentList(dataArray);
       const tree = buildCategoryTree(dataArray);
@@ -153,7 +151,7 @@ export default function CategoryManagementPage() {
       setFormData({
         name: cat.name,
         parentId: cat.parentId ? String(cat.parentId) : "none",
-        status: cat.status === "Hiển thị" ? "ACTIVE" : "INACTIVE",
+        status: isActiveStatus(cat.status) ? "ACTIVE" : "INACTIVE",
         imageUrl: cat.imageUrl || "",
       });
       setNameError("");
@@ -166,10 +164,8 @@ export default function CategoryManagementPage() {
     if (!statusModal) return;
     try {
       // Xác định trạng thái mới cần đổi
-      const newStatus = statusModal.currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-      // LƯU Ý: Phải kiểm tra xem currentStatus của bạn đang lưu là 'ACTIVE' hay 'Hiển thị' để đảo ngược cho đúng.
+      const newStatus = isActiveStatus(statusModal.currentStatus) ? "INACTIVE" : "ACTIVE";
 
-      // Tùy thuộc vào hàm toggleCategoryStatus của bạn viết như thế nào
       await toggleCategoryStatus(statusModal.id, {
           name: statusModal.name, // Truyền kèm name để pass qua @NotBlank
           status: newStatus
@@ -219,10 +215,10 @@ export default function CategoryManagementPage() {
 
     try {
       setIsSaving(true);
-      const payload = {
+      const payload: CategoryPayload = {
         name: formData.name,
         parentId: formData.parentId === "none" ? null : Number(formData.parentId),
-        status: formData.status,
+        status: formData.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
         imageUrl: formData.imageUrl,
       };
 
@@ -311,14 +307,14 @@ export default function CategoryManagementPage() {
             <span className="text-[12px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">{category.productCount}</span>
           </td>
           <td className="p-3 text-center">
-            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide", category.status === "Hiển thị" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{category.status}</span>
+            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide", isActiveStatus(category.status) ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{getStatusLabel(category.status)}</span>
           </td>
           {canAction && (
             <td className="p-3 text-right">
               <div className="flex justify-end gap-2">
                 {hasPermission(P.CATEGORY_UPDATE) && (
-                  <Button variant="ghost" size="icon" title="Ẩn/Hiện" className={cn("h-8 w-8", category.status === "Hiển thị" ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-500 hover:bg-amber-50")} onClick={() => setStatusModal({ id: category.id, name: category.name, currentStatus: category.status })}>
-                    {category.status === "Hiển thị" ? <Eye size={16} /> : <EyeOff size={16} />}
+                  <Button variant="ghost" size="icon" title="Ẩn/Hiện" className={cn("h-8 w-8", isActiveStatus(category.status) ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-500 hover:bg-amber-50")} onClick={() => setStatusModal({ id: category.id, name: category.name, currentStatus: category.status })}>
+                    {isActiveStatus(category.status) ? <Eye size={16} /> : <EyeOff size={16} />}
                   </Button>
                 )}
                 {hasPermission(P.CATEGORY_UPDATE) && (
@@ -474,7 +470,7 @@ export default function CategoryManagementPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-amber-600 uppercase font-black tracking-tight">Thay đổi trạng thái hiển thị</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-500 font-medium">Bạn muốn {statusModal?.currentStatus === "Hiển thị" ? "ẨN" : "HIỂN THỊ"} danh mục <strong>{statusModal?.name}</strong> trên cửa hàng?</AlertDialogDescription>
+            <AlertDialogDescription className="text-slate-500 font-medium">Bạn muốn {statusModal && isActiveStatus(statusModal.currentStatus) ? "ẨN" : "HIỂN THỊ"} danh mục <strong>{statusModal?.name}</strong> trên cửa hàng?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="font-bold uppercase h-9 text-xs">Hủy</AlertDialogCancel>

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/app/services/dashboard.service";
+import { CategoryDistribution, SalesPerformanceData } from "@/app/types/dashboard.type";
 import { formatDate } from "@/lib/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, PieChart as PieChartIcon, TrendingUp, Calendar, Info } from "lucide-react";
@@ -77,13 +78,13 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
 
     // Cấu hình Chart Doanh thu
     const chartData = useMemo(() => {
-        const raw = performanceResponse?.data || (Array.isArray(performanceResponse) ? performanceResponse : []);
+        const raw: SalesPerformanceData[] = performanceResponse?.data ?? [];
         return {
-            labels: raw.map((item: any) => formatDate(item.date, "dd/MM")),
+            labels: raw.map((item) => formatDate(item.date, "dd/MM")),
             datasets: [
                 {
                     label: 'Doanh thu (VNĐ)',
-                    data: raw.map((item: any) => Number(item.revenue) || 0),
+                    data: raw.map((item) => Number(item.revenue) || 0),
                     backgroundColor: 'rgba(59, 130, 246, 0.7)',
                     hoverBackgroundColor: '#2563eb',
                     borderRadius: 6,
@@ -91,7 +92,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
                 },
                 {
                     label: 'Lợi nhuận (VNĐ)',
-                    data: raw.map((item: any) => Number(item.profit) || 0),
+                    data: raw.map((item) => Number(item.profit) || 0),
                     backgroundColor: 'rgba(16, 185, 129, 0.7)',
                     hoverBackgroundColor: '#059669',
                     borderRadius: 6,
@@ -104,13 +105,12 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
 
     // Cấu hình Chart Tỷ trọng (Doughnut)
     const doughnutData = useMemo(() => {
-        const raw = Array.isArray(distributionResponse) ? distributionResponse : 
-                    Array.isArray(distributionResponse?.data) ? distributionResponse?.data : [];
+        const raw: CategoryDistribution[] = distributionResponse ?? [];
         return {
-            labels: raw.map((item: any) => item.categoryName || "Khác"),
+            labels: raw.map((item) => item.categoryName || "Khác"),
             datasets: [
                 {
-                    data: raw.map((item: any) => Number(item.percentage) || 0),
+                    data: raw.map((item) => Number(item.percentage) || 0),
                     backgroundColor: [
                         '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'
                     ],
@@ -201,7 +201,10 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
                                             bodyFont: { size: 12 },
                                             cornerRadius: 4,
                                             callbacks: {
-                                                label: (ctx) => ` ${ctx.dataset.label?.split(' ')[0]}: ${ctx.parsed.y.toLocaleString()} đ`
+                                                label: (ctx) => {
+                                                    const value = ctx.parsed.y ?? 0;
+                                                    return ` ${ctx.dataset.label?.split(' ')[0]}: ${value.toLocaleString()} đ`;
+                                                }
                                             }
                                         }
                                     },
@@ -211,7 +214,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
                                             border: { display: false },
                                             grid: { color: '#f1f5f9' },
                                             ticks: { 
-                                                font: { size: 10, weight: '500' },
+                                                font: { size: 10, weight: 500 },
                                                 color: '#94a3b8',
                                                 padding: 10,
                                                 callback: (val) => Number(val) >= 1000000 ? `${(Number(val)/1000000).toFixed(1)}M` : Number(val) >= 1000 ? `${(Number(val)/1000).toFixed(0)}K` : val
@@ -220,7 +223,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
                                         x: { 
                                             border: { display: false },
                                             grid: { display: false },
-                                            ticks: { font: { size: 10, weight: '500' }, color: '#94a3b8', padding: 10 } 
+                                            ticks: { font: { size: 10, weight: 500 }, color: '#94a3b8', padding: 10 } 
                                         }
                                     }
                                 }} 

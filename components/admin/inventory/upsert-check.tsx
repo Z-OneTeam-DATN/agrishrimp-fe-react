@@ -120,8 +120,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
   const fetchEmployees = async () => {
     try {
       const res = await EmployeeService.getAll({ status: "ACTIVE", size: 100 });
-      const list = Array.isArray(res) ? res : (res?.data || res?.content || []);
-      setEmployees(list);
+      setEmployees(res.content ?? []);
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -278,6 +277,10 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
     }
   };
 
+  const checkedByNames: string[] = formData.checkedBy
+    .split(", ")
+    .filter((name: string) => Boolean(name));
+
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
@@ -403,7 +406,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
               </Select>
               {formData.checkedBy && (
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {formData.checkedBy.split(", ").filter(Boolean).map((n, i) => (
+                  {checkedByNames.map((n, i) => (
                     <Badge key={i} variant="secondary" className="text-[9px] py-0 h-4 flex items-center gap-1">
                       {n}
                       {mode !== "view" && (
@@ -411,7 +414,9 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                           size={10} 
                           className="cursor-pointer hover:text-rose-500" 
                           onClick={() => {
-                            const filtered = formData.checkedBy.split(", ").filter(name => name !== n).join(", ");
+                            const filtered = checkedByNames
+                              .filter((name: string) => name !== n)
+                              .join(", ");
                             setFormData({...formData, checkedBy: filtered});
                           }}
                         />

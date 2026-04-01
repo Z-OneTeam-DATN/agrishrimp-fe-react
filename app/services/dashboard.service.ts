@@ -7,6 +7,7 @@ import {
   SalesPerformanceResponse,
   PendingOrdersSummary,
   InventoryInfo,
+  CategoryDistribution,
 } from "@/app/types/dashboard.type";
 
 const DASHBOARD_BASE_URL = "/admin/dashboard";
@@ -61,8 +62,8 @@ export const dashboardService = {
     return response.data;
   },
 
-  getCategoryDistribution: async (branchId?: string): Promise<any[]> => {
-    const response = await apiJava.get<any[]>(`${DASHBOARD_BASE_URL}/category-distribution`, {
+  getCategoryDistribution: async (branchId?: string): Promise<CategoryDistribution[]> => {
+    const response = await apiJava.get<CategoryDistribution[]>(`${DASHBOARD_BASE_URL}/category-distribution`, {
       params: { branchId },
     });
     return response.data;

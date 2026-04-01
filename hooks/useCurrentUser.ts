@@ -7,5 +7,6 @@ export function useCurrentUser() {
     data: user,
     isAuthenticated,
     isLoading: isLoadingAuth,
+    error: null as Error | null,
   };
 }
