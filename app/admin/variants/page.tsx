@@ -170,7 +170,7 @@ export default function AttributeManagementPage() {
       loadData();
     } catch (error: any) {
       // Hiển thị chính xác thông báo lỗi trùng lặp từ Backend
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra, có thể mã Code đã tồn tại!");
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi lưu (có thể do trùng mã Code hoặc giá trị đang được sử dụng)!");
     } finally {
       setIsSaving(false);
     }
