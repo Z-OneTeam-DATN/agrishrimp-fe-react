@@ -47,6 +47,7 @@ export function AdminEmployeeTable({
 }: AdminEmployeeTableProps) {
   const { hasPermission } = usePermissions();
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = React.useState<UserResponse | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [resendingId, setResendingId] = React.useState<number | null>(null);
 
@@ -67,14 +68,43 @@ export function AdminEmployeeTable({
     try {
       setIsDeleting(true);
       await EmployeeService.delete(deleteId);
-      toast.success("Xóa nhân viên thành công");
+      const action = selectedEmployee?.status === "INACTIVE" ? "Mở lại" : "Tạm khóa";
+      toast.success(`${action} nhân viên thành công`);
       onRefresh?.();
     } catch (error) {
-      toast.error("Không thể xóa nhân viên này.");
+      toast.error("Không thể thay đổi trạng thái nhân viên này.");
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
+      setSelectedEmployee(null);
     }
+  };
+
+  const openDeleteDialog = (emp: UserResponse) => {
+    setDeleteId(emp.id);
+    setSelectedEmployee(emp);
+  };
+
+  const getDialogTitle = () => {
+    if (!selectedEmployee) return "Xác nhận thay đổi trạng thái";
+    return selectedEmployee.status === "INACTIVE" 
+      ? "Xác nhận mở lại tài khoản"
+      : "Xác nhận tạm khóa tài khoản";
+  };
+
+  const getDialogMessage = () => {
+    if (!selectedEmployee) return "";
+    if (selectedEmployee.status === "INACTIVE") {
+      return `Bạn có chắc chắn muốn mở lại tài khoản cho nhân viên "${selectedEmployee.fullName}" không?`;
+    }
+    return `Bạn có chắc chắn muốn tạm khóa tài khoản nhân viên "${selectedEmployee.fullName}" không?`;
+  };
+
+  const getButtonText = () => {
+    if (!selectedEmployee) return "Xác nhận";
+    return selectedEmployee.status === "INACTIVE" 
+      ? "Xác nhận mở lại"
+      : "Xác nhận tạm khóa";
   };
 
   const canAction = hasPermission(P.STAFF_UPDATE) || hasPermission(P.STAFF_DELETE);
@@ -160,7 +190,7 @@ export function AdminEmployeeTable({
                       </Link>
                     )}
                     {hasPermission(P.STAFF_DELETE) && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => setDeleteId(emp.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => openDeleteDialog(emp)}>
                         <Trash2 size={14} className="text-rose-600" />
                       </Button>
                     )}
@@ -183,18 +213,18 @@ export function AdminEmployeeTable({
         </div>
       </div>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && (setDeleteId(null), setSelectedEmployee(null))}>
         <AlertDialogContent className="rounded-[4px]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[16px] font-bold uppercase">Xác nhận xóa tài khoản</AlertDialogTitle>
+            <AlertDialogTitle className="text-[16px] font-bold uppercase">{getDialogTitle()}</AlertDialogTitle>
             <AlertDialogDescription className="text-[13px]">
-              Bạn có chắc chắn muốn xóa vĩnh viễn nhân viên này khỏi hệ thống không? Hành động này không thể hoàn tác.
+              {getDialogMessage()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9 text-[11px] font-bold uppercase">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete(); }} className="h-9 text-[11px] font-bold uppercase bg-rose-600 text-white" disabled={isDeleting}>
-              {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete(); }} className={cn("h-9 text-[11px] font-bold uppercase text-white", selectedEmployee?.status === "INACTIVE" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700")} disabled={isDeleting}>
+              {isDeleting ? "Đang xử lý..." : getButtonText()}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
