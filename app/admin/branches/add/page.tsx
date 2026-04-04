@@ -210,40 +210,90 @@ export default function AddBranchPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleFetchCoordsFromAddress = async () => {
+  const buildFullAddressQuery = () => {
+    return `${addressDetailValue}, ${currentWard ? getWardName(currentWard) + ', ' : ''}${currentDistrict ? getDistName(currentDistrict) + ', ' : ''}${getProvName(currentProvince)}`;
+  };
+
+  const fetchCoordinatesFromAddress = async () => {
     if (!addressDetailValue || !watchedProvince) {
       toast.error("Vui lòng nhập địa chỉ chi tiết và chọn tỉnh thành trước!");
-      return;
+      return null;
     }
+
     setIsGettingGPS(true);
     try {
-      const fullAddr = `${addressDetailValue}, ${currentWard ? getWardName(currentWard) + ', ' : ''}${currentDistrict ? getDistName(currentDistrict) + ', ' : ''}${getProvName(currentProvince)}`;
+      const fullAddr = buildFullAddressQuery();
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddr)}&limit=1`);
       const data = await response.json();
       if (data && data.length > 0) {
-        setValue("lat", parseFloat(data[0].lat));
-        setValue("lng", parseFloat(data[0].lon));
-        toast.success("Đã cập nhật tọa độ!");
-      } else { toast.error("Không tìm thấy tọa độ."); }
-    } catch (error) { toast.error("Lỗi bản đồ."); } finally { setIsGettingGPS(false); }
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        setValue("lat", lat);
+        setValue("lng", lng);
+        return { lat, lng };
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching coordinates", error);
+      return null;
+    } finally {
+      setIsGettingGPS(false);
+    }
+  };
+
+  const handleFetchCoordsFromAddress = async () => {
+    const coords = await fetchCoordinatesFromAddress();
+    if (coords) {
+      toast.success("Đã cập nhật tọa độ!");
+    } else {
+      toast.error("Không tìm thấy tọa độ. Vui lòng kiểm tra lại địa chỉ hoặc chọn gợi ý.");
+    }
   };
 
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
+
+      let lat = data.lat;
+      let lng = data.lng;
+      const hasLatLng = typeof lat === "number" && typeof lng === "number";
+
+      if (!hasLatLng && data.addressDetail) {
+        const coords = await fetchCoordinatesFromAddress();
+        if (!coords) {
+          toast.error("Không thể lấy tọa độ tự động. Vui lòng kiểm tra lại địa chỉ hoặc chọn gợi ý.");
+          return;
+        }
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+
       const selectedWardObj = wards.find((w: any) => String(getWardId(w)) === data.ward);
       const payload = {
-        branchCode: data.id, name: data.name, branchType: data.branchType, phone: data.phone, email: data.email,
-        addressDetail: data.addressDetail, provinceId: Number(data.province), districtId: Number(data.district),
+        branchCode: data.id,
+        name: data.name,
+        branchType: data.branchType,
+        phone: data.phone,
+        email: data.email,
+        addressDetail: data.addressDetail,
+        provinceId: Number(data.province),
+        districtId: Number(data.district),
         wardId: selectedWardObj?.WardID ?? Number(data.ward),
         wardCode: selectedWardObj?.WardCode ?? selectedWardObj?.code ?? String(data.ward),
-        status: data.status.toUpperCase(), managerIds: data.managerId ? [Number(data.managerId)] : [],
-        lat: data.lat, lng: data.lng
+        status: data.status.toUpperCase(),
+        managerIds: data.managerId ? [Number(data.managerId)] : [],
+        lat,
+        lng,
       };
+
       isEditMode ? await branchService.update(branchId!, payload) : await branchService.create(payload);
       toast.success("Thành công!");
       router.push("/admin/branches");
-    } catch (error: any) { toast.error("Lỗi lưu dữ liệu."); } finally { setIsLoading(false); }
+    } catch (error: any) {
+      toast.error("Lỗi lưu dữ liệu.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderSearchInput = (placeholder: string) => (
