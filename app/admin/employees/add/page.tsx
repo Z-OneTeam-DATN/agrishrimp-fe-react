@@ -159,7 +159,7 @@ export default function AddEmployeePage() {
                 
                 // Auto-fill gender từ API
                 if ((currentGender === "MALE" || currentGender === "OTHER") && data.gender) {
-                    setValue("gender", data.gender, { shouldDirty: true });
+                    setValue("gender", data.gender as "MALE" | "FEMALE" | "OTHER", { shouldDirty: true });
                 }
                 
                 // Auto-fill addressDetail từ API
