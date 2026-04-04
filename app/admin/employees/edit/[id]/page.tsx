@@ -108,7 +108,12 @@ export default function EditEmployeePage() {
     const onFormSubmit = async (data: EmployeeUpdateInput) => {
         try {
             setSaving(true);
-            await EmployeeService.update(userId, data as unknown as UserRequest);
+            // Add email when updating (email is not part of update form but required by backend)
+            const updateData = {
+                ...data,
+                email: userEmail
+            } as unknown as UserRequest;
+            await EmployeeService.update(userId, updateData);
             toast.success("Cập nhật nhân viên thành công!");
             router.push("/admin/employees");
         } catch (error: any) {
