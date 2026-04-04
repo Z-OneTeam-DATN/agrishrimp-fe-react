@@ -1,5 +1,5 @@
 import { apiJava } from '@/lib/axios'
-import { UserRequest, UserResponse, PageResponse } from '@/app/types/employee.schema'
+import { UserRequest, UserResponse, PageResponse, CitizenLookupResponse } from '@/app/types/employee.schema'
 
 export class EmployeeService {
   private static readonly PREFIX = '/employees'
@@ -42,5 +42,10 @@ export class EmployeeService {
 
   static async resendCredentials(id: number): Promise<void> {
     await apiJava.post(`${this.PREFIX}/${id}/resend-credentials`)
+  }
+
+  static async lookupByCitizenId(citizenId: string): Promise<CitizenLookupResponse> {
+    const response = await apiJava.get<CitizenLookupResponse>(`${this.PREFIX}/lookup-citizen/${citizenId}`)
+    return response.data
   }
 }

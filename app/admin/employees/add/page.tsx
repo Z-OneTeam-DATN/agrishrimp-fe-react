@@ -143,6 +143,27 @@ export default function AddEmployeePage() {
         if (!currentGender || currentGender === "OTHER") {
             setValue("gender", inferred.gender, { shouldDirty: true });
         }
+
+        // 🔍 Lookup CCCD từ API để auto-fill địa chỉ
+        const lookupCitizenInfo = async () => {
+            try {
+                const data = await EmployeeService.lookupByCitizenId(currentCitizenId);
+                // Auto-fill address nếu chưa có
+                const currentAddress = watch("addressDetail");
+                if (!currentAddress && data.address) {
+                    setValue("addressDetail", data.address, { shouldDirty: true });
+                }
+                // Also update dateOfBirth if available from lookup
+                if (!currentDateOfBirth && data.dateOfBirth) {
+                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
+                }
+            } catch (error) {
+                // Silent catch - lookup not required, just nice to have
+                // toast.error("Không thể tra cứu CCCD");
+            }
+        };
+
+        lookupCitizenInfo();
     }, [currentCitizenId, currentGender, setValue, watch]);
 
     const handleAvatarClick = () => fileInputRef.current?.click();
