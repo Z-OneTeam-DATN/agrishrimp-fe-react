@@ -221,7 +221,7 @@ export default function AddBranchPage() {
     return text
       .toLowerCase()
       .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/\b(huyen|h\.uyen|h\. |quan|q\.|tp|tp\.|thanh pho|thanh pho|thanh pho\.)\b/gi, "")
       .replace(/\b(phuong|phuong\.|xa|xa\.|thi tran|thi xa|thi xa\.)\b/gi, "")
       .replace(/[^a-z0-9 ]/g, " ")
