@@ -73,7 +73,7 @@ export default function EditEmployeePage() {
                 });
                 setRoles(rolesList);
 
-                const branchesList = Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || [];
+                const branchesList = Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || [];
                 setBranches(branchesList);
 
                 // Lưu email riêng (không nằm trong schema update)
