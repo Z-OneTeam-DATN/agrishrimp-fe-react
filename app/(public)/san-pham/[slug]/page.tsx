@@ -117,7 +117,7 @@ export default function ProductDetailPage({
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
     const [activeImage, setActiveImage] = useState<string>("/placeholder.svg");
     const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
+    const [activeTab, setActiveTab] = useState<"desc" | "specs">("desc");
     const [isAdding, setIsAdding] = useState(false);
     const [reviewCount, setReviewCount] = useState<number | null>(null);
     const [reviewAverage, setReviewAverage] = useState<number | null>(null);
@@ -132,7 +132,6 @@ export default function ProductDetailPage({
     useEffect(() => {
         const tab = searchParams.get("tab");
         if (tab === "reviews") {
-            setActiveTab("reviews");
             setPendingReviewScroll(true);
         }
         else if (tab === "specs") setActiveTab("specs");
@@ -270,7 +269,7 @@ export default function ProductDetailPage({
     }, [productGalleryImages.length, activeImage]);
 
     useEffect(() => {
-        if (activeTab !== "reviews" || !pendingReviewScroll) return;
+        if (!pendingReviewScroll) return;
 
         const timeoutId = window.setTimeout(() => {
             reviewSectionRef.current?.scrollIntoView({
@@ -281,7 +280,7 @@ export default function ProductDetailPage({
         }, 120);
 
         return () => window.clearTimeout(timeoutId);
-    }, [activeTab, pendingReviewScroll, selectedReviewFilter]);
+    }, [pendingReviewScroll, selectedReviewFilter]);
 
     useEffect(() => {
         setSelectedReviewFilter("all");
@@ -307,7 +306,6 @@ export default function ProductDetailPage({
 
     const openReviewsSection = (filter: ReviewFilterValue = "all") => {
         setSelectedReviewFilter(filter);
-        setActiveTab("reviews");
         setPendingReviewScroll(true);
     };
 
@@ -745,16 +743,6 @@ export default function ProductDetailPage({
                                 >
                                     Thông số
                                 </button>
-                                <button
-                                    onClick={() => openReviewsSection("all")}
-                                    className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                        activeTab === "reviews"
-                                            ? "text-teal-600 border-b-2 border-teal-600"
-                                            : "text-slate-400 hover:text-slate-600"
-                                    }`}
-                                >
-                                    Đánh giá {reviewTabLabel}
-                                </button>
                             </div>
 
                             <div className="p-6 text-slate-600 text-sm leading-relaxed">
@@ -820,17 +808,18 @@ export default function ProductDetailPage({
                                         </div>
                                     </div>
                                 )}
-                                {activeTab === "reviews" && (
-                                    <div ref={reviewSectionRef}>
-                                        <ProductReviews
-                                            productId={product.id}
-                                            slug={slug}
-                                            activeFilter={selectedReviewFilter}
-                                            onFilterChange={setSelectedReviewFilter}
-                                        />
-                                    </div>
-                                )}
+
                             </div>
+                        </div>
+
+                        {/* Reviews Section - Standalone below tabs */}
+                        <div ref={reviewSectionRef} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                            <ProductReviews
+                                productId={product.id}
+                                slug={slug}
+                                activeFilter={selectedReviewFilter}
+                                onFilterChange={setSelectedReviewFilter}
+                            />
                         </div>
                     </div>
 
