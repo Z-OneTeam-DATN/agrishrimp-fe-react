@@ -215,6 +215,18 @@ export default function AddBranchPage() {
     return `${addressDetailValue}, ${currentWard ? getWardName(currentWard) + ', ' : ''}${currentDistrict ? getDistName(currentDistrict) + ', ' : ''}${getProvName(currentProvince)}`;
   };
 
+  // Helper: Strip Google Plus Code format from address
+  const extractAddressWithoutPlusCode = (address: string): string => {
+    // If address contains + and , it's likely "CODE, Address" format
+    // Extract just the address part (after the comma)
+    if (address.includes("+") && address.includes(",")) {
+      const parts = address.split(",");
+      // Skip the first part (Plus Code) and rejoin the rest
+      return parts.slice(1).join(",").trim();
+    }
+    return address;
+  };
+
   const fetchCoordinatesFromAddress = async () => {
     // Không bắt buộc province nếu addressDetail đã đủ thông tin
     if (!addressDetailValue || addressDetailValue.trim().length < 3) {
@@ -224,9 +236,12 @@ export default function AddBranchPage() {
 
     setIsGettingGPS(true);
     try {
-      // Ưu tiên 1: Cố gắng geocode trực tiếp từ addressDetail (e.g., Google Maps format)
+      // Extract address without Plus Code (e.g., "PVC3+W6H, Hồ Đắc Kiện, Cần Thơ" → "Hồ Đắc Kiện, Cần Thơ")
+      const cleanAddress = extractAddressWithoutPlusCode(addressDetailValue);
+
+      // Ưu tiên 1: Cố gắng geocode trực tiếp từ cleaned address
       const directResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressDetailValue)}&countrycodes=vn&limit=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&countrycodes=vn&limit=1`
       );
       const directData = await directResponse.json();
 
@@ -249,6 +264,23 @@ export default function AddBranchPage() {
         if (fullData && fullData.length > 0 && fullData[0].lat && fullData[0].lon) {
           const lat = parseFloat(fullData[0].lat);
           const lng = parseFloat(fullData[0].lon);
+          setValue("lat", lat);
+          setValue("lng", lng);
+          return { lat, lng };
+        }
+      }
+
+      // Ưu tiên 3: Try searching with just district + province as fallback
+      if (currentDistrict && currentProvince) {
+        const simpleAddr = `${getDistName(currentDistrict)}, ${getProvName(currentProvince)}`;
+        const simpleResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simpleAddr)}&countrycodes=vn&limit=1`
+        );
+        const simpleData = await simpleResponse.json();
+
+        if (simpleData && simpleData.length > 0 && simpleData[0].lat && simpleData[0].lon) {
+          const lat = parseFloat(simpleData[0].lat);
+          const lng = parseFloat(simpleData[0].lon);
           setValue("lat", lat);
           setValue("lng", lng);
           return { lat, lng };
