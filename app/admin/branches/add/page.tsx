@@ -217,13 +217,85 @@ export default function AddBranchPage() {
     return `${addressDetailValue}, ${currentWard ? getWardName(currentWard) + ', ' : ''}${currentDistrict ? getDistName(currentDistrict) + ', ' : ''}${getProvName(currentProvince)}`;
   };
 
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/\b(huyen|h\.uyen|h\. |quan|q\.|tp|tp\.|thanh pho|thanh pho|thanh pho\.)\b/gi, "")
+      .replace(/\b(phuong|phuong\.|xa|xa\.|thi tran|thi xa|thi xa\.)\b/gi, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const findMatchingItem = (items: any[], name: string, getName: (item: any) => string) => {
+    const normalizedTarget = normalizeText(name);
+    return items.find(item => normalizeText(getName(item)).includes(normalizedTarget) || normalizedTarget.includes(normalizeText(getName(item))));
+  };
+
+  const reverseGeocodeAddress = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const address = data.address || {};
+      const addressParts = [
+        address.house_number,
+        address.road || address.pedestrian || address.footway || address.cycleway || address.path,
+        address.neighbourhood || address.suburb || address.quarter || address.hamlet || address.village,
+      ].filter(Boolean);
+      const addressDetail = addressParts.join(", ");
+      return {
+        fullAddress: data.display_name || "",
+        addressDetail,
+        province: address.state || address.region || address.county || "",
+        district: address.county || address.city_district || address.suburb || address.town || "",
+        ward: address.suburb || address.quarter || address.village || address.hamlet || "",
+      };
+    } catch (error) {
+      console.error("Error reverse geocoding", error);
+      return null;
+    }
+  };
+
+  const applyLocationFromMap = async (lat: number, lng: number) => {
+    const location = await reverseGeocodeAddress(lat, lng);
+    if (!location) {
+      toast.error("Không thể xác định địa chỉ từ vị trí này.");
+      return;
+    }
+
+    if (location.addressDetail) {
+      setValue("addressDetail", location.addressDetail);
+    }
+
+    const provinceMatch = location.province ? findMatchingItem(provinces, location.province, getProvName) : undefined;
+    if (provinceMatch) {
+      setValue("province", String(getProvId(provinceMatch)));
+      const districtRes = await fetchWithAuth(`/api/ghn/district?province_id=${getProvId(provinceMatch)}`);
+      const districtList = extractArray(await districtRes.json());
+      setDistricts(districtList);
+
+      const districtMatch = location.district ? findMatchingItem(districtList, location.district, getDistName) : undefined;
+      if (districtMatch) {
+        setValue("district", String(getDistId(districtMatch)));
+        const wardRes = await fetchWithAuth(`/api/ghn/ward?district_id=${getDistId(districtMatch)}`);
+        const wardList = extractArray(await wardRes.json());
+        setWards(wardList);
+
+        const wardMatch = location.ward ? findMatchingItem(wardList, location.ward, getWardName) : undefined;
+        if (wardMatch) {
+          setValue("ward", String(getWardId(wardMatch)));
+        }
+      }
+    }
+  };
+
   // Helper: Strip Google Plus Code format from address
   const extractAddressWithoutPlusCode = (address: string): string => {
-    // If address contains + and , it's likely "CODE, Address" format
-    // Extract just the address part (after the comma)
     if (address.includes("+") && address.includes(",")) {
       const parts = address.split(",");
-      // Skip the first part (Plus Code) and rejoin the rest
       return parts.slice(1).join(",").trim();
     }
     return address;
@@ -317,9 +389,10 @@ export default function AddBranchPage() {
     }
   };
 
-  const handleMapLocationSelect = (lat: number, lng: number) => {
+  const handleMapLocationSelect = async (lat: number, lng: number) => {
     setValue("lat", lat);
     setValue("lng", lng);
+    await applyLocationFromMap(lat, lng);
     setShowMapPicker(false);
     toast.success("✓ Đã chọn tọa độ từ bản đồ!");
   };
