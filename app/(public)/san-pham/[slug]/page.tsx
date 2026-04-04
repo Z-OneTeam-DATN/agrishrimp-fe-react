@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+    ChevronLeft,
     ChevronRight,
     Minus,
     Plus,
@@ -12,6 +13,7 @@ import {
     Phone,
     Loader2,
     PackageX,
+    Star,
     Tag,
     Globe,
     Layers,
@@ -29,7 +31,7 @@ import {
     PublicProductVariant,
 } from "@/app/types/product.schema";
 import { formatNumber } from "@/lib/utils";
-import { ProductReviews } from "@/components/site/ProductReviews";
+import { ProductReviews, ReviewFilterValue } from "@/components/site/ProductReviews";
 import { useSearchParams } from "next/navigation";
 
 function getVariantLabel(variant: PublicProductVariant): string {
@@ -56,7 +58,7 @@ function animateFlyToCart(e: React.MouseEvent) {
     inner.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#0d9488" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-10"/></svg>`;
     outer.appendChild(inner);
     document.body.appendChild(outer);
-    const _ = outer.offsetWidth;
+    void outer.offsetWidth;
     outer.style.transform = `translateX(${endX - startX - 16}px)`;
     inner.style.transform = `translateY(${endY - startY - 16}px) scale(0.5) rotate(360deg)`;
     inner.style.opacity = "0.2";
@@ -118,10 +120,21 @@ export default function ProductDetailPage({
     const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
     const [isAdding, setIsAdding] = useState(false);
     const [reviewCount, setReviewCount] = useState<number | null>(null);
+    const [reviewAverage, setReviewAverage] = useState<number | null>(null);
+    const [selectedReviewFilter, setSelectedReviewFilter] = useState<ReviewFilterValue>("all");
+    const [pendingReviewScroll, setPendingReviewScroll] = useState(false);
+    const [canScrollThumbnailsLeft, setCanScrollThumbnailsLeft] = useState(false);
+    const [canScrollThumbnailsRight, setCanScrollThumbnailsRight] = useState(false);
+    const [hasThumbnailOverflow, setHasThumbnailOverflow] = useState(false);
+    const thumbnailStripRef = React.useRef<HTMLDivElement | null>(null);
+    const reviewSectionRef = React.useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         const tab = searchParams.get("tab");
-        if (tab === "reviews") setActiveTab("reviews");
+        if (tab === "reviews") {
+            setActiveTab("reviews");
+            setPendingReviewScroll(true);
+        }
         else if (tab === "specs") setActiveTab("specs");
     }, [searchParams]);
 
@@ -174,6 +187,7 @@ export default function ProductDetailPage({
         const loadReviewCount = async () => {
             if (!product?.id) {
                 setReviewCount(null);
+                setReviewAverage(null);
                 return;
             }
 
@@ -181,10 +195,16 @@ export default function ProductDetailPage({
                 const reviews = await ReviewService.getReviewsByProduct(product.id);
                 if (isMounted) {
                     setReviewCount(reviews.length);
+                    setReviewAverage(
+                        reviews.length > 0
+                            ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+                            : 0
+                    );
                 }
             } catch {
                 if (isMounted) {
                     setReviewCount(null);
+                    setReviewAverage(null);
                 }
             }
         };
@@ -219,11 +239,76 @@ export default function ProductDetailPage({
         return uniqueImages.length > 0 ? uniqueImages : ["/placeholder.svg"];
     }, [product]);
 
+    useEffect(() => {
+        const updateThumbnailScrollState = () => {
+            const container = thumbnailStripRef.current;
+            if (!container) {
+                setHasThumbnailOverflow(false);
+                setCanScrollThumbnailsLeft(false);
+                setCanScrollThumbnailsRight(false);
+                return;
+            }
+
+            const overflow = container.scrollWidth > container.clientWidth + 8;
+            setHasThumbnailOverflow(overflow);
+            setCanScrollThumbnailsLeft(container.scrollLeft > 8);
+            setCanScrollThumbnailsRight(
+                container.scrollLeft + container.clientWidth < container.scrollWidth - 8
+            );
+        };
+
+        updateThumbnailScrollState();
+
+        const container = thumbnailStripRef.current;
+        container?.addEventListener("scroll", updateThumbnailScrollState);
+        window.addEventListener("resize", updateThumbnailScrollState);
+
+        return () => {
+            container?.removeEventListener("scroll", updateThumbnailScrollState);
+            window.removeEventListener("resize", updateThumbnailScrollState);
+        };
+    }, [productGalleryImages.length, activeImage]);
+
+    useEffect(() => {
+        if (activeTab !== "reviews" || !pendingReviewScroll) return;
+
+        const timeoutId = window.setTimeout(() => {
+            reviewSectionRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+            setPendingReviewScroll(false);
+        }, 120);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [activeTab, pendingReviewScroll, selectedReviewFilter]);
+
+    useEffect(() => {
+        setSelectedReviewFilter("all");
+    }, [product?.id]);
+
     const handleSelectVariant = (index: number) => {
         setSelectedVariantIndex(index);
         const v = availableVariants[index]; // Thay vì lấy từ product.variants, ta lấy từ availableVariants
         const img = v?.imageUrl ?? productGalleryImages[0] ?? "/placeholder.svg";
         setActiveImage(img);
+    };
+
+    const scrollThumbnailStrip = (direction: "left" | "right") => {
+        const container = thumbnailStripRef.current;
+        if (!container) return;
+
+        const step = Math.max(container.clientWidth * 0.75, 180);
+        container.scrollBy({
+            left: direction === "left" ? -step : step,
+            behavior: "smooth",
+        });
+    };
+
+    const openReviewsSection = (filter: ReviewFilterValue = "all") => {
+        setSelectedReviewFilter(filter);
+        setActiveTab("reviews");
+        setPendingReviewScroll(true);
     };
 
     const handleAddToCart = async (e: React.MouseEvent, buyNow: boolean) => {
@@ -243,14 +328,21 @@ export default function ProductDetailPage({
                 animateFlyToCart(e);
                 toast.success("Đã thêm vào giỏ hàng!");
             }
-        } catch (error: any) {
-            if (error.response?.status === 401 || error.response?.status === 403) {
+        } catch (error: unknown) {
+            const apiError = error as {
+                response?: {
+                    status?: number;
+                    data?: { message?: string };
+                };
+            };
+
+            if (apiError.response?.status === 401 || apiError.response?.status === 403) {
                 toast.error("Vui lòng đăng nhập để mua hàng!");
                 setTimeout(() => {
                     router.push("/login");
                 }, 1500);
             } else {
-                toast.error(error.response?.data?.message || "Không thể thêm vào giỏ hàng");
+                toast.error(apiError.response?.data?.message || "Không thể thêm vào giỏ hàng");
             }
         } finally {
             setIsAdding(false);
@@ -292,7 +384,10 @@ export default function ProductDetailPage({
     const parentCategory = currentCategory?.parentId
         ? categories.find((c) => c.id === currentCategory.parentId)
         : null;
-    const reviewTabLabel = reviewCount && reviewCount > 0 ? `(${reviewCount})` : "";
+    const totalReviewCount = reviewCount ?? product.reviewCount ?? 0;
+    const displayAverageRating = Number(reviewAverage ?? product.ratingAverage ?? 0);
+    const soldCount = Number(product.soldCount ?? 0);
+    const reviewTabLabel = totalReviewCount > 0 ? `(${totalReviewCount})` : "";
 
     return (
         <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
@@ -341,7 +436,7 @@ export default function ProductDetailPage({
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
                                 {/* Gallery */}
-                                <div className="md:col-span-5 space-y-4">
+                                <div className="md:col-span-6 space-y-4">
                                     <div className="relative aspect-square rounded-2xl overflow-hidden bg-white border border-slate-100 group cursor-zoom-in">
                                         {isCompletelyOutOfStock && (
                                             <div className="absolute top-4 left-4 z-10 bg-gray-900/80 text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg backdrop-blur-sm">
@@ -353,7 +448,7 @@ export default function ProductDetailPage({
                                             alt={product.name}
                                             fill
                                             priority
-                                            className={`object-contain p-8 transition-all duration-700 ease-out group-hover:scale-110 ${
+                                            className={`object-contain p-3 sm:p-4 transition-all duration-700 ease-out scale-[1.08] group-hover:scale-[1.14] ${
                                                 isCompletelyOutOfStock ? "opacity-40 grayscale" : ""
                                             }`}
                                             onError={(e) => {
@@ -364,17 +459,38 @@ export default function ProductDetailPage({
                                     </div>
 
                                     {productGalleryImages.length > 1 && (
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-slate-600">
-                                                Thư viện ảnh sản phẩm
-                                            </p>
-                                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-0.5">
+                                        <div className="relative px-10">
+                                            {hasThumbnailOverflow && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => scrollThumbnailStrip("left")}
+                                                        disabled={!canScrollThumbnailsLeft}
+                                                        className="absolute left-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    >
+                                                        <ChevronLeft size={16} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => scrollThumbnailStrip("right")}
+                                                        disabled={!canScrollThumbnailsRight}
+                                                        className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    >
+                                                        <ChevronRight size={16} />
+                                                    </button>
+                                                </>
+                                            )}
+
+                                            <div
+                                                ref={thumbnailStripRef}
+                                                className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-2 px-0.5"
+                                            >
                                                 {productGalleryImages.map((img, idx) => (
                                                     <button
                                                         key={`${img}-${idx}`}
                                                         onMouseEnter={() => setActiveImage(img)}
                                                         onClick={() => setActiveImage(img)}
-                                                        className={`relative w-20 h-20 shrink-0 rounded-xl border-2 transition-all duration-300 overflow-hidden shadow-sm ${
+                                                        className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-300 shadow-sm ${
                                                             activeImage === img
                                                                 ? "border-teal-500 ring-2 ring-teal-500/20 scale-95"
                                                                 : "border-transparent hover:border-slate-300 grayscale-[0.5] hover:grayscale-0"
@@ -394,7 +510,7 @@ export default function ProductDetailPage({
                                 </div>
 
                                 {/* Info */}
-                                <div className="md:col-span-7 flex flex-col pt-2">
+                                <div className="md:col-span-6 flex flex-col pt-2">
                                     {/* Brand + SKU */}
                                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                                         {currentVariant?.sku && (
@@ -438,6 +554,44 @@ export default function ProductDetailPage({
                                         <p className="text-sm text-slate-500 mb-4 font-medium leading-relaxed">
                                             {product.shortDesc}
                                         </p>
+                                    )}
+
+                                    {(totalReviewCount > 0 || soldCount > 0) && (
+                                        <div className="mb-5 flex flex-wrap items-center gap-3">
+                                            {totalReviewCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openReviewsSection("all")}
+                                                    className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-orange-300 hover:bg-orange-100"
+                                                >
+                                                    <div className="flex items-center gap-0.5 text-orange-400">
+                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                            <Star
+                                                                key={star}
+                                                                size={14}
+                                                                className={
+                                                                    star <= Math.round(displayAverageRating)
+                                                                        ? "fill-current"
+                                                                        : "fill-slate-100 text-slate-200"
+                                                                }
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    <span>
+                                                        {displayAverageRating > 0
+                                                            ? displayAverageRating.toFixed(1)
+                                                            : "0.0"}{" "}
+                                                        ({formatNumber(totalReviewCount)} đánh giá)
+                                                    </span>
+                                                </button>
+                                            )}
+
+                                            {soldCount > 0 && (
+                                                <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700">
+                                                    Đã mua {formatNumber(soldCount)}
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
 
                                     {/* Price block */}
@@ -592,7 +746,7 @@ export default function ProductDetailPage({
                                     Thông số
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab("reviews")}
+                                    onClick={() => openReviewsSection("all")}
                                     className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
                                         activeTab === "reviews"
                                             ? "text-teal-600 border-b-2 border-teal-600"
@@ -667,7 +821,14 @@ export default function ProductDetailPage({
                                     </div>
                                 )}
                                 {activeTab === "reviews" && (
-                                    <ProductReviews productId={product.id} slug={slug} />
+                                    <div ref={reviewSectionRef}>
+                                        <ProductReviews
+                                            productId={product.id}
+                                            slug={slug}
+                                            activeFilter={selectedReviewFilter}
+                                            onFilterChange={setSelectedReviewFilter}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </div>
