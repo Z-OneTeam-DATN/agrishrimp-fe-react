@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ChevronLeft, Users, Building2, 
     Mail, Phone, MapPin, 
-    Lock, Loader2, UserCircle2, Briefcase, Fingerprint
+    Lock, Loader2, Camera, UserCircle2, Briefcase, Fingerprint
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/axios";
+import { getErrorMessage, apiJava } from "@/lib/axios";
 import { EmployeeService } from "@/app/services/employee.service";
 import { RoleService } from "@/app/services/RoleService";
 import { BranchService } from "@/app/services/branchService";
@@ -32,10 +32,12 @@ export default function EditEmployeePage() {
     const { user: currentUser } = useAuthStore();
 
     // Data States
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [roles, setRoles] = useState<RoleType[]>([]);
     const [branches, setBranches] = useState<BranchType[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [userEmail, setUserEmail] = useState<string>("");
 
     const {
@@ -91,9 +93,9 @@ export default function EditEmployeePage() {
                     gender: (userRes.gender as any) || "MALE",
                     status: (userRes.status as any) || "ACTIVE",
                     addressDetail: userRes.addressDetail || "",
+                    avatarUrl: userRes.avatarUrl || null,
                     startDate: userRes.startDate ? userRes.startDate.split('T')[0] : ""
                 });
-
             } catch (error) {
                 console.error("Load Error:", error);
                 toast.error("Không thể tải thông tin nhân viên.");
@@ -134,10 +136,42 @@ export default function EditEmployeePage() {
         }
     };
 
+    const handleAvatarClick = () => fileInputRef.current?.click();
+
+    const handleEmployeeAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setUploading(true);
+            const formDataUpload = new FormData();
+            formDataUpload.append("file", file);
+
+            const response = await apiJava.post('/users/upload-avatar', formDataUpload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const avatarUrl = response.data.imageUrl || response.data.url;
+
+            if (!avatarUrl) {
+                toast.error("Upload thành công nhưng không nhận được đường dẫn ảnh.");
+                return;
+            }
+
+            setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });
+            toast.success("Tải ảnh lên thành công!");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error) || "Lỗi khi tải ảnh.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center flex-col gap-4 bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={32} /><p className="text-sm font-medium text-slate-50">Đang tải dữ liệu nhân viên...</p></div>;
 
     return (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pb-[100px] bg-slate-50 min-h-screen text-slate-800">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleEmployeeAvatarUpload} />
             {/* HEADER */}
             <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
                 <div className="flex items-center gap-4">
@@ -257,9 +291,22 @@ export default function EditEmployeePage() {
 
                 <div className="col-span-4 space-y-4">
                     <div className="bg-white border border-slate-200 p-6 shadow-sm flex flex-col items-center rounded-lg">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 mb-4 self-start">Tài khoản</Label>
-                        <UserCircle2 size={80} className="text-slate-200 mb-4" />
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 mb-4 self-start">Ảnh hồ sơ</Label>
+                        <div className="relative mb-4">
+                            <div className="h-24 w-24 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
+                                {watch("avatarUrl") ? (
+                                    <img src={watch("avatarUrl") as string} alt="avatar" className="h-full w-full object-cover" />
+                                ) : (
+                                    <UserCircle2 size={60} className="text-slate-300" />
+                                )}
+                            </div>
+                            <Button type="button" variant="outline" size="sm" className="absolute bottom-0 right-0 translate-x-2 translate-y-2 rounded-full p-2 border border-slate-200 bg-white shadow-sm" onClick={handleAvatarClick} disabled={uploading}>
+                                <Camera size={14} />
+                            </Button>
+                        </div>
                         <div className="w-full space-y-4">
+                            <div className="text-center text-[11px] text-slate-500">Nhấn vào biểu tượng camera để thay đổi ảnh</div>
+                            {uploading && <div className="text-[11px] text-slate-400">Đang tải ảnh...</div>}
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Trạng thái</Label>
                                 <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val)}>
