@@ -25,6 +25,7 @@ import { branchService } from '@/app/services/branchService';
 import { EmployeeService } from "@/app/services/employee.service";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import MapPicker from "@/components/admin/map-picker";
 
 // --- HELPERS TRÍCH XUẤT DỮ LIỆU ---
 const getProvId = (item: any) => item?.ProvinceID ?? item?.province_id ?? item?.id ?? "";
@@ -69,6 +70,7 @@ export default function AddBranchPage() {
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isGettingGPS, setIsGettingGPS] = useState(false);
   const [hasAutoGeocoded, setHasAutoGeocoded] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -315,6 +317,13 @@ export default function AddBranchPage() {
     }
   };
 
+  const handleMapLocationSelect = (lat: number, lng: number) => {
+    setValue("lat", lat);
+    setValue("lng", lng);
+    setShowMapPicker(false);
+    toast.success("✓ Đã chọn tọa độ từ bản đồ!");
+  };
+
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
@@ -376,6 +385,7 @@ export default function AddBranchPage() {
   const filteredStaffs = useMemo(() => staffs.filter(s => (s?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase())), [staffs, searchTerm]);
 
   return (
+    <>
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen">
       <div className="flex items-center gap-4 mb-2 px-1">
         <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400"><ChevronLeft size={20} /></Button>
@@ -496,6 +506,9 @@ export default function AddBranchPage() {
                     <Button type="button" onClick={handleFetchCoordsFromAddress} disabled={isGettingGPS} className="h-7 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3">
                     {isGettingGPS ? <Loader2 size={11} className="animate-spin mr-1" /> : <Navigation size={11} className="mr-1" />} Lấy tọa độ
                     </Button>
+                    <Button type="button" onClick={() => setShowMapPicker(true)} className="h-7 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3">
+                      <MapPin size={11} className="mr-1" /> Chọn trên bản đồ
+                    </Button>
                     {watchedLat && watchedLng && (
                       <a href={`https://www.google.com/maps?q=${watchedLat},${watchedLng}`} target="_blank" rel="noopener noreferrer" className="h-7 flex items-center gap-1 px-3 text-[10px] font-bold text-blue-600 border border-blue-200 bg-blue-50">
                         <ExternalLink size={11} /> Xem bản đồ
@@ -589,5 +602,15 @@ export default function AddBranchPage() {
         </Button>
       </div>
     </form>
+    
+    {showMapPicker && (
+      <MapPicker
+        initialLat={watchedLat}
+        initialLng={watchedLng}
+        onLocationSelect={handleMapLocationSelect}
+        onClose={() => setShowMapPicker(false)}
+      />
+    )}
+    </>
   );
 }
