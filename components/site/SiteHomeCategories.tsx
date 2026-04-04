@@ -5,20 +5,13 @@ import Link from "next/link";
 import { LayoutGrid, Loader2 } from "lucide-react";
 
 import { getPublicCategories } from "@/app/services/CategoryService";
-
-interface Category {
-  id: number;
-  name: string;
-  imageUrl?: string;
-  slug?: string;
-  parentId?: number | null;
-}
+import { CategoryDTO } from "@/app/types/category.type";
 
 const BACKEND_ORIGIN =
   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 
 export default function HomeCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +20,12 @@ export default function HomeCategories() {
         setIsLoading(true);
         const data = await getPublicCategories();
 
-        const parentCategories = data.filter((cat: any) => !cat.parentId || cat.parentId === 0);
+        const parentCategories = data.filter(
+          (cat: CategoryDTO) =>
+            (!cat.parentId || cat.parentId === 0) &&
+            cat.status === "ACTIVE" &&
+            (cat.productCount ?? 0) > 0
+        );
         setCategories(parentCategories);
       } catch (error) {
         console.error("Lỗi tải danh mục:", error);
@@ -48,6 +46,10 @@ export default function HomeCategories() {
 
       return `${BACKEND_ORIGIN}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
     };
+
+  if (!isLoading && categories.length === 0) {
+    return null;
+  }
 
   return (
     <section className="bg-white rounded-xl p-6 shadow-sm mb-6 border border-gray-100">

@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
@@ -11,12 +10,8 @@ import {
   Loader2,
   PackageX,
   ChevronRight,
-  ChevronLeft,
   Tag,
-  ShoppingCart,
-  Layers,
   BadgeCheck,
-  Store,
   LayoutGrid,
 } from "lucide-react";
 import { PublicProductService } from "@/app/services/publicProduct.service";
@@ -24,79 +19,29 @@ import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
 import { PublicProductListItem } from "@/app/types/product.schema";
 import { BrandDTO } from "@/app/types/brand.type";
-import { formatNumber } from "@/lib/utils";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
+import LoadMoreButton from "@/components/ui/load-more-button";
+import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { motion, AnimatePresence } from "framer-motion";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 60;
+const ROWS_PER_STEP = 3;
 
-function Pagination({
-  currentPage,
-  totalPages,
-  onPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-}) {
-  if (totalPages <= 1) return null;
+function mergeUniqueProducts(
+  existing: PublicProductListItem[],
+  incoming: PublicProductListItem[]
+) {
+  const merged = [...existing];
+  const seenIds = new Set(existing.map((product) => product.id));
 
-  const pages: (number | "...")[] = [];
-  const delta = 2;
-  for (let i = 0; i < totalPages; i++) {
-    if (
-      i === 0 ||
-      i === totalPages - 1 ||
-      (i >= currentPage - delta && i <= currentPage + delta)
-    ) {
-      pages.push(i);
-    } else if (pages[pages.length - 1] !== "...") {
-      pages.push("...");
+  incoming.forEach((product) => {
+    if (!seenIds.has(product.id)) {
+      seenIds.add(product.id);
+      merged.push(product);
     }
-  }
+  });
 
-  return (
-    <div className="flex items-center justify-center gap-1.5 mt-10">
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 0}
-        className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 disabled:opacity-30 hover:border-teal-500 hover:text-teal-600 transition-colors bg-white shadow-sm"
-      >
-        <ChevronLeft size={16} />
-      </button>
-
-      {pages.map((p, idx) =>
-        p === "..." ? (
-          <span
-            key={`ellipsis-${idx}`}
-            className="w-9 text-center text-gray-400 text-sm"
-          >
-            …
-          </span>
-        ) : (
-          <button
-            key={p}
-            onClick={() => onPageChange(p as number)}
-            className={`w-9 h-9 rounded-xl text-sm font-bold transition-all shadow-sm ${
-              p === currentPage
-                ? "bg-teal-600 text-white shadow-teal-200"
-                : "bg-white border border-gray-200 text-gray-600 hover:border-teal-500 hover:text-teal-600"
-            }`}
-          >
-            {(p as number) + 1}
-          </button>
-        )
-      )}
-
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages - 1}
-        className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 disabled:opacity-30 hover:border-teal-500 hover:text-teal-600 transition-colors bg-white shadow-sm"
-      >
-        <ChevronRight size={16} />
-      </button>
-    </div>
-  );
+  return merged;
 }
 
 export default function ProductListingPage() {
@@ -116,11 +61,17 @@ export default function ProductListingPage() {
 function ProductListingInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const gridColumns = useResponsiveColumns({
+    defaultColumns: 2,
+    smColumns: 3,
+  });
 
   const [products, setProducts] = useState<PublicProductListItem[]>([]);
   const [totalPages, setTotalPages] = useState(0);
+  const [fetchedPages, setFetchedPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<BrandDTO[]>([]);
@@ -134,22 +85,19 @@ function ProductListingInner() {
   const [brandId, setBrandId] = useState<string>(
     searchParams.get("brandId") ?? ""
   );
-  const [page, setPage] = useState(Number(searchParams.get("page") ?? "0"));
-
-  const keywordDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [visibleRows, setVisibleRows] = useState(ROWS_PER_STEP);
 
   // Sync state with URL parameters (e.g. when searching from Header)
   useEffect(() => {
     const urlKeyword = searchParams.get("keyword") ?? "";
     const urlCategory = searchParams.get("categoryId") ?? "";
     const urlBrand = searchParams.get("brandId") ?? "";
-    const urlPage = Number(searchParams.get("page") ?? "0");
 
     setKeyword(urlKeyword);
     setInputValue(urlKeyword);
     setCategoryId(urlCategory);
     setBrandId(urlBrand);
-    setPage(urlPage);
+    setVisibleRows(ROWS_PER_STEP);
   }, [searchParams]);
 
   useEffect(() => {
@@ -157,30 +105,53 @@ function ProductListingInner() {
     getPublicBrands().then((data) => setBrands(data));
   }, []);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
+  const fetchProducts = useCallback(async (pageIndex: number, append = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const result = await PublicProductService.getList({
         keyword: keyword || undefined,
         categoryId: categoryId || undefined,
         brandId: brandId || undefined,
-        page,
+        page: pageIndex,
         size: PAGE_SIZE,
       });
-      setProducts(result?.content ?? []);
+
+      const nextProducts = result?.content ?? [];
+
+      setProducts((prev) =>
+        append ? mergeUniqueProducts(prev, nextProducts) : nextProducts
+      );
       setTotalPages(result?.totalPages ?? 0);
       setTotalElements(result?.totalElements ?? 0);
+      setFetchedPages((result?.totalPages ?? 0) > 0 ? pageIndex + 1 : 0);
+
+      return result;
     } catch {
-      setProducts([]);
-      setTotalPages(0);
-      setTotalElements(0);
+      if (!append) {
+        setProducts([]);
+        setTotalPages(0);
+        setTotalElements(0);
+        setFetchedPages(0);
+      }
+
+      return null;
     } finally {
-      setLoading(false);
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
-  }, [keyword, categoryId, brandId, page]);
+  }, [keyword, categoryId, brandId]);
 
   useEffect(() => {
-    fetchProducts();
+    setVisibleRows(ROWS_PER_STEP);
+    fetchProducts(0);
   }, [fetchProducts]);
 
   useEffect(() => {
@@ -188,31 +159,41 @@ function ProductListingInner() {
     if (keyword) params.set("keyword", keyword);
     if (categoryId) params.set("categoryId", categoryId);
     if (brandId) params.set("brandId", brandId);
-    if (page > 0) params.set("page", String(page));
-    router.replace(`/san-pham?${params.toString()}`, { scroll: false });
-  }, [keyword, categoryId, brandId, page, router]);
+    const queryString = params.toString();
+    router.replace(queryString ? `/san-pham?${queryString}` : "/san-pham", { scroll: false });
+  }, [keyword, categoryId, brandId, router]);
 
   const handleInputChange = (val: string) => {
-    setInputValue(val); // Cập nhật ô nhập liệu ngay lập tức
-    setKeyword(val);    // Gọi API ngay lập tức trên mỗi phím gõ
-    setPage(0);         // Reset về trang 1
+    setInputValue(val);
+    setKeyword(val);
   };
 
   const handleCategoryChange = (id: string) => {
     setCategoryId(id);
-    setPage(0);
     setShowMobileFilter(false);
   };
 
   const handleBrandChange = (id: string) => {
     setBrandId(id);
-    setPage(0);
     setShowMobileFilter(false);
   };
 
-  const handlePageChange = (p: number) => {
-    setPage(p);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const visibleCount = visibleRows * gridColumns;
+  const visibleProducts = useMemo(
+    () => products.slice(0, visibleCount),
+    [products, visibleCount]
+  );
+  const hasMoreProducts = visibleProducts.length < totalElements;
+
+  const handleLoadMore = async () => {
+    const nextRows = visibleRows + ROWS_PER_STEP;
+    const targetVisibleCount = nextRows * gridColumns;
+
+    if (products.length < targetVisibleCount && fetchedPages < totalPages) {
+      await fetchProducts(fetchedPages, true);
+    }
+
+    setVisibleRows(nextRows);
   };
 
   const activeCategory = categories.find((c) => String(c.id) === categoryId);
@@ -436,7 +417,6 @@ function ProductListingInner() {
                     <button
                       onClick={() => {
                         setKeyword("");
-                        setPage(0);
                       }}
                       className="ml-0.5 hover:text-red-500 transition-colors"
                     >
@@ -473,7 +453,6 @@ function ProductListingInner() {
                     setKeyword("");
                     setCategoryId("");
                     setBrandId("");
-                    setPage(0);
                   }}
                   className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors px-2"
                 >
@@ -492,15 +471,17 @@ function ProductListingInner() {
             ) : products.length > 0 ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {products.map((product) => (
+                  {visibleProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
+
+                {hasMoreProducts && (
+                  <LoadMoreButton
+                    onClick={handleLoadMore}
+                    loading={loadingMore}
+                  />
+                )}
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-32 bg-white rounded-2xl border border-gray-100 text-center px-6">
@@ -520,7 +501,6 @@ function ProductListingInner() {
                       setKeyword("");
                       setCategoryId("");
                       setBrandId("");
-                      setPage(0);
                     }}
                     className="mt-5 text-sm text-white bg-teal-600 hover:bg-teal-700 font-semibold px-5 py-2 rounded-xl transition-colors"
                   >

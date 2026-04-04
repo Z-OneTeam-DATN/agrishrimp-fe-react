@@ -141,8 +141,20 @@ export default function ProductDetailPage({
                 const defaultIdx = firstValidIdx >= 0 ? firstValidIdx : 0;
                 setSelectedVariantIndex(defaultIdx);
                 const defaultVariant = detail.variants?.[defaultIdx];
+                const galleryImages = Array.from(
+                    new Set(
+                        [
+                            ...(detail.imageUrls ?? []),
+                            ...((detail.variants ?? [])
+                                .map((variant) => variant.imageUrl)
+                                .filter((imageUrl): imageUrl is string => Boolean(imageUrl))),
+                        ]
+                            .map((imageUrl) => imageUrl.trim())
+                            .filter(Boolean)
+                    )
+                );
                 setActiveImage(
-                    defaultVariant?.imageUrl ?? detail.imageUrls?.[0] ?? "/placeholder.svg"
+                    defaultVariant?.imageUrl ?? galleryImages[0] ?? "/placeholder.svg"
                 );
                 setRelated(
                     (listResult?.content ?? []).filter((p) => p.slug !== slug).slice(0, 5)
@@ -192,10 +204,25 @@ export default function ProductDetailPage({
         );
     }, [product]);
 
+    const productGalleryImages = useMemo(() => {
+        const mergedImages = [
+            ...(product?.imageUrls ?? []),
+            ...((product?.variants ?? [])
+                .map((variant) => variant.imageUrl)
+                .filter((imageUrl): imageUrl is string => Boolean(imageUrl))),
+        ];
+
+        const uniqueImages = Array.from(
+            new Set(mergedImages.map((imageUrl) => imageUrl.trim()).filter(Boolean))
+        );
+
+        return uniqueImages.length > 0 ? uniqueImages : ["/placeholder.svg"];
+    }, [product]);
+
     const handleSelectVariant = (index: number) => {
         setSelectedVariantIndex(index);
         const v = availableVariants[index]; // Thay vì lấy từ product.variants, ta lấy từ availableVariants
-        const img = v?.imageUrl ?? product?.imageUrls?.[0] ?? "/placeholder.svg";
+        const img = v?.imageUrl ?? productGalleryImages[0] ?? "/placeholder.svg";
         setActiveImage(img);
     };
 
@@ -336,27 +363,32 @@ export default function ProductDetailPage({
                                         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                                     </div>
 
-                                    {product.imageUrls && product.imageUrls.length > 1 && (
-                                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-0.5">
-                                            {product.imageUrls.map((img, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    onMouseEnter={() => setActiveImage(img)}
-                                                    onClick={() => setActiveImage(img)}
-                                                    className={`relative w-20 h-20 shrink-0 rounded-xl border-2 transition-all duration-300 overflow-hidden shadow-sm ${
-                                                        activeImage === img
-                                                            ? "border-teal-500 ring-2 ring-teal-500/20 scale-95"
-                                                            : "border-transparent hover:border-slate-300 grayscale-[0.5] hover:grayscale-0"
-                                                    }`}
-                                                >
-                                                    <Image
-                                                        src={img}
-                                                        alt={`ảnh ${idx + 1}`}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                </button>
-                                            ))}
+                                    {productGalleryImages.length > 1 && (
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-medium text-slate-600">
+                                                Thư viện ảnh sản phẩm
+                                            </p>
+                                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-0.5">
+                                                {productGalleryImages.map((img, idx) => (
+                                                    <button
+                                                        key={`${img}-${idx}`}
+                                                        onMouseEnter={() => setActiveImage(img)}
+                                                        onClick={() => setActiveImage(img)}
+                                                        className={`relative w-20 h-20 shrink-0 rounded-xl border-2 transition-all duration-300 overflow-hidden shadow-sm ${
+                                                            activeImage === img
+                                                                ? "border-teal-500 ring-2 ring-teal-500/20 scale-95"
+                                                                : "border-transparent hover:border-slate-300 grayscale-[0.5] hover:grayscale-0"
+                                                        }`}
+                                                    >
+                                                        <Image
+                                                            src={img}
+                                                            alt={`ảnh ${idx + 1}`}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

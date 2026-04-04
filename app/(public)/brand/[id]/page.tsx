@@ -1,19 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
-  List, Loader2, PackageX, LayoutGrid, ChevronRight
+  Loader2, PackageX, LayoutGrid, ChevronRight
 } from "lucide-react";
 import ProductCard from "@/components/ui/product-card";
+import LoadMoreButton from "@/components/ui/load-more-button";
 import { PublicProductListItem } from "@/app/types/product.schema";
 import { getPublicBrands } from "@/app/services/brand.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { BrandDTO } from "@/app/types/brand.type";
+import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
+
+const ROWS_PER_STEP = 3;
 
 export default function BrandPage() {
-  const router = useRouter();
   const params = useParams();
   const currentBrandId = params.id as string;
 
@@ -22,6 +25,12 @@ export default function BrandPage() {
   const [currentBrandName, setCurrentBrandName] = useState("Thương hiệu");
   const [products, setProducts] = useState<PublicProductListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [visibleRows, setVisibleRows] = useState(ROWS_PER_STEP);
+  const gridColumns = useResponsiveColumns({
+    defaultColumns: 2,
+    mdColumns: 3,
+    lgColumns: 4,
+  });
 
   // 1. Tải danh sách tất cả thương hiệu để hiển thị sidebar
   useEffect(() => {
@@ -60,6 +69,16 @@ export default function BrandPage() {
     };
     fetchProducts();
   }, [currentBrandId]);
+
+  useEffect(() => {
+    setVisibleRows(ROWS_PER_STEP);
+  }, [currentBrandId, products.length]);
+
+  const visibleCount = visibleRows * gridColumns;
+  const visibleProducts = useMemo(
+    () => products.slice(0, visibleCount),
+    [products, visibleCount]
+  );
 
   return (
     <div className="bg-[#f8f9fa] min-h-screen pb-12">
@@ -118,11 +137,19 @@ export default function BrandPage() {
                 <span className="text-gray-500 font-medium">Đang tải danh sách sản phẩm...</span>
               </div>
             ) : products.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {products.map((prod) => (
-                  <ProductCard key={prod.id} product={prod} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {visibleProducts.map((prod) => (
+                    <ProductCard key={prod.id} product={prod} />
+                  ))}
+                </div>
+
+                {visibleProducts.length < products.length && (
+                  <LoadMoreButton
+                    onClick={() => setVisibleRows((prev) => prev + ROWS_PER_STEP)}
+                  />
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-dashed border-gray-200 text-center px-4">
                 <PackageX className="text-gray-300 mb-4" size={64} />

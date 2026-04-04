@@ -38,6 +38,7 @@ export interface ProductListItem {
   id: number;
   name: string;
   slug: string;
+  shortDesc?: string;
   description: string;
   status: string;
   origin: string;
@@ -193,4 +194,7 @@ export interface PublicProductDetail {
   brandName: string;
   category: PublicProductCategory;
   variants: PublicProductVariant[];
+  soldCount?: number;
+  ratingAverage?: number;
+  reviewCount?: number;
 }
