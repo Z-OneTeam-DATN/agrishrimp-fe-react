@@ -23,11 +23,7 @@ export class EmployeeService {
   }
 
   static async create(data: UserRequest): Promise<UserResponse> {
-    const { password, ...rest } = data as any;
-    const response = await apiJava.post<UserResponse>(`${this.PREFIX}`, {
-      ...rest,
-      initialPassword: password,
-    })
+    const response = await apiJava.post<UserResponse>(`${this.PREFIX}`, data)
     return response.data
   }
 

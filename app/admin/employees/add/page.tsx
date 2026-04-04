@@ -25,6 +25,22 @@ import { RoleType } from "@/app/types/role.schema";
 import { BranchType, UserRequest, EmployeeCreateSchema, EmployeeCreateInput } from "@/app/types/employee.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
 
+const inferBirthYearAndGenderFromCitizenId = (citizenId: string) => {
+    if (!/^\d{12}$/.test(citizenId)) return null;
+
+    const genderCenturyDigit = Number(citizenId[3]);
+    const birthYearSuffix = Number(citizenId.slice(4, 6));
+    const centuryMap = [1900, 1900, 2000, 2000, 2100, 2100, 2200, 2200];
+    const inferredCentury = centuryMap[genderCenturyDigit];
+
+    if (!Number.isFinite(inferredCentury)) return null;
+
+    return {
+        gender: genderCenturyDigit % 2 === 0 ? "FEMALE" : "MALE",
+        year: inferredCentury + birthYearSuffix,
+    } as const;
+};
+
 export default function AddEmployeePage() {
     const router = useRouter();
     const { user: currentUser } = useAuthStore();
@@ -49,7 +65,7 @@ export default function AddEmployeePage() {
             fullName: "",
             email: "",
             // ✅ Đặt cứng mật khẩu mặc định là 123456
-            password: "123456",
+            password: undefined,
             phoneNumber: "",
             citizenId: "",
             addressDetail: "",
@@ -57,8 +73,8 @@ export default function AddEmployeePage() {
             avatarUrl: null,
             status: "ACTIVE",
             startDate: new Date().toISOString().split('T')[0],
-            branchId: currentUser?.branch?.id || 0,
-            roleId: 0,
+            branchId: currentUser?.branch?.id ?? undefined,
+            roleId: undefined,
             gender: "MALE"
         }
     });
@@ -68,6 +84,7 @@ export default function AddEmployeePage() {
     const currentStatus = watch("status");
     const currentBranchId = watch("branchId");
     const currentRoleId = watch("roleId");
+    const currentCitizenId = watch("citizenId");
 
     useEffect(() => {
         async function loadInitData() {
@@ -92,7 +109,7 @@ export default function AddEmployeePage() {
                 setRoles(rolesList);
 
                 // ✅ Tải danh sách chi nhánh
-                const branchesList = (Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || []) as BranchType[];
+                const branchesList = (Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || []) as BranchType[];
                 setBranches(branchesList);
             } catch (error) {
                 toast.error("Không thể tải dữ liệu hệ thống.");
@@ -103,7 +120,60 @@ export default function AddEmployeePage() {
         loadInitData();
     }, [currentUser]);
 
+    useEffect(() => {
+        if (!currentBranchId && branches.length > 0) {
+            const preferredBranchId =
+                currentUser?.branch?.id && branches.some((branch) => branch.id === currentUser.branch?.id)
+                    ? currentUser.branch.id
+                    : branches[0].id;
+
+            setValue("branchId", preferredBranchId, { shouldValidate: false, shouldDirty: false });
+        }
+    }, [branches, currentBranchId, currentUser, setValue]);
+
+    useEffect(() => {
+        const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId || "");
+        if (!inferred) return;
+
+        const currentDateOfBirth = watch("dateOfBirth");
+        if (!currentDateOfBirth) {
+            setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
+        }
+
+        if (!currentGender || currentGender === "OTHER") {
+            setValue("gender", inferred.gender, { shouldDirty: true });
+        }
+    }, [currentCitizenId, currentGender, setValue, watch]);
+
     const handleAvatarClick = () => fileInputRef.current?.click();
+
+    const handleEmployeeAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setUploading(true);
+            const formDataUpload = new FormData();
+            formDataUpload.append("file", file);
+
+            const response = await apiJava.post('/users/upload-avatar', formDataUpload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const avatarUrl = response.data.imageUrl || response.data.url;
+            if (!avatarUrl) {
+                toast.error("Upload thành công nhưng không nhận được đường dẫn ảnh.");
+                return;
+            }
+
+            setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });
+            toast.success("Tải ảnh lên thành công!");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error) || "Lỗi khi tải ảnh.");
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -112,12 +182,12 @@ export default function AddEmployeePage() {
             setUploading(true);
             const formDataUpload = new FormData();
             formDataUpload.append("file", file);
-            const response = await apiJava.post('/files/tmpUpload', formDataUpload, {
+            const response = await apiJava.post('/users/upload-avatar', formDataUpload, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            const avatarUrl = response.data.tmpPath || response.data.fileUrl;
+            const avatarUrl = response.data.imageUrl || response.data.url;
             if (avatarUrl) {
-                setValue("avatarUrl", avatarUrl);
+                setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });
                 toast.success("Tải ảnh lên thành công!");
             }
         } catch (error) {
@@ -196,6 +266,7 @@ export default function AddEmployeePage() {
                                     <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Fingerprint size={10} /> Số CCCD (12 số) *</Label>
                                     <Input {...register("citizenId")} className={cn("h-9 text-[13px] font-bold", errors.citizenId && "border-red-500")} placeholder="0..." maxLength={12} />
                                     {errors.citizenId && <p className="text-[10px] text-red-500 font-bold">{errors.citizenId.message}</p>}
+                                    {!errors.citizenId && <p className="text-[10px] text-slate-400">Có thể gợi ý năm sinh và giới tính từ CCCD. Không thể suy ra chính xác địa chỉ hoặc số điện thoại chỉ từ dãy số CCCD.</p>}
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold uppercase text-slate-400">Ngày sinh *</Label>
@@ -245,20 +316,43 @@ export default function AddEmployeePage() {
                         <div className="grid grid-cols-2 gap-4 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Chi nhánh làm việc *</Label>
-                                <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))}>
-                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger>
+                                <Select
+                                    value={currentBranchId ? String(currentBranchId) : undefined}
+                                    onValueChange={(val) => setValue("branchId", Number(val))}
+                                    disabled={branches.length === 0}
+                                >
+                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"} /></SelectTrigger>
                                     <SelectContent>
-                                        {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                                        {branches.length > 0 ? (
+                                            branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)
+                                        ) : (
+                                            <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                Chưa có chi nhánh nào. Hãy tạo chi nhánh trước.
+                                            </div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                                 {errors.branchId && <p className="text-[10px] text-red-500 font-bold">{errors.branchId.message}</p>}
+                                {branches.length === 0 && (
+                                    <p className="text-[10px] text-slate-400 font-medium">Bạn cần tạo ít nhất 1 chi nhánh trước khi thêm nhân viên.</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Vai trò hệ thống *</Label>
-                                <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val))}>
-                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue placeholder="Chọn vai trò" /></SelectTrigger>
+                                <Select
+                                    value={currentRoleId ? String(currentRoleId) : undefined}
+                                    onValueChange={(val) => setValue("roleId", Number(val))}
+                                    disabled={roles.length === 0}
+                                >
+                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue placeholder={roles.length === 0 ? "Chưa có vai trò" : "Chọn vai trò"} /></SelectTrigger>
                                     <SelectContent>
-                                        {roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)}
+                                        {roles.length > 0 ? (
+                                            roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)
+                                        ) : (
+                                            <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                Chưa có vai trò nào khả dụng.
+                                            </div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                                 {errors.roleId && <p className="text-[10px] text-red-500 font-bold">{errors.roleId.message}</p>}
@@ -275,7 +369,7 @@ export default function AddEmployeePage() {
                                 {uploading ? <Loader2 className="animate-spin text-emerald-600" /> : currentAvatarUrl ? <img src={currentAvatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <UserCircle2 size={80} className="text-slate-200" />}
                             </div>
                             <div className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full shadow-lg"><Camera size={16} /></div>
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                            <input type="file" ref={fileInputRef} onChange={handleEmployeeAvatarUpload} className="hidden" accept="image/*" />
                         </div>
                     </div>
 
@@ -311,7 +405,7 @@ export default function AddEmployeePage() {
 
             <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t p-3 flex justify-end gap-3 z-[999] shadow-inner">
                 <Button type="button" variant="ghost" onClick={() => router.back()} className="font-bold uppercase text-[11px]">Hủy bỏ</Button>
-                <Button type="submit" disabled={saving || uploading} className="h-9 px-10 text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white uppercase">
+                <Button type="submit" disabled={saving || uploading || branches.length === 0 || roles.length === 0} className="h-9 px-10 text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white uppercase">
                     {saving ? <Loader2 className="animate-spin mr-2" /> : "LƯU NHÂN VIÊN"}
                 </Button>
             </div>

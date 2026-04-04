@@ -225,7 +225,7 @@ export const AdminBranchSchema = z.object({
         .min(5, "Tên chi nhánh phải có ít nhất 5 ký tự")
         .max(100, "Tên chi nhánh quá dài"),
 
-    managerId: z.string().min(1, "Vui lòng chọn người phụ trách chi nhánh"),
+    managerId: z.string().optional().or(z.literal("")),
 
     phone: z
         .string()
