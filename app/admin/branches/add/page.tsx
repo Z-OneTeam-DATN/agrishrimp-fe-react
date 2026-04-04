@@ -68,6 +68,7 @@ export default function AddBranchPage() {
   const [staffs, setStaffs] = useState<any[]>([]);
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isGettingGPS, setIsGettingGPS] = useState(false);
+  const [hasAutoGeocoded, setHasAutoGeocoded] = useState(false);
 
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -272,6 +273,16 @@ export default function AddBranchPage() {
     }
   };
 
+  const handleAddressBlur = async () => {
+    // Auto-geocode khi blur khỏi field nếu chưa có lat/lng
+    if (!watchedLat && !watchedLng && addressDetailValue && addressDetailValue.length > 2) {
+      const coords = await fetchCoordinatesFromAddress();
+      if (coords) {
+        // Auto geocode silent success (không toast)
+      }
+    }
+  };
+
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
@@ -424,7 +435,7 @@ export default function AddBranchPage() {
 
               <div className="md:col-span-3 space-y-1.5 relative" ref={suggestionRef}>
                 <Label className="text-[10px] font-black uppercase text-slate-500">Địa chỉ chi tiết (Số nhà, tên đường) *</Label>
-                <Input {...register("addressDetail")} autoComplete="off" className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`} />
+                <Input {...register("addressDetail")} autoComplete="off" onBlur={handleAddressBlur} className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`} />
                 {showSuggestions && addressSuggestions.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-[1100] bg-white border border-[#ccc] shadow-xl max-h-[200px] overflow-y-auto mt-1">
                     {addressSuggestions.map((item: any, idx: number) => (
