@@ -52,6 +52,7 @@ const PROTECTED_PATHS = [
   "/ponds",
   "/voucher",
   "/ai-doctor",
+  "/checkout",
   "/user/cart",
   "/user/checkout",
 ];

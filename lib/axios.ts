@@ -313,7 +313,9 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
             
             if (isClient()) {
               const path = window.location.pathname;
-              const isProtectedPath = ["/profile", "/orders", "/user/checkout", "/admin"].some(p => path.startsWith(p));
+              const isProtectedPath = ["/profile", "/orders", "/checkout", "/user/checkout", "/admin"].some(
+                (p) => path.startsWith(p),
+              );
               
               if (isProtectedPath) {
                 toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.", { id: "session-expired" });

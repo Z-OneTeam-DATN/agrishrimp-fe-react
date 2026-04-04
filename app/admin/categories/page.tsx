@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import {
@@ -45,16 +45,28 @@ export interface Category {
   id: number;
   name: string;
   status: string;
-  imageUrl: string;
+  imageUrl?: string;
   parentId: number | null;
-  productCount: number;
+  productCount?: number;
   children?: Category[];
 }
+
+type CategoryApiError = {
+  response?: {
+    data?: {
+      detail?: string;
+      message?: string;
+      statusCode?: string;
+    } | string;
+    status?: number;
+  };
+};
 
 export default function CategoryManagementPage() {
   const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
 
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -63,11 +75,12 @@ export default function CategoryManagementPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [parentList, setParentList] = useState<any[]>([]);
+  const [parentList, setParentList] = useState<Category[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentKeyword, setCurrentKeyword] = useState("");
   const [currentStatus, setCurrentStatus] = useState("all");
+  const [currentSort, setCurrentSort] = useState("id,desc");
   const [nameError, setNameError] = useState<string>("");
 
   const [formData, setFormData] = useState({
@@ -80,13 +93,18 @@ export default function CategoryManagementPage() {
   const getStatusLabel = (status: string) =>
     isActiveStatus(status) ? "Hiển thị" : "Tạm ẩn";
 
+  const normalizeStatus = useCallback(
+    (status: string) => (isActiveStatus(status) ? "ACTIVE" : "INACTIVE"),
+    []
+  );
+
   useEffect(() => {
     if (!isLoadingAuth && !hasPermission(P.CATEGORY_VIEW)) {
       router.push("/admin/forbidden");
     }
   }, [isLoadingAuth, hasPermission, router]);
 
-  const buildCategoryTree = (data: any[]): Category[] => {
+  const buildCategoryTree = (data: Category[]): Category[] => {
     const map: Record<number, Category> = {};
     const roots: Category[] = [];
 
@@ -104,14 +122,54 @@ export default function CategoryManagementPage() {
     return roots;
   };
 
-  const loadData = async (keyword = "", status = "all") => {
-    try {
-      const dataArray = await getCategories(keyword, status);
+  const sortCategories = useCallback((data: Category[], sortValue: string) => {
+    const sorted = [...data];
 
+    sorted.sort((a, b) => {
+      switch (sortValue) {
+        case "id,asc":
+          return a.id - b.id;
+        case "name,asc":
+          return a.name.localeCompare(b.name, "vi", { sensitivity: "base" });
+        case "name,desc":
+          return b.name.localeCompare(a.name, "vi", { sensitivity: "base" });
+        case "id,desc":
+        default:
+          return b.id - a.id;
+      }
+    });
+
+    return sorted;
+  }, []);
+
+  const applyCategoryFilters = useCallback((
+    data: Category[],
+    keyword = currentKeyword,
+    status = currentStatus,
+    sortValue = currentSort
+  ) => {
+    const normalizedKeyword = keyword.trim().toLocaleLowerCase();
+
+    const filtered = data.filter((category) => {
+      const matchesKeyword =
+        !normalizedKeyword ||
+        category.name.toLocaleLowerCase().includes(normalizedKeyword);
+      const matchesStatus =
+        status === "all" || normalizeStatus(category.status) === status;
+
+      return matchesKeyword && matchesStatus;
+    });
+
+    setCategories(buildCategoryTree(sortCategories(filtered, sortValue)));
+  }, [currentKeyword, currentSort, currentStatus, normalizeStatus, sortCategories]);
+
+  const loadData = async () => {
+    try {
+      const dataArray = await getCategories();
+
+      setAllCategories(dataArray);
       setParentList(dataArray);
-      const tree = buildCategoryTree(dataArray);
-      setCategories(tree);
-    } catch (error) {
+    } catch (error) { 
       console.error("Lỗi tải danh mục:", error);
       toast.error("Không thể tải danh sách danh mục");
     }
@@ -121,7 +179,11 @@ export default function CategoryManagementPage() {
     if (!isLoadingAuth && hasPermission(P.CATEGORY_VIEW)) {
       loadData();
     }
-  }, [isLoadingAuth]);
+  }, [hasPermission, isLoadingAuth]);
+
+  useEffect(() => {
+    applyCategoryFilters(allCategories, currentKeyword, currentStatus, currentSort);
+  }, [allCategories, applyCategoryFilters, currentKeyword, currentStatus, currentSort]);
 
   const toggleExpand = (id: number) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -145,35 +207,33 @@ export default function CategoryManagementPage() {
       }
     };
 
-    const cat = findInTree(categories);
+    const cat = allCategories.find((item) => item.id === id) ?? findInTree(categories);
     if (cat) {
       setEditingId(id);
       setFormData({
         name: cat.name,
         parentId: cat.parentId ? String(cat.parentId) : "none",
         status: isActiveStatus(cat.status) ? "ACTIVE" : "INACTIVE",
-        imageUrl: cat.imageUrl || "",
+        imageUrl: cat.imageUrl || "", 
       });
       setNameError("");
       setIsModalOpen(true);
     }
   };
 
-  // Sửa lại đoạn gọi hàm trong page.tsx
   const handleToggleStatus = async () => {
     if (!statusModal) return;
     try {
-      // Xác định trạng thái mới cần đổi
       const newStatus = isActiveStatus(statusModal.currentStatus) ? "INACTIVE" : "ACTIVE";
 
       await toggleCategoryStatus(statusModal.id, {
-          name: statusModal.name, // Truyền kèm name để pass qua @NotBlank
+          name: statusModal.name, 
           status: newStatus
       });
 
       toast.success(`Đã cập nhật trạng thái danh mục: ${statusModal.name}`);
-      loadData(currentKeyword, currentStatus);
-    } catch (error) {
+      loadData();
+    } catch {
       toast.error("Không thể thay đổi trạng thái danh mục");
     } finally {
       setStatusModal(null);
@@ -185,9 +245,14 @@ export default function CategoryManagementPage() {
     try {
       await deleteCategory(deleteId);
       toast.success("Xóa danh mục thành công");
-      loadData(currentKeyword, currentStatus);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Không thể xóa danh mục này");
+      loadData();
+    } catch (error: unknown) {
+      const apiError = error as CategoryApiError;
+      const errorData = apiError.response?.data;
+      const errorMessage =
+        typeof errorData === "string" ? errorData : errorData?.message;
+
+      toast.error(errorMessage || "Không thể xóa danh mục này");
     } finally {
       setDeleteId(null);
     }
@@ -230,46 +295,61 @@ export default function CategoryManagementPage() {
         toast.success("Thêm danh mục mới thành công");
       }
       setIsModalOpen(false);
-      loadData(currentKeyword, currentStatus);
-    } catch (error: any) {
-          console.error("Lỗi từ Server:", error.response?.data);
+      loadData();
+    } catch (error: unknown) {
+      const apiError = error as CategoryApiError;
+      console.error("Lỗi từ Server:", apiError.response?.data);
 
-          const responseData = error.response?.data;
-          let serverMsg = "Có lỗi xảy ra khi lưu danh mục"; // Giá trị mặc định
+      const responseData = apiError.response?.data;
+      let serverMsg = "Có lỗi xảy ra khi lưu danh mục"; 
 
-          // 1. TRÍCH XUẤT LỖI TỪ ĐÚNG CẤU TRÚC JSON CỦA BACKEND
-          if (responseData?.detail) {
-            serverMsg = responseData.detail; // Lấy dữ liệu từ biến 'detail' theo log của bạn
-          } else if (responseData?.message) {
-            serverMsg = responseData.message; // Đề phòng trường hợp API khác trả về 'message'
-          } else if (typeof responseData === 'string') {
-            serverMsg = responseData;
-          }
+      if (typeof responseData !== 'string' && responseData?.detail) {
+        serverMsg = responseData.detail; 
+      } else if (typeof responseData !== 'string' && responseData?.message) {
+        serverMsg = responseData.message; 
+      } else if (typeof responseData === 'string') {
+        serverMsg = responseData;
+      }
 
-          // 2. KIỂM TRA MÃ TRẠNG THÁI TỪ HEADER VÀ TỪ BODY
-          const httpStatus = error.response?.status; // Mã trên mạng (vd: 400)
-          const bodyStatus = responseData?.statusCode; // Mã trong nội dung (vd: '409 CONFLICT')
+      const httpStatus = apiError.response?.status; 
+      const bodyStatus = typeof responseData === 'string' ? undefined : responseData?.statusCode; 
 
-          // 3. KIỂM TRA ĐIỀU KIỆN TRÙNG LẶP
-          const isDuplicate =
-              httpStatus === 409 ||
-              (typeof bodyStatus === 'string' && bodyStatus.includes('409')) ||
-              serverMsg.toLowerCase().includes("tồn tại") ||
-              serverMsg.toLowerCase().includes("already exists");
+      const isDuplicate =
+          httpStatus === 409 ||
+          (typeof bodyStatus === 'string' && bodyStatus.includes('409')) ||
+          serverMsg.toLowerCase().includes("tồn tại") ||
+          serverMsg.toLowerCase().includes("already exists");
 
-          if (isDuplicate) {
-            setNameError(serverMsg); // Hiện dòng đỏ dưới ô nhập với câu chữ chính xác từ server
-          } else {
-            toast.error(serverMsg); // Hiện Toast cho các lỗi khác
-          }
-        } finally {
-          setIsSaving(false);
-        }
+      if (isDuplicate) {
+        setNameError(serverMsg); 
+      } else {
+        toast.error(serverMsg); 
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSearch = (val: string) => {
     setCurrentKeyword(val);
-    loadData(val, currentStatus);
+  };
+
+  const handleStatusFilterChange = (val: string) => {
+    setCurrentStatus(val);
+  };
+
+  const handleSortChange = (val: string) => {
+    if (val === "fullName,asc") {
+      setCurrentSort("name,asc");
+      return;
+    }
+
+    if (val === "fullName,desc") {
+      setCurrentSort("name,desc");
+      return;
+    }
+
+    setCurrentSort(val);
   };
 
   const canAction = hasPermission(P.CATEGORY_UPDATE) || hasPermission(P.CATEGORY_DELETE);
@@ -304,7 +384,8 @@ export default function CategoryManagementPage() {
             </div>
           </td>
           <td className="p-3 text-center">
-            <span className="text-[12px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">{category.productCount}</span>
+            {/* THÊM DẤU ?? 0 VÀO ĐÂY ĐỂ XỬ LÝ LỖI GIAO DIỆN KHI UNDEFINED */}
+            <span className="text-[12px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">{category.productCount ?? 0}</span>
           </td>
           <td className="p-3 text-center">
             <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide", isActiveStatus(category.status) ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-400 border-slate-200")}>{getStatusLabel(category.status)}</span>
@@ -332,7 +413,6 @@ export default function CategoryManagementPage() {
     );
   };
 
-  // SỬA LỖI BẢO VỆ Ở ĐÂY: Đảm bảo renderParentList luôn là mảng để tránh lỗi .filter is not a function
   const renderParentList = Array.isArray(parentList) ? parentList : [];
 
   return (
@@ -347,7 +427,26 @@ export default function CategoryManagementPage() {
       </div>
 
       <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-        <AdminSearchFilter placeholder="Tìm tên danh mục..." onSearch={handleSearch} onRefresh={loadData} />
+        <AdminSearchFilter
+          placeholder="Tìm tên danh mục..."
+          hideFilter1
+          filter2Placeholder="Tất cả trạng thái"
+          filter2Options={[
+            { label: "Tất cả trạng thái", value: "all" },
+            { label: "Hiển thị", value: "ACTIVE" },
+            { label: "Tạm ẩn", value: "INACTIVE" },
+          ]}
+          sortOptions={[
+            { label: "Mới nhất", value: "id,desc" },
+            { label: "Cũ nhất", value: "id,asc" },
+            { label: "Tên A-Z", value: "name,asc" },
+            { label: "Tên Z-A", value: "name,desc" },
+          ]}
+          onSearch={handleSearch}
+          onFilter2Change={handleStatusFilterChange}
+          onSortChange={handleSortChange}
+          onRefresh={loadData}
+        />
 
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -406,12 +505,11 @@ export default function CategoryManagementPage() {
                 value={formData.name}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
-                  setNameError(""); // Tự động xóa lỗi khi người dùng bắt đầu gõ lại
+                  setNameError("");
                 }}
                 placeholder="VD: Thuốc thú y, Thức ăn..."
                 className={cn("h-10 text-sm font-bold", nameError && "border-red-500 focus-visible:ring-red-200")}
               />
-              {/* Hiển thị lỗi đỏ ngay dưới ô Input */}
               {nameError && <p className="text-[11px] text-red-500 font-bold animate-in fade-in slide-in-from-top-1">{nameError}</p>}
             </div>
 
@@ -421,7 +519,6 @@ export default function CategoryManagementPage() {
                 <SelectTrigger className="h-10 text-sm font-medium"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" className="font-bold">DANH MỤC GỐC</SelectItem>
-                  {/* SỬ DỤNG BIẾN ĐÃ ĐƯỢC BẢO VỆ Ở ĐÂY */}
                   {renderParentList.filter(p => p.id !== editingId).map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                   ))}
@@ -451,7 +548,6 @@ export default function CategoryManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL XÓA */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -465,7 +561,6 @@ export default function CategoryManagementPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* MODAL TRẠNG THÁI */}
       <AlertDialog open={!!statusModal} onOpenChange={() => setStatusModal(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

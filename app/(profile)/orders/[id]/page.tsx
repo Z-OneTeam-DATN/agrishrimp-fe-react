@@ -45,6 +45,13 @@ const statusConfig: Record<
     bannerText: "text-white",
     icon: <Clock size={28} />,
   },
+  AWAITING_PAYMENT: {
+    label: "Chờ thanh toán",
+    subLabel: "Đơn hàng đã được tạo và đang chờ hoàn tất thanh toán",
+    bannerBg: "from-amber-500 to-orange-400",
+    bannerText: "text-white",
+    icon: <CreditCard size={28} />,
+  },
   CONFIRMED: {
     label: "Đã xác nhận",
     subLabel: "Người bán đã xác nhận đơn hàng của bạn",
@@ -63,6 +70,13 @@ const statusConfig: Record<
     label: "Đang giao hàng",
     subLabel: "Đơn hàng đang trên đường giao đến bạn",
     bannerBg: "from-indigo-500 to-violet-500",
+    bannerText: "text-white",
+    icon: <Truck size={28} />,
+  },
+  READY_FOR_PICKUP: {
+    label: "Chờ lấy hàng",
+    subLabel: "Đơn hàng đã sẵn sàng và đang chờ đơn vị vận chuyển lấy",
+    bannerBg: "from-sky-500 to-cyan-400",
     bannerText: "text-white",
     icon: <Truck size={28} />,
   },
@@ -98,8 +112,10 @@ const paymentLabel: Record<string, string> = {
 
 const steps = [
   { icon: FileText, label: "Đặt hàng", status: "PENDING" },
+  { icon: CreditCard, label: "Thanh toán", status: "AWAITING_PAYMENT" },
   { icon: CheckCircle2, label: "Xác nhận", status: "CONFIRMED" },
   { icon: Package, label: "Xử lý", status: "PROCESSING" },
+  { icon: Truck, label: "Lấy hàng", status: "READY_FOR_PICKUP" },
   { icon: Truck, label: "Giao hàng", status: "SHIPPING" },
   { icon: CheckCircle2, label: "Hoàn thành", status: "COMPLETED" },
 ];
@@ -310,7 +326,7 @@ export default function OrderDetailPage({
                 <p className="text-[11px] text-teal-600 font-semibold uppercase tracking-wide mb-1">
                   Địa chỉ nhận hàng
                 </p>
-                <p className="text-sm font-semibold text-gray-900">{order.customerName}</p>
+                <p className="text-sm font-semibold text-gray-900">{order.receiverName || order.customerName}</p>
                 <p className="text-sm text-gray-500">{order.receiverPhone}</p>
                 <p className="text-sm text-gray-500 leading-relaxed mt-0.5">{order.shippingAddress}</p>
               </div>

@@ -159,7 +159,9 @@ export default function LayoutClient({
   const isChangePasswordPage = pathname === "/change-password";
   const isAdminPage = pathname?.startsWith("/admin");
   const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
-  const isProtectedPath = ["/profile", "/orders", "/user/checkout", "/ai-doctor"].some(p => pathname?.startsWith(p));
+  const isProtectedPath = ["/profile", "/orders", "/checkout", "/user/checkout", "/ai-doctor"].some(
+    (p) => pathname?.startsWith(p),
+  );
 
   // Redirect bắt buộc đổi mật khẩu
   useEffect(() => {

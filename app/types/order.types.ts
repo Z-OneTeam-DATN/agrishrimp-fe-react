@@ -85,7 +85,7 @@ export interface ConfirmOrderPayload {
 export interface ConfirmOrderResponse {
   orderId: number
   orderCode: string
-  status: 'PENDING' | 'CONFIRMED'
+  status: OrderStatus
   totalAmount: number
   totalShippingFee: number
   /** Có giá trị khi paymentMethod = PAYOS, null với COD/CASH/TRANSFER */
@@ -105,17 +105,41 @@ export interface ConfirmOrderResponse {
 /** COD: tiền mặt khi nhận | CASH: tiền mặt tại cửa hàng | TRANSFER: chuyển khoản | PAYOS: thanh toán online */
 export type PaymentMethod = 'COD' | 'CASH' | 'TRANSFER' | 'PAYOS'
 
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED' | 'RETURNED'
+export type OrderStatus =
+  | 'PENDING'
+  | 'AWAITING_PAYMENT'
+  | 'CONFIRMED'
+  | 'PROCESSING'
+  | 'READY_FOR_PICKUP'
+  | 'SHIPPING'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'RETURNED'
+
+export interface SubOrderSummary {
+  subOrderId: number
+  branchId: number | null
+  branchName: string | null
+  status: OrderStatus
+  subtotal: number
+  shippingFee: number
+  estimatedDays: string | null
+  carrier: string | null
+  carrierOrderId?: string | null
+}
 
 export interface MyOrder {
   id: number;
   code: string;
+  orderCode?: string;
   customerName: string;
   customerPhone: string;
+  receiverName?: string | null;
   receiverPhone: string;
   shippingAddress: string;
   totalAmount: number;
   shippingFee: number;
+  totalShippingFee?: number;
   finalAmount: number;
   branchName: string;
   branchPhone: string | null;
@@ -124,8 +148,10 @@ export interface MyOrder {
   paymentStatus: 'PAID' | 'UNPAID';
   status: OrderStatus;
   createdAt: string;
+  note?: string | null;
   checkoutUrl: string | null;
   items: MyOrderItem[];
+  subOrders?: SubOrderSummary[];
   canReview?: boolean;
 }
 
@@ -135,7 +161,7 @@ export interface MyOrderItem {
   productSlug?: string;
   productName: string;
   sku: string;
-  image: string;
+  image: string | null;
   quantity: number;
   price: number;
   totalPrice: number;

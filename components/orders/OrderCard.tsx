@@ -33,6 +33,12 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
           className: "text-orange-500",
           icon: <Clock size={14} className="mr-1" />,
         };
+      case "AWAITING_PAYMENT":
+        return {
+          label: "Chờ thanh toán",
+          className: "text-amber-600",
+          icon: <CreditCard size={14} className="mr-1" />,
+        };
       case "CONFIRMED":
         return {
           label: "Đã xác nhận",
@@ -49,6 +55,12 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
         return {
           label: "Đang giao hàng",
           className: "text-[#0dcaf0]",
+          icon: <Truck size={14} className="mr-1" />,
+        };
+      case "READY_FOR_PICKUP":
+        return {
+          label: "Chờ lấy hàng",
+          className: "text-indigo-500",
           icon: <Truck size={14} className="mr-1" />,
         };
       case "COMPLETED":
@@ -203,7 +215,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
 
         <div className="flex gap-2 items-center self-end sm:self-auto">
           {/* Nút thanh toán PayOS nếu chưa thanh toán */}
-          {order.paymentMethod === 'PAYOS' && order.paymentStatus === 'UNPAID' && order.checkoutUrl && order.status === 'PENDING' && (
+          {order.paymentMethod === 'PAYOS' && order.paymentStatus === 'UNPAID' && order.checkoutUrl && (order.status === 'PENDING' || order.status === 'AWAITING_PAYMENT') && (
              <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer">
                 <Button className={btnPayClass}>
                   <CreditCard size={14} className="mr-1.5" />
@@ -213,7 +225,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
           )}
 
           {/* PENDING/CONFIRMED: Hủy đơn & Chi tiết */}
-          {(order.status === "PENDING" || order.status === "CONFIRMED") && (
+          {(order.status === "AWAITING_PAYMENT" || order.status === "PENDING" || order.status === "CONFIRMED") && (
             <>
               <Dialog
                 open={isCancelModalOpen}

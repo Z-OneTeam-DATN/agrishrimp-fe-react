@@ -6,6 +6,7 @@ import Link from "next/link"
 import { CheckCircle2, Clock, Loader2, ChevronRight, AlertCircle } from "lucide-react"
 import { getOrderById } from "@/app/services/orderService"
 import { useCartStore } from "@/stores/useCartStore"
+import type { MyOrder } from "@/app/types/order.types"
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ"
 
@@ -29,7 +30,7 @@ function OrderSuccessContent() {
 
   const isOfflinePayment = method === "offline"
 
-  const [order, setOrder] = useState<any>(null)
+  const [order, setOrder] = useState<MyOrder | null>(null)
   const [paymentStatus, setPaymentStatus] = useState<"PAID" | "PENDING" | "FAILED" | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [pollCount, setPollCount] = useState(0)
@@ -82,8 +83,8 @@ function OrderSuccessContent() {
   const isFailed = paymentStatus === "FAILED"
   const isPending = paymentStatus === "PENDING"
 
-  const displayOrderCode = (order?.orderCode && order.orderCode !== "undefined")
-    ? order.orderCode
+  const displayOrderCode = (order?.code && order.code !== "undefined")
+    ? order.code
     : (orderCodeParam && orderCodeParam !== "undefined" && orderCodeParam !== "null")
     ? orderCodeParam
     : (orderId && orderId !== "undefined" && orderId !== "null")
@@ -176,21 +177,23 @@ function OrderSuccessContent() {
         {/* ── Chi tiết đơn ── */}
         {order && (
           <div className="px-6 py-4">
-            {/* Sub-orders */}
-            {order.subOrders?.length > 0 && (
+            {/* Sub-orders - ĐÃ SỬA LỖI TẠI ĐÂY */}
+            {(order.subOrders?.length ?? 0) > 0 && (
               <div className="space-y-2 mb-4">
-                {order.subOrders.map((sub: any) => (
+               {order.subOrders?.map((sub: any) => (
                   <div
-                    key={sub.subOrderId ?? sub.id}
+                    key={sub.subOrderId}
                     className="border border-gray-100 rounded-xl px-3 py-2.5 text-xs space-y-0.5"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-gray-800 truncate">Cửa hàng AgriShrimp</span>
+                      <span className="font-semibold text-gray-800 truncate">
+                        {sub.branchName || "Cửa hàng AgriShrimp"}
+                      </span>
                       <span className="text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded uppercase shrink-0 ml-2">
-                        {sub.carrier}
+                        {sub.carrier || "N/A"}
                       </span>
                     </div>
-                    <p className="text-gray-400">Dự kiến: {sub.estimatedDays} ngày</p>
+                    <p className="text-gray-400">Dự kiến: {sub.estimatedDays || "Đang cập nhật"}</p>
                     <p className="text-gray-400">
                       Hàng: {formatMoney(sub.subtotal)} · Ship: {formatMoney(sub.shippingFee)}
                     </p>
@@ -201,16 +204,16 @@ function OrderSuccessContent() {
 
             {/* Total */}
             <div className="border-t border-gray-100 pt-3 space-y-1.5 text-sm">
-              {order.totalShippingFee != null && (
+              {(order.totalShippingFee ?? order.shippingFee) != null && (
                 <div className="flex justify-between text-gray-500">
                   <span>Phí vận chuyển</span>
-                  <span>{formatMoney(order.totalShippingFee)}</span>
+                  <span>{formatMoney(order.totalShippingFee ?? order.shippingFee)}</span>
                 </div>
               )}
-              {order.totalAmount != null && (
+              {order.finalAmount != null && (
                 <div className="flex justify-between font-bold text-gray-900">
                   <span>Tổng thanh toán</span>
-                  <span>{formatMoney(order.totalAmount)}</span>
+                  <span>{formatMoney(order.finalAmount)}</span>
                 </div>
               )}
             </div>

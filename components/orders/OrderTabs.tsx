@@ -10,9 +10,11 @@ export function OrderTabs() {
 
   const tabs = [
     { label: "Tất cả", value: "ALL" },
+    { label: "Chờ thanh toán", value: "AWAITING_PAYMENT" },
     { label: "Chờ xác nhận", value: "PENDING" },
     { label: "Đã xác nhận", value: "CONFIRMED" },
     { label: "Đang xử lý", value: "PROCESSING" },
+    { label: "Chờ lấy hàng", value: "READY_FOR_PICKUP" },
     { label: "Đang giao", value: "SHIPPING" },
     { label: "Đã giao", value: "COMPLETED" },
     { label: "Đã hủy", value: "CANCELLED" },

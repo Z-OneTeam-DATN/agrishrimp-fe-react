@@ -131,7 +131,13 @@ export default function AdminVoucherPage() {
 
     setIsSubmitting(true);
     try {
-      const dataToSubmit = { ...formData };
+      // BƯỚC ĐÓNG GÓI DỮ LIỆU ĐỂ CHIỀU LÒNG BACKEND MỚI
+      const dataToSubmit = {
+        ...formData,
+        value: formData.discountValue,          // Đẩy discountValue vào biến value cho Backend
+        maxUsagePerUser: formData.usageLimit,   // Đẩy usageLimit vào biến maxUsagePerUser cho Backend
+      } as any; // Ép kiểu thành any để vượt qua rào cản kiểm tra của TypeScript cho dataToSubmit
+
       if (dataToSubmit.discountType === "FIXED") {
          dataToSubmit.maxDiscount = 0;
       }
@@ -179,10 +185,11 @@ export default function AdminVoucherPage() {
       } else {
         const payload: Voucher = {
           ...deleteConfirmVoucher,
-          discountValue: deleteConfirmVoucher.discountValue !== undefined ? deleteConfirmVoucher.discountValue : (deleteConfirmVoucher as any).value,
-          usageLimit: deleteConfirmVoucher.usageLimit !== undefined ? deleteConfirmVoucher.usageLimit : (deleteConfirmVoucher as any).maxUsagePerUser,
+          // Đẩy đúng biến value và maxUsagePerUser lên API update để không bị lỗi 400
+          value: deleteConfirmVoucher.discountValue !== undefined ? deleteConfirmVoucher.discountValue : (deleteConfirmVoucher as any).value,
+          maxUsagePerUser: deleteConfirmVoucher.usageLimit !== undefined ? deleteConfirmVoucher.usageLimit : (deleteConfirmVoucher as any).maxUsagePerUser,
           status: "INACTIVE"
-        };
+        } as any; // Ép kiểu thành any
         await voucherService.update(deleteConfirmVoucher.id, payload);
         toast.success("Voucher còn thời hạn, đã chuyển sang trạng thái Tạm ẩn");
       }

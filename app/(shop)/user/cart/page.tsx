@@ -189,7 +189,6 @@ export default function CartPage() {
 
       let arr = Array.isArray(voucherArray) ? voucherArray : [];
 
-      // ===== LỌC VOUCHER ĐÃ HẾT HẠN KHỎI GIAO DIỆN USER =====
       const now = new Date().getTime();
       arr = arr.filter((v: Voucher) => new Date(v.endDate).getTime() >= now);
 
@@ -278,6 +277,11 @@ export default function CartPage() {
     setIsVoucherModalOpen(false);
     toast.success("Áp dụng voucher thành công!");
   };
+
+  // Đóng gói URL checkout kèm mã voucher nếu có
+  const checkoutUrl = selectedVoucher
+    ? `/checkout?voucher=${selectedVoucher.code}`
+    : `/checkout`;
 
   if (loading) return <CartSkeleton />;
 
@@ -406,7 +410,8 @@ export default function CartPage() {
               <span className="text-gray-700">Tổng: <span className="text-lg font-bold text-gray-900">{formatMoney(finalTotal)}</span></span>
             </div>
 
-            <Link href="/checkout" className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
+            {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
+            <Link href={checkoutUrl} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
               Thanh toán <ArrowRight size={15} />
             </Link>
           </div>
@@ -419,7 +424,8 @@ export default function CartPage() {
             <p className="text-xs text-gray-400">Tổng thanh toán</p>
             <p className="text-base font-bold text-gray-900">{formatMoney(finalTotal)}</p>
           </div>
-          <Link href="/checkout" className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
+          {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
+          <Link href={checkoutUrl} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
             Thanh toán ({totalCount}) <ArrowRight size={14} />
           </Link>
         </div>
