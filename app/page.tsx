@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Trophy, Sparkles, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import Banner from "@/components/site/SiteBanner";
@@ -61,55 +61,51 @@ export default function Home() {
 
       {/* SECTION: TOP BÁN CHẠY */}
       {(loadingBest || soldBestSellers.length > 0) && (
-        <section className="container mx-auto px-4">
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-              <h5 className="font-bold text-xl uppercase text-[#d32f2f] flex items-center gap-2">
-                <Trophy className="fill-red-600 text-red-600" /> Top Bán Chạy Nhất
-              </h5>
-              <Link href="/san-pham" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
-                Xem tất cả <ChevronRight size={16} />
-              </Link>
-            </div>
+        <section className="container mx-auto px-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-800">
+              Top bán chạy nhất
+            </h2>
+            <Link href="/san-pham" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
+              Xem tất cả <ChevronRight size={16} />
+            </Link>
+          </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {loadingBest
-                ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={i} />)
-                : soldBestSellers.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {loadingBest
+              ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : soldBestSellers.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
           </div>
         </section>
       )}
 
       {/* SECTION: SẢN PHẨM GỢI Ý */}
       {(loadingAll || allProducts.length > 0) && (
-        <section className="container mx-auto px-4">
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-              <h5 className="font-bold text-xl uppercase text-[#009688] flex items-center gap-2">
-                <Sparkles className="text-[#009688] fill-[#009688]/20" strokeWidth={2.5} /> Sản Phẩm Gợi Ý
-              </h5>
-              <Link href="/san-pham" className="text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
-                Xem tất cả <ChevronRight size={16} />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {loadingAll
-                ? Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
-                : visibleSuggestedProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-            </div>
-
-            {!loadingAll && visibleSuggestedProducts.length < allProducts.length && (
-              <LoadMoreButton
-                onClick={() => setVisibleSuggestedRows((prev) => prev + ROWS_PER_STEP)}
-              />
-            )}
+        <section className="container mx-auto px-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-800">
+              Sản phẩm gợi ý
+            </h2>
+            <Link href="/san-pham" className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-teal-600 transition-colors">
+              Xem tất cả <ChevronRight size={16} />
+            </Link>
           </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {loadingAll
+              ? Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              : visibleSuggestedProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+          </div>
+
+          {!loadingAll && visibleSuggestedProducts.length < allProducts.length && (
+            <LoadMoreButton
+              onClick={() => setVisibleSuggestedRows((prev) => prev + ROWS_PER_STEP)}
+            />
+          )}
         </section>
       )}
     </div>
