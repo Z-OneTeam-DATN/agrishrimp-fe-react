@@ -25,6 +25,22 @@ import { RoleType } from "@/app/types/role.schema";
 import { BranchType, UserRequest, EmployeeCreateSchema, EmployeeCreateInput } from "@/app/types/employee.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
 
+const inferBirthYearAndGenderFromCitizenId = (citizenId: string) => {
+    if (!/^\d{12}$/.test(citizenId)) return null;
+
+    const genderCenturyDigit = Number(citizenId[3]);
+    const birthYearSuffix = Number(citizenId.slice(4, 6));
+    const centuryMap = [1900, 1900, 2000, 2000, 2100, 2100, 2200, 2200];
+    const inferredCentury = centuryMap[genderCenturyDigit];
+
+    if (!Number.isFinite(inferredCentury)) return null;
+
+    return {
+        gender: genderCenturyDigit % 2 === 0 ? "FEMALE" : "MALE",
+        year: inferredCentury + birthYearSuffix,
+    } as const;
+};
+
 export default function AddEmployeePage() {
     const router = useRouter();
     const { user: currentUser } = useAuthStore();
@@ -49,7 +65,7 @@ export default function AddEmployeePage() {
             fullName: "",
             email: "",
             // ✅ Đặt cứng mật khẩu mặc định là 123456
-            password: "123456",
+            password: undefined,
             phoneNumber: "",
             citizenId: "",
             addressDetail: "",
@@ -68,6 +84,7 @@ export default function AddEmployeePage() {
     const currentStatus = watch("status");
     const currentBranchId = watch("branchId");
     const currentRoleId = watch("roleId");
+    const currentCitizenId = watch("citizenId");
 
     useEffect(() => {
         async function loadInitData() {
@@ -114,7 +131,49 @@ export default function AddEmployeePage() {
         }
     }, [branches, currentBranchId, currentUser, setValue]);
 
+    useEffect(() => {
+        const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId || "");
+        if (!inferred) return;
+
+        const currentDateOfBirth = watch("dateOfBirth");
+        if (!currentDateOfBirth) {
+            setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
+        }
+
+        if (!currentGender || currentGender === "OTHER") {
+            setValue("gender", inferred.gender, { shouldDirty: true });
+        }
+    }, [currentCitizenId, currentGender, setValue, watch]);
+
     const handleAvatarClick = () => fileInputRef.current?.click();
+
+    const handleEmployeeAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setUploading(true);
+            const formDataUpload = new FormData();
+            formDataUpload.append("file", file);
+
+            const response = await apiJava.post('/users/upload-avatar', formDataUpload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const avatarUrl = response.data.imageUrl || response.data.url;
+            if (!avatarUrl) {
+                toast.error("Upload thành công nhưng không nhận được đường dẫn ảnh.");
+                return;
+            }
+
+            setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });
+            toast.success("Tải ảnh lên thành công!");
+        } catch (error: any) {
+            toast.error(getErrorMessage(error) || "Lỗi khi tải ảnh.");
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -123,12 +182,12 @@ export default function AddEmployeePage() {
             setUploading(true);
             const formDataUpload = new FormData();
             formDataUpload.append("file", file);
-            const response = await apiJava.post('/files/tmpUpload', formDataUpload, {
+            const response = await apiJava.post('/users/upload-avatar', formDataUpload, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            const avatarUrl = response.data.tmpPath || response.data.fileUrl;
+            const avatarUrl = response.data.imageUrl || response.data.url;
             if (avatarUrl) {
-                setValue("avatarUrl", avatarUrl);
+                setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });
                 toast.success("Tải ảnh lên thành công!");
             }
         } catch (error) {
@@ -207,6 +266,7 @@ export default function AddEmployeePage() {
                                     <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Fingerprint size={10} /> Số CCCD (12 số) *</Label>
                                     <Input {...register("citizenId")} className={cn("h-9 text-[13px] font-bold", errors.citizenId && "border-red-500")} placeholder="0..." maxLength={12} />
                                     {errors.citizenId && <p className="text-[10px] text-red-500 font-bold">{errors.citizenId.message}</p>}
+                                    {!errors.citizenId && <p className="text-[10px] text-slate-400">Có thể gợi ý năm sinh và giới tính từ CCCD. Không thể suy ra chính xác địa chỉ hoặc số điện thoại chỉ từ dãy số CCCD.</p>}
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[10px] font-bold uppercase text-slate-400">Ngày sinh *</Label>
@@ -309,7 +369,7 @@ export default function AddEmployeePage() {
                                 {uploading ? <Loader2 className="animate-spin text-emerald-600" /> : currentAvatarUrl ? <img src={currentAvatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <UserCircle2 size={80} className="text-slate-200" />}
                             </div>
                             <div className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full shadow-lg"><Camera size={16} /></div>
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                            <input type="file" ref={fileInputRef} onChange={handleEmployeeAvatarUpload} className="hidden" accept="image/*" />
                         </div>
                     </div>
 
