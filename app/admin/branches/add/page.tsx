@@ -215,23 +215,45 @@ export default function AddBranchPage() {
   };
 
   const fetchCoordinatesFromAddress = async () => {
-    if (!addressDetailValue || !watchedProvince) {
-      toast.error("Vui lòng nhập địa chỉ chi tiết và chọn tỉnh thành trước!");
+    // Không bắt buộc province nếu addressDetail đã đủ thông tin
+    if (!addressDetailValue || addressDetailValue.trim().length < 3) {
+      toast.error("Vui lòng nhập địa chỉ chi tiết đủ thông tin!");
       return null;
     }
 
     setIsGettingGPS(true);
     try {
-      const fullAddr = buildFullAddressQuery();
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddr)}&limit=1`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
+      // Ưu tiên 1: Cố gắng geocode trực tiếp từ addressDetail (e.g., Google Maps format)
+      const directResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressDetailValue)}&countrycodes=vn&limit=1`
+      );
+      const directData = await directResponse.json();
+
+      if (directData && directData.length > 0 && directData[0].lat && directData[0].lon) {
+        const lat = parseFloat(directData[0].lat);
+        const lng = parseFloat(directData[0].lon);
         setValue("lat", lat);
         setValue("lng", lng);
         return { lat, lng };
       }
+
+      // Ưu tiên 2: Nếu có province/district/ward, thử kết hợp full address
+      if (watchedProvince) {
+        const fullAddr = buildFullAddressQuery();
+        const fullResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddr)}&limit=1`
+        );
+        const fullData = await fullResponse.json();
+
+        if (fullData && fullData.length > 0 && fullData[0].lat && fullData[0].lon) {
+          const lat = parseFloat(fullData[0].lat);
+          const lng = parseFloat(fullData[0].lon);
+          setValue("lat", lat);
+          setValue("lng", lng);
+          return { lat, lng };
+        }
+      }
+
       return null;
     } catch (error) {
       console.error("Error fetching coordinates", error);
@@ -244,9 +266,9 @@ export default function AddBranchPage() {
   const handleFetchCoordsFromAddress = async () => {
     const coords = await fetchCoordinatesFromAddress();
     if (coords) {
-      toast.success("Đã cập nhật tọa độ!");
+      toast.success("✓ Đã lấy tọa độ từ địa chỉ!");
     } else {
-      toast.error("Không tìm thấy tọa độ. Vui lòng kiểm tra lại địa chỉ hoặc chọn gợi ý.");
+      toast.error("Không tìm thấy tọa độ. Vui lòng kiểm tra lại địa chỉ.");
     }
   };
 
@@ -429,7 +451,7 @@ export default function AddBranchPage() {
                   <Label className="text-[10px] font-black text-slate-500 flex items-center gap-1.5 uppercase"><Navigation size={12} /> Tọa độ địa lý</Label>
                   <div className="flex items-center gap-2">
                     <Button type="button" onClick={handleFetchCoordsFromAddress} disabled={isGettingGPS} className="h-7 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3">
-                      {isGettingGPS ? <Loader2 size={11} className="animate-spin mr-1" /> : <Navigation size={11} className="mr-1" />} Lấy tọa độ từ địa chỉ
+                    {isGettingGPS ? <Loader2 size={11} className="animate-spin mr-1" /> : <Navigation size={11} className="mr-1" />} Lấy tọa độ
                     </Button>
                     {watchedLat && watchedLng && (
                       <a href={`https://www.google.com/maps?q=${watchedLat},${watchedLng}`} target="_blank" rel="noopener noreferrer" className="h-7 flex items-center gap-1 px-3 text-[10px] font-bold text-blue-600 border border-blue-200 bg-blue-50">
