@@ -132,39 +132,59 @@ export default function AddEmployeePage() {
     }, [branches, currentBranchId, currentUser, setValue]);
 
     useEffect(() => {
-        const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId || "");
-        if (!inferred) return;
-
-        const currentDateOfBirth = watch("dateOfBirth");
-        if (!currentDateOfBirth) {
-            setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
+        // Validate CCCD format first
+        if (!currentCitizenId || !/^\d{12}$/.test(currentCitizenId)) {
+            return;
         }
 
-        if (!currentGender || currentGender === "OTHER") {
-            setValue("gender", inferred.gender, { shouldDirty: true });
-        }
-
-        // 🔍 Lookup CCCD từ API để auto-fill địa chỉ
+        // 🔍 Lookup CCCD từ API để auto-fill thông tin nhân viên
         const lookupCitizenInfo = async () => {
             try {
                 const data = await EmployeeService.lookupByCitizenId(currentCitizenId);
-                // Auto-fill address nếu chưa có
+                
+                // Auto-fill fullName từ API
+                const currentFullName = watch("fullName");
+                if (!currentFullName && data.fullName) {
+                    setValue("fullName", data.fullName, { shouldDirty: true });
+                }
+                
+                // Auto-fill dateOfBirth từ API
+                const currentDateOfBirth = watch("dateOfBirth");
+                if (!currentDateOfBirth && data.dateOfBirth) {
+                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
+                } else if (currentDateOfBirth === `${inferBirthYearAndGenderFromCitizenId(currentCitizenId)?.year}-01-01` && data.dateOfBirth) {
+                    // Update inferred date with actual API date
+                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
+                }
+                
+                // Auto-fill gender từ API
+                if ((currentGender === "MALE" || currentGender === "OTHER") && data.gender) {
+                    setValue("gender", data.gender, { shouldDirty: true });
+                }
+                
+                // Auto-fill addressDetail từ API
                 const currentAddress = watch("addressDetail");
                 if (!currentAddress && data.address) {
                     setValue("addressDetail", data.address, { shouldDirty: true });
                 }
-                // Also update dateOfBirth if available from lookup
-                if (!currentDateOfBirth && data.dateOfBirth) {
-                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
-                }
             } catch (error) {
-                // Silent catch - lookup not required, just nice to have
-                // toast.error("Không thể tra cứu CCCD");
+                // CCCD lookup failed - fallback to inference from citizenId digits
+                const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId);
+                if (!inferred) return;
+
+                const currentDateOfBirth = watch("dateOfBirth");
+                if (!currentDateOfBirth) {
+                    setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
+                }
+
+                if (!currentGender || currentGender === "OTHER") {
+                    setValue("gender", inferred.gender, { shouldDirty: true });
+                }
             }
         };
 
         lookupCitizenInfo();
-    }, [currentCitizenId, currentGender, setValue, watch]);
+    }, [currentCitizenId, setValue, watch]);
 
     const handleAvatarClick = () => fileInputRef.current?.click();
 
