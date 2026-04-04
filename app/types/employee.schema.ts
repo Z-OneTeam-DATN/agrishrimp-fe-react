@@ -12,12 +12,9 @@ export const EmployeeCreateSchema = z.object({
     .max(100, "Email không quá 100 ký tự")
     .transform(v => v.trim()),
   password: z.string()
-    .min(8, "Mật khẩu phải từ 8-100 ký tự")
+    .min(6, "Mật khẩu phải từ 6-100 ký tự")
     .max(100, "Mật khẩu không quá 100 ký tự")
-    .regex(/[A-Z]/, "Cần ít nhất 1 chữ hoa")
-    .regex(/[a-z]/, "Cần ít nhất 1 chữ thường")
-    .regex(/[0-9]/, "Cần ít nhất 1 chữ số")
-    .regex(/[@#$%^&+=!]/, "Cần ít nhất 1 ký tự đặc biệt (@#$%^&+=!)"),
+    .optional(),
   phoneNumber: z.string().regex(/^0\d{9}$/, "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng 0"),
   addressDetail: z.string().min(1, "Địa chỉ không được để trống").transform(v => v.trim()),
   dateOfBirth: z.string().refine((date) => {
@@ -96,4 +93,11 @@ export interface PageResponse<T> {
 export interface BranchType {
   id: number;
   name: string;
+}
+
+export interface CitizenLookupResponse {
+  fullName: string;
+  dateOfBirth: string;
+  gender: string;
+  address: string;
 }
