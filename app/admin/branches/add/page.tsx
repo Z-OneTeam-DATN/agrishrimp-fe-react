@@ -401,23 +401,38 @@ export default function AddBranchPage() {
             <div className="flex items-center gap-2 mb-6 text-emerald-700 font-black text-[11px] uppercase border-b pb-3"><User size={16} /> 3. Nhân sự phụ trách & Liên hệ</div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Người quản lý chi nhánh *</Label>
+                <Label className="text-[10px] font-black uppercase text-slate-500">Người quản lý chi nhánh</Label>
                 <Controller name="managerId" control={control} render={({ field }) => (
-                  <Select onValueChange={(val) => { field.onChange(val); setSearchTerm(""); }} value={field.value}>
+                  <Select
+                    onValueChange={(val) => {
+                      field.onChange(val === "__none__" ? "" : val);
+                      setSearchTerm("");
+                    }}
+                    value={field.value || "__none__"}
+                  >
                     <SelectTrigger className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.managerId ? 'border-red-500' : ''}`}><SelectValue placeholder="-- Tìm nhân sự --" /></SelectTrigger>
                     <SelectContent className="rounded-none z-[1050] p-0">
                       {renderSearchInput("Nhập tên quản lý...")}
                       <div className="max-h-[200px] overflow-y-auto">
-                        {filteredStaffs.map(staff => (
-                            <SelectItem key={staff.id} value={String(staff.id)}>
-                                {staff.fullName} (ID: {staff.id})
-                            </SelectItem>
-                        ))}
+                        <SelectItem value="__none__">Chưa gán người quản lý</SelectItem>
+                        {filteredStaffs.length > 0 ? (
+                          filteredStaffs.map(staff => (
+                              <SelectItem key={staff.id} value={String(staff.id)}>
+                                  {staff.fullName} (ID: {staff.id})
+                              </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-[12px] text-slate-400">
+                            Chưa có nhân viên phù hợp để chọn.
+                          </div>
+                        )}
                       </div>
                     </SelectContent>
                   </Select>
                 )} />
-                {errors.managerId && <span className="text-[10px] text-red-500 font-bold">{errors.managerId.message}</span>}
+                <span className="text-[10px] text-slate-400">
+                  Có thể để trống lúc khởi tạo chi nhánh và gán sau khi đã có nhân viên.
+                </span>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase">Số điện thoại *</Label>

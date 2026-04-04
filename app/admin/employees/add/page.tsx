@@ -57,8 +57,8 @@ export default function AddEmployeePage() {
             avatarUrl: null,
             status: "ACTIVE",
             startDate: new Date().toISOString().split('T')[0],
-            branchId: currentUser?.branch?.id || 0,
-            roleId: 0,
+            branchId: currentUser?.branch?.id ?? undefined,
+            roleId: undefined,
             gender: "MALE"
         }
     });
@@ -92,7 +92,7 @@ export default function AddEmployeePage() {
                 setRoles(rolesList);
 
                 // ✅ Tải danh sách chi nhánh
-                const branchesList = (Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data as any).content || []) as BranchType[];
+                const branchesList = (Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || []) as BranchType[];
                 setBranches(branchesList);
             } catch (error) {
                 toast.error("Không thể tải dữ liệu hệ thống.");
@@ -102,6 +102,17 @@ export default function AddEmployeePage() {
         }
         loadInitData();
     }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentBranchId && branches.length > 0) {
+            const preferredBranchId =
+                currentUser?.branch?.id && branches.some((branch) => branch.id === currentUser.branch?.id)
+                    ? currentUser.branch.id
+                    : branches[0].id;
+
+            setValue("branchId", preferredBranchId, { shouldValidate: false, shouldDirty: false });
+        }
+    }, [branches, currentBranchId, currentUser, setValue]);
 
     const handleAvatarClick = () => fileInputRef.current?.click();
 
@@ -245,20 +256,43 @@ export default function AddEmployeePage() {
                         <div className="grid grid-cols-2 gap-4 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Chi nhánh làm việc *</Label>
-                                <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))}>
-                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger>
+                                <Select
+                                    value={currentBranchId ? String(currentBranchId) : undefined}
+                                    onValueChange={(val) => setValue("branchId", Number(val))}
+                                    disabled={branches.length === 0}
+                                >
+                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"} /></SelectTrigger>
                                     <SelectContent>
-                                        {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                                        {branches.length > 0 ? (
+                                            branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)
+                                        ) : (
+                                            <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                Chưa có chi nhánh nào. Hãy tạo chi nhánh trước.
+                                            </div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                                 {errors.branchId && <p className="text-[10px] text-red-500 font-bold">{errors.branchId.message}</p>}
+                                {branches.length === 0 && (
+                                    <p className="text-[10px] text-slate-400 font-medium">Bạn cần tạo ít nhất 1 chi nhánh trước khi thêm nhân viên.</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Vai trò hệ thống *</Label>
-                                <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val))}>
-                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue placeholder="Chọn vai trò" /></SelectTrigger>
+                                <Select
+                                    value={currentRoleId ? String(currentRoleId) : undefined}
+                                    onValueChange={(val) => setValue("roleId", Number(val))}
+                                    disabled={roles.length === 0}
+                                >
+                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue placeholder={roles.length === 0 ? "Chưa có vai trò" : "Chọn vai trò"} /></SelectTrigger>
                                     <SelectContent>
-                                        {roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)}
+                                        {roles.length > 0 ? (
+                                            roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)
+                                        ) : (
+                                            <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                Chưa có vai trò nào khả dụng.
+                                            </div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                                 {errors.roleId && <p className="text-[10px] text-red-500 font-bold">{errors.roleId.message}</p>}
@@ -311,7 +345,7 @@ export default function AddEmployeePage() {
 
             <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t p-3 flex justify-end gap-3 z-[999] shadow-inner">
                 <Button type="button" variant="ghost" onClick={() => router.back()} className="font-bold uppercase text-[11px]">Hủy bỏ</Button>
-                <Button type="submit" disabled={saving || uploading} className="h-9 px-10 text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white uppercase">
+                <Button type="submit" disabled={saving || uploading || branches.length === 0 || roles.length === 0} className="h-9 px-10 text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white uppercase">
                     {saving ? <Loader2 className="animate-spin mr-2" /> : "LƯU NHÂN VIÊN"}
                 </Button>
             </div>
