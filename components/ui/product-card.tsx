@@ -94,6 +94,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const hasAttributes = product.variants?.some(
     (v) => v.attributeValues && v.attributeValues.length > 0
   );
+  const shortDescription = product.shortDesc || product.description;
+  const soldCount = Number(product.soldCount ?? 0);
 
   const prices = product.variants?.map((v) => v.price).filter(Boolean) ?? [];
   const minPrice = prices.length > 0 ? Math.min(...prices) : null;
@@ -192,9 +194,9 @@ export default function ProductCard({ product }: ProductCardProps) {
         </h3>
 
         {/* Short description */}
-        {product.shortDesc && (
-          <p className="text-[11px] text-gray-400 line-clamp-1 leading-relaxed">
-            {product.shortDesc}
+        {shortDescription && (
+          <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed min-h-[32px]">
+            {shortDescription}
           </p>
         )}
 
@@ -218,7 +220,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Price */}
         <div className="mt-auto pt-2.5 border-t border-dashed border-gray-100">
           {minPrice !== null ? (
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2 mb-1.5">
               <span className="text-base font-extrabold text-orange-500">
                 {hasPriceRange
                   ? `${formatNumber(minPrice!)} – ${formatNumber(maxPrice!)} ₫`
@@ -226,8 +228,12 @@ export default function ProductCard({ product }: ProductCardProps) {
               </span>
             </div>
           ) : (
-            <span className="text-sm text-gray-400 italic">Liên hệ</span>
+            <span className="text-sm text-gray-400 italic block mb-1.5">Liên hệ</span>
           )}
+
+          <div className="text-[10px] font-medium text-gray-500">
+            {soldCount > 0 ? `Đã mua ${formatNumber(soldCount)}` : "Chưa có lượt mua"}
+          </div>
         </div>
       </div>
     </Link>

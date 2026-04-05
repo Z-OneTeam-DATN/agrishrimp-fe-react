@@ -25,6 +25,7 @@ import { branchService } from '@/app/services/branchService';
 import { EmployeeService } from "@/app/services/employee.service";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import MapPicker from "@/components/admin/map-picker";
 
 // --- HELPERS TRÍCH XUẤT DỮ LIỆU ---
 const getProvId = (item: any) => item?.ProvinceID ?? item?.province_id ?? item?.id ?? "";
@@ -68,6 +69,8 @@ export default function AddBranchPage() {
   const [staffs, setStaffs] = useState<any[]>([]);
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isGettingGPS, setIsGettingGPS] = useState(false);
+  const [hasAutoGeocoded, setHasAutoGeocoded] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -210,40 +213,234 @@ export default function AddBranchPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleFetchCoordsFromAddress = async () => {
-    if (!addressDetailValue || !watchedProvince) {
-      toast.error("Vui lòng nhập địa chỉ chi tiết và chọn tỉnh thành trước!");
+  const buildFullAddressQuery = () => {
+    return `${addressDetailValue}, ${currentWard ? getWardName(currentWard) + ', ' : ''}${currentDistrict ? getDistName(currentDistrict) + ', ' : ''}${getProvName(currentProvince)}`;
+  };
+
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\b(huyen|h\.uyen|h\. |quan|q\.|tp|tp\.|thanh pho|thanh pho|thanh pho\.)\b/gi, "")
+      .replace(/\b(phuong|phuong\.|xa|xa\.|thi tran|thi xa|thi xa\.)\b/gi, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const findMatchingItem = (items: any[], name: string, getName: (item: any) => string) => {
+    const normalizedTarget = normalizeText(name);
+    return items.find(item => normalizeText(getName(item)).includes(normalizedTarget) || normalizedTarget.includes(normalizeText(getName(item))));
+  };
+
+  const reverseGeocodeAddress = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const address = data.address || {};
+      const addressParts = [
+        address.house_number,
+        address.road || address.pedestrian || address.footway || address.cycleway || address.path,
+        address.neighbourhood || address.suburb || address.quarter || address.hamlet || address.village,
+      ].filter(Boolean);
+      const addressDetail = addressParts.join(", ");
+      return {
+        fullAddress: data.display_name || "",
+        addressDetail,
+        province: address.state || address.region || address.county || "",
+        district: address.county || address.city_district || address.suburb || address.town || "",
+        ward: address.suburb || address.quarter || address.village || address.hamlet || "",
+      };
+    } catch (error) {
+      console.error("Error reverse geocoding", error);
+      return null;
+    }
+  };
+
+  const applyLocationFromMap = async (lat: number, lng: number) => {
+    const location = await reverseGeocodeAddress(lat, lng);
+    if (!location) {
+      toast.error("Không thể xác định địa chỉ từ vị trí này.");
       return;
     }
+
+    if (location.addressDetail) {
+      setValue("addressDetail", location.addressDetail);
+    }
+
+    const provinceMatch = location.province ? findMatchingItem(provinces, location.province, getProvName) : undefined;
+    if (provinceMatch) {
+      setValue("province", String(getProvId(provinceMatch)));
+      const districtRes = await fetchWithAuth(`/api/ghn/district?province_id=${getProvId(provinceMatch)}`);
+      const districtList = extractArray(await districtRes.json());
+      setDistricts(districtList);
+
+      const districtMatch = location.district ? findMatchingItem(districtList, location.district, getDistName) : undefined;
+      if (districtMatch) {
+        setValue("district", String(getDistId(districtMatch)));
+        const wardRes = await fetchWithAuth(`/api/ghn/ward?district_id=${getDistId(districtMatch)}`);
+        const wardList = extractArray(await wardRes.json());
+        setWards(wardList);
+
+        const wardMatch = location.ward ? findMatchingItem(wardList, location.ward, getWardName) : undefined;
+        if (wardMatch) {
+          setValue("ward", String(getWardId(wardMatch)));
+        }
+      }
+    }
+  };
+
+  // Helper: Strip Google Plus Code format from address
+  const extractAddressWithoutPlusCode = (address: string): string => {
+    if (address.includes("+") && address.includes(",")) {
+      const parts = address.split(",");
+      return parts.slice(1).join(",").trim();
+    }
+    return address;
+  };
+
+  const fetchCoordinatesFromAddress = async () => {
+    // Không bắt buộc province nếu addressDetail đã đủ thông tin
+    if (!addressDetailValue || addressDetailValue.trim().length < 3) {
+      toast.error("Vui lòng nhập địa chỉ chi tiết đủ thông tin!");
+      return null;
+    }
+
     setIsGettingGPS(true);
     try {
-      const fullAddr = `${addressDetailValue}, ${currentWard ? getWardName(currentWard) + ', ' : ''}${currentDistrict ? getDistName(currentDistrict) + ', ' : ''}${getProvName(currentProvince)}`;
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddr)}&limit=1`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        setValue("lat", parseFloat(data[0].lat));
-        setValue("lng", parseFloat(data[0].lon));
-        toast.success("Đã cập nhật tọa độ!");
-      } else { toast.error("Không tìm thấy tọa độ."); }
-    } catch (error) { toast.error("Lỗi bản đồ."); } finally { setIsGettingGPS(false); }
+      // Extract address without Plus Code (e.g., "PVC3+W6H, Hồ Đắc Kiện, Cần Thơ" → "Hồ Đắc Kiện, Cần Thơ")
+      const cleanAddress = extractAddressWithoutPlusCode(addressDetailValue);
+
+      // Ưu tiên 1: Cố gắng geocode trực tiếp từ cleaned address
+      const directResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&countrycodes=vn&limit=1`
+      );
+      const directData = await directResponse.json();
+
+      if (directData && directData.length > 0 && directData[0].lat && directData[0].lon) {
+        const lat = parseFloat(directData[0].lat);
+        const lng = parseFloat(directData[0].lon);
+        setValue("lat", lat);
+        setValue("lng", lng);
+        return { lat, lng };
+      }
+
+      // Ưu tiên 2: Nếu có province/district/ward, thử kết hợp full address
+      if (watchedProvince) {
+        const fullAddr = buildFullAddressQuery();
+        const fullResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddr)}&limit=1`
+        );
+        const fullData = await fullResponse.json();
+
+        if (fullData && fullData.length > 0 && fullData[0].lat && fullData[0].lon) {
+          const lat = parseFloat(fullData[0].lat);
+          const lng = parseFloat(fullData[0].lon);
+          setValue("lat", lat);
+          setValue("lng", lng);
+          return { lat, lng };
+        }
+      }
+
+      // Ưu tiên 3: Try searching with just district + province as fallback
+      if (currentDistrict && currentProvince) {
+        const simpleAddr = `${getDistName(currentDistrict)}, ${getProvName(currentProvince)}`;
+        const simpleResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simpleAddr)}&countrycodes=vn&limit=1`
+        );
+        const simpleData = await simpleResponse.json();
+
+        if (simpleData && simpleData.length > 0 && simpleData[0].lat && simpleData[0].lon) {
+          const lat = parseFloat(simpleData[0].lat);
+          const lng = parseFloat(simpleData[0].lon);
+          setValue("lat", lat);
+          setValue("lng", lng);
+          return { lat, lng };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error fetching coordinates", error);
+      return null;
+    } finally {
+      setIsGettingGPS(false);
+    }
+  };
+
+  const handleFetchCoordsFromAddress = async () => {
+    const coords = await fetchCoordinatesFromAddress();
+    if (coords) {
+      toast.success("✓ Đã lấy tọa độ từ địa chỉ!");
+    } else {
+      toast.error("Không tìm thấy tọa độ. Vui lòng kiểm tra lại địa chỉ.");
+    }
+  };
+
+  const handleAddressBlur = async () => {
+    // Auto-geocode khi blur khỏi field nếu chưa có lat/lng
+    if (!watchedLat && !watchedLng && addressDetailValue && addressDetailValue.length > 2) {
+      const coords = await fetchCoordinatesFromAddress();
+      if (coords) {
+        // Auto geocode silent success (không toast)
+      }
+    }
+  };
+
+  const handleMapLocationSelect = async (lat: number, lng: number) => {
+    setValue("lat", lat);
+    setValue("lng", lng);
+    await applyLocationFromMap(lat, lng);
+    setShowMapPicker(false);
+    toast.success("✓ Đã chọn tọa độ từ bản đồ!");
   };
 
   const onSubmit = async (data: AdminBranchForm) => {
     try {
       setIsLoading(true);
+
+      let lat = data.lat;
+      let lng = data.lng;
+      const hasLatLng = typeof lat === "number" && typeof lng === "number";
+
+      if (!hasLatLng && data.addressDetail) {
+        const coords = await fetchCoordinatesFromAddress();
+        if (!coords) {
+          toast.error("Không thể lấy tọa độ tự động. Vui lòng kiểm tra lại địa chỉ hoặc chọn gợi ý.");
+          return;
+        }
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+
       const selectedWardObj = wards.find((w: any) => String(getWardId(w)) === data.ward);
       const payload = {
-        branchCode: data.id, name: data.name, branchType: data.branchType, phone: data.phone, email: data.email,
-        addressDetail: data.addressDetail, provinceId: Number(data.province), districtId: Number(data.district),
+        branchCode: data.id,
+        name: data.name,
+        branchType: data.branchType,
+        phone: data.phone,
+        email: data.email,
+        addressDetail: data.addressDetail,
+        provinceId: Number(data.province),
+        districtId: Number(data.district),
         wardId: selectedWardObj?.WardID ?? Number(data.ward),
         wardCode: selectedWardObj?.WardCode ?? selectedWardObj?.code ?? String(data.ward),
-        status: data.status.toUpperCase(), managerIds: data.managerId ? [Number(data.managerId)] : [],
-        lat: data.lat, lng: data.lng
+        status: data.status.toUpperCase(),
+        managerIds: data.managerId ? [Number(data.managerId)] : [],
+        lat,
+        lng,
       };
+
       isEditMode ? await branchService.update(branchId!, payload) : await branchService.create(payload);
       toast.success("Thành công!");
       router.push("/admin/branches");
-    } catch (error: any) { toast.error("Lỗi lưu dữ liệu."); } finally { setIsLoading(false); }
+    } catch (error: any) {
+      toast.error("Lỗi lưu dữ liệu.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderSearchInput = (placeholder: string) => (
@@ -261,6 +458,7 @@ export default function AddBranchPage() {
   const filteredStaffs = useMemo(() => staffs.filter(s => (s?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase())), [staffs, searchTerm]);
 
   return (
+    <>
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen">
       <div className="flex items-center gap-4 mb-2 px-1">
         <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400"><ChevronLeft size={20} /></Button>
@@ -352,7 +550,7 @@ export default function AddBranchPage() {
 
               <div className="md:col-span-3 space-y-1.5 relative" ref={suggestionRef}>
                 <Label className="text-[10px] font-black uppercase text-slate-500">Địa chỉ chi tiết (Số nhà, tên đường) *</Label>
-                <Input {...register("addressDetail")} autoComplete="off" className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`} />
+                <Input {...register("addressDetail")} autoComplete="off" onBlur={handleAddressBlur} className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`} />
                 {showSuggestions && addressSuggestions.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-[1100] bg-white border border-[#ccc] shadow-xl max-h-[200px] overflow-y-auto mt-1">
                     {addressSuggestions.map((item: any, idx: number) => (
@@ -379,7 +577,10 @@ export default function AddBranchPage() {
                   <Label className="text-[10px] font-black text-slate-500 flex items-center gap-1.5 uppercase"><Navigation size={12} /> Tọa độ địa lý</Label>
                   <div className="flex items-center gap-2">
                     <Button type="button" onClick={handleFetchCoordsFromAddress} disabled={isGettingGPS} className="h-7 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3">
-                      {isGettingGPS ? <Loader2 size={11} className="animate-spin mr-1" /> : <Navigation size={11} className="mr-1" />} Lấy tọa độ từ địa chỉ
+                    {isGettingGPS ? <Loader2 size={11} className="animate-spin mr-1" /> : <Navigation size={11} className="mr-1" />} Lấy tọa độ
+                    </Button>
+                    <Button type="button" onClick={() => setShowMapPicker(true)} className="h-7 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3">
+                      <MapPin size={11} className="mr-1" /> Chọn trên bản đồ
                     </Button>
                     {watchedLat && watchedLng && (
                       <a href={`https://www.google.com/maps?q=${watchedLat},${watchedLng}`} target="_blank" rel="noopener noreferrer" className="h-7 flex items-center gap-1 px-3 text-[10px] font-bold text-blue-600 border border-blue-200 bg-blue-50">
@@ -474,5 +675,15 @@ export default function AddBranchPage() {
         </Button>
       </div>
     </form>
+    
+    {showMapPicker && (
+      <MapPicker
+        initialLat={watchedLat}
+        initialLng={watchedLng}
+        onLocationSelect={handleMapLocationSelect}
+        onClose={() => setShowMapPicker(false)}
+      />
+    )}
+    </>
   );
 }

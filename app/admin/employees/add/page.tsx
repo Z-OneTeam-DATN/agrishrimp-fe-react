@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ChevronLeft, Users, Building2,
     ShieldCheck, Mail, Phone, MapPin,
-    Key, Loader2, Camera, UserCircle2, Briefcase, Fingerprint, Calendar
+    Key, Loader2, Camera, UserCircle2, Briefcase, Fingerprint, Calendar, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,12 +45,14 @@ export default function AddEmployeePage() {
     const router = useRouter();
     const { user: currentUser } = useAuthStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cccdFileInputRef = useRef<HTMLInputElement>(null);
 
     const [roles, setRoles] = useState<RoleType[]>([]);
     const [branches, setBranches] = useState<BranchType[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [ocrProcessing, setOcrProcessing] = useState(false);
 
     const {
         register,
@@ -132,39 +134,59 @@ export default function AddEmployeePage() {
     }, [branches, currentBranchId, currentUser, setValue]);
 
     useEffect(() => {
-        const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId || "");
-        if (!inferred) return;
-
-        const currentDateOfBirth = watch("dateOfBirth");
-        if (!currentDateOfBirth) {
-            setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
+        // Validate CCCD format first
+        if (!currentCitizenId || !/^\d{12}$/.test(currentCitizenId)) {
+            return;
         }
 
-        if (!currentGender || currentGender === "OTHER") {
-            setValue("gender", inferred.gender, { shouldDirty: true });
-        }
-
-        // 🔍 Lookup CCCD từ API để auto-fill địa chỉ
+        // 🔍 Lookup CCCD từ API để auto-fill thông tin nhân viên
         const lookupCitizenInfo = async () => {
             try {
                 const data = await EmployeeService.lookupByCitizenId(currentCitizenId);
-                // Auto-fill address nếu chưa có
+                
+                // Auto-fill fullName từ API
+                const currentFullName = watch("fullName");
+                if (!currentFullName && data.fullName) {
+                    setValue("fullName", data.fullName, { shouldDirty: true });
+                }
+                
+                // Auto-fill dateOfBirth từ API
+                const currentDateOfBirth = watch("dateOfBirth");
+                if (!currentDateOfBirth && data.dateOfBirth) {
+                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
+                } else if (currentDateOfBirth === `${inferBirthYearAndGenderFromCitizenId(currentCitizenId)?.year}-01-01` && data.dateOfBirth) {
+                    // Update inferred date with actual API date
+                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
+                }
+                
+                // Auto-fill gender từ API
+                if ((currentGender === "MALE" || currentGender === "OTHER") && data.gender) {
+                    setValue("gender", data.gender as "MALE" | "FEMALE" | "OTHER", { shouldDirty: true });
+                }
+                
+                // Auto-fill addressDetail từ API
                 const currentAddress = watch("addressDetail");
                 if (!currentAddress && data.address) {
                     setValue("addressDetail", data.address, { shouldDirty: true });
                 }
-                // Also update dateOfBirth if available from lookup
-                if (!currentDateOfBirth && data.dateOfBirth) {
-                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
-                }
             } catch (error) {
-                // Silent catch - lookup not required, just nice to have
-                // toast.error("Không thể tra cứu CCCD");
+                // CCCD lookup failed - fallback to inference from citizenId digits
+                const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId);
+                if (!inferred) return;
+
+                const currentDateOfBirth = watch("dateOfBirth");
+                if (!currentDateOfBirth) {
+                    setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
+                }
+
+                if (!currentGender || currentGender === "OTHER") {
+                    setValue("gender", inferred.gender, { shouldDirty: true });
+                }
             }
         };
 
         lookupCitizenInfo();
-    }, [currentCitizenId, currentGender, setValue, watch]);
+    }, [currentCitizenId, setValue, watch]);
 
     const handleAvatarClick = () => fileInputRef.current?.click();
 
@@ -193,6 +215,65 @@ export default function AddEmployeePage() {
             toast.error(getErrorMessage(error) || "Lỗi khi tải ảnh.");
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleCccdOcrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error("Vui lòng chọn file ảnh hợp lệ (PNG, JPG, JPEG)");
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Kích thước ảnh không được vượt quá 5MB");
+            return;
+        }
+
+        try {
+            setOcrProcessing(true);
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const response = await apiJava.post('/employees/ocr-cccd', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const ocrData = response.data;
+
+            // Auto-fill form fields from OCR result
+            if (ocrData.fullName && !watch("fullName")) {
+                setValue("fullName", ocrData.fullName, { shouldDirty: true });
+            }
+
+            if (ocrData.dateOfBirth && !watch("dateOfBirth")) {
+                setValue("dateOfBirth", ocrData.dateOfBirth, { shouldDirty: true });
+            }
+
+            if (ocrData.gender && (!watch("gender") || watch("gender") === "OTHER")) {
+                setValue("gender", ocrData.gender, { shouldDirty: true });
+            }
+
+            if (ocrData.address && !watch("addressDetail")) {
+                setValue("addressDetail", ocrData.address, { shouldDirty: true });
+            }
+
+            if (ocrData.citizenId && !watch("citizenId")) {
+                setValue("citizenId", ocrData.citizenId, { shouldDirty: true });
+            }
+
+            toast.success(`OCR thành công! Độ tin cậy: ${Math.round((ocrData.confidence || 0) * 100)}%`);
+
+        } catch (error: any) {
+            toast.error(getErrorMessage(error) || "Lỗi khi xử lý ảnh CCCD. Vui lòng thử lại.");
+        } finally {
+            setOcrProcessing(false);
+            // Reset file input
+            if (e.target) e.target.value = '';
         }
     };
 
@@ -290,9 +371,40 @@ export default function AddEmployeePage() {
                                     {!errors.citizenId && <p className="text-[10px] text-slate-400">Có thể gợi ý năm sinh và giới tính từ CCCD. Không thể suy ra chính xác địa chỉ hoặc số điện thoại chỉ từ dãy số CCCD.</p>}
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400">Ngày sinh *</Label>
-                                    <Input type="date" {...register("dateOfBirth")} className={cn("h-9 text-[13px]", errors.dateOfBirth && "border-red-500")} />
-                                    {errors.dateOfBirth && <p className="text-[10px] text-red-500 font-bold">{errors.dateOfBirth.message}</p>}
+                                    <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
+                                        <Upload size={10} />
+                                        Upload ảnh CCCD
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            ref={cccdFileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleCccdOcrUpload}
+                                            className="hidden"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => cccdFileInputRef.current?.click()}
+                                            disabled={ocrProcessing}
+                                            className="h-9 flex-1 text-[12px]"
+                                        >
+                                            {ocrProcessing ? (
+                                                <>
+                                                    <Loader2 size={12} className="animate-spin mr-1" />
+                                                    Đang xử lý...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={12} className="mr-1" />
+                                                    Chọn ảnh
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400">Upload ảnh mặt trước CCCD để tự động điền thông tin</p>
                                 </div>
                             </div>
 

@@ -3,23 +3,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import Slider from "rc-slider";
-import "rc-slider/assets/index.css";
 import {
-  Filter, List, X, SlidersHorizontal, Loader2, PackageX, LayoutGrid
+  List, X, SlidersHorizontal, Loader2, PackageX, LayoutGrid
 } from "lucide-react";
 import ProductCard from "@/components/ui/product-card";
+import LoadMoreButton from "@/components/ui/load-more-button";
 import { PublicProductListItem } from "@/app/types/product.schema";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
+import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(amount);
-};
+const ROWS_PER_STEP = 3;
 
 export default function CategoryPage() {
   const router = useRouter();
@@ -34,6 +29,12 @@ export default function CategoryPage() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   const [showMobileFilter, setShowMobileFilter] = useState(false);
+  const [visibleRows, setVisibleRows] = useState(ROWS_PER_STEP);
+  const gridColumns = useResponsiveColumns({
+    defaultColumns: 2,
+    mdColumns: 3,
+    lgColumns: 4,
+  });
 
   // 1. Tải toàn bộ danh mục (Chỉ chạy 1 lần)
   useEffect(() => {
@@ -122,6 +123,16 @@ export default function CategoryPage() {
   const filteredProducts = useMemo(() => {
     return products;
   }, [products]);
+
+  useEffect(() => {
+    setVisibleRows(ROWS_PER_STEP);
+  }, [filteredProducts.length, currentCategoryId]);
+
+  const visibleCount = visibleRows * gridColumns;
+  const visibleProducts = useMemo(
+    () => filteredProducts.slice(0, visibleCount),
+    [filteredProducts, visibleCount]
+  );
 
   // --- BIẾN JSX BỘ LỌC TÌM KIẾM ---
   const filterContentHtml = (
@@ -227,14 +238,22 @@ export default function CategoryPage() {
                 <span className="ml-3 text-gray-500 font-medium">Đang tìm sản phẩm...</span>
               </div>
             ) : filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-                {filteredProducts.map((prod) => (
-                  <ProductCard
-                    key={prod.id}
-                    product={prod as any}
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+                  {visibleProducts.map((prod) => (
+                    <ProductCard
+                      key={prod.id}
+                      product={prod as any}
+                    />
+                  ))}
+                </div>
+
+                {visibleProducts.length < filteredProducts.length && (
+                  <LoadMoreButton
+                    onClick={() => setVisibleRows((prev) => prev + ROWS_PER_STEP)}
                   />
-                ))}
-              </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100 text-center px-4">
                 <PackageX className="text-gray-300 mb-4" size={64} />

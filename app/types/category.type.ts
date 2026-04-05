@@ -6,4 +6,5 @@ export interface CategoryDTO {
   status: "ACTIVE";
   parentId: number | null;
   parentName: string | null;
+  productCount?: number;
 }
