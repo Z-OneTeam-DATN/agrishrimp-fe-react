@@ -19,6 +19,7 @@ const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 
 const TABS = [
+  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them", icon: PackageCheck },
   { id: "PENDING", label: "Chờ xác nhận", icon: CheckCircle },
   { id: "CONFIRMED", label: "Chờ xử lý", icon: PackageCheck },
   { id: "PROCESSING", label: "Gom đơn & Đóng gói", icon: Printer },
@@ -241,7 +242,15 @@ export default function OrderManagementPage() {
                                   <h3 className="text-[12px] font-bold text-slate-800 uppercase tracking-tight">
                                     Chi tiết sản phẩm ({detail?.items?.length || 0})
                                   </h3>
-                                  {activeTab === "PENDING" ? (
+                                  {activeTab === "AWAITING_REPLENISHMENT" ? (
+                                    <Button
+                                      size="sm"
+                                      className="h-[32px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold shadow-sm"
+                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "CONFIRMED")}
+                                    >
+                                      <CheckCircle size={15} className="mr-1.5" /> Da nhap du hang
+                                    </Button>
+                                  ) : activeTab === "PENDING" ? (
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold shadow-sm"
@@ -309,7 +318,12 @@ export default function OrderManagementPage() {
                                                 </div>
                                               </div>
                                             </td>
-                                            <td className="p-3 text-center text-[13px] text-slate-700 font-black">{item.quantity}</td>
+                                            <td className="p-3 text-center text-[13px] text-slate-700 font-black">
+                                              <div>{item.quantity}</div>
+                                              {(item.missingQuantity ?? 0) > 0 && (
+                                                <div className="text-[10px] font-semibold text-rose-600">Thieu {item.missingQuantity}</div>
+                                              )}
+                                            </td>
                                             <td className="p-3 text-right text-[13px] text-slate-600">{formatCurrency(item.price)}</td>
                                             <td className="p-3 text-right pr-4 text-[13px] font-bold text-emerald-700">{formatCurrency(item.totalPrice)}</td>
                                           </tr>

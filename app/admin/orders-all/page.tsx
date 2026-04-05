@@ -21,6 +21,7 @@ import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 
 const TABS = [
+  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them" },
   { id: "all", label: "Tất cả" },
   { id: "SHIPPING", label: "Đang giao hàng" },
   { id: "COMPLETED", label: "Hoàn thành" },
@@ -293,7 +294,12 @@ export default function AllOrdersPage() {
                                                 </div>
                                               </div>
                                             </td>
-                                            <td className="p-2 text-center text-[12px] text-slate-700">{item.quantity}</td>
+                                            <td className="p-2 text-center text-[12px] text-slate-700">
+                                              <div>{item.quantity}</div>
+                                              {(item.missingQuantity ?? 0) > 0 && (
+                                                <div className="text-[10px] font-semibold text-rose-600">Thieu {item.missingQuantity}</div>
+                                              )}
+                                            </td>
                                             <td className="p-2 text-right text-[12px] text-slate-700">{formatCurrency(item.price)}</td>
                                             <td className="p-2 text-right pr-3 text-[12px] font-bold text-slate-800">{formatCurrency(item.totalPrice)}</td>
                                           </tr>
@@ -330,6 +336,7 @@ export default function AllOrdersPage() {
 }
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
+  AWAITING_REPLENISHMENT: { label: "Cho nhap them", styles: "bg-rose-50 text-rose-600 border-rose-200" },
   PENDING:    { label: "Chờ xác nhận",   styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]" },
   CONFIRMED:  { label: "Đã xác nhận",    styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]" },
   PROCESSING: { label: "Đang đóng gói",  styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]" },

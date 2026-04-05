@@ -59,6 +59,7 @@ export interface PrepareOrderPayload {
   /** GPS tùy chọn — nếu có thì phí ship chính xác hơn */
   userLat?: number
   userLng?: number
+  voucherCode?: string
   /** Không gửi / gửi null → BE lấy toàn bộ giỏ hàng từ DB */
   cart?: Array<{ productVariantId: number; quantity: number }>
 }
@@ -68,8 +69,10 @@ export interface PrepareOrderResponse {
   /** Token dùng ở bước confirm — hết hạn sau 30 phút */
   prepareToken: string
   canFulfill: boolean
+  voucherCode?: string | null
   subOrders: SubOrderDraft[]
   totalSubtotal: number
+  discountAmount: number
   totalShippingFee: number
   totalAmount: number
   outOfStockItems: OutOfStockItem[]
@@ -86,7 +89,9 @@ export interface ConfirmOrderResponse {
   orderId: number
   orderCode: string
   status: OrderStatus
+  voucherCode?: string | null
   totalAmount: number
+  discountAmount: number
   totalShippingFee: number
   /** Có giá trị khi paymentMethod = PAYOS, null với COD/CASH/TRANSFER */
   checkoutUrl: string | null
@@ -108,6 +113,7 @@ export type PaymentMethod = 'COD' | 'CASH' | 'TRANSFER' | 'PAYOS'
 export type OrderStatus =
   | 'PENDING'
   | 'AWAITING_PAYMENT'
+  | 'AWAITING_REPLENISHMENT'
   | 'CONFIRMED'
   | 'PROCESSING'
   | 'READY_FOR_PICKUP'
@@ -163,6 +169,8 @@ export interface MyOrderItem {
   sku: string;
   image: string | null;
   quantity: number;
+  allocatedQuantity?: number;
+  missingQuantity?: number;
   price: number;
   totalPrice: number;
   canReview?: boolean;
@@ -180,6 +188,8 @@ export interface BranchOrderItem {
   sku: string;
   image: string | null;
   quantity: number;
+  allocatedQuantity?: number;
+  missingQuantity?: number;
   price: number;
   totalPrice: number;
 }
