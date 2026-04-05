@@ -100,9 +100,13 @@ export default function HeaderCategoryDropdown() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-8 p-6 lg:py-8 lg:px-4">
                   {parentCategories.map((parent) => (
                     <div key={parent.id} className="flex flex-col">
-                      <div className="font-bold text-gray-900 text-[15px] md:text-base mb-2.5 block border-b border-gray-100 pb-1.5 uppercase tracking-tight">
+                      <Link
+                        href={`/category/${parent.id}`}
+                        className="font-bold text-gray-900 text-[15px] md:text-base mb-2.5 block border-b border-gray-100 pb-1.5 uppercase tracking-tight hover:text-primary transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
                         {parent.name}
-                      </div>
+                      </Link>
 
                       <div className="flex flex-col space-y-1.5">
                         {getChildren(parent.id).map((child) => (
