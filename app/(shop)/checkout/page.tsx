@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, Loader2, X, Plus, MapPin, CheckCircle2, Banknote, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 import { cartService } from "@/app/services/cart.service"
@@ -35,8 +35,40 @@ const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: R
     },
 ]
 
+type SavedAddress = {
+    id: number
+    addressDetail: string
+    districtId: number
+    wardId: string | number
+    receiverName: string
+    receiverPhone: string
+    isDefault?: boolean
+}
+
+type CheckoutCartApiItem = {
+    variantId: number
+    quantity: number
+    name?: string
+    variant?: string
+    price?: number
+    image?: string
+}
+
+type AddressFormValues = {
+    fullName: string
+    phone: string
+    specificAddress: string
+    provinceId: string | number
+    districtId: string | number
+    wardCode: string
+    isDefault: boolean
+    addressType: string
+}
+
 export default function CheckoutPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const voucherCode = searchParams.get("voucher")?.trim().toUpperCase() || undefined
 
     const [cartItems, setCartItems] = useState<CartItem[]>([])
     const [isLoadingCart, setIsLoadingCart] = useState(true)
@@ -44,7 +76,7 @@ export default function CheckoutPage() {
     const [note, setNote] = useState("")
     const [addressConfirmed, setAddressConfirmed] = useState(false)
 
-    const [addresses, setAddresses] = useState<any[]>([])
+    const [addresses, setAddresses] = useState<SavedAddress[]>([])
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false)
     const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
     const [isSubmittingAddress, setIsSubmittingAddress] = useState(false)
@@ -65,7 +97,7 @@ export default function CheckoutPage() {
     })
 
     // 🐛 FIX LỖI 400: Thêm tham số currentCart = cartItems
-    const handleAddressSelect = (addr: any, currentCart = cartItems) => {
+    const handleAddressSelect = (addr: SavedAddress, currentCart = cartItems) => {
         const info: DeliveryInfo = {
             address: addr.addressDetail,
             districtId: addr.districtId,
@@ -88,6 +120,7 @@ export default function CheckoutPage() {
                     productVariantId: item.productVariantId,
                     quantity: item.quantity
                 })),
+                ...(voucherCode && { voucherCode }),
                 ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
             })
         }
@@ -112,7 +145,7 @@ export default function CheckoutPage() {
                     router.push("/user/cart")
                     return
                 }
-                const items: CartItem[] = cartData.map((item: any) => ({
+                const items: CartItem[] = (cartData as CheckoutCartApiItem[]).map((item) => ({
                     productVariantId: item.variantId,
                     quantity: item.quantity,
                     productName: item.name,
@@ -121,9 +154,10 @@ export default function CheckoutPage() {
                     imageUrl: item.image,
                 }))
                 setCartItems(items)
-                setAddresses(addressData)
-                if (addressData.length > 0) {
-                    const defaultAddr = addressData.find((a: any) => a.isDefault) || addressData[0]
+                const normalizedAddresses = addressData as SavedAddress[]
+                setAddresses(normalizedAddresses)
+                if (normalizedAddresses.length > 0) {
+                    const defaultAddr = normalizedAddresses.find((a) => a.isDefault) || normalizedAddresses[0]
                     // 🐛 FIX LỖI 400: Truyền thẳng items vào để tránh state cartItems chưa kịp cập nhật
                     handleAddressSelect(defaultAddr, items)
                 }
@@ -136,7 +170,7 @@ export default function CheckoutPage() {
         loadData()
     }, [router, isAuthenticated, isLoadingAuth])
 
-    const handleAddNewAddress = async (data: any) => {
+    const handleAddNewAddress = async (data: AddressFormValues) => {
         setIsSubmittingAddress(true)
         try {
             const payload = {
@@ -151,12 +185,18 @@ export default function CheckoutPage() {
             }
             const newAddr = await addressService.create(payload)
             toast.success("Đã thêm địa chỉ mới!")
-            const updatedAddresses = await addressService.getAll()
+            const updatedAddresses = await addressService.getAll() as SavedAddress[]
             setAddresses(updatedAddresses)
-            handleAddressSelect(newAddr.id ? newAddr : updatedAddresses.find((a: any) => a.addressDetail === payload.addressDetail))
+            const createdAddress = newAddr as Partial<SavedAddress>
+            const selectedAddress = createdAddress.id
+                ? createdAddress as SavedAddress
+                : updatedAddresses.find((a) => a.addressDetail === payload.addressDetail)
+            if (selectedAddress) {
+                handleAddressSelect(selectedAddress)
+            }
             setIsAddingNewAddress(false)
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Lỗi khi thêm địa chỉ!")
+            toast.error(error.response?.data?.message || error.message || "Lỗi khi thêm địa chỉ!")
         } finally {
             setIsSubmittingAddress(false)
         }
@@ -182,6 +222,7 @@ export default function CheckoutPage() {
                 productVariantId: item.productVariantId,
                 quantity: item.quantity
             })),
+            ...(voucherCode && { voucherCode }),
             ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
         })
     }
@@ -453,6 +494,15 @@ export default function CheckoutPage() {
                                             <span className="text-gray-500">Tiền hàng</span>
                                             <span className="text-gray-800 font-medium">{formatMoney(prepareOrderResponse.totalSubtotal)}</span>
                                         </div>
+                                        {prepareOrderResponse.discountAmount > 0 && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-500">
+                                                    Giáº£m giĂ¡
+                                                    {prepareOrderResponse.voucherCode ? ` (${prepareOrderResponse.voucherCode})` : ""}
+                                                </span>
+                                                <span className="font-medium text-emerald-600">-{formatMoney(prepareOrderResponse.discountAmount)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-500">Phí vận chuyển</span>
                                             <span className="text-gray-800 font-medium">{formatMoney(prepareOrderResponse.totalShippingFee)}</span>

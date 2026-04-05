@@ -87,6 +87,13 @@ const statusConfig: Record<
     bannerText: "text-white",
     icon: <CheckCircle2 size={28} />,
   },
+  AWAITING_REPLENISHMENT: {
+    label: "Chờ bổ sung hàng",
+    subLabel: "Sản phẩm đang được điều chuyển giữa các kho để hoàn thiện đơn hàng của bạn",
+    bannerBg: "from-orange-500 to-amber-500",
+    bannerText: "text-white",
+    icon: <Package size={28} />,
+  },
   CANCELLED: {
     label: "Đã hủy đơn",
     subLabel: "Đơn hàng này đã bị hủy",
@@ -208,6 +215,7 @@ export default function OrderDetailPage({
 
   const activeStep = (() => {
     if (order.status === "CANCELLED" || order.status === "RETURNED") return -1;
+    if (order.status === "AWAITING_REPLENISHMENT") return steps.findIndex((s) => s.status === "PROCESSING");
     const idx = steps.findIndex((s) => s.status === order.status);
     return idx !== -1 ? idx : 0;
   })();

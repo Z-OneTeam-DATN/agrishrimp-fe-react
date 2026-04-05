@@ -17,6 +17,7 @@ import { BranchOrder, OrderStatus } from "@/app/types/order.types";
 
 // ── Tab config ──────────────────────────────────────────────────
 const TABS = [
+  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them" },
   { id: "all",        label: "Tất cả" },
   { id: "PENDING",    label: "Chờ xác nhận" },
   { id: "CONFIRMED",  label: "Đã xác nhận" },
@@ -28,6 +29,7 @@ const TABS = [
 ];
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
+  AWAITING_REPLENISHMENT: { label: "Cho nhap them", styles: "bg-rose-50 text-rose-600 border-rose-200" },
   PENDING:    { label: "Chờ xác nhận",  styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]" },
   CONFIRMED:  { label: "Đã xác nhận",   styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]" },
   PROCESSING: { label: "Đang đóng gói", styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]" },
@@ -73,6 +75,13 @@ const ActionButton = ({
   onAction: (e: React.MouseEvent, orderId: number, orderCode: string, newStatus: string) => void;
 }) => {
   switch (status) {
+    case "AWAITING_REPLENISHMENT":
+      return (
+        <Button size="sm" className="h-[28px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold"
+          onClick={(e) => onAction(e, orderId, orderCode, "CONFIRMED")}>
+          <CheckCircle size={13} className="mr-1.5" /> Da nhap du hang
+        </Button>
+      );
     case "PENDING":
       return (
         <Button size="sm" className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
@@ -388,7 +397,12 @@ export default function OrderListPage() {
                                                 </div>
                                               </div>
                                             </td>
-                                            <td className="p-2 text-center text-[12px] text-slate-700 font-bold">{item.quantity}</td>
+                                            <td className="p-2 text-center text-[12px] text-slate-700 font-bold">
+                                              <div>{item.quantity}</div>
+                                              {(item.missingQuantity ?? 0) > 0 && (
+                                                <div className="text-[10px] font-semibold text-rose-600">Thieu {item.missingQuantity}</div>
+                                              )}
+                                            </td>
                                             <td className="p-2 text-right text-[12px] text-slate-700">{formatCurrency(item.price)}</td>
                                             <td className="p-2 text-right pr-3 text-[12px] font-bold text-slate-800">{formatCurrency(item.totalPrice)}</td>
                                           </tr>
