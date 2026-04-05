@@ -24,7 +24,7 @@ export default function HeaderCategoryDropdown() {
       const data = await getPublicCategories();
       setCategories(data);
       if (data.length > 0) {
-        const parents = data.filter((c) => !c.parentId || c.parentId === 0);
+        const parents = data.filter((c: CategoryDTO) => !c.parentId || c.parentId === 0);
         if (parents.length > 0) {
           setActiveParentId(parents[0].id);
         }

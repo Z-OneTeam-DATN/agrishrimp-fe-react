@@ -24,7 +24,7 @@ export default function HeaderBrandDropdown() {
       const data = await getPublicBrands();
       setBrands(data);
       
-      const letters = Array.from(new Set(data.map(b => b.name[0].toUpperCase()))).sort();
+      const letters = Array.from(new Set(data.map((b: BrandDTO) => b.name[0].toUpperCase()))).sort();
       if (letters.length > 0) {
         setActiveLetter(letters[0]);
       }
@@ -39,13 +39,13 @@ export default function HeaderBrandDropdown() {
   };
 
   const alphabet = useMemo(() => {
-    const letters = Array.from(new Set(brands.map(b => b.name[0].toUpperCase()))).sort();
+    const letters = Array.from(new Set(brands.map((b: BrandDTO) => b.name[0].toUpperCase()))).sort();
     return letters;
   }, [brands]);
 
   const activeBrands = useMemo(() => {
     if (!activeLetter) return [];
-    return brands.filter(b => b.name[0].toUpperCase() === activeLetter).sort((a, b) => a.name.localeCompare(b.name));
+    return brands.filter((b: BrandDTO) => b.name[0].toUpperCase() === activeLetter).sort((a: BrandDTO, b: BrandDTO) => a.name.localeCompare(b.name));
   }, [brands, activeLetter]);
 
   useEffect(() => {
