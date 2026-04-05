@@ -184,7 +184,7 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
   const axiosInstance = axios.create({
     baseURL,
     timeout,
-    headers: { "Content-Type": "application/json" },
+    headers: { Accept: "application/json" },
     withCredentials: true,
   });
 

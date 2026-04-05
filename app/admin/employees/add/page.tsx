@@ -239,7 +239,9 @@ export default function AddEmployeePage() {
             const formData = new FormData();
             formData.append("image", file);
 
-            const response = await apiJava.post('/employees/ocr-cccd', formData);
+            const response = await apiJava.post('/employees/ocr-cccd', formData, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
 
             const ocrData = response.data;
 
