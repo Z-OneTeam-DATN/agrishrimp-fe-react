@@ -60,7 +60,7 @@ export default function AddEmployeePage() {
         setValue,
         watch,
         setError,
-        formState: { errors },
+        formState: { errors, dirtyFields },
     } = useForm<EmployeeCreateInput>({
         resolver: zodResolver(EmployeeCreateSchema),
         defaultValues: {
@@ -244,17 +244,19 @@ export default function AddEmployeePage() {
             });
 
             const ocrData = response.data;
+            const currentDateOfBirth = watch("dateOfBirth");
+            const currentGender = watch("gender");
 
             // Auto-fill form fields from OCR result
             if (ocrData.fullName && !watch("fullName")) {
                 setValue("fullName", ocrData.fullName, { shouldDirty: true });
             }
 
-            if (ocrData.dateOfBirth && !watch("dateOfBirth")) {
+            if (ocrData.dateOfBirth && (!currentDateOfBirth || currentDateOfBirth.endsWith("-01-01"))) {
                 setValue("dateOfBirth", ocrData.dateOfBirth, { shouldDirty: true });
             }
 
-            if (ocrData.gender && (!watch("gender") || watch("gender") === "OTHER")) {
+            if (ocrData.gender && (!dirtyFields.gender || currentGender === "OTHER")) {
                 setValue("gender", ocrData.gender, { shouldDirty: true });
             }
 
