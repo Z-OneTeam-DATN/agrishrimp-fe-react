@@ -244,28 +244,31 @@ export default function AddEmployeePage() {
             });
 
             const ocrData = response.data;
+            const currentFullName = watch("fullName");
+            const currentCitizenId = watch("citizenId");
+            const currentAddress = watch("addressDetail");
             const currentDateOfBirth = watch("dateOfBirth");
             const currentGender = watch("gender");
 
             // Auto-fill form fields from OCR result
-            if (ocrData.fullName && !watch("fullName")) {
-                setValue("fullName", ocrData.fullName, { shouldDirty: true });
+            if (ocrData.fullName && !currentFullName?.trim()) {
+                setValue("fullName", ocrData.fullName.trim(), { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
-            if (ocrData.dateOfBirth && (!currentDateOfBirth || currentDateOfBirth.endsWith("-01-01"))) {
-                setValue("dateOfBirth", ocrData.dateOfBirth, { shouldDirty: true });
+            if (ocrData.dateOfBirth && (!currentDateOfBirth?.trim() || currentDateOfBirth.endsWith("-01-01"))) {
+                setValue("dateOfBirth", ocrData.dateOfBirth, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
             if (ocrData.gender && (!dirtyFields.gender || currentGender === "OTHER")) {
-                setValue("gender", ocrData.gender, { shouldDirty: true });
+                setValue("gender", ocrData.gender, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
-            if (ocrData.address && !watch("addressDetail")) {
-                setValue("addressDetail", ocrData.address, { shouldDirty: true });
+            if (ocrData.address && !currentAddress?.trim()) {
+                setValue("addressDetail", ocrData.address.trim(), { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
-            if (ocrData.citizenId && !watch("citizenId")) {
-                setValue("citizenId", ocrData.citizenId, { shouldDirty: true });
+            if (ocrData.citizenId && !currentCitizenId?.trim()) {
+                setValue("citizenId", ocrData.citizenId.trim(), { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
             toast.success(`OCR thành công! Độ tin cậy: ${Math.round((ocrData.confidence || 0) * 100)}%`);
