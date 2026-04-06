@@ -163,7 +163,7 @@ export const orderService = {
     getReadyToShipSubOrders: async (): Promise<BranchOrder[]> => {
         // Tận dụng lại API lấy đơn hàng chi nhánh nhưng lọc cứng status PROCESSING
         const response = await apiJava.get<BranchOrder[]>("/branch/orders", {
-            params: { status: "PROCESSING" }
+            params: { status: "READY_FOR_PICKUP" }
         });
         return response.data;
     },

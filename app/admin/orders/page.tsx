@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Search, Settings, ChevronDown, ChevronsRight, ChevronUp,
-  CheckCircle, Package, PlayCircle, Truck, RefreshCw
+  CheckCircle, Package, Truck, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ const TABS = [
   { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them" },
   { id: "all",        label: "Tất cả" },
   { id: "PENDING",    label: "Chờ xác nhận" },
-  { id: "CONFIRMED",  label: "Đã xác nhận" },
+  { id: "READY_FOR_PICKUP",  label: "Chờ lấy hàng" },
   { id: "PROCESSING", label: "Đang xử lý" },
   { id: "SHIPPING",   label: "Đang giao" },
   { id: "COMPLETED",  label: "Hoàn thành" },
@@ -31,10 +31,10 @@ const TABS = [
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   AWAITING_REPLENISHMENT: { label: "Cho nhap them", styles: "bg-rose-50 text-rose-600 border-rose-200" },
   PENDING:    { label: "Chờ xác nhận",  styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]" },
-  CONFIRMED:  { label: "Đã xác nhận",   styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]" },
+  READY_FOR_PICKUP:  { label: "Chờ lấy hàng",   styles: "bg-teal-50 text-teal-700 border-teal-200" },
   PROCESSING: { label: "Đang đóng gói", styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]" },
-  SHIPPING:   { label: "Đang giao",     styles: "bg-[#f9f0ff] text-[#722ed1] border-[#d3adf7]" },
-  COMPLETED:  { label: "Hoàn thành",    styles: "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]" },
+  SHIPPING:   { label: "Chờ giao hàng", styles: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+  COMPLETED:  { label: "Đã giao",       styles: "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]" },
   CANCELLED:  { label: "Đã hủy",        styles: "bg-[#fff1f0] text-[#f5222d] border-[#ffa39e]" },
   RETURNED:   { label: "Trả hàng",      styles: "bg-slate-100 text-slate-600 border-slate-200" },
 };
@@ -78,22 +78,22 @@ const ActionButton = ({
     case "AWAITING_REPLENISHMENT":
       return (
         <Button size="sm" className="h-[28px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold"
-          onClick={(e) => onAction(e, orderId, orderCode, "CONFIRMED")}>
+          onClick={(e) => onAction(e, orderId, orderCode, "READY_FOR_PICKUP")}>
           <CheckCircle size={13} className="mr-1.5" /> Da nhap du hang
         </Button>
       );
     case "PENDING":
       return (
         <Button size="sm" className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
-          onClick={(e) => onAction(e, orderId, orderCode, "CONFIRMED")}>
+          onClick={(e) => onAction(e, orderId, orderCode, "READY_FOR_PICKUP")}>
           <CheckCircle size={13} className="mr-1.5" /> Xác nhận đơn
         </Button>
       );
-    case "CONFIRMED":
+    case "READY_FOR_PICKUP":
       return (
-        <Button size="sm" className="h-[28px] bg-yellow-500 hover:bg-yellow-600 text-white text-[12px] font-bold"
-          onClick={(e) => onAction(e, orderId, orderCode, "PROCESSING")}>
-          <PlayCircle size={13} className="mr-1.5" /> Bắt đầu xử lý
+        <Button size="sm" className="h-[28px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold"
+          onClick={(e) => onAction(e, orderId, orderCode, "SHIPPING")}>
+          <Truck size={13} className="mr-1.5" /> Bàn giao vận chuyển
         </Button>
       );
     case "PROCESSING":

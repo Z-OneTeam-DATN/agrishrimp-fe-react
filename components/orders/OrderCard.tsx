@@ -1,71 +1,73 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
+import { Store, Truck, CheckCircle2, RotateCcw, XCircle, CreditCard, Clock, Package } from "lucide-react";
 import { MyOrder, OrderStatus } from "@/app/types/order.types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { CancelOrderModal } from "./CancelOrderModal";
-import { useState } from "react";
-import { Store, Truck, CheckCircle2, RotateCcw, XCircle, CreditCard, Clock } from "lucide-react";
 
 interface OrderCardProps {
   order: MyOrder;
   onOrderCancelled?: () => void;
 }
 
+const cancellableStatuses: OrderStatus[] = [
+  "AWAITING_PAYMENT",
+  "PENDING",
+  "AWAITING_REPLENISHMENT",
+  "CONFIRMED",
+  "PROCESSING",
+  "READY_FOR_PICKUP",
+];
+
 export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
-  // Định dạng tiền tệ VND
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(amount);
-  };
 
-  // Cấu hình giao diện theo trạng thái
   const getStatusConfig = (status: OrderStatus) => {
     switch (status) {
-      case "PENDING":
-        return {
-          label: "Chờ xác nhận",
-          className: "text-orange-500",
-          icon: <Clock size={14} className="mr-1" />,
-        };
       case "AWAITING_PAYMENT":
         return {
           label: "Chờ thanh toán",
           className: "text-amber-600",
           icon: <CreditCard size={14} className="mr-1" />,
         };
+      case "AWAITING_REPLENISHMENT":
+        return {
+          label: "Đã xác nhận, chờ nhập thêm",
+          className: "text-rose-600",
+          icon: <Package size={14} className="mr-1" />,
+        };
+      case "PENDING":
+        return {
+          label: "Chờ xác nhận",
+          className: "text-orange-500",
+          icon: <Clock size={14} className="mr-1" />,
+        };
       case "CONFIRMED":
+      case "PROCESSING":
+      case "READY_FOR_PICKUP":
         return {
           label: "Đã xác nhận",
-          className: "text-blue-500",
-          icon: <CheckCircle2 size={14} className="mr-1" />,
-        };
-      case "PROCESSING":
-        return {
-          label: "Đang xử lý",
-          className: "text-purple-500",
-          icon: <Clock size={14} className="mr-1" />,
+          className: "text-teal-600",
+          icon: <Package size={14} className="mr-1" />,
         };
       case "SHIPPING":
         return {
-          label: "Đang giao hàng",
-          className: "text-[#0dcaf0]",
-          icon: <Truck size={14} className="mr-1" />,
-        };
-      case "READY_FOR_PICKUP":
-        return {
-          label: "Chờ lấy hàng",
-          className: "text-indigo-500",
+          label: "Chờ giao hàng",
+          className: "text-cyan-600",
           icon: <Truck size={14} className="mr-1" />,
         };
       case "COMPLETED":
         return {
-          label: "Hoàn thành",
+          label: "Đã giao",
           className: "text-[#2d9f8d]",
           icon: <CheckCircle2 size={14} className="mr-1" />,
         };
@@ -77,7 +79,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
         };
       case "RETURNED":
         return {
-          label: "Đã trả hàng",
+          label: "Trả hàng",
           className: "text-orange-600",
           icon: <RotateCcw size={14} className="mr-1" />,
         };
@@ -88,54 +90,37 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
 
   const statusConfig = getStatusConfig(order.status);
 
-  // Style nút chính (Màu xanh, chữ trắng)
   const btnMainClass =
-    "bg-[#2d9f8d] hover:bg-[#248273] text-white border border-[#2d9f8d] h-8 text-xs font-semibold px-4 shadow-sm";
-
+    "h-8 border border-[#2d9f8d] bg-[#2d9f8d] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#248273]";
   const btnOutlineClass =
-    "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-800 border border-gray-300 h-8 text-xs font-semibold px-4 shadow-sm transition-colors";
-
+    "h-8 border border-gray-300 bg-white px-4 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-800";
   const btnPayClass =
-    "bg-red-500 hover:bg-red-600 text-white border border-red-500 h-8 text-xs font-semibold px-4 shadow-sm transition-colors";
+    "h-8 border border-red-500 bg-red-500 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-red-600";
 
   return (
-    <div className="bg-white rounded-lg mb-3 shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200">
-      {/* HEADER: Branch Name & Status */}
-      <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 bg-gray-50/30">
+    <div className="mb-3 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:shadow-md">
+      <div className="flex items-center justify-between border-b border-gray-50 bg-gray-50/30 px-4 py-3">
         <div className="flex flex-col">
-          <div className="font-bold text-gray-800 flex items-center text-sm">
+          <div className="flex items-center text-sm font-bold text-gray-800">
             <Store size={16} className="mr-2 text-gray-500" /> Cửa hàng AgriShrimp
           </div>
-          <div className="text-[11px] text-gray-400 ml-6 font-mono">
-            Mã đơn: {order.code}
-          </div>
+          <div className="ml-6 text-[11px] font-mono text-gray-400">Mã đơn: {order.code}</div>
         </div>
-        <div
-          className={cn(
-            "uppercase text-xs font-bold flex items-center",
-            statusConfig.className,
-          )}
-        >
+        <div className={cn("flex items-center text-xs font-bold uppercase", statusConfig.className)}>
           {statusConfig.icon} {statusConfig.label}
         </div>
       </div>
 
-      {/* BODY: Product List */}
-      <div className="px-4 py-1 bg-white">
+      <div className="bg-white px-4 py-1">
         {order.items.map((item, index) => (
           <div
             key={index}
             className={cn("flex items-center gap-3 py-3", {
-              "border-b border-dashed border-gray-100":
-                index < order.items.length - 1,
+              "border-b border-dashed border-gray-100": index < order.items.length - 1,
             })}
           >
-            {/* Clickable area for item details */}
-            <Link
-              href={`/orders/${order.id}`}
-              className="flex flex-1 gap-3 min-w-0 cursor-pointer group"
-            >
-              <div className="relative w-16 h-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 group-hover:border-[#2d9f8d]/30 transition-colors">
+            <Link href={`/orders/${order.id}`} className="group flex min-w-0 flex-1 cursor-pointer gap-3">
+              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 transition-colors group-hover:border-[#2d9f8d]/30">
                 <Image
                   src={item.image || "/placeholder.png"}
                   alt={item.productName}
@@ -143,28 +128,26 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   className={`object-cover transition-transform duration-300 group-hover:scale-105 ${order.status === "CANCELLED" ? "grayscale opacity-70" : ""}`}
                 />
               </div>
-              <div className="flex-1 min-w-0 py-0.5">
-                <div className="font-semibold text-gray-800 text-sm truncate group-hover:text-[#2d9f8d] transition-colors">
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="truncate text-sm font-semibold text-gray-800 transition-colors group-hover:text-[#2d9f8d]">
                   {item.productName}
                 </div>
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                  <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">x{item.quantity}</span>
+                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px]">x{item.quantity}</span>
                   <span className="text-gray-300">|</span>
                   <span>SKU: {item.sku}</span>
                 </div>
-                <div
-                  className={`text-sm font-bold mt-1.5 sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}
-                >
+                {(item.missingQuantity ?? 0) > 0 && (
+                  <div className="mt-1 text-[11px] font-semibold text-rose-600">Thiếu {item.missingQuantity} sản phẩm</div>
+                )}
+                <div className={`mt-1.5 text-sm font-bold sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}>
                   {formatCurrency(item.price)}
                 </div>
               </div>
             </Link>
 
-            {/* Price (Desktop) and Action Button */}
             <div className="flex flex-col items-end gap-2">
-              <div
-                className={`hidden sm:block text-right text-sm font-bold ${order.status === "CANCELLED" ? "text-gray-400" : "text-gray-900"}`}
-              >
+              <div className={`hidden text-right text-sm font-bold sm:block ${order.status === "CANCELLED" ? "text-gray-400" : "text-gray-900"}`}>
                 {formatCurrency(item.price)}
               </div>
 
@@ -173,7 +156,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <Button
                     disabled
                     variant="outline"
-                    className={cn(btnOutlineClass, "h-7 text-[10px] px-3 bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-70")}
+                    className={cn(btnOutlineClass, "h-7 cursor-not-allowed border-gray-200 bg-gray-50 px-3 text-[10px] text-gray-400 opacity-70")}
                   >
                     Đã đánh giá
                   </Button>
@@ -181,7 +164,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <Link href={`/reviews/write/${item.productId}?orderId=${order.id}`}>
                     <Button
                       variant="outline"
-                      className={cn(btnOutlineClass, "h-7 text-[10px] px-3 border-[#2d9f8d] text-[#2d9f8d] hover:bg-teal-50 hover:text-[#2d9f8d]")}
+                      className={cn(btnOutlineClass, "h-7 border-[#2d9f8d] px-3 text-[10px] text-[#2d9f8d] hover:bg-teal-50 hover:text-[#2d9f8d]")}
                     >
                       Viết đánh giá
                     </Button>
@@ -193,69 +176,59 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
         ))}
       </div>
 
-      {/* FOOTER: Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 py-3 border-t border-gray-100 gap-3 bg-gray-50/20">
+      <div className="flex flex-col items-start justify-between gap-3 border-t border-gray-100 bg-gray-50/20 px-4 py-3 sm:flex-row sm:items-center">
         <div className="flex flex-col">
-          <div className="text-gray-600 text-sm">
-            Tổng tiền:{" "}
-            <span className="text-lg font-black text-red-600 ml-1">
-              {formatCurrency(order.finalAmount)}
-            </span>
+          <div className="text-sm text-gray-600">
+            Tổng tiền:
+            <span className="ml-1 text-lg font-black text-red-600">{formatCurrency(order.finalAmount)}</span>
           </div>
-          <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-gray-400">
             <CreditCard size={10} />
             Thanh toán: <span className="font-medium text-gray-600">{order.paymentMethod}</span>
-            <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
-              order.paymentStatus === 'PAID' ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
-            )}>
-              {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+            <span
+              className={cn(
+                "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase",
+                order.paymentStatus === "PAID" ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600",
+              )}
+            >
+              {order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-2 items-center self-end sm:self-auto">
-          {/* Nút thanh toán PayOS nếu chưa thanh toán */}
-          {order.paymentMethod === 'PAYOS' && order.paymentStatus === 'UNPAID' && order.checkoutUrl && (order.status === 'PENDING' || order.status === 'AWAITING_PAYMENT') && (
-             <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer">
-                <Button className={btnPayClass}>
-                  <CreditCard size={14} className="mr-1.5" />
-                  Thanh toán ngay
-                </Button>
-             </a>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {order.paymentMethod === "PAYOS" && order.paymentStatus === "UNPAID" && order.checkoutUrl && ["PENDING", "AWAITING_PAYMENT"].includes(order.status) && (
+            <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer">
+              <Button className={btnPayClass}>
+                <CreditCard size={14} className="mr-1.5" />
+                Thanh toán ngay
+              </Button>
+            </a>
           )}
 
-          {/* PENDING/CONFIRMED: Hủy đơn & Chi tiết */}
-          {(order.status === "AWAITING_PAYMENT" || order.status === "PENDING" || order.status === "CONFIRMED") && (
-            <>
-              <Dialog
-                open={isCancelModalOpen}
-                onOpenChange={setIsCancelModalOpen}
-              >
-                <DialogTrigger asChild>
-                  <Button variant="outline" className={btnOutlineClass}>
-                    Hủy đơn
-                  </Button>
-                </DialogTrigger>
-                <CancelOrderModal
-                  orderId={order.id.toString()}
-                  onClose={() => setIsCancelModalOpen(false)}
-                  onOrderCancelled={onOrderCancelled}
-                />
-              </Dialog>
-            </>
+          {cancellableStatuses.includes(order.status) && (
+            <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className={btnOutlineClass}>
+                  Hủy đơn
+                </Button>
+              </DialogTrigger>
+              <CancelOrderModal
+                orderId={order.id.toString()}
+                onClose={() => setIsCancelModalOpen(false)}
+                onOrderCancelled={onOrderCancelled}
+              />
+            </Dialog>
           )}
 
           <Link href={`/orders/${order.id}`}>
             <Button className={btnMainClass}>Chi tiết</Button>
           </Link>
 
-          {/* COMPLETED: Mua lại (Đã dời Đánh giá lên từng SP) */}
           {order.status === "COMPLETED" && (
-            <>
-              <Button variant="outline" className={btnOutlineClass}>
-                Mua lại
-              </Button>
-            </>
+            <Button variant="outline" className={btnOutlineClass}>
+              Mua lại
+            </Button>
           )}
         </div>
       </div>

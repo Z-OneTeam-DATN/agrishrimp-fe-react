@@ -44,7 +44,7 @@ export default function OrderingPage() {
   // Tự động re-fetch nếu có đơn PayOS chưa thanh toán (webhook chưa kịp xử lý)
   useEffect(() => {
     const hasPendingPayos = orders.some(
-      (o) => o.paymentMethod === "PAYOS" && o.paymentStatus === "UNPAID" && o.status === "PENDING"
+      (o) => o.paymentMethod === "PAYOS" && o.paymentStatus === "UNPAID" && o.status === "AWAITING_PAYMENT"
     );
     if (!hasPendingPayos || payosRetryRef.current >= 3) return;
     const t = setTimeout(() => {

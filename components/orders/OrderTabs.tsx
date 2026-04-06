@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -11,31 +11,24 @@ export function OrderTabs() {
   const tabs = [
     { label: "Tất cả", value: "ALL" },
     { label: "Chờ thanh toán", value: "AWAITING_PAYMENT" },
+    { label: "Chờ nhập thêm", value: "AWAITING_REPLENISHMENT" },
     { label: "Chờ xác nhận", value: "PENDING" },
-    { label: "Đã xác nhận", value: "CONFIRMED" },
-    { label: "Đang xử lý", value: "PROCESSING" },
     { label: "Chờ lấy hàng", value: "READY_FOR_PICKUP" },
-    { label: "Đang giao", value: "SHIPPING" },
+    { label: "Chờ giao hàng", value: "SHIPPING" },
     { label: "Đã giao", value: "COMPLETED" },
     { label: "Đã hủy", value: "CANCELLED" },
     { label: "Trả hàng", value: "RETURNED" },
   ];
 
   return (
-    <div className="bg-white rounded-t-lg p-0 flex overflow-x-auto border-b border-gray-200 scrollbar-hide">
+    <div className="scrollbar-hide flex overflow-x-auto rounded-t-lg border-b border-gray-200 bg-white">
       {tabs.map((tab) => (
         <Link
           key={tab.value}
-          // If value is ALL, remove param, else set it
-          href={
-            tab.value === "ALL"
-              ? "/orders/list"
-              : `/orders/list?status=${tab.value}`
-          }
+          href={tab.value === "ALL" ? "/orders/list" : `/orders/list?status=${tab.value}`}
           className={cn(
-            "px-4 py-3 whitespace-nowrap font-medium text-gray-600 text-sm border-b-2 border-transparent transition-colors hover:text-[#2d9f8d]",
-            currentStatus === tab.value &&
-              "text-[#2d9f8d] border-[#2d9f8d] font-bold",
+            "whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:text-[#2d9f8d]",
+            currentStatus === tab.value && "border-[#2d9f8d] font-bold text-[#2d9f8d]",
           )}
         >
           {tab.label}

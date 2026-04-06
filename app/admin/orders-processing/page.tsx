@@ -21,7 +21,7 @@ const formatCurrency = (amount: number) =>
 const TABS = [
   { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them", icon: PackageCheck },
   { id: "PENDING", label: "Chờ xác nhận", icon: CheckCircle },
-  { id: "CONFIRMED", label: "Chờ xử lý", icon: PackageCheck },
+  { id: "READY_FOR_PICKUP", label: "Chờ lấy hàng", icon: PackageCheck },
   { id: "PROCESSING", label: "Gom đơn & Đóng gói", icon: Printer },
 ];
 
@@ -71,9 +71,8 @@ export default function OrderManagementPage() {
     try {
       await orderService.updateBranchOrderStatus(orderId, newStatus);
       let successMsg = "";
-      if (newStatus === "CONFIRMED") successMsg = `Đã xác nhận đơn hàng ${orderCode}!`;
-      else if (newStatus === "PROCESSING") successMsg = `Đơn hàng ${orderCode} đã chuyển sang đóng gói!`;
-      else if (newStatus === "SHIPPING") successMsg = `Đơn hàng ${orderCode} đã bàn giao vận chuyển!`;
+      if (newStatus === "READY_FOR_PICKUP") successMsg = `Đơn hàng ${orderCode} đã chuyển sang chờ lấy hàng!`;
+      else if (newStatus === "SHIPPING") successMsg = `Đơn hàng ${orderCode} đã chuyển sang chờ giao hàng!`;
       
       toast.success(successMsg);
       setOrders(prev => prev.filter(o => o.orderId !== orderId));
@@ -168,7 +167,7 @@ export default function OrderManagementPage() {
                   <TableCell colSpan={7} className="h-40 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400">
                       <Package size={40} className="mb-2 opacity-20" />
-                      <p className="text-[14px]">Không có đơn hàng nào {activeTab === "PENDING" ? "chờ xác nhận" : activeTab === "CONFIRMED" ? "chờ xử lý" : "đang đóng gói"}.</p>
+                      <p className="text-[14px]">Không có đơn hàng nào {activeTab === "PENDING" ? "chờ xác nhận" : activeTab === "READY_FOR_PICKUP" ? "chờ lấy hàng" : "đang xử lý theo luồng cũ"}.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -246,7 +245,7 @@ export default function OrderManagementPage() {
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold shadow-sm"
-                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "CONFIRMED")}
+                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "READY_FOR_PICKUP")}
                                     >
                                       <CheckCircle size={15} className="mr-1.5" /> Da nhap du hang
                                     </Button>
@@ -254,15 +253,15 @@ export default function OrderManagementPage() {
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold shadow-sm"
-                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "CONFIRMED")}
+                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "READY_FOR_PICKUP")}
                                     >
                                       <CheckCircle size={15} className="mr-1.5" /> Xác nhận đơn
                                     </Button>
-                                  ) : activeTab === "CONFIRMED" ? (
+                                  ) : activeTab === "READY_FOR_PICKUP" ? (
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold shadow-sm"
-                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "PROCESSING")}
+                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "SHIPPING")}
                                     >
                                       <PackageCheck size={15} className="mr-1.5" /> Bắt đầu đóng gói
                                     </Button>
