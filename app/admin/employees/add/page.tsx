@@ -240,7 +240,7 @@ export default function AddEmployeePage() {
             formData.append("image", file);
 
             const response = await apiJava.post('/employees/ocr-cccd', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+              headers: { "Content-Type": "multipart/form-data" },
             });
 
             const ocrData = response.data;
@@ -284,9 +284,7 @@ export default function AddEmployeePage() {
             setUploading(true);
             const formDataUpload = new FormData();
             formDataUpload.append("file", file);
-            const response = await apiJava.post('/users/upload-avatar', formDataUpload, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const response = await apiJava.post('/users/upload-avatar', formDataUpload);
             const avatarUrl = response.data.imageUrl || response.data.url;
             if (avatarUrl) {
                 setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });

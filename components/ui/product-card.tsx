@@ -94,7 +94,13 @@ export default function ProductCard({ product }: ProductCardProps) {
   const hasAttributes = product.variants?.some(
     (v) => v.attributeValues && v.attributeValues.length > 0
   );
-  const shortDescription = product.shortDesc || product.description;
+
+  // ✅ HÀM STRIP HTML
+  const stripHtml = (html: string) => {
+    return html.replace(/<[^>]*>?/gm, "").replace(/&nbsp;/g, " ").trim();
+  };
+
+  const shortDescription = product.shortDesc ? stripHtml(product.shortDesc) : (product.description ? stripHtml(product.description) : "");
   const soldCount = Number(product.soldCount ?? 0);
 
   const prices = product.variants?.map((v) => v.price).filter(Boolean) ?? [];
@@ -232,7 +238,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
 
           <div className="text-[10px] font-medium text-gray-500">
-            {soldCount > 0 ? `Đã mua ${formatNumber(soldCount)}` : "Chưa có lượt mua"}
+            {`Đã mua ${formatNumber(soldCount)}`}
           </div>
         </div>
       </div>

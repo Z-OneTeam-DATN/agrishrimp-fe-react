@@ -35,9 +35,7 @@ export default function HomeCategories() {
     });
 
     return activeCategories.filter(
-      (category) =>
-        (!category.parentId || category.parentId === 0) &&
-        ((category.productCount ?? 0) + (childProductCounts.get(category.id) ?? 0) > 0)
+      (category) => (!category.parentId || category.parentId === 0)
     );
   }, [categories]);
 
