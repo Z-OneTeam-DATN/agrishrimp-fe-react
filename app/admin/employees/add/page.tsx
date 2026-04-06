@@ -57,6 +57,8 @@ const sanitizeOcrAddress = (value?: string | null) => {
     if (!value) return "";
 
     const cleaned = value
+        .replace(/\bPlace\s+of\s+(origin|residence)\b/gi, " ")
+        .replace(/^[/,\-\s]+/, "")
         .replace(/\s+/g, " ")
         .replace(/\s+,/g, ",")
         .trim();
@@ -69,6 +71,7 @@ const sanitizeOcrAddress = (value?: string | null) => {
         });
 
     let result = parts.join(" ").trim();
+    result = result.replace(/[/,\-\s]+$/, "").trim();
     result = result.replace(/\s+[A-ZÀ-Ỵ]{1,2}$/, "").trim();
     return result;
 };
@@ -444,6 +447,18 @@ export default function AddEmployeePage() {
                                         </Button>
                                     </div>
                                     <p className="text-[10px] text-slate-400">Upload ảnh mặt trước CCCD để tự động điền thông tin</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Calendar size={10} /> Ngày sinh *</Label>
+                                    <Input type="date" {...register("dateOfBirth")} className={cn("h-9 text-[13px]", errors.dateOfBirth && "border-red-500")} />
+                                    {errors.dateOfBirth && <p className="text-[10px] text-red-500 font-bold">{errors.dateOfBirth.message}</p>}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase text-slate-400">&nbsp;</Label>
+                                    <div className="h-9" />
                                 </div>
                             </div>
 
