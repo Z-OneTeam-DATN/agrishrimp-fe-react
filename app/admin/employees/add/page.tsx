@@ -41,6 +41,38 @@ const inferBirthYearAndGenderFromCitizenId = (citizenId: string) => {
     } as const;
 };
 
+const isLikelyOcrFullName = (value?: string | null) => {
+    if (!value) return false;
+
+    const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
+    if (!normalized || /\d/.test(normalized)) return false;
+
+    if (normalized.includes("FULL NAME") || normalized.includes("NAME")) return false;
+    if (normalized === "HO VA TEN" || normalized === "HO TEN" || normalized === "TEN") return false;
+
+    return normalized.split(" ").length >= 2;
+};
+
+const sanitizeOcrAddress = (value?: string | null) => {
+    if (!value) return "";
+
+    const cleaned = value
+        .replace(/\s+/g, " ")
+        .replace(/\s+,/g, ",")
+        .trim();
+
+    const parts = cleaned
+        .split(/\s+/)
+        .filter((part) => {
+            const normalized = part.replace(/[,./-]/g, "");
+            return !(normalized.length === 1 && /^[A-Za-zÀ-ỹ]$/.test(normalized));
+        });
+
+    let result = parts.join(" ").trim();
+    result = result.replace(/\s+[A-ZÀ-Ỵ]{1,2}$/, "").trim();
+    return result;
+};
+
 export default function AddEmployeePage() {
     const router = useRouter();
     const { user: currentUser } = useAuthStore();
@@ -253,8 +285,9 @@ export default function AddEmployeePage() {
             const currentGender = watch("gender");
 
             // Auto-fill form fields from OCR result
-            if (ocrData.fullName && !currentFullName?.trim()) {
-                setValue("fullName", ocrData.fullName.trim(), { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+            const normalizedName = ocrData.fullName?.trim();
+            if (normalizedName && !currentFullName?.trim() && isLikelyOcrFullName(normalizedName)) {
+                setValue("fullName", normalizedName, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
             if (ocrData.dateOfBirth && (!currentDateOfBirth?.trim() || currentDateOfBirth.endsWith("-01-01"))) {
@@ -265,8 +298,9 @@ export default function AddEmployeePage() {
                 setValue("gender", ocrData.gender, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
-            if (ocrData.address && !currentAddress?.trim()) {
-                setValue("addressDetail", ocrData.address.trim(), { shouldDirty: true, shouldValidate: true, shouldTouch: true });
+            const normalizedAddress = sanitizeOcrAddress(ocrData.address);
+            if (normalizedAddress && !currentAddress?.trim()) {
+                setValue("addressDetail", normalizedAddress, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
             }
 
             if (ocrData.citizenId && !currentCitizenId?.trim()) {
