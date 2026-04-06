@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
   Pencil,
-  Box,
+  Clock,
+  Package,
   Truck,
   CheckCircle2,
   RotateCcw,
@@ -14,44 +15,119 @@ import {
   Ticket,
   Bell,
   MapPin,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthService } from "@/app/services/auth.service";
 import { addressService } from "@/app/services/address.service";
 import { orderService } from "@/app/services/order.service";
-import { OrderStatus } from "@/app/types/order.types";
+import { getUserOrderStage, UserOrderStage } from "@/components/orders/order-status-utils";
+
+interface ProfileUser {
+  fullName?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+}
+
+interface ProfileAddress {
+  isDefault?: boolean;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  addressDetail?: string | null;
+}
+
+const orderQuickLinks: Array<{
+  key: UserOrderStage;
+  label: string;
+  href: string;
+  icon: typeof Clock;
+  iconWrapClassName: string;
+  iconClassName: string;
+  hoverClassName: string;
+}> = [
+  {
+    key: "PENDING",
+    label: "Chờ xác nhận",
+    href: "/orders/list?status=PENDING",
+    icon: Clock,
+    iconWrapClassName: "bg-emerald-50",
+    iconClassName: "text-[#2d9f8d]",
+    hoverClassName: "group-hover:text-[#2d9f8d]",
+  },
+  {
+    key: "READY_FOR_PICKUP",
+    label: "Chờ lấy hàng",
+    href: "/orders/list?status=READY_FOR_PICKUP",
+    icon: Package,
+    iconWrapClassName: "bg-teal-50",
+    iconClassName: "text-[#2d9f8d]",
+    hoverClassName: "group-hover:text-[#2d9f8d]",
+  },
+  {
+    key: "SHIPPING",
+    label: "Chờ giao hàng",
+    href: "/orders/list?status=SHIPPING",
+    icon: Truck,
+    iconWrapClassName: "bg-lime-50",
+    iconClassName: "text-[#329965]",
+    hoverClassName: "group-hover:text-[#329965]",
+  },
+  {
+    key: "COMPLETED",
+    label: "Đã giao",
+    href: "/orders/list?status=COMPLETED",
+    icon: CheckCircle2,
+    iconWrapClassName: "bg-green-50",
+    iconClassName: "text-green-600",
+    hoverClassName: "group-hover:text-green-600",
+  },
+  {
+    key: "RETURNED",
+    label: "Trả hàng",
+    href: "/orders/list?status=RETURNED",
+    icon: RotateCcw,
+    iconWrapClassName: "bg-orange-50",
+    iconClassName: "text-orange-500",
+    hoverClassName: "group-hover:text-orange-500",
+  },
+  {
+    key: "CANCELLED",
+    label: "Đã hủy",
+    href: "/orders/list?status=CANCELLED",
+    icon: XCircle,
+    iconWrapClassName: "bg-red-50",
+    iconClassName: "text-red-500",
+    hoverClassName: "group-hover:text-red-500",
+  },
+];
 
 export default function ProfilePage() {
-  //  1. Khai báo State để lưu dữ liệu động
-  const [user, setUser] = useState<any>(null);
-  const [defaultAddress, setDefaultAddress] = useState<any>(null);
-  const [addressCount, setAddressCount] = useState<number>(0);
-  const [orderCounts, setOrderCounts] = useState<Record<string, number>>({
-    PROCESSING: 0,
+  const [user, setUser] = useState<ProfileUser | null>(null);
+  const [defaultAddress, setDefaultAddress] = useState<ProfileAddress | null>(null);
+  const [addressCount, setAddressCount] = useState(0);
+  const [orderCounts, setOrderCounts] = useState<Record<UserOrderStage, number>>({
+    PENDING: 0,
+    READY_FOR_PICKUP: 0,
     SHIPPING: 0,
     COMPLETED: 0,
-    CANCELLED: 0,
     RETURNED: 0,
+    CANCELLED: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  //  2. Hàm gọi API lấy dữ liệu User và Địa chỉ
   const fetchDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Lấy thông tin user
       const currentUser = await AuthService.me();
       setUser(currentUser);
 
-      // Lấy danh sách địa chỉ
       try {
         const addresses = await addressService.getAll();
         if (Array.isArray(addresses)) {
-          setAddressCount(addresses.length); // Đếm số lượng địa chỉ
+          setAddressCount(addresses.length);
           if (addresses.length > 0) {
-            // Tìm địa chỉ mặc định, nếu không có thì lấy cái đầu tiên
-            const defAddr = addresses.find((a: any) => a.isDefault) || addresses[0];
+            const typedAddresses = addresses as ProfileAddress[];
+            const defAddr = typedAddresses.find((address) => address.isDefault) || typedAddresses[0];
             setDefaultAddress(defAddr);
           }
         }
@@ -59,30 +135,33 @@ export default function ProfilePage() {
         console.warn("Lỗi tải địa chỉ:", addrError);
       }
 
-      // Lấy danh sách đơn hàng để đếm trạng thái
       try {
         const orders = await orderService.getMyOrders("ALL");
-        const counts: Record<string, number> = {
-          PROCESSING: 0,
+        const counts: Record<UserOrderStage, number> = {
+          PENDING: 0,
+          READY_FOR_PICKUP: 0,
           SHIPPING: 0,
           COMPLETED: 0,
-          CANCELLED: 0,
           RETURNED: 0,
+          CANCELLED: 0,
         };
-        orders.forEach((o: any) => {
-          if (o.status === "PENDING" || o.status === "CONFIRMED" || o.status === "PROCESSING") {
-            counts.PROCESSING++;
-          } else if (counts[o.status] !== undefined) {
-            counts[o.status]++;
-          }
+
+        orders.forEach((order) => {
+          const stage = getUserOrderStage(order.status);
+          counts[stage] += 1;
         });
+
         setOrderCounts(counts);
       } catch (orderError) {
         console.warn("Lỗi tải đơn hàng:", orderError);
       }
+    } catch (error: unknown) {
+      const status =
+        typeof error === "object" && error !== null && "response" in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
 
-    } catch (error: any) {
-      if (error.response?.status === 401) {
+      if (status === 401) {
         toast.error("Vui lòng đăng nhập lại!");
       }
     } finally {
@@ -90,15 +169,13 @@ export default function ProfilePage() {
     }
   }, []);
 
-  //  3. Gọi hàm fetch khi vừa vào trang
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Hiển thị vòng xoay loading trong lúc chờ gọi API
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-[400px]">
+      <div className="flex h-[400px] items-center justify-center">
         <Loader2 className="animate-spin text-emerald-600" size={32} />
       </div>
     );
@@ -106,194 +183,103 @@ export default function ProfilePage() {
 
   return (
     <>
-      {/* 1. KHỐI ĐƠN HÀNG */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 mb-6">
-        <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
-          <h5 className="font-bold text-gray-800 text-lg">Đơn hàng của tôi</h5>
+      <div className="mb-6 rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
+          <h5 className="text-lg font-bold text-gray-800">Đơn hàng của tôi</h5>
           <Link
             href="/orders/list"
-            className="text-sm text-gray-500 hover:text-[#329965] flex items-center transition-colors group"
+            className="group flex items-center text-sm text-gray-500 transition-colors hover:text-[#329965]"
           >
-            Xem lịch sử đơn hàng{" "}
-            <ChevronRight
-              size={14}
-              className="ml-1 group-hover:translate-x-1 transition-transform"
-            />
+            Xem lịch sử đơn hàng
+            <ChevronRight size={14} className="ml-1 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-5 gap-2 text-center">
-          {/* Item 1: Đang xử lý */}
-          <Link
-            href="/orders/list?status=PROCESSING"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
-          >
-            <div className="w-10 h-10 mb-2 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Box size={20} />
-            </div>
-            {orderCounts.PROCESSING > 0 && (
-              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                {orderCounts.PROCESSING}
-              </span>
-            )}
-            <span className="text-xs md:text-sm text-gray-600 group-hover:text-blue-600 font-medium">
-              Đang xử lý
-            </span>
-          </Link>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {orderQuickLinks.map((item) => {
+            const Icon = item.icon;
+            const count = orderCounts[item.key];
 
-          {/* Item 2: Đang giao */}
-          <Link
-            href="/orders/list?status=SHIPPING"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
-          >
-            <div className="w-10 h-10 mb-2 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Truck size={20} />
-            </div>
-            {orderCounts.SHIPPING > 0 && (
-              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                {orderCounts.SHIPPING}
-              </span>
-            )}
-            <span className="text-xs md:text-sm text-gray-600 group-hover:text-yellow-600 font-medium">
-              Đang giao
-            </span>
-          </Link>
-
-          {/* Item 3: Đã giao */}
-          <Link
-            href="/orders/list?status=COMPLETED"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
-          >
-            <div className="w-10 h-10 mb-2 rounded-full bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <CheckCircle2 size={20} />
-            </div>
-            {orderCounts.COMPLETED > 0 && (
-              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                {orderCounts.COMPLETED}
-              </span>
-            )}
-            <span className="text-xs md:text-sm text-gray-600 group-hover:text-green-600 font-medium">
-              Đã giao
-            </span>
-          </Link>
-
-          {/* Item 4: Hoàn trả */}
-          <Link
-            href="/orders/list?status=RETURNED"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
-          >
-            <div className="w-10 h-10 mb-2 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <RotateCcw size={20} />
-            </div>
-            {orderCounts.RETURNED > 0 && (
-              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                {orderCounts.RETURNED}
-              </span>
-            )}
-            <span className="text-xs md:text-sm text-gray-600 group-hover:text-orange-600 font-medium">
-              Hoàn trả
-            </span>
-          </Link>
-
-          {/* Item 5: Đã hủy */}
-          <Link
-            href="/orders/list?status=CANCELLED"
-            className="group flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
-          >
-            <div className="w-10 h-10 mb-2 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <XCircle size={20} />
-            </div>
-            {orderCounts.CANCELLED > 0 && (
-              <span className="absolute top-1 right-[15%] md:right-[25%] bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                {orderCounts.CANCELLED}
-              </span>
-            )}
-            <span className="text-xs md:text-sm text-gray-600 group-hover:text-red-600 font-medium">
-              Đã hủy
-            </span>
-          </Link>
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className="group relative flex flex-col items-center rounded-lg p-3 text-center transition-colors hover:bg-gray-50"
+              >
+                <div
+                  className={`mb-2 flex h-11 w-11 items-center justify-center rounded-full transition-transform group-hover:scale-110 ${item.iconWrapClassName}`}
+                >
+                  <Icon size={20} className={item.iconClassName} />
+                </div>
+                {count > 0 && (
+                  <span className="absolute right-[18%] top-1 rounded-full border-2 border-white bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm md:right-[28%] xl:right-[22%]">
+                    {count}
+                  </span>
+                )}
+                <span className={`text-xs font-medium text-gray-600 md:text-sm ${item.hoverClassName}`}>
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
-      {/* 2. KHỐI THÔNG TIN & ĐỊA CHỈ */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">
-        {/* Cột Thông tin cá nhân */}
+      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-12">
         <div className="md:col-span-7">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 h-full">
-            <div className="flex justify-between items-center mb-4">
-              <h6 className="font-bold text-gray-500 uppercase text-xs tracking-wider">
-                Thông tin tài khoản
-              </h6>
-              <Link
-                href="/edit-profile"
-                className="text-[#329965] text-sm flex items-center hover:underline"
-              >
+          <div className="h-full rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h6 className="text-xs font-bold uppercase tracking-wider text-gray-500">Thông tin tài khoản</h6>
+              <Link href="/edit-profile" className="flex items-center text-sm text-[#329965] hover:underline">
                 <Pencil size={16} className="mr-1" /> Chỉnh sửa
               </Link>
             </div>
 
-            {/*  ĐÃ ĐỔI SANG DỮ LIỆU ĐỘNG */}
             <div className="space-y-3">
               <div className="flex justify-between border-b border-gray-50 pb-2">
-                <span className="text-gray-500 text-sm">Họ và tên</span>
-                <span className="font-medium text-gray-900 text-sm">
-                  {user?.fullName || "Chưa cập nhật"}
-                </span>
+                <span className="text-sm text-gray-500">Họ và tên</span>
+                <span className="text-sm font-medium text-gray-900">{user?.fullName || "Chưa cập nhật"}</span>
               </div>
               <div className="flex justify-between border-b border-gray-50 pb-2">
-                <span className="text-gray-500 text-sm">Email</span>
-                <span className="font-medium text-gray-900 text-sm">
-                  {user?.email || "Chưa có email"}
-                </span>
+                <span className="text-sm text-gray-500">Email</span>
+                <span className="text-sm font-medium text-gray-900">{user?.email || "Chưa có email"}</span>
               </div>
               <div className="flex justify-between border-b border-gray-50 pb-2">
-                <span className="text-gray-500 text-sm">Số điện thoại</span>
-                <span className="font-medium text-gray-900 text-sm">
-                  {user?.phoneNumber || "Chưa cập nhật"}
-                </span>
+                <span className="text-sm text-gray-500">Số điện thoại</span>
+                <span className="text-sm font-medium text-gray-900">{user?.phoneNumber || "Chưa cập nhật"}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Cột Địa chỉ mặc định */}
         <div className="md:col-span-5">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h6 className="font-bold text-gray-500 uppercase text-xs tracking-wider">
-                Địa chỉ mặc định
-              </h6>
-              <Link
-                href="/address"
-                className="text-[#329965] text-sm hover:underline"
-              >
+          <div className="flex h-full flex-col rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h6 className="text-xs font-bold uppercase tracking-wider text-gray-500">Địa chỉ mặc định</h6>
+              <Link href="/address" className="text-sm text-[#329965] hover:underline">
                 Quản lý
               </Link>
             </div>
 
-            {/*  KIỂM TRA: Nếu có địa chỉ thì hiện, không thì báo trống */}
             {defaultAddress ? (
-              <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-4 flex-1 relative group hover:border-[#329965] transition-colors flex flex-col">
-                <div className="font-bold text-gray-900 text-sm mb-1 flex items-center">
-                  <MapPin size={14} className="text-[#329965] mr-1" /> {defaultAddress.receiverName}
-                  <span className="font-normal text-gray-500 ml-1 border-l border-gray-300 pl-1">
+              <div className="group flex flex-1 flex-col rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 transition-colors hover:border-[#329965]">
+                <div className="mb-1 flex items-center text-sm font-bold text-gray-900">
+                  <MapPin size={14} className="mr-1 text-[#329965]" />
+                  {defaultAddress.receiverName}
+                  <span className="ml-1 border-l border-gray-300 pl-1 font-normal text-gray-500">
                     {defaultAddress.receiverPhone}
                   </span>
                 </div>
                 <hr className="my-2 border-gray-200" />
-                <p className="text-xs text-gray-600 leading-relaxed mb-3">
-                  {defaultAddress.addressDetail}
-                </p>
-                <div className="text-right mt-auto">
-                  <span className="text-[10px] text-gray-400 italic">
-                    {addressCount} địa chỉ đã thêm
-                  </span>
+                <p className="mb-3 text-xs leading-relaxed text-gray-600">{defaultAddress.addressDetail}</p>
+                <div className="mt-auto text-right">
+                  <span className="text-[10px] italic text-gray-400">{addressCount} địa chỉ đã thêm</span>
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 border border-dashed border-gray-300 rounded-md p-4 flex flex-1 items-center justify-center flex-col text-gray-400">
-                <p className="text-sm mb-2">Chưa có địa chỉ nào</p>
-                <Link href="/address" className="text-[#329965] text-xs font-bold hover:underline">
+              <div className="flex flex-1 flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-gray-400">
+                <p className="mb-2 text-sm">Chưa có địa chỉ nào</p>
+                <Link href="/address" className="text-xs font-bold text-[#329965] hover:underline">
                   Thêm địa chỉ ngay
                 </Link>
               </div>
@@ -302,49 +288,43 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 3. KHỐI TIỆN ÍCH NHANH */}
-      <h6 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-3 ml-1">
-        Tiện ích nhanh
-      </h6>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Tiện ích 1: AI */}
+      <h6 className="mb-3 ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Tiện ích nhanh</h6>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Link
           href="/ai-doctor"
-          className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center hover:shadow-md transition-shadow group cursor-pointer"
+          className="group flex items-center rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
         >
-          <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mr-3 group-hover:bg-teal-100 transition-colors">
+          <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-full bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
             <Bot size={20} />
           </div>
           <div>
-            <div className="font-bold text-sm text-gray-800">Chẩn đoán AI</div>
+            <div className="text-sm font-bold text-gray-800">Chẩn đoán AI</div>
             <div className="text-xs text-gray-500">Kiểm tra bệnh tôm</div>
           </div>
         </Link>
 
-        {/* Tiện ích 2: Voucher */}
         <Link
           href="/voucher"
-          className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center hover:shadow-md transition-shadow group cursor-pointer"
+          className="group flex items-center rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
         >
-          <div className="w-10 h-10 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center mr-3 group-hover:bg-orange-100 transition-colors">
+          <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-orange-500 transition-colors group-hover:bg-orange-100">
             <Ticket size={20} />
           </div>
           <div>
-            <div className="font-bold text-sm text-gray-800">Kho Voucher</div>
-            <div className="text-xs text-gray-500">3 mã chưa dùng</div>
+            <div className="text-sm font-bold text-gray-800">Kho voucher</div>
+            <div className="text-xs text-gray-500">Xem mã ưu đãi hiện có</div>
           </div>
         </Link>
 
-        {/* Tiện ích 3: Thông báo */}
         <Link
           href="/notifications"
-          className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center hover:shadow-md transition-shadow group cursor-pointer"
+          className="group flex items-center rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
         >
-          <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center mr-3 group-hover:bg-red-100 transition-colors">
+          <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors group-hover:bg-red-100">
             <Bell size={20} />
           </div>
           <div>
-            <div className="font-bold text-sm text-gray-800">Thông báo</div>
+            <div className="text-sm font-bold text-gray-800">Thông báo</div>
             <div className="text-xs text-gray-500">Xem tin mới nhất</div>
           </div>
         </Link>

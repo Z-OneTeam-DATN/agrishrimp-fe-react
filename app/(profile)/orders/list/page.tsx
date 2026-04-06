@@ -3,17 +3,17 @@
 import { useSearchParams } from "next/navigation";
 import { OrderTabs } from "@/components/orders/OrderTabs";
 import { OrderCard } from "@/components/orders/OrderCard";
-import { OrderStatus } from "@/app/types/order.types";
 import { orderService } from "@/app/services/order.service";
 import { PackageX, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MyOrder } from "@/app/types/order.types";
 import { toast } from "sonner";
+import { matchesUserOrderFilter, normalizeUserOrderFilter, UserOrderFilter } from "@/components/orders/order-status-utils";
 
 export default function OrderingPage() {
   const searchParams = useSearchParams();
-  const statusFilter = (searchParams.get("status") || "ALL") as OrderStatus | "ALL";
+  const statusFilter = normalizeUserOrderFilter(searchParams.get("status")) as UserOrderFilter;
 
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +24,7 @@ export default function OrderingPage() {
     setIsLoading(true);
     setIsError(false);
     try {
-      const data = await orderService.getMyOrders(statusFilter);
+      const data = await orderService.getMyOrders("ALL");
       setOrders(data);
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -33,7 +33,9 @@ export default function OrderingPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
+
+  const visibleOrders = orders.filter((order) => matchesUserOrderFilter(order.status, statusFilter));
 
   // Fetch lại khi đổi tab
   useEffect(() => {
@@ -74,8 +76,8 @@ export default function OrderingPage() {
               Thử lại
             </button>
           </div>
-        ) : orders && orders.length > 0 ? (
-          orders.map((order) => (
+        ) : visibleOrders.length > 0 ? (
+          visibleOrders.map((order) => (
             <OrderCard
               key={order.id}
               order={order}

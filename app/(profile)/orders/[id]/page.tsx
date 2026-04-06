@@ -36,49 +36,49 @@ const statusConfig: Record<
   PENDING: {
     label: "Chờ xác nhận",
     subLabel: "Đơn hàng đã được ghi nhận và đang chờ cửa hàng xác nhận.",
-    bannerBg: "from-amber-500 to-orange-400",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Clock size={28} />,
   },
   AWAITING_PAYMENT: {
     label: "Chờ thanh toán",
     subLabel: "Đơn hàng đang chờ bạn hoàn tất thanh toán online.",
-    bannerBg: "from-amber-500 to-yellow-400",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <CreditCard size={28} />,
   },
   AWAITING_REPLENISHMENT: {
-    label: "Đã xác nhận, chờ nhập thêm",
-    subLabel: "Đơn hàng đã được xác nhận. Một phần sản phẩm đang được bổ sung để hoàn thiện đơn hàng.",
-    bannerBg: "from-rose-500 to-orange-400",
+    label: "Chờ lấy hàng",
+    subLabel: "Đơn hàng đã được xác nhận. Cửa hàng đang bổ sung thêm sản phẩm để sớm bàn giao cho vận chuyển.",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
   CONFIRMED: {
     label: "Chờ lấy hàng",
     subLabel: "Đơn hàng đã được duyệt và đang chờ chuẩn bị để bàn giao.",
-    bannerBg: "from-teal-600 to-emerald-500",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
   PROCESSING: {
     label: "Chờ lấy hàng",
     subLabel: "Đơn hàng đang được chuẩn bị trước khi bàn giao cho vận chuyển.",
-    bannerBg: "from-teal-600 to-emerald-500",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
   READY_FOR_PICKUP: {
-    label: "Đã xác nhận",
+    label: "Chờ lấy hàng",
     subLabel: "Đơn hàng đã được xác nhận và đang chờ chuẩn bị để bàn giao vận chuyển.",
-    bannerBg: "from-teal-600 to-emerald-500",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
   SHIPPING: {
     label: "Chờ giao hàng",
     subLabel: "Đơn hàng đã bàn giao vận chuyển và đang trên đường đến bạn.",
-    bannerBg: "from-cyan-600 to-teal-500",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Truck size={28} />,
   },
   COMPLETED: {
     label: "Đã giao",
     subLabel: "Đơn hàng đã được giao thành công.",
-    bannerBg: "from-emerald-600 to-teal-500",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <CheckCircle2 size={28} />,
   },
   CANCELLED: {
@@ -333,7 +333,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                   <p className="mt-0.5 text-xs text-gray-400">Phân loại: {item.sku}</p>
                   {(item.missingQuantity ?? 0) > 0 && (
-                    <p className="mt-1 text-[11px] font-semibold text-rose-600">Thiếu {item.missingQuantity} sản phẩm</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#2d9f8d]">
+                      Cửa hàng đang bổ sung thêm {item.missingQuantity} sản phẩm
+                    </p>
                   )}
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-xs text-gray-400">x{item.quantity}</span>

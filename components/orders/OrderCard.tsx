@@ -36,33 +36,33 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       case "AWAITING_PAYMENT":
         return {
           label: "Chờ thanh toán",
-          className: "text-amber-600",
+          className: "text-[#2d9f8d]",
           icon: <CreditCard size={14} className="mr-1" />,
         };
       case "AWAITING_REPLENISHMENT":
         return {
-          label: "Đã xác nhận, chờ nhập thêm",
-          className: "text-rose-600",
+          label: "Chờ lấy hàng",
+          className: "text-[#2d9f8d]",
           icon: <Package size={14} className="mr-1" />,
         };
       case "PENDING":
         return {
           label: "Chờ xác nhận",
-          className: "text-orange-500",
+          className: "text-[#2d9f8d]",
           icon: <Clock size={14} className="mr-1" />,
         };
       case "CONFIRMED":
       case "PROCESSING":
       case "READY_FOR_PICKUP":
         return {
-          label: "Đã xác nhận",
-          className: "text-teal-600",
+          label: "Chờ lấy hàng",
+          className: "text-[#2d9f8d]",
           icon: <Package size={14} className="mr-1" />,
         };
       case "SHIPPING":
         return {
           label: "Chờ giao hàng",
-          className: "text-cyan-600",
+          className: "text-[#2d9f8d]",
           icon: <Truck size={14} className="mr-1" />,
         };
       case "COMPLETED":
@@ -138,7 +138,9 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <span>SKU: {item.sku}</span>
                 </div>
                 {(item.missingQuantity ?? 0) > 0 && (
-                  <div className="mt-1 text-[11px] font-semibold text-rose-600">Thiếu {item.missingQuantity} sản phẩm</div>
+                  <div className="mt-1 text-[11px] font-semibold text-[#2d9f8d]">
+                    Đang bổ sung thêm {item.missingQuantity} sản phẩm
+                  </div>
                 )}
                 <div className={`mt-1.5 text-sm font-bold sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}>
                   {formatCurrency(item.price)}
