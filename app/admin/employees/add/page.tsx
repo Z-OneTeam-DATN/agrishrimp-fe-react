@@ -46,6 +46,7 @@ export default function AddEmployeePage() {
     const { user: currentUser } = useAuthStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cccdFileInputRef = useRef<HTMLInputElement>(null);
+    const hasLoadedInitRef = useRef(false);
 
     const [roles, setRoles] = useState<RoleType[]>([]);
     const [branches, setBranches] = useState<BranchType[]>([]);
@@ -90,7 +91,9 @@ export default function AddEmployeePage() {
 
     useEffect(() => {
         async function loadInitData() {
-            setLoading(true);
+            if (!hasLoadedInitRef.current) {
+                setLoading(true);
+            }
             try {
                 const [rolesRes, branchesRes] = await Promise.all([
                     RoleService.getAll(),
@@ -116,11 +119,12 @@ export default function AddEmployeePage() {
             } catch (error) {
                 toast.error("Không thể tải dữ liệu hệ thống.");
             } finally {
+                hasLoadedInitRef.current = true;
                 setLoading(false);
             }
         }
         loadInitData();
-    }, [currentUser]);
+    }, [currentUser?.role?.slug]);
 
     useEffect(() => {
         if (!currentBranchId && branches.length > 0) {
