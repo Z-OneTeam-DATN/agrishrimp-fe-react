@@ -26,6 +26,7 @@ import {
     Select,
     SelectContent,
     SelectItem,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
@@ -847,7 +848,7 @@ export default function AddProductPage() {
                                                                                 <SelectTrigger className="h-[34px] border-[#ccc] rounded-none text-[13px] bg-white shadow-none">
                                                                                     <SelectValue placeholder={`-- Chọn --`} />
                                                                                 </SelectTrigger>
-                                                                                <SelectContent className="rounded-none">
+                                                                                <SelectContent className="rounded-none max-h-[280px]" position="item-aligned">
                                                                                     <SelectItem value="none">-- Bỏ chọn --</SelectItem>
                                                                                     {attributeOptions.map((v: any, vIdx: number) => {
 
@@ -862,9 +863,20 @@ export default function AddProductPage() {
                                                                                         );
                                                                                     })}
                                                                                     {canUpdateAttribute && (
-                                                                                        <SelectItem value={`manage-${attr.id}`}>
-                                                                                            + Thêm giá trị mới cho {attr.name}
-                                                                                        </SelectItem>
+                                                                                        <>
+                                                                                            <SelectSeparator className="my-1 bg-slate-200" />
+                                                                                            <SelectItem
+                                                                                                value={`manage-${attr.id}`}
+                                                                                                className="mt-1 bg-emerald-50 text-emerald-700 font-semibold focus:bg-emerald-100 focus:text-emerald-800"
+                                                                                            >
+                                                                                                + Thêm giá trị mới cho {attr.name}
+                                                                                            </SelectItem>
+                                                                                        </>
+                                                                                    )}
+                                                                                    {attributeOptions.length > 8 && (
+                                                                                        <div className="px-2 py-1 text-[11px] text-slate-400 border-t border-dashed border-slate-200 mt-1">
+                                                                                            Lướt để xem thêm giá trị
+                                                                                        </div>
                                                                                     )}
                                                                                 </SelectContent>
                                                                             </Select>
@@ -1045,7 +1057,7 @@ export default function AddProductPage() {
                             Cập nhật giá trị thuộc tính
                         </DialogTitle>
                         <DialogDescription className="text-[13px] text-slate-500">
-                            Thêm nhanh giá trị mới cho biến thể đang chỉnh sửa mà không cần rời trang tạo sản phẩm.
+                            Thêm nhanh giá trị mới cho biến thể đang chỉnh sửa mà không cần rời trang sản phẩm.
                         </DialogDescription>
                     </DialogHeader>
 

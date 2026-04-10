@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminProductTable } from "@/components/admin/AdminProductTable";
 import { ProductService } from "@/app/services/product.service";
-import { SettingService } from "@/app/services/setting.service";
+import { PriceRoundingRule, SettingService } from "@/app/services/setting.service";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save } from "lucide-react";
@@ -63,6 +63,9 @@ export default function ProductsPage() {
     // State Cấu hình Lợi nhuận
     const [isSettingOpen, setIsSettingOpen] = useState(false);
     const [profitMargin, setProfitMargin] = useState("30");
+    const [originalProfitMargin, setOriginalProfitMargin] = useState("30");
+    const [roundingRule, setRoundingRule] = useState<PriceRoundingRule>("NONE");
+    const [originalRoundingRule, setOriginalRoundingRule] = useState<PriceRoundingRule>("NONE");
     const [isSavingMargin, setIsSavingMargin] = useState(false);
 
     useEffect(() => {
@@ -87,7 +90,11 @@ export default function ProductsPage() {
                     const marginData = await SettingService.getProfitMargin();
                     if (marginData && marginData.margin) {
                         setProfitMargin(marginData.margin);
+                        setOriginalProfitMargin(marginData.margin);
                     }
+                    const ruleFromServer = marginData?.roundingRule || "NONE";
+                    setRoundingRule(ruleFromServer);
+                    setOriginalRoundingRule(ruleFromServer);
                 }
             } catch (error) {
                 console.error("Failed to fetch initial data:", error);
@@ -95,6 +102,21 @@ export default function ProductsPage() {
         };
         fetchInitialData();
     }, [isAdmin]);
+
+    const handleMarginInputChange = (value: string) => {
+        const normalizedValue = value.replace(",", ".").trim();
+
+        if (normalizedValue === "") {
+            setProfitMargin("");
+            return;
+        }
+
+        if (!/^\d{0,3}(\.\d{0,2})?$/.test(normalizedValue)) {
+            return;
+        }
+
+        setProfitMargin(normalizedValue);
+    };
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -212,8 +234,12 @@ export default function ProductsPage() {
 
         try {
             setIsSavingMargin(true);
-            const res = await SettingService.updateProfitMargin(marginValue.toString());
+            const res = await SettingService.updateProfitMargin(marginValue.toString(), roundingRule);
             toast.success(res.message || "Đã cập nhật cấu hình lợi nhuận!");
+            setOriginalProfitMargin(marginValue.toString());
+            const savedRule = (res.roundingRule || roundingRule) as PriceRoundingRule;
+            setRoundingRule(savedRule);
+            setOriginalRoundingRule(savedRule);
             setIsSettingOpen(false);
             fetchProducts();
         } catch (error: any) {
@@ -230,6 +256,57 @@ export default function ProductsPage() {
 
     const totalPages = Math.ceil(products.length / pageSize);
     const currentProducts = products.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+
+    const applyRounding = (price: number) => {
+        const roundedAmount = Math.max(0, Math.round(price));
+
+        if (roundingRule === "STEP_500") return Math.floor((roundedAmount + 499) / 500) * 500;
+        if (roundingRule === "STEP_1000") return Math.floor((roundedAmount + 999) / 1000) * 1000;
+        if (roundingRule === "TAIL_99000") {
+            if (roundedAmount <= 99000) return 99000;
+            const band = Math.round((roundedAmount - 99000) / 100000);
+            return 99000 + band * 100000;
+        }
+        return roundedAmount;
+    };
+
+    const marginValue = Number(profitMargin);
+    const hasMarginValue = profitMargin.trim() !== "";
+    const isValidMarginNumber = hasMarginValue && !Number.isNaN(marginValue);
+    const isMarginInRange = isValidMarginNumber && marginValue >= 0 && marginValue <= 100;
+    const isMarginDirty = profitMargin !== originalProfitMargin || roundingRule !== originalRoundingRule;
+
+    const sampleImportPrices = [100000, 250000, 500000];
+    const samplePreviewRows = isMarginInRange
+        ? sampleImportPrices.map((importPrice) => {
+            const rawSellingPrice = importPrice * (1 + marginValue / 100);
+            const roundedSellingPrice = applyRounding(rawSellingPrice);
+            return {
+                importPrice,
+                rawSellingPrice,
+                roundedSellingPrice,
+                grossProfit: roundedSellingPrice - importPrice,
+            };
+        })
+        : [];
+
+    const marginHint = !hasMarginValue
+        ? "Nhập biên lợi nhuận trong khoảng 0% - 100%."
+        : !isValidMarginNumber
+            ? "Giá trị không hợp lệ. Vui lòng nhập số."
+            : !isMarginInRange
+                ? "Biên lợi nhuận phải nằm trong khoảng 0% - 100%."
+                : marginValue < 5
+                    ? "Biên lợi nhuận khá thấp, nên kiểm tra lại mức lãi mong muốn."
+                    : marginValue > 70
+                        ? "Biên lợi nhuận khá cao, hãy cân nhắc tính cạnh tranh giá bán."
+                        : "Biên lợi nhuận đang ở mức hợp lý.";
+
+    const marginHintClass = !hasMarginValue || !isValidMarginNumber || !isMarginInRange
+        ? "text-rose-500"
+        : marginValue < 5 || marginValue > 70
+            ? "text-amber-600"
+            : "text-emerald-600";
 
     // Tránh render chớp giao diện (flickering) khi chưa check xong quyền
     if (isLoadingAuth) {
@@ -251,7 +328,7 @@ export default function ProductsPage() {
                                     <Settings size={16} className="mr-2" /> Cấu hình Giá Bán
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px] rounded-[4px]">
+                            <DialogContent className="sm:max-w-[560px] rounded-[4px]">
                                 <DialogHeader>
                                     <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
                                         <Percent size={18} className="text-emerald-600" /> Biên lợi nhuận (%)
@@ -264,20 +341,106 @@ export default function ProductsPage() {
                                     <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
                                     <div className="relative">
                                         <Input
-                                            type="number"
+                                            type="text"
                                             min="0"
                                             max="100"
-                                            step="1"
                                             value={profitMargin}
-                                            onChange={(e) => setProfitMargin(e.target.value)}
+                                            onChange={(e) => handleMarginInputChange(e.target.value)}
                                             className="h-[45px] text-[16px] font-black pl-4 pr-10 rounded-[3px]"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
                                     </div>
+
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        {[10, 20, 30, 40, 50].map((preset) => (
+                                            <Button
+                                                key={preset}
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setProfitMargin(String(preset))}
+                                                className={cn(
+                                                    "h-7 text-[11px] px-2 rounded-[3px]",
+                                                    Number(profitMargin) === preset
+                                                        ? "border-emerald-400 text-emerald-700 bg-emerald-50"
+                                                        : "border-slate-200 text-slate-600"
+                                                )}
+                                            >
+                                                {preset}%
+                                            </Button>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Quy tắc làm tròn giá bán</Label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { value: "NONE", label: "Không làm tròn" },
+                                                { value: "STEP_500", label: "Làm tròn bội 500" },
+                                                { value: "STEP_1000", label: "Làm tròn bội 1.000" },
+                                                { value: "TAIL_99000", label: "Đuôi 99.000 (gần nhất)" },
+                                            ].map((rule) => (
+                                                <Button
+                                                    key={rule.value}
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setRoundingRule(rule.value as PriceRoundingRule)}
+                                                    className={cn(
+                                                        "h-7 text-[11px] px-2 rounded-[3px]",
+                                                        roundingRule === rule.value
+                                                            ? "border-blue-400 text-blue-700 bg-blue-50"
+                                                            : "border-slate-200 text-slate-600"
+                                                    )}
+                                                >
+                                                    {rule.label}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
+
+                                    <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                                            Xem trước nhanh theo nhiều mốc giá vốn
+                                        </p>
+                                        <div className="space-y-2">
+                                            <div className="grid grid-cols-4 gap-2 text-[11px] font-bold uppercase text-slate-500">
+                                                <p>Giá vốn</p>
+                                                <p>Giá bán gốc</p>
+                                                <p>Giá bán sau làm tròn</p>
+                                                <p>Lãi gộp</p>
+                                            </div>
+                                            {samplePreviewRows.length > 0 ? (
+                                                samplePreviewRows.map((row) => (
+                                                    <div key={row.importPrice} className="grid grid-cols-4 gap-2 text-[12px]">
+                                                        <p className="font-semibold text-slate-700">{row.importPrice.toLocaleString("vi-VN")} ₫</p>
+                                                        <p className="text-slate-600">{Math.round(row.rawSellingPrice).toLocaleString("vi-VN")} ₫</p>
+                                                        <p className="font-bold text-emerald-700">{row.roundedSellingPrice.toLocaleString("vi-VN")} ₫</p>
+                                                        <p className="font-bold text-blue-700">{row.grossProfit.toLocaleString("vi-VN")} ₫</p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-[12px] text-slate-400">Nhập biên lợi nhuận hợp lệ để xem trước.</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <DialogFooter>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            setProfitMargin(originalProfitMargin);
+                                            setRoundingRule(originalRoundingRule);
+                                        }}
+                                        className="rounded-[3px] text-[12px]"
+                                        disabled={isSavingMargin || !isMarginDirty}
+                                    >
+                                        Khôi phục
+                                    </Button>
                                     <Button variant="outline" onClick={() => setIsSettingOpen(false)} className="rounded-[3px] text-[12px]">Hủy</Button>
-                                    <Button onClick={handleSaveMargin} disabled={isSavingMargin} className="bg-emerald-600 text-white rounded-[3px] text-[12px]">
+                                    <Button onClick={handleSaveMargin} disabled={isSavingMargin || !isMarginInRange || !isMarginDirty} className="bg-emerald-600 text-white rounded-[3px] text-[12px]">
                                         {isSavingMargin ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
                                         Lưu thay đổi
                                     </Button>

@@ -10,14 +10,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { updateAttribute } from "@/app/services/AttributeService";
 import { SettingService } from "@/app/services/setting.service";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -59,6 +63,21 @@ const AdminProductSchema = z.object({
 });
 
 type ProductFormData = z.infer<typeof AdminProductSchema>;
+
+type AttributeOption = {
+    valueId: number;
+    value: string;
+};
+
+type AttributeEditorState = {
+    attributeId: number;
+    attributeName: string;
+    attributeCode: string;
+    status: "ACTIVE" | "INACTIVE";
+    values: string[];
+    initialValues: string[];
+    variantIndex: number;
+};
 
 const DEFAULT_VARIANT = { sku: "", barcode: "", attributeValueIds: [], imageUrl: null };
 
@@ -113,6 +132,32 @@ function SectionHeader({ num, icon: Icon, title, color = "text-emerald-700" }: a
     return <div className={cn("flex items-center gap-2 mb-5 font-black text-[11px] uppercase tracking-widest border-b pb-3", color)}><Icon size={15} />{num}. {title}</div>;
 }
 
+const normalizeAttributeValues = (attribute: any): string[] => {
+    if (!Array.isArray(attribute?.values)) return [];
+
+    return attribute.values
+        .map((item: any) => {
+            if (typeof item === "string") return item.trim();
+            if (item && typeof item.value === "string") return item.value.trim();
+            return "";
+        })
+        .filter((value: string, index: number, array: string[]) => value.length > 0 && array.indexOf(value) === index);
+};
+
+const findLatestAddedValueDetail = (
+    valueDetails: AttributeOption[],
+    initialValues: string[],
+    currentValues: string[]
+) => {
+    const normalizedInitialValues = new Set(initialValues.map((value) => value.trim().toLowerCase()));
+    const addedValues = currentValues.filter((value) => !normalizedInitialValues.has(value.trim().toLowerCase()));
+
+    if (addedValues.length === 0) return null;
+
+    const targetValue = addedValues[addedValues.length - 1].trim().toLowerCase();
+    return valueDetails.find((detail) => detail.value.trim().toLowerCase() === targetValue) || null;
+};
+
 export default function EditProductPage() {
     const router = useRouter();
     const params = useParams();
@@ -129,11 +174,16 @@ export default function EditProductPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [brands, setBrands] = useState<string[]>([]);
     const [attributes, setAttributes] = useState<any[]>([]);
+    const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
+    const [newAttributeValue, setNewAttributeValue] = useState("");
+    const [isSavingAttribute, setIsSavingAttribute] = useState(false);
 
     // 👉 Bỏ biến systemProfitMargin vì giờ Backend đã tự động tính sellingPrice
 
     const { isLoadingAuth, isAuthenticated, user } = useAuthStore();
+    const { hasPermission } = usePermissions();
     const isAdmin = user?.role?.slug === "ADMIN";
+    const canUpdateAttribute = hasPermission(P.ATTRIBUTE_UPDATE);
 
     const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),
@@ -203,6 +253,102 @@ export default function EditProductPage() {
             fetchData();
         }
     }, [isLoadingAuth, isAuthenticated, id, reset]);
+
+    const openAttributeEditor = (attribute: any, variantIndex: number) => {
+        setAttributeEditor({
+            attributeId: Number(attribute.id),
+            attributeName: attribute.name || "",
+            attributeCode: attribute.code || "",
+            status: attribute.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+            values: normalizeAttributeValues(attribute),
+            initialValues: normalizeAttributeValues(attribute),
+            variantIndex,
+        });
+        setNewAttributeValue("");
+    };
+
+    const closeAttributeEditor = () => {
+        setAttributeEditor(null);
+        setNewAttributeValue("");
+    };
+
+    const addAttributeValueDraft = () => {
+        if (!attributeEditor) return;
+
+        const trimmedValue = newAttributeValue.trim();
+        if (!trimmedValue) return;
+
+        const duplicated = attributeEditor.values.some(
+            (value) => value.trim().toLowerCase() === trimmedValue.toLowerCase()
+        );
+        if (duplicated) {
+            toast.error("Giá trị này đã tồn tại trong thuộc tính.");
+            return;
+        }
+
+        setAttributeEditor((prev) =>
+            prev
+                ? {
+                    ...prev,
+                    values: [...prev.values, trimmedValue],
+                }
+                : prev
+        );
+        setNewAttributeValue("");
+    };
+
+    const handleSaveAttributeValues = async () => {
+        if (!attributeEditor) return;
+        if (attributeEditor.values.length === 0) {
+            toast.error("Thuộc tính phải có ít nhất 1 giá trị.");
+            return;
+        }
+
+        try {
+            setIsSavingAttribute(true);
+
+            await updateAttribute(attributeEditor.attributeId, {
+                name: attributeEditor.attributeName,
+                code: attributeEditor.attributeCode,
+                status: attributeEditor.status,
+                values: attributeEditor.values,
+            });
+
+            const refreshedAttributes: any[] = (await ProductService.getAttributes()) || [];
+            setAttributes(refreshedAttributes);
+
+            const refreshedAttribute = refreshedAttributes.find(
+                (item) => Number(item.id) === attributeEditor.attributeId
+            );
+            const refreshedValueDetails: AttributeOption[] = refreshedAttribute?.valueDetails || [];
+            const latestAddedValue = findLatestAddedValueDetail(
+                refreshedValueDetails,
+                attributeEditor.initialValues,
+                attributeEditor.values
+            );
+
+            if (latestAddedValue) {
+                const fieldName = `variants.${attributeEditor.variantIndex}.attributeValueIds` as const;
+                const currentSelectedIds = getValues(fieldName) || [];
+                const otherAttributeValueIds = currentSelectedIds.filter(
+                    (id: number) => !refreshedValueDetails.some((detail) => Number(detail.valueId) === id)
+                );
+
+                setValue(fieldName, [...otherAttributeValueIds, Number(latestAddedValue.valueId)], {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                });
+            }
+
+            toast.success("Đã cập nhật giá trị thuộc tính.");
+            closeAttributeEditor();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Không thể cập nhật thuộc tính.");
+        } finally {
+            setIsSavingAttribute(false);
+        }
+    };
 
     const handleMainImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
@@ -495,6 +641,11 @@ export default function EditProductPage() {
                                                                         render={({ field: selectField }) => (
                                                                             <Select
                                                                                 onValueChange={(val) => {
+                                                                                    if (val === `manage-${attr.id}`) {
+                                                                                        openAttributeEditor(attr, idx);
+                                                                                        return;
+                                                                                    }
+
                                                                                     const current = selectField.value || [];
                                                                                     const others = current.filter((id: number) => !attributeOptions.some((v: any) => Number(v.valueId) === id));
                                                                                     const newValue = val !== "none" ? [...others, Number(val)] : others;
@@ -505,7 +656,7 @@ export default function EditProductPage() {
                                                                                 <SelectTrigger className="h-[30px] border-[#ccc] bg-white">
                                                                                     <SelectValue placeholder={`-- Chọn --`} />
                                                                                 </SelectTrigger>
-                                                                                <SelectContent>
+                                                                                <SelectContent className="max-h-[280px]" position="item-aligned">
                                                                                     <SelectItem value="none">-- Bỏ chọn --</SelectItem>
                                                                                     {attributeOptions.map((v: any, vIdx: number) => {
                                                                                         const uniqueValId = v.valueId != null ? String(v.valueId) : `val-idx-${vIdx}`;
@@ -515,6 +666,22 @@ export default function EditProductPage() {
                                                                                             </SelectItem>
                                                                                         );
                                                                                     })}
+                                                                                    {canUpdateAttribute && (
+                                                                                        <>
+                                                                                            <SelectSeparator className="my-1 bg-slate-200" />
+                                                                                            <SelectItem
+                                                                                                value={`manage-${attr.id}`}
+                                                                                                className="mt-1 bg-emerald-50 text-emerald-700 font-semibold focus:bg-emerald-100 focus:text-emerald-800"
+                                                                                            >
+                                                                                                + Thêm giá trị mới cho {attr.name}
+                                                                                            </SelectItem>
+                                                                                        </>
+                                                                                    )}
+                                                                                    {attributeOptions.length > 8 && (
+                                                                                        <div className="px-2 py-1 text-[11px] text-slate-400 border-t border-dashed border-slate-200 mt-1">
+                                                                                            Lướt để xem thêm giá trị
+                                                                                        </div>
+                                                                                    )}
                                                                                 </SelectContent>
                                                                             </Select>
                                                                         )}
@@ -615,6 +782,124 @@ export default function EditProductPage() {
                     </div>
                 </div>
             </div>
+
+            <Dialog
+                open={!!attributeEditor}
+                onOpenChange={(open) => {
+                    if (!open && !isSavingAttribute) {
+                        closeAttributeEditor();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-[560px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">
+                            Cập nhật giá trị thuộc tính
+                        </DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Thêm nhanh giá trị mới cho biến thể đang chỉnh sửa mà không cần rời trang sản phẩm.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-[11px] font-bold uppercase text-slate-500">
+                                    Tên thuộc tính
+                                </Label>
+                                <Input
+                                    value={attributeEditor?.attributeName || ""}
+                                    readOnly
+                                    className="h-9 bg-slate-50 text-[13px]"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[11px] font-bold uppercase text-slate-500">
+                                    Mã code
+                                </Label>
+                                <Input
+                                    value={attributeEditor?.attributeCode || ""}
+                                    readOnly
+                                    className="h-9 bg-slate-50 text-[13px] font-mono"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-bold uppercase text-slate-500">
+                                Giá trị hiện có
+                            </Label>
+                            <div className="min-h-[88px] rounded-md border border-slate-200 bg-slate-50 p-3">
+                                {attributeEditor?.values.length ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {attributeEditor.values.map((value) => (
+                                            <span
+                                                key={value}
+                                                className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
+                                            >
+                                                {value}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-[12px] text-slate-400">Chưa có giá trị nào.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[11px] font-bold uppercase text-slate-500">
+                                Thêm giá trị mới
+                            </Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    value={newAttributeValue}
+                                    onChange={(e) => setNewAttributeValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            addAttributeValueDraft();
+                                        }
+                                    }}
+                                    placeholder="Ví dụ: 20kg, Màu xanh..."
+                                    className="h-9 text-[13px]"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={addAttributeValueDraft}
+                                    className="h-9 shrink-0 border-emerald-200 text-emerald-700"
+                                >
+                                    Thêm vào danh sách
+                                </Button>
+                            </div>
+                            <p className="text-[12px] text-slate-500">
+                                Sau khi lưu, giá trị mới nhất sẽ được chọn tự động cho biến thể hiện tại.
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={closeAttributeEditor}
+                            disabled={isSavingAttribute}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSaveAttributeValues}
+                            disabled={isSavingAttribute}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                            {isSavingAttribute ? <Loader2 size={16} className="mr-2 animate-spin" /> : null}
+                            Lưu giá trị
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="fixed bottom-0 right-0 left-[260px] bg-white border-t p-3 flex justify-end gap-3 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
                 <Button type="button" variant="outline" onClick={() => router.back()} className="rounded-none font-bold px-8">HỦY</Button>
