@@ -1,4 +1,4 @@
-import { Control } from "react-hook-form";
+import { Control, FieldValues, Path } from "react-hook-form";
 import {
   FormControl,
   FormDescription,
@@ -9,21 +9,21 @@ import {
 } from "@/components/ui/form";
 import { Input, InputProps } from "@/components/ui/input";
 
-interface FormTextFieldProps extends Omit<InputProps, "name"> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  control: Control<any>;
-  name: string;
+interface FormTextFieldProps<TFieldValues extends FieldValues>
+  extends Omit<InputProps, "name"> {
+  control: Control<TFieldValues>;
+  name: Path<TFieldValues>;
   label: string;
   description?: string;
 }
 
-export function FormTextField({
+export function FormTextField<TFieldValues extends FieldValues>({
   control,
   name,
   label,
   description,
   ...props
-}: FormTextFieldProps) {
+}: FormTextFieldProps<TFieldValues>) {
   return (
     <FormField
       control={control}

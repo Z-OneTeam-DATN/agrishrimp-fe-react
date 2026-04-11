@@ -10,7 +10,7 @@
     "dev": "next dev --turbo -p 3004",
     "build": "next build",
     "start": "next start -p 3004",
-    "lint": "next lint",
+    "lint": "eslint .",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."
   },

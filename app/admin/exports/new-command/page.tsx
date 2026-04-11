@@ -83,14 +83,12 @@ function AdminExportFormContent() {
     defaultValues: {
       exportType: "INTERNAL",
       noteCode: generateNoteCode("INTERNAL"),
-      referenceCode: "",
       note: "",
       expectedDate: new Date().toLocaleDateString('en-CA'),
       branchId: "",
       targetId: "",
       specificReceiver: "",
       shippingAddress: "",
-      creatorName: "",
       items: []
     }
   });
@@ -171,10 +169,6 @@ function AdminExportFormContent() {
   }, []);
 
   useEffect(() => {
-    if (currentUser && !isEditMode) setValue("creatorName", currentUser.fullName || "Admin");
-  }, [currentUser, isEditMode, setValue]);
-
-  useEffect(() => {
     if (!isEditMode) {
       setValue("targetId", "");
       setValue("noteCode", generateNoteCode(watchExportType));
@@ -236,7 +230,6 @@ function AdminExportFormContent() {
     const payload = {
       code: data.noteCode,
       exportType: data.exportType,
-      referenceCode: data.referenceCode,
       note: data.note,
       expectedDate: data.expectedDate,
       branchId: parseInt(data.branchId),
@@ -337,10 +330,6 @@ function AdminExportFormContent() {
                 <Input {...register("noteCode")} readOnly className="rounded-none bg-slate-50 text-slate-500 font-mono text-[13px] h-10 w-full border-slate-200" />
               </div>
 
-              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Tham chiếu (Đơn hàng...)</Label>
-                <Input readOnly={isReadOnly} {...register("referenceCode")} className="rounded-none text-[13px] h-10 w-full border-slate-200 shadow-none" placeholder="Nhập mã tham chiếu..." />
-              </div>
 
               <div className="space-y-1.5 flex flex-col">
                 <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1 mb-1 tracking-wider">Ngày hẹn xuất</Label>
@@ -506,13 +495,6 @@ function AdminExportFormContent() {
         </div>
 
         <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><BadgeCheck size={16} className="text-blue-600"/> Người tạo phiếu</div>
-             <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Tên nhân viên</Label>
-                <Input readOnly {...register("creatorName")} className="rounded-none text-[13px] h-10 border-slate-200 bg-slate-50 text-slate-500 font-bold cursor-not-allowed" />
-             </div>
-          </div>
 
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>

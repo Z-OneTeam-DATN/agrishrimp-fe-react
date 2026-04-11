@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
@@ -15,7 +14,6 @@ import { toast } from "sonner";
  * 4. Redirects to /login
  */
 export const useLogout = () => {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
@@ -30,7 +28,7 @@ export const useLogout = () => {
       queryClient.clear();
 
       // 3. Xóa cache user khỏi sessionStorage
-      try { sessionStorage.removeItem("_u"); } catch {}
+      try { sessionStorage.removeItem("_u"); } catch { /* ignore sessionStorage failures */ }
 
       // 4. Thông báo cho người dùng
       toast.success("Bạn đã đăng xuất thành công.");
@@ -44,7 +42,7 @@ export const useLogout = () => {
       // Dù có lỗi API vẫn nên ép logout ở phía FE
       clearAuth();
       queryClient.clear();
-      try { sessionStorage.removeItem("_u"); } catch {}
+      try { sessionStorage.removeItem("_u"); } catch { /* ignore sessionStorage failures */ }
       window.location.href = "/login";
     }
   });

@@ -6,7 +6,15 @@ import tseslint from "typescript-eslint";
 import { globalIgnores } from "eslint/config";
 
 export default tseslint.config([
-  globalIgnores(["dist", "build", ".react-router", "components/ui/**"]),
+  globalIgnores([
+    "dist",
+    "build",
+    ".next",
+    "node_modules",
+    "next-env.d.ts",
+    ".react-router",
+    "components/ui/**",
+  ]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [
@@ -22,6 +30,13 @@ export default tseslint.config([
     rules: {
       "react-refresh/only-export-components": "off",
       "no-empty-pattern": "off",
+      "no-empty": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-require-imports": "warn",
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-empty-object-type": "warn",
+      "@typescript-eslint/triple-slash-reference": "warn",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 ]);
