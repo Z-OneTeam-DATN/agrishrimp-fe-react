@@ -26,12 +26,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn, formatNumber } from "@/lib/utils";
 import { branchService } from "@/app/services/branchService";
 import { CashbookEntry, CashbookService } from "@/app/services/cashbook.service";
-import { dashboardService } from "@/app/services/dashboard.service";
-import { SalesPerformanceData } from "@/app/types/dashboard.type";
 import { toast } from "sonner";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -69,7 +67,6 @@ export default function CashbookPage() {
   const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>("all");
   const [chartMode, setChartMode] = useState<ChartMode>("day");
   const [entries, setEntries] = useState<CashbookEntry[]>([]);
-  const [dailySales, setDailySales] = useState<SalesPerformanceData[]>([]);
 
   useEffect(() => {
     const fetchInitial = async () => {
@@ -92,12 +89,8 @@ export default function CashbookPage() {
     const fetchCashbook = async () => {
       try {
         setLoading(true);
-        const [cashbookRes, salesRes] = await Promise.all([
-          CashbookService.getEntries({ branchId: selectedBranchId }),
-          dashboardService.getSalesPerformance(selectedBranchId === "all" ? undefined : selectedBranchId),
-        ]);
+        const cashbookRes = await CashbookService.getEntries({ branchId: selectedBranchId });
         setEntries(cashbookRes);
-        setDailySales(Array.isArray(salesRes?.data) ? salesRes.data : []);
       } catch (error) {
         console.error("Không tải được dữ liệu sổ quỹ", error);
         toast.error("Không thể tải dữ liệu sổ quỹ");
@@ -196,23 +189,12 @@ export default function CashbookPage() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [cashbookRes, salesRes] = await Promise.all([
-        CashbookService.getEntries({ branchId: selectedBranchId }),
-        dashboardService.getSalesPerformance(selectedBranchId === "all" ? undefined : selectedBranchId),
-      ]);
+      const cashbookRes = await CashbookService.getEntries({ branchId: selectedBranchId });
       setEntries(cashbookRes);
-      setDailySales(Array.isArray(salesRes?.data) ? salesRes.data : []);
     } finally {
       setLoading(false);
     }
   };
-
-  const dailySeries = useMemo(() => dailySales.map((item) => ({
-    period: formatDateVN(item.date),
-    income: Number(item.revenue || 0),
-    expense: Math.max(Number(item.revenue || 0) - Number(item.profit || 0), 0),
-    net: Number(item.profit || 0),
-  })), [dailySales]);
 
   const visibleChart = chartData;
 
@@ -229,8 +211,8 @@ export default function CashbookPage() {
             <ChevronLeft size={20} />
           </Button>
           <div>
-            <h1 className="text-[18px] font-bold text-slate-800 tracking-tight whitespace-nowrap">Sổ quỹ</h1>
-            <p className="text-[11px] text-slate-500 font-medium">Dữ liệu thật từ phiếu nhập, phiếu xuất và giao dịch kho</p>
+            <h1 className="text-[19px] font-black text-slate-800 tracking-tight whitespace-nowrap uppercase">Sổ quỹ</h1>
+            <p className="text-[11px] text-slate-500 font-medium">Theo dõi thu chi và số dư quỹ theo kỳ báo cáo</p>
           </div>
         </div>
 
@@ -306,26 +288,22 @@ export default function CashbookPage() {
           </div>
 
           <div className="h-[320px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={visibleChart.length > 0 ? visibleChart : dailySeries}>
-                <defs>
-                  <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                <Area type="monotone" dataKey="income" stroke="#10b981" fill="url(#incomeGradient)" name="Tổng thu" />
-                <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="url(#expenseGradient)" name="Tổng chi" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {visibleChart.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-[13px] text-slate-400 font-medium">
+                Chưa có dữ liệu để vẽ biểu đồ trong khoảng thời gian đã chọn
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={visibleChart} barCategoryGap={18}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value) => formatNumber(Number(value))} />
+                  <Bar dataKey="income" fill="#10b981" name="Tổng thu" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expense" fill="#ef4444" name="Tổng chi" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
@@ -333,7 +311,6 @@ export default function CashbookPage() {
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap bg-[#fcfcfc]">
             <div>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Danh sách giao dịch</p>
-              <p className="text-[13px] text-slate-500 mt-1">{filteredEntries.length} dòng dữ liệu thật đã được nạp từ API</p>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative min-w-[280px]">
