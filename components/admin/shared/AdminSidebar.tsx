@@ -35,6 +35,14 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
+import { dashboardService } from "@/app/services/dashboard.service";
+import { ProductService } from "@/app/services/product.service";
+import { getCategories } from "@/app/services/CategoryService";
+import { branchService } from "@/app/services/branchService";
+import { EmployeeService } from "@/app/services/employee.service";
+import { voucherService } from "@/app/services/voucher.service";
+import { InventoryApiService, InventoryCheckApiService, InventoryExportApiService } from "@/app/services/inventory.service";
+import { transferService } from "@/app/services/transfer.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -51,6 +59,16 @@ export default function AdminSidebar() {
 
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
+  const [productCount, setProductCount] = useState(0);
+  const [categoryCount, setCategoryCount] = useState(0);
+  const [attributeCount, setAttributeCount] = useState(0);
+  const [employeeCount, setEmployeeCount] = useState(0);
+  const [branchCount, setBranchCount] = useState(0);
+  const [voucherCount, setVoucherCount] = useState(0);
+  const [receiptPendingCount, setReceiptPendingCount] = useState(0);
+  const [exportPendingCount, setExportPendingCount] = useState(0);
+  const [transferPendingCount, setTransferPendingCount] = useState(0);
+  const [checkPendingCount, setCheckPendingCount] = useState(0);
 
   // Quản lý các nhóm menu đang mở
   const [openGroups, setOpenGroups] = useState<string[]>([]);
@@ -66,7 +84,18 @@ export default function AdminSidebar() {
     try {
       const results = await Promise.allSettled([
         supplierService.getAll(undefined, undefined, 0, 1),
-        customerService.getAll("", "all", 0, 1)
+        customerService.getAll("", "all", 0, 1),
+        dashboardService.getStats(),
+        ProductService.getAll({ status: "ACTIVE" }),
+        getCategories(),
+        ProductService.getAttributes(),
+        EmployeeService.getAll({ size: 1 }),
+        branchService.getAll(),
+        voucherService.getAllAdmin({ page: 0, size: 1 }),
+        InventoryApiService.getAllReceipts(),
+        InventoryExportApiService.getAllExportCommands(),
+        transferService.getAll("", "all", 0, 1),
+        InventoryCheckApiService.getAll(),
       ]);
 
       if (results[0].status === 'fulfilled') {
@@ -74,6 +103,43 @@ export default function AdminSidebar() {
       }
       if (results[1].status === 'fulfilled') {
         setCustomerCount(results[1].value.totalElements || 0);
+      }
+      if (results[2].status === 'fulfilled') {
+        setProductCount(results[2].value?.totalProducts || 0);
+      }
+      if (results[3].status === 'fulfilled') {
+        setProductCount(Array.isArray(results[3].value) ? results[3].value.length : 0);
+      }
+      if (results[4].status === 'fulfilled') {
+        setCategoryCount(Array.isArray(results[4].value) ? results[4].value.length : 0);
+      }
+      if (results[5].status === 'fulfilled') {
+        setAttributeCount(Array.isArray(results[5].value) ? results[5].value.length : 0);
+      }
+      if (results[6].status === 'fulfilled') {
+        setEmployeeCount(results[6].value.totalElements || 0);
+      }
+      if (results[7].status === 'fulfilled') {
+        const branches = Array.isArray(results[7].value) ? results[7].value : [];
+        setBranchCount(branches.length || results[7].value?.totalElements || 0);
+      }
+      if (results[8].status === 'fulfilled') {
+        setVoucherCount(results[8].value?.totalElements || (Array.isArray(results[8].value) ? results[8].value.length : 0));
+      }
+      if (results[9].status === 'fulfilled') {
+        const receipts = Array.isArray(results[9].value) ? results[9].value : (results[9].value?.data || results[9].value?.content || []);
+        setReceiptPendingCount(receipts.filter((item: any) => item.status === "PENDING" || item.status === "PO").length);
+      }
+      if (results[10].status === 'fulfilled') {
+        const exportsList = Array.isArray(results[10].value) ? results[10].value : (results[10].value?.data || results[10].value?.content || []);
+        setExportPendingCount(exportsList.filter((item: any) => item.status === "PENDING" || item.status === "DRAFT").length);
+      }
+      if (results[11].status === 'fulfilled') {
+        setTransferPendingCount(results[11].value?.totalElements || 0);
+      }
+      if (results[12].status === 'fulfilled') {
+        const checks = Array.isArray(results[12].value) ? results[12].value : (results[12].value?.data || results[12].value?.content || []);
+        setCheckPendingCount(checks.filter((item: any) => item.status === "PENDING").length);
       }
     } catch (error) {
       console.warn("Sidebar counts sync failed");
@@ -180,10 +246,10 @@ export default function AdminSidebar() {
             </p>
             <div className="space-y-0.5">
               {hasPermission(P.STAFF_VIEW) && (
-                <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} />
+                <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} badge={employeeCount} />
               )}
               {hasPermission(P.BRANCH_VIEW) && (
-                <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
+                <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} badge={branchCount} />
               )}
               {hasPermission(P.ROLE_VIEW) && (
                 <SidebarLink href="/admin/roles" icon={ShieldCheck} label="Vai trò & Quyền" active={isActive("/admin/roles")} color="text-violet-400" />
@@ -242,6 +308,7 @@ export default function AdminSidebar() {
                     icon={Ticket}
                     label="Khuyến mãi & Voucher"
                     active={isActive("/admin/vouchers")}
+                    badge={voucherCount}
                     color="text-pink-400"
                   />
                 )}
@@ -272,6 +339,7 @@ export default function AdminSidebar() {
                 icon={Package}
                 label="Sản phẩm"
                 active={isActive("/admin/products")}
+                badge={productCount}
               />
             )}
             {hasPermission(P.CATEGORY_VIEW) && (
@@ -280,6 +348,7 @@ export default function AdminSidebar() {
                 icon={Tags}
                 label="Danh mục"
                 active={isActive("/admin/categories")}
+                badge={categoryCount}
               />
             )}
             {hasPermission(P.ATTRIBUTE_VIEW) && (
@@ -288,6 +357,7 @@ export default function AdminSidebar() {
                 icon={Layers}
                 label="Thuộc tính"
                 active={isActive("/admin/variants")}
+                badge={attributeCount}
               />
             )}
           </div>
@@ -300,16 +370,16 @@ export default function AdminSidebar() {
           </p>
           <div className="space-y-0.5">
             {hasPermission(P.IMPORT_VIEW) && (
-              <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} />
+              <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} badge={receiptPendingCount} />
             )}
             {hasPermission(P.EXPORT_VIEW) && (
-              <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} />
+              <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} badge={exportPendingCount} />
             )}
             {hasPermission(P.TRANSFER_VIEW) && (
-              <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} />
+              <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} badge={transferPendingCount} />
             )}
             {hasPermission(P.IMPORT_VIEW) && (
-              <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
+              <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} badge={checkPendingCount} />
             )}
           </div>
         </section>

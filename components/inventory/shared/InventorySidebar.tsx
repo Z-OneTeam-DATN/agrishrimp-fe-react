@@ -19,11 +19,72 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { dashboardService } from "@/app/services/dashboard.service";
+import { ProductService } from "@/app/services/product.service";
+import { InventoryApiService, InventoryExportApiService, InventoryCheckApiService } from "@/app/services/inventory.service";
+import { transferService } from "@/app/services/transfer.service";
+import { useEffect, useState } from "react";
 
 export function InventorySidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
+  const [productCount, setProductCount] = useState(0);
+  const [receiptCount, setReceiptCount] = useState(0);
+  const [receiptPendingCount, setReceiptPendingCount] = useState(0);
+  const [exportPendingCount, setExportPendingCount] = useState(0);
+  const [transferPendingCount, setTransferPendingCount] = useState(0);
+  const [checkPendingCount, setCheckPendingCount] = useState(0);
+  const [dashboardTaskCount, setDashboardTaskCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const results = await Promise.allSettled([
+          dashboardService.getStats(),
+          ProductService.getAll({ status: "ACTIVE" }),
+          InventoryApiService.getAllReceipts(),
+          InventoryExportApiService.getAllExportCommands(),
+          transferService.getAll("", "all", 0, 1),
+          InventoryCheckApiService.getAll(),
+        ]);
+
+        if (results[0].status === "fulfilled") {
+          const stats = results[0].value as any;
+          const pendingOrders = Number(stats?.totalPendingOrders || 0);
+          setDashboardTaskCount(pendingOrders);
+        }
+
+        if (results[1].status === "fulfilled") {
+          setProductCount(Array.isArray(results[1].value) ? results[1].value.length : 0);
+        }
+
+        if (results[2].status === "fulfilled") {
+          const receipts = Array.isArray(results[2].value) ? results[2].value : (results[2].value?.data || results[2].value?.content || []);
+          setReceiptCount(receipts.length);
+          setReceiptPendingCount(receipts.filter((item: any) => item.status === "PENDING" || item.status === "PO").length);
+        }
+
+        if (results[3].status === "fulfilled") {
+          const exportsList = Array.isArray(results[3].value) ? results[3].value : (results[3].value?.data || results[3].value?.content || []);
+          setExportPendingCount(exportsList.filter((item: any) => item.status === "PENDING" || item.status === "DRAFT").length);
+        }
+
+        if (results[4].status === "fulfilled") {
+          setTransferPendingCount(results[4].value?.totalElements || 0);
+        }
+
+        if (results[5].status === "fulfilled") {
+          const checks = Array.isArray(results[5].value) ? results[5].value : (results[5].value?.data || results[5].value?.content || []);
+          setCheckPendingCount(checks.filter((item: any) => item.status === "PENDING").length);
+        }
+      } catch (error) {
+        console.warn("Inventory sidebar counts sync failed");
+      }
+    };
+
+    fetchCounts();
+  }, []);
 
   const isActive = (path: string, tab?: string) => {
     if (tab) return pathname === path && currentTab === tab;
@@ -59,13 +120,14 @@ export function InventorySidebar() {
               icon={LayoutDashboard}
               label="Bàn làm việc"
               active={isActive("/inventory/dashboard")}
-              badge={12}
+              badge={dashboardTaskCount}
             />
             <SidebarLink
               href="/inventory/products"
               icon={Box}
               label="Danh mục VTHH"
               active={isActive("/inventory/products")}
+              badge={productCount}
             />
           </div>
         </section>
@@ -82,7 +144,7 @@ export function InventorySidebar() {
               label="Xác nhận nhập hàng"
               active={pathname.includes("/receipts/confirmation")}
               color="text-emerald-500"
-              badge={1}
+              badge={receiptPendingCount}
               badgeColor="bg-emerald-500/20 text-emerald-500"
             />
             <SidebarLink
@@ -91,6 +153,7 @@ export function InventorySidebar() {
               icon={History}
               active={pathname === "/inventory/receipts"}
               color="text-slate-400"
+              badge={receiptCount}
             />
           </div>
         </section>
@@ -106,6 +169,7 @@ export function InventorySidebar() {
             label="Phiếu xuất kho"
             active={pathname === "/inventory/exports"}
             color="text-blue-500"
+            badge={exportPendingCount}
           />
         </section>
 
