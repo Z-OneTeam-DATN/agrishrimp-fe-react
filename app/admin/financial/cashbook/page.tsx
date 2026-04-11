@@ -27,15 +27,6 @@ import { cn, formatNumber } from "@/lib/utils";
 import { branchService } from "@/app/services/branchService";
 import { CashbookEntry, CashbookService } from "@/app/services/cashbook.service";
 import { toast } from "sonner";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -197,6 +188,13 @@ export default function CashbookPage() {
   };
 
   const visibleChart = chartData;
+  const chartMax = useMemo(() => {
+    if (visibleChart.length === 0) return 1;
+    return Math.max(
+      1,
+      ...visibleChart.map((item) => Math.max(Number(item.income || 0), Number(item.expense || 0)))
+    );
+  }, [visibleChart]);
 
   return (
     <div className="space-y-0 pb-10 bg-[#f0f2f5] min-h-screen">
@@ -293,16 +291,35 @@ export default function CashbookPage() {
                 Chưa có dữ liệu để vẽ biểu đồ trong khoảng thời gian đã chọn
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={visibleChart} barCategoryGap={18}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                  <Bar dataKey="income" fill="#10b981" name="Tổng thu" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expense" fill="#ef4444" name="Tổng chi" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-full overflow-y-auto pr-1 space-y-3">
+                {visibleChart.map((item) => {
+                  const incomePercent = Math.round((Number(item.income || 0) / chartMax) * 100);
+                  const expensePercent = Math.round((Number(item.expense || 0) / chartMax) * 100);
+                  return (
+                    <div key={item.period} className="border border-slate-100 bg-slate-50/30 p-3 rounded-[4px]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[12px] font-bold text-slate-700">{item.period}</span>
+                        <span className="text-[11px] text-slate-500">Thu: {formatNumber(item.income)} | Chi: {formatNumber(item.expense)}</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-14 text-[11px] font-bold text-emerald-600 uppercase">Thu</span>
+                          <div className="h-3 w-full bg-slate-100 rounded overflow-hidden">
+                            <div className="h-3 bg-emerald-500 rounded" style={{ width: `${incomePercent}%` }} />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-14 text-[11px] font-bold text-rose-600 uppercase">Chi</span>
+                          <div className="h-3 w-full bg-slate-100 rounded overflow-hidden">
+                            <div className="h-3 bg-rose-500 rounded" style={{ width: `${expensePercent}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </Card>
