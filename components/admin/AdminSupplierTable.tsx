@@ -46,15 +46,23 @@ export function AdminSupplierTable({
 
     return (
         <div className="w-full">
-            <Table className="table-custom border-collapse min-w-[800px]">
+            <Table className="table-custom border-collapse table-fixed min-w-[980px]">
+                <colgroup>
+                    <col className="w-[64px]" />
+                    <col className="w-[148px]" />
+                    <col />
+                    <col className="w-[210px]" />
+                    <col className="w-[150px]" />
+                    <col className="w-[86px]" />
+                </colgroup>
                 <TableHeader>
                     <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-                        <TableHead className="w-[60px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4 text-center">STT</TableHead>
-                        <TableHead className="w-[100px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Mã NCC</TableHead>
+                        <TableHead className="w-[64px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4 text-center">STT</TableHead>
+                        <TableHead className="w-[148px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Mã NCC</TableHead>
                         <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Nhà cung cấp & MST</TableHead>
-                        <TableHead className="w-[180px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Người liên hệ</TableHead>
-                        <TableHead className="w-[140px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
-                        <TableHead className="w-[80px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Chi tiết</TableHead>
+                        <TableHead className="w-[210px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Người liên hệ</TableHead>
+                        <TableHead className="w-[150px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
+                        <TableHead className="w-[86px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Chi tiết</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -67,7 +75,7 @@ export function AdminSupplierTable({
                         return (
                             <TableRow key={s.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer group">
                                 <TableCell className="p-2 pl-4 text-[12px] font-bold text-slate-500 text-center">{stt}</TableCell>
-                                <TableCell className="p-2 text-[12px] font-bold text-slate-500 italic">{s.code || `#${s.id}`}</TableCell>
+                                <TableCell className="p-2 text-[12px] font-bold text-slate-500 italic break-words">{s.code || `#${s.id}`}</TableCell>
                                 <TableCell className="p-2">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 bg-orange-50 rounded flex items-center justify-center text-orange-600 border border-orange-100 group-hover:bg-orange-100 transition-colors">
@@ -81,8 +89,8 @@ export function AdminSupplierTable({
                                 </TableCell>
                                 <TableCell className="p-2">
                                     <div className="flex flex-col">
-                                        <span className="text-[12px] font-bold text-slate-700">{s.contactName}</span>
-                                        <span className="text-[10px] text-slate-400 font-medium">{s.phone}</span>
+                                        <span className="text-[12px] font-bold text-slate-700 line-clamp-2">{s.contactName}</span>
+                                        <span className="text-[10px] text-slate-400 font-medium truncate">{s.phone}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell className="p-2 text-center">
