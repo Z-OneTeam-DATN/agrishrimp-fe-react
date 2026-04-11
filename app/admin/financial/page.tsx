@@ -134,10 +134,9 @@ export default function FinancialReportListPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.25em] mb-1">Kinh doanh / tài chính</p>
-          <h1 className="text-[24px] font-medium text-[#1f1f1f]">Danh sách báo cáo tài chính</h1>
-          <p className="text-[13px] text-slate-500 mt-1">Dữ liệu được tổng hợp từ báo cáo lãi lỗ và công nợ nhà cung cấp theo kỳ đã chọn.</p>
+          <h1 className="text-[28px] font-black text-[#1f1f1f] uppercase">Danh sách báo cáo tài chính</h1>
         </div>
-        <Button variant="outline" className="bg-white border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2">
+        <Button variant="ghost" className="border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2">
           <HelpCircle size={18} className="text-slate-500" /> Trợ giúp
         </Button>
       </div>
