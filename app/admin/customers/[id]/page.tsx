@@ -16,7 +16,16 @@ import {
     Wallet,
     PackageCheck,
     Clock,
-    Unlock, // Thêm icon Unlock
+    Unlock,
+    Send,
+    FileText,
+    Activity,
+    Download,
+    AlertTriangle,
+    Plus,
+    Trash2,
+    MapPinCheck,
+    X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +50,23 @@ interface OrderData {
     createdAt: string;
 }
 
+interface InternalNote {
+    id: number;
+    content: string;
+    author: string;
+    createdAt: string;
+    updatedAt?: string;
+}
+
+interface AddressData {
+    id: number;
+    fullName: string;
+    phone: string;
+    address: string;
+    isDefault: boolean;
+    createdAt: string;
+}
+
 interface CustomerData {
     userId: number;
     fullName: string;
@@ -56,6 +82,10 @@ interface CustomerData {
     totalSpent?: number;
     reputationScore?: number;
     avatarUrl?: string;
+    lastOrderDate?: string;
+    averageOrderValue?: number;
+    addresses?: AddressData[];
+    internalNotes?: InternalNote[];
 }
 
 const translateOrderStatus = (status: string) => {
@@ -96,6 +126,13 @@ export default function CustomerDetailPage({
     const [isLoading, setIsLoading] = useState(true);
     const [isOrdersLoading, setIsOrdersLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    // New states for enhancements
+    const [orderSort, setOrderSort] = useState<'newest' | 'oldest' | 'highest'>('newest');
+    const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+    const [showNotesModal, setShowNotesModal] = useState(false);
+    const [newNote, setNewNote] = useState('');
+    const [notes, setNotes] = useState<InternalNote[]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -138,13 +175,69 @@ export default function CustomerDetailPage({
         if (!customer?.userId) return;
         const toastId = toast.loading("Đang khôi phục tài khoản...");
         try {
-            await customerService.toggleStatus(customer.userId); // Gọi hàm toggle cũ (sẽ chuyển INACTIVE -> ACTIVE)
+            await customerService.toggleStatus(customer.userId);
             toast.success("Khôi phục tài khoản thành công!", { id: toastId });
-            fetchDetail(); // Fetch lại data để cập nhật UI
+            fetchDetail();
         } catch (error) {
             console.error("Lỗi khôi phục:", error);
             toast.error("Khôi phục thất bại. Vui lòng thử lại!", { id: toastId });
         }
+    };
+
+    // Utility functions
+    const calculateDaysSinceSignup = () => {
+        if (!customer?.createdAt) return 0;
+        const signupDate = new Date(customer.createdAt);
+        const today = new Date();
+        return Math.floor((today.getTime() - signupDate.getTime()) / (1000 * 60 * 60 * 24));
+    };
+
+    const getSortedAndFilteredOrders = () => {
+        let filtered = orders;
+        if (orderStatusFilter !== 'all') {
+            filtered = orders.filter(o => o.status === orderStatusFilter);
+        }
+        
+        const sorted = [...filtered].sort((a, b) => {
+            switch (orderSort) {
+                case 'newest':
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                case 'oldest':
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                case 'highest':
+                    return (b.finalAmount || 0) - (a.finalAmount || 0);
+                default:
+                    return 0;
+            }
+        });
+        return sorted;
+    };
+
+    const getCancellationStats = () => {
+        const cancelled = orders.filter(o => ['CANCELLED', 'RETURNED'].includes(o.status)).length;
+        return cancelled;
+    };
+
+    const isRiskAccount = () => {
+        return (customer?.reputationScore || 0) < 50;
+    };
+
+    const handleAddNote = () => {
+        if (!newNote.trim()) return;
+        const note: InternalNote = {
+            id: Date.now(),
+            content: newNote,
+            author: 'Admin', // Mock - should come from current user
+            createdAt: new Date().toISOString(),
+        };
+        setNotes([note, ...notes]);
+        setNewNote('');
+        toast.success('Ghi chú đã được thêm!');
+    };
+
+    const handleDeleteNote = (noteId: number) => {
+        setNotes(notes.filter(n => n.id !== noteId));
+        toast.success('Ghi chú đã xóa!');
     };
 
     if (!mounted) return null;
@@ -195,6 +288,85 @@ export default function CustomerDetailPage({
                         <UserCircle size={12} /> Hệ thống quản trị AgriShrimp
                     </p>
                 </div>
+            </div>
+
+            {/* Quick Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-blue-50 border border-blue-100 p-3 flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded">
+                        <Clock size={18} className="text-blue-600" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-bold text-blue-600 uppercase">Ngày đặt hàng gần nhất</p>
+                        <p className="text-[12px] font-black text-blue-700">
+                            {customer?.lastOrderDate ? new Date(customer.lastOrderDate).toLocaleDateString('vi-VN') : 'Chưa có'}
+                        </p>
+                    </div>
+                </div>
+                <div className="bg-purple-50 border border-purple-100 p-3 flex items-center gap-3">
+                    <div className="bg-purple-100 p-2 rounded">
+                        <Wallet size={18} className="text-purple-600" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-bold text-purple-600 uppercase">Giá trị đơn trung bình</p>
+                        <p className="text-[12px] font-black text-purple-700">
+                            {customer?.averageOrderValue ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer.averageOrderValue) : '---'}
+                        </p>
+                    </div>
+                </div>
+                <div className="bg-orange-50 border border-orange-100 p-3 flex items-center gap-3">
+                    <div className="bg-orange-100 p-2 rounded">
+                        <UserCircle size={18} className="text-orange-600" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-bold text-orange-600 uppercase">Ngày tham gia</p>
+                        <p className="text-[12px] font-black text-orange-700">
+                            {calculateDaysSinceSignup()} ngày trước
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Action Buttons Bar */}
+            <div className="flex gap-2 items-center flex-wrap">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    onClick={() => toast.info('Chức năng gửi email sẽ sớm có!')}
+                >
+                    <Send size={14} /> Email
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    onClick={() => setShowNotesModal(true)}
+                >
+                    <FileText size={14} /> Ghi chú
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    onClick={() => toast.info('Lịch sử thay đổi sẽ sớm có!')}
+                >
+                    <Activity size={14} /> Lịch sử
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    onClick={() => toast.info('Xuất PDF sẽ sớm có!')}
+                >
+                    <Download size={14} /> PDF
+                </Button>
+                {isRiskAccount() && (
+                    <div className="flex items-center gap-2 ml-auto px-3 py-2 bg-rose-50 border border-rose-200 rounded text-[11px]">
+                        <AlertTriangle size={14} className="text-rose-600" />
+                        <span className="font-bold text-rose-700">⚠️ Tài khoản rủi ro khóa!</span>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -287,21 +459,61 @@ export default function CustomerDetailPage({
                             </div>
                         </div>
                     </div>
+
+                    {/* Addresses Section */}
+                    <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2">
+                                <MapPinCheck size={14} /> Địa chỉ giao hàng
+                            </h3>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50">
+                                <Plus size={14} />
+                            </Button>
+                        </div>
+                        <div className="p-4 space-y-2">
+                            {customer?.addresses && customer.addresses.length > 0 ? (
+                                customer.addresses.map(addr => (
+                                    <div key={addr.id} className="p-3 border border-slate-100 rounded bg-slate-50/30">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1">
+                                                <p className="text-[11px] font-bold text-slate-800">{addr.fullName}</p>
+                                                <p className="text-[10px] text-slate-600 mt-1">{addr.address}</p>
+                                                <p className="text-[10px] text-slate-500 mt-1">📞 {addr.phone}</p>
+                                            </div>
+                                            {addr.isDefault && (
+                                                <span className="text-[8px] font-bold px-2 py-1 bg-emerald-100 text-emerald-700 whitespace-nowrap rounded">
+                                                    Mặc định
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-center text-[10px] text-slate-400 py-4">Chưa có địa chỉ</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Cột phải: Tabs chi tiết */}
                 <div className="lg:col-span-3">
                     <Tabs defaultValue="history" className="w-full">
-                        <TabsList className="bg-white border border-[#dcdcdc] rounded-none p-1 w-full flex justify-start gap-0.5 h-auto shadow-sm">
+                        <TabsList className="bg-white border border-[#dcdcdc] rounded-none p-1 w-full flex justify-start gap-0.5 h-auto shadow-sm overflow-x-auto">
                             <TabsTrigger
                                 value="history"
-                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <History size={13} className="mr-1.5" /> Nhật ký giao dịch
                             </TabsTrigger>
                             <TabsTrigger
+                                value="notes"
+                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                            >
+                                <FileText size={13} className="mr-1.5" /> Ghi chú nội bộ
+                            </TabsTrigger>
+                            <TabsTrigger
                                 value="info"
-                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <Info size={13} className="mr-1.5" /> Chỉ số uy tín
                             </TabsTrigger>
@@ -309,6 +521,36 @@ export default function CustomerDetailPage({
 
                         <TabsContent value="history" className="mt-0">
                             <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden min-h-[400px]">
+                                {/* Filter & Sort Controls */}
+                                <div className="p-3 border-b border-slate-100 flex items-center gap-2 flex-wrap bg-slate-50">
+                                    <select
+                                        value={orderStatusFilter}
+                                        onChange={(e) => setOrderStatusFilter(e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white uppercase"
+                                    >
+                                        <option value="all">Tất cả trạng thái</option>
+                                        <option value="PENDING">Chờ xử lý</option>
+                                        <option value="CONFIRMED">Đã xác nhận</option>
+                                        <option value="SHIPPING">Đang giao</option>
+                                        <option value="COMPLETED">Hoàn thành</option>
+                                        <option value="CANCELLED">Đã hủy</option>
+                                        <option value="RETURNED">Hoàn trả</option>
+                                    </select>
+                                    <select
+                                        value={orderSort}
+                                        onChange={(e) => setOrderSort(e.target.value as any)}
+                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white uppercase"
+                                    >
+                                        <option value="newest">Mới nhất</option>
+                                        <option value="oldest">Cũ nhất</option>
+                                        <option value="highest">Giá cao nhất</option>
+                                    </select>
+                                    {getCancellationStats() > 0 && (
+                                        <div className="ml-auto text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-100">
+                                            {getCancellationStats()} đơn hủy/hoàn trả
+                                        </div>
+                                    )}
+                                </div>
                                 <Table>
                                     <TableHeader className="bg-slate-50/80">
                                         <TableRow className="hover:bg-transparent">
@@ -329,7 +571,7 @@ export default function CustomerDetailPage({
                                                 </TableCell>
                                             </TableRow>
                                         ) : orders.length > 0 ? (
-                                            orders.map((order) => (
+                                            getSortedAndFilteredOrders().map((order) => (
                                                 <TableRow key={order.id} className="hover:bg-slate-50/50 cursor-pointer transition-colors group">
                                                     <TableCell className="p-3">
                                                         <span className="text-[11px] font-black text-blue-600 group-hover:underline uppercase">#{order.code}</span>
@@ -365,6 +607,59 @@ export default function CustomerDetailPage({
                                         )}
                                     </TableBody>
                                 </Table>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="notes" className="mt-0">
+                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                                {/* Add Note Form */}
+                                <div className="p-4 border-b border-slate-100 bg-slate-50">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Thêm ghi chú nội bộ..."
+                                            value={newNote}
+                                            onChange={(e) => setNewNote(e.target.value)}
+                                            className="flex-1 text-[11px] px-3 py-2 border border-slate-300 rounded bg-white"
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
+                                        />
+                                        <Button
+                                            onClick={handleAddNote}
+                                            size="sm"
+                                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold uppercase"
+                                        >
+                                            <Plus size={12} className="mr-1" /> Thêm
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Notes List */}
+                                <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto">
+                                    {notes.length > 0 ? (
+                                        notes.map(note => (
+                                            <div key={note.id} className="p-3 border border-slate-100 bg-slate-50 rounded">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex-1">
+                                                        <p className="text-[11px] text-slate-800">{note.content}</p>
+                                                        <p className="text-[9px] text-slate-500 mt-1.5">
+                                                            <strong>{note.author}</strong> • {new Date(note.createdAt).toLocaleDateString('vi-VN')} {new Date(note.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 text-rose-600 hover:bg-rose-50"
+                                                        onClick={() => handleDeleteNote(note.id)}
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-[10px] text-slate-400 py-8">Chưa có ghi chú nào</p>
+                                    )}
+                                </div>
                             </div>
                         </TabsContent>
 
@@ -426,6 +721,51 @@ export default function CustomerDetailPage({
                     </Tabs>
                 </div>
             </div>
+
+            {/* Notes Modal */}
+            {showNotesModal && (
+                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+                            <h3 className="text-[14px] font-black uppercase text-slate-800 flex items-center gap-2">
+                                <FileText size={18} /> Thêm ghi chú nội bộ
+                            </h3>
+                            <button
+                                onClick={() => setShowNotesModal(false)}
+                                className="text-slate-400 hover:text-slate-600"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-5">
+                            <textarea
+                                placeholder="Nhập ghi chú (VD: khách hàng VIP, khiếu nại, lưu ý đặc biệt...)"
+                                value={newNote}
+                                onChange={(e) => setNewNote(e.target.value)}
+                                className="w-full text-[12px] px-3 py-2 border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] resize-none"
+                            />
+                        </div>
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowNotesModal(false)}
+                                className="text-[11px] font-bold uppercase h-9"
+                            >
+                                Hủy
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    handleAddNote();
+                                    setShowNotesModal(false);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold uppercase h-9"
+                            >
+                                <Plus size={14} className="mr-1" /> Thêm ghi chú
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
