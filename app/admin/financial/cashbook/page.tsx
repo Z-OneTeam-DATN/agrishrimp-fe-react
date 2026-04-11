@@ -93,7 +93,7 @@ export default function CashbookPage() {
       try {
         setLoading(true);
         const [cashbookRes, salesRes] = await Promise.all([
-          CashbookService.getEntries({ branchId: selectedBranchId, startDate, endDate }),
+          CashbookService.getEntries({ branchId: selectedBranchId }),
           dashboardService.getSalesPerformance(selectedBranchId === "all" ? undefined : selectedBranchId),
         ]);
         setEntries(cashbookRes);
@@ -110,7 +110,13 @@ export default function CashbookPage() {
   }, [selectedBranchId, startDate, endDate]);
 
   const filteredEntries = useMemo(() => {
-    return entries.filter((entry) => {
+    const rangedEntries = entries.filter((entry) => {
+      if (startDate && entry.date < startDate) return false;
+      if (endDate && entry.date > endDate) return false;
+      return true;
+    });
+
+    return rangedEntries.filter((entry) => {
       const keyword = searchTerm.trim().toLowerCase();
       const matchesKeyword = !keyword || [entry.code, entry.title, entry.description, entry.branchName, entry.creatorName]
         .filter(Boolean)
@@ -118,7 +124,7 @@ export default function CashbookPage() {
       const matchesType = typeFilter === "all" || entry.direction === typeFilter;
       return matchesKeyword && matchesType;
     });
-  }, [entries, searchTerm, typeFilter]);
+  }, [entries, startDate, endDate, searchTerm, typeFilter]);
 
   const summary = useMemo(() => CashbookService.buildSummary(entries, startDate, endDate), [entries, startDate, endDate]);
 
@@ -191,7 +197,7 @@ export default function CashbookPage() {
     setLoading(true);
     try {
       const [cashbookRes, salesRes] = await Promise.all([
-        CashbookService.getEntries({ branchId: selectedBranchId, startDate, endDate }),
+        CashbookService.getEntries({ branchId: selectedBranchId }),
         dashboardService.getSalesPerformance(selectedBranchId === "all" ? undefined : selectedBranchId),
       ]);
       setEntries(cashbookRes);
@@ -208,12 +214,7 @@ export default function CashbookPage() {
     net: Number(item.profit || 0),
   })), [dailySales]);
 
-  const visibleChart = chartMode === "day" ? chartData : CashbookService.groupByPeriod(entries, "month").map((item) => ({
-    period: item.key,
-    income: item.income,
-    expense: item.expense,
-    net: item.net,
-  }));
+  const visibleChart = chartData;
 
   return (
     <div className="space-y-0 pb-10 bg-[#f0f2f5] min-h-screen">

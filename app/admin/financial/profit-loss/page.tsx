@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     ChevronLeft,
@@ -67,7 +67,7 @@ export default function ProfitLossReportPage() {
     const [startDate, setStartDate] = useState(firstDayOfMonth.toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(today.toISOString().split("T")[0]);
     const [branchId, setBranchId] = useState("all");
-    const [branches, setBranches] = useState<any[]>([]);
+    const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
 
     // 👉 STATES DỮ LIỆU
     const [loading, setLoading] = useState(true);
@@ -119,12 +119,13 @@ export default function ProfitLossReportPage() {
     const processData = (d: ProfitLossData | null) => {
         if (!d) return { rev: 0, ret: 0, vat: 0, shipC: 0, disc: 0, cogs: 0, point: 0, shipP: 0, inc: 0, retF: 0, ex: 0, netRev: 0, cost: 0, totalInc: 0, net: 0 };
 
-        const netRev = d.revenue - d.returnedGoods;
+        const netProductRevenue = d.revenue - d.returnedGoods;
+        const netRev = netProductRevenue + d.vat + d.shippingFeeCollected - d.discount;
         const cost = d.cogs + d.pointPayment + d.shippingFeePaid;
         const totalInc = d.otherIncome + d.customerReturnFee;
         const net = netRev + totalInc - cost - d.otherExpenses;
 
-        return { rev: d.revenue, ret: d.returnedGoods, vat: d.vat, shipC: d.shippingFeeCollected, disc: d.discount, cogs: d.cogs, point: d.pointPayment, shipP: d.shippingFeePaid, inc: d.otherIncome, retF: d.customerReturnFee, ex: d.otherExpenses, netRev, cost, totalInc, net };
+        return { rev: d.revenue, ret: d.returnedGoods, vat: d.vat, shipC: d.shippingFeeCollected, disc: d.discount, cogs: d.cogs, point: d.pointPayment, shipP: d.shippingFeePaid, inc: d.otherIncome, retF: d.customerReturnFee, ex: d.otherExpenses, netProductRevenue, netRev, cost, totalInc, net };
     };
 
     const calcPercent = (curr: number, prev: number) => {
@@ -139,7 +140,7 @@ export default function ProfitLossReportPage() {
     // Mảng dữ liệu Map ra Table
     const reportRows = [
         { id: "I", label: "I. Doanh thu bán hàng", prev: prev.netRev, current: curr.netRev, change: calcPercent(curr.netRev, prev.netRev), isBold: true },
-        { id: "1", label: "1. Tiền hàng thực bán (1a - 1b)", prev: prev.netRev, current: curr.netRev, change: calcPercent(curr.netRev, prev.netRev), padding: "pl-8" },
+        { id: "1", label: "1. Tiền hàng thực bán (1a - 1b)", prev: prev.netProductRevenue, current: curr.netProductRevenue, change: calcPercent(curr.netProductRevenue, prev.netProductRevenue), padding: "pl-8" },
         { id: "1a", label: "a. Tiền hàng bán ra", prev: prev.rev, current: curr.rev, change: calcPercent(curr.rev, prev.rev), padding: "pl-12", isItalic: true },
         { id: "1b", label: "b. Tiền hàng trả lại", prev: prev.ret, current: curr.ret, change: calcPercent(curr.ret, prev.ret), padding: "pl-12", isItalic: true },
         { id: "2", label: "2. Thuế VAT", prev: prev.vat, current: curr.vat, change: calcPercent(curr.vat, prev.vat), padding: "pl-8" },

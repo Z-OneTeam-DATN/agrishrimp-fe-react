@@ -6,6 +6,7 @@ export type CashbookSource = "RECEIPT" | "EXPORT_COMMAND" | "EXPORT_RECEIPT";
 export interface CashbookEntry {
   id: string;
   date: string;
+  branchId?: string;
   direction: CashbookDirection;
   source: CashbookSource;
   code: string;
@@ -71,6 +72,7 @@ const mapReceipt = (item: any): CashbookEntry | null => {
   return {
     id: `receipt-${item.id ?? item.code ?? date}`,
     date,
+    branchId: item?.branchId != null ? String(item.branchId) : undefined,
     direction: "OUT",
     source: "RECEIPT",
     code: item.code || `RC-${item.id}`,
@@ -95,6 +97,7 @@ const mapExport = (item: any, source: CashbookSource): CashbookEntry | null => {
   return {
     id: `${source.toLowerCase()}-${item.id ?? item.code ?? date}`,
     date,
+    branchId: item?.branchId != null ? String(item.branchId) : undefined,
     direction,
     source,
     code: item.code || `EX-${item.id}`,

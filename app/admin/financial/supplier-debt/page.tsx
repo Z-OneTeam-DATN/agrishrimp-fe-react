@@ -8,7 +8,6 @@ import {
     HelpCircle,
     Download,
     Search,
-    X,
     Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,10 +37,7 @@ export default function SupplierDebtReportPage() {
     const [data, setData] = useState<SupplierDebtData[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // 👉 STATES LƯU TRỮ BỘ LỌC
-    const [staffFilter, setStaffFilter] = useState<string>("all"); // "all", "user1", "user2"
     const [debtFilter, setDebtFilter] = useState<string>("not_zero"); // "all", "not_zero", "zero"
-    const [groupFilter, setGroupFilter] = useState<string>("all"); // "all", "group1", "group2"
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
@@ -59,29 +55,17 @@ export default function SupplierDebtReportPage() {
         return () => clearTimeout(delayDebounceFn);
     }, [searchTerm]);
 
-    // 👉 LOGIC LỌC DỮ LIỆU Ở FRONTEND
-    // Dùng useMemo để không phải tính toán lại mỗi khi render trừ khi data hoặc bộ lọc đổi
     const filteredData = useMemo(() => {
         let result = [...data];
 
-        // Lọc theo Nợ cuối kỳ
         if (debtFilter === "not_zero") {
             result = result.filter((item) => item.totalDebt > 0);
         } else if (debtFilter === "zero") {
             result = result.filter((item) => item.totalDebt === 0);
         }
 
-        // Các bộ lọc Staff và Group tạm thời chưa có data trả về từ BE nên Tuu để sẵn khung logic
-        if (staffFilter !== "all") {
-            // result = result.filter((item) => item.staffId === staffFilter);
-        }
-
-        if (groupFilter !== "all") {
-            // result = result.filter((item) => item.groupId === groupFilter);
-        }
-
         return result;
-    }, [data, debtFilter, staffFilter, groupFilter]);
+    }, [data, debtFilter]);
 
     const handleExportExcel = () => {
         if (!filteredData || filteredData.length === 0) {
@@ -116,14 +100,6 @@ export default function SupplierDebtReportPage() {
                     <h1 className="text-[18px] font-medium text-slate-800 tracking-tight whitespace-nowrap uppercase">Công nợ nhà cung cấp</h1>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <span className="text-[12px] font-bold text-slate-500 uppercase">Thời gian</span>
-                    <div className="flex items-center gap-0 border border-slate-300 bg-white px-3 h-8 cursor-pointer hover:bg-slate-50 transition-colors min-w-[200px]">
-                        <span className="text-[12px] text-slate-600 font-medium">13/01/2026 - 11/02/2026</span>
-                        <ChevronDown size={14} className="ml-auto text-slate-400" />
-                    </div>
-                </div>
-
                 <div className="ms-auto flex items-center gap-6">
                     <button onClick={handleExportExcel} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-emerald-600 transition-colors uppercase">
                         <Download size={16} /> Xuất file
@@ -147,22 +123,6 @@ export default function SupplierDebtReportPage() {
                             />
                         </div>
 
-                        {/* 👉 BỘ LỌC NHÂN VIÊN */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div className="flex items-center gap-0 border border-slate-200 h-[36px] px-3 bg-white cursor-pointer hover:bg-slate-50 group min-w-[160px]">
-                                    <span className="text-[12px] text-slate-500 group-hover:text-slate-700">Nhân viên phụ trách</span>
-                                    <ChevronDown size={14} className="ml-auto text-slate-300" />
-                                </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="rounded-none w-[200px]">
-                                <DropdownMenuItem onClick={() => setStaffFilter("all")} className="text-[13px] cursor-pointer">Tất cả nhân viên</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setStaffFilter("user1")} className="text-[13px] cursor-pointer">Admin Tuu</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setStaffFilter("user2")} className="text-[13px] cursor-pointer">Nhân viên Huy</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        {/* 👉 BỘ LỌC NỢ CUỐI KỲ */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <div className="flex items-center gap-0 border border-slate-200 h-[36px] px-3 bg-white cursor-pointer hover:bg-slate-50 group min-w-[120px]">
@@ -176,44 +136,13 @@ export default function SupplierDebtReportPage() {
                                 <DropdownMenuItem onClick={() => setDebtFilter("zero")} className="text-[13px] cursor-pointer font-medium">Bằng 0</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-
-                        {/* 👉 BỘ LỌC NHÓM NHÀ CUNG CẤP */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <div className="flex items-center gap-0 border border-slate-200 h-[36px] px-3 bg-white cursor-pointer hover:bg-slate-50 group min-w-[160px]">
-                                    <span className="text-[12px] text-slate-500 group-hover:text-slate-700">Nhóm nhà cung cấp</span>
-                                    <ChevronDown size={14} className="ml-auto text-slate-300" />
-                                </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="rounded-none w-[200px]">
-                                <DropdownMenuItem onClick={() => setGroupFilter("all")} className="text-[13px] cursor-pointer">Tất cả nhóm</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setGroupFilter("group1")} className="text-[13px] cursor-pointer">Thức ăn thủy sản</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setGroupFilter("group2")} className="text-[13px] cursor-pointer">Thuốc / Chế phẩm</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </div>
 
-                    {/* 👉 ACTIVE FILTER TAGS (HIỂN THỊ CÁC BỘ LỌC ĐANG CHỌN) */}
-                    {(debtFilter !== "all" || staffFilter !== "all" || groupFilter !== "all") && (
+                    {debtFilter !== "all" && (
                         <div className="px-6 py-2 flex items-center gap-2 bg-white border-b border-slate-50">
-                            {debtFilter !== "all" && (
-                                <div className="bg-blue-50 text-blue-600 px-2 py-1 flex items-center gap-2 text-[11px] font-medium border border-blue-100">
-                                    Nợ cuối kỳ: {debtFilter === "not_zero" ? "Khác 0" : "Bằng 0"}
-                                    <button onClick={() => setDebtFilter("all")} className="hover:text-blue-800"><X size={12} /></button>
-                                </div>
-                            )}
-                            {staffFilter !== "all" && (
-                                <div className="bg-emerald-50 text-emerald-600 px-2 py-1 flex items-center gap-2 text-[11px] font-medium border border-emerald-100">
-                                    Nhân viên: {staffFilter === "user1" ? "Admin Tuu" : "Nhân viên Huy"}
-                                    <button onClick={() => setStaffFilter("all")} className="hover:text-emerald-800"><X size={12} /></button>
-                                </div>
-                            )}
-                            {groupFilter !== "all" && (
-                                <div className="bg-purple-50 text-purple-600 px-2 py-1 flex items-center gap-2 text-[11px] font-medium border border-purple-100">
-                                    Nhóm NCC: {groupFilter === "group1" ? "Thức ăn thủy sản" : "Thuốc / Chế phẩm"}
-                                    <button onClick={() => setGroupFilter("all")} className="hover:text-purple-800"><X size={12} /></button>
-                                </div>
-                            )}
+                            <div className="bg-blue-50 text-blue-600 px-2 py-1 text-[11px] font-medium border border-blue-100">
+                                Nợ cuối kỳ: {debtFilter === "not_zero" ? "Khác 0" : "Bằng 0"}
+                            </div>
                         </div>
                     )}
 
