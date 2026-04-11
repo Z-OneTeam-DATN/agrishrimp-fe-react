@@ -117,7 +117,7 @@ export default function ProfitLossReportPage() {
 
     // 👉 HÀM XỬ LÝ SỐ LIỆU VÀ TÍNH % THAY ĐỔI
     const processData = (d: ProfitLossData | null) => {
-        if (!d) return { rev: 0, ret: 0, vat: 0, shipC: 0, disc: 0, cogs: 0, point: 0, shipP: 0, inc: 0, retF: 0, ex: 0, netRev: 0, cost: 0, totalInc: 0, net: 0 };
+        if (!d) return { rev: 0, ret: 0, vat: 0, shipC: 0, disc: 0, cogs: 0, point: 0, shipP: 0, inc: 0, retF: 0, ex: 0, netProductRevenue: 0, netRev: 0, cost: 0, totalInc: 0, net: 0 };
 
         const netProductRevenue = d.revenue - d.returnedGoods;
         const netRev = netProductRevenue + d.vat + d.shippingFeeCollected - d.discount;
