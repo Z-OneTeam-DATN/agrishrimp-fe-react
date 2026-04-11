@@ -188,13 +188,18 @@ export default function CashbookPage() {
   };
 
   const visibleChart = chartData;
+  const chartWindow = useMemo(() => visibleChart.slice(-12), [visibleChart]);
   const chartMax = useMemo(() => {
-    if (visibleChart.length === 0) return 1;
-    return Math.max(
-      1,
-      ...visibleChart.map((item) => Math.max(Number(item.income || 0), Number(item.expense || 0)))
-    );
-  }, [visibleChart]);
+    if (chartWindow.length === 0) return 1;
+    return Math.max(1, ...chartWindow.map((item) => Math.max(Number(item.income || 0), Number(item.expense || 0))));
+  }, [chartWindow]);
+  const netAbsMax = useMemo(() => {
+    if (chartWindow.length === 0) return 1;
+    return Math.max(1, ...chartWindow.map((item) => Math.abs(Number(item.net || 0))));
+  }, [chartWindow]);
+  const totalFlow = useMemo(() => Math.max(1, summary.totalIncome + summary.totalExpense), [summary.totalIncome, summary.totalExpense]);
+  const incomeRatio = Math.round((summary.totalIncome / totalFlow) * 100);
+  const expenseRatio = 100 - incomeRatio;
 
   return (
     <div className="space-y-0 pb-10 bg-[#f0f2f5] min-h-screen">
@@ -285,40 +290,59 @@ export default function CashbookPage() {
             </div>
           </div>
 
-          <div className="h-[320px] w-full">
-            {visibleChart.length === 0 ? (
+          <div className="w-full">
+            {chartWindow.length === 0 ? (
               <div className="h-full flex items-center justify-center text-[13px] text-slate-400 font-medium">
                 Chưa có dữ liệu để vẽ biểu đồ trong khoảng thời gian đã chọn
               </div>
             ) : (
-              <div className="h-full overflow-y-auto pr-1 space-y-3">
-                {visibleChart.map((item) => {
-                  const incomePercent = Math.round((Number(item.income || 0) / chartMax) * 100);
-                  const expensePercent = Math.round((Number(item.expense || 0) / chartMax) * 100);
-                  return (
-                    <div key={item.period} className="border border-slate-100 bg-slate-50/30 p-3 rounded-[4px]">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[12px] font-bold text-slate-700">{item.period}</span>
-                        <span className="text-[11px] text-slate-500">Thu: {formatNumber(item.income)} | Chi: {formatNumber(item.expense)}</span>
-                      </div>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div className="xl:col-span-2 border border-slate-100 rounded-[4px] p-3 bg-slate-50/20">
+                  <div className="h-[220px] flex items-end gap-2 overflow-x-auto">
+                    {chartWindow.map((item) => {
+                      const incomeHeight = Math.max(6, Math.round((Number(item.income || 0) / chartMax) * 180));
+                      const expenseHeight = Math.max(6, Math.round((Number(item.expense || 0) / chartMax) * 180));
+                      return (
+                        <div key={item.period} className="min-w-[44px] flex flex-col items-center gap-1">
+                          <div className="w-full h-[190px] flex items-end justify-center gap-1">
+                            <div className="w-3 rounded-t bg-emerald-500" style={{ height: `${incomeHeight}px` }} title={`Thu: ${formatNumber(item.income)}`} />
+                            <div className="w-3 rounded-t bg-rose-500" style={{ height: `${expenseHeight}px` }} title={`Chi: ${formatNumber(item.expense)}`} />
+                          </div>
+                          <span className="text-[10px] text-slate-500 whitespace-nowrap">{item.period}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-14 text-[11px] font-bold text-emerald-600 uppercase">Thu</span>
-                          <div className="h-3 w-full bg-slate-100 rounded overflow-hidden">
-                            <div className="h-3 bg-emerald-500 rounded" style={{ width: `${incomePercent}%` }} />
-                          </div>
+                <div className="border border-slate-100 rounded-[4px] p-4 bg-slate-50/20 flex flex-col items-center justify-center">
+                  <div
+                    className="w-40 h-40 rounded-full"
+                    style={{
+                      background: `conic-gradient(#10b981 0 ${incomeRatio}%, #ef4444 ${incomeRatio}% 100%)`,
+                    }}
+                  >
+                    <div className="w-24 h-24 bg-white rounded-full mx-auto mt-8" />
+                  </div>
+                  <div className="mt-3 flex items-center gap-4 text-[11px] font-bold">
+                    <span className="text-emerald-600">Thu {incomeRatio}%</span>
+                    <span className="text-rose-600">Chi {expenseRatio}%</span>
+                  </div>
+                </div>
+
+                <div className="xl:col-span-3 border border-slate-100 rounded-[4px] p-3 bg-slate-50/20">
+                  <div className="h-[120px] flex items-end gap-1 overflow-x-auto">
+                    {chartWindow.map((item) => {
+                      const net = Number(item.net || 0);
+                      const height = Math.max(6, Math.round((Math.abs(net) / netAbsMax) * 100));
+                      return (
+                        <div key={`net-${item.period}`} className="min-w-[30px] flex flex-col items-center gap-1">
+                          <div className={cn("w-4 rounded-sm", net >= 0 ? "bg-blue-500" : "bg-amber-500")} style={{ height: `${height}px` }} title={`Ròng: ${formatNumber(net)}`} />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-14 text-[11px] font-bold text-rose-600 uppercase">Chi</span>
-                          <div className="h-3 w-full bg-slate-100 rounded overflow-hidden">
-                            <div className="h-3 bg-rose-500 rounded" style={{ width: `${expensePercent}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </div>
