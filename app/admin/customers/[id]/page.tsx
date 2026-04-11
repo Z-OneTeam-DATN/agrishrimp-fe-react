@@ -53,17 +53,26 @@ interface OrderData {
 interface InternalNote {
     id: number;
     content: string;
-    author: string;
+    authorName: string;
     createdAt: string;
     updatedAt?: string;
 }
 
 interface AddressData {
     id: number;
-    fullName: string;
-    phone: string;
-    address: string;
+    receiverName: string;
+    receiverPhone: string;
+    addressDetail: string;
     isDefault: boolean;
+    createdAt: string;
+}
+
+interface CustomerStatusLog {
+    id: number;
+    fromStatus: string;
+    toStatus: string;
+    reason?: string;
+    changedByName: string;
     createdAt: string;
 }
 
@@ -86,6 +95,7 @@ interface CustomerData {
     averageOrderValue?: number;
     addresses?: AddressData[];
     internalNotes?: InternalNote[];
+    statusLogs?: CustomerStatusLog[];
 }
 
 const translateOrderStatus = (status: string) => {
@@ -130,9 +140,13 @@ export default function CustomerDetailPage({
     // New states for enhancements
     const [orderSort, setOrderSort] = useState<'newest' | 'oldest' | 'highest'>('newest');
     const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+    const [orderDateFrom, setOrderDateFrom] = useState<string>('');
+    const [orderDateTo, setOrderDateTo] = useState<string>('');
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [newNote, setNewNote] = useState('');
     const [notes, setNotes] = useState<InternalNote[]>([]);
+    const [statusLogs, setStatusLogs] = useState<CustomerStatusLog[]>([]);
+    const [activeTab, setActiveTab] = useState('history');
 
     useEffect(() => {
         setMounted(true);
@@ -154,8 +168,10 @@ export default function CustomerDetailPage({
         if (!mounted) return;
         setIsLoading(true);
         try {
-            const data = await customerService.getById(Number(customerId));
+            const data = await customerService.getDetailById(Number(customerId));
             setCustomer(data);
+            setNotes(data.internalNotes || []);
+            setStatusLogs(data.statusLogs || []);
             fetchOrders(Number(customerId));
         } catch (error) {
             console.error("Lỗi fetch:", error);
@@ -197,6 +213,15 @@ export default function CustomerDetailPage({
         if (orderStatusFilter !== 'all') {
             filtered = orders.filter(o => o.status === orderStatusFilter);
         }
+
+        if (orderDateFrom) {
+            filtered = filtered.filter(o => new Date(o.createdAt) >= new Date(orderDateFrom));
+        }
+        if (orderDateTo) {
+            const endDate = new Date(orderDateTo);
+            endDate.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(o => new Date(o.createdAt) <= endDate);
+        }
         
         const sorted = [...filtered].sort((a, b) => {
             switch (orderSort) {
@@ -222,22 +247,28 @@ export default function CustomerDetailPage({
         return (customer?.reputationScore || 0) < 50;
     };
 
-    const handleAddNote = () => {
-        if (!newNote.trim()) return;
-        const note: InternalNote = {
-            id: Date.now(),
-            content: newNote,
-            author: 'Admin', // Mock - should come from current user
-            createdAt: new Date().toISOString(),
-        };
-        setNotes([note, ...notes]);
-        setNewNote('');
-        toast.success('Ghi chú đã được thêm!');
+    const handleAddNote = async () => {
+        if (!newNote.trim() || !customer?.userId) return;
+        try {
+            const created = await customerService.addInternalNote(customer.userId, { content: newNote });
+            setNotes([created, ...notes]);
+            setNewNote('');
+            toast.success('Ghi chú đã được thêm!');
+        } catch (error) {
+            console.error('Lỗi thêm ghi chú:', error);
+            toast.error('Không thể thêm ghi chú nội bộ');
+        }
     };
 
-    const handleDeleteNote = (noteId: number) => {
-        setNotes(notes.filter(n => n.id !== noteId));
-        toast.success('Ghi chú đã xóa!');
+    const handleDeleteNote = async (noteId: number) => {
+        try {
+            await customerService.deleteInternalNote(noteId);
+            setNotes(notes.filter(n => n.id !== noteId));
+            toast.success('Ghi chú đã xóa!');
+        } catch (error) {
+            console.error('Lỗi xóa ghi chú:', error);
+            toast.error('Không thể xóa ghi chú nội bộ');
+        }
     };
 
     if (!mounted) return null;
@@ -333,7 +364,13 @@ export default function CustomerDetailPage({
                     variant="outline"
                     size="sm"
                     className="h-9 gap-2 text-[11px] font-bold uppercase"
-                    onClick={() => toast.info('Chức năng gửi email sẽ sớm có!')}
+                    onClick={() => {
+                        if (!customer?.email) {
+                            toast.error('Khách hàng chưa có email');
+                            return;
+                        }
+                        window.location.href = `mailto:${customer.email}?subject=${encodeURIComponent(`Hỗ trợ tài khoản #${customer.userId}`)}`;
+                    }}
                 >
                     <Send size={14} /> Email
                 </Button>
@@ -341,7 +378,10 @@ export default function CustomerDetailPage({
                     variant="outline"
                     size="sm"
                     className="h-9 gap-2 text-[11px] font-bold uppercase"
-                    onClick={() => setShowNotesModal(true)}
+                    onClick={() => {
+                        setActiveTab('notes');
+                        setShowNotesModal(true);
+                    }}
                 >
                     <FileText size={14} /> Ghi chú
                 </Button>
@@ -349,7 +389,7 @@ export default function CustomerDetailPage({
                     variant="outline"
                     size="sm"
                     className="h-9 gap-2 text-[11px] font-bold uppercase"
-                    onClick={() => toast.info('Lịch sử thay đổi sẽ sớm có!')}
+                    onClick={() => setActiveTab('activity')}
                 >
                     <Activity size={14} /> Lịch sử
                 </Button>
@@ -357,7 +397,7 @@ export default function CustomerDetailPage({
                     variant="outline"
                     size="sm"
                     className="h-9 gap-2 text-[11px] font-bold uppercase"
-                    onClick={() => toast.info('Xuất PDF sẽ sớm có!')}
+                    onClick={() => window.print()}
                 >
                     <Download size={14} /> PDF
                 </Button>
@@ -476,9 +516,9 @@ export default function CustomerDetailPage({
                                     <div key={addr.id} className="p-3 border border-slate-100 rounded bg-slate-50/30">
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="flex-1">
-                                                <p className="text-[11px] font-bold text-slate-800">{addr.fullName}</p>
-                                                <p className="text-[10px] text-slate-600 mt-1">{addr.address}</p>
-                                                <p className="text-[10px] text-slate-500 mt-1">📞 {addr.phone}</p>
+                                                <p className="text-[11px] font-bold text-slate-800">{addr.receiverName}</p>
+                                                <p className="text-[10px] text-slate-600 mt-1">{addr.addressDetail}</p>
+                                                <p className="text-[10px] text-slate-500 mt-1">📞 {addr.receiverPhone}</p>
                                             </div>
                                             {addr.isDefault && (
                                                 <span className="text-[8px] font-bold px-2 py-1 bg-emerald-100 text-emerald-700 whitespace-nowrap rounded">
@@ -497,7 +537,7 @@ export default function CustomerDetailPage({
 
                 {/* Cột phải: Tabs chi tiết */}
                 <div className="lg:col-span-3">
-                    <Tabs defaultValue="history" className="w-full">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="bg-white border border-[#dcdcdc] rounded-none p-1 w-full flex justify-start gap-0.5 h-auto shadow-sm overflow-x-auto">
                             <TabsTrigger
                                 value="history"
@@ -510,6 +550,12 @@ export default function CustomerDetailPage({
                                 className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <FileText size={13} className="mr-1.5" /> Ghi chú nội bộ
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="activity"
+                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                            >
+                                <Activity size={13} className="mr-1.5" /> Lịch sử thay đổi
                             </TabsTrigger>
                             <TabsTrigger
                                 value="info"
@@ -538,13 +584,25 @@ export default function CustomerDetailPage({
                                     </select>
                                     <select
                                         value={orderSort}
-                                        onChange={(e) => setOrderSort(e.target.value as any)}
+                                        onChange={(e) => setOrderSort(e.target.value as 'newest' | 'oldest' | 'highest')}
                                         className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white uppercase"
                                     >
                                         <option value="newest">Mới nhất</option>
                                         <option value="oldest">Cũ nhất</option>
                                         <option value="highest">Giá cao nhất</option>
                                     </select>
+                                    <input
+                                        type="date"
+                                        value={orderDateFrom}
+                                        onChange={(e) => setOrderDateFrom(e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
+                                    />
+                                    <input
+                                        type="date"
+                                        value={orderDateTo}
+                                        onChange={(e) => setOrderDateTo(e.target.value)}
+                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
+                                    />
                                     {getCancellationStats() > 0 && (
                                         <div className="ml-auto text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-100">
                                             {getCancellationStats()} đơn hủy/hoàn trả
@@ -642,7 +700,7 @@ export default function CustomerDetailPage({
                                                     <div className="flex-1">
                                                         <p className="text-[11px] text-slate-800">{note.content}</p>
                                                         <p className="text-[9px] text-slate-500 mt-1.5">
-                                                            <strong>{note.author}</strong> • {new Date(note.createdAt).toLocaleDateString('vi-VN')} {new Date(note.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                            <strong>{note.authorName}</strong> • {new Date(note.createdAt).toLocaleDateString('vi-VN')} {new Date(note.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                                         </p>
                                                     </div>
                                                     <Button
@@ -658,6 +716,35 @@ export default function CustomerDetailPage({
                                         ))
                                     ) : (
                                         <p className="text-center text-[10px] text-slate-400 py-8">Chưa có ghi chú nào</p>
+                                    )}
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="activity" className="mt-0">
+                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                                <div className="p-4 border-b border-slate-100 bg-slate-50">
+                                    <h3 className="text-[11px] font-black uppercase text-slate-700">Lịch sử thay đổi trạng thái</h3>
+                                </div>
+                                <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto">
+                                    {statusLogs.length > 0 ? (
+                                        statusLogs.map((log) => (
+                                            <div key={log.id} className="p-3 border border-slate-100 bg-slate-50 rounded">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-slate-800">
+                                                            {log.fromStatus} → {log.toStatus}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-600 mt-1">{log.reason || 'Cập nhật trạng thái'}</p>
+                                                        <p className="text-[9px] text-slate-500 mt-1.5">
+                                                            <strong>{log.changedByName}</strong> • {new Date(log.createdAt).toLocaleDateString('vi-VN')} {new Date(log.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-[10px] text-slate-400 py-8">Chưa có lịch sử thay đổi</p>
                                     )}
                                 </div>
                             </div>
@@ -754,8 +841,8 @@ export default function CustomerDetailPage({
                                 Hủy
                             </Button>
                             <Button
-                                onClick={() => {
-                                    handleAddNote();
+                                onClick={async () => {
+                                    await handleAddNote();
                                     setShowNotesModal(false);
                                 }}
                                 className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold uppercase h-9"
