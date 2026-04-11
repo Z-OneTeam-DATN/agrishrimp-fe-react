@@ -192,7 +192,7 @@ export default function CashbookPage() {
     try {
       const [cashbookRes, salesRes] = await Promise.all([
         CashbookService.getEntries({ branchId: selectedBranchId, startDate, endDate }),
-        DashboardService.getSalesPerformance(selectedBranchId === "all" ? undefined : selectedBranchId),
+        dashboardService.getSalesPerformance(selectedBranchId === "all" ? undefined : selectedBranchId),
       ]);
       setEntries(cashbookRes);
       setDailySales(Array.isArray(salesRes?.data) ? salesRes.data : []);
