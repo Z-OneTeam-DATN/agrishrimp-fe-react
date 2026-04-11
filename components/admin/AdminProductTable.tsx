@@ -185,28 +185,28 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
 
     return (
         <div className="w-full">
-            <Table className="table-custom border-collapse table-fixed min-w-[1180px]">
+            <Table className="table-custom border-collapse table-fixed min-w-[1140px]">
                 <colgroup>
-                    <col className="w-[64px]" />
-                    <col className="w-[38px]" />
-                    <col className="w-[78px]" />
+                    <col className="w-[56px]" />
+                    <col className="w-[34px]" />
+                    <col className="w-[72px]" />
                     <col />
-                    <col className="w-[160px]" />
-                    <col className="w-[120px]" />
-                    <col className="w-[132px]" />
-                    {canAction && <col className="w-[132px]" />}
+                    <col className="w-[148px]" />
+                    <col className="w-[110px]" />
+                    <col className="w-[122px]" />
+                    {canAction && <col className="w-[124px]" />}
                 </colgroup>
                 <TableHeader>
                     <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-                        <TableHead className="w-[64px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">STT</TableHead>
-                        <TableHead className="w-[38px] p-2" />
-                        <TableHead className="w-[78px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">Ảnh</TableHead>
+                        <TableHead className="w-[56px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">STT</TableHead>
+                        <TableHead className="w-[34px] p-2" />
+                        <TableHead className="w-[72px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">Ảnh</TableHead>
                         <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Tên sản phẩm & Danh mục</TableHead>
-                        <TableHead className="w-[160px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Thương hiệu</TableHead>
-                        <TableHead className="w-[120px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Tổng Tồn</TableHead>
-                        <TableHead className="w-[132px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
+                        <TableHead className="w-[148px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Thương hiệu</TableHead>
+                        <TableHead className="w-[110px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Tổng Tồn</TableHead>
+                        <TableHead className="w-[122px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
                         {canAction && (
-                            <TableHead className="w-[132px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
+                            <TableHead className="w-[124px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
                         )}
                     </TableRow>
                 </TableHeader>

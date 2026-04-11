@@ -315,7 +315,7 @@ export default function ProductsPage() {
 
     return (
         <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-[#dcdcdc] rounded-[4px] shadow-sm bg-transparent">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1 py-1">
                 <div>
                     <h1 className="text-[18px] font-black uppercase text-[#1f1f1f] tracking-tight">Hệ thống sản phẩm</h1>
                     <p className="text-[12px] text-slate-500 font-medium mt-1">Quản lý danh sách và biến thể hàng hóa</p>
