@@ -114,6 +114,7 @@ export default function CustomerManagementPage() {
             <AdminPageHeader
                 title="Quản lý danh sách khách hàng"
                 subtitle="Quản lý thông tin khách hàng, trạng thái tài khoản và lịch sử mua hàng"
+                titleClassName="font-black"
                 addBtnLabel="Thêm khách hàng"
                 addBtnHref="/admin/customers/add"
                 permission={P.CUSTOMER_CREATE}

@@ -5,6 +5,11 @@ interface CustomerInternalNoteRequest {
   content: string;
 }
 
+interface CustomerDuplicateCheck {
+  emailExists: boolean;
+  phoneExists: boolean;
+}
+
 export const customerService = {
   PREFIX: "/customers",
 
@@ -77,6 +82,13 @@ export const customerService = {
 
   getStatusLogs: async (userId: number) => {
     const response = await apiJava.get(`${customerService.PREFIX}/${userId}/status-logs`);
+    return response.data;
+  },
+
+  checkDuplicate: async (email?: string, phone?: string): Promise<CustomerDuplicateCheck> => {
+    const response = await apiJava.get(`${customerService.PREFIX}/check-duplicate`, {
+      params: { email, phone },
+    });
     return response.data;
   },
 };

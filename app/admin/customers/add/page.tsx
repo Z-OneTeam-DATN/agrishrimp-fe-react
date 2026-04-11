@@ -6,8 +6,6 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     X,
-    Settings,
-    HelpCircle,
     Save,
     ChevronLeft,
     User,
@@ -19,6 +17,7 @@ import {
     Check,
     ChevronsUpDown,
     Loader2,
+    AlertCircle,
     MapPin as MapPinIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,6 +61,7 @@ interface LocationItem {
 export default function AddCustomerPage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitMode, setSubmitMode] = useState<"list" | "add-more">("list");
 
     // States lưu data địa chỉ (Combobox)
     const [provinces, setProvinces] = useState<LocationItem[]>([]);
@@ -77,6 +77,8 @@ export default function AddCustomerPage() {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearchingMap, setIsSearchingMap] = useState(false);
+    const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+    const [inlineDuplicate, setInlineDuplicate] = useState<{ email?: string; phone?: string }>({});
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +88,9 @@ export default function AddCustomerPage() {
         control,
         watch,
         setValue,
+        setError,
+        clearErrors,
+        reset,
         formState: { errors },
     } = useForm<CustomerFormValues>({
         resolver: zodResolver(CustomerSchema),
@@ -100,6 +105,9 @@ export default function AddCustomerPage() {
     const selectedDistrict = watch("districtId");
     const selectedWard = watch("wardId");
     const addressDetail = watch("addressDetail");
+    const nameValue = watch("name");
+    const phoneValue = watch("phone");
+    const emailValue = watch("email");
 
     // 1. Load Tỉnh/Thành khi mount
     useEffect(() => {
@@ -223,13 +231,82 @@ export default function AddCustomerPage() {
         setShowSuggestions(false);
     };
 
+    const normalizedAddressPreview = (() => {
+        const provinceName = provinces.find((p) => p.id === selectedProvince)?.full_name;
+        const districtName = districts.find((d) => d.id === selectedDistrict)?.full_name;
+        const wardName = wards.find((w) => w.id === selectedWard)?.full_name;
+        return [addressDetail?.trim(), wardName, districtName, provinceName].filter(Boolean).join(", ");
+    })();
+
+    const step1Complete = Boolean(nameValue?.trim() && phoneValue?.trim() && emailValue?.trim());
+    const step2Complete = Boolean(selectedProvince && selectedDistrict && selectedWard && addressDetail?.trim());
+    const activeStep = !step1Complete ? 1 : !step2Complete ? 2 : 3;
+
+    const handleCheckDuplicate = async (field: "email" | "phone") => {
+        const email = (watch("email") || "").trim();
+        const phone = (watch("phone") || "").replace(/\D+/g, "");
+        if (field === "email" && !email) return;
+        if (field === "phone" && !phone) return;
+
+        setIsCheckingDuplicate(true);
+        try {
+            const result = await customerService.checkDuplicate(email || undefined, phone || undefined);
+            setInlineDuplicate((prev) => ({
+                ...prev,
+                email: result.emailExists ? "Email đã tồn tại trong hệ thống" : undefined,
+                phone: result.phoneExists ? "Số điện thoại đã tồn tại trong hệ thống" : undefined,
+            }));
+
+            if (result.emailExists) {
+                setError("email", { type: "manual", message: "Email đã tồn tại trong hệ thống" });
+            } else {
+                clearErrors("email");
+            }
+
+            if (result.phoneExists) {
+                setError("phone", { type: "manual", message: "Số điện thoại đã tồn tại trong hệ thống" });
+            } else {
+                clearErrors("phone");
+            }
+        } catch (error) {
+            console.error("Lỗi check duplicate:", error);
+        } finally {
+            setIsCheckingDuplicate(false);
+        }
+    };
+
     const onSave = async (data: CustomerFormValues) => {
+        if (inlineDuplicate.email || inlineDuplicate.phone) {
+            toast.error("Vui lòng xử lý lỗi trùng dữ liệu trước khi lưu");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await customerService.create(data);
             window.dispatchEvent(new Event("customerUpdated"));
-            toast.success("Thêm khách hàng và gửi mail thành công!");
-            router.push("/admin/customers");
+            if (submitMode === "add-more") {
+                toast.success("Đã lưu khách hàng. Bạn có thể thêm khách hàng tiếp theo.");
+                reset({
+                    status: "ACTIVE",
+                    gender: "MALE",
+                    addressDetail: "",
+                    provinceId: "",
+                    districtId: "",
+                    wardId: "",
+                    name: "",
+                    email: "",
+                    phone: "",
+                });
+                setDistricts([]);
+                setWards([]);
+                setSuggestions([]);
+                setInlineDuplicate({});
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            } else {
+                toast.success("Thêm khách hàng và gửi mail thành công!");
+                router.push("/admin/customers");
+            }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Lỗi hệ thống";
             toast.error(errorMessage);
@@ -241,9 +318,9 @@ export default function AddCustomerPage() {
     return (
         <form
             onSubmit={handleSubmit(onSave)}
-            className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen"
+            className="space-y-5 pb-[110px] bg-slate-50/30 min-h-screen px-4 md:px-6 lg:px-8 max-w-[1400px] mx-auto"
         >
-            <div className="flex items-center gap-4 mb-2 px-1">
+            <div className="flex items-center gap-4 mb-1 px-1">
                 <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
                     <ChevronLeft size={20} />
                 </Button>
@@ -253,20 +330,44 @@ export default function AddCustomerPage() {
                         <UserCircle size={12} /> Hồ sơ đối tác & khách hàng AgriShrimp
                     </p>
                 </div>
-                <div className="ms-auto flex items-center gap-3 text-gray-400">
-                    <Settings size={18} className="cursor-pointer hover:text-blue-600 transition-colors" />
-                    <HelpCircle size={18} className="cursor-pointer hover:text-blue-600 transition-colors" />
+                <div className="ms-auto flex items-center gap-2 text-gray-400">
                     <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
                         <X size={20} />
                     </Button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                <div className="lg:col-span-9 space-y-5">
+            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-3 md:p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 1 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50") }>
+                        <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 1 ? "bg-blue-600 text-white" : "bg-slate-300 text-slate-700")}>1</span>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-700">Bước 1</p>
+                            <p className="text-[11px] font-bold text-slate-600">Thông tin</p>
+                        </div>
+                    </div>
+                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 2 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50") }>
+                        <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 2 ? "bg-blue-600 text-white" : "bg-slate-300 text-slate-700")}>2</span>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-700">Bước 2</p>
+                            <p className="text-[11px] font-bold text-slate-600">Địa chỉ</p>
+                        </div>
+                    </div>
+                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 3 ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50") }>
+                        <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 3 ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700")}>3</span>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-700">Bước 3</p>
+                            <p className="text-[11px] font-bold text-slate-600">Xác nhận</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 items-start">
+                <div className="lg:col-span-8 space-y-4">
                     {/* 1. Thông tin cơ bản */}
-                    <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-                        <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
+                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
+                        <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
                             <User size={16} /> 1. Thông tin định danh khách hàng
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
@@ -279,17 +380,27 @@ export default function AddCustomerPage() {
                                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Số điện thoại *</Label>
                                 <div className="relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                                    <Input {...register("phone")} placeholder="090x xxx xxx" className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none font-bold focus:border-blue-500" />
+                                    <Input
+                                        {...register("phone")}
+                                        onBlur={() => handleCheckDuplicate("phone")}
+                                        placeholder="090x xxx xxx"
+                                        className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none font-bold focus:border-blue-500"
+                                    />
                                 </div>
-                                {errors.phone && <p className="text-[10px] text-red-500">{errors.phone.message}</p>}
+                                {errors.phone && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.phone.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Email liên hệ *</Label>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                                    <Input {...register("email")} placeholder="customer@gmail.com" className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none focus:border-blue-500" />
+                                    <Input
+                                        {...register("email")}
+                                        onBlur={() => handleCheckDuplicate("email")}
+                                        placeholder="customer@gmail.com"
+                                        className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none focus:border-blue-500"
+                                    />
                                 </div>
-                                {errors.email && <p className="text-[10px] text-red-500">{errors.email.message}</p>}
+                                {errors.email && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.email.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Giới tính</Label>
@@ -314,8 +425,8 @@ export default function AddCustomerPage() {
                     </div>
 
                     {/* 2. Địa chỉ động & Geoapify Autocomplete */}
-                    <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-                        <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
+                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
+                        <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
                             <MapPin size={16} /> 2. Địa chỉ thường trú & Vị trí giao hàng
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
@@ -465,14 +576,21 @@ export default function AddCustomerPage() {
                                         </ul>
                                     )}
                                 </div>
+
+                                <div className="mt-2 p-3 border border-blue-100 bg-blue-50/40 rounded-[4px]">
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-blue-700 mb-1">Địa chỉ chuẩn hóa trước khi lưu</p>
+                                    <p className="text-[11px] text-slate-700 leading-relaxed">
+                                        {normalizedAddressPreview || "Chưa đủ dữ liệu để chuẩn hóa địa chỉ"}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Sidebar - Right */}
-                <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
+                <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
+                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
                         <Label className="text-[11px] font-black text-slate-700 uppercase block mb-5 tracking-widest border-b pb-3">
                             Trạng thái tài khoản
                         </Label>
@@ -493,23 +611,40 @@ export default function AddCustomerPage() {
                         />
                     </div>
 
-                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-none">
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-[4px]">
                         <div className="flex items-center gap-2 text-blue-700 font-black text-[10px] uppercase mb-3 tracking-widest border-b border-blue-200 pb-1.5">
                             <ShieldCheck size={14} /> Quy tắc dữ liệu
                         </div>
                         <p className="text-[11px] text-blue-700/80 leading-relaxed font-medium italic">
                             * Hệ thống sẽ tự động gửi Email tài khoản ngay khi bạn nhấn lưu thành công.
                         </p>
+                        {isCheckingDuplicate && (
+                            <p className="text-[10px] mt-2 text-blue-600 font-bold">Đang kiểm tra trùng email/số điện thoại...</p>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Footer Actions */}
-            <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-[15px] z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-                <Button type="button" variant="outline" className="min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] bg-white rounded-none shadow-sm hover:bg-slate-50 transition-all uppercase" onClick={() => router.back()}>
+            <div className="sticky bottom-3 bg-white/95 backdrop-blur border border-[#ddd] rounded-[6px] p-3 md:p-4 flex items-center justify-end gap-3 z-30 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+                <Button type="button" variant="outline" className="min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] bg-white shadow-sm hover:bg-slate-50 transition-all uppercase" onClick={() => router.back()}>
                     HỦY BỎ
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-none shadow-md shadow-blue-100 transition-all active:scale-[0.98] uppercase">
+                <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    onClick={() => setSubmitMode("add-more")}
+                    className="min-w-[170px] h-[38px] text-[12px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all active:scale-[0.98] uppercase"
+                >
+                    <Save size={16} className="mr-2" />
+                    {isSubmitting ? "ĐANG LƯU..." : "LƯU & THÊM MỚI"}
+                </Button>
+                <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    onClick={() => setSubmitMode("list")}
+                    className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100 transition-all active:scale-[0.98] uppercase"
+                >
                     <Save size={18} className="mr-2" />
                     {isSubmitting ? "ĐANG LƯU..." : "LƯU HỒ SƠ KHÁCH HÀNG"}
                 </Button>
