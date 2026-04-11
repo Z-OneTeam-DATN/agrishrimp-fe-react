@@ -23,6 +23,15 @@ export interface SupplierDebtData {
     totalDebt: number;
 }
 
+export interface SupplierDebtFilters {
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    branchId?: string | number;
+    staffId?: string | number;
+    debtFilter?: "all" | "not_zero" | "zero";
+}
+
 // ─── SERVICE ───
 export const FinancialService = {
     PREFIX: "/financial",
@@ -44,10 +53,15 @@ export const FinancialService = {
     },
 
     // 2. Lấy Công nợ Nhà cung cấp
-    getSupplierDebts: async (search?: string): Promise<SupplierDebtData[]> => {
+    getSupplierDebts: async (filters: SupplierDebtFilters = {}): Promise<SupplierDebtData[]> => {
         const response = await apiJava.get(`${FinancialService.PREFIX}/supplier-debts`, {
             params: {
-                search: search || null
+                search: filters.search || null,
+                startDate: filters.startDate || null,
+                endDate: filters.endDate || null,
+                branchId: !filters.branchId || filters.branchId === "all" ? null : filters.branchId,
+                staffId: !filters.staffId || filters.staffId === "all" ? null : filters.staffId,
+                debtFilter: filters.debtFilter || "not_zero",
             },
         });
         return response.data;

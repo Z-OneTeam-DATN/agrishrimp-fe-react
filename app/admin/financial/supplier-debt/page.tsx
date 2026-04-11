@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     ChevronLeft,
@@ -12,6 +12,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -27,8 +34,14 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FinancialService, SupplierDebtData } from "@/app/services/financial.service";
+import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+
+type BranchOption = { id: number; name: string };
+type StaffOption = { id: number; displayName: string };
+
+const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 export default function SupplierDebtReportPage() {
     const router = useRouter();
@@ -36,44 +49,74 @@ export default function SupplierDebtReportPage() {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<SupplierDebtData[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const today = new Date();
+    const [startDate, setStartDate] = useState(() => toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)));
+    const [endDate, setEndDate] = useState(() => toIsoDate(today));
+    const [branchId, setBranchId] = useState<string>("all");
+    const [staffId, setStaffId] = useState<string>("all");
+    const [branches, setBranches] = useState<BranchOption[]>([]);
+    const [staffs, setStaffs] = useState<StaffOption[]>([]);
 
     const [debtFilter, setDebtFilter] = useState<string>("not_zero"); // "all", "not_zero", "zero"
+
+    useEffect(() => {
+        const loadOptions = async () => {
+            try {
+                const [branchRes, staffRes] = await Promise.all([
+                    branchService.getAll(),
+                    branchService.getAllStaff(),
+                ]);
+
+                const branchItems = Array.isArray(branchRes) ? branchRes : (branchRes?.data || branchRes?.content || []);
+                setBranches(branchItems.map((item: any) => ({ id: Number(item.id), name: item.name })));
+
+                const staffItems = Array.isArray(staffRes) ? staffRes : (staffRes?.data || staffRes?.content || []);
+                setStaffs(
+                    staffItems
+                        .filter((item: any) => item?.id)
+                        .map((item: any) => ({
+                            id: Number(item.id),
+                            displayName: item.displayName || item.name || item.username || `User ${item.id}`,
+                        }))
+                );
+            } catch (error) {
+                console.error("Lỗi tải bộ lọc công nợ", error);
+            }
+        };
+
+        loadOptions();
+    }, []);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
             setLoading(true);
             try {
-                const res = await FinancialService.getSupplierDebts(searchTerm);
-                setData(res);
+                const res = await FinancialService.getSupplierDebts({
+                    search: searchTerm,
+                    startDate,
+                    endDate,
+                    branchId,
+                    staffId,
+                    debtFilter: debtFilter as "all" | "not_zero" | "zero",
+                });
+                setData(Array.isArray(res) ? res : []);
             } catch (error) {
                 console.error("Lỗi lấy công nợ:", error);
             } finally {
                 setLoading(false);
             }
-        }, 500);
+        }, 400);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
-
-    const filteredData = useMemo(() => {
-        let result = [...data];
-
-        if (debtFilter === "not_zero") {
-            result = result.filter((item) => item.totalDebt > 0);
-        } else if (debtFilter === "zero") {
-            result = result.filter((item) => item.totalDebt === 0);
-        }
-
-        return result;
-    }, [data, debtFilter]);
+    }, [searchTerm, startDate, endDate, branchId, staffId, debtFilter]);
 
     const handleExportExcel = () => {
-        if (!filteredData || filteredData.length === 0) {
+        if (!data || data.length === 0) {
             toast.error("Không có dữ liệu để xuất!");
             return;
         }
 
-        const excelData = filteredData.map((row) => ({
+        const excelData = data.map((row) => ({
             "Mã nhà cung cấp": row.supplierCode,
             "Tên nhà cung cấp": row.supplierName,
             "Số điện thoại": row.phone || "---",
@@ -100,7 +143,19 @@ export default function SupplierDebtReportPage() {
                     <h1 className="text-[18px] font-medium text-slate-800 tracking-tight whitespace-nowrap uppercase">Công nợ nhà cung cấp</h1>
                 </div>
 
-                <div className="ms-auto flex items-center gap-6">
+                <div className="ms-auto flex items-center gap-3">
+                    <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="h-8 w-[140px] text-[12px] border-slate-300 rounded-none shadow-none font-medium"
+                    />
+                    <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="h-8 w-[140px] text-[12px] border-slate-300 rounded-none shadow-none font-medium"
+                    />
                     <button onClick={handleExportExcel} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-emerald-600 transition-colors uppercase">
                         <Download size={16} /> Xuất file
                     </button>
@@ -136,6 +191,30 @@ export default function SupplierDebtReportPage() {
                                 <DropdownMenuItem onClick={() => setDebtFilter("zero")} className="text-[13px] cursor-pointer font-medium">Bằng 0</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
+                        <Select value={branchId} onValueChange={setBranchId}>
+                            <SelectTrigger className="h-[36px] w-[180px] rounded-none border-slate-200 text-[12px] shadow-none">
+                                <SelectValue placeholder="Chi nhánh" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-none">
+                                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                                {branches.map((branch) => (
+                                    <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={staffId} onValueChange={setStaffId}>
+                            <SelectTrigger className="h-[36px] w-[180px] rounded-none border-slate-200 text-[12px] shadow-none">
+                                <SelectValue placeholder="Nhân viên phụ trách" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-none">
+                                <SelectItem value="all">Tất cả nhân viên</SelectItem>
+                                {staffs.map((staff) => (
+                                    <SelectItem key={staff.id} value={String(staff.id)}>{staff.displayName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {debtFilter !== "all" && (
@@ -151,7 +230,7 @@ export default function SupplierDebtReportPage() {
                         <div className="flex items-center justify-center py-24">
                             <Loader2 className="animate-spin text-blue-600" size={32}/>
                         </div>
-                    ) : filteredData.length > 0 ? (
+                    ) : data.length > 0 ? (
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -163,7 +242,7 @@ export default function SupplierDebtReportPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredData.map((row) => (
+                                    {data.map((row) => (
                                         <TableRow key={row.id} className="hover:bg-slate-50 transition-colors">
                                             <TableCell className="font-mono text-[13px] text-blue-600 font-bold pl-6 py-3">
                                                 {row.supplierCode}
