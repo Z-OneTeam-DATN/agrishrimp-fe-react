@@ -243,12 +243,7 @@ export default function FinancialReportListPage() {
       <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-4">
         <div className="bg-white border border-[#dcdcdc] p-6 rounded-[4px] shadow-sm">
           <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">Điểm vào nghiệp vụ</p>
-              <h2 className="text-[18px] font-bold text-[#1f1f1f]">Các báo cáo tài chính đang sử dụng dữ liệu thật</h2>
-              <p className="text-[13px] text-slate-500 mt-1">Mỗi card mở một nghiệp vụ riêng, nên trang này giờ không còn là màn hình tĩnh.</p>
-            </div>
-            <Button variant="outline" className="rounded-none border-[#dcdcdc]" onClick={() => router.push("/admin/financial/profit-loss")}>Mở báo cáo lãi lỗ <ArrowRight className="ml-2 h-4 w-4" /></Button>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Điểm vào nghiệp vụ</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
