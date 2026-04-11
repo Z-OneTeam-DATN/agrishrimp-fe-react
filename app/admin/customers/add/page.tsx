@@ -18,7 +18,12 @@ import {
     ChevronsUpDown,
     Loader2,
     AlertCircle,
-    MapPin as MapPinIcon
+    MapPin as MapPinIcon,
+    Copy,
+    CheckCircle2,
+    Building2,
+    Users,
+    FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,19 +48,32 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CustomerSchema, CustomerFormValues } from "@/app/types/admin.schema";
 import { customerService } from "@/app/services/customer.service";
 
-// ==========================================
-// ĐIỀN GEOAPIFY API KEY CỦA BẠN VÀO ĐÂY
-// ==========================================
 const GEOAPIFY_TOKEN = "56418528a46b4ca390f6f7937e0b4591";
+const DRAFT_STORAGE_KEY = "customer_form_draft";
+const DRAFT_AUTO_SAVE_INTERVAL = 5000; // 5 seconds
 
 interface LocationItem {
     id: string;
     full_name: string;
+}
+
+interface Branch {
+    id: number;
+    name: string;
+    branchCode: string;
+}
+
+interface StaffMember {
+    id: number;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
 }
 
 export default function AddCustomerPage() {
@@ -63,15 +81,17 @@ export default function AddCustomerPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMode, setSubmitMode] = useState<"list" | "add-more">("list");
 
-    // States lưu data địa chỉ (Combobox)
+    // States lưu data địa chỉ
     const [provinces, setProvinces] = useState<LocationItem[]>([]);
     const [districts, setDistricts] = useState<LocationItem[]>([]);
     const [wards, setWards] = useState<LocationItem[]>([]);
 
-    // States quản lý đóng mở Combobox
+    // States quản lý Combobox
     const [openProvince, setOpenProvince] = useState(false);
     const [openDistrict, setOpenDistrict] = useState(false);
     const [openWard, setOpenWard] = useState(false);
+    const [openBranch, setOpenBranch] = useState(false);
+    const [openStaff, setOpenStaff] = useState(false);
 
     // States cho Geoapify Autocomplete
     const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -79,7 +99,16 @@ export default function AddCustomerPage() {
     const [isSearchingMap, setIsSearchingMap] = useState(false);
     const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
     const [inlineDuplicate, setInlineDuplicate] = useState<{ email?: string; phone?: string }>({});
+
+    // 🟢 New states for branches, staff, and copy functionality
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [staffList, setStaffList] = useState<StaffMember[]>([]);
+    const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+    const [isLoadingStaff, setIsLoadingStaff] = useState(false);
+    const [copiedAddress, setCopiedAddress] = useState(false);
+
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const autoSaveRef = useRef<NodeJS.Timeout | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const {
@@ -91,6 +120,7 @@ export default function AddCustomerPage() {
         setError,
         clearErrors,
         reset,
+        getValues,
         formState: { errors },
     } = useForm<CustomerFormValues>({
         resolver: zodResolver(CustomerSchema),
@@ -98,27 +128,122 @@ export default function AddCustomerPage() {
             status: "ACTIVE",
             gender: "MALE",
             addressDetail: "",
+            branchId: "",
+            staffAssignedId: "",
+            internalNotes: "",
         },
     });
 
     const selectedProvince = watch("provinceId");
     const selectedDistrict = watch("districtId");
     const selectedWard = watch("wardId");
+    const selectedBranch = watch("branchId");
     const addressDetail = watch("addressDetail");
     const nameValue = watch("name");
     const phoneValue = watch("phone");
     const emailValue = watch("email");
+    const allFormValues = watch();
 
-    // 1. Load Tỉnh/Thành khi mount
+    // 🟢 Load branches on mount
     useEffect(() => {
-        fetch("https://esgoo.net/api-tinhthanh/1/0.htm")
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.error === 0) setProvinces(data.data);
-            });
+        loadBranches();
+        loadLocationData();
+        loadDraftFromStorage();
     }, []);
 
-    // 2. Load Quận/Huyện khi Tỉnh thay đổi
+    // 🟢 Auto-save draft every 5 seconds
+    useEffect(() => {
+        if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+        autoSaveRef.current = setTimeout(() => {
+            saveDraftToStorage(allFormValues);
+        }, DRAFT_AUTO_SAVE_INTERVAL);
+        return () => {
+            if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+        };
+    }, [allFormValues]);
+
+    // Load branches
+    const loadBranches = async () => {
+        try {
+            setIsLoadingBranches(true);
+            const data = await customerService.getAllBranches();
+            setBranches(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error("Error loading branches:", error);
+            toast.error("Không thể tải danh sách chi nhánh");
+        } finally {
+            setIsLoadingBranches(false);
+        }
+    };
+
+    // Load staff when branch changes
+    useEffect(() => {
+        if (selectedBranch) {
+            loadStaffByBranch(selectedBranch);
+        } else {
+            setStaffList([]);
+            setValue("staffAssignedId", "");
+        }
+    }, [selectedBranch]);
+
+    const loadStaffByBranch = async (branchId: string) => {
+        try {
+            setIsLoadingStaff(true);
+            const data = await customerService.getStaffByBranch(branchId);
+            setStaffList(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error("Error loading staff:", error);
+            toast.error("Không thể tải danh sách nhân viên");
+        } finally {
+            setIsLoadingStaff(false);
+        }
+    };
+
+    // 🟢 Load draft from localStorage
+    const loadDraftFromStorage = () => {
+        if (typeof window === "undefined") return;
+        const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (draft) {
+            try {
+                const data = JSON.parse(draft);
+                Object.keys(data).forEach((key) => {
+                    setValue(key as keyof CustomerFormValues, data[key]);
+                });
+                toast.success("Đã tải lại bản nháp");
+            } catch (error) {
+                console.error("Error loading draft:", error);
+            }
+        }
+    };
+
+    // 🟢 Save draft to localStorage
+    const saveDraftToStorage = (data: any) => {
+        if (typeof window === "undefined") return;
+        try {
+            localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+            console.error("Error saving draft:", error);
+        }
+    };
+
+    // Clear draft on successful submit
+    const clearDraft = () => {
+        if (typeof window === "undefined") return;
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+    };
+
+    // Load location data
+    const loadLocationData = async () => {
+        try {
+            const res = await fetch("https://esgoo.net/api-tinhthanh/1/0.htm");
+            const data = await res.json();
+            if (data.error === 0) setProvinces(data.data);
+        } catch (error) {
+            console.error("Error loading provinces:", error);
+        }
+    };
+
+    // Load districts when province changes
     useEffect(() => {
         if (selectedProvince) {
             fetch(`https://esgoo.net/api-tinhthanh/2/${selectedProvince}.htm`)
@@ -134,7 +259,7 @@ export default function AddCustomerPage() {
         }
     }, [selectedProvince, setValue]);
 
-    // 3. Load Phường/Xã khi Huyện thay đổi
+    // Load wards when district changes
     useEffect(() => {
         if (selectedDistrict) {
             fetch(`https://esgoo.net/api-tinhthanh/3/${selectedDistrict}.htm`)
@@ -145,7 +270,7 @@ export default function AddCustomerPage() {
         }
     }, [selectedDistrict, setValue]);
 
-    // 4. Click ra ngoài để đóng dropdown Gợi ý
+    // Close suggestions on outside click
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -156,13 +281,26 @@ export default function AddCustomerPage() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // 🟢 Hàm phụ trợ: Loại bỏ dấu tiếng Việt để so sánh chuẩn xác 100%
+    // Remove accents helper
     const removeAccents = (str: string) => {
         if (!str) return "";
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     };
 
-    // 5. Hàm xử lý khi người dùng gõ vào ô Địa chỉ chi tiết (Gọi Geoapify API)
+    // 🟢 Phone formatting
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value.replace(/\D/g, "");
+        if (value.length > 10) value = value.slice(0, 10);
+        
+        let formatted = "";
+        if (value.length > 0) formatted = value.slice(0, 3);
+        if (value.length > 3) formatted += " " + value.slice(3, 6);
+        if (value.length > 6) formatted += " " + value.slice(6, 10);
+        
+        setValue("phone", formatted, { shouldValidate: true });
+    };
+
+    // Handle address autocomplete
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setValue("addressDetail", value, { shouldValidate: true });
@@ -173,42 +311,32 @@ export default function AddCustomerPage() {
             return;
         }
 
-        // Debounce: Chờ khách ngừng gõ 500ms mới gọi API
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
         typingTimeoutRef.current = setTimeout(async () => {
             setIsSearchingMap(true);
             try {
-                // 1. LẤY DATA VÀ CẮT BỎ TIỀN TỐ GÂY NHIỄU CHO BẢN ĐỒ
                 const rawPName = provinces.find((p) => p.id === selectedProvince)?.full_name || "";
                 const rawDName = districts.find((d) => d.id === selectedDistrict)?.full_name || "";
 
-                // Biến "Tỉnh Kiên Giang" -> "Kiên Giang", "Thành phố Hồ Chí Minh" -> "Hồ Chí Minh"
                 const cleanPName = rawPName.replace(/^(Tỉnh|Thành phố)\s+/i, "").trim();
                 const cleanDName = rawDName.replace(/^(Quận|Huyện|Thị xã|Thành phố)\s+/i, "").trim();
 
-                // Ghép chuỗi truy vấn siêu sạch (VD: "123 Trần Hưng Đạo, Tân Hiệp, Kiên Giang")
                 const contextArr = [cleanDName, cleanPName].filter(Boolean);
                 const searchQuery = contextArr.length > 0 ? `${value}, ${contextArr.join(", ")}` : value;
 
-                // Gọi API Geoapify (Thêm &lang=vi để ép trả về Tiếng Việt)
                 const res = await fetch(
                     `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(searchQuery)}&filter=countrycode:vn&lang=vi&limit=15&format=json&apiKey=${GEOAPIFY_TOKEN}`
                 );
                 const data = await res.json();
 
                 if (data.results && data.results.length > 0) {
-
-                    // 2. BỘ LỌC CỨNG: Chặn đứng các địa chỉ ở Tỉnh/Thành khác trả về
                     const normalizedSelectedProvince = removeAccents(cleanPName);
-
                     const filteredSuggestions = data.results
                         .map((r: any) => r.formatted)
                         .filter((addr: string) => {
                             if (!addr) return false;
-                            // Ép về không dấu để kiểm tra (VD: Cần Thơ = can tho)
                             const normalizedAddr = removeAccents(addr);
-                            // Chỉ giữ lại kết quả nếu nó có chứa tên Tỉnh mình đang chọn
                             return normalizedAddr.includes(normalizedSelectedProvince);
                         });
 
@@ -231,6 +359,14 @@ export default function AddCustomerPage() {
         setShowSuggestions(false);
     };
 
+    // 🟢 Copy address to clipboard
+    const copyAddressToClipboard = () => {
+        navigator.clipboard.writeText(normalizedAddressPreview);
+        setCopiedAddress(true);
+        toast.success("Đã copy địa chỉ");
+        setTimeout(() => setCopiedAddress(false), 2000);
+    };
+
     const normalizedAddressPreview = (() => {
         const provinceName = provinces.find((p) => p.id === selectedProvince)?.full_name;
         const districtName = districts.find((d) => d.id === selectedDistrict)?.full_name;
@@ -238,9 +374,29 @@ export default function AddCustomerPage() {
         return [addressDetail?.trim(), wardName, districtName, provinceName].filter(Boolean).join(", ");
     })();
 
-    const step1Complete = Boolean(nameValue?.trim() && phoneValue?.trim() && emailValue?.trim());
-    const step2Complete = Boolean(selectedProvince && selectedDistrict && selectedWard && addressDetail?.trim());
+    // Validation helpers
+    const isNameValid = Boolean(nameValue?.trim());
+    const isPhoneValid = Boolean(phoneValue?.trim() && phoneValue.replace(/\D/g, "").length === 10);
+    const isEmailValid = Boolean(emailValue?.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue));
+    const isAddressComplete = Boolean(selectedProvince && selectedDistrict && selectedWard && addressDetail?.trim());
+
+    const step1Complete = isNameValid && isPhoneValid && isEmailValid;
+    const step2Complete = isAddressComplete;
     const activeStep = !step1Complete ? 1 : !step2Complete ? 2 : 3;
+
+    // Calculate form completion percentage
+    const completionPercentage = Math.round(
+        ((isNameValid ? 1 : 0) +
+            (isPhoneValid ? 1 : 0) +
+            (isEmailValid ? 1 : 0) +
+            (Boolean(selectedProvince) ? 1 : 0) +
+            (Boolean(selectedDistrict) ? 1 : 0) +
+            (Boolean(selectedWard) ? 1 : 0) +
+            (Boolean(addressDetail?.trim()) ? 1 : 0) +
+            (Boolean(selectedBranch) ? 0.5 : 0)) /
+            8 *
+            100
+    );
 
     const handleCheckDuplicate = async (field: "email" | "phone") => {
         const email = (watch("email") || "").trim();
@@ -284,6 +440,7 @@ export default function AddCustomerPage() {
         setIsSubmitting(true);
         try {
             await customerService.create(data);
+            clearDraft();
             window.dispatchEvent(new Event("customerUpdated"));
             if (submitMode === "add-more") {
                 toast.success("Đã lưu khách hàng. Bạn có thể thêm khách hàng tiếp theo.");
@@ -297,6 +454,9 @@ export default function AddCustomerPage() {
                     name: "",
                     email: "",
                     phone: "",
+                    branchId: "",
+                    staffAssignedId: "",
+                    internalNotes: "",
                 });
                 setDistricts([]);
                 setWards([]);
@@ -320,6 +480,7 @@ export default function AddCustomerPage() {
             onSubmit={handleSubmit(onSave)}
             className="space-y-5 pb-[110px] bg-slate-50/30 min-h-screen px-4 md:px-6 lg:px-8 max-w-[1400px] mx-auto"
         >
+            {/* Header */}
             <div className="flex items-center gap-4 mb-1 px-1">
                 <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
                     <ChevronLeft size={20} />
@@ -337,23 +498,38 @@ export default function AddCustomerPage() {
                 </div>
             </div>
 
+            {/* 🟢 Progress Bar */}
+            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-4">
+                <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-black text-slate-600 uppercase">Tiến độ hoàn thành</p>
+                    <p className="text-[12px] font-black text-blue-600">{completionPercentage.toFixed(0)}%</p>
+                </div>
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300"
+                        style={{ width: `${completionPercentage}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Step Indicator */}
             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-3 md:p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
-                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 1 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50") }>
+                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 1 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50")}>
                         <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 1 ? "bg-blue-600 text-white" : "bg-slate-300 text-slate-700")}>1</span>
                         <div>
                             <p className="text-[10px] font-black uppercase text-slate-700">Bước 1</p>
                             <p className="text-[11px] font-bold text-slate-600">Thông tin</p>
                         </div>
                     </div>
-                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 2 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50") }>
+                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 2 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50")}>
                         <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 2 ? "bg-blue-600 text-white" : "bg-slate-300 text-slate-700")}>2</span>
                         <div>
                             <p className="text-[10px] font-black uppercase text-slate-700">Bước 2</p>
                             <p className="text-[11px] font-bold text-slate-600">Địa chỉ</p>
                         </div>
                     </div>
-                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 3 ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50") }>
+                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 3 ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50")}>
                         <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 3 ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700")}>3</span>
                         <div>
                             <p className="text-[10px] font-black uppercase text-slate-700">Bước 3</p>
@@ -363,34 +539,50 @@ export default function AddCustomerPage() {
                 </div>
             </div>
 
+            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 items-start">
                 <div className="lg:col-span-8 space-y-4">
-                    {/* 1. Thông tin cơ bản */}
+                    {/* Section 1: Basic Information */}
                     <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
                         <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
                             <User size={16} /> 1. Thông tin định danh khách hàng
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                            {/* Name */}
                             <div className="md:col-span-3 space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Họ và tên khách hàng *</Label>
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                    <span>Họ và tên khách hàng *</span>
+                                    {isNameValid && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                </Label>
                                 <Input {...register("name")} placeholder="Ví dụ: Nguyễn Văn Đại..." className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none font-bold focus:border-blue-500" />
                                 {errors.name && <p className="text-[10px] text-red-500">{errors.name.message}</p>}
                             </div>
+
+                            {/* Phone */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Số điện thoại *</Label>
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                    <span>Số điện thoại *</span>
+                                    {isPhoneValid && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                </Label>
                                 <div className="relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                                     <Input
-                                        {...register("phone")}
-                                        onBlur={() => handleCheckDuplicate("phone")}
                                         placeholder="090x xxx xxx"
+                                        onChange={handlePhoneChange}
+                                        onBlur={() => handleCheckDuplicate("phone")}
+                                        value={phoneValue || ""}
                                         className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none font-bold focus:border-blue-500"
                                     />
                                 </div>
                                 {errors.phone && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.phone.message}</p>}
                             </div>
+
+                            {/* Email */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Email liên hệ *</Label>
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                    <span>Email liên hệ *</span>
+                                    {isEmailValid && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                </Label>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                                     <Input
@@ -402,6 +594,8 @@ export default function AddCustomerPage() {
                                 </div>
                                 {errors.email && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.email.message}</p>}
                             </div>
+
+                            {/* Gender */}
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Giới tính</Label>
                                 <Controller
@@ -424,16 +618,18 @@ export default function AddCustomerPage() {
                         </div>
                     </div>
 
-                    {/* 2. Địa chỉ động & Geoapify Autocomplete */}
+                    {/* Section 2: Address */}
                     <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
                         <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
                             <MapPin size={16} /> 2. Địa chỉ thường trú & Vị trí giao hàng
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
-
-                            {/* Tỉnh/Thành Combobox */}
+                            {/* Province */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Tỉnh / Thành phố *</Label>
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                    <span>Tỉnh / Thành phố *</span>
+                                    {Boolean(selectedProvince) && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                </Label>
                                 <Controller
                                     name="provinceId"
                                     control={control}
@@ -473,9 +669,12 @@ export default function AddCustomerPage() {
                                 />
                             </div>
 
-                            {/* Quận/Huyện Combobox */}
+                            {/* District */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Quận / Huyện *</Label>
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                    <span>Quận / Huyện *</span>
+                                    {Boolean(selectedDistrict) && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                </Label>
                                 <Controller
                                     name="districtId"
                                     control={control}
@@ -508,9 +707,12 @@ export default function AddCustomerPage() {
                                 />
                             </div>
 
-                            {/* Phường/Xã Combobox */}
+                            {/* Ward */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Phường / Xã *</Label>
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                    <span>Phường / Xã *</span>
+                                    {Boolean(selectedWard) && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                </Label>
                                 <Controller
                                     name="wardId"
                                     control={control}
@@ -543,7 +745,7 @@ export default function AddCustomerPage() {
                                 />
                             </div>
 
-                            {/* Gõ địa chỉ chi tiết (GEOAPIFY AUTOCOMPLETE) */}
+                            {/* Address Detail with Geoapify */}
                             <div className="md:col-span-3 space-y-1.5" ref={wrapperRef}>
                                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
                                     <span>Số nhà, tên đường (Địa chỉ chi tiết) *</span>
@@ -553,14 +755,13 @@ export default function AddCustomerPage() {
                                     <Input
                                         value={addressDetail}
                                         onChange={handleAddressChange}
-                                        onFocus={() => { if(suggestions.length > 0) setShowSuggestions(true); }}
+                                        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                                         placeholder={selectedProvince ? "Gõ số nhà, tên đường để Geoapify gợi ý..." : "Vui lòng chọn Tỉnh/Thành trước khi nhập địa chỉ..."}
                                         className="h-[34px] text-[13px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none bg-blue-50/30"
                                         disabled={!selectedProvince}
                                         autoComplete="off"
                                     />
 
-                                    {/* Dropdown Gợi ý địa chỉ từ Geoapify */}
                                     {showSuggestions && suggestions.length > 0 && (
                                         <ul className="absolute z-50 w-full bg-white border border-[#ccc] shadow-lg mt-1 rounded-none max-h-[250px] overflow-y-auto animate-in fade-in slide-in-from-top-1 custom-scrollbar">
                                             {suggestions.map((addr, idx) => (
@@ -577,19 +778,149 @@ export default function AddCustomerPage() {
                                     )}
                                 </div>
 
-                                <div className="mt-2 p-3 border border-blue-100 bg-blue-50/40 rounded-[4px]">
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-blue-700 mb-1">Địa chỉ chuẩn hóa trước khi lưu</p>
-                                    <p className="text-[11px] text-slate-700 leading-relaxed">
-                                        {normalizedAddressPreview || "Chưa đủ dữ liệu để chuẩn hóa địa chỉ"}
-                                    </p>
+                                {/* Normalized Address Preview */}
+                                <div className="mt-2 p-3 border border-blue-100 bg-blue-50/40 rounded-[4px] flex items-start justify-between gap-2">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-blue-700 mb-1">Địa chỉ chuẩn hóa trước khi lưu</p>
+                                        <p className="text-[11px] text-slate-700 leading-relaxed">
+                                            {normalizedAddressPreview || "Chưa đủ dữ liệu để chuẩn hóa địa chỉ"}
+                                        </p>
+                                    </div>
+                                    {normalizedAddressPreview && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={copyAddressToClipboard}
+                                            className="h-8 w-8 shrink-0 hover:bg-blue-200"
+                                        >
+                                            {copiedAddress ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} className="text-blue-600" />}
+                                        </Button>
+                                    )}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section 3: Assignment & Notes */}
+                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
+                        <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
+                            <Building2 size={16} /> 3. Gán chi nhánh & Nhân viên phụ trách
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                            {/* Branch */}
+                            <div className="space-y-1.5 flex flex-col">
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Chi nhánh</Label>
+                                <Controller
+                                    name="branchId"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Popover open={openBranch} onOpenChange={setOpenBranch}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={openBranch}
+                                                    className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white"
+                                                >
+                                                    {isLoadingBranches ? (
+                                                        <span className="flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Đang tải...</span>
+                                                    ) : field.value
+                                                        ? branches.find((b) => b.id.toString() === field.value)?.name
+                                                        : "-- Chọn chi nhánh --"
+                                                    }
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-none">
+                                                <Command className="rounded-none">
+                                                    <CommandInput placeholder="Tìm kiếm chi nhánh..." className="text-[12px] h-9" />
+                                                    <CommandEmpty className="text-[12px] py-3 text-center">Không tìm thấy chi nhánh.</CommandEmpty>
+                                                    <CommandList>
+                                                        <CommandGroup>
+                                                            {branches.map((b) => (
+                                                                <CommandItem key={b.id} value={b.name} onSelect={() => { field.onChange(b.id.toString()); setOpenBranch(false); }} className="text-[12px]">
+                                                                    <Check className={cn("mr-2 h-4 w-4", field.value === b.id.toString() ? "opacity-100" : "opacity-0")} />
+                                                                    {b.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    )}
+                                />
+                            </div>
+
+                            {/* Staff */}
+                            <div className="space-y-1.5 flex flex-col">
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Nhân viên phụ trách</Label>
+                                <Controller
+                                    name="staffAssignedId"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Popover open={openStaff} onOpenChange={setOpenStaff}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={openStaff}
+                                                    disabled={!selectedBranch}
+                                                    className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white disabled:opacity-50"
+                                                >
+                                                    {isLoadingStaff ? (
+                                                        <span className="flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Đang tải...</span>
+                                                    ) : field.value
+                                                        ? staffList.find((s) => s.id.toString() === field.value)?.fullName
+                                                        : "-- Chọn nhân viên --"
+                                                    }
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-none">
+                                                <Command className="rounded-none">
+                                                    <CommandInput placeholder="Tìm kiếm nhân viên..." className="text-[12px] h-9" />
+                                                    <CommandEmpty className="text-[12px] py-3 text-center">Không tìm thấy nhân viên.</CommandEmpty>
+                                                    <CommandList>
+                                                        <CommandGroup>
+                                                            {staffList.map((s) => (
+                                                                <CommandItem key={s.id} value={s.fullName} onSelect={() => { field.onChange(s.id.toString()); setOpenStaff(false); }} className="text-[12px]">
+                                                                    <Check className={cn("mr-2 h-4 w-4", field.value === s.id.toString() ? "opacity-100" : "opacity-0")} />
+                                                                    <div className="flex flex-col">
+                                                                        <span>{s.fullName}</span>
+                                                                        <span className="text-[10px] text-slate-500">{s.email}</span>
+                                                                    </div>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                    )}
+                                />
+                            </div>
+
+                            {/* Internal Notes */}
+                            <div className="md:col-span-2 space-y-1.5">
+                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
+                                    <FileText size={14} /> Ghi chú nội bộ (chỉ nhân viên thấy)
+                                </Label>
+                                <Textarea
+                                    {...register("internalNotes")}
+                                    placeholder="Thêm ghi chú về khách hàng này cho bộ phận nội bộ..."
+                                    className="h-[80px] text-[13px] border-[#ccc] rounded-none shadow-none focus:border-blue-500 resize-none font-medium"
+                                />
+                                {errors.internalNotes && <p className="text-[10px] text-red-500">{errors.internalNotes.message}</p>}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Sidebar - Right */}
+                {/* Sidebar */}
                 <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
+                    {/* Status */}
                     <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
                         <Label className="text-[11px] font-black text-slate-700 uppercase block mb-5 tracking-widest border-b pb-3">
                             Trạng thái tài khoản
@@ -611,6 +942,7 @@ export default function AddCustomerPage() {
                         />
                     </div>
 
+                    {/* Data Rules */}
                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-[4px]">
                         <div className="flex items-center gap-2 text-blue-700 font-black text-[10px] uppercase mb-3 tracking-widest border-b border-blue-200 pb-1.5">
                             <ShieldCheck size={14} /> Quy tắc dữ liệu

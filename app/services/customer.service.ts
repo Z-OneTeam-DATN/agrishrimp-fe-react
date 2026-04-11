@@ -91,4 +91,16 @@ export const customerService = {
     });
     return response.data;
   },
+
+  // 🟢 Get all branches for dropdown
+  getAllBranches: async () => {
+    const response = await apiJava.get(`${customerService.PREFIX}/lookup/branches`);
+    return response.data;
+  },
+
+  // 🟢 Get staff by branch for dropdown
+  getStaffByBranch: async (branchId: string | number) => {
+    const response = await apiJava.get(`${customerService.PREFIX}/lookup/staff-by-branch/${branchId}`);
+    return response.data;
+  },
 };
