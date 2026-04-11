@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminProductTable } from "@/components/admin/AdminProductTable";
@@ -53,6 +53,8 @@ export default function ProductsPage() {
         categoryId: "all",
         status: "ACTIVE", // Default theo specification
     });
+
+    const [sort, setSort] = useState("id,desc");
 
     const [debouncedKeyword, setDebouncedKeyword] = useState("");
 
@@ -254,8 +256,33 @@ export default function ProductsPage() {
         fetchProducts();
     }, [fetchProducts]);
 
-    const totalPages = Math.ceil(products.length / pageSize);
-    const currentProducts = products.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+    const sortedProducts = useMemo(() => {
+        const items = [...products];
+
+        items.sort((left, right) => {
+            const leftName = (left.name || "").toString().trim().toLowerCase();
+            const rightName = (right.name || "").toString().trim().toLowerCase();
+
+            switch (sort) {
+                case "id,asc":
+                    return Number(left.id) - Number(right.id);
+                case "name,asc":
+                case "fullName,asc":
+                    return leftName.localeCompare(rightName, "vi");
+                case "name,desc":
+                case "fullName,desc":
+                    return rightName.localeCompare(leftName, "vi");
+                case "id,desc":
+                default:
+                    return Number(right.id) - Number(left.id);
+            }
+        });
+
+        return items;
+    }, [products, sort]);
+
+    const totalPages = Math.ceil(sortedProducts.length / pageSize);
+    const currentProducts = sortedProducts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
     const applyRounding = (price: number) => {
         const roundedAmount = Math.max(0, Math.round(price));
@@ -475,6 +502,17 @@ export default function ProductsPage() {
                     ]}
                     defaultFilter2Value="ACTIVE"
                     onFilter2Change={(val) => setFilters(f => ({ ...f, status: val }))}
+                    sortOptions={[
+                        { label: "Mới nhất", value: "id,desc" },
+                        { label: "Cũ nhất", value: "id,asc" },
+                        { label: "Tên A-Z", value: "name,asc" },
+                        { label: "Tên Z-A", value: "name,desc" },
+                    ]}
+                    defaultSortValue={sort}
+                    onSortChange={(val) => {
+                        setSort(val);
+                        setCurrentPage(0);
+                    }}
                     onSearch={(val) => setFilters(f => ({ ...f, keyword: val }))}
                     onRefresh={fetchProducts}
                 />
