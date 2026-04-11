@@ -60,13 +60,13 @@ export function AdminCustomerTable({
             <Table className="table-custom border-collapse w-full">
                 <TableHeader>
                     <TableRow className="bg-[#f4f6f8] hover:bg-[#f4f6f8] border-b border-[#eee]">
-                        <TableHead className="w-[80px] font-bold text-[#1f1f1f] text-[11px] uppercase p-3 pl-5 text-center">STT</TableHead>
-                        <TableHead className="w-[30%] font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Thông tin khách hàng</TableHead>
-                        <TableHead className="w-[25%] font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Liên hệ</TableHead>
-                        <TableHead className="w-[12%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Chi tiêu (₫)</TableHead>
-                        <TableHead className="w-[10%] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-3">Đơn hàng</TableHead>
-                        <TableHead className="w-[10%] font-bold text-[#1f1f1f] text-[11px] uppercase p-3 text-center">Trạng thái</TableHead>
-                        {canAction && <TableHead className="w-[8%] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-3 pr-5">Hành động</TableHead>}
+                        <TableHead className="w-[60px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">STT</TableHead>
+                        <TableHead className="w-[280px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Thông tin khách hàng</TableHead>
+                        <TableHead className="w-[200px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Liên hệ</TableHead>
+                        <TableHead className="w-[140px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Chi tiêu (₫)</TableHead>
+                        <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Đơn hàng</TableHead>
+                        <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
+                        {canAction && <TableHead className="w-[110px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>}
                     </TableRow>
                 </TableHeader>
 
@@ -81,8 +81,8 @@ export function AdminCustomerTable({
                                     className="hover:bg-[#f8fbfd] border-b border-[#eee] transition-colors cursor-pointer"
                                     onClick={() => hasPermission(P.CUSTOMER_VIEW) ? (window.location.href = `/admin/customers/${cus.userId}`) : undefined}
                                 >
-                                    <TableCell className="p-3 pl-5 text-[12px] font-bold text-slate-500 text-center">{stt}</TableCell>
-                                    <TableCell className="p-3">
+                                    <TableCell className="p-2 pl-4 text-[12px] font-bold text-slate-500 text-center">{stt}</TableCell>
+                                    <TableCell className="p-2">
                                         <div className="flex items-center gap-3">
                                             <div className="w-9 h-9 shrink-0 bg-blue-50/50 rounded-full flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm overflow-hidden">
                                                 {cus.avatarUrl ? (
@@ -111,7 +111,7 @@ export function AdminCustomerTable({
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="p-3">
+                                    <TableCell className="p-2">
                                         <div className="flex flex-col gap-1">
                                             <div className="flex items-center gap-2 text-[12px] text-slate-700 font-semibold">
                                                 <Phone size={13} className="text-slate-400" /> {cus.phone || "---"}
@@ -119,15 +119,15 @@ export function AdminCustomerTable({
                                             <div className="text-[11px] text-slate-500 font-medium">{cus.email || "---"}</div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="p-3 text-right">
+                                    <TableCell className="p-2 text-right">
                                         <span className="text-[13px] font-black text-emerald-600">
                                             {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cus.totalSpent || 0)}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="p-3 text-center font-bold text-slate-700 text-[13px]">
+                                    <TableCell className="p-2 text-center font-bold text-slate-700 text-[13px]">
                                         {cus.totalOrders || 0}
                                     </TableCell>
-                                    <TableCell className="p-3 text-center">
+                                    <TableCell className="p-2 text-center">
                                         <span
                                             className={cn(
                                                 "text-[10px] font-bold px-2 py-1 rounded-[4px] tracking-wide uppercase whitespace-nowrap",
@@ -139,7 +139,7 @@ export function AdminCustomerTable({
                                     </TableCell>
 
                                     {canAction && (
-                                        <TableCell className="p-3 text-right pr-5">
+                                        <TableCell className="p-2 text-right pr-4">
                                             <div className="flex items-center justify-end gap-1">
                                                 {hasPermission(P.CUSTOMER_VIEW) && (
                                                     <Link href={`/admin/customers/${cus.userId}`} onClick={(e) => e.stopPropagation()}>
@@ -185,7 +185,7 @@ export function AdminCustomerTable({
                 </TableBody>
             </Table>
 
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[#eee] bg-[#f8f9fa]">
+            <div className="flex items-center justify-between px-4 py-2 border-t border-[#eee] bg-[#f8f9fa]">
                 <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
                     Đang hiển thị {customers?.length || 0} / Tổng số {totalElements} khách hàng
                 </p>
