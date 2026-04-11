@@ -197,11 +197,11 @@ export default function CustomerDetailPage({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 {/* Cột trái: Thông tin tổng quan */}
-                <div className="lg:col-span-4 space-y-4">
+                <div className="lg:col-span-2 space-y-4">
                     <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-slate-50 flex flex-col items-center text-center">
+                        <div className="p-5 border-b border-slate-50 flex flex-col items-center text-center">
                             <div className="relative mb-4 group">
                                 <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 border-2 border-blue-100 shadow-sm overflow-hidden">
                                     {customer?.avatarUrl ? (
@@ -227,12 +227,12 @@ export default function CustomerDetailPage({
                                 Mã định danh: {customer?.userId ? `USR-${customer.userId}` : "KHÔNG CÓ TÀI KHOẢN"}
                             </p>
 
-                            <div className="mt-6 grid grid-cols-2 gap-3 w-full">
+                            <div className="mt-5 grid grid-cols-2 gap-2 w-full">
                                 <div className="bg-emerald-50/50 p-3 border border-emerald-100 text-center">
                                     <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1 flex items-center justify-center gap-1">
                                         <Wallet size={10} /> Chi tiêu
                                     </p>
-                                    <p className="text-[14px] font-black text-emerald-700">
+                                    <p className="text-[13px] font-black text-emerald-700">
                                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.totalSpent || 0)}
                                     </p>
                                 </div>
@@ -240,37 +240,37 @@ export default function CustomerDetailPage({
                                     <p className="text-[9px] font-bold text-blue-600 uppercase mb-1 flex items-center justify-center gap-1">
                                         <ShoppingCart size={10} /> Đơn hàng
                                     </p>
-                                    <p className="text-[14px] font-black text-blue-700">
+                                    <p className="text-[13px] font-black text-blue-700">
                                         {customer?.totalOrders || 0}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-5 space-y-4">
+                        <div className="p-4 space-y-3">
                             <div className="flex items-start gap-3">
-                                <Phone size={14} className="text-slate-300 mt-1" />
+                                <Phone size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Đường dây liên lạc</span>
-                                    <span className="text-[13px] font-bold text-slate-700">{customer?.phone || "N/A"}</span>
+                                    <span className="text-[12px] font-bold text-slate-700">{customer?.phone || "N/A"}</span>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
-                                <Mail size={14} className="text-slate-300 mt-1" />
+                                <Mail size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hòm thư điện tử</span>
-                                    <span className="text-[13px] font-bold text-slate-700">{customer?.email || "Chưa cập nhật"}</span>
+                                    <span className="text-[12px] font-bold text-slate-700">{customer?.email || "Chưa cập nhật"}</span>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
-                                <MapPin size={14} className="text-slate-300 mt-1" />
+                                <MapPin size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Địa chỉ giao dịch</span>
-                                    <span className="text-[12px] font-medium text-slate-600 leading-snug">{customer?.addressDetail || "Chưa cập nhật địa chỉ"}</span>
+                                    <span className="text-[11px] font-medium text-slate-600 leading-snug">{customer?.addressDetail || "Chưa cập nhật địa chỉ"}</span>
                                 </div>
                             </div>
 
-                            <div className="pt-2 border-t border-slate-50 flex justify-between items-center">
+                            <div className="pt-3 border-t border-slate-50 flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-400 uppercase">
                   Trạng thái vận hành
                 </span>
@@ -290,32 +290,32 @@ export default function CustomerDetailPage({
                 </div>
 
                 {/* Cột phải: Tabs chi tiết */}
-                <div className="lg:col-span-8">
+                <div className="lg:col-span-3">
                     <Tabs defaultValue="history" className="w-full">
-                        <TabsList className="bg-white border border-[#dcdcdc] rounded-none p-1 w-full flex justify-start gap-1 h-auto shadow-sm">
+                        <TabsList className="bg-white border border-[#dcdcdc] rounded-none p-1 w-full flex justify-start gap-0.5 h-auto shadow-sm">
                             <TabsTrigger
                                 value="history"
-                                className="text-[11px] font-black uppercase py-2.5 px-6 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                             >
-                                <History size={14} className="mr-2" /> Nhật ký giao dịch
+                                <History size={13} className="mr-1.5" /> Nhật ký giao dịch
                             </TabsTrigger>
                             <TabsTrigger
                                 value="info"
-                                className="text-[11px] font-black uppercase py-2.5 px-6 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                             >
-                                <Info size={14} className="mr-2" /> Chỉ số uy tín
+                                <Info size={13} className="mr-1.5" /> Chỉ số uy tín
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="history" className="mt-4">
-                            <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden min-h-[400px]">
+                        <TabsContent value="history" className="mt-0">
+                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden min-h-[400px]">
                                 <Table>
                                     <TableHeader className="bg-slate-50/80">
                                         <TableRow className="hover:bg-transparent">
-                                            <TableHead className="text-[10px] font-black uppercase tracking-widest p-4">Mã đơn</TableHead>
-                                            <TableHead className="text-[10px] font-black uppercase tracking-widest p-4">Ngày giao dịch</TableHead>
-                                            <TableHead className="text-[10px] font-black uppercase tracking-widest p-4 text-right">Tổng tiền</TableHead>
-                                            <TableHead className="text-[10px] font-black uppercase tracking-widest p-4 text-center">Trạng thái</TableHead>
+                                            <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest p-3">Mã đơn</TableHead>
+                                            <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest p-3">Ngày giao dịch</TableHead>
+                                            <TableHead className="w-[140px] text-right text-[10px] font-black uppercase tracking-widest p-3">Tổng tiền</TableHead>
+                                            <TableHead className="w-[110px] text-center text-[10px] font-black uppercase tracking-widest p-3">Trạng thái</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -331,21 +331,21 @@ export default function CustomerDetailPage({
                                         ) : orders.length > 0 ? (
                                             orders.map((order) => (
                                                 <TableRow key={order.id} className="hover:bg-slate-50/50 cursor-pointer transition-colors group">
-                                                    <TableCell className="p-4">
-                                                        <span className="text-[12px] font-black text-blue-600 group-hover:underline uppercase">#{order.code}</span>
+                                                    <TableCell className="p-3">
+                                                        <span className="text-[11px] font-black text-blue-600 group-hover:underline uppercase">#{order.code}</span>
                                                     </TableCell>
-                                                    <TableCell className="p-4">
-                                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-                                                            <Clock size={12} className="text-slate-300" />
+                                                    <TableCell className="p-3">
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                                                            <Clock size={11} className="text-slate-300" />
                                                             {new Date(order.createdAt).toLocaleDateString('vi-VN')}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="p-4 text-right text-[13px] font-black text-slate-700">
+                                                    <TableCell className="p-3 text-right text-[12px] font-black text-slate-700">
                                                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.finalAmount || 0)}
                                                     </TableCell>
-                                                    <TableCell className="p-4 text-center">
+                                                    <TableCell className="p-3 text-center">
                             <span className={cn(
-                                "text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-tighter border",
+                                "text-[9px] font-black px-2 py-0.5 rounded-none uppercase tracking-tighter border",
                                 getOrderStatusColor(order.status)
                             )}>
                               {translateOrderStatus(order.status)}
@@ -368,15 +368,15 @@ export default function CustomerDetailPage({
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="info" className="mt-4">
-                            <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm p-6">
+                        <TabsContent value="info" className="mt-0">
+                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm p-5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className="w-14 h-14 bg-orange-50 rounded-none flex items-center justify-center text-orange-600 border border-orange-100 shadow-sm">
                                             <CheckCircle2 size={28} />
                                         </div>
                                         <div>
-                                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
                                                 Tỉ lệ nhận hàng thành công
                                             </p>
                                             <p className={cn(
@@ -389,7 +389,7 @@ export default function CustomerDetailPage({
                                         </div>
                                     </div>
                                     <div className={cn(
-                                        "text-right px-4 py-2 border",
+                                        "text-right px-3 py-2 border",
                                         (customer?.reputationScore || 0) >= 80 ? "bg-emerald-50 border-emerald-100" :
                                             (customer?.reputationScore || 0) >= 50 ? "bg-orange-50 border-orange-100" : "bg-rose-50 border-rose-100"
                                     )}>
@@ -401,7 +401,7 @@ export default function CustomerDetailPage({
                                             Phân loại
                                         </p>
                                         <p className={cn(
-                                            "text-[13px] font-black uppercase",
+                                            "text-[12px] font-black uppercase",
                                             (customer?.reputationScore || 0) >= 80 ? "text-emerald-700" :
                                                 (customer?.reputationScore || 0) >= 50 ? "text-orange-700" : "text-rose-700"
                                         )}>
@@ -412,11 +412,11 @@ export default function CustomerDetailPage({
                                 </div>
 
                                 {/* Thêm phần chú thích về quy tắc khóa tài khoản */}
-                                <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-500 bg-slate-50 p-4 rounded-md">
-                                    <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-1 uppercase">
-                                        <Info size={14} className="text-blue-500"/> Quy tắc hệ thống tự động:
+                                <div className="mt-5 pt-3 border-t border-slate-100 text-[10px] text-slate-500 bg-slate-50 p-3">
+                                    <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-1 uppercase text-[11px]">
+                                        <Info size={13} className="text-blue-500"/> Quy tắc hệ thống tự động:
                                     </h4>
-                                    <ul className="list-disc pl-5 space-y-1">
+                                    <ul className="list-disc pl-4 space-y-0.5">
                                         <li><span className="font-semibold text-orange-600">Dưới 50%</span>: Gửi Email cảnh báo tỷ lệ hủy/boom hàng cao.</li>
                                         <li><span className="font-semibold text-rose-600">Dưới 30%</span>: Hệ thống tự động <span className="font-bold">KHÓA TÀI KHOẢN</span>.</li>
                                     </ul>
