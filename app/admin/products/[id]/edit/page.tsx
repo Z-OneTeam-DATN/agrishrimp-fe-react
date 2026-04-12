@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import dynamic from "next/dynamic";
 import {
-    X, Trash2, Save, ChevronLeft, Camera, Upload, AlertCircle, FileText, Layers, Loader2, ChevronDown, Check, Package, Info
+    X, Trash2, Save, ChevronLeft, Camera, Upload, AlertCircle, FileText, Layers, Loader2, ChevronDown, Check, Package, Info, Copy, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +78,53 @@ type AttributeEditorState = {
     initialValues: string[];
     variantIndex: number;
 };
+
+type ProductFormStep = "info" | "description" | "variants" | "images" | "status";
+
+const EDIT_PRODUCT_DRAFT_KEY_PREFIX = "admin-product-edit-draft-v2";
+const PRODUCT_DRAFT_INDEX_KEY = "admin-product-draft-index-v1";
+const PRODUCT_BULK_PRESETS_KEY = "admin-product-bulk-presets-v1";
+const VARIANT_RENDER_CHUNK = 20;
+const VARIANT_VIRTUAL_THRESHOLD = 24;
+
+type DraftIndexEntry = {
+    key: string;
+    label: string;
+    savedAt: number;
+};
+
+type VariantBulkPreset = {
+    id: string;
+    name: string;
+    attributeId: number;
+    attributeValueId: number;
+    savedAt: number;
+    isDefault?: boolean;
+};
+
+const normalizeBulkPreset = (preset: any): VariantBulkPreset | null => {
+    if (!preset || typeof preset !== "object") return null;
+
+    const attributeId = Number(preset.attributeId);
+    const attributeValueId = Number(preset.attributeValueId);
+    if (Number.isNaN(attributeId) || Number.isNaN(attributeValueId)) return null;
+
+    return {
+        id: String(preset.id || `${Date.now()}`),
+        name: String(preset.name || "Preset"),
+        attributeId,
+        attributeValueId,
+        savedAt: Number(preset.savedAt || Date.now()),
+        isDefault: Boolean(preset.isDefault),
+    };
+};
+
+const sortBulkPresets = (presets: VariantBulkPreset[]) =>
+    [...presets].sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return b.savedAt - a.savedAt;
+    });
 
 const DEFAULT_VARIANT = { sku: "", barcode: "", attributeValueIds: [], imageUrl: null };
 
@@ -163,8 +210,29 @@ export default function EditProductPage() {
     const params = useParams();
     const id = params.id as string;
     const mainImagesRef = useRef<HTMLInputElement>(null);
+    const infoSectionRef = useRef<HTMLDivElement>(null);
+    const descriptionSectionRef = useRef<HTMLDivElement>(null);
+    const variantsSectionRef = useRef<HTMLDivElement>(null);
+    const imagesSectionRef = useRef<HTMLDivElement>(null);
+    const statusSectionRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
+    const [activeStep, setActiveStep] = useState<ProductFormStep>("info");
+    const [collapsedVariantIds, setCollapsedVariantIds] = useState<Record<string, boolean>>({});
+    const [selectedVariantIds, setSelectedVariantIds] = useState<Record<string, boolean>>({});
+    const [bulkAttributeId, setBulkAttributeId] = useState("none");
+    const [bulkAttributeValueId, setBulkAttributeValueId] = useState("none");
+    const [bulkPresetName, setBulkPresetName] = useState("");
+    const [selectedBulkPresetId, setSelectedBulkPresetId] = useState("none");
+    const [bulkPresets, setBulkPresets] = useState<VariantBulkPreset[]>([]);
+    const [draftPromptOpen, setDraftPromptOpen] = useState(false);
+    const [pendingDraftData, setPendingDraftData] = useState<any>(null);
+    const [recentDrafts, setRecentDrafts] = useState<DraftIndexEntry[]>([]);
+    const [variantScrollTop, setVariantScrollTop] = useState(0);
+    const [variantViewportHeight, setVariantViewportHeight] = useState(720);
+    const [lastDraftSavedAt, setLastDraftSavedAt] = useState("");
+    const [mediaDirty, setMediaDirty] = useState(false);
+    const [allowUnload, setAllowUnload] = useState(false);
 
     const [productImageFiles, setProductImageFiles] = useState<(File | string)[]>([]);
     const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
@@ -177,6 +245,7 @@ export default function EditProductPage() {
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
     const [isSavingAttribute, setIsSavingAttribute] = useState(false);
+    const variantListRef = useRef<HTMLDivElement>(null);
 
     // 👉 Bỏ biến systemProfitMargin vì giờ Backend đã tự động tính sellingPrice
 
@@ -185,13 +254,201 @@ export default function EditProductPage() {
     const isAdmin = user?.role?.slug === "ADMIN";
     const canUpdateAttribute = hasPermission(P.ATTRIBUTE_UPDATE);
 
-    const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors } } = useForm<ProductFormData>({
+    const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors, isDirty } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),
         defaultValues: { name: "", categoryId: "", brand: "", origin: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
     });
+    const nameWatch = watch("name");
+    const categoryWatch = watch("categoryId");
+    const statusWatch = watch("status");
+    const descriptionWatch = watch("description");
+    const variantsWatch = watch("variants");
 
     const { fields, append, remove } = useFieldArray({ control, name: "variants" });
     const [variantDataMap, setVariantDataMap] = useState<Record<number, any>>({});
+
+    const steps = useMemo(
+        () => [
+            { key: "info" as ProductFormStep, label: "Thông tin chính", ref: infoSectionRef },
+            { key: "description" as ProductFormStep, label: "Mô tả", ref: descriptionSectionRef },
+            { key: "variants" as ProductFormStep, label: "Biến thể", ref: variantsSectionRef },
+            { key: "images" as ProductFormStep, label: "Ảnh", ref: imagesSectionRef },
+            { key: "status" as ProductFormStep, label: "Trạng thái", ref: statusSectionRef },
+        ],
+        []
+    );
+
+    const hasUnsavedChanges = (isDirty || mediaDirty) && !allowUnload;
+    const draftStorageKey = `${EDIT_PRODUCT_DRAFT_KEY_PREFIX}-${id}`;
+    const selectedVariantIndexes = useMemo(
+        () => fields.map((field, idx) => (selectedVariantIds[field.id] ? idx : -1)).filter((idx) => idx >= 0),
+        [fields, selectedVariantIds]
+    );
+    const selectedVariantCount = selectedVariantIndexes.length;
+    const selectedBulkAttribute = useMemo(
+        () => attributes.find((attr: any) => String(attr.id) === bulkAttributeId),
+        [attributes, bulkAttributeId]
+    );
+    const bulkAttributeOptions = selectedBulkAttribute?.valueDetails || [];
+    const estimateVariantHeight = useCallback((idx: number) => {
+        const isCollapsed = !!collapsedVariantIds[fields[idx]?.id];
+        const attributeRows = Math.max(1, Math.ceil(Math.max(attributes.length, 1) / 3));
+        const batchCount = Number(variantDataMap[idx]?.batches?.length || 0);
+        const batchHeight = isCollapsed ? 0 : (batchCount > 0 ? Math.min(batchCount, 4) * 28 + 128 : 126);
+        return isCollapsed ? 188 : 272 + attributeRows * 96 + batchHeight;
+    }, [attributes.length, collapsedVariantIds, fields, variantDataMap]);
+
+    const variantMeasurements = useMemo(() => {
+        const starts: number[] = [];
+        let total = 0;
+
+        fields.forEach((_, idx) => {
+            starts.push(total);
+            total += estimateVariantHeight(idx);
+        });
+
+        return { starts, total };
+    }, [estimateVariantHeight, fields]);
+
+    const variantWindow = useMemo(() => {
+        if (fields.length <= VARIANT_VIRTUAL_THRESHOLD) {
+            return {
+                start: 0,
+                end: fields.length,
+                topPadding: 0,
+                bottomPadding: 0,
+                virtual: false,
+            };
+        }
+
+        const overscan = 700;
+        const starts = variantMeasurements.starts;
+
+        const findStart = (target: number) => {
+            let low = 0;
+            let high = starts.length;
+            while (low < high) {
+                const mid = (low + high) >> 1;
+                if (starts[mid] < target) low = mid + 1;
+                else high = mid;
+            }
+            return Math.max(0, low - 1);
+        };
+
+        const startPixel = Math.max(0, variantScrollTop - overscan);
+        const endPixel = variantScrollTop + variantViewportHeight + overscan;
+        const start = findStart(startPixel);
+        const end = Math.min(fields.length, findStart(endPixel) + 2);
+        const topPadding = starts[start] || 0;
+        const bottomPadding = Math.max(0, variantMeasurements.total - (starts[end] ?? variantMeasurements.total));
+
+        return {
+            start,
+            end,
+            topPadding,
+            bottomPadding,
+            virtual: true,
+        };
+    }, [fields.length, variantMeasurements, variantScrollTop, variantViewportHeight]);
+
+    const renderedVariantEntries = useMemo(() => {
+        const entries = fields.map((field, idx) => ({ field, idx }));
+        return entries.slice(variantWindow.start, variantWindow.end);
+    }, [fields, variantWindow.end, variantWindow.start]);
+
+    const variantValidationMap = useMemo(() => {
+        const map: Record<number, { missing: boolean; duplicate: boolean }> = {};
+        const comboMap = new Map<string, number[]>();
+
+        (variantsWatch || []).forEach((variant, idx) => {
+            const ids = variant?.attributeValueIds || [];
+            const missing = attributes.length > 0 && ids.length < attributes.length;
+            map[idx] = { missing, duplicate: false };
+
+            if (ids.length > 0) {
+                const combo = [...ids].sort((a, b) => a - b).join("_");
+                const list = comboMap.get(combo) || [];
+                list.push(idx);
+                comboMap.set(combo, list);
+            }
+        });
+
+        comboMap.forEach((indexes) => {
+            if (indexes.length > 1) {
+                indexes.forEach((idx) => {
+                    if (!map[idx]) map[idx] = { missing: false, duplicate: false };
+                    map[idx].duplicate = true;
+                });
+            }
+        });
+
+        return map;
+    }, [variantsWatch, attributes.length]);
+
+    const variantWarningCount = useMemo(
+        () => Object.values(variantValidationMap).filter((item) => item.missing || item.duplicate).length,
+        [variantValidationMap]
+    );
+
+    const syncDraftIndex = useCallback((entry: DraftIndexEntry) => {
+        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+        const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+        const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
+            .sort((a, b) => b.savedAt - a.savedAt)
+            .slice(0, 8);
+        localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
+        setRecentDrafts(merged);
+    }, []);
+
+    const missingWarnings = useMemo(() => {
+        const warnings: string[] = [];
+        if (!nameWatch?.trim()) warnings.push("Thiếu tên sản phẩm");
+        if (!categoryWatch) warnings.push("Chưa chọn danh mục");
+        if (productImagePreviews.length === 0) warnings.push("Chưa có ảnh sản phẩm");
+        if (fields.length === 0) warnings.push("Chưa có biến thể");
+        return warnings;
+    }, [nameWatch, categoryWatch, productImagePreviews.length, fields.length]);
+
+    const sectionStates = useMemo(() => {
+        const infoDone = !!nameWatch?.trim() && !!categoryWatch;
+        const descriptionDone = (descriptionWatch || "").replace(/<[^>]+>/g, "").trim().length > 20;
+        const variantsDone = (variantsWatch || []).length > 0;
+        const variantsWarning = variantWarningCount > 0;
+        const imagesDone = productImagePreviews.length > 0;
+        const statusDone = !!statusWatch;
+
+        return {
+            info: infoDone ? "done" : "warning",
+            description: descriptionDone ? "done" : "warning",
+            variants: variantsWarning ? "warning" : variantsDone ? "done" : "warning",
+            images: imagesDone ? "done" : "warning",
+            status: statusDone ? "done" : "warning",
+        } as Record<ProductFormStep, "done" | "warning">;
+    }, [nameWatch, categoryWatch, descriptionWatch, variantsWatch, variantWarningCount, productImagePreviews.length, statusWatch]);
+
+    useEffect(() => {
+        const rawPreset = localStorage.getItem(PRODUCT_BULK_PRESETS_KEY);
+        if (rawPreset) {
+            try {
+                const parsed: VariantBulkPreset[] = JSON.parse(rawPreset);
+                const normalized = sortBulkPresets(parsed.map((preset) => normalizeBulkPreset(preset)).filter(Boolean) as VariantBulkPreset[]);
+                setBulkPresets(normalized);
+                setSelectedBulkPresetId(normalized.find((preset) => preset.isDefault)?.id || normalized[0]?.id || "none");
+            } catch {
+                localStorage.removeItem(PRODUCT_BULK_PRESETS_KEY);
+            }
+        }
+
+        const rawIndex = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+        if (rawIndex) {
+            try {
+                const list: DraftIndexEntry[] = JSON.parse(rawIndex);
+                setRecentDrafts(list.slice(0, 6));
+            } catch {
+                localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         if (!isLoadingAuth && isAuthenticated && id) {
@@ -244,6 +501,19 @@ export default function EditProductPage() {
                     setVariantImageFiles(vImages);
                     setVariantImagePreviews(vImages.map((img: string | null) => img || ""));
 
+                    const savedDraft = localStorage.getItem(draftStorageKey);
+                    if (savedDraft) {
+                        try {
+                            const parsed = JSON.parse(savedDraft);
+                            if (parsed?.formData) {
+                                setPendingDraftData({ ...parsed, fallbackData: mappedData });
+                                setDraftPromptOpen(true);
+                            }
+                        } catch {
+                            localStorage.removeItem(draftStorageKey);
+                        }
+                    }
+
                 } catch (error) {
                     toast.error("Không thể tải thông tin sản phẩm.");
                 } finally {
@@ -252,7 +522,353 @@ export default function EditProductPage() {
             };
             fetchData();
         }
-    }, [isLoadingAuth, isAuthenticated, id, reset]);
+    }, [isLoadingAuth, isAuthenticated, id, reset, draftStorageKey]);
+
+    useEffect(() => {
+        const onScroll = () => {
+            let currentStep: ProductFormStep = "info";
+            for (const step of steps) {
+                const top = step.ref.current?.getBoundingClientRect().top;
+                if (typeof top === "number" && top <= 180) {
+                    currentStep = step.key;
+                }
+            }
+            setActiveStep(currentStep);
+        };
+
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, [steps]);
+
+    useEffect(() => {
+        if (!hasUnsavedChanges) return;
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+
+        window.addEventListener("beforeunload", onBeforeUnload);
+        return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    useEffect(() => {
+        const container = variantListRef.current;
+        if (!container) return;
+
+        const updateViewport = () => {
+            setVariantScrollTop(container.scrollTop);
+            setVariantViewportHeight(container.clientHeight || 720);
+        };
+
+        updateViewport();
+
+        let frame = 0;
+        const onScroll = () => {
+            window.cancelAnimationFrame(frame);
+            frame = window.requestAnimationFrame(updateViewport);
+        };
+
+        container.addEventListener("scroll", onScroll, { passive: true });
+
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateViewport) : null;
+        observer?.observe(container);
+
+        return () => {
+            container.removeEventListener("scroll", onScroll);
+            window.cancelAnimationFrame(frame);
+            observer?.disconnect();
+        };
+    }, [fields.length]);
+
+    useEffect(() => {
+        setSelectedVariantIds((prev) => {
+            const next: Record<string, boolean> = {};
+            fields.forEach((field) => {
+                if (prev[field.id]) next[field.id] = true;
+            });
+            return next;
+        });
+    }, [fields]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (!window.matchMedia("(max-width: 767px)").matches) return;
+
+        setCollapsedVariantIds((prev) => {
+            const next = { ...prev };
+            fields.forEach((field) => {
+                if (typeof next[field.id] === "undefined") {
+                    next[field.id] = true;
+                }
+            });
+            return next;
+        });
+    }, [fields]);
+
+    useEffect(() => {
+        if (allowUnload || isFetching) return;
+
+        const timer = window.setTimeout(() => {
+            const payload = {
+                formData: getValues(),
+                savedAt: Date.now(),
+            };
+            localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+            syncDraftIndex({
+                key: draftStorageKey,
+                label: `Cập nhật sản phẩm #${id}`,
+                savedAt: payload.savedAt,
+            });
+            setLastDraftSavedAt(new Date(payload.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+        }, 900);
+
+        return () => window.clearTimeout(timer);
+    }, [allowUnload, isFetching, getValues, draftStorageKey, id, nameWatch, categoryWatch, statusWatch, descriptionWatch, fields.length, variantsWatch, mediaDirty, syncDraftIndex]);
+
+    const confirmLeaveIfDirty = useCallback(() => {
+        if (!hasUnsavedChanges) return true;
+        return window.confirm("Bạn có thay đổi chưa lưu. Bạn chắc chắn muốn rời khỏi trang?");
+    }, [hasUnsavedChanges]);
+
+    const scrollToStep = useCallback((step: ProductFormStep) => {
+        const target = steps.find((item) => item.key === step)?.ref.current;
+        if (!target) return;
+        window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - 120, behavior: "smooth" });
+    }, [steps]);
+
+    const toggleSelectVariant = (fieldId: string) => {
+        setSelectedVariantIds((prev) => ({ ...prev, [fieldId]: !prev[fieldId] }));
+    };
+
+    const toggleSelectAllVariants = () => {
+        if (selectedVariantCount === fields.length) {
+            setSelectedVariantIds({});
+            return;
+        }
+
+        const next: Record<string, boolean> = {};
+        fields.forEach((field) => {
+            next[field.id] = true;
+        });
+        setSelectedVariantIds(next);
+    };
+
+    const applyAttributeValueToVariant = (variantIndex: number, attributeId: number, valueId: number | null) => {
+        const targetAttribute = attributes.find((attr: any) => Number(attr.id) === Number(attributeId));
+        const options = targetAttribute?.valueDetails || [];
+        const fieldName = `variants.${variantIndex}.attributeValueIds` as const;
+        const current = getValues(fieldName) || [];
+        const others = current.filter((id: number) => !options.some((opt: any) => Number(opt.valueId) === id));
+        const next = valueId ? [...others, Number(valueId)] : others;
+
+        setValue(fieldName, next, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true,
+        });
+    };
+
+    const handleBulkAssignAttribute = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể.");
+            return;
+        }
+        if (bulkAttributeId === "none" || bulkAttributeValueId === "none") {
+            toast.error("Vui lòng chọn thuộc tính và giá trị để gán nhanh.");
+            return;
+        }
+
+        selectedVariantIndexes.forEach((idx) => {
+            applyAttributeValueToVariant(idx, Number(bulkAttributeId), Number(bulkAttributeValueId));
+        });
+        toast.success(`Đã gán nhanh cho ${selectedVariantCount} biến thể.`);
+    };
+
+    const handleBulkDuplicateSelected = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể để nhân bản.");
+            return;
+        }
+
+        const snapshotIndexes = [...selectedVariantIndexes].sort((a, b) => a - b);
+        snapshotIndexes.forEach((idx) => handleDuplicateVariant(idx));
+        toast.success(`Đã nhân bản ${snapshotIndexes.length} biến thể.`);
+    };
+
+    const handleBulkDeleteSelected = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể để xóa.");
+            return;
+        }
+        if (fields.length - selectedVariantCount < 1) {
+            toast.error("Cần giữ lại ít nhất 1 biến thể.");
+            return;
+        }
+
+        const blocked = selectedVariantIndexes.filter((idx) => (variantDataMap[idx]?.quantity || 0) > 0);
+        if (blocked.length > 0) {
+            toast.error("Có biến thể còn tồn kho nên không thể xóa hàng loạt.");
+            return;
+        }
+
+        const removeIndexes = [...selectedVariantIndexes].sort((a, b) => b - a);
+        removeIndexes.forEach((idx) => handleRemoveVariant(idx));
+        setSelectedVariantIds({});
+        toast.success(`Đã xóa ${removeIndexes.length} biến thể.`);
+    };
+
+    const handleRestoreDraft = () => {
+        if (!pendingDraftData?.formData) {
+            setDraftPromptOpen(false);
+            return;
+        }
+
+        const fallbackData = pendingDraftData.fallbackData;
+        const draftData = pendingDraftData.formData;
+        reset({
+            name: draftData.name || fallbackData?.name || "",
+            categoryId: draftData.categoryId || fallbackData?.categoryId || "",
+            brand: draftData.brand || fallbackData?.brand || "",
+            origin: draftData.origin || fallbackData?.origin || "",
+            baseSku: draftData.baseSku || fallbackData?.baseSku || "",
+            description: draftData.description || fallbackData?.description || "",
+            status: draftData.status || fallbackData?.status || "ACTIVE",
+            variants: Array.isArray(draftData.variants) && draftData.variants.length > 0
+                ? draftData.variants
+                : fallbackData?.variants || [DEFAULT_VARIANT],
+        });
+
+        const variantLength = Array.isArray(draftData.variants) && draftData.variants.length > 0
+            ? draftData.variants.length
+            : fallbackData?.variants?.length || 1;
+        setVariantImageFiles((prev) => {
+            const next = [...prev];
+            while (next.length < variantLength) next.push(null);
+            return next.slice(0, variantLength);
+        });
+        setVariantImagePreviews((prev) => {
+            const next = [...prev];
+            while (next.length < variantLength) next.push("");
+            return next.slice(0, variantLength);
+        });
+
+        if (pendingDraftData.savedAt) {
+            setLastDraftSavedAt(new Date(pendingDraftData.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+        }
+        setDraftPromptOpen(false);
+        toast.success("Đã khôi phục bản nháp.");
+    };
+
+    const handleDiscardDraft = () => {
+        localStorage.removeItem(draftStorageKey);
+        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+        if (raw) {
+            try {
+                const list: DraftIndexEntry[] = JSON.parse(raw);
+                const next = list.filter((item) => item.key !== draftStorageKey);
+                localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(next));
+                setRecentDrafts(next.slice(0, 6));
+            } catch {
+                localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+                setRecentDrafts([]);
+            }
+        }
+        setPendingDraftData(null);
+        setDraftPromptOpen(false);
+    };
+
+    const handleSaveBulkPreset = () => {
+        if (bulkAttributeId === "none" || bulkAttributeValueId === "none") {
+            toast.error("Chọn thuộc tính và giá trị trước khi lưu preset.");
+            return;
+        }
+
+        const name = bulkPresetName.trim() || `Preset ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+        const preset: VariantBulkPreset = {
+            id: `${Date.now()}`,
+            name,
+            attributeId: Number(bulkAttributeId),
+            attributeValueId: Number(bulkAttributeValueId),
+            savedAt: Date.now(),
+            isDefault: bulkPresets.length === 0,
+        };
+        const next = sortBulkPresets([preset, ...bulkPresets].slice(0, 12));
+        setBulkPresets(next);
+        localStorage.setItem(PRODUCT_BULK_PRESETS_KEY, JSON.stringify(next));
+        setBulkPresetName("");
+        setSelectedBulkPresetId(preset.id);
+        toast.success("Đã lưu preset bulk.");
+    };
+
+    const handleDeleteBulkPreset = () => {
+        if (selectedBulkPresetId === "none") {
+            toast.error("Vui lòng chọn preset để xóa.");
+            return;
+        }
+
+        const current = bulkPresets.find((item) => item.id === selectedBulkPresetId);
+        if (!current) {
+            toast.error("Preset không hợp lệ.");
+            return;
+        }
+
+        if (!window.confirm(`Xóa preset \"${current.name}\"?`)) {
+            return;
+        }
+
+        const next = bulkPresets.filter((item) => item.id !== selectedBulkPresetId);
+        if (current.isDefault && next.length > 0) {
+            next[0] = { ...next[0], isDefault: true };
+        }
+
+        const sorted = sortBulkPresets(next);
+        localStorage.setItem(PRODUCT_BULK_PRESETS_KEY, JSON.stringify(sorted));
+        setBulkPresets(sorted);
+        setSelectedBulkPresetId(sorted.find((item) => item.isDefault)?.id || sorted[0]?.id || "none");
+        toast.success("Đã xóa preset.");
+    };
+
+    const handleSetDefaultBulkPreset = () => {
+        if (selectedBulkPresetId === "none") {
+            toast.error("Vui lòng chọn preset để đặt mặc định.");
+            return;
+        }
+
+        const current = bulkPresets.find((item) => item.id === selectedBulkPresetId);
+        if (!current) {
+            toast.error("Preset không hợp lệ.");
+            return;
+        }
+
+        const next = sortBulkPresets(
+            bulkPresets.map((item) => ({
+                ...item,
+                isDefault: item.id === selectedBulkPresetId,
+            }))
+        );
+        localStorage.setItem(PRODUCT_BULK_PRESETS_KEY, JSON.stringify(next));
+        setBulkPresets(next);
+        setSelectedBulkPresetId(current.id);
+        toast.success("Đã đặt preset mặc định.");
+    };
+
+    const handleApplyBulkPreset = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể.");
+            return;
+        }
+        const preset = bulkPresets.find((item) => item.id === selectedBulkPresetId) || bulkPresets.find((item) => item.isDefault);
+        if (!preset) {
+            toast.error("Vui lòng chọn preset hợp lệ.");
+            return;
+        }
+
+        selectedVariantIndexes.forEach((idx) => {
+            applyAttributeValueToVariant(idx, preset.attributeId, preset.attributeValueId);
+        });
+        toast.success(`Đã áp preset cho ${selectedVariantCount} biến thể.`);
+    };
 
     const openAttributeEditor = (attribute: any, variantIndex: number) => {
         setAttributeEditor({
@@ -355,12 +971,14 @@ export default function EditProductPage() {
             const files = Array.from(e.target.files);
             setProductImageFiles((prev) => [...prev, ...files]);
             setProductImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
+            setMediaDirty(true);
         }
     };
 
     const removeMainImage = (idx: number) => {
         setProductImageFiles((prev) => prev.filter((_, i) => i !== idx));
         setProductImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+        setMediaDirty(true);
     };
 
     const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -368,6 +986,7 @@ export default function EditProductPage() {
         if (!file) return;
         setVariantImageFiles((prev) => { const n = [...prev]; n[variantIndex] = file; return n; });
         setVariantImagePreviews((prev) => { const n = [...prev]; n[variantIndex] = URL.createObjectURL(file); return n; });
+        setMediaDirty(true);
     };
 
     const handleAppendVariant = () => {
@@ -392,6 +1011,41 @@ export default function EditProductPage() {
         setVariantDataMap(prev => ({ ...prev, [fields.length]: { quantity: 0, batches: [] } }));
     };
 
+    const handleToggleVariant = (fieldId: string) => {
+        setCollapsedVariantIds((prev) => ({ ...prev, [fieldId]: !prev[fieldId] }));
+    };
+
+    const handleDuplicateVariant = (idx: number) => {
+        const source = getValues(`variants.${idx}`);
+        const currentBaseSku = getValues("baseSku") || "SP";
+        const currentVariants = getValues("variants") || [];
+
+        let maxSuffix = 0;
+        currentVariants.forEach((variant: any) => {
+            if (variant.sku) {
+                const parts = variant.sku.split("-");
+                const num = parseInt(parts[parts.length - 1]);
+                if (!isNaN(num) && num > maxSuffix) maxSuffix = num;
+            }
+        });
+
+        const newSku = `${currentBaseSku}-${maxSuffix + 1}`;
+        const newBarcode = `893${Math.floor(100000000 + Math.random() * 900000000)}`;
+        append({
+            ...DEFAULT_VARIANT,
+            sku: newSku,
+            barcode: newBarcode,
+            attributeValueIds: [...(source?.attributeValueIds || [])],
+        });
+
+        const sourceFile = variantImageFiles[idx];
+        const sourcePreview = variantImagePreviews[idx] || "";
+        setVariantImageFiles((prev) => [...prev, sourceFile ?? null]);
+        setVariantImagePreviews((prev) => [...prev, sourcePreview]);
+        setVariantDataMap((prev) => ({ ...prev, [fields.length]: { quantity: 0, batches: [] } }));
+        setMediaDirty(true);
+    };
+
     const handleRemoveVariant = (idx: number) => {
         if (fields.length === 1) {
             toast.error("Phải có ít nhất 1 biến thể.");
@@ -406,6 +1060,7 @@ export default function EditProductPage() {
         remove(idx);
         setVariantImageFiles((prev) => prev.filter((_, i) => i !== idx));
         setVariantImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+        setMediaDirty(true);
 
         setVariantDataMap(prev => {
             const newMap: Record<number, any> = {};
@@ -481,6 +1136,18 @@ export default function EditProductPage() {
             });
 
             await ProductService.update(id, formData);
+            setAllowUnload(true);
+            localStorage.removeItem(draftStorageKey);
+            const rawIndex = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            if (rawIndex) {
+                try {
+                    const list: DraftIndexEntry[] = JSON.parse(rawIndex);
+                    const next = list.filter((item) => item.key !== draftStorageKey);
+                    localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(next));
+                } catch {
+                    localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+                }
+            }
             toast.success("Cập nhật sản phẩm thành công!");
             router.push("/admin/products");
         } catch (error: any) {
@@ -493,15 +1160,50 @@ export default function EditProductPage() {
     if (isFetching) return (<div className="flex flex-col items-center justify-center min-h-[400px] gap-3"><Loader2 className="h-10 w-10 animate-spin text-emerald-600" /><p className="text-sm text-slate-500 font-medium">Đang tải thông tin sản phẩm...</p></div>);
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-[100px] bg-slate-50/30 p-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-[124px] bg-slate-50/30 p-3 sm:p-4 lg:p-5 max-w-[1680px] mx-auto">
             <div className="flex items-center gap-3 mb-2 px-1">
-                <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400"><ChevronLeft size={20} /></Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => {
+                    if (confirmLeaveIfDirty()) {
+                        setAllowUnload(true);
+                        router.back();
+                    }
+                }} className="h-8 w-8 text-slate-400"><ChevronLeft size={20} /></Button>
                 <h1 className="text-[17px] font-black text-[#1f1f1f] tracking-tight uppercase flex-1">Chỉnh sửa: {watch("name")}</h1>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="sticky top-2 z-30 bg-slate-50/90 backdrop-blur rounded-xl border border-slate-200 px-3 py-2">
+                <div className="flex items-center gap-2 overflow-x-auto">
+                    {steps.map((step, idx) => {
+                        const isActive = activeStep === step.key;
+                        const stepState = sectionStates[step.key];
+                        return (
+                            <button
+                                key={step.key}
+                                type="button"
+                                onClick={() => scrollToStep(step.key)}
+                                className={cn(
+                                    "flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors border",
+                                    isActive
+                                        ? "bg-emerald-600 text-white border-emerald-600"
+                                        : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-700"
+                                )}
+                            >
+                                {stepState === "done" ? (
+                                    <Check size={12} className={isActive ? "text-white" : "text-emerald-600"} />
+                                ) : (
+                                    <AlertCircle size={12} className={isActive ? "text-white" : "text-amber-600"} />
+                                )}
+                                <span className={cn("inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]", isActive ? "bg-white/20" : "bg-slate-100")}>{idx + 1}</span>
+                                {step.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-9 space-y-5">
-                    <div className="bg-white border border-[#dcdcdc] p-5 shadow-sm">
+                    <div ref={infoSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <SectionHeader num="1" icon={AlertCircle} title="Định danh sản phẩm" />
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2 space-y-1.5">
@@ -553,7 +1255,7 @@ export default function EditProductPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white border border-[#dcdcdc] p-5 shadow-sm">
+                    <div ref={descriptionSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <SectionHeader num="2" icon={FileText} title="Mô tả hàng hóa" />
 
                         {/* 👉 TÍCH HỢP SOẠN THẢO VĂN BẢN VÀO ĐÂY, SỬ DỤNG { ref, ...fieldProps } */}
@@ -574,21 +1276,96 @@ export default function EditProductPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white border border-[#dcdcdc] shadow-sm">
+                    <div ref={variantsSectionRef} className="bg-white border border-[#dcdcdc] rounded-xl shadow-sm overflow-hidden">
                         <div className="px-5 py-3 border-b bg-[#f8f9fa] flex justify-between items-center">
                             <h3 className="text-[11px] font-black text-slate-700 flex items-center gap-2 uppercase"><Layers size={15} className="text-emerald-600" />3. Biến thể và Lô hàng</h3>
                             <Button type="button" variant="outline" onClick={handleAppendVariant} className="h-[28px] text-[10px] font-black text-emerald-600 border-emerald-200 bg-white uppercase">+ Thêm biến thể</Button>
                         </div>
 
-                        <div className="divide-y divide-slate-100">
-                            {fields.map((field, idx) => {
+                        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-600">Bulk actions biến thể</p>
+                                <button type="button" onClick={toggleSelectAllVariants} className="text-[11px] font-bold text-blue-600 hover:underline">
+                                    {selectedVariantCount === fields.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                <Select value={bulkAttributeId} onValueChange={(value) => {
+                                    setBulkAttributeId(value);
+                                    setBulkAttributeValueId("none");
+                                }}>
+                                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn thuộc tính" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Chọn thuộc tính</SelectItem>
+                                        {attributes.map((attr: any) => (
+                                            <SelectItem key={`bulk-attr-${attr.id}`} value={String(attr.id)}>{attr.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={bulkAttributeValueId} onValueChange={setBulkAttributeValueId}>
+                                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn giá trị" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Chọn giá trị</SelectItem>
+                                        {bulkAttributeOptions.map((option: any) => (
+                                            <SelectItem key={`bulk-value-${option.valueId}`} value={String(option.valueId)}>{option.value}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button type="button" variant="outline" onClick={handleBulkAssignAttribute} className="h-9 text-[11px] font-black uppercase border-emerald-200 text-emerald-700">Gán nhanh đã chọn</Button>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button type="button" variant="outline" onClick={handleBulkDuplicateSelected} className="h-9 text-[11px] font-black uppercase border-blue-200 text-blue-700">Nhân bản</Button>
+                                    <Button type="button" variant="outline" onClick={handleBulkDeleteSelected} className="h-9 text-[11px] font-black uppercase border-rose-200 text-rose-600">Xóa</Button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <Input value={bulkPresetName} onChange={(e) => setBulkPresetName(e.target.value)} placeholder="Tên preset (tùy chọn)" className="h-9 bg-white text-[12px]" />
+                                <Button type="button" variant="outline" onClick={handleSaveBulkPreset} className="h-9 text-[11px] font-black uppercase border-indigo-200 text-indigo-700">Lưu preset</Button>
+                                <div className="flex gap-2">
+                                    <Select value={selectedBulkPresetId} onValueChange={setSelectedBulkPresetId}>
+                                        <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn preset" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Chọn preset</SelectItem>
+                                            {bulkPresets.map((preset) => (
+                                                <SelectItem key={`preset-${preset.id}`} value={preset.id}>
+                                                    <span className="flex items-center gap-2">
+                                                        <span>{preset.name}</span>
+                                                        {preset.isDefault && <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-700">Mặc định</span>}
+                                                    </span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button type="button" variant="outline" onClick={handleApplyBulkPreset} className="h-9 text-[11px] font-black uppercase border-indigo-200 text-indigo-700">Áp</Button>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <Button type="button" variant="outline" onClick={handleSetDefaultBulkPreset} className="h-9 text-[11px] font-black uppercase border-emerald-200 text-emerald-700">Đặt preset mặc định</Button>
+                                <Button type="button" variant="outline" onClick={handleDeleteBulkPreset} className="h-9 text-[11px] font-black uppercase border-rose-200 text-rose-600">Xóa preset</Button>
+                            </div>
+                            {variantWarningCount > 0 && (
+                                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+                                    Có {variantWarningCount} biến thể thiếu thuộc tính hoặc trùng tổ hợp. Vui lòng kiểm tra trước khi lưu.
+                                </div>
+                            )}
+                            <p className="text-[11px] text-slate-400">Đang chọn {selectedVariantCount}/{fields.length} biến thể.</p>
+                            {variantWindow.virtual && (
+                                <p className="text-[11px] font-semibold text-slate-500">Đang hiển thị {variantWindow.start + 1}-{Math.min(variantWindow.end, fields.length)} / {fields.length} biến thể theo cửa sổ cuộn.</p>
+                            )}
+                        </div>
+
+                        <div ref={variantListRef} className={cn("divide-y divide-slate-100", fields.length > VARIANT_VIRTUAL_THRESHOLD && "max-h-[calc(100vh-290px)] overflow-y-auto overscroll-contain pr-1")}>
+                            {variantWindow.virtual && <div style={{ height: variantWindow.topPadding }} />}
+                            {renderedVariantEntries.map(({ field, idx }) => {
                                 const extraData = variantDataMap[idx] || { quantity: 0, batches: [] };
                                 const currentStock = extraData.quantity;
                                 const batches = extraData.batches;
                                 const variantAttributeIds = watch(`variants.${idx}.attributeValueIds`) || [];
+                                const isCollapsed = !!collapsedVariantIds[field.id];
+                                const isSelected = !!selectedVariantIds[field.id];
+                                const variantIssue = variantValidationMap[idx] || { missing: false, duplicate: false };
 
                                 return (
-                                    <div key={field.id} className="p-5 bg-white">
+                                    <div key={field.id} className={cn("p-5 bg-white", isSelected && "bg-blue-50/40")}>
                                         <div className="flex flex-col xl:flex-row gap-5">
                                             <div className="flex flex-col items-center shrink-0">
                                                 <div onClick={() => document.getElementById(`v-img-${idx}`)?.click()} className="w-[100px] h-[100px] border border-[#ddd] bg-slate-50 flex items-center justify-center cursor-pointer group hover:border-emerald-50 overflow-hidden relative">
@@ -600,13 +1377,30 @@ export default function EditProductPage() {
 
                                             <div className="flex-1 space-y-4">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-[12px] font-bold text-slate-600">Phân loại & Định danh SKU</span>
-                                                    <Button type="button" variant="outline" onClick={() => handleRemoveVariant(idx)} className={cn("h-[28px] text-[10px] uppercase font-black px-3", currentStock > 0 ? "text-slate-400 border-slate-200 cursor-not-allowed bg-slate-50" : "text-rose-500 border-rose-100 hover:bg-rose-50")}>
-                                                        <Trash2 size={12} className="mr-1" /> {currentStock > 0 ? "Kẹt tồn kho" : "Xóa SKU này"}
-                                                    </Button>
+                                                    <label className="inline-flex items-center gap-2 text-[12px] font-bold text-slate-700 cursor-pointer">
+                                                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectVariant(field.id)} className="h-4 w-4 accent-emerald-600" />
+                                                        Phân loại & Định danh SKU
+                                                    </label>
+                                                    <div className="flex items-center gap-1.5 mr-auto ml-3">
+                                                        {variantIssue.missing && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 uppercase">Thiếu thuộc tính</span>}
+                                                        {variantIssue.duplicate && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 uppercase">Trùng tổ hợp</span>}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button type="button" variant="outline" onClick={() => handleDuplicateVariant(idx)} className="h-[28px] text-[10px] uppercase font-black px-3 border-blue-200 text-blue-600 hover:bg-blue-50">
+                                                            <Copy size={12} className="mr-1" /> Nhân bản
+                                                        </Button>
+                                                        <Button type="button" variant="outline" onClick={() => handleToggleVariant(field.id)} className="h-[28px] text-[10px] uppercase font-black px-3">
+                                                            {isCollapsed ? <ChevronDown size={12} className="mr-1" /> : <ChevronUp size={12} className="mr-1" />}
+                                                            {isCollapsed ? "Mở rộng" : "Thu gọn"}
+                                                        </Button>
+                                                        <Button type="button" variant="outline" onClick={() => handleRemoveVariant(idx)} className={cn("h-[28px] text-[10px] uppercase font-black px-3", currentStock > 0 ? "text-slate-400 border-slate-200 cursor-not-allowed bg-slate-50" : "text-rose-500 border-rose-100 hover:bg-rose-50")}>
+                                                            <Trash2 size={12} className="mr-1" /> {currentStock > 0 ? "Kẹt tồn kho" : "Xóa SKU này"}
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-3">
+                                                {!isCollapsed && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div className="space-y-1">
                                                         <Label className="text-[10px] font-bold uppercase">Mã SKU Phân loại *</Label>
                                                         <Input
@@ -624,9 +1418,10 @@ export default function EditProductPage() {
                                                         />
                                                     </div>
                                                 </div>
+                                                )}
 
-                                                {attributes.length > 0 && (
-                                                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 border border-dashed border-slate-200 mt-2">
+                                                {!isCollapsed && attributes.length > 0 && (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 bg-slate-50 p-3 border border-dashed border-slate-200 mt-2">
                                                         {attributes.map((attr, attrIdx) => {
                                                             const attributeOptions = attr.valueDetails || [];
                                                             const matchedValue = attributeOptions.find((v: any) => variantAttributeIds.includes(Number(v.valueId)));
@@ -692,6 +1487,7 @@ export default function EditProductPage() {
                                                     </div>
                                                 )}
 
+                                                {!isCollapsed && (
                                                 <div className="border border-[#e0e0e0] rounded-[4px] overflow-hidden mt-4">
                                                     <div className="bg-[#f4f6f8] px-3 py-2 border-b flex justify-between items-center">
                                                         <span className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-1.5"><Package size={14} className="text-blue-600"/> Lô hàng hiện tại</span>
@@ -740,18 +1536,56 @@ export default function EditProductPage() {
                                                         </div>
                                                     )}
                                                 </div>
+                                                )}
 
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
+                            {variantWindow.virtual && <div style={{ height: variantWindow.bottomPadding }} />}
                         </div>
                     </div>
                 </div>
 
                 <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white border border-[#dcdcdc] p-5 shadow-sm">
+                    <div className="bg-white border border-[#dcdcdc] p-4 rounded-xl shadow-sm lg:sticky lg:top-4">
+                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-3">Tóm tắt nhanh</p>
+                        <div className="space-y-2 text-[12px]">
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Số biến thể</span><span className="font-black text-slate-700">{fields.length}</span></div>
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Ảnh sản phẩm</span><span className="font-black text-slate-700">{productImagePreviews.length}</span></div>
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Trạng thái</span><span className={cn("font-black", statusWatch === "ACTIVE" ? "text-emerald-600" : statusWatch === "INACTIVE" ? "text-rose-500" : "text-slate-500")}>{statusWatch === "ACTIVE" ? "Đang kinh doanh" : statusWatch === "INACTIVE" ? "Tạm ngừng" : "Lưu nháp"}</span></div>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                            <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 mb-2">Preview realtime</p>
+                            <div className="flex items-center gap-2.5">
+                                <div className="h-12 w-12 rounded-md bg-white border border-slate-200 overflow-hidden shrink-0">
+                                    {productImagePreviews[0] ? (
+                                        <img src={productImagePreviews[0]} alt="Preview" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-[9px] font-bold text-slate-300">NO IMG</div>
+                                    )}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[12px] font-bold text-slate-700 truncate">{nameWatch?.trim() || "Sản phẩm chưa đặt tên"}</p>
+                                    <p className="text-[11px] text-slate-500">{fields.length} SKU · {productImagePreviews.length} ảnh</p>
+                                </div>
+                            </div>
+                        </div>
+                        {missingWarnings.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                <p className="text-[11px] font-black text-amber-700 uppercase mb-1">Cần bổ sung</p>
+                                <ul className="text-[11px] text-amber-700 space-y-0.5">
+                                    {missingWarnings.map((warning) => (
+                                        <li key={warning}>- {warning}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        <p className="mt-3 text-[11px] text-slate-400">{lastDraftSavedAt ? `Đã lưu nháp cục bộ lúc ${lastDraftSavedAt}` : "Chưa có bản nháp cục bộ"}</p>
+                    </div>
+
+                    <div ref={imagesSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center border-b pb-3 tracking-widest">Album hình ảnh *</Label>
                         <div className="grid grid-cols-2 gap-2">
                             {productImagePreviews.map((src, i) => (
@@ -767,7 +1601,7 @@ export default function EditProductPage() {
                         <input type="file" ref={mainImagesRef} multiple hidden onChange={handleMainImagesChange} accept="image/*" />
                     </div>
 
-                    <div className="bg-white border border-[#dcdcdc] p-5 shadow-sm">
+                    <div ref={statusSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 border-b pb-3 tracking-widest">Trạng thái phát hành</Label>
                         <Controller name="status" control={control} render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value}>
@@ -782,6 +1616,48 @@ export default function EditProductPage() {
                     </div>
                 </div>
             </div>
+
+            <Dialog
+                open={draftPromptOpen}
+                onOpenChange={setDraftPromptOpen}
+            >
+                <DialogContent className="sm:max-w-[560px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">Khôi phục bản nháp gần nhất?</DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Hệ thống phát hiện bạn có bản nháp chưa hoàn tất cho form cập nhật sản phẩm này.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[12px] text-slate-600">Nháp hiện tại: {pendingDraftData?.savedAt ? new Date(pendingDraftData.savedAt).toLocaleString("vi-VN") : "Không rõ thời gian"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-black uppercase text-slate-500 mb-2">Các nháp gần đây</p>
+                            <div className="max-h-[160px] overflow-y-auto rounded-md border border-slate-200">
+                                {recentDrafts.length === 0 ? (
+                                    <p className="text-[12px] text-slate-400 p-3">Chưa có nháp gần đây.</p>
+                                ) : (
+                                    <ul className="divide-y divide-slate-100">
+                                        {recentDrafts.map((item) => (
+                                            <li key={item.key} className="px-3 py-2 text-[12px]">
+                                                <p className="font-semibold text-slate-700">{item.label}</p>
+                                                <p className="text-slate-400">{new Date(item.savedAt).toLocaleString("vi-VN")}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700">Khôi phục nháp</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={!!attributeEditor}
@@ -901,9 +1777,14 @@ export default function EditProductPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="fixed bottom-0 right-0 left-[260px] bg-white border-t p-3 flex justify-end gap-3 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-                <Button type="button" variant="outline" onClick={() => router.back()} className="rounded-none font-bold px-8">HỦY</Button>
-                <Button type="submit" disabled={isLoading} className="bg-emerald-600 text-white rounded-none font-bold px-10">
+            <div className="fixed bottom-0 right-0 left-0 lg:left-[260px] bg-white/95 backdrop-blur border-t p-3 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+                <Button type="button" variant="outline" onClick={() => {
+                    if (confirmLeaveIfDirty()) {
+                        setAllowUnload(true);
+                        router.back();
+                    }
+                }} className="w-full sm:w-auto rounded-md font-bold px-8">HỦY</Button>
+                <Button type="submit" disabled={isLoading} className="w-full sm:w-auto bg-emerald-600 text-white rounded-md font-bold px-10">
                     {isLoading ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />} CẬP NHẬT
                 </Button>
             </div>
