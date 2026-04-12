@@ -495,6 +495,7 @@ export default function AddProductPage() {
         setValue,
         getValues,
         watch,
+        reset,
         formState: { errors, isDirty },
     } = useForm<ProductFormData>({
         resolver: zodResolver(productSchema),
