@@ -97,7 +97,7 @@ const DETAIL_OPTIONS = {
   payment_branch: "Báo cáo thanh toán theo chi nhánh",
   order_stats: "Báo cáo thống kê theo đơn hàng",
   order_product: "Báo cáo thống kê theo sản phẩm",
-  order_detail: "Báo cáo bán hàng chi tiết",
+  order_detail: "Báo cáo doanh thu chi tiết",
 } as const;
 
 const formatDate = (value: unknown) => {
@@ -156,8 +156,8 @@ export default function SalesReportPage() {
       const data = await SalesReportService.getSummary(startDate, endDate, selectedBranchId);
       setSummary(data);
     } catch (error) {
-      console.error("Không thể tải báo cáo bán hàng", error);
-      toast.error("Không thể tải báo cáo bán hàng");
+      console.error("Không thể tải báo cáo doanh thu", error);
+      toast.error("Không thể tải báo cáo doanh thu");
     } finally {
       setLoading(false);
     }
@@ -252,8 +252,8 @@ export default function SalesReportPage() {
     );
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Bao cao ban hang");
-    XLSX.writeFile(workbook, `bao_cao_ban_hang_${detail.type}_${startDate}_${endDate}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Bao cao doanh thu");
+    XLSX.writeFile(workbook, `bao_cao_doanh_thu_${detail.type}_${startDate}_${endDate}.xlsx`);
     toast.success("Đã xuất Excel báo cáo");
   };
 
@@ -273,7 +273,7 @@ export default function SalesReportPage() {
       styles: { fontSize: 8 },
       headStyles: { fillColor: [37, 99, 235] },
     });
-    doc.save(`bao_cao_ban_hang_${detail.type}_${startDate}_${endDate}.pdf`);
+    doc.save(`bao_cao_doanh_thu_${detail.type}_${startDate}_${endDate}.pdf`);
     toast.success("Đã xuất PDF báo cáo");
   };
 
@@ -285,6 +285,36 @@ export default function SalesReportPage() {
   };
 
   const deliveryMax = Math.max(1, ...(summary?.delivery.breakdown.map((item) => item.count) || [1]));
+  const overviewCards = [
+    {
+      label: "Doanh thu",
+      value: loading ? "..." : formatNumber(summary?.revenue.totalRevenue || 0),
+      hint: `${summary?.revenue.totalOrders || 0} đơn hoàn tất`,
+      icon: TrendingUp,
+      tone: "from-blue-600/12 to-cyan-500/10 text-blue-700",
+    },
+    {
+      label: "Đã giao",
+      value: loading ? "..." : String(summary?.delivery.totalShipments || 0),
+      hint: `${summary?.delivery.breakdown.length || 0} trạng thái theo dõi`,
+      icon: Package,
+      tone: "from-emerald-600/12 to-teal-500/10 text-emerald-700",
+    },
+    {
+      label: "Đã thu",
+      value: loading ? "..." : formatNumber(summary?.payment.paidAmount || 0),
+      hint: `${summary?.payment.paidOrders || 0} đơn đã thanh toán`,
+      icon: CreditCard,
+      tone: "from-violet-600/12 to-fuchsia-500/10 text-violet-700",
+    },
+    {
+      label: "Giá trị TB / đơn",
+      value: loading ? "..." : formatNumber(summary?.orders.averageOrderValue || 0),
+      hint: `${summary?.orders.totalProductsSold || 0} sản phẩm đã bán`,
+      icon: ShoppingCart,
+      tone: "from-amber-500/15 to-orange-500/10 text-amber-700",
+    },
+  ] as const;
 
   const ReportLink = ({
     label,
@@ -299,8 +329,8 @@ export default function SalesReportPage() {
       type="button"
       onClick={() => openDetail(type)}
       className={cn(
-        "flex w-full items-center justify-between py-2 text-left transition-colors hover:bg-slate-50",
-        activeDetailType === type && "bg-blue-50/60",
+        "flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-3 text-left transition-all hover:border-slate-200 hover:bg-slate-50",
+        activeDetailType === type && "border-blue-200 bg-blue-50/80 shadow-sm",
       )}
     >
       <div className="flex items-center gap-3">
@@ -310,75 +340,110 @@ export default function SalesReportPage() {
         </span>
       </div>
       {activeDetailType === type && (
-        <Badge className="rounded-none bg-blue-600 text-white">Đang xem</Badge>
+        <Badge className="rounded-full bg-blue-600 px-3 text-white">Đang xem</Badge>
       )}
     </button>
   );
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#f0f2f5] p-6 pb-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-black uppercase tracking-tight text-slate-800">
-            Báo cáo bán hàng
-          </h1>
-          <p className="text-[12px] text-slate-500">
-            Theo dõi doanh thu, giao hàng, trả hàng, thanh toán và chi tiết đơn bán.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-0 border border-slate-300 bg-white">
-            <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-              <SelectTrigger className="h-9 w-[200px] rounded-none border-none text-[12px] shadow-none">
-                <SelectValue placeholder="Tất cả chi nhánh" />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id.toString()}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className="min-h-screen space-y-6 bg-[#eef2f7] p-4 pb-10 md:p-6">
+      <div className="rounded-[24px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_20px_45px_-32px_rgba(15,23,42,0.35)] md:px-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-blue-700">
+              Trung tâm báo cáo
+            </div>
+            <h1 className="text-[24px] font-black tracking-tight text-slate-900 md:text-[28px]">
+              Báo cáo doanh thu
+            </h1>
+            <p className="mt-2 max-w-2xl text-[13px] leading-6 text-slate-500">
+              Theo dõi doanh thu, giao hàng, trả hàng, thanh toán và toàn bộ chi tiết đơn bán theo chi nhánh, nhân viên và khoảng thời gian thực tế.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2 border border-slate-300 bg-white px-3 py-1">
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 border-none p-0 text-[12px] shadow-none" />
-            <span className="text-slate-400">-</span>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 border-none p-0 text-[12px] shadow-none" />
+          <div className="flex flex-wrap items-center gap-3 xl:max-w-[720px] xl:justify-end">
+            <div className="flex items-center gap-0 rounded-2xl border border-slate-200 bg-slate-50/80 px-1">
+              <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                <SelectTrigger className="h-10 w-[220px] rounded-2xl border-none bg-transparent text-[12px] shadow-none">
+                  <SelectValue placeholder="Tất cả chi nhánh" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-1.5">
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 min-w-[132px] border-none bg-transparent p-0 text-[12px] shadow-none" />
+              <span className="text-slate-400">-</span>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 min-w-[132px] border-none bg-transparent p-0 text-[12px] shadow-none" />
+            </div>
+
+            <Button variant="outline" className="h-10 rounded-2xl border-slate-200 bg-white px-4" onClick={loadSummary} disabled={loading}>
+              <RefreshCw size={14} className={cn("mr-2", loading && "animate-spin")} />
+              Làm mới
+            </Button>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="h-10 rounded-2xl border-slate-200 bg-white px-4">
+                  <HelpCircle size={16} className="mr-2" />
+                  Trợ giúp
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[620px]">
+                <DialogHeader>
+                  <DialogTitle>Hướng dẫn trang Báo cáo doanh thu</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 text-sm text-slate-600">
+                  <p>Phần trên cùng hiển thị xu hướng doanh thu và tiến độ giao hàng theo khoảng ngày bạn chọn.</p>
+                  <p>Các nhóm Trả hàng, Thanh toán và Đơn hàng bên dưới đều có nút để đổi sang bảng chi tiết thật ở phần cuối trang.</p>
+                  <p>Nút Excel và PDF sẽ xuất đúng bảng chi tiết đang mở, không dùng dữ liệu mẫu.</p>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
-
-          <Button variant="outline" className="h-9 rounded-none bg-white" onClick={loadSummary} disabled={loading}>
-            <RefreshCw size={14} className={cn("mr-2", loading && "animate-spin")} />
-            Làm mới
-          </Button>
-
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="h-9 rounded-none bg-white">
-                <HelpCircle size={16} className="mr-2" />
-                Trợ giúp
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[620px]">
-              <DialogHeader>
-                <DialogTitle>Hướng dẫn trang Báo cáo bán hàng</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 text-sm text-slate-600">
-                <p>Phần trên cùng hiển thị xu hướng doanh thu và tiến độ giao hàng theo khoảng ngày bạn chọn.</p>
-                <p>Các nhóm Trả hàng, Thanh toán và Đơn hàng bên dưới đều có nút để đổi sang bảng chi tiết thật ở phần cuối trang.</p>
-                <p>Nút Excel và PDF sẽ xuất đúng bảng chi tiết đang mở, không dùng dữ liệu mẫu.</p>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="flex h-[430px] flex-col rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-          <div className="flex items-start justify-between p-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {overviewCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={card.label}
+              className={cn(
+                "rounded-[22px] border border-white/70 bg-gradient-to-br p-5 shadow-[0_20px_40px_-34px_rgba(15,23,42,0.45)]",
+                card.tone,
+              )}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    {card.label}
+                  </p>
+                  <p className="mt-2 text-[26px] font-black tracking-tight text-slate-900">
+                    {card.value}
+                  </p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
+                  <Icon size={20} />
+                </div>
+              </div>
+              <p className="text-[12px] text-slate-500">{card.hint}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]">
+        <div className="flex h-[460px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+          <div className="flex items-start justify-between p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">
                 Doanh thu cửa hàng
@@ -397,7 +462,7 @@ export default function SalesReportPage() {
             </div>
           </div>
 
-          <div className="mb-4 flex items-center justify-between px-5">
+          <div className="mb-4 flex items-center justify-between px-6">
             <button
               type="button"
               onClick={() => openDetail(revenueReportType)}
@@ -410,7 +475,7 @@ export default function SalesReportPage() {
             </span>
           </div>
 
-          <div className="min-h-[220px] flex-1 px-5">
+          <div className="min-h-[240px] flex-1 px-6">
             {loading ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">Đang tải biểu đồ...</div>
             ) : (
@@ -418,24 +483,24 @@ export default function SalesReportPage() {
             )}
           </div>
 
-          <div className="space-y-3 border-t border-slate-50 bg-[#fcfcfc] p-5">
+          <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-6">
             <Select value={revenueReportType} onValueChange={(value) => setRevenueReportType(value as "revenue_time" | "revenue_employee")}>
-              <SelectTrigger className="h-9 rounded-none border-slate-200 bg-white text-[13px]">
+              <SelectTrigger className="h-10 rounded-2xl border-slate-200 bg-white text-[13px]">
                 <SelectValue placeholder="Chọn loại báo cáo" />
               </SelectTrigger>
-              <SelectContent className="rounded-none">
+              <SelectContent className="rounded-2xl">
                 <SelectItem value="revenue_time">Báo cáo doanh thu theo thời gian</SelectItem>
                 <SelectItem value="revenue_employee">Báo cáo doanh thu theo nhân viên</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-9 w-full rounded-none" onClick={() => openDetail(revenueReportType)}>
+            <Button className="h-10 w-full rounded-2xl" onClick={() => openDetail(revenueReportType)}>
               Xem chi tiết báo cáo này
             </Button>
           </div>
         </div>
 
-        <div className="flex h-[430px] flex-col rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-          <div className="flex items-start justify-between p-5">
+        <div className="flex h-[460px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+          <div className="flex items-start justify-between p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">
                 Thông tin giao hàng
@@ -449,7 +514,7 @@ export default function SalesReportPage() {
             </div>
           </div>
 
-          <div className="mb-4 px-5">
+          <div className="mb-4 px-6">
             <button
               type="button"
               onClick={() => openDetail("delivery_detail")}
@@ -459,7 +524,7 @@ export default function SalesReportPage() {
             </button>
           </div>
 
-          <div className="flex-1 space-y-3 px-5">
+          <div className="flex-1 space-y-3 px-6">
             {loading ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">Đang tải thống kê giao hàng...</div>
             ) : (
@@ -480,25 +545,25 @@ export default function SalesReportPage() {
             )}
           </div>
 
-          <div className="space-y-3 border-t border-slate-50 bg-[#fcfcfc] p-5">
+          <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-6">
             <Select value="delivery_detail" onValueChange={() => openDetail("delivery_detail")}>
-              <SelectTrigger className="h-9 rounded-none border-slate-200 bg-white text-[13px]">
+              <SelectTrigger className="h-10 rounded-2xl border-slate-200 bg-white text-[13px]">
                 <SelectValue placeholder="Chọn loại báo cáo" />
               </SelectTrigger>
-              <SelectContent className="rounded-none">
+              <SelectContent className="rounded-2xl">
                 <SelectItem value="delivery_detail">Báo cáo giao hàng chi tiết</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-9 w-full rounded-none" onClick={() => openDetail("delivery_detail")}>
+            <Button className="h-10 w-full rounded-2xl" onClick={() => openDetail("delivery_detail")}>
               Xem tiến độ giao hàng
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="flex min-h-[250px] flex-col rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-          <div className="flex items-start justify-between border-b border-slate-50 p-5">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="flex min-h-[280px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+          <div className="flex items-start justify-between border-b border-slate-100 p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">Trả hàng</h2>
               <p className="text-[11px] text-slate-400">Theo đơn và theo sản phẩm</p>
@@ -507,17 +572,17 @@ export default function SalesReportPage() {
               {loading ? "..." : summary?.returns.totalReturnedOrders || 0}
             </div>
           </div>
-          <div className="px-5 pt-3 text-[12px] text-rose-600">
+          <div className="px-6 pt-3 text-[12px] text-rose-600">
             Giá trị trả: {formatNumber(summary?.returns.totalReturnedAmount || 0)}
           </div>
-          <div className="space-y-1 p-5">
+          <div className="space-y-2 p-6">
             <ReportLink label="Trả hàng theo đơn hàng" icon={RotateCcw} type="returns_by_order" />
             <ReportLink label="Trả hàng theo sản phẩm" icon={Package} type="returns_by_product" />
           </div>
         </div>
 
-        <div className="flex min-h-[250px] flex-col rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-          <div className="flex items-start justify-between border-b border-slate-50 p-5">
+        <div className="flex min-h-[280px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+          <div className="flex items-start justify-between border-b border-slate-100 p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">Thanh toán</h2>
               <p className="text-[11px] text-slate-400">Theo thời gian, nhân viên, phương thức, chi nhánh</p>
@@ -531,7 +596,7 @@ export default function SalesReportPage() {
               </p>
             </div>
           </div>
-          <div className="space-y-1 p-5">
+          <div className="space-y-2 p-6">
             <ReportLink label="Báo cáo thanh toán theo thời gian" icon={Calendar} type="payment_time" />
             <ReportLink label="Báo cáo thanh toán theo nhân viên" icon={Users} type="payment_employee" />
             <ReportLink label="Báo cáo theo phương thức thanh toán" icon={CreditCard} type="payment_method" />
@@ -539,8 +604,8 @@ export default function SalesReportPage() {
           </div>
         </div>
 
-        <div className="flex min-h-[250px] flex-col rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-          <div className="flex items-start justify-between border-b border-slate-50 p-5">
+        <div className="flex min-h-[280px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+          <div className="flex items-start justify-between border-b border-slate-100 p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">Đơn hàng</h2>
               <p className="text-[11px] text-slate-400">Thống kê tổng hợp và chi tiết bán hàng</p>
@@ -554,19 +619,19 @@ export default function SalesReportPage() {
               </p>
             </div>
           </div>
-          <div className="px-5 pt-3 text-[12px] text-emerald-600">
+          <div className="px-6 pt-3 text-[12px] text-emerald-600">
             Sản phẩm bán ra: {summary?.orders.totalProductsSold || 0}
           </div>
-          <div className="space-y-1 p-5">
+          <div className="space-y-2 p-6">
             <ReportLink label="Báo cáo thống kê theo đơn hàng" icon={ShoppingCart} type="order_stats" />
             <ReportLink label="Báo cáo thống kê theo sản phẩm" icon={Package} type="order_product" />
-            <ReportLink label="Báo cáo bán hàng chi tiết" icon={FileText} type="order_detail" />
+            <ReportLink label="Báo cáo doanh thu chi tiết" icon={FileText} type="order_detail" />
           </div>
         </div>
       </div>
 
-      <div className="rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+      <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
           <div>
             <h3 className="text-[15px] font-black uppercase tracking-wider text-slate-700">
               {detail?.label || DETAIL_OPTIONS[activeDetailType]}
@@ -583,21 +648,21 @@ export default function SalesReportPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Tìm trong bảng chi tiết..."
-                className="h-9 rounded-none border-slate-200 pl-10 shadow-none"
+                className="h-10 rounded-2xl border-slate-200 pl-10 shadow-none"
               />
             </div>
-            <Button variant="outline" className="h-9 rounded-none" onClick={exportExcel} disabled={!detail}>
+            <Button variant="outline" className="h-10 rounded-2xl border-slate-200" onClick={exportExcel} disabled={!detail}>
               <Download size={14} className="mr-2" />
               Excel
             </Button>
-            <Button variant="outline" className="h-9 rounded-none" onClick={exportPdf} disabled={!detail}>
+            <Button variant="outline" className="h-10 rounded-2xl border-slate-200" onClick={exportPdf} disabled={!detail}>
               <FileText size={14} className="mr-2" />
               PDF
             </Button>
           </div>
         </div>
 
-        <div className="px-5 py-3 text-[12px] text-slate-500">
+        <div className="px-6 py-3 text-[12px] text-slate-500">
           {detailLoading ? "Đang tải dữ liệu..." : `Hiển thị ${filteredRows.length} / ${detail?.totalRows || 0} dòng`}
         </div>
 
