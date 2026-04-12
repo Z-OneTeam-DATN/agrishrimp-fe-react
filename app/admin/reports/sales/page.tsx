@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   ChevronDown,
@@ -124,6 +124,7 @@ const formatCellValue = (value: unknown, key: string) => {
 };
 
 export default function SalesReportPage() {
+  const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -277,12 +278,31 @@ export default function SalesReportPage() {
     toast.success("Đã xuất PDF báo cáo");
   };
 
-  const openDetail = (type: keyof typeof DETAIL_OPTIONS) => {
+  const openDetail = useCallback((type: keyof typeof DETAIL_OPTIONS) => {
     setActiveDetailType(type);
     if (type === "revenue_time" || type === "revenue_employee") {
       setRevenueReportType(type);
     }
-  };
+  }, []);
+
+  const scrollToDetailSection = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      detailSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  const handleViewDetail = useCallback(async (type: keyof typeof DETAIL_OPTIONS = activeDetailType) => {
+    const isSameType = type === activeDetailType;
+
+    if (!isSameType) {
+      openDetail(type);
+      scrollToDetailSection();
+      return;
+    }
+
+    await loadDetail(type);
+    scrollToDetailSection();
+  }, [activeDetailType, loadDetail, openDetail, scrollToDetailSection]);
 
   const deliveryMax = Math.max(1, ...(summary?.delivery.breakdown.map((item) => item.count) || [1]));
   const overviewCards = [
@@ -358,7 +378,7 @@ export default function SalesReportPage() {
 
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="ghost" className="h-[36px] rounded-[4px] border border-[#dcdcdc] text-[13px] font-medium">
+            <Button variant="ghost" className="h-[36px] rounded-none border-none bg-transparent px-0 text-[13px] font-medium shadow-none hover:bg-transparent hover:text-blue-600">
               <HelpCircle size={16} className="mr-2 text-slate-500" />
               Trợ giúp
             </Button>
@@ -422,7 +442,7 @@ export default function SalesReportPage() {
             Tải báo cáo
           </Button>
 
-          <Button variant="outline" className="h-[38px] rounded-none border-[#dcdcdc] bg-white px-4" onClick={() => openDetail(activeDetailType)}>
+          <Button variant="outline" className="h-[38px] rounded-none border-[#dcdcdc] bg-white px-4" onClick={() => void handleViewDetail()}>
             Xem chi tiết
           </Button>
         </div>
@@ -501,7 +521,7 @@ export default function SalesReportPage() {
                 <SelectItem value="revenue_employee">Báo cáo doanh thu theo nhân viên</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-[38px] w-full rounded-none bg-blue-600 text-white hover:bg-blue-700" onClick={() => openDetail(revenueReportType)}>
+            <Button className="h-[38px] w-full rounded-none bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail(revenueReportType)}>
               Xem chi tiết báo cáo này
             </Button>
           </div>
@@ -562,7 +582,7 @@ export default function SalesReportPage() {
                 <SelectItem value="delivery_detail">Báo cáo giao hàng chi tiết</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-[38px] w-full rounded-none bg-blue-600 text-white hover:bg-blue-700" onClick={() => openDetail("delivery_detail")}>
+            <Button className="h-[38px] w-full rounded-none bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail("delivery_detail")}>
               Xem tiến độ giao hàng
             </Button>
           </div>
@@ -638,7 +658,7 @@ export default function SalesReportPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+      <div ref={detailSectionRef} className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
           <div>
             <h3 className="text-[15px] font-black uppercase tracking-wider text-slate-700">
