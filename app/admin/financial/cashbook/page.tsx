@@ -51,14 +51,11 @@ import {
   Pie,
   PieChart,
   ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 
 type BranchOption = { id: number; name: string; branchCode?: string };
 type ChartMode = "day" | "month";
@@ -272,15 +269,6 @@ export default function CashbookPage() {
     },
   ];
 
-  const mainChartConfig = {
-    income: { label: "Thu", color: "#10b981" },
-    expense: { label: "Chi", color: "#ef4444" },
-  };
-
-  const netChartConfig = {
-    net: { label: "Dòng tiền ròng", color: "#2563eb" },
-  };
-
   return (
     <div className="min-h-screen space-y-0 bg-[#f0f2f5] pb-10">
       <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
@@ -465,68 +453,59 @@ export default function CashbookPage() {
                     </span>
                   </div>
 
-                  <ChartContainer
-                    config={mainChartConfig}
-                    className="h-[300px] w-full"
-                  >
-                    <BarChart
-                      data={chartWindow}
-                      barGap={10}
-                      barCategoryGap="28%"
-                      margin={{ top: 12, right: 8, left: 6, bottom: 6 }}
-                    >
-                      <CartesianGrid
-                        vertical={false}
-                        strokeDasharray="4 4"
-                        stroke="#e2e8f0"
-                      />
-                      <XAxis
-                        dataKey="period"
-                        axisLine={false}
-                        tickLine={false}
-                        interval={0}
-                        minTickGap={16}
-                        tick={{ fontSize: 10, fill: "#64748b" }}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        width={52}
-                        tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        tickFormatter={(value: number) => compactCurrency(value)}
-                      />
-                      <ChartTooltip
-                        cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(label) => `Kỳ ${label}`}
-                            formatter={(value, name) => (
-                              <div className="flex min-w-[150px] items-center justify-between gap-4">
-                                <span className="text-slate-500">{name}</span>
-                                <span className="font-semibold text-slate-900">
-                                  {formatNumber(Number(value))}
-                                </span>
-                              </div>
-                            )}
-                          />
-                        }
-                      />
-                      <Bar
-                        dataKey="income"
-                        name="Thu"
-                        radius={[8, 8, 0, 0]}
-                        fill="var(--color-income)"
-                        maxBarSize={28}
-                      />
-                      <Bar
-                        dataKey="expense"
-                        name="Chi"
-                        radius={[8, 8, 0, 0]}
-                        fill="var(--color-expense)"
-                        maxBarSize={28}
-                      />
-                    </BarChart>
-                  </ChartContainer>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={chartWindow}
+                        barGap={10}
+                        barCategoryGap="28%"
+                        margin={{ top: 12, right: 8, left: 6, bottom: 6 }}
+                      >
+                        <CartesianGrid
+                          vertical={false}
+                          strokeDasharray="4 4"
+                          stroke="#e2e8f0"
+                        />
+                        <XAxis
+                          dataKey="period"
+                          axisLine={false}
+                          tickLine={false}
+                          interval={0}
+                          minTickGap={16}
+                          tick={{ fontSize: 10, fill: "#64748b" }}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          width={52}
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          tickFormatter={(value: number) => compactCurrency(value)}
+                        />
+                        <Tooltip
+                          cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
+                          formatter={(value: number, name: string) => [
+                            formatNumber(Number(value)),
+                            name,
+                          ]}
+                          labelFormatter={(label) => `Kỳ ${label}`}
+                        />
+                        <Bar
+                          dataKey="income"
+                          name="Thu"
+                          radius={[8, 8, 0, 0]}
+                          fill="#10b981"
+                          maxBarSize={28}
+                        />
+                        <Bar
+                          dataKey="expense"
+                          name="Chi"
+                          radius={[8, 8, 0, 0]}
+                          fill="#ef4444"
+                          maxBarSize={28}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
@@ -547,40 +526,30 @@ export default function CashbookPage() {
 
                     <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_minmax(0,1fr)] xl:grid-cols-1">
                       <div className="relative">
-                        <ChartContainer
-                          config={mainChartConfig}
-                          className="mx-auto h-[190px] max-w-[190px]"
-                        >
-                          <PieChart>
-                            <ChartTooltip
-                              content={
-                                <ChartTooltipContent
-                                  hideLabel
-                                  formatter={(value, name) => (
-                                    <div className="flex min-w-[140px] items-center justify-between gap-3">
-                                      <span className="text-slate-500">{name}</span>
-                                      <span className="font-semibold text-slate-900">
-                                        {formatNumber(Number(value))}
-                                      </span>
-                                    </div>
-                                  )}
-                                />
-                              }
-                            />
-                            <Pie
-                              data={distributionData}
-                              dataKey="value"
-                              nameKey="label"
-                              innerRadius={52}
-                              outerRadius={78}
-                              strokeWidth={6}
-                            >
-                              {distributionData.map((entry) => (
-                                <Cell key={entry.name} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </ChartContainer>
+                        <div className="mx-auto h-[190px] w-[190px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Tooltip
+                                formatter={(value: number, name: string) => [
+                                  formatNumber(Number(value)),
+                                  name,
+                                ]}
+                              />
+                              <Pie
+                                data={distributionData}
+                                dataKey="value"
+                                nameKey="label"
+                                innerRadius={52}
+                                outerRadius={78}
+                                strokeWidth={6}
+                              >
+                                {distributionData.map((entry) => (
+                                  <Cell key={entry.name} fill={entry.fill} />
+                                ))}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
                         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                             Lưu chuyển
@@ -653,49 +622,36 @@ export default function CashbookPage() {
                       </span>
                     </div>
 
-                    <ChartContainer
-                      config={netChartConfig}
-                      className="h-[190px] w-full"
-                    >
-                      <BarChart
-                        data={chartWindow}
-                        barCategoryGap="35%"
-                        margin={{ top: 8, right: 4, left: 0, bottom: 2 }}
-                      >
-                        <CartesianGrid
-                          vertical={false}
-                          strokeDasharray="4 4"
-                          stroke="#e2e8f0"
-                        />
-                        <XAxis dataKey="period" hide />
-                        <YAxis hide domain={[-netAbsMax, netAbsMax]} />
-                        <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
-                        <ChartTooltip
-                          cursor={false}
-                          content={
-                            <ChartTooltipContent
-                              hideLabel
-                              formatter={(value) => (
-                                <div className="flex min-w-[140px] items-center justify-between gap-3">
-                                  <span className="text-slate-500">Ròng</span>
-                                  <span className="font-semibold text-slate-900">
-                                    {formatNumber(Number(value))}
-                                  </span>
-                                </div>
-                              )}
-                            />
-                          }
-                        />
-                        <Bar dataKey="net" radius={[6, 6, 0, 0]} maxBarSize={24}>
-                          {chartWindow.map((item) => (
-                            <Cell
-                              key={`net-${item.period}`}
-                              fill={item.net >= 0 ? "#3b82f6" : "#f59e0b"}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ChartContainer>
+                    <div className="h-[190px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={chartWindow}
+                          barCategoryGap="35%"
+                          margin={{ top: 8, right: 4, left: 0, bottom: 2 }}
+                        >
+                          <CartesianGrid
+                            vertical={false}
+                            strokeDasharray="4 4"
+                            stroke="#e2e8f0"
+                          />
+                          <XAxis dataKey="period" hide />
+                          <YAxis hide domain={[-netAbsMax, netAbsMax]} />
+                          <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
+                          <Tooltip
+                            cursor={false}
+                            formatter={(value: number) => [formatNumber(Number(value)), "Ròng"]}
+                          />
+                          <Bar dataKey="net" radius={[6, 6, 0, 0]} maxBarSize={24}>
+                            {chartWindow.map((item) => (
+                              <Cell
+                                key={`net-${item.period}`}
+                                fill={item.net >= 0 ? "#3b82f6" : "#f59e0b"}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-500">
                       <span>Dương: xanh</span>
