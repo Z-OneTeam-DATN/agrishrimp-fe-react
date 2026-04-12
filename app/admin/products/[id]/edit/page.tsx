@@ -1160,7 +1160,7 @@ export default function EditProductPage() {
     if (isFetching) return (<div className="flex flex-col items-center justify-center min-h-[400px] gap-3"><Loader2 className="h-10 w-10 animate-spin text-emerald-600" /><p className="text-sm text-slate-500 font-medium">Đang tải thông tin sản phẩm...</p></div>);
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-[124px] bg-slate-50/30 p-3 sm:p-4 lg:p-5 max-w-[1680px] mx-auto">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-[170px] sm:pb-[150px] bg-slate-50/30 p-3 sm:p-4 lg:p-5 max-w-[1680px] mx-auto">
             <div className="flex items-center gap-3 mb-2 px-1">
                 <Button type="button" variant="ghost" size="icon" onClick={() => {
                     if (confirmLeaveIfDirty()) {
@@ -1353,7 +1353,7 @@ export default function EditProductPage() {
                             )}
                         </div>
 
-                        <div ref={variantListRef} className={cn("divide-y divide-slate-100", fields.length > VARIANT_VIRTUAL_THRESHOLD && "max-h-[calc(100vh-290px)] overflow-y-auto overscroll-contain pr-1")}>
+                        <div ref={variantListRef} className={cn("divide-y divide-slate-100", fields.length > VARIANT_VIRTUAL_THRESHOLD && "max-h-[calc(100vh-430px)] lg:max-h-[calc(100vh-360px)] overflow-y-auto overscroll-contain pr-1")}>
                             {variantWindow.virtual && <div style={{ height: variantWindow.topPadding }} />}
                             {renderedVariantEntries.map(({ field, idx }) => {
                                 const extraData = variantDataMap[idx] || { quantity: 0, batches: [] };
