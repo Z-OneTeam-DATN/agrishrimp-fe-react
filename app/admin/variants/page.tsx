@@ -401,7 +401,7 @@ export default function AttributeManagementPage() {
 
       {/* DIALOG THÊM / SỬA */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="w-[95vw] max-w-[680px] bg-white p-0 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
+        <DialogContent className="w-[95vw] max-w-[680px] max-h-[92vh] bg-white p-0 overflow-hidden flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
           <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b bg-slate-50">
             <DialogTitle className="text-lg font-black uppercase text-slate-800 flex items-center gap-2">
               <Settings2 size={20} className="text-emerald-600"/>
@@ -410,7 +410,7 @@ export default function AttributeManagementPage() {
             <p className="text-sm text-slate-500 font-medium mt-1">Thiết lập thông tin thuộc tính và danh sách giá trị dùng cho biến thể sản phẩm.</p>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="px-5 py-5 sm:px-6 sm:py-6 space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6 space-y-5">
             <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -493,7 +493,7 @@ export default function AttributeManagementPage() {
               </span>
             </div>
 
-            <DialogFooter className="pt-5 mt-1 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
+            <DialogFooter className="sticky bottom-0 bg-white pt-4 pb-1 mt-2 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="h-11 w-full sm:w-auto text-xs font-bold uppercase tracking-wide">Hủy bỏ</Button>
               <Button type="submit" disabled={isSaving} className="h-11 w-full sm:w-auto text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white min-w-[140px] uppercase tracking-wide">
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save size={16} className="mr-2" />}

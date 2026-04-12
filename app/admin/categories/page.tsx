@@ -523,7 +523,7 @@ export default function CategoryManagementPage() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="w-[95vw] max-w-[640px] p-0 overflow-hidden bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
+        <DialogContent className="w-[95vw] max-w-[640px] max-h-[92vh] p-0 overflow-hidden bg-white flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
           <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b bg-slate-50">
             <DialogTitle className="text-xl font-black uppercase text-slate-800 flex items-center gap-2">
               <Tag className="text-emerald-600" />
@@ -532,7 +532,7 @@ export default function CategoryManagementPage() {
             <p className="text-sm text-slate-500 font-medium mt-1">Điền thông tin để tạo hoặc cập nhật danh mục nhanh và chính xác.</p>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="px-5 py-5 sm:px-6 sm:py-6 space-y-5">
+          <form onSubmit={handleSave} className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6 space-y-5">
             <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
               <div className="flex flex-col items-center gap-3">
                 <div className={cn("w-28 h-28 rounded-xl border-2 border-dashed flex items-center justify-center relative overflow-hidden bg-white group transition-all duration-200", formData.imageUrl ? "border-slate-200" : "border-slate-300 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm")}>
@@ -635,7 +635,7 @@ export default function CategoryManagementPage() {
               </div>
             </div>
 
-            <DialogFooter className="pt-5 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
+            <DialogFooter className="sticky bottom-0 bg-white pt-4 pb-1 mt-2 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="h-11 w-full sm:w-auto px-6 text-xs font-bold uppercase tracking-widest">Hủy</Button>
               <Button type="submit" disabled={isSaving} className="h-11 w-full sm:w-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-100">
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
