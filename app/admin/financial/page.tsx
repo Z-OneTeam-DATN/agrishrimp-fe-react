@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,11 +13,17 @@ import {
   CircleDollarSign,
   TrendingUp,
   TrendingDown,
-  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FinancialService, ProfitLossData, SupplierDebtData } from "@/app/services/financial.service";
 import { branchService } from "@/app/services/branchService";
@@ -62,6 +68,7 @@ export default function FinancialReportListPage() {
   const [loading, setLoading] = useState(false);
   const [profitLoss, setProfitLoss] = useState<ProfitLossData | null>(null);
   const [supplierDebts, setSupplierDebts] = useState<SupplierDebtData[]>([]);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -76,7 +83,7 @@ export default function FinancialReportListPage() {
     loadBranches();
   }, []);
 
-  const loadFinancialData = async () => {
+  const loadFinancialData = useCallback(async () => {
     try {
       setLoading(true);
       const branchId = selectedBranchId === "all" ? "all" : selectedBranchId;
@@ -94,11 +101,11 @@ export default function FinancialReportListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedBranchId, startDate, endDate]);
 
   useEffect(() => {
     loadFinancialData();
-  }, [selectedBranchId]);
+  }, [loadFinancialData]);
 
   const metrics = useMemo(() => {
     const revenue = Number(profitLoss?.revenue ?? 0);
@@ -136,7 +143,11 @@ export default function FinancialReportListPage() {
           <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.25em] mb-1">Kinh doanh / tài chính</p>
           <h1 className="text-[28px] font-black text-[#1f1f1f] uppercase">Danh sách báo cáo tài chính</h1>
         </div>
-        <Button variant="ghost" className="border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2">
+        <Button
+          variant="ghost"
+          className="border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2"
+          onClick={() => setIsHelpOpen(true)}
+        >
           <HelpCircle size={18} className="text-slate-500" /> Trợ giúp
         </Button>
       </div>
@@ -296,6 +307,24 @@ export default function FinancialReportListPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+        <DialogContent className="max-w-2xl rounded-none">
+          <DialogHeader>
+            <DialogTitle className="uppercase">Trợ giúp danh sách báo cáo tài chính</DialogTitle>
+            <DialogDescription>
+              Trang này là điểm vào các báo cáo nghiệp vụ tài chính thật, dùng dữ liệu từ backend theo chi nhánh và khoảng ngày đã chọn.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-slate-600">
+            <p><span className="font-bold text-slate-800">Báo cáo lãi lỗ:</span> xem doanh thu, chi phí và lợi nhuận theo kỳ.</p>
+            <p><span className="font-bold text-slate-800">Sổ quỹ:</span> tổng hợp thu chi tiền mặt, xem biểu đồ và giao dịch chi tiết.</p>
+            <p><span className="font-bold text-slate-800">Công nợ nhà cung cấp:</span> kiểm tra số dư nợ theo kỳ, chi nhánh và người phụ trách.</p>
+            <p><span className="font-bold text-slate-800">Tải báo cáo:</span> vào từng card để xem chi tiết và xuất file theo nghiệp vụ tương ứng.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
