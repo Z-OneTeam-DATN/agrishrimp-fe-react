@@ -2018,7 +2018,7 @@ export default function AddProductPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white/95 backdrop-blur border-t border-[#ddd] p-3 sm:p-[12px_20px] lg:p-[12px_30px] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+            <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-[#ddd] p-3 sm:p-[12px_20px] lg:p-[12px_30px] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
                 <Button
                     type="button"
                     variant="outline"

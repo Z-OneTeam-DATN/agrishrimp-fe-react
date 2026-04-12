@@ -1777,7 +1777,7 @@ export default function EditProductPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="fixed bottom-0 right-0 left-0 lg:left-[260px] bg-white/95 backdrop-blur border-t p-3 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+            <div className="sticky bottom-0 right-0 left-0 bg-white/95 backdrop-blur border-t p-3 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
                 <Button type="button" variant="outline" onClick={() => {
                     if (confirmLeaveIfDirty()) {
                         setAllowUnload(true);
