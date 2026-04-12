@@ -329,8 +329,8 @@ export default function SalesReportPage() {
       type="button"
       onClick={() => openDetail(type)}
       className={cn(
-        "flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-3 text-left transition-all hover:border-slate-200 hover:bg-slate-50",
-        activeDetailType === type && "border-blue-200 bg-blue-50/80 shadow-sm",
+        "flex w-full items-center justify-between border border-transparent px-3 py-3 text-left transition-all hover:bg-slate-50",
+        activeDetailType === type && "border-blue-100 bg-blue-50/60",
       )}
     >
       <div className="flex items-center gap-3">
@@ -340,34 +340,52 @@ export default function SalesReportPage() {
         </span>
       </div>
       {activeDetailType === type && (
-        <Badge className="rounded-full bg-blue-600 px-3 text-white">Đang xem</Badge>
+        <Badge className="rounded-none bg-blue-600 px-2 text-white">Đang xem</Badge>
       )}
     </button>
   );
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#eef2f7] p-4 pb-10 md:p-6">
-      <div className="rounded-[24px] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_20px_45px_-32px_rgba(15,23,42,0.35)] md:px-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="max-w-2xl">
-            <div className="mb-3 inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-blue-700">
-              Trung tâm báo cáo
-            </div>
-            <h1 className="text-[24px] font-black tracking-tight text-slate-900 md:text-[28px]">
-              Báo cáo doanh thu
-            </h1>
-            <p className="mt-2 max-w-2xl text-[13px] leading-6 text-slate-500">
-              Theo dõi doanh thu, giao hàng, trả hàng, thanh toán và toàn bộ chi tiết đơn bán theo chi nhánh, nhân viên và khoảng thời gian thực tế.
-            </p>
-          </div>
+    <div className="min-h-screen space-y-6 bg-[#f0f2f5] p-6 pb-10">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.25em] text-slate-500">Báo cáo / kinh doanh</p>
+          <h1 className="text-[28px] font-black uppercase text-[#1f1f1f]">Báo cáo doanh thu</h1>
+          <p className="mt-1 text-[13px] text-slate-500">
+            Theo dõi doanh thu, giao hàng, trả hàng, thanh toán và chi tiết đơn bán theo dữ liệu thực tế.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3 xl:max-w-[720px] xl:justify-end">
-            <div className="flex items-center gap-0 rounded-2xl border border-slate-200 bg-slate-50/80 px-1">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" className="h-[36px] rounded-[4px] border border-[#dcdcdc] text-[13px] font-medium">
+              <HelpCircle size={16} className="mr-2 text-slate-500" />
+              Trợ giúp
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[620px] rounded-none">
+            <DialogHeader>
+              <DialogTitle>Hướng dẫn trang Báo cáo doanh thu</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm text-slate-600">
+              <p>Phần trên cùng hiển thị xu hướng doanh thu và tiến độ giao hàng theo khoảng ngày bạn chọn.</p>
+              <p>Các nhóm Trả hàng, Thanh toán và Đơn hàng bên dưới đều có nút để đổi sang bảng chi tiết thật ở phần cuối trang.</p>
+              <p>Nút Excel và PDF sẽ xuất đúng bảng chi tiết đang mở, không dùng dữ liệu mẫu.</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-1 items-end gap-3 lg:grid-cols-[1.1fr_1fr_1fr_auto_auto]">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Chi nhánh</p>
+            <div className="flex items-center gap-0 rounded-[4px] border border-[#dcdcdc] bg-white">
               <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                <SelectTrigger className="h-10 w-[220px] rounded-2xl border-none bg-transparent text-[12px] shadow-none">
+                <SelectTrigger className="h-[38px] w-full rounded-none border-none bg-transparent text-[12px] shadow-none">
                   <SelectValue placeholder="Tất cả chi nhánh" />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl">
+                <SelectContent className="rounded-none">
                   <SelectItem value="all">Tất cả chi nhánh</SelectItem>
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id.toString()}>
@@ -377,72 +395,62 @@ export default function SalesReportPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-1.5">
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 min-w-[132px] border-none bg-transparent p-0 text-[12px] shadow-none" />
-              <span className="text-slate-400">-</span>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 min-w-[132px] border-none bg-transparent p-0 text-[12px] shadow-none" />
-            </div>
-
-            <Button variant="outline" className="h-10 rounded-2xl border-slate-200 bg-white px-4" onClick={loadSummary} disabled={loading}>
-              <RefreshCw size={14} className={cn("mr-2", loading && "animate-spin")} />
-              Làm mới
-            </Button>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="h-10 rounded-2xl border-slate-200 bg-white px-4">
-                  <HelpCircle size={16} className="mr-2" />
-                  Trợ giúp
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[620px]">
-                <DialogHeader>
-                  <DialogTitle>Hướng dẫn trang Báo cáo doanh thu</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3 text-sm text-slate-600">
-                  <p>Phần trên cùng hiển thị xu hướng doanh thu và tiến độ giao hàng theo khoảng ngày bạn chọn.</p>
-                  <p>Các nhóm Trả hàng, Thanh toán và Đơn hàng bên dưới đều có nút để đổi sang bảng chi tiết thật ở phần cuối trang.</p>
-                  <p>Nút Excel và PDF sẽ xuất đúng bảng chi tiết đang mở, không dùng dữ liệu mẫu.</p>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Từ ngày</p>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="h-[38px] rounded-none border-[#dcdcdc] bg-white text-[13px] shadow-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Đến ngày</p>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="h-[38px] rounded-none border-[#dcdcdc] bg-white text-[13px] shadow-none"
+            />
+          </div>
+
+          <Button className="h-[38px] rounded-none bg-blue-600 px-4 text-white hover:bg-blue-700" onClick={loadSummary} disabled={loading}>
+            <RefreshCw size={14} className={cn("mr-2", loading && "animate-spin")} />
+            Tải báo cáo
+          </Button>
+
+          <Button variant="outline" className="h-[38px] rounded-none border-[#dcdcdc] bg-white px-4" onClick={() => openDetail(activeDetailType)}>
+            Xem chi tiết
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {overviewCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div
-              key={card.label}
-              className={cn(
-                "rounded-[22px] border border-white/70 bg-gradient-to-br p-5 shadow-[0_20px_40px_-34px_rgba(15,23,42,0.45)]",
-                card.tone,
-              )}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {card.label}
-                  </p>
-                  <p className="mt-2 text-[26px] font-black tracking-tight text-slate-900">
-                    {card.value}
-                  </p>
+            <div key={card.label} className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[4px] bg-blue-50 text-blue-600">
+                  <Icon size={18} />
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
-                  <Icon size={20} />
-                </div>
+                <Badge variant="secondary" className="rounded-none border-none bg-blue-50 text-blue-600">
+                  {card.label}
+                </Badge>
               </div>
-              <p className="text-[12px] text-slate-500">{card.hint}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{card.label}</p>
+              <p className="mt-1 text-2xl font-black tracking-tight text-slate-800">{card.value}</p>
+              <p className="mt-2 text-[12px] text-slate-500">{card.hint}</p>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.95fr)]">
-        <div className="flex h-[460px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(330px,0.95fr)]">
+        <div className="flex min-h-[460px] flex-col overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           <div className="flex items-start justify-between p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">
@@ -475,7 +483,7 @@ export default function SalesReportPage() {
             </span>
           </div>
 
-          <div className="min-h-[240px] flex-1 px-6">
+          <div className="h-[250px] flex-1 px-6">
             {loading ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">Đang tải biểu đồ...</div>
             ) : (
@@ -483,23 +491,23 @@ export default function SalesReportPage() {
             )}
           </div>
 
-          <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-6">
+          <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-5">
             <Select value={revenueReportType} onValueChange={(value) => setRevenueReportType(value as "revenue_time" | "revenue_employee")}>
-              <SelectTrigger className="h-10 rounded-2xl border-slate-200 bg-white text-[13px]">
+              <SelectTrigger className="h-[38px] rounded-none border-[#dcdcdc] bg-white text-[13px] shadow-none">
                 <SelectValue placeholder="Chọn loại báo cáo" />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl">
+              <SelectContent className="rounded-none">
                 <SelectItem value="revenue_time">Báo cáo doanh thu theo thời gian</SelectItem>
                 <SelectItem value="revenue_employee">Báo cáo doanh thu theo nhân viên</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-10 w-full rounded-2xl" onClick={() => openDetail(revenueReportType)}>
+            <Button className="h-[38px] w-full rounded-none bg-blue-600 text-white hover:bg-blue-700" onClick={() => openDetail(revenueReportType)}>
               Xem chi tiết báo cáo này
             </Button>
           </div>
         </div>
 
-        <div className="flex h-[460px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+        <div className="flex min-h-[460px] flex-col overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           <div className="flex items-start justify-between p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">
@@ -545,24 +553,24 @@ export default function SalesReportPage() {
             )}
           </div>
 
-          <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-6">
+          <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-5">
             <Select value="delivery_detail" onValueChange={() => openDetail("delivery_detail")}>
-              <SelectTrigger className="h-10 rounded-2xl border-slate-200 bg-white text-[13px]">
+              <SelectTrigger className="h-[38px] rounded-none border-[#dcdcdc] bg-white text-[13px] shadow-none">
                 <SelectValue placeholder="Chọn loại báo cáo" />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl">
+              <SelectContent className="rounded-none">
                 <SelectItem value="delivery_detail">Báo cáo giao hàng chi tiết</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-10 w-full rounded-2xl" onClick={() => openDetail("delivery_detail")}>
+            <Button className="h-[38px] w-full rounded-none bg-blue-600 text-white hover:bg-blue-700" onClick={() => openDetail("delivery_detail")}>
               Xem tiến độ giao hàng
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="flex min-h-[280px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="flex min-h-[280px] flex-col rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           <div className="flex items-start justify-between border-b border-slate-100 p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">Trả hàng</h2>
@@ -575,13 +583,13 @@ export default function SalesReportPage() {
           <div className="px-6 pt-3 text-[12px] text-rose-600">
             Giá trị trả: {formatNumber(summary?.returns.totalReturnedAmount || 0)}
           </div>
-          <div className="space-y-2 p-6">
+          <div className="space-y-1 p-5">
             <ReportLink label="Trả hàng theo đơn hàng" icon={RotateCcw} type="returns_by_order" />
             <ReportLink label="Trả hàng theo sản phẩm" icon={Package} type="returns_by_product" />
           </div>
         </div>
 
-        <div className="flex min-h-[280px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+        <div className="flex min-h-[280px] flex-col rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           <div className="flex items-start justify-between border-b border-slate-100 p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">Thanh toán</h2>
@@ -596,7 +604,7 @@ export default function SalesReportPage() {
               </p>
             </div>
           </div>
-          <div className="space-y-2 p-6">
+          <div className="space-y-1 p-5">
             <ReportLink label="Báo cáo thanh toán theo thời gian" icon={Calendar} type="payment_time" />
             <ReportLink label="Báo cáo thanh toán theo nhân viên" icon={Users} type="payment_employee" />
             <ReportLink label="Báo cáo theo phương thức thanh toán" icon={CreditCard} type="payment_method" />
@@ -604,7 +612,7 @@ export default function SalesReportPage() {
           </div>
         </div>
 
-        <div className="flex min-h-[280px] flex-col rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+        <div className="flex min-h-[280px] flex-col rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           <div className="flex items-start justify-between border-b border-slate-100 p-6">
             <div>
               <h2 className="text-[14px] font-black uppercase tracking-wider text-slate-700">Đơn hàng</h2>
@@ -622,7 +630,7 @@ export default function SalesReportPage() {
           <div className="px-6 pt-3 text-[12px] text-emerald-600">
             Sản phẩm bán ra: {summary?.orders.totalProductsSold || 0}
           </div>
-          <div className="space-y-2 p-6">
+          <div className="space-y-1 p-5">
             <ReportLink label="Báo cáo thống kê theo đơn hàng" icon={ShoppingCart} type="order_stats" />
             <ReportLink label="Báo cáo thống kê theo sản phẩm" icon={Package} type="order_product" />
             <ReportLink label="Báo cáo doanh thu chi tiết" icon={FileText} type="order_detail" />
@@ -630,7 +638,7 @@ export default function SalesReportPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_45px_-34px_rgba(15,23,42,0.35)]">
+      <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
           <div>
             <h3 className="text-[15px] font-black uppercase tracking-wider text-slate-700">
@@ -648,14 +656,14 @@ export default function SalesReportPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Tìm trong bảng chi tiết..."
-                className="h-10 rounded-2xl border-slate-200 pl-10 shadow-none"
+                className="h-[38px] rounded-none border-[#dcdcdc] pl-10 shadow-none"
               />
             </div>
-            <Button variant="outline" className="h-10 rounded-2xl border-slate-200" onClick={exportExcel} disabled={!detail}>
+            <Button variant="outline" className="h-[38px] rounded-none border-[#dcdcdc]" onClick={exportExcel} disabled={!detail}>
               <Download size={14} className="mr-2" />
               Excel
             </Button>
-            <Button variant="outline" className="h-10 rounded-2xl border-slate-200" onClick={exportPdf} disabled={!detail}>
+            <Button variant="outline" className="h-[38px] rounded-none border-[#dcdcdc]" onClick={exportPdf} disabled={!detail}>
               <FileText size={14} className="mr-2" />
               PDF
             </Button>
