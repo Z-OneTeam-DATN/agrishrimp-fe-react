@@ -170,7 +170,7 @@ export default function SupplierDebtReportPage() {
                         <Download size={16} /> Xuất file
                     </button>
                     <button onClick={() => setIsExplainOpen(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
-                        <HelpCircle size={16} /> Giải thích
+                        <HelpCircle size={16} /> Trợ giúp
                     </button>
                 </div>
             </div>
@@ -290,7 +290,7 @@ export default function SupplierDebtReportPage() {
             <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
                 <DialogContent className="max-w-2xl rounded-none">
                     <DialogHeader>
-                        <DialogTitle className="uppercase">Giải thích công nợ nhà cung cấp</DialogTitle>
+                        <DialogTitle className="uppercase">Trợ giúp công nợ nhà cung cấp</DialogTitle>
                         <DialogDescription>
                             Màn này lọc công nợ thật theo kỳ, chi nhánh, nhân viên phụ trách và trạng thái nợ cuối kỳ.
                         </DialogDescription>

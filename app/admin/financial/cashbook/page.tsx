@@ -348,7 +348,7 @@ export default function CashbookPage() {
             onClick={() => setIsExplainOpen(true)}
           >
             <HelpCircle size={14} className="mr-2" />
-            Giải thích
+            Trợ giúp
           </Button>
         </div>
       </div>
@@ -798,7 +798,7 @@ export default function CashbookPage() {
       <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
         <DialogContent className="max-w-2xl rounded-none">
           <DialogHeader>
-            <DialogTitle className="uppercase">Giải thích sổ quỹ</DialogTitle>
+            <DialogTitle className="uppercase">Trợ giúp sổ quỹ</DialogTitle>
             <DialogDescription>
               Sổ quỹ tổng hợp dữ liệu thật từ phiếu nhập, phiếu xuất và giao dịch kho theo kỳ đang chọn.
             </DialogDescription>

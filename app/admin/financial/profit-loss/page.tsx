@@ -248,7 +248,7 @@ export default function ProfitLossReportPage() {
                         <Download size={15} /> Xuất file
                     </button>
                     <button onClick={() => setIsExplainOpen(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
-                        <HelpCircle size={15} /> Giải thích
+                        <HelpCircle size={15} /> Trợ giúp
                     </button>
                 </div>
             </div>
@@ -329,7 +329,7 @@ export default function ProfitLossReportPage() {
             <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
                 <DialogContent className="max-w-2xl rounded-none">
                     <DialogHeader>
-                        <DialogTitle className="uppercase">Giải thích báo cáo lãi lỗ</DialogTitle>
+                        <DialogTitle className="uppercase">Trợ giúp báo cáo lãi lỗ</DialogTitle>
                         <DialogDescription>
                             Báo cáo này so sánh 2 kỳ để nhìn nhanh doanh thu, chi phí và lợi nhuận.
                         </DialogDescription>
