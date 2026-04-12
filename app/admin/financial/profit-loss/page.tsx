@@ -26,6 +26,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { cn, formatNumber } from "@/lib/utils";
 import { FinancialService, ProfitLossData } from "@/app/services/financial.service";
 import { apiJava } from "@/lib/axios"; // Dùng để gọi API danh sách chi nhánh
@@ -73,6 +80,7 @@ export default function ProfitLossReportPage() {
     const [loading, setLoading] = useState(true);
     const [currentData, setCurrentData] = useState<ProfitLossData | null>(null);
     const [prevData, setPrevData] = useState<ProfitLossData | null>(null);
+    const [isExplainOpen, setIsExplainOpen] = useState(false);
 
     // Lấy danh sách chi nhánh khi load trang
     useEffect(() => {
@@ -239,7 +247,7 @@ export default function ProfitLossReportPage() {
                     <button onClick={handleExportExcel} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-emerald-600 transition-colors uppercase">
                         <Download size={15} /> Xuất file
                     </button>
-                    <button className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
+                    <button onClick={() => setIsExplainOpen(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
                         <HelpCircle size={15} /> Giải thích
                     </button>
                 </div>
@@ -317,6 +325,24 @@ export default function ProfitLossReportPage() {
                     </Table>
                 </div>
             </div>
+
+            <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
+                <DialogContent className="max-w-2xl rounded-none">
+                    <DialogHeader>
+                        <DialogTitle className="uppercase">Giải thích báo cáo lãi lỗ</DialogTitle>
+                        <DialogDescription>
+                            Báo cáo này so sánh 2 kỳ để nhìn nhanh doanh thu, chi phí và lợi nhuận.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 text-sm text-slate-600">
+                        <p><span className="font-bold text-slate-800">Kỳ trước / Kỳ hiện tại:</span> dùng để đối chiếu biến động theo khoảng ngày và chi nhánh đang chọn.</p>
+                        <p><span className="font-bold text-slate-800">Doanh thu bán hàng:</span> gồm tiền hàng, VAT, phí giao hàng thu của khách và chiết khấu.</p>
+                        <p><span className="font-bold text-slate-800">Chi phí bán hàng:</span> gồm giá vốn, thanh toán bằng điểm và phí giao hàng trả đối tác.</p>
+                        <p><span className="font-bold text-slate-800">Lợi nhuận cuối:</span> phản ánh kết quả sau khi cộng thu nhập khác và trừ chi phí khác.</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

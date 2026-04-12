@@ -17,6 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -76,6 +83,7 @@ export default function CashbookPage() {
   const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>("all");
   const [chartMode, setChartMode] = useState<ChartMode>("day");
   const [entries, setEntries] = useState<CashbookEntry[]>([]);
+  const [isExplainOpen, setIsExplainOpen] = useState(false);
 
   useEffect(() => {
     const fetchInitial = async () => {
@@ -337,6 +345,7 @@ export default function CashbookPage() {
           <Button
             variant="ghost"
             className="h-8 rounded-none text-[12px] font-medium text-slate-500"
+            onClick={() => setIsExplainOpen(true)}
           >
             <HelpCircle size={14} className="mr-2" />
             Giải thích
@@ -785,6 +794,24 @@ export default function CashbookPage() {
           </div>
         </Card>
       </div>
+
+      <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
+        <DialogContent className="max-w-2xl rounded-none">
+          <DialogHeader>
+            <DialogTitle className="uppercase">Giải thích sổ quỹ</DialogTitle>
+            <DialogDescription>
+              Sổ quỹ tổng hợp dữ liệu thật từ phiếu nhập, phiếu xuất và giao dịch kho theo kỳ đang chọn.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-slate-600">
+            <p><span className="font-bold text-slate-800">Số dư đầu kỳ:</span> số tiền còn lại trước ngày bắt đầu lọc.</p>
+            <p><span className="font-bold text-slate-800">Tổng thu / Tổng chi:</span> tổng tiền vào và ra trong khoảng thời gian hiện tại.</p>
+            <p><span className="font-bold text-slate-800">Biểu đồ:</span> cho thấy xu hướng thu chi theo ngày hoặc theo tháng để nhìn biến động nhanh.</p>
+            <p><span className="font-bold text-slate-800">Danh sách giao dịch:</span> chi tiết từng phiếu theo chi nhánh, người tạo, số tiền và công nợ.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

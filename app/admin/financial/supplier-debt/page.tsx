@@ -33,6 +33,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { FinancialService, SupplierDebtData } from "@/app/services/financial.service";
 import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
@@ -40,6 +47,8 @@ import * as XLSX from "xlsx";
 
 type BranchOption = { id: number; name: string };
 type StaffOption = { id: number; displayName: string };
+type BranchApiItem = { id?: number | string; name?: string };
+type StaffApiItem = { id?: number | string; displayName?: string; name?: string; username?: string };
 
 const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -56,6 +65,7 @@ export default function SupplierDebtReportPage() {
     const [staffId, setStaffId] = useState<string>("all");
     const [branches, setBranches] = useState<BranchOption[]>([]);
     const [staffs, setStaffs] = useState<StaffOption[]>([]);
+    const [isExplainOpen, setIsExplainOpen] = useState(false);
 
     const [debtFilter, setDebtFilter] = useState<string>("not_zero"); // "all", "not_zero", "zero"
 
@@ -68,13 +78,13 @@ export default function SupplierDebtReportPage() {
                 ]);
 
                 const branchItems = Array.isArray(branchRes) ? branchRes : (branchRes?.data || branchRes?.content || []);
-                setBranches(branchItems.map((item: any) => ({ id: Number(item.id), name: item.name })));
+                setBranches((branchItems as BranchApiItem[]).map((item) => ({ id: Number(item.id), name: item.name || "Chi nhánh" })));
 
                 const staffItems = Array.isArray(staffRes) ? staffRes : (staffRes?.data || staffRes?.content || []);
                 setStaffs(
-                    staffItems
-                        .filter((item: any) => item?.id)
-                        .map((item: any) => ({
+                    (staffItems as StaffApiItem[])
+                        .filter((item) => item?.id)
+                        .map((item) => ({
                             id: Number(item.id),
                             displayName: item.displayName || item.name || item.username || `User ${item.id}`,
                         }))
@@ -159,7 +169,7 @@ export default function SupplierDebtReportPage() {
                     <button onClick={handleExportExcel} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-emerald-600 transition-colors uppercase">
                         <Download size={16} /> Xuất file
                     </button>
-                    <button className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
+                    <button onClick={() => setIsExplainOpen(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
                         <HelpCircle size={16} /> Giải thích
                     </button>
                 </div>
@@ -276,6 +286,24 @@ export default function SupplierDebtReportPage() {
                     )}
                 </div>
             </div>
+
+            <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
+                <DialogContent className="max-w-2xl rounded-none">
+                    <DialogHeader>
+                        <DialogTitle className="uppercase">Giải thích công nợ nhà cung cấp</DialogTitle>
+                        <DialogDescription>
+                            Màn này lọc công nợ thật theo kỳ, chi nhánh, nhân viên phụ trách và trạng thái nợ cuối kỳ.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 text-sm text-slate-600">
+                        <p><span className="font-bold text-slate-800">Từ ngày / đến ngày:</span> lọc các phiếu nhập có phát sinh công nợ trong khoảng thời gian đã chọn.</p>
+                        <p><span className="font-bold text-slate-800">Chi nhánh / nhân viên phụ trách:</span> thu hẹp dữ liệu theo đơn vị xử lý thực tế.</p>
+                        <p><span className="font-bold text-slate-800">Nợ cuối kỳ:</span> chọn tất cả, chỉ NCC còn nợ hoặc chỉ NCC bằng 0.</p>
+                        <p><span className="font-bold text-slate-800">Xuất file:</span> tải danh sách công nợ ra Excel để đối soát hoặc gửi kế toán.</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
