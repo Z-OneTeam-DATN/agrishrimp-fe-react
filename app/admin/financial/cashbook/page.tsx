@@ -43,19 +43,6 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 type BranchOption = { id: number; name: string; branchCode?: string };
 type ChartMode = "day" | "month";
@@ -239,6 +226,15 @@ export default function CashbookPage() {
   };
 
   const chartWindow = useMemo(() => chartData.slice(-12), [chartData]);
+  const chartMax = useMemo(() => {
+    if (chartWindow.length === 0) return 1;
+    return Math.max(
+      1,
+      ...chartWindow.map((item) =>
+        Math.max(Number(item.income || 0), Number(item.expense || 0)),
+      ),
+    );
+  }, [chartWindow]);
   const netAbsMax = useMemo(() => {
     if (chartWindow.length === 0) return 1;
     return Math.max(
@@ -253,21 +249,6 @@ export default function CashbookPage() {
   const totalFlow = useMemo(() => Math.max(1, totalFlowValue), [totalFlowValue]);
   const incomeRatio = Math.round((summary.totalIncome / totalFlow) * 100);
   const expenseRatio = 100 - incomeRatio;
-
-  const distributionData = [
-    {
-      name: "income",
-      label: "Thu",
-      value: totalFlowValue > 0 ? summary.totalIncome : 1,
-      fill: "#10b981",
-    },
-    {
-      name: "expense",
-      label: "Chi",
-      value: totalFlowValue > 0 ? summary.totalExpense : 0,
-      fill: "#ef4444",
-    },
-  ];
 
   return (
     <div className="min-h-screen space-y-0 bg-[#f0f2f5] pb-10">
@@ -453,58 +434,55 @@ export default function CashbookPage() {
                     </span>
                   </div>
 
-                  <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={chartWindow}
-                        barGap={10}
-                        barCategoryGap="28%"
-                        margin={{ top: 12, right: 8, left: 6, bottom: 6 }}
-                      >
-                        <CartesianGrid
-                          vertical={false}
-                          strokeDasharray="4 4"
-                          stroke="#e2e8f0"
-                        />
-                        <XAxis
-                          dataKey="period"
-                          axisLine={false}
-                          tickLine={false}
-                          interval={0}
-                          minTickGap={16}
-                          tick={{ fontSize: 10, fill: "#64748b" }}
-                        />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          width={52}
-                          tick={{ fontSize: 10, fill: "#94a3b8" }}
-                          tickFormatter={(value: number) => compactCurrency(value)}
-                        />
-                        <Tooltip
-                          cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
-                          formatter={(value: number, name: string) => [
-                            formatNumber(Number(value)),
-                            name,
-                          ]}
-                          labelFormatter={(label) => `Kỳ ${label}`}
-                        />
-                        <Bar
-                          dataKey="income"
-                          name="Thu"
-                          radius={[8, 8, 0, 0]}
-                          fill="#10b981"
-                          maxBarSize={28}
-                        />
-                        <Bar
-                          dataKey="expense"
-                          name="Chi"
-                          radius={[8, 8, 0, 0]}
-                          fill="#ef4444"
-                          maxBarSize={28}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="grid h-[300px] grid-cols-1 grid-rows-[1fr_auto] gap-3">
+                    <div className="relative overflow-hidden rounded-[8px] border border-slate-100 bg-white px-3 pt-4">
+                      <div className="pointer-events-none absolute inset-x-0 top-[20%] border-t border-dashed border-slate-200" />
+                      <div className="pointer-events-none absolute inset-x-0 top-[40%] border-t border-dashed border-slate-200" />
+                      <div className="pointer-events-none absolute inset-x-0 top-[60%] border-t border-dashed border-slate-200" />
+                      <div className="pointer-events-none absolute inset-x-0 top-[80%] border-t border-dashed border-slate-200" />
+                      <div className="flex h-full items-end gap-3 overflow-x-auto pb-3">
+                        {chartWindow.map((item) => {
+                          const incomeHeight = Math.max(
+                            item.income > 0 ? 10 : 0,
+                            Math.round((Number(item.income || 0) / chartMax) * 220),
+                          );
+                          const expenseHeight = Math.max(
+                            item.expense > 0 ? 10 : 0,
+                            Math.round((Number(item.expense || 0) / chartMax) * 220),
+                          );
+
+                          return (
+                            <div
+                              key={item.period}
+                              className="flex min-w-[56px] flex-1 flex-col items-center justify-end gap-2"
+                              title={`Kỳ ${item.period} | Thu: ${formatNumber(item.income)} | Chi: ${formatNumber(item.expense)}`}
+                            >
+                              <div className="flex h-[220px] items-end gap-1.5">
+                                <div
+                                  className="w-4 rounded-t-[6px] bg-emerald-500 shadow-[0_8px_18px_rgba(16,185,129,0.18)]"
+                                  style={{ height: `${incomeHeight}px` }}
+                                />
+                                <div
+                                  className="w-4 rounded-t-[6px] bg-rose-500 shadow-[0_8px_18px_rgba(239,68,68,0.18)]"
+                                  style={{ height: `${expenseHeight}px` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {chartWindow.map((item) => (
+                        <div
+                          key={`label-${item.period}`}
+                          className="min-w-[56px] flex-1 text-center text-[10px] font-medium text-slate-500"
+                        >
+                          {item.period}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -526,38 +504,21 @@ export default function CashbookPage() {
 
                     <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_minmax(0,1fr)] xl:grid-cols-1">
                       <div className="relative">
-                        <div className="mx-auto h-[190px] w-[190px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Tooltip
-                                formatter={(value: number, name: string) => [
-                                  formatNumber(Number(value)),
-                                  name,
-                                ]}
-                              />
-                              <Pie
-                                data={distributionData}
-                                dataKey="value"
-                                nameKey="label"
-                                innerRadius={52}
-                                outerRadius={78}
-                                strokeWidth={6}
-                              >
-                                {distributionData.map((entry) => (
-                                  <Cell key={entry.name} fill={entry.fill} />
-                                ))}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            Lưu chuyển
-                          </span>
-                          <span className="mt-1 text-lg font-black text-slate-800">
-                            {chartWindow.length}
-                          </span>
-                          <span className="text-[11px] text-slate-500">chu kỳ</span>
+                        <div
+                          className="mx-auto h-[190px] w-[190px] rounded-full"
+                          style={{
+                            background: `conic-gradient(#10b981 0 ${incomeRatio}%, #ef4444 ${incomeRatio}% 100%)`,
+                          }}
+                        >
+                          <div className="mx-auto mt-[34px] flex h-[122px] w-[122px] flex-col items-center justify-center rounded-full bg-white">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                              Lưu chuyển
+                            </span>
+                            <span className="mt-1 text-lg font-black text-slate-800">
+                              {chartWindow.length}
+                            </span>
+                            <span className="text-[11px] text-slate-500">chu kỳ</span>
+                          </div>
                         </div>
                       </div>
 
@@ -622,35 +583,37 @@ export default function CashbookPage() {
                       </span>
                     </div>
 
-                    <div className="h-[190px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={chartWindow}
-                          barCategoryGap="35%"
-                          margin={{ top: 8, right: 4, left: 0, bottom: 2 }}
-                        >
-                          <CartesianGrid
-                            vertical={false}
-                            strokeDasharray="4 4"
-                            stroke="#e2e8f0"
-                          />
-                          <XAxis dataKey="period" hide />
-                          <YAxis hide domain={[-netAbsMax, netAbsMax]} />
-                          <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
-                          <Tooltip
-                            cursor={false}
-                            formatter={(value: number) => [formatNumber(Number(value)), "Ròng"]}
-                          />
-                          <Bar dataKey="net" radius={[6, 6, 0, 0]} maxBarSize={24}>
-                            {chartWindow.map((item) => (
-                              <Cell
-                                key={`net-${item.period}`}
-                                fill={item.net >= 0 ? "#3b82f6" : "#f59e0b"}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="relative h-[190px] overflow-hidden rounded-[8px] border border-slate-100 bg-white px-3 py-3">
+                      <div className="absolute inset-x-3 top-1/2 border-t border-dashed border-slate-300" />
+                      <div className="flex h-full items-center gap-3 overflow-x-auto">
+                        {chartWindow.map((item) => {
+                          const net = Number(item.net || 0);
+                          const height = Math.max(
+                            Math.abs(net) > 0 ? 10 : 0,
+                            Math.round((Math.abs(net) / netAbsMax) * 72),
+                          );
+
+                          return (
+                            <div
+                              key={`net-${item.period}`}
+                              className="flex min-w-[38px] flex-1 flex-col items-center justify-center"
+                              title={`Ròng ${item.period}: ${formatNumber(net)}`}
+                            >
+                              <div className="flex h-full items-center">
+                                <div className="flex h-[144px] items-center">
+                                  <div
+                                    className={cn(
+                                      "w-5 rounded-[6px]",
+                                      net >= 0 ? "self-start bg-blue-500" : "self-end bg-amber-500",
+                                    )}
+                                    style={{ height: `${height}px` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-500">
