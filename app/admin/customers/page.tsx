@@ -7,12 +7,9 @@ import { AdminCustomerTable } from "@/components/admin/AdminCustomerTable";
 import { customerService } from "@/app/services/customer.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
-import { AlertTriangle, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 export default function CustomerManagementPage() {
     const { hasPermission } = usePermissions();
@@ -28,10 +25,6 @@ export default function CustomerManagementPage() {
     const [pageSize] = useState(5);
     const [totalElements, setTotalElements] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
-
-    // State cho Modal xác nhận Khóa/Mở khóa
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [targetUser, setTargetUser] = useState<{ id: number; status: string } | null>(null);
 
     useEffect(() => {
         if (!isLoadingAuth && !hasPermission(P.CUSTOMER_VIEW)) {
@@ -63,38 +56,6 @@ export default function CustomerManagementPage() {
         fetchCustomers();
     }, [keyword, status, page]);
 
-    // Xử lý mở Modal
-    const handleToggleClick = (id: number, currentStatus: string) => {
-        setTargetUser({ id, status: currentStatus });
-        setIsModalOpen(true);
-    };
-
-    // Xử lý thực thi API khi bấm Xác nhận
-    const executeToggleStatus = async () => {
-        if (!targetUser) return;
-
-        const actionText = targetUser.status === "ACTIVE" ? "khóa" : "mở khóa";
-        const toastId = toast.loading(`Đang xử lý ${actionText} tài khoản...`);
-        setIsModalOpen(false);
-
-        try {
-            await customerService.toggleStatus(targetUser.id);
-
-            toast.success(`Đã ${actionText} tài khoản #${targetUser.id} thành công!`, {
-                id: toastId,
-                duration: 3000
-            });
-
-            fetchCustomers();
-        } catch (error) {
-            console.error(`Lỗi khi ${actionText} tài khoản:`, error);
-            toast.error(`Thất bại: Không thể ${actionText} tài khoản #${targetUser.id}!`, {
-                id: toastId,
-                duration: 4000
-            });
-        }
-    };
-
     const statusFilters = [
         { label: "Trạng thái: Tất cả", value: "all" },
         { label: "Đang hoạt động", value: "ACTIVE" },
@@ -113,9 +74,11 @@ export default function CustomerManagementPage() {
         <div className="space-y-3 relative">
             <AdminPageHeader
                 title="Quản lý danh sách khách hàng"
+                subtitle="Quản lý thông tin khách hàng, trạng thái tài khoản và lịch sử mua hàng"
+                titleClassName="font-black"
                 addBtnLabel="Thêm khách hàng"
                 addBtnHref="/admin/customers/add"
-                permission={P.CUSTOMER_CREATE} // Ẩn nút nếu không có quyền
+                permission={P.CUSTOMER_CREATE}
             />
 
             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
@@ -151,65 +114,9 @@ export default function CustomerManagementPage() {
                         totalPages={totalPages}
                         totalElements={totalElements}
                         onPageChange={(newPage) => setPage(newPage)}
-                        onToggleStatus={handleToggleClick} // Đã thêm props này
                     />
                 )}
             </div>
-
-            {/* Modal Xác nhận */}
-            {isModalOpen && targetUser && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-all">
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                            <h3 className="text-[15px] font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
-                                <AlertTriangle size={18} className={targetUser.status === "ACTIVE" ? "text-rose-500" : "text-emerald-500"} />
-                                Xác nhận thao tác
-                            </h3>
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="p-6">
-                            <p className="text-[14px] text-slate-600 leading-relaxed">
-                                Bạn có chắc chắn muốn <strong className={targetUser.status === "ACTIVE" ? "text-rose-600" : "text-emerald-600"}>
-                                {targetUser.status === "ACTIVE" ? "KHÓA" : "MỞ KHÓA"}
-                            </strong> tài khoản khách hàng <strong>#{targetUser.id}</strong> không?
-                            </p>
-                            {targetUser.status === "ACTIVE" && (
-                                <p className="text-[12px] text-slate-500 mt-2 italic">
-                                    * Khách hàng sẽ không thể đăng nhập và mua hàng sau khi bị khóa.
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Footer Modal (Nút bấm) */}
-                        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsModalOpen(false)}
-                                className="text-[12px] font-bold uppercase tracking-widest h-9"
-                            >
-                                Hủy bỏ
-                            </Button>
-                            <Button
-                                onClick={executeToggleStatus}
-                                className={cn(
-                                    "text-[12px] font-bold uppercase tracking-widest h-9 text-white shadow-sm hover:shadow-md transition-all",
-                                    targetUser.status === "ACTIVE"
-                                        ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-200"
-                                        : "bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-200"
-                                )}
-                            >
-                                Xác nhận
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { BadgeCheck, Loader2, AlertCircle, ChevronDown, ChevronRight, Bookmark } from "lucide-react";
 import { getPublicBrands } from "@/app/services/brand.service";

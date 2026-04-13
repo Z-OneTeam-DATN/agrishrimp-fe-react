@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     ChevronLeft,
@@ -26,6 +26,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { cn, formatNumber } from "@/lib/utils";
 import { FinancialService, ProfitLossData } from "@/app/services/financial.service";
 import { apiJava } from "@/lib/axios"; // Dùng để gọi API danh sách chi nhánh
@@ -67,12 +74,13 @@ export default function ProfitLossReportPage() {
     const [startDate, setStartDate] = useState(firstDayOfMonth.toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(today.toISOString().split("T")[0]);
     const [branchId, setBranchId] = useState("all");
-    const [branches, setBranches] = useState<any[]>([]);
+    const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
 
     // 👉 STATES DỮ LIỆU
     const [loading, setLoading] = useState(true);
     const [currentData, setCurrentData] = useState<ProfitLossData | null>(null);
     const [prevData, setPrevData] = useState<ProfitLossData | null>(null);
+    const [isExplainOpen, setIsExplainOpen] = useState(false);
 
     // Lấy danh sách chi nhánh khi load trang
     useEffect(() => {
@@ -117,14 +125,15 @@ export default function ProfitLossReportPage() {
 
     // 👉 HÀM XỬ LÝ SỐ LIỆU VÀ TÍNH % THAY ĐỔI
     const processData = (d: ProfitLossData | null) => {
-        if (!d) return { rev: 0, ret: 0, vat: 0, shipC: 0, disc: 0, cogs: 0, point: 0, shipP: 0, inc: 0, retF: 0, ex: 0, netRev: 0, cost: 0, totalInc: 0, net: 0 };
+        if (!d) return { rev: 0, ret: 0, vat: 0, shipC: 0, disc: 0, cogs: 0, point: 0, shipP: 0, inc: 0, retF: 0, ex: 0, netProductRevenue: 0, netRev: 0, cost: 0, totalInc: 0, net: 0 };
 
-        const netRev = d.revenue - d.returnedGoods;
+        const netProductRevenue = d.revenue - d.returnedGoods;
+        const netRev = netProductRevenue + d.vat + d.shippingFeeCollected - d.discount;
         const cost = d.cogs + d.pointPayment + d.shippingFeePaid;
         const totalInc = d.otherIncome + d.customerReturnFee;
         const net = netRev + totalInc - cost - d.otherExpenses;
 
-        return { rev: d.revenue, ret: d.returnedGoods, vat: d.vat, shipC: d.shippingFeeCollected, disc: d.discount, cogs: d.cogs, point: d.pointPayment, shipP: d.shippingFeePaid, inc: d.otherIncome, retF: d.customerReturnFee, ex: d.otherExpenses, netRev, cost, totalInc, net };
+        return { rev: d.revenue, ret: d.returnedGoods, vat: d.vat, shipC: d.shippingFeeCollected, disc: d.discount, cogs: d.cogs, point: d.pointPayment, shipP: d.shippingFeePaid, inc: d.otherIncome, retF: d.customerReturnFee, ex: d.otherExpenses, netProductRevenue, netRev, cost, totalInc, net };
     };
 
     const calcPercent = (curr: number, prev: number) => {
@@ -139,7 +148,7 @@ export default function ProfitLossReportPage() {
     // Mảng dữ liệu Map ra Table
     const reportRows = [
         { id: "I", label: "I. Doanh thu bán hàng", prev: prev.netRev, current: curr.netRev, change: calcPercent(curr.netRev, prev.netRev), isBold: true },
-        { id: "1", label: "1. Tiền hàng thực bán (1a - 1b)", prev: prev.netRev, current: curr.netRev, change: calcPercent(curr.netRev, prev.netRev), padding: "pl-8" },
+        { id: "1", label: "1. Tiền hàng thực bán (1a - 1b)", prev: prev.netProductRevenue, current: curr.netProductRevenue, change: calcPercent(curr.netProductRevenue, prev.netProductRevenue), padding: "pl-8" },
         { id: "1a", label: "a. Tiền hàng bán ra", prev: prev.rev, current: curr.rev, change: calcPercent(curr.rev, prev.rev), padding: "pl-12", isItalic: true },
         { id: "1b", label: "b. Tiền hàng trả lại", prev: prev.ret, current: curr.ret, change: calcPercent(curr.ret, prev.ret), padding: "pl-12", isItalic: true },
         { id: "2", label: "2. Thuế VAT", prev: prev.vat, current: curr.vat, change: calcPercent(curr.vat, prev.vat), padding: "pl-8" },
@@ -238,8 +247,8 @@ export default function ProfitLossReportPage() {
                     <button onClick={handleExportExcel} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-emerald-600 transition-colors uppercase">
                         <Download size={15} /> Xuất file
                     </button>
-                    <button className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
-                        <HelpCircle size={15} /> Giải thích
+                    <button onClick={() => setIsExplainOpen(true)} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase">
+                        <HelpCircle size={15} /> Trợ giúp
                     </button>
                 </div>
             </div>
@@ -316,6 +325,24 @@ export default function ProfitLossReportPage() {
                     </Table>
                 </div>
             </div>
+
+            <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
+                <DialogContent className="max-w-2xl rounded-none">
+                    <DialogHeader>
+                        <DialogTitle className="uppercase">Trợ giúp báo cáo lãi lỗ</DialogTitle>
+                        <DialogDescription>
+                            Báo cáo này so sánh 2 kỳ để nhìn nhanh doanh thu, chi phí và lợi nhuận.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 text-sm text-slate-600">
+                        <p><span className="font-bold text-slate-800">Kỳ trước / Kỳ hiện tại:</span> dùng để đối chiếu biến động theo khoảng ngày và chi nhánh đang chọn.</p>
+                        <p><span className="font-bold text-slate-800">Doanh thu bán hàng:</span> gồm tiền hàng, VAT, phí giao hàng thu của khách và chiết khấu.</p>
+                        <p><span className="font-bold text-slate-800">Chi phí bán hàng:</span> gồm giá vốn, thanh toán bằng điểm và phí giao hàng trả đối tác.</p>
+                        <p><span className="font-bold text-slate-800">Lợi nhuận cuối:</span> phản ánh kết quả sau khi cộng thu nhập khác và trừ chi phí khác.</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

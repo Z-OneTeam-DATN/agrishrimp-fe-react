@@ -46,6 +46,7 @@ type SavedAddress = {
 }
 
 type CheckoutCartApiItem = {
+    id?: number  // Thêm id từ backend
     variantId: number
     quantity: number
     name?: string
@@ -69,6 +70,10 @@ export default function CheckoutPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const voucherCode = searchParams.get("voucher")?.trim().toUpperCase() || undefined
+    const selectedItemIds = searchParams.get("items")
+        ?.split(",")
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0) || []
 
     const [cartItems, setCartItems] = useState<CartItem[]>([])
     const [isLoadingCart, setIsLoadingCart] = useState(true)
@@ -83,6 +88,7 @@ export default function CheckoutPage() {
 
     const [showConflictModal, setShowConflictModal] = useState(false)
     const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false)
+    const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
 
     const { deliveryInfo, setDeliveryInfo, prepareOrderResponse, prepareToken } = useCartStore()
     const { userLocation } = useLocationStore()
@@ -90,11 +96,22 @@ export default function CheckoutPage() {
 
     useUserLocation()
 
-    const prepareMutation = usePrepareOrder()
+    const prepareMutation = usePrepareOrder({
+        onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
+    })
     const confirmMutation = useConfirmOrder({
         onConflict: () => setShowConflictModal(true),
         onTokenExpired: () => setShowTokenExpiredModal(true),
+        onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
     })
+
+    useEffect(() => {
+        if (rateLimitCooldown <= 0) return
+        const timer = setInterval(() => {
+            setRateLimitCooldown((prev) => (prev <= 1 ? 0 : prev - 1))
+        }, 1000)
+        return () => clearInterval(timer)
+    }, [rateLimitCooldown])
 
     // 🐛 FIX LỖI 400: Thêm tham số currentCart = cartItems
     const handleAddressSelect = (addr: SavedAddress, currentCart = cartItems) => {
@@ -145,21 +162,33 @@ export default function CheckoutPage() {
                     router.push("/user/cart")
                     return
                 }
-                const items: CartItem[] = (cartData as CheckoutCartApiItem[]).map((item) => ({
+                const mappedItems: CartItem[] = (cartData as CheckoutCartApiItem[]).map((item) => ({
                     productVariantId: item.variantId,
                     quantity: item.quantity,
                     productName: item.name,
                     variantName: item.variant,
                     unitPrice: item.price,
                     imageUrl: item.image,
+                    cartItemId: item.id, // Thêm để reference
                 }))
-                setCartItems(items)
+                // Fix: Match theo item.id (cartItemId) từ URL, KHÔNG phải variantId
+                const filteredItems = selectedItemIds.length > 0
+                    ? mappedItems.filter((item) => item.cartItemId && selectedItemIds.includes(item.cartItemId))
+                    : mappedItems
+
+                if (selectedItemIds.length > 0 && filteredItems.length === 0) {
+                    toast.error("Không tìm thấy sản phẩm đã chọn trong giỏ hàng!")
+                    router.push("/user/cart")
+                    return
+                }
+
+                setCartItems(filteredItems)
                 const normalizedAddresses = addressData as SavedAddress[]
                 setAddresses(normalizedAddresses)
                 if (normalizedAddresses.length > 0) {
                     const defaultAddr = normalizedAddresses.find((a) => a.isDefault) || normalizedAddresses[0]
                     // 🐛 FIX LỖI 400: Truyền thẳng items vào để tránh state cartItems chưa kịp cập nhật
-                    handleAddressSelect(defaultAddr, items)
+                    handleAddressSelect(defaultAddr, filteredItems)
                 }
             } catch {
                 toast.error("Không thể tải thông tin thanh toán!")
@@ -168,7 +197,7 @@ export default function CheckoutPage() {
             }
         }
         loadData()
-    }, [router, isAuthenticated, isLoadingAuth])
+    }, [router, isAuthenticated, isLoadingAuth, selectedItemIds])
 
     const handleAddNewAddress = async (data: AddressFormValues) => {
         setIsSubmittingAddress(true)
@@ -207,11 +236,17 @@ export default function CheckoutPage() {
     ) as Record<number, string | undefined>
 
     const handleConfirm = () => {
+        if (rateLimitCooldown > 0) {
+            return // Chỉ disable button, không show toast
+        }
         if (!prepareToken) { setShowTokenExpiredModal(true); return }
         confirmMutation.mutate({ prepareToken, paymentMethod, note: note.trim() || undefined })
     }
 
     const retryPrepare = () => {
+        if (rateLimitCooldown > 0) {
+            return // Chỉ disable button, không show toast
+        }
         setShowConflictModal(false)
         setShowTokenExpiredModal(false)
         if (!deliveryInfo?.userAddressId) return
@@ -485,6 +520,11 @@ export default function CheckoutPage() {
                                 <h3 className="text-xs font-bold text-gray-600 uppercase tracking-widest">
                                     Tóm tắt đơn hàng
                                 </h3>
+                                {rateLimitCooldown > 0 && (
+                                    <div className="mt-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700">
+                                        Anti-spam đang bật · thử lại sau {rateLimitCooldown}s
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-5">
@@ -525,17 +565,25 @@ export default function CheckoutPage() {
 
                                 <button
                                     onClick={handleConfirm}
-                                    disabled={!canPlaceOrder || confirmMutation.isPending}
+                                    disabled={!canPlaceOrder || confirmMutation.isPending || rateLimitCooldown > 0}
                                     className="mt-5 w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold uppercase tracking-widest transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded"
                                 >
                                     {confirmMutation.isPending ? (
                                         <><Loader2 size={15} className="animate-spin" /> Đang xử lý...</>
+                                    ) : rateLimitCooldown > 0 ? (
+                                        `Vui lòng chờ ${rateLimitCooldown}s`
                                     ) : !canPlaceOrder ? (
                                         "Chọn địa chỉ giao hàng"
                                     ) : (
                                         "Đặt hàng"
                                     )}
                                 </button>
+
+                                {rateLimitCooldown > 0 && (
+                                    <p className="mt-2 text-[11px] text-amber-600 text-center">
+                                        Hệ thống đang giới hạn tần suất để chống spam. Thử lại sau {rateLimitCooldown}s.
+                                    </p>
+                                )}
 
                                 <p className="mt-3 text-[10px] text-gray-400 text-center leading-relaxed">
                                     Nhấn Đặt hàng đồng nghĩa bạn đồng ý với{" "}
@@ -559,11 +607,13 @@ export default function CheckoutPage() {
                         </div>
                         <button
                             onClick={handleConfirm}
-                            disabled={confirmMutation.isPending}
+                            disabled={confirmMutation.isPending || rateLimitCooldown > 0}
                             className="px-7 py-3 bg-teal-600 text-white text-sm font-bold rounded uppercase tracking-wide transition-colors disabled:opacity-50"
                         >
                             {confirmMutation.isPending
                                 ? <Loader2 size={14} className="animate-spin" />
+                                : rateLimitCooldown > 0
+                                    ? `Chờ ${rateLimitCooldown}s`
                                 : "Đặt hàng"
                             }
                         </button>

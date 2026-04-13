@@ -4,32 +4,63 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Trash2, CheckCircle, AlertTriangle, FileText, Calendar, Warehouse, ArrowRight, User } from "lucide-react";
+import { Pencil, Trash2, CheckCircle, FileText, Calendar, Warehouse, ArrowRight, User, AlertCircle } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface InventoryExportTableProps {
   exports: any[];
-  onDelete?: (id: number | string) => Promise<void>;
   onRefresh?: () => Promise<void>;
-  selectedIds: (string | number)[];
-  setSelectedIds: React.Dispatch<React.SetStateAction<(string | number)[]>>;
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
-export function InventoryExportTable({ exports, onDelete, onRefresh, selectedIds, setSelectedIds }: InventoryExportTableProps) {
+export function InventoryExportTable({ 
+  exports, 
+  onRefresh,
+  totalCount,
+  currentPage,
+  totalPages,
+  onPageChange
+}: InventoryExportTableProps) {
   const router = useRouter();
-  const [deleteItem, setDeleteItem] = useState<any | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { hasPermission } = usePermissions();
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const toggleSelectAll = () => {
-    if (selectedIds.length === exports.length) setSelectedIds([]);
-    else setSelectedIds(exports.map((item) => item.id));
+  // AlertDialog State
+  const [confirmConfig, setConfirmConfig] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: () => void;
+    variant?: "default" | "destructive";
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    action: () => {},
+  });
+
+  const showConfirm = (title: string, description: string, action: () => void, variant: "default" | "destructive" = "default") => {
+    setConfirmConfig({ open: true, title, description, action, variant });
   };
 
-  const toggleSelectItem = (id: string | number) => {
-    setSelectedIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]);
-  };
+  const canApprove = hasPermission(P.EXPORT_APPROVE);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "---";
@@ -37,122 +68,177 @@ export function InventoryExportTable({ exports, onDelete, onRefresh, selectedIds
     return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   };
 
-  const handleComplete = async (id: number, code: string) => {
-    if (!confirm(`Xác nhận xuất kho cho lệnh ${code}? Hàng trong kho sẽ bị trừ ngay lập tức.`)) return;
-    try {
-      await InventoryExportApiService.completeExportCommand(id);
-      toast.success(`Đã xuất kho thành công phiếu ${code}!`);
-      if (onRefresh) await onRefresh();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi khi duyệt xuất kho");
-    }
+  const handleApprove = async (id: number, code: string) => {
+    showConfirm(
+      "Xác nhận DUYỆT lệnh",
+      `Bạn có chắc chắn muốn duyệt lệnh xuất ${code}? Sau khi duyệt, nhân viên kho có thể thực hiện xuất hàng.`,
+      async () => {
+        setIsProcessing(true);
+        try {
+          await InventoryExportApiService.approveExportCommand(id);
+          toast.success(`Đã duyệt lệnh ${code} thành công!`);
+          if (onRefresh) await onRefresh();
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || "Lỗi khi duyệt lệnh");
+        } finally { setIsProcessing(false); }
+      }
+    );
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteItem || !onDelete) return;
-    setIsDeleting(true);
-    try {
-      await onDelete(deleteItem.id);
-    } catch (error) {
-    } finally {
-      setIsDeleting(false);
-      setDeleteItem(null);
-    }
+  const handleComplete = async (id: number, code: string) => {
+    showConfirm(
+      "Xác nhận HOÀN TẤT xuất kho",
+      `Hệ thống sẽ trừ tồn kho thực tế cho lệnh ${code}. Bạn đã kiểm tra kỹ hàng hóa chưa?`,
+      async () => {
+        setIsProcessing(true);
+        try {
+          await InventoryExportApiService.completeExportCommand(id);
+          toast.success(`Đã hoàn tất xuất kho phiếu ${code}!`);
+          if (onRefresh) await onRefresh();
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || "Lỗi khi chốt xuất kho");
+        } finally { setIsProcessing(false); }
+      }
+    );
+  };
+
+  const handleDelete = async (id: number, code: string) => {
+    showConfirm(
+      "Xác nhận XÓA lệnh",
+      `Bạn có chắc chắn muốn XÓA lệnh ${code}? Hành động này không thể hoàn tác.`,
+      async () => {
+        setIsProcessing(true);
+        try {
+          await InventoryExportApiService.deleteExportCommand(id);
+          toast.success("Đã xóa lệnh xuất thành công");
+          if (onRefresh) await onRefresh();
+        } catch (error: any) {
+          toast.error("Không thể xóa lệnh này");
+        } finally { setIsProcessing(false); }
+      },
+      "destructive"
+    );
   };
 
   const totalAmount = exports.reduce((acc, item) => acc + (item.totalAmount || 0), 0);
 
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "text-amber-500 bg-white border-amber-200";
+      case "APPROVED":
+        return "text-blue-500 bg-white border-blue-200";
+      case "COMPLETED":
+        return "text-emerald-600 bg-white border-emerald-200";
+      case "CANCELLED":
+      case "REJECTED":
+        return "text-slate-400 bg-white border-slate-200";
+      default:
+        return "text-slate-500 bg-white border-slate-100";
+    }
+  };
+
   return (
-    <div className="w-full relative">
-      <div className="overflow-x-auto no-scrollbar">
-        <Table className="table-custom border-collapse min-w-[1100px]">
-          <TableHeader>
-            <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
-              <TableHead className="w-[40px] text-center p-2 pl-6"><input type="checkbox" className="accent-blue-600" checked={exports.length > 0 && selectedIds.length === exports.length} onChange={toggleSelectAll} /></TableHead>
-              <TableHead className="w-[100px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">ID</TableHead>
-              <TableHead className="font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Lệnh & Thời gian</TableHead>
-              <TableHead className="w-[280px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Đối tác nhận</TableHead>
-              <TableHead className="w-[180px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Kho xuất</TableHead>
-              <TableHead className="w-[150px] text-right font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Tổng giá trị</TableHead>
-              <TableHead className="w-[130px] font-bold text-[11px] uppercase p-2 text-center text-[#1f1f1f]">Trạng thái</TableHead>
-              <TableHead className="w-[120px] text-right font-bold text-[11px] uppercase p-2 pr-6 text-[#1f1f1f]">Thao tác</TableHead>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden relative custom-scrollbar">
+        <Table className="table-custom border-collapse min-w-[1400px] w-full">
+          <TableHeader className="sticky top-0 z-20 bg-white shadow-sm">
+            <TableRow className="bg-white border-b border-slate-100 hover:bg-white">
+              <TableHead className="w-[60px] font-bold text-[10px] uppercase p-3 pl-5 text-slate-400">ID</TableHead>
+              <TableHead className="w-[140px] font-bold text-[10px] uppercase p-3 text-slate-400">Mã lệnh</TableHead>
+              <TableHead className="w-[160px] font-bold text-[10px] uppercase p-3 text-slate-400">Thời gian</TableHead>
+              <TableHead className="w-[160px] font-bold text-[10px] uppercase p-3 text-slate-400">Người tạo</TableHead>
+              <TableHead className="min-w-[250px] font-bold text-[10px] uppercase p-3 text-slate-400">Đối tác nhận</TableHead>
+              <TableHead className="w-[180px] font-bold text-[10px] uppercase p-3 text-slate-400">Kho xuất</TableHead>
+              <TableHead className="w-[130px] text-right font-bold text-[10px] uppercase p-3 text-slate-400">Tổng giá trị</TableHead>
+              <TableHead className="w-[130px] font-bold text-[10px] uppercase p-3 text-center text-slate-400">Trạng thái</TableHead>
+              <TableHead className="w-[120px] text-right font-bold text-[10px] uppercase p-3 pr-5 text-slate-400">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {exports.map((item: any) => {
-              // Xử lý cẩn thận null để tránh N/A không mong muốn
-              const isInternal = item.exportType === "INTERNAL" || (item.displayPartnerName && item.displayPartnerName.includes("Nội bộ"));
-              let displayPartner = item.displayPartnerName;
-
-              // Nếu Backend chưa trả về đúng trường displayPartnerName, ta xử lý dự phòng tại Frontend
-              if (!displayPartner || displayPartner === "N/A") {
-                  if (isInternal) {
-                      displayPartner = item.partnerBranchName ? `[Nội bộ] ${item.partnerBranchName}` : "[Nội bộ] Chi nhánh nhận";
-                  } else {
-                      displayPartner = item.supplierName ? `[Trả NCC] ${item.supplierName}` : "N/A";
-                  }
-              }
+              const status = (item.status || "").toUpperCase();
+              const isInternal = item.exportType === "INTERNAL";
+              let displayPartner = item.displayPartnerName || item.supplierName || item.partnerBranchName || "N/A";
 
               return (
-                <TableRow key={item.id} className={cn("hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer group", selectedIds.includes(item.id) && "bg-blue-50/50")}>
-                  <TableCell className="text-center p-2 pl-6" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" className="accent-blue-600 cursor-pointer h-4 w-4" checked={selectedIds.includes(item.id)} onChange={() => toggleSelectItem(item.id)} />
-                  </TableCell>
+                <TableRow key={item.id} className="hover:bg-slate-50/50 border-b border-slate-50 transition-colors cursor-pointer group h-[64px]">
+                  <TableCell className="p-3 pl-5 text-[11px] font-bold text-slate-300 uppercase">#{item.id || "0"}</TableCell>
 
-                  <TableCell className="p-2 text-[12px] font-black text-slate-500 uppercase" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>#{item.id || "0"}</TableCell>
-
-                  <TableCell className="p-2" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-black text-slate-800 uppercase tracking-tighter flex items-center gap-1.5">
-                        <FileText size={14} className={isInternal ? "text-orange-500" : "text-blue-500"} />
-                        {item.code}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
-                        <Calendar size={10} className="text-slate-300" /> {formatDate(item.createdAt)}
-                      </span>
-                    </div>
-                  </TableCell>
-
-                  {/* Render Đối tác an toàn */}
-                  <TableCell className="p-2" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
-                    <div className="flex flex-col">
-                      <span className={cn("text-[13px] font-bold leading-tight flex items-center gap-1", isInternal ? "text-blue-600" : "text-slate-700")}>
-                        {isInternal ? <ArrowRight size={14} className="text-blue-500"/> : <User size={14} className="text-slate-400"/>}
-                        {displayPartner}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
-                        <User size={10} /> Lập bởi: {item.creatorName || "Hệ thống"}
-                      </span>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="p-2" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold">
-                      <Warehouse size={12} className="text-slate-400" /> {item.branchName || "N/A"}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="p-2 text-right text-[14px] font-black text-slate-900" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
-                    {formatNumber(item.totalAmount || 0)}
-                  </TableCell>
-
-                  <TableCell className="p-2 text-center" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase text-blue-500 bg-blue-50 border-blue-100">
-                      Chờ xử lý
+                  <TableCell className="p-3">
+                    <span className="text-[12px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-1.5 whitespace-nowrap">
+                      <FileText size={13} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+                      {item.code}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2 text-right pr-6">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
-                        <Eye size={14} className="text-blue-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-50" title="Duyệt xuất kho (Trừ tồn)" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
-                        <CheckCircle size={14} className="text-emerald-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" title="Xóa lệnh" onClick={(e) => { e.stopPropagation(); setDeleteItem(item); }}>
-                        <Trash2 size={14} className="text-rose-600" />
-                      </Button>
+                  <TableCell className="p-3">
+                    <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 whitespace-nowrap uppercase">
+                      {formatDate(item.createdAt)}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="p-3">
+                    <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 uppercase whitespace-nowrap">
+                      {item.creatorName || "Hệ thống"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="p-3">
+                    <span className={cn(
+                      "text-[12px] font-bold leading-tight flex items-center gap-1 truncate max-w-[300px]",
+                      isInternal ? "text-blue-500" : "text-slate-600"
+                    )} title={displayPartner}>
+                      {isInternal ? <ArrowRight size={12} className="text-blue-400"/> : <User size={12} className="text-slate-300"/>}
+                      {displayPartner}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="p-3">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-bold uppercase whitespace-nowrap">
+                      <Warehouse size={12} className="text-slate-300" /> {item.branchName || "N/A"}
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="p-3 text-right text-[12px] font-bold text-slate-700 whitespace-nowrap">{formatNumber(item.totalAmount || 0)}</TableCell>
+
+                  <TableCell className="p-3 text-center">
+                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border tracking-tight uppercase whitespace-nowrap", getStatusStyle(status))}>
+                      {status === "PENDING" ? "Chờ duyệt" : status === "APPROVED" ? "Đã duyệt" : status === "COMPLETED" ? "Đã xuất" : "Đã hủy"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="p-3 text-right pr-5">
+                    <div className="flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                      {status === "PENDING" && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Chỉnh sửa" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
+                          <Pencil size={13} className="text-slate-400 hover:text-blue-600" />
+                        </Button>
+                      )}
+                      
+                      {status === "PENDING" && canApprove && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Duyệt lệnh" onClick={(e) => { e.stopPropagation(); handleApprove(item.id, item.code); }}>
+                          <CheckCircle size={13} className="text-blue-500" />
+                        </Button>
+                      )}
+
+                      {status === "APPROVED" && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
+                          <CheckCircle size={13} className="text-emerald-500" />
+                        </Button>
+                      )}
+
+                      {status === "PENDING" && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Xóa" onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.code); }}>
+                          <Trash2 size={13} className="text-slate-400 hover:text-rose-600" />
+                        </Button>
+                      )}
+
+                      {status !== "PENDING" && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
+                          <FileText size={13} className="text-slate-400 hover:text-blue-600" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -162,22 +248,65 @@ export function InventoryExportTable({ exports, onDelete, onRefresh, selectedIds
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
-        <div className="flex items-center gap-6">
-          <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Tổng cộng {exports.length} lệnh chờ</p>
-          <div className="h-4 w-[1px] bg-slate-200" />
-          <p className="text-[11px] font-bold uppercase">Tổng giá trị: <span className="text-blue-600 font-black">{formatNumber(totalAmount)}</span></p>
+      {/* Footer thanh tổng cộng */}
+      <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-white min-w-full shrink-0">
+        <div className="flex items-center gap-8 whitespace-nowrap">
+          <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Hiển thị {exports.length} / {totalCount} bản ghi</p>
+          <div className="flex items-center gap-6">
+            <p className="text-[11px] font-bold text-slate-400 uppercase">Tổng giá trị: <span className="text-slate-700 ml-1">{formatNumber(totalAmount)} ₫</span></p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 ml-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 px-3 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+          >
+            Trước
+          </Button>
+          <div className="flex items-center justify-center h-7 w-auto px-3 text-[10px] font-black bg-slate-100 text-slate-600 rounded-full min-w-[28px]">
+            {currentPage} / {totalPages || 1}
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 px-3 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
+            disabled={currentPage === totalPages || totalPages === 0}
+            onClick={() => onPageChange(currentPage + 1)}
+          >
+            Sau
+          </Button>
         </div>
       </div>
 
-      {deleteItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
-             <div className="flex items-center gap-3 mb-4"><AlertTriangle className="text-rose-600" /><h3 className="font-black text-slate-800">Xác nhận xóa lệnh {deleteItem.code}</h3></div>
-             <div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setDeleteItem(null)} disabled={isDeleting}>Hủy</Button><Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>{isDeleting ? "Đang xóa..." : "Xóa ngay"}</Button></div>
-          </div>
-        </div>
-      )}
+      {/* AlertDialog dành cho các xác nhận quan trọng */}
+      <AlertDialog open={confirmConfig.open} onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}>
+        <AlertDialogContent className="rounded-none border-2 border-slate-200 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[16px] font-black uppercase text-slate-800 flex items-center gap-2">
+              <AlertCircle className={cn("w-5 h-5", confirmConfig.variant === "destructive" ? "text-rose-500" : "text-blue-500")} />
+              {confirmConfig.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] font-medium text-slate-500 leading-relaxed pt-2">
+              {confirmConfig.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-4 gap-3">
+            <AlertDialogCancel className="rounded-none border-slate-300 text-slate-500 font-bold uppercase text-[11px] h-9 px-6 hover:bg-slate-50">Quay lại</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmConfig.action}
+              className={cn(
+                "rounded-none font-black uppercase text-[11px] h-9 px-8 shadow-lg transition-all",
+                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+              )}
+            >
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

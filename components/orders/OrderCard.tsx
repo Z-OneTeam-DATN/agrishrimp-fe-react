@@ -101,7 +101,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
     <div className="mb-3 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:shadow-md">
       <div className="flex items-center justify-between border-b border-gray-50 bg-gray-50/30 px-4 py-3">
         <div className="flex flex-col">
-          <div className="flex items-center text-sm font-bold text-gray-800">
+          <div className="font-bold text-gray-800 flex items-center text-sm">
             <Store size={16} className="mr-2 text-gray-500" /> Cửa hàng AgriShrimp
           </div>
           <div className="ml-6 text-[11px] font-mono text-gray-400">Mã đơn: {order.code}</div>

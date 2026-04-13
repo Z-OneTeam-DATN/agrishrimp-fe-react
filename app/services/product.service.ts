@@ -85,18 +85,35 @@ export const ProductService = {
 
 
   // Tìm kiếm theo tên, SKU, hoặc Barcode
-  searchVariants: async (keyword: string, branchId?: string | number) => {
+  searchVariants: async (keyword: string, branchId?: string | number, supplierCode?: string) => {
+    try {
       const params: any = { keyword: keyword || "" };
 
-      // NẾU CÓ TRUYỀN CHI NHÁNH TỪ GIAO DIỆN XUỐNG, ĐƯA VÀO PARAMS
-      if (branchId) {
-        params.branchId = branchId;
-      }
+      if (branchId) params.branchId = branchId;
+      if (supplierCode) params.supplierCode = supplierCode;
 
+      console.log("ProductService.searchVariants calling API with params:", params);
       const response = await apiJava.get(`/product-variants/search`, {
         params: params
       });
       return response.data;
-    },
+    } catch (error: any) {
+      console.error("ProductService.searchVariants error:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      throw error; 
+    }
+  },
+
+  // 8. Báo cáo tồn kho thấp chuyên biệt
+  getLowStockReport: async (branchId?: string | number) => {
+    const response = await apiJava.get(`/product-variants/low-stock`, { 
+      params: { branchId } 
+    });
+    return response.data;
+  },
 
 };

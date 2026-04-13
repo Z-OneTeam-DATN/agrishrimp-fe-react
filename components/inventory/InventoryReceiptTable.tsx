@@ -25,23 +25,38 @@ import { cn, formatNumber } from "@/lib/utils";
 interface InventoryReceiptTableProps {
   receipts: any[];
   onDeleteClick: (id: number, code: string) => void;
+  // Thêm props phân trang
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
-export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryReceiptTableProps) {
+export function InventoryReceiptTable({ 
+  receipts, 
+  onDeleteClick,
+  totalCount,
+  currentPage,
+  totalPages,
+  onPageChange
+}: InventoryReceiptTableProps) {
   const router = useRouter();
 
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "COMPLETED":
       case "IMPORTED":
-        return "text-emerald-600 bg-emerald-50 border-emerald-100";
+        return "text-emerald-600 bg-white border-emerald-200";
       case "PENDING":
       case "PO":
-        return "text-blue-500 bg-blue-50 border-blue-100";
+        return "text-blue-500 bg-white border-blue-200";
+      case "APPROVED":
+        return "text-indigo-500 bg-white border-indigo-200";
       case "CANCELLED":
-        return "text-rose-600 bg-rose-50 border-rose-100";
+      case "REJECTED":
+        return "text-slate-400 bg-white border-slate-200";
       default:
-        return "text-slate-500 bg-slate-50 border-slate-100";
+        return "text-slate-500 bg-white border-slate-100";
     }
   };
 
@@ -49,27 +64,21 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
   const totalDebt = receipts.reduce((acc, item) => acc + (item.debt || 0), 0);
 
   return (
-    <div className="w-full border border-[#ccc] rounded-sm overflow-hidden">
-      {/* 1. overflow-x-auto: Cho phép cuộn ngang
-          2. relative: Để các hiệu ứng hover hoạt động chuẩn
-      */}
-      <div className="overflow-x-auto relative">
-        {/* min-w-[1400px]: Ép bảng có độ rộng tối thiểu lớn để hiện thanh cuộn ngang.
-            w-full: Luôn chiếm hết chiều rộng nếu màn hình lớn hơn 1400px.
-        */}
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden relative custom-scrollbar">
         <Table className="table-custom border-collapse min-w-[1400px] w-full">
-          <TableHeader>
-            <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
-              <TableHead className="w-[60px] font-bold text-[11px] uppercase p-2 pl-4 text-[#1f1f1f]">ID</TableHead>
-              <TableHead className="w-[140px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Mã phiếu</TableHead>
-              <TableHead className="w-[160px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Thời gian</TableHead>
-              <TableHead className="w-[160px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Người tạo</TableHead>
-              <TableHead className="min-w-[250px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Đối tác / Nhà cung cấp</TableHead>
-              <TableHead className="w-[180px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Kho nhập</TableHead>
-              <TableHead className="w-[130px] text-right font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Tổng giá trị</TableHead>
-              <TableHead className="w-[120px] text-right font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">Còn nợ</TableHead>
-              <TableHead className="w-[130px] font-bold text-[11px] uppercase p-2 text-center text-[#1f1f1f]">Trạng thái</TableHead>
-              <TableHead className="w-[120px] text-right font-bold text-[11px] uppercase p-2 pr-4 text-[#1f1f1f]">Thao tác</TableHead>
+          <TableHeader className="sticky top-0 z-20 bg-white shadow-sm">
+            <TableRow className="bg-white border-b border-slate-100 hover:bg-white">
+              <TableHead className="w-[60px] font-bold text-[10px] uppercase p-3 pl-5 text-slate-400">ID</TableHead>
+              <TableHead className="w-[140px] font-bold text-[10px] uppercase p-3 text-slate-400">Mã phiếu</TableHead>
+              <TableHead className="w-[160px] font-bold text-[10px] uppercase p-3 text-slate-400">Thời gian</TableHead>
+              <TableHead className="w-[160px] font-bold text-[10px] uppercase p-3 text-slate-400">Người tạo</TableHead>
+              <TableHead className="min-w-[250px] font-bold text-[10px] uppercase p-3 text-slate-400">Đối tác / Nhà cung cấp</TableHead>
+              <TableHead className="w-[180px] font-bold text-[10px] uppercase p-3 text-slate-400">Kho nhập</TableHead>
+              <TableHead className="w-[130px] text-right font-bold text-[10px] uppercase p-3 text-slate-400">Tổng giá trị</TableHead>
+              <TableHead className="w-[120px] text-right font-bold text-[10px] uppercase p-3 text-slate-400">Còn nợ</TableHead>
+              <TableHead className="w-[130px] font-bold text-[10px] uppercase p-3 text-center text-slate-400">Trạng thái</TableHead>
+              <TableHead className="w-[120px] text-right font-bold text-[10px] uppercase p-3 pr-5 text-slate-400">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -78,97 +87,91 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
               const isInternal = item.importType === "INTERNAL";
 
               return (
-                <TableRow key={item.code} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer group">
-                  <TableCell className="p-2 pl-4 text-[12px] font-black text-slate-500 uppercase">#{item.id || "0"}</TableCell>
+                <TableRow key={item.code} className="hover:bg-slate-50/50 border-b border-slate-50 transition-colors cursor-pointer group h-[64px]">
+                  <TableCell className="p-3 pl-5 text-[11px] font-bold text-slate-300 uppercase">#{item.id || "0"}</TableCell>
 
-                  <TableCell className="p-2">
-                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-tighter flex items-center gap-1.5 whitespace-nowrap">
-                      <FileText size={14} className={isInternal ? "text-orange-500" : "text-blue-500"} />
+                  <TableCell className="p-3">
+                    <span className="text-[12px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-1.5 whitespace-nowrap">
+                      <FileText size={13} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
                       {item.code}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2">
-                    <span className="text-[11px] text-slate-600 font-bold flex items-center gap-1.5 whitespace-nowrap">
-                      <Clock size={12} className="text-slate-400" /> {item.date}
+                  <TableCell className="p-3">
+                    <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 whitespace-nowrap uppercase">
+                      {item.date}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2">
-                    <span className="text-[11px] text-slate-600 font-bold flex items-center gap-1.5 uppercase whitespace-nowrap">
-                      <User size={12} className="text-slate-400" /> {item.creator || "N/A"}
+                  <TableCell className="p-3">
+                    <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 uppercase whitespace-nowrap">
+                      {item.creator || "N/A"}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2">
-                    {/* Bỏ whitespace-nowrap để tên nhà cung cấp dài có thể xuống dòng nếu cần, tránh làm bảng quá rộng */}
+                  <TableCell className="p-3">
                     <span className={cn(
-                      "text-[13px] font-bold leading-tight block",
-                      isInternal ? "text-blue-600" : "text-slate-700"
-                    )}>
+                      "text-[12px] font-bold leading-tight block truncate max-w-[250px]",
+                      isInternal ? "text-blue-500" : "text-slate-600"
+                    )} title={item.supplier}>
                       {item.supplier}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold uppercase whitespace-nowrap">
-                      <Warehouse size={12} className="text-slate-400" /> {item.warehouse}
+                  <TableCell className="p-3">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-bold uppercase whitespace-nowrap">
+                      {item.warehouse}
                     </div>
                   </TableCell>
 
-                  <TableCell className="p-2 text-right text-[13px] font-black text-slate-900 whitespace-nowrap">{formatNumber(item.total || 0)}</TableCell>
+                  <TableCell className="p-3 text-right text-[12px] font-bold text-slate-700 whitespace-nowrap">{formatNumber(item.total || 0)}</TableCell>
 
-                  <TableCell className="p-2 text-right">
-                    <span className={cn("text-[13px] font-black whitespace-nowrap", (item.debt || 0) > 0 ? "text-rose-600" : "text-emerald-600")}>
+                  <TableCell className="p-3 text-right">
+                    <span className={cn("text-[12px] font-bold whitespace-nowrap", (item.debt || 0) > 0 ? "text-rose-500" : "text-emerald-500")}>
                       {formatNumber(item.debt || 0)}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2 text-center">
-                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap", getStatusStyle(item.status))}>
+                  <TableCell className="p-3 text-center">
+                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border tracking-tight uppercase whitespace-nowrap", getStatusStyle(item.status))}>
                       {item.status === "COMPLETED" || item.status === "IMPORTED"
                         ? "Đã nhập"
+                        : item.status === "APPROVED"
+                        ? "Đã duyệt"
                         : isPending
-                        ? "Chờ nhập"
+                        ? "Chờ duyệt"
                         : "Đã hủy"}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-2 text-right pr-4">
-                    <div className="flex justify-end gap-1">
+                  <TableCell className="p-3 text-right pr-5">
+                    <div className="flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                       <Button
-                        variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" title="Chỉnh sửa phiếu"
+                        variant="ghost" size="icon" className="h-7 w-7" title="Chỉnh sửa"
                         onClick={(e) => {
                           e.stopPropagation();
                           router.push(`/admin/receipts/new?id=${item.id}`);
                         }}
                       >
-                        <Pencil size={14} className="text-blue-600" />
+                        <Pencil size={13} className="text-slate-400 hover:text-blue-600" />
                       </Button>
 
                       <Button
-                        variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" title="In phiếu / Xuất đơn"
+                        variant="ghost" size="icon" className="h-7 w-7" title="In phiếu"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Printer size={14} className="text-slate-500" />
+                        <Printer size={13} className="text-slate-400" />
                       </Button>
 
-                      {isPending ? (
+                      {isPending && (
                         <Button
-                          variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" title="Xóa phiếu tạm"
+                          variant="ghost" size="icon" className="h-7 w-7" title="Xóa"
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteClick(item.id, item.code);
                           }}
                         >
-                          <Trash2 size={14} className="text-rose-600" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost" size="icon" className="h-7 w-7 opacity-20 cursor-not-allowed" disabled title="Không thể xóa phiếu đã hoàn thành"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Trash2 size={14} className="text-slate-400" />
+                          <Trash2 size={13} className="text-slate-400 hover:text-rose-600" />
                         </Button>
                       )}
                     </div>
@@ -181,17 +184,36 @@ export function InventoryReceiptTable({ receipts, onDeleteClick }: InventoryRece
       </div>
 
       {/* Footer thanh tổng cộng */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa] overflow-x-auto min-w-full">
-        <div className="flex items-center gap-6 whitespace-nowrap">
-          <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">Tổng cộng {receipts.length} phiếu nhập</p>
-          <div className="h-4 w-[1px] bg-slate-200" />
-          <p className="text-[11px] font-bold uppercase">Tổng giá trị: <span className="text-blue-600 font-black">{formatNumber(totalAmount)}</span></p>
-          <p className="text-[11px] font-bold uppercase">Tổng nợ: <span className="text-rose-600 font-black">{formatNumber(totalDebt)}</span></p>
+      <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-white min-w-full shrink-0">
+        <div className="flex items-center gap-8 whitespace-nowrap">
+          <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Hiển thị {receipts.length} / {totalCount} bản ghi</p>
+          <div className="flex items-center gap-6">
+            <p className="text-[11px] font-bold text-slate-400 uppercase">Giá trị: <span className="text-slate-700 ml-1">{formatNumber(totalAmount)} ₫</span></p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase">Công nợ: <span className="text-rose-500 ml-1">{formatNumber(totalDebt)} ₫</span></p>
+          </div>
         </div>
         <div className="flex items-center gap-1 ml-4">
-          <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd] rounded-none uppercase">Trước</Button>
-          <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-[10px] bg-blue-600 text-white border-blue-600 font-bold rounded-none">1</Button>
-          <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd] rounded-none uppercase">Sau</Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 px-3 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+          >
+            Trước
+          </Button>
+          <div className="flex items-center justify-center h-7 w-auto px-3 text-[10px] font-black bg-slate-100 text-slate-600 rounded-full min-w-[28px]">
+            {currentPage} / {totalPages || 1}
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 px-3 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
+            disabled={currentPage === totalPages || totalPages === 0}
+            onClick={() => onPageChange(currentPage + 1)}
+          >
+            Sau
+          </Button>
         </div>
       </div>
     </div>

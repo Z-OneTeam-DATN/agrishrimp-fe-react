@@ -1,0 +1,159 @@
+   ▲ Next.js 15.5.3
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 18.4s
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/112) ...
+   Generating static pages (28/112) 
+   Generating static pages (56/112) 
+   Generating static pages (84/112) 
+ ✓ Generating static pages (112/112)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                    16.4 kB         180 kB
+├ ○ /_not-found                            170 B         103 kB
+├ ○ /about                               3.82 kB         150 kB
+├ ○ /account                             4.26 kB         111 kB
+├ ○ /address                             4.13 kB         141 kB
+├ ƒ /address/[id]                        2.02 kB         169 kB
+├ ○ /address/create                      1.63 kB         169 kB
+├ ○ /admin                               14.9 kB         275 kB
+├ ○ /admin/branches                      7.05 kB         192 kB
+├ ○ /admin/branches/add                  11.7 kB         213 kB
+├ ○ /admin/categories                    10.7 kB         199 kB
+├ ○ /admin/customers                        5 kB         187 kB
+├ ƒ /admin/customers/[id]                10.8 kB         160 kB
+├ ○ /admin/customers/add                 9.46 kB         222 kB
+├ ○ /admin/employees                     9.44 kB         194 kB
+├ ○ /admin/employees/add                 5.68 kB         209 kB
+├ ƒ /admin/employees/edit/[id]           3.95 kB         207 kB
+├ ○ /admin/employees/roles               11.1 kB         192 kB
+├ ○ /admin/employees/roles/add           11.2 kB         182 kB
+├ ƒ /admin/employees/roles/edit/[id]       12 kB         183 kB
+├ ○ /admin/exports                       8.84 kB         194 kB
+├ ○ /admin/exports/new                   8.53 kB         128 kB
+├ ○ /admin/exports/new-command           8.17 kB         212 kB
+├ ○ /admin/financial                     5.01 kB         187 kB
+├ ○ /admin/financial/cashbook            7.96 kB         465 kB
+├ ○ /admin/financial/customer-debt       4.32 kB         114 kB
+├ ○ /admin/financial/profit-loss         4.72 kB         323 kB
+├ ○ /admin/financial/supplier-debt       5.01 kB         330 kB
+├ ○ /admin/forbidden                     3.18 kB         109 kB
+├ ○ /admin/inventory-checks              9.24 kB         174 kB
+├ ƒ /admin/inventory-checks/[code]         359 B         185 kB
+├ ○ /admin/inventory-checks/new            293 B         185 kB
+├ ○ /admin/inventory-dashboard           6.93 kB         147 kB
+├ ○ /admin/orders                        8.12 kB         152 kB
+├ ○ /admin/orders-all                    11.3 kB         155 kB
+├ ○ /admin/orders-handover               8.14 kB         148 kB
+├ ƒ /admin/orders-handover/[id]           8.4 kB         148 kB
+├ ○ /admin/orders-handover/create          10 kB         181 kB
+├ ○ /admin/orders-processing               10 kB         150 kB
+├ ƒ /admin/orders/[id]                   14.3 kB         164 kB
+├ ○ /admin/orders/add                    21.8 kB         196 kB
+├ ○ /admin/orders/draft                  7.99 kB         155 kB
+├ ○ /admin/orders/incomplete             7.88 kB         164 kB
+├ ○ /admin/orders/return                  7.9 kB         155 kB
+├ ƒ /admin/orders/return/[id]            9.39 kB         159 kB
+├ ○ /admin/products                      17.6 kB         196 kB
+├ ƒ /admin/products/[id]/edit            13.7 kB         229 kB
+├ ○ /admin/products/add                  12.9 kB         228 kB
+├ ○ /admin/receipts                      11.4 kB         192 kB
+├ ƒ /admin/receipts/[id]                 11.6 kB         169 kB
+├ ○ /admin/receipts/new                  11.5 kB         219 kB
+├ ○ /admin/reports/inventory             4.43 kB         117 kB
+├ ○ /admin/reports/inventory/above-max    3.8 kB         144 kB
+├ ○ /admin/reports/inventory/below-min   8.42 kB         179 kB
+├ ○ /admin/reports/inventory/check       4.13 kB         145 kB
+├ ○ /admin/reports/inventory/detail      3.77 kB         144 kB
+├ ○ /admin/reports/inventory/io-summary  4.17 kB         145 kB
+├ ○ /admin/reports/inventory/ledger      4.13 kB         145 kB
+├ ○ /admin/reports/inventory/summary     4.22 kB         145 kB
+├ ○ /admin/reports/sales                  6.1 kB         533 kB
+├ ○ /admin/roles                           170 B         103 kB
+├ ○ /admin/settings                      1.35 kB         104 kB
+├ ○ /admin/shipping/overview             4.04 kB         145 kB
+├ ○ /admin/suppliers                     8.16 kB         182 kB
+├ ƒ /admin/suppliers/[id]                7.46 kB         213 kB
+├ ○ /admin/suppliers/add                 7.31 kB         212 kB
+├ ○ /admin/transfers                     9.22 kB         195 kB
+├ ƒ /admin/transfers/[id]                11.5 kB         182 kB
+├ ○ /admin/transfers/new                 10.8 kB         215 kB
+├ ○ /admin/transfers/requests            8.64 kB         122 kB
+├ ○ /admin/variants                      9.68 kB         204 kB
+├ ○ /admin/variants/add                  4.04 kB         205 kB
+├ ○ /admin/vouchers                      7.15 kB         140 kB
+├ ○ /ai-doctor                           11.3 kB         156 kB
+├ ○ /ai-doctor/history                   6.17 kB         156 kB
+├ ○ /ai-doctor/result                    9.56 kB         161 kB
+├ ƒ /api/auth/google-login                 177 B         112 kB
+├ ƒ /api/auth/login                        177 B         112 kB
+├ ƒ /api/auth/logout                       177 B         112 kB
+├ ƒ /api/auth/me                           170 B         103 kB
+├ ƒ /api/auth/me-token                     170 B         103 kB
+├ ƒ /api/auth/permissions                  170 B         103 kB
+├ ƒ /api/auth/refresh                      177 B         112 kB
+├ ƒ /api/ghn/address-suggestions           170 B         103 kB
+├ ƒ /api/ghn/district                      170 B         103 kB
+├ ƒ /api/ghn/province                      170 B         103 kB
+├ ƒ /api/ghn/ward                          170 B         103 kB
+├ ƒ /api/location                          170 B         103 kB
+├ ƒ /brand/[id]                          4.08 kB         159 kB
+├ ○ /brands                              5.11 kB         183 kB
+├ ○ /careers                             4.17 kB         110 kB
+├ ƒ /category/[id]                       4.91 kB         160 kB
+├ ○ /change-password                     7.37 kB         172 kB
+├ ○ /checkout                            14.1 kB         191 kB
+├ ○ /contact                             3.24 kB         169 kB
+├ ○ /cookie-policy                       3.67 kB         110 kB
+├ ○ /edit-profile                        11.6 kB         185 kB
+├ ○ /faq                                 4.14 kB         110 kB
+├ ○ /login                               2.14 kB         181 kB
+├ ○ /order-cancel                        1.88 kB         108 kB
+├ ○ /order-success                       5.61 kB         143 kB
+├ ○ /ordering                            4.03 kB         110 kB
+├ ƒ /orders/[id]                         8.88 kB         165 kB
+├ ○ /orders/list                         10.8 kB         204 kB
+├ ○ /orders/return/list                  3.45 kB         117 kB
+├ ƒ /orders/return/request/[id]             3 kB         119 kB
+├ ○ /packing                             4.05 kB         116 kB
+├ ○ /ponds                               3.03 kB         119 kB
+├ ƒ /ponds/[id]                          2.78 kB         143 kB
+├ ○ /ponds/create                         2.7 kB         143 kB
+├ ○ /privacy-policy                      3.53 kB         110 kB
+├ ƒ /product/[id]                        5.21 kB         184 kB
+├ ○ /profile                             7.19 kB         144 kB
+├ ○ /reset-password                      4.31 kB         151 kB
+├ ○ /return                               5.1 kB         111 kB
+├ ƒ /reviews/write/[id]                  8.08 kB         153 kB
+├ ○ /san-pham                            5.86 kB         202 kB
+├ ƒ /san-pham/[slug]                     7.56 kB         186 kB
+├ ○ /shipping-fee                        3.81 kB         110 kB
+├ ○ /signup                              2.58 kB         182 kB
+├ ○ /store                               19.9 kB         170 kB
+├ ○ /store-locator                       4.12 kB         110 kB
+├ ○ /support                             4.39 kB         111 kB
+├ ○ /terms-of-use                        3.82 kB         110 kB
+├ ○ /user/cart                           5.94 kB         152 kB
+├ ○ /user/checkout                       12.2 kB         186 kB
+├ ○ /user/checkout/success               10.5 kB         184 kB
+├ ○ /voucher                             3.17 kB         119 kB
+├ ○ /voucher/create                      2.31 kB         118 kB
+└ ○ /warranty-policy                     5.14 kB         111 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/1255-5e80850ee659f6b0.js      45.5 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js  54.2 kB
+  └ other shared chunks (total)          3.14 kB
+
+
+ƒ Middleware                             34.5 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

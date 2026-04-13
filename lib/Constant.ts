@@ -1,9 +1,5 @@
 import {
   Home,
-  Flame,
-  Zap,
-  Phone,
-  MapPin,
   CreditCard,
   ShieldCheck,
   Truck,

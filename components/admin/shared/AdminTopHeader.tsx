@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   CircleHelp,
   User,
   LogOut,
   Settings as SettingsIcon,
-  Menu,
   MapPin,
   Clock,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 import {
@@ -23,7 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useLogout } from "@/hooks/use-logout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -33,6 +30,13 @@ import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
 import { isAdminRole } from "@/lib/roles";
 import { P } from "@/lib/permissions";
+
+type BranchSummary = {
+  id: number;
+  name: string;
+};
+
+type BranchResponse = BranchSummary[] | { content?: BranchSummary[] };
 
 export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
@@ -100,8 +104,11 @@ export default function AdminTopHeader() {
 
     // 2. Tra cứu trong danh sách chi nhánh đã fetch dựa trên warehouseId (JWT)
     if (warehouseId && branches) {
-      const branchList = Array.isArray(branches) ? branches : (branches as any).content || [];
-      const currentBranch = branchList.find((b: any) => b.id === warehouseId);
+      const branchData = branches as BranchResponse;
+      const branchList = Array.isArray(branchData)
+        ? branchData
+        : branchData.content ?? [];
+      const currentBranch = branchList.find((branch) => branch.id === warehouseId);
       if (currentBranch) return currentBranch.name;
     }
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Search, Settings, ChevronDown, ChevronsRight, ChevronUp,
-  CheckCircle, Package
+  Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 
 const TABS = [
-  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them" },
+  { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
   { id: "all", label: "Tất cả" },
   { id: "SHIPPING", label: "Đang giao hàng" },
   { id: "COMPLETED", label: "Hoàn thành" },
@@ -84,14 +84,15 @@ export default function AllOrdersPage() {
     }
   };
 
-  const handleComplete = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
+  const handleRequestReplenishment = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
     e.stopPropagation();
     try {
-      await orderService.updateBranchOrderStatus(orderId, "COMPLETED");
-      toast.success(`Đơn hàng ${orderCode} đã hoàn thành!`);
+      const response = await orderService.requestBranchOrderReplenishment(orderId);
+      const transferSummary = response.transferCodes?.length ? ` (${response.transferCodes.join(", ")})` : "";
+      toast.success(`Đã tạo lệnh điều chuyển cho ${orderCode}${transferSummary}`);
       fetchOrders(activeTab, search);
     } catch {
-      toast.error("Lỗi khi cập nhật trạng thái đơn hàng.");
+      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
     }
   };
 
@@ -252,13 +253,13 @@ export default function AllOrdersPage() {
                               <div className="flex-1">
                                 <div className="flex justify-between items-center mb-3">
                                   <h3 className="text-[12px] font-bold text-slate-800">Chi tiết sản phẩm</h3>
-                                  {order.subOrderStatus === "SHIPPING" && hasPermission(P.ORDER_COMPLETE) && (
+                                  {order.subOrderStatus === "AWAITING_REPLENISHMENT" && hasPermission(P.ORDER_UPDATE) && (
                                     <Button
                                       size="sm"
-                                      className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
-                                      onClick={(e) => handleComplete(e, order.orderId, order.orderCode)}
+                                      className="h-[28px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold"
+                                      onClick={(e) => handleRequestReplenishment(e, order.orderId, order.orderCode)}
                                     >
-                                      <CheckCircle size={14} className="mr-1.5" /> Hoàn thành
+                                      <Package size={14} className="mr-1.5" /> Tạo lệnh điều chuyển
                                     </Button>
                                   )}
                                 </div>
@@ -297,7 +298,7 @@ export default function AllOrdersPage() {
                                             <td className="p-2 text-center text-[12px] text-slate-700">
                                               <div>{item.quantity}</div>
                                               {(item.missingQuantity ?? 0) > 0 && (
-                                                <div className="text-[10px] font-semibold text-rose-600">Thieu {item.missingQuantity}</div>
+                                                <div className="text-[10px] font-semibold text-rose-600">Thiếu {item.missingQuantity}</div>
                                               )}
                                             </td>
                                             <td className="p-2 text-right text-[12px] text-slate-700">{formatCurrency(item.price)}</td>
@@ -336,7 +337,7 @@ export default function AllOrdersPage() {
 }
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
-  AWAITING_REPLENISHMENT: { label: "Cho nhap them", styles: "bg-rose-50 text-rose-600 border-rose-200" },
+  AWAITING_REPLENISHMENT: { label: "Chờ điều chuyển", styles: "bg-rose-50 text-rose-600 border-rose-200" },
   PENDING:    { label: "Chờ xác nhận",   styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]" },
   CONFIRMED:  { label: "Đã xác nhận",    styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]" },
   PROCESSING: { label: "Đang đóng gói",  styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]" },
@@ -365,3 +366,4 @@ const PaymentBadge = ({ status }: { status: "PAID" | "UNPAID" }) => {
     </span>
   );
 };
+

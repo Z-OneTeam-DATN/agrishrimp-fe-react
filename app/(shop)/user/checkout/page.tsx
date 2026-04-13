@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useCartStore } from "@/stores/useCartStore";
 import { cartService } from "@/app/services/cart.service";
 import { orderService } from "@/app/services/order.service";
 import { addressService } from "@/app/services/address.service";
 import { branchService } from "@/app/services/branchService";
+import { findNearestBranches } from "@/app/services/branchService";
 import { voucherService } from "@/app/services/voucher.service";
+import { getRetryAfterSeconds, isRateLimitedError } from "@/app/utils/apiError";
 import AddressForm from "@/components/profile/AddressForm";
 import {
   MapPin,
@@ -27,6 +29,7 @@ import {
   AlertTriangle,
   ArrowRight,
 } from "lucide-react";
+import { useUserLocation } from "@/hooks/useUserLocation";
 
 const SHIPPING_METHODS = [
   { id: "fast", name: "Giao hàng nhanh", price: 15000 },
@@ -66,12 +69,25 @@ const formatMoney = (amount: number | undefined | null) => {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { location: userLocation } = useUserLocation();
+
+  const selectedCartItemIds = useMemo(() => {
+    const rawValue = searchParams.get("items") || "";
+    return rawValue
+      .split(",")
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0);
+  }, [searchParams]);
+
+  const selectedVoucherCode = searchParams.get("voucher");
 
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
   const [note, setNote] = useState("");
 
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
@@ -102,7 +118,18 @@ export default function CheckoutPage() {
         router.push("/user/cart");
         return;
       }
-      setCartItems(cartData);
+
+      const selectedItems = selectedCartItemIds.length > 0
+        ? cartData.filter((item: any) => selectedCartItemIds.includes(Number(item.id)))
+        : cartData;
+
+      if (selectedCartItemIds.length > 0 && selectedItems.length === 0) {
+        toast.error("Không tìm thấy sản phẩm đã chọn trong giỏ hàng.");
+        router.push("/user/cart");
+        return;
+      }
+
+      setCartItems(selectedItems);
       setAddresses(addressData);
       if (addressData.length > 0) {
         const defaultAddr = addressData.find((a: any) => a.isDefault);
@@ -131,9 +158,29 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
+    if (!selectedVoucherCode || availableVouchers.length === 0) return;
+
+    const matchedVoucher = availableVouchers.find(
+      (voucher) => voucher.code === selectedVoucherCode.toUpperCase()
+    );
+
+    if (matchedVoucher) {
+      setSelectedVoucher(matchedVoucher);
+    }
+  }, [availableVouchers, selectedVoucherCode]);
+
+  useEffect(() => {
     fetchCheckoutData();
     fetchPublicVouchers();
-  }, [router]);
+  }, [router, selectedCartItemIds]);
+
+  useEffect(() => {
+    if (rateLimitCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setRateLimitCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitCooldown]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
@@ -147,19 +194,35 @@ export default function CheckoutPage() {
           quantity: item.quantity,
         }));
         const branchesFromAPI = await branchService.checkStock(payload);
+
         const processedBranches = branchesFromAPI.map((branch: any) => {
           const branchProvince = String(branch.provinceId);
           const userProvince = String(selectedAddress.provinceId);
           const estimated = branchProvince === userProvince ? 1 : 3;
           return { ...branch, estimatedDays: estimated };
         });
-        processedBranches.sort((a: Branch, b: Branch) => (a.estimatedDays || 0) - (b.estimatedDays || 0));
-        setAvailableBranches(processedBranches);
-        if (processedBranches.length > 0) {
-          setSelectedBranchId(processedBranches[0].id);
+
+        if (userLocation && processedBranches.length > 0) {
+          const nearest = await findNearestBranches({
+            lat: userLocation.lat,
+            lng: userLocation.lng,
+            limit: 10,
+          });
+          const nearestRank = new Map<number, number>();
+          nearest.forEach((branch: any, index: number) => nearestRank.set(Number(branch.id), index));
+
+          processedBranches.sort((left: Branch, right: Branch) => {
+            const leftRank = nearestRank.has(left.id) ? nearestRank.get(left.id)! : Number.MAX_SAFE_INTEGER;
+            const rightRank = nearestRank.has(right.id) ? nearestRank.get(right.id)! : Number.MAX_SAFE_INTEGER;
+            if (leftRank !== rightRank) return leftRank - rightRank;
+            return (left.estimatedDays || 0) - (right.estimatedDays || 0);
+          });
         } else {
-          setSelectedBranchId(null);
+          processedBranches.sort((a: Branch, b: Branch) => (a.estimatedDays || 0) - (b.estimatedDays || 0));
         }
+
+        setAvailableBranches(processedBranches);
+        setSelectedBranchId(processedBranches.length > 0 ? processedBranches[0].id : null);
       } catch (error) {
         console.error("Lỗi khi tìm kho:", error);
         toast.error("Không thể lấy thông tin tồn kho lúc này.");
@@ -170,7 +233,7 @@ export default function CheckoutPage() {
       }
     };
     findEligibleBranches();
-  }, [selectedAddressId, addresses, cartItems]);
+  }, [selectedAddressId, addresses, cartItems, userLocation]);
 
   const selectedBranch = availableBranches.find((b) => b.id === selectedBranchId);
 
@@ -235,6 +298,9 @@ export default function CheckoutPage() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (rateLimitCooldown > 0) {
+      return; // Chỉ disable button, không show toast
+    }
     if (cartItems.length === 0) return;
     if (!selectedAddress) {
       toast.error("Vui lòng chọn địa chỉ nhận hàng!");
@@ -251,7 +317,7 @@ export default function CheckoutPage() {
         phone: selectedAddress.receiverPhone,
         fullName: selectedAddress.receiverName,
         note: note,
-        voucherCode: selectedVoucher ? selectedVoucher.code : null,
+        voucherCode: selectedVoucher ? selectedVoucher.code : selectedVoucherCode,
         branchId: selectedBranchId,
         items: cartItems.map((item) => ({
           variantId: item.variantId,
@@ -300,6 +366,10 @@ export default function CheckoutPage() {
       router.push(`/order-success?orderId=${finalOrderId}&orderCode=${encodeURIComponent(finalOrderCode || "")}&method=offline`);
       router.refresh();
     } catch (error: any) {
+      if (isRateLimitedError(error)) {
+        const retryAfterSeconds = getRetryAfterSeconds(error);
+        setRateLimitCooldown((prev) => Math.max(prev, retryAfterSeconds));
+      }
       const errData = error.response?.data;
       const errMsg = typeof errData === "object" ? errData.detail || errData.message || errData.error : errData || error.message || "Lỗi xử lý đặt hàng!";
       toast.error(errMsg);
@@ -462,6 +532,13 @@ export default function CheckoutPage() {
                 <ShoppingBag size={14} className="text-gray-400" />
                 <h2 className="text-sm font-semibold text-gray-700">Đơn hàng ({cartItems.length} sản phẩm)</h2>
               </div>
+              {rateLimitCooldown > 0 && (
+                <div className="px-5 pt-3">
+                  <div className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700">
+                    Anti-spam đang bật · thử lại sau {rateLimitCooldown}s
+                  </div>
+                </div>
+              )}
 
               <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto">
                 {cartItems.map((item) => (
@@ -518,9 +595,14 @@ export default function CheckoutPage() {
                   <span className="text-sm font-semibold text-gray-700">Tổng thanh toán</span>
                   <span className="text-xl font-bold text-gray-900">{formatMoney(finalTotal)}</span>
                 </div>
-                <button type="submit" disabled={isSubmitting || !canCheckout} className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={15} /></>}
+                <button type="submit" disabled={isSubmitting || !canCheckout || rateLimitCooldown > 0} className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : rateLimitCooldown > 0 ? `Vui lòng chờ ${rateLimitCooldown}s` : <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={15} /></>}
                 </button>
+                {rateLimitCooldown > 0 && (
+                  <p className="text-center text-[11px] text-amber-600 mt-2 leading-relaxed">
+                    Hệ thống đang giới hạn tần suất để chống spam. Thử lại sau {rateLimitCooldown}s.
+                  </p>
+                )}
                 <p className="text-center text-[11px] text-gray-400 mt-3 leading-relaxed">Nhấn đặt hàng là bạn đồng ý với <span className="text-teal-600 cursor-pointer">điều khoản sử dụng</span> của AgriShrimp</p>
               </div>
             </div>
@@ -534,8 +616,8 @@ export default function CheckoutPage() {
             <p className="text-xs text-gray-400">Tổng thanh toán</p>
             <p className="text-base font-bold text-gray-900">{formatMoney(finalTotal)}</p>
           </div>
-          <button type="submit" form="checkout-form" disabled={isSubmitting || !canCheckout} className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={14} /></>}
+          <button type="submit" form="checkout-form" disabled={isSubmitting || !canCheckout || rateLimitCooldown > 0} className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : rateLimitCooldown > 0 ? `Chờ ${rateLimitCooldown}s` : <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={14} /></>}
           </button>
         </div>
       </div>

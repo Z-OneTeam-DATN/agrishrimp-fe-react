@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Pencil,
     Trash2,
@@ -25,6 +25,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
     AlertDialog,
@@ -94,6 +95,8 @@ interface AdminProductTableProps {
     onEdit?: (id: number) => void;
     onDisable?: (id: number) => void;
     onEnable?: (id: number) => void;
+    onBulkDelete?: (ids: number[]) => void;
+    onBulkEnable?: (ids: number[]) => void;
 }
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
@@ -102,30 +105,52 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
     DRAFT:    { label: "Lưu nháp",         className: "bg-amber-50 text-amber-600 border-amber-100" },
 };
 
-export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable, onEnable }: AdminProductTableProps) {
+export function AdminProductTable({
+    products,
+    currentPage,
+    pageSize,
+    onDelete,
+    onEdit,
+    onDisable,
+    onEnable,
+    onBulkDelete,
+    onBulkEnable,
+}: AdminProductTableProps) {
     const { hasPermission } = usePermissions();
     const { user } = useAuthStore();
     const isAdmin = isAdminRole(user?.role); // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
     const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
+    const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{
         id: number | null;
-        type: "delete" | "disable" | "enable";
+        ids: number[];
+        type: "delete" | "disable" | "enable" | "bulkDelete" | "bulkEnable";
         title: string;
         description: string;
         actionLabel: string;
         variant: "default" | "destructive";
     }>({
         id: null,
+        ids: [],
         type: "delete",
         title: "",
         description: "",
         actionLabel: "",
         variant: "default",
     });
+
+    const currentPageIds = useMemo(() => products.map((item) => item.id), [products]);
+    const selectedInCurrentPage = selectedProductIds.filter((id) => currentPageIds.includes(id));
+    const allSelectedInCurrentPage = currentPageIds.length > 0 && selectedInCurrentPage.length === currentPageIds.length;
+
+    useEffect(() => {
+        // Loại bỏ các id không còn trong danh sách hiện tại để tránh thao tác nhầm.
+        setSelectedProductIds((prev) => prev.filter((id) => currentPageIds.includes(id)));
+    }, [currentPageIds]);
 
     const toggleRow = (id: number) => {
         setExpandedRows((prev) =>
@@ -136,6 +161,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
     const openDeleteConfirm = (id: number) => {
         setConfirmConfig({
             id,
+            ids: [],
             type: "delete",
             title: "Xác nhận xóa vĩnh viễn",
             description:
@@ -149,6 +175,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
     const openDisableConfirm = (id: number) => {
         setConfirmConfig({
             id,
+            ids: [],
             type: "disable",
             title: "Xác nhận ngừng kinh doanh",
             description:
@@ -162,6 +189,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
     const openEnableConfirm = (id: number) => {
         setConfirmConfig({
             id,
+            ids: [],
             type: "enable",
             title: "Xác nhận kinh doanh lại",
             description:
@@ -172,32 +200,141 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
         setConfirmOpen(true);
     };
 
+    const openBulkEnableConfirm = () => {
+        if (selectedProductIds.length === 0) return;
+        setConfirmConfig({
+            id: null,
+            ids: selectedProductIds,
+            type: "bulkEnable",
+            title: "Xác nhận kinh doanh lại hàng loạt",
+            description: `Bạn sắp kinh doanh lại ${selectedProductIds.length} sản phẩm đã chọn.`,
+            actionLabel: "Kinh doanh lại",
+            variant: "default",
+        });
+        setConfirmOpen(true);
+    };
+
+    const openBulkDeleteConfirm = () => {
+        if (selectedProductIds.length === 0) return;
+        setConfirmConfig({
+            id: null,
+            ids: selectedProductIds,
+            type: "bulkDelete",
+            title: "Xác nhận xóa hàng loạt",
+            description: `Bạn sắp xóa ${selectedProductIds.length} sản phẩm đã chọn. Hành động này không thể hoàn tác.`,
+            actionLabel: "Xóa sản phẩm",
+            variant: "destructive",
+        });
+        setConfirmOpen(true);
+    };
+
+    const toggleSelectProduct = (id: number) => {
+        setSelectedProductIds((prev) =>
+            prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAllCurrentPage = () => {
+        if (allSelectedInCurrentPage) {
+            setSelectedProductIds([]);
+            return;
+        }
+        setSelectedProductIds(currentPageIds);
+    };
+
     const handleConfirmAction = () => {
-        if (confirmConfig.id === null) return;
         if (confirmConfig.type === "delete") {
+            if (confirmConfig.id === null) return;
             onDelete?.(confirmConfig.id);
         } else if (confirmConfig.type === "disable") {
+            if (confirmConfig.id === null) return;
             onDisable?.(confirmConfig.id);
         } else if (confirmConfig.type === "enable") {
+            if (confirmConfig.id === null) return;
             onEnable?.(confirmConfig.id);
+        } else if (confirmConfig.type === "bulkEnable") {
+            onBulkEnable?.(confirmConfig.ids);
+            setSelectedProductIds([]);
+        } else if (confirmConfig.type === "bulkDelete") {
+            onBulkDelete?.(confirmConfig.ids);
+            setSelectedProductIds([]);
         }
         setConfirmOpen(false);
     };
 
     return (
         <div className="w-full">
-            <Table className="table-custom border-collapse">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#eee] bg-[#f8f9fa]">
+                <p className="text-[11px] font-bold uppercase text-slate-500">
+                    Đang chọn {selectedProductIds.length}/{products.length} sản phẩm
+                </p>
+                <div className="flex items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[10px] font-bold uppercase"
+                        onClick={toggleSelectAllCurrentPage}
+                    >
+                        {allSelectedInCurrentPage ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                    </Button>
+                    {hasPermission(P.PRODUCT_UPDATE) && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] font-bold uppercase border-emerald-200 text-emerald-700"
+                            disabled={selectedProductIds.length === 0}
+                            onClick={openBulkEnableConfirm}
+                        >
+                            Mở kinh doanh đã chọn
+                        </Button>
+                    )}
+                    {hasPermission(P.PRODUCT_DELETE) && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] font-bold uppercase border-rose-200 text-rose-600"
+                            disabled={selectedProductIds.length === 0}
+                            onClick={openBulkDeleteConfirm}
+                        >
+                            Xóa đã chọn
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            <Table className="table-custom border-collapse table-fixed min-w-[1140px]">
+                <colgroup>
+                    <col className="w-[44px]" />
+                    <col className="w-[56px]" />
+                    <col className="w-[34px]" />
+                    <col className="w-[72px]" />
+                    <col />
+                    <col className="w-[148px]" />
+                    <col className="w-[110px]" />
+                    <col className="w-[122px]" />
+                    {canAction && <col className="w-[124px]" />}
+                </colgroup>
                 <TableHeader>
                     <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-                        <TableHead className="w-[40px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">STT</TableHead>
-                        <TableHead className="w-[30px] p-2" />
-                        <TableHead className="w-[60px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">Ảnh</TableHead>
+                        <TableHead className="w-[44px] text-center p-2">
+                            <Checkbox
+                                checked={allSelectedInCurrentPage}
+                                onCheckedChange={toggleSelectAllCurrentPage}
+                                aria-label="Chọn tất cả sản phẩm"
+                            />
+                        </TableHead>
+                        <TableHead className="w-[56px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">STT</TableHead>
+                        <TableHead className="w-[34px] p-2" />
+                        <TableHead className="w-[72px] text-center p-2 font-bold text-[#1f1f1f] text-[11px] uppercase">Ảnh</TableHead>
                         <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">Tên sản phẩm & Danh mục</TableHead>
-                        <TableHead className="w-[130px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Thương hiệu</TableHead>
-                        <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Tổng Tồn</TableHead>
-                        <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
+                        <TableHead className="w-[148px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Thương hiệu</TableHead>
+                        <TableHead className="w-[110px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Tổng Tồn</TableHead>
+                        <TableHead className="w-[122px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
                         {canAction && (
-                            <TableHead className="w-[130px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
+                            <TableHead className="w-[124px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>
                         )}
                     </TableRow>
                 </TableHeader>
@@ -218,6 +355,13 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                         isExpanded && "bg-[#f8f9fa]",
                                     )}
                                 >
+                                    <TableCell className="p-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <Checkbox
+                                            checked={selectedProductIds.includes(p.id)}
+                                            onCheckedChange={() => toggleSelectProduct(p.id)}
+                                            aria-label={`Chọn sản phẩm ${p.name}`}
+                                        />
+                                    </TableCell>
                                     {/* STT */}
                                     <TableCell className="p-2 text-center font-bold text-slate-500 text-[12px]">{stt}</TableCell>
 
@@ -310,7 +454,7 @@ export function AdminProductTable({ products, currentPage, pageSize, onDelete, o
                                 {/* ─── EXPANDED: DANH SÁCH BIẾN THỂ VÀ BẢNG LÔ HÀNG ─── */}
                                 {isExpanded && (
                                     <TableRow className="bg-[#fdfdfd]">
-                                        <TableCell colSpan={canAction ? 8 : 7} className="p-0 border-b border-[#eee]">
+                                        <TableCell colSpan={canAction ? 9 : 8} className="p-0 border-b border-[#eee]">
                                             <div className="pl-[50px] pr-4 py-4 space-y-4">
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                                                     <Layers size={12} /> Biến thể hàng hóa ({p.variants.length} SKU)

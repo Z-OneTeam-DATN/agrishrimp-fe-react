@@ -4,22 +4,20 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import Turnstile from "react-turnstile";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { LoginSchema, LoginFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage } from "@/lib/axios";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function LoginForm() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const setAuth = useAuthStore((state) => state.setAuth);
 
   const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
@@ -58,9 +56,14 @@ export default function LoginForm() {
       const role = normalizeRoleSlug(res.role);
       window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
     },
-    onError: (error: any) => {
-      const status = error?.response?.status;
-      const message = getErrorMessage(error);
+    onError: (error: unknown) => {
+      const status =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
+      const message = getErrorMessage(error as AxiosError);
 
       if (status === 401) {
         toast.error("Tài khoản hoặc mật khẩu không chính xác.");
@@ -76,8 +79,9 @@ export default function LoginForm() {
 
   const resetCaptcha = () => {
     setValue("captchaToken", "", { shouldValidate: true });
-    if (typeof window !== "undefined" && (window as any).turnstile) {
-      (window as any).turnstile.reset();
+    const turnstile = (window as Window & { turnstile?: { reset(): void } }).turnstile;
+    if (typeof window !== "undefined" && turnstile) {
+      turnstile.reset();
     }
   };
 

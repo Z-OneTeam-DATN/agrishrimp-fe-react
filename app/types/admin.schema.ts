@@ -316,6 +316,11 @@ export const CustomerSchema = z.object({
     // 3. Trạng thái & Ghi chú
     status: z.enum(["ACTIVE", "LOCKED"]).default("ACTIVE"),
     note: z.string().max(1000, "Ghi chú tối đa 1000 ký tự").optional().or(z.literal("")),
+
+    // 🟢 Assignment & Internal Notes
+    branchId: z.string().optional().or(z.literal("")),
+    staffAssignedId: z.string().optional().or(z.literal("")),
+    internalNotes: z.string().max(2000, "Ghi chú nội bộ tối đa 2000 ký tự").optional().or(z.literal("")),
 });
 
 export type CustomerFormValues = z.infer<typeof CustomerSchema>;

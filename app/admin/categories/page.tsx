@@ -12,7 +12,7 @@ import {
   type CategoryPayload
 } from "@/app/services/CategoryService";
 import { toast } from "sonner";
-import { Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff } from "lucide-react";
+import { Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff, XCircle } from "lucide-react";
 
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { usePermissions } from "@/hooks/usePermissions";
@@ -62,6 +63,9 @@ type CategoryApiError = {
   };
 };
 
+const CATEGORY_NAME_MIN = 2;
+const CATEGORY_NAME_MAX = 100;
+
 export default function CategoryManagementPage() {
   const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
@@ -82,6 +86,8 @@ export default function CategoryManagementPage() {
   const [currentStatus, setCurrentStatus] = useState("all");
   const [currentSort, setCurrentSort] = useState("id,desc");
   const [nameError, setNameError] = useState<string>("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [imageFileName, setImageFileName] = useState("");
 
   const [formData, setFormData] = useState({
     name: "", parentId: "none", status: "ACTIVE", imageUrl: ""
@@ -89,6 +95,31 @@ export default function CategoryManagementPage() {
 
   const isActiveStatus = (status: string) =>
     status === "ACTIVE" || status === "Hiển thị";
+
+  const validateCategoryName = useCallback((value: string) => {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return "Tên danh mục không được để trống!";
+    }
+
+    if (trimmed.length < CATEGORY_NAME_MIN) {
+      return `Tên danh mục phải có ít nhất ${CATEGORY_NAME_MIN} ký tự`;
+    }
+
+    if (trimmed.length > CATEGORY_NAME_MAX) {
+      return `Tên danh mục quá dài (tối đa ${CATEGORY_NAME_MAX} ký tự)`;
+    }
+
+    return "";
+  }, []);
+
+  const getDisplayFileNameFromUrl = useCallback((url?: string) => {
+    if (!url) return "";
+    const parts = url.split("/");
+    const lastPart = parts[parts.length - 1] || "";
+    return decodeURIComponent(lastPart).split("?")[0] || "Ảnh hiện tại";
+  }, []);
 
   const getStatusLabel = (status: string) =>
     isActiveStatus(status) ? "Hiển thị" : "Tạm ẩn";
@@ -193,6 +224,8 @@ export default function CategoryManagementPage() {
     setEditingId(null);
     setFormData({ name: "", parentId: "none", status: "ACTIVE", imageUrl: "" });
     setNameError("");
+    setNameTouched(false);
+    setImageFileName("");
     setIsModalOpen(true);
   };
 
@@ -217,6 +250,8 @@ export default function CategoryManagementPage() {
         imageUrl: cat.imageUrl || "", 
       });
       setNameError("");
+      setNameTouched(false);
+      setImageFileName(getDisplayFileNameFromUrl(cat.imageUrl));
       setIsModalOpen(true);
     }
   };
@@ -261,6 +296,7 @@ export default function CategoryManagementPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData({ ...formData, imageUrl: reader.result as string });
@@ -269,11 +305,21 @@ export default function CategoryManagementPage() {
     }
   };
 
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, imageUrl: "" }));
+    setImageFileName("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
-      setNameError("Tên danh mục không được để trống!");
+    setNameTouched(true);
+    const inlineNameError = validateCategoryName(formData.name);
+    if (inlineNameError) {
+      setNameError(inlineNameError);
       return;
     }
     setNameError("");
@@ -414,11 +460,17 @@ export default function CategoryManagementPage() {
   };
 
   const renderParentList = Array.isArray(parentList) ? parentList : [];
+  const trimmedNameLength = formData.name.trim().length;
+  const remainingNameChars = CATEGORY_NAME_MAX - trimmedNameLength;
+  const realtimeNameError = nameTouched ? validateCategoryName(formData.name) : "";
 
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center mb-6">
-         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Quản lý danh mục hàng hóa</h1>
+         <div>
+           <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Quản lý danh mục hàng hóa</h1>
+           <p className="mt-1 text-sm text-slate-500">Quản trị và sắp xếp danh mục sản phẩm trong hệ thống.</p>
+         </div>
          {hasPermission(P.CATEGORY_CREATE) && (
            <Button onClick={handleAddNew} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
               <Plus className="mr-2" size={18} /> THÊM DANH MỤC
@@ -471,75 +523,121 @@ export default function CategoryManagementPage() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white">
-          <DialogHeader className="p-6 border-b bg-slate-50">
+        <DialogContent className="w-[95vw] max-w-[640px] max-h-[92vh] p-0 overflow-hidden bg-white flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
+          <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b bg-slate-50">
             <DialogTitle className="text-xl font-black uppercase text-slate-800 flex items-center gap-2">
               <Tag className="text-emerald-600" />
               {editingId ? "Cập nhật danh mục" : "Thêm danh mục mới"}
             </DialogTitle>
+            <p className="text-sm text-slate-500 font-medium mt-1">Điền thông tin để tạo hoặc cập nhật danh mục nhanh và chính xác.</p>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="p-6 space-y-5">
-            <div className="flex flex-col items-center gap-3 mb-4">
-              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center relative overflow-hidden bg-slate-50 group">
-                {formData.imageUrl ? (
-                  <>
-                    <Image src={formData.imageUrl} alt="Preview" fill className="object-contain p-1" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <ImageIcon className="text-white h-6 w-6" />
-                    </div>
-                  </>
-                ) : (
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center text-slate-400 hover:text-emerald-600 transition-colors">
-                    <ImageIcon size={24} />
-                    <span className="text-[10px] font-bold mt-1 uppercase">Tải ảnh</span>
-                  </button>
+          <form onSubmit={handleSave} className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6 space-y-5">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+              <div className="flex flex-col items-center gap-3">
+                <div className={cn("w-28 h-28 rounded-xl border-2 border-dashed flex items-center justify-center relative overflow-hidden bg-white group transition-all duration-200", formData.imageUrl ? "border-slate-200" : "border-slate-300 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm")}>
+                  {formData.imageUrl ? (
+                    <>
+                      <Image src={formData.imageUrl} alt="Preview" fill className="object-contain p-1" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <ImageIcon className="text-white h-6 w-6" />
+                      </div>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center text-slate-400 hover:text-emerald-600 transition-colors">
+                      <ImageIcon size={24} />
+                      <span className="text-[10px] font-bold mt-1 uppercase">Tải ảnh</span>
+                    </button>
+                  )}
+                </div>
+
+                {formData.imageUrl && (
+                  <div className="w-full max-w-[340px] rounded-lg border border-slate-200 bg-white px-3 py-2 flex items-center justify-between gap-2">
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-xs font-semibold text-slate-600 truncate max-w-[220px] sm:max-w-[250px] cursor-help">{imageFileName || "Ảnh đã chọn"}</p>
+                        </TooltipTrigger>
+                        {(imageFileName || "Ảnh đã chọn").length > 28 && (
+                          <TooltipContent side="top" className="max-w-[320px] break-all text-xs">
+                            {imageFileName || "Ảnh đã chọn"}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveImage} className="h-7 w-7 sm:w-auto p-0 sm:px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50" title="Xóa ảnh">
+                      <XCircle size={14} className="sm:mr-1" />
+                      <span className="hidden sm:inline">Xóa</span>
+                    </Button>
+                  </div>
                 )}
+
+                <p className="text-xs text-slate-400 font-medium">Ảnh đại diện giúp dễ nhận diện danh mục hơn</p>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5 space-y-2">
               <Label className="text-xs font-bold text-slate-500 uppercase">Tên danh mục *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value });
+                  const nextName = e.target.value;
+                  setNameTouched(true);
+                  setFormData({ ...formData, name: nextName });
                   setNameError("");
                 }}
+                onBlur={() => setNameTouched(true)}
                 placeholder="VD: Thuốc thú y, Thức ăn..."
-                className={cn("h-10 text-sm font-bold", nameError && "border-red-500 focus-visible:ring-red-200")}
+                className={cn("h-11 text-sm font-bold bg-white", (realtimeNameError || nameError) && "border-red-500 focus-visible:ring-red-200")}
               />
-              {nameError && <p className="text-[11px] text-red-500 font-bold animate-in fade-in slide-in-from-top-1">{nameError}</p>}
+              {(realtimeNameError || nameError) && <p className="text-[11px] text-red-500 font-bold animate-in fade-in slide-in-from-top-1">{realtimeNameError || nameError}</p>}
+              <div className="flex items-center justify-between text-[11px] font-semibold">
+                <span className={cn("text-slate-400", trimmedNameLength >= CATEGORY_NAME_MIN && remainingNameChars >= 0 && "text-emerald-600")}>
+                  Tối thiểu {CATEGORY_NAME_MIN}, tối đa {CATEGORY_NAME_MAX} ký tự
+                </span>
+                <span className={cn(remainingNameChars < 0 ? "text-red-500" : "text-slate-500")}>{remainingNameChars < 0 ? `Vượt ${Math.abs(remainingNameChars)} ký tự` : `Còn ${remainingNameChars} ký tự`}</span>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 uppercase">Danh mục cha</Label>
-              <Select value={formData.parentId} onValueChange={(val) => setFormData({ ...formData, parentId: val })}>
-                <SelectTrigger className="h-10 text-sm font-medium"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="font-bold">DANH MỤC GỐC</SelectItem>
-                  {renderParentList.filter(p => p.id !== editingId).map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase">Danh mục cha</Label>
+                  <Select value={formData.parentId} onValueChange={(val) => setFormData({ ...formData, parentId: val })}>
+                    <SelectTrigger className="h-11 text-sm font-medium bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="font-bold">DANH MỤC GỐC</SelectItem>
+                      {renderParentList.filter(p => p.id !== editingId).map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500 uppercase">Trạng thái</Label>
+                  <Select value={formData.status} onValueChange={(val) => setFormData({ ...formData, status: val })}>
+                    <SelectTrigger className={cn("h-11 font-black uppercase bg-white", formData.status === "ACTIVE" ? "text-emerald-600" : "text-amber-600")}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE" className="font-bold text-emerald-600">ĐANG HIỂN THỊ</SelectItem>
+                      <SelectItem value="INACTIVE" className="font-bold text-amber-600">TẠM ẨN</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide", formData.status === "ACTIVE" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700")}>
+                  <span className={cn("mr-2 h-1.5 w-1.5 rounded-full", formData.status === "ACTIVE" ? "bg-emerald-500" : "bg-amber-500")} />
+                  {formData.status === "ACTIVE" ? "Đang hiển thị" : "Tạm ẩn"}
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 uppercase">Trạng thái</Label>
-              <Select value={formData.status} onValueChange={(val) => setFormData({ ...formData, status: val })}>
-                <SelectTrigger className="h-10 font-black text-emerald-600 uppercase"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ACTIVE" className="font-bold text-emerald-600">ĐANG HIỂN THỊ</SelectItem>
-                  <SelectItem value="INACTIVE" className="font-bold text-amber-600">TẠM ẨN</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter className="pt-4 border-t flex items-center justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="h-10 px-6 text-xs font-bold uppercase tracking-widest">Hủy</Button>
-              <Button type="submit" disabled={isSaving} className="h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-100">
+            <DialogFooter className="sticky bottom-0 bg-white pt-4 pb-1 mt-2 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="h-11 w-full sm:w-auto px-6 text-xs font-bold uppercase tracking-widest">Hủy</Button>
+              <Button type="submit" disabled={isSaving} className="h-11 w-full sm:w-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-100">
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
                 {editingId ? "Cập nhật ngay" : "Thêm danh mục"}
               </Button>

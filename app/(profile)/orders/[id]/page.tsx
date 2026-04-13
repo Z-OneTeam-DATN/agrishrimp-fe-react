@@ -23,6 +23,7 @@ import { MyOrder, OrderStatus } from "@/app/types/order.types";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 const statusConfig: Record<
   OrderStatus,
@@ -46,8 +47,8 @@ const statusConfig: Record<
     icon: <CreditCard size={28} />,
   },
   AWAITING_REPLENISHMENT: {
-    label: "Chờ lấy hàng",
-    subLabel: "Đơn hàng đã được xác nhận. Cửa hàng đang bổ sung thêm sản phẩm để sớm bàn giao cho vận chuyển.",
+    label: "Chờ điều chuyển",
+    subLabel: "Đơn hàng đang thiếu một số sản phẩm. Hệ thống sẽ tạo phiếu điều chuyển giữa các kho để xử lý sớm.",
     bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
@@ -150,6 +151,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [order, setOrder] = useState<MyOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isConfirmingReceived, setIsConfirmingReceived] = useState(false);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -199,7 +201,25 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const cfg = statusConfig[order.status];
   const showStepper = order.status !== "CANCELLED" && order.status !== "RETURNED";
-  const progressPct = activeStep <= 0 ? 0 : (activeStep / (steps.length - 1)) * 100;
+  const progressPct =
+    activeStep > 0
+      ? (activeStep / (steps.length - 1)) * 100
+      : 0;
+
+  const handleConfirmReceived = async () => {
+    try {
+      setIsConfirmingReceived(true);
+      await orderService.confirmReceivedByCustomer(order.id);
+      const refreshedOrder = await orderService.getOrderById(order.id);
+      setOrder(refreshedOrder);
+      toast.success("Don hang da duoc xac nhan nhan thanh cong.");
+    } catch (err) {
+      console.error("Failed to confirm received order:", err);
+      toast.error("Khong the xac nhan nhan hang. Vui long thu lai sau.");
+    } finally {
+      setIsConfirmingReceived(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f6f8f7]">
@@ -397,6 +417,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
         </div>
+
+        {order.status === "SHIPPING" && (
+          <div className="rounded-xl bg-white px-4 py-4">
+            <button
+              type="button"
+              onClick={handleConfirmReceived}
+              disabled={isConfirmingReceived}
+              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3 text-center text-sm font-bold text-white shadow-sm transition-all hover:from-emerald-600 hover:to-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isConfirmingReceived ? "Dang xac nhan..." : "Da nhan duoc hang"}
+            </button>
+          </div>
+        )}
 
         {(order.status === "CANCELLED" || order.status === "RETURNED") && (
           <div className="flex items-start gap-3 rounded-xl bg-white px-4 py-4">

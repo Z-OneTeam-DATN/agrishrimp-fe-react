@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
@@ -19,6 +18,7 @@ import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
 import { PublicProductListItem } from "@/app/types/product.schema";
 import { BrandDTO } from "@/app/types/brand.type";
+import { CategoryDTO } from "@/app/types/category.type";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import LoadMoreButton from "@/components/ui/load-more-button";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
@@ -73,7 +73,7 @@ function ProductListingInner() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [brands, setBrands] = useState<BrandDTO[]>([]);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
 

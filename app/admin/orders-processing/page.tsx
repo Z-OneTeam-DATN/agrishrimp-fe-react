@@ -19,7 +19,7 @@ const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 
 const TABS = [
-  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them", icon: PackageCheck },
+  { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển", icon: PackageCheck },
   { id: "PENDING", label: "Chờ xác nhận", icon: CheckCircle },
   { id: "READY_FOR_PICKUP", label: "Chờ lấy hàng", icon: PackageCheck },
   { id: "PROCESSING", label: "Gom đơn & Đóng gói", icon: Printer },
@@ -85,6 +85,18 @@ export default function OrderManagementPage() {
       });
     } catch {
       toast.error("Lỗi khi cập nhật trạng thái đơn hàng.");
+    }
+  };
+
+  const handleRequestReplenishment = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
+    e.stopPropagation();
+    try {
+      const response = await orderService.requestBranchOrderReplenishment(orderId);
+      const transferSummary = response.transferCodes?.length ? ` (${response.transferCodes.join(", ")})` : "";
+      toast.success(`Đã tạo lệnh điều chuyển cho ${orderCode}${transferSummary}`);
+      fetchOrders(activeTab, search);
+    } catch {
+      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
     }
   };
 
@@ -245,9 +257,9 @@ export default function OrderManagementPage() {
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold shadow-sm"
-                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "READY_FOR_PICKUP")}
+                                      onClick={(e) => handleRequestReplenishment(e, order.orderId, order.orderCode)}
                                     >
-                                      <CheckCircle size={15} className="mr-1.5" /> Da nhap du hang
+                                      <PackageCheck size={15} className="mr-1.5" /> Tạo lệnh điều chuyển
                                     </Button>
                                   ) : activeTab === "PENDING" ? (
                                     <Button
@@ -320,7 +332,7 @@ export default function OrderManagementPage() {
                                             <td className="p-3 text-center text-[13px] text-slate-700 font-black">
                                               <div>{item.quantity}</div>
                                               {(item.missingQuantity ?? 0) > 0 && (
-                                                <div className="text-[10px] font-semibold text-rose-600">Thieu {item.missingQuantity}</div>
+                                                <div className="text-[10px] font-semibold text-rose-600">Thiếu {item.missingQuantity}</div>
                                               )}
                                             </td>
                                             <td className="p-3 text-right text-[13px] text-slate-600">{formatCurrency(item.price)}</td>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,6 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -182,6 +183,7 @@ export default function NewTransferPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const openProductDropdown = () => {
@@ -244,6 +246,28 @@ export default function NewTransferPage() {
       setSearchTerm("");
       setShowDropdown(false);
       toast.success("Đã thêm biến thể thành công!");
+  };
+
+  const toggleSelectedProduct = (productId: number | string) => {
+    setSelectedProductIds((prev) =>
+      prev.some((id) => String(id) === String(productId))
+        ? prev.filter((id) => String(id) !== String(productId))
+        : [...prev, productId],
+    );
+  };
+
+  const handleAddSelectedProducts = () => {
+    const selectedVariants = searchResults.filter((variant) =>
+      selectedProductIds.some((id) => String(id) === String(variant.id)),
+    );
+    if (selectedVariants.length === 0) {
+      toast.warning("Vui lòng chọn ít nhất một sản phẩm");
+      return;
+    }
+    selectedVariants.forEach((variant) => handleSelectProduct(variant));
+    setSearchTerm("");
+    setShowDropdown(false);
+    setSelectedProductIds([]);
   };
 
   return (
@@ -412,6 +436,16 @@ export default function NewTransferPage() {
 
                   {showDropdown && currentSourceBranch && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[300px] overflow-y-auto">
+                      {searchResults.length > 0 && (
+                        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                          <span className="text-slate-500">
+                            Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
+                          </span>
+                          <Button type="button" size="sm" className="h-7 text-[11px]" onMouseDown={(e) => e.preventDefault()} onClick={handleAddSelectedProducts}>
+                            Thêm đã chọn
+                          </Button>
+                        </div>
+                      )}
                       {isSearching ? (
                         <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
                       ) : searchResults.length > 0 ? (
@@ -421,9 +455,17 @@ export default function NewTransferPage() {
                             onMouseDown={() => handleSelectProduct(variant)}
                             className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors"
                           >
-                            <div>
-                              <p className="text-[12px] font-bold text-slate-800">{variant.productName || variant.unit}</p>
-                              <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
+                            <div className="flex items-center gap-2">
+                              <div onMouseDown={(e) => e.stopPropagation()} className="flex items-center">
+                                <Checkbox
+                                  checked={selectedProductIds.some((id) => String(id) === String(variant.id))}
+                                  onCheckedChange={() => toggleSelectedProduct(variant.id)}
+                                />
+                              </div>
+                              <div>
+                                <p className="text-[12px] font-bold text-slate-800">{variant.productName || variant.unit}</p>
+                                <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
+                              </div>
                             </div>
                             <div className="text-right">
                               <p className={cn("text-[11px] font-black", (variant.quantity || 0) > 0 ? "text-emerald-600" : "text-rose-500")}>
@@ -447,7 +489,7 @@ export default function NewTransferPage() {
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-[#ccc]">
                     <TableHead className="w-[40px] text-center p-2 text-[10px] font-black uppercase text-slate-500">STT</TableHead>
-                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">Hàng hóa</TableHead>
+                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">HĂ ng hĂ³a</TableHead>
                     <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ĐVT</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>
@@ -497,7 +539,7 @@ export default function NewTransferPage() {
                 </TableBody>
               </Table>
             </div>
-            {/* LỖI NẾU CHƯA CÓ ITEMS NÀO HOẶC LỖI TỪ ZOD ITEMS LEVEL */}
+            {/* Lỗi nếu chưa có items nào hoặc lỗi từ Zod items level */}
             {(errors.items?.message || errors.items?.root?.message) && (
                 <div className="p-3 bg-rose-50 border-t border-rose-100 text-rose-500 text-[11px] font-bold text-center">
                     {errors.items?.message as string || errors.items?.root?.message as string}

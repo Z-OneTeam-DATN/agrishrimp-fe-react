@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -66,6 +67,7 @@ function AdminExportFormContent() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const generateNoteCode = (type: string) => {
@@ -83,14 +85,12 @@ function AdminExportFormContent() {
     defaultValues: {
       exportType: "INTERNAL",
       noteCode: generateNoteCode("INTERNAL"),
-      referenceCode: "",
       note: "",
       expectedDate: new Date().toLocaleDateString('en-CA'),
       branchId: "",
       targetId: "",
       specificReceiver: "",
       shippingAddress: "",
-      creatorName: "",
       items: []
     }
   });
@@ -171,10 +171,6 @@ function AdminExportFormContent() {
   }, []);
 
   useEffect(() => {
-    if (currentUser && !isEditMode) setValue("creatorName", currentUser.fullName || "Admin");
-  }, [currentUser, isEditMode, setValue]);
-
-  useEffect(() => {
     if (!isEditMode) {
       setValue("targetId", "");
       setValue("noteCode", generateNoteCode(watchExportType));
@@ -216,11 +212,34 @@ function AdminExportFormContent() {
       unit: variant.unit || "Cái",
       stock: variant.quantity || 0,
       quantity: 1,
-      // 👇 ĐÃ CẬP NHẬT Ở ĐÂY: Lấy importPrice để làm giá trị xuất kho
+      // Cập nhật: lấy importPrice để làm giá trị xuất kho
       price: variant.importPrice || variant.price || 0,
       returnReason: ""
     });
+  };
+
+  const toggleSelectedProduct = (productId: number | string) => {
+    setSelectedProductIds((prev) =>
+      prev.some((id) => String(id) === String(productId))
+        ? prev.filter((id) => String(id) !== String(productId))
+        : [...prev, productId],
+    );
+  };
+
+  const addSelectedVariantsToTable = () => {
+    const selectedVariants = allProducts.filter((variant) =>
+      selectedProductIds.some((id) => String(id) === String(variant.id)),
+    );
+    if (selectedVariants.length === 0) {
+      toast.warning("Vui lòng chọn ít nhất một sản phẩm");
+      return;
+    }
+    selectedVariants.forEach((variant) =>
+      addVariantToTable(variant, variant.productName || variant.unit),
+    );
     setShowDropdown(false);
+    setSearchTerm("");
+    setSelectedProductIds([]);
   };
 
   const onSubmit = async (data: ExportCommandFormValues) => {
@@ -236,7 +255,6 @@ function AdminExportFormContent() {
     const payload = {
       code: data.noteCode,
       exportType: data.exportType,
-      referenceCode: data.referenceCode,
       note: data.note,
       expectedDate: data.expectedDate,
       branchId: parseInt(data.branchId),
@@ -337,10 +355,6 @@ function AdminExportFormContent() {
                 <Input {...register("noteCode")} readOnly className="rounded-none bg-slate-50 text-slate-500 font-mono text-[13px] h-10 w-full border-slate-200" />
               </div>
 
-              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Tham chiếu (Đơn hàng...)</Label>
-                <Input readOnly={isReadOnly} {...register("referenceCode")} className="rounded-none text-[13px] h-10 w-full border-slate-200 shadow-none" placeholder="Nhập mã tham chiếu..." />
-              </div>
 
               <div className="space-y-1.5 flex flex-col">
                 <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1 mb-1 tracking-wider">Ngày hẹn xuất</Label>
@@ -371,6 +385,21 @@ function AdminExportFormContent() {
 
                   {showDropdown && !isReadOnly && (
                     <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm overflow-hidden flex flex-col z-[9999]">
+                      {allProducts.length > 0 && (
+                        <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                          <span className="text-slate-500">
+                            Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-[11px]"
+                            onClick={addSelectedVariantsToTable}
+                          >
+                            Thêm đã chọn
+                          </Button>
+                        </div>
+                      )}
                       <div className="max-h-[400px] overflow-y-auto">
                         {allProducts.length > 0 ? (
                           allProducts.map((variant) => (
@@ -380,6 +409,15 @@ function AdminExportFormContent() {
                               onClick={() => addVariantToTable(variant, variant.productName || variant.unit)}
                             >
                               <div className="flex items-center gap-3">
+                                 <div
+                                   onClick={(e) => e.stopPropagation()}
+                                   className="flex items-center"
+                                 >
+                                   <Checkbox
+                                     checked={selectedProductIds.some((id) => String(id) === String(variant.id))}
+                                     onCheckedChange={() => toggleSelectedProduct(variant.id)}
+                                   />
+                                 </div>
                                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
                                     {variant.imageUrl ? (
                                       <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
@@ -396,8 +434,8 @@ function AdminExportFormContent() {
                               </div>
 
                               <div className="text-right">
-                                {/* 👇 ĐÃ SỬA CẢ HIỂN THỊ TẠI DROPDOWN THÀNH GIÁ NHẬP */}
-                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} ₫</p>
+                                {/* Hiển thị giá nhập ở dropdown */}
+                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} â‚«</p>
                                 <p className={cn(
                                     "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
                                     variant.quantity > 0
@@ -431,7 +469,7 @@ function AdminExportFormContent() {
                         {watchExportType === "RETURN" && (
                           <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">Lý do trả hàng</TableHead>
                         )}
-                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Giá Vốn</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Giá vốn</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                      </TableRow>
                   </TableHeader>
@@ -467,7 +505,7 @@ function AdminExportFormContent() {
                                     isReadOnly ? "bg-slate-50 border-transparent" : ""
                                   )}
                                 />
-                                {/* 👇 CẢNH BÁO VƯỢT TỒN KHO */}
+                                {/* Cảnh báo vượt tồn kho */}
                                 {!isReadOnly && currentItem?.quantity > currentItem?.stock && (
                                    <div className="text-[10px] text-rose-500 font-bold mt-1 text-right animate-pulse">
                                      Vượt tồn kho!
@@ -506,13 +544,6 @@ function AdminExportFormContent() {
         </div>
 
         <div className="lg:col-span-4 space-y-5">
-          <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><BadgeCheck size={16} className="text-blue-600"/> Người tạo phiếu</div>
-             <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Tên nhân viên</Label>
-                <Input readOnly {...register("creatorName")} className="rounded-none text-[13px] h-10 border-slate-200 bg-slate-50 text-slate-500 font-bold cursor-not-allowed" />
-             </div>
-          </div>
 
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
@@ -591,7 +622,7 @@ function AdminExportFormContent() {
             </span></span>
             <div className="h-4 w-[1px] bg-slate-300"></div>
             <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">
-               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} ₫
+               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} â‚«
             </span></span>
          </div>
          <div className="flex gap-3">

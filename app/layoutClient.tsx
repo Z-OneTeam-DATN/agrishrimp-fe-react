@@ -10,6 +10,7 @@ import Cookies from "js-cookie";
 
 import { useAuthStore } from "@/stores/useAuthStore";
 import { AuthService } from "./services/auth.service";
+import { UserType } from "./types/user.schema";
 
 const Header = dynamic(() => import("@/components/site/SiteHeader"), { ssr: false });
 const Navbar = dynamic(() => import("@/components/site/SiteNavbar"), { ssr: false });
@@ -25,7 +26,7 @@ const readCache = (): unknown => {
 };
 
 const writeCache = (user: unknown) => {
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(user)); } catch {}
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(user)); } catch { /* ignore sessionStorage failures */ }
 };
 
 const readPermissionsCache = (): string[] => {
@@ -43,7 +44,7 @@ const clearCache = () => {
   try {
     sessionStorage.removeItem(CACHE_KEY);
     sessionStorage.removeItem(PERMS_CACHE_KEY);
-  } catch {}
+  } catch { /* ignore sessionStorage failures */ }
 };
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -76,14 +77,16 @@ export default function LayoutClient({
         try {
           const tokenData = await AuthService.meTokenNext();
           if (tokenData?.accessToken) setAccessToken(tokenData.accessToken);
-        } catch {}
+        } catch {
+          // Ignore token prefetch failures and continue with cached user.
+        }
 
         // Bước 2: Load permissions từ cache trước để sidebar render đúng ngay lập tức
         const cachedPerms = readPermissionsCache();
         setPermissions(cachedPerms);
 
         // Bước 3: Hiện trang ngay với dữ liệu cũ
-        setUser(cachedUser as any);
+        setUser(cachedUser as UserType);
         setLoadingAuth(false);
 
         // Bước 4: Xác minh + cập nhật ở background — user và permissions song song
