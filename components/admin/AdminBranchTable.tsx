@@ -56,34 +56,21 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
       <Table className="table-custom border-collapse min-w-[1100px]">
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
-            <TableHead className="w-[100px] font-bold text-[11px] uppercase p-2 pl-6 text-[#1f1f1f]">
-              Mã CN
-            </TableHead>
-            <TableHead className="font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">
-              Thông tin & Vị trí
-            </TableHead>
-            <TableHead className="w-[140px] font-bold text-[11px] uppercase p-2 text-center text-slate-500">
-              Phân loại
-            </TableHead>
-            <TableHead className="w-[220px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">
-              Quản lý
-            </TableHead>
-            <TableHead className="w-[200px] font-bold text-[11px] uppercase p-2 text-[#1f1f1f]">
-              Liên hệ
-            </TableHead>
-            <TableHead className="w-[130px] font-bold text-[11px] uppercase p-2 text-center text-[#1f1f1f]">
-              Trạng thái
-            </TableHead>
+            <TableHead className="w-[100px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">Mã CN</TableHead>
+            <TableHead className="font-semibold text-[12px] p-2 text-[#1f1f1f]">Thông tin & Vị trí</TableHead>
+            <TableHead className="w-[140px] font-semibold text-[12px] p-2 text-center text-slate-500">Phân loại</TableHead>
+            <TableHead className="w-[220px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Quản lý</TableHead>
+            <TableHead className="w-[200px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Liên hệ</TableHead>
+            <TableHead className="w-[130px] font-semibold text-[12px] p-2 text-center text-[#1f1f1f]">Trạng thái</TableHead>
             {canAction && (
-              <TableHead className="w-[100px] text-right font-bold text-[11px] uppercase p-2 pr-6 text-[#1f1f1f]">
-                Thao tác
-              </TableHead>
+              <TableHead className="w-[100px] text-right font-semibold text-[12px] p-2 pr-6 text-[#1f1f1f]">Thao tác</TableHead>
             )}
           </TableRow>
         </TableHeader>
         <TableBody>
           {branches.map((branch) => {
-            const isHQ = branch.branchType === "hub";
+            const isWarehouse = branch.branchType === "WAREHOUSE";
+            const isStore = branch.branchType === "STORE";
             const isActive = branch.status === "ACTIVE";
 
             return (
@@ -91,19 +78,17 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                 key={branch.id}
                 className={cn(
                   "hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer",
-                  isHQ && "bg-amber-50/40"
+                  isWarehouse && "bg-amber-50/40"
                 )}
               >
-                <TableCell className="p-2 pl-6 text-[12px] font-black text-slate-500 uppercase">
-                  #{branch.branchCode}
-                </TableCell>
+                <TableCell className="p-2 pl-6 text-[12px] font-semibold text-slate-600">#{branch.branchCode}</TableCell>
 
                 <TableCell className="p-2">
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
                         "w-9 h-9 rounded flex items-center justify-center border",
-                        isHQ
+                        isWarehouse
                           ? "bg-amber-100 text-amber-700 border-amber-200 shadow-sm"
                           : "bg-emerald-50 text-emerald-600 border-emerald-100",
                       )}
@@ -111,11 +96,11 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                       <Building2 size={16} />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[13px] font-black text-slate-800 uppercase tracking-tighter">
+                      <span className="text-[13px] font-semibold text-slate-800 capitalize tracking-tight">
                         {branch.name}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
-                        <MapPin size={10} className="text-slate-300" /> 
+                      <span className="text-[11px] text-slate-500 font-normal mt-0.5 flex items-center gap-1 capitalize">
+                        <MapPin size={10} className="text-slate-300" />
                         {branch.addressDetail}
                         {branch.ward && `, ${branch.ward}`}
                         {branch.district && `, ${branch.district}`}
@@ -127,23 +112,23 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
 
                 <TableCell className="p-2 text-center">
                    <span className={cn(
-                     "text-[10px] font-black px-2 py-0.5 rounded-none border uppercase tracking-tighter",
-                     isHQ ? "bg-amber-600 text-white border-amber-700" : "bg-slate-50 text-slate-500 border-slate-200"
+                     "text-[11px] font-semibold px-2 py-0.5 rounded-none border tracking-tight capitalize",
+                     isWarehouse ? "bg-amber-600 text-white border-amber-700" : "bg-slate-50 text-slate-500 border-slate-200"
                    )}>
-                     {isHQ ? "KHO TỔNG" : "CHI NHÁNH"}
+                     {isWarehouse ? "Kho tổng" : isStore ? "Chi nhánh" : "Khác"}
                    </span>
                 </TableCell>
 
                 <TableCell className="p-2">
                   <div className="flex items-center gap-2">
-                     <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-[10px] border border-slate-200 uppercase">
+                     <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-[11px] border border-slate-200 capitalize">
                       {branch.managerNames?.[0]?.substring(0, 2) || "??"}
                      </div>
                      <div className="flex flex-col">
-                       <span className="text-[12px] font-bold text-slate-700 leading-none">
+                       <span className="text-[12px] font-semibold text-slate-700 leading-none capitalize">
                          {branch.managerNames?.[0] || "Chưa có"}
                        </span>
-                       <span className="text-[10px] text-slate-400 mt-1 font-bold flex items-center gap-1">
+                       <span className="text-[10px] text-slate-400 mt-1 font-normal flex items-center gap-1">
                          <UserCheck size={10} /> ID: {branch.managerIds?.[0] || "N/A"}
                        </span>
                      </div>
@@ -152,10 +137,10 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
 
                 <TableCell className="p-2">
                   <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold">
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-normal">
                       <Phone size={10} className="text-slate-400" /> {branch.phone}
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium lowercase">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-normal">
                       <Mail size={10} className="text-slate-400" /> {branch.email}
                     </div>
                   </div>
@@ -163,10 +148,10 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
 
                 <TableCell className="p-2 text-center">
                   <span className={cn(
-                    "text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
+                    "text-[11px] font-semibold px-2 py-0.5 rounded border tracking-tight capitalize whitespace-nowrap",
                     isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
                   )}>
-                    {isActive ? "ĐANG HOẠT ĐỘNG" : "NGỪNG HOẠT ĐỘNG"}
+                    {isActive ? "Đang hoạt động" : "Ngừng hoạt động"}
                   </span>
                 </TableCell>
 
