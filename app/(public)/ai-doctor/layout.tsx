@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Bác sĩ AI - AgriShrimp",
+  title: "Bác sĩ Tôm - Khám bệnh tôm trực tuyến",
   description:
-    "Tải ảnh tôm bệnh để AgriShrimp AI nhận diện dấu hiệu bằng YOLOv8, đối chiếu triệu chứng, sau đó dùng Gemini tạo phác đồ điều trị theo từng giai đoạn và gợi ý sản phẩm phù hợp ngay trên web.",
+    "Chụp ảnh tôm bị bệnh để Bác sĩ Tôm nhận diện và hướng dẫn cách chữa trị ngay lập tức. Hỗ trợ bà con nuôi tôm 24/7 hiệu quả và nhanh chóng.",
 };
 
 export default function AiDoctorLayout({

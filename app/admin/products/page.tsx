@@ -213,6 +213,40 @@ export default function ProductsPage() {
         }
     };
 
+    const handleBulkEnable = async (ids: number[]) => {
+        if (!ids.length) return;
+
+        const results = await Promise.allSettled(ids.map((id) => ProductService.enable(id)));
+        const successCount = results.filter((result) => result.status === "fulfilled").length;
+        const failCount = results.length - successCount;
+
+        if (successCount > 0) {
+            toast.success(`Đã mở kinh doanh ${successCount}/${ids.length} sản phẩm.`);
+        }
+        if (failCount > 0) {
+            toast.error(`Có ${failCount} sản phẩm không thể mở kinh doanh. Vui lòng kiểm tra lại.`);
+        }
+
+        fetchProducts();
+    };
+
+    const handleBulkDelete = async (ids: number[]) => {
+        if (!ids.length) return;
+
+        const results = await Promise.allSettled(ids.map((id) => ProductService.delete(id)));
+        const successCount = results.filter((result) => result.status === "fulfilled").length;
+        const failCount = results.length - successCount;
+
+        if (successCount > 0) {
+            toast.success(`Đã xóa ${successCount}/${ids.length} sản phẩm.`);
+        }
+        if (failCount > 0) {
+            toast.error(`Có ${failCount} sản phẩm không thể xóa. Có thể đang có giao dịch hoặc tồn kho.`);
+        }
+
+        fetchProducts();
+    };
+
     const handleEdit = (id: number) => {
         router.push(`/admin/products/${id}/edit`);
     };
@@ -594,6 +628,8 @@ export default function ProductsPage() {
                                 onEdit={handleEdit}
                                 onDisable={handleDisable}
                                 onEnable={handleEnable}
+                                onBulkEnable={handleBulkEnable}
+                                onBulkDelete={handleBulkDelete}
                             />
                         ) : (
                             <div className="overflow-x-auto">
