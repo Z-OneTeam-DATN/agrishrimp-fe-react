@@ -1069,7 +1069,7 @@ function AdminReceiptFormContent() {
               <div className="flex justify-between text-xs font-bold text-slate-500 uppercase">
                 <span>Tổng tiền hàng:</span>
                 <span className="text-slate-900">
-                  {formatNumber(subTotal)} â‚«
+                  {formatNumber(subTotal)} VND
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs font-bold text-emerald-600 uppercase">
@@ -1088,7 +1088,7 @@ function AdminReceiptFormContent() {
                     debtAmount > 0 ? "text-rose-600" : "text-emerald-600"
                   }
                 >
-                  {formatNumber(debtAmount)} â‚«
+                  {formatNumber(debtAmount)} VND
                 </span>
               </div>
             </div>
