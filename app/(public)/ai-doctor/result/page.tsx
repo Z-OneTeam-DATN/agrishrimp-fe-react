@@ -195,10 +195,12 @@ export default function TreatmentResultPage() {
   });
 
   const diagnosis = diagnosisQuery.data;
+  const diagnosisCauses = diagnosis?.causes ?? [];
+  const treatmentStages = diagnosis?.treatmentStages ?? [];
   const secondaryPredictions = diagnosis?.topPredictions?.slice(1, 4) ?? [];
-  const stageTotals = diagnosis?.treatmentStages?.map((stage) => getStageTotal(stage.products)) ?? [];
+  const stageTotals = treatmentStages.map((stage) => getStageTotal(stage.products));
   const overallTotal = stageTotals.reduce((sum, total) => sum + total, 0);
-  const overallProducts = diagnosis?.treatmentStages?.flatMap((stage) => stage.products ?? []) ?? [];
+  const overallProducts = treatmentStages.flatMap((stage) => stage.products ?? []);
 
   const resolveVariantId = async (productId: number) => {
     const cached = variantIdCache.current.get(productId);
@@ -392,9 +394,9 @@ export default function TreatmentResultPage() {
                       <div className="mb-2 text-[11px] font-bold uppercase text-slate-500">
                         Nguyên nhân có thể
                       </div>
-                      {diagnosis.causes?.length > 0 ? (
+                      {diagnosisCauses.length > 0 ? (
                         <ul className="space-y-2 text-sm text-slate-600">
-                          {diagnosis.causes.map((cause, index) => (
+                          {diagnosisCauses.map((cause, index) => (
                             <li key={index} className="flex items-start gap-2">
                               <AlertTriangle
                                 size={14}
@@ -478,8 +480,8 @@ export default function TreatmentResultPage() {
             </div>
 
             <div className="space-y-6 lg:col-span-8">
-              {diagnosis.treatmentStages?.length > 0 ? (
-                diagnosis.treatmentStages.map((stage, index) => (
+              {treatmentStages.length > 0 ? (
+                treatmentStages.map((stage, index) => (
                   <StageCard
                     key={`${index}-${stage.stageTitle}`}
                     stage={stage}
