@@ -113,9 +113,11 @@ export default function CustomerManagementPage() {
         <div className="space-y-3 relative">
             <AdminPageHeader
                 title="Quản lý danh sách khách hàng"
+                subtitle="Quản lý thông tin khách hàng, trạng thái tài khoản và lịch sử mua hàng"
+                titleClassName="font-black"
                 addBtnLabel="Thêm khách hàng"
                 addBtnHref="/admin/customers/add"
-                permission={P.CUSTOMER_CREATE} // Ẩn nút nếu không có quyền
+                permission={P.CUSTOMER_CREATE}
             />
 
             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">

@@ -201,7 +201,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const cfg = statusConfig[order.status];
   const showStepper = order.status !== "CANCELLED" && order.status !== "RETURNED";
-  const progressPct = activeStep <= 0 ? 0 : (activeStep / (steps.length - 1)) * 100;
+  const progressPct =
+    activeStep > 0
+      ? (activeStep / (steps.length - 1)) * 100
+      : 0;
 
   const handleConfirmReceived = async () => {
     try {

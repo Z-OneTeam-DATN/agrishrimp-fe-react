@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import dynamic from "next/dynamic";
@@ -18,6 +18,8 @@ import {
     ChevronDown,
     Check,
     Info,
+    Copy,
+    ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,7 @@ import {
     Select,
     SelectContent,
     SelectItem,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
@@ -112,6 +115,53 @@ type AttributeEditorState = {
     initialValues: string[];
     variantIndex: number;
 };
+
+type ProductFormStep = "info" | "description" | "variants" | "images" | "status";
+
+const ADD_PRODUCT_DRAFT_KEY = "admin-product-add-draft-v2";
+const PRODUCT_DRAFT_INDEX_KEY = "admin-product-draft-index-v1";
+const PRODUCT_BULK_PRESETS_KEY = "admin-product-bulk-presets-v1";
+const VARIANT_RENDER_CHUNK = 20;
+const VARIANT_VIRTUAL_THRESHOLD = 24;
+
+type DraftIndexEntry = {
+    key: string;
+    label: string;
+    savedAt: number;
+};
+
+type VariantBulkPreset = {
+    id: string;
+    name: string;
+    attributeId: number;
+    attributeValueId: number;
+    savedAt: number;
+    isDefault?: boolean;
+};
+
+const normalizeBulkPreset = (preset: any): VariantBulkPreset | null => {
+    if (!preset || typeof preset !== "object") return null;
+
+    const attributeId = Number(preset.attributeId);
+    const attributeValueId = Number(preset.attributeValueId);
+    if (Number.isNaN(attributeId) || Number.isNaN(attributeValueId)) return null;
+
+    return {
+        id: String(preset.id || `${Date.now()}`),
+        name: String(preset.name || "Preset"),
+        attributeId,
+        attributeValueId,
+        savedAt: Number(preset.savedAt || Date.now()),
+        isDefault: Boolean(preset.isDefault),
+    };
+};
+
+const sortBulkPresets = (presets: VariantBulkPreset[]) =>
+    [...presets].sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return b.savedAt - a.savedAt;
+    });
 
 const DEFAULT_VARIANT = {
     sku: "",
@@ -285,11 +335,31 @@ const findLatestAddedValueDetail = (
 // ─── MAIN PAGE ───
 export default function AddProductPage() {
     const router = useRouter();
-    const mainImagesRef = useRef<HTMLInputElement>(null);
+    const infoSectionRef = useRef<HTMLDivElement>(null);
+    const descriptionSectionRef = useRef<HTMLDivElement>(null);
+    const variantsSectionRef = useRef<HTMLDivElement>(null);
+    const imagesSectionRef = useRef<HTMLDivElement>(null);
+    const statusSectionRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [activeStep, setActiveStep] = useState<ProductFormStep>("info");
+    const [collapsedVariantIds, setCollapsedVariantIds] = useState<Record<string, boolean>>({});
+    const [selectedVariantIds, setSelectedVariantIds] = useState<Record<string, boolean>>({});
+    const [bulkAttributeId, setBulkAttributeId] = useState("none");
+    const [bulkAttributeValueId, setBulkAttributeValueId] = useState("none");
+    const [bulkPresetName, setBulkPresetName] = useState("");
+    const [selectedBulkPresetId, setSelectedBulkPresetId] = useState("none");
+    const [bulkPresets, setBulkPresets] = useState<VariantBulkPreset[]>([]);
+    const [draftPromptOpen, setDraftPromptOpen] = useState(false);
+    const [pendingDraftData, setPendingDraftData] = useState<any>(null);
+    const [recentDrafts, setRecentDrafts] = useState<DraftIndexEntry[]>([]);
+    const [variantScrollTop, setVariantScrollTop] = useState(0);
+    const [variantViewportHeight, setVariantViewportHeight] = useState(720);
+    const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string>("");
+    const [mediaDirty, setMediaDirty] = useState(false);
+    const [allowUnload, setAllowUnload] = useState(false);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
 
-    const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
-    const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
     const [variantImageFiles, setVariantImageFiles] = useState<(File | null)[]>([null]);
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([""]);
 
@@ -299,6 +369,7 @@ export default function AddProductPage() {
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
     const [isSavingAttribute, setIsSavingAttribute] = useState(false);
+    const variantListRef = useRef<HTMLDivElement>(null);
 
     const { isLoadingAuth, isAuthenticated } = useAuthStore();
     const { hasPermission } = usePermissions();
@@ -423,7 +494,8 @@ export default function AddProductPage() {
         setValue,
         getValues,
         watch,
-        formState: { errors },
+        reset,
+        formState: { errors, isDirty },
     } = useForm<ProductFormData>({
         resolver: zodResolver(productSchema),
         mode: "onTouched",
@@ -440,11 +512,230 @@ export default function AddProductPage() {
     });
 
     const baseSkuWatch = watch("baseSku");
+    const nameWatch = watch("name");
+    const categoryWatch = watch("categoryId");
+    const statusWatch = watch("status");
+    const descriptionWatch = watch("description");
+    const variantsWatch = watch("variants");
 
     const { fields, append, remove } = useFieldArray({
         control,
         name: "variants",
     });
+
+    const firstVariantImagePreview = (variantImagePreviews[0] || "").trim();
+
+    const steps = useMemo(
+        () => [
+            { key: "info" as ProductFormStep, label: "Thông tin chính", ref: infoSectionRef },
+            { key: "description" as ProductFormStep, label: "Mô tả", ref: descriptionSectionRef },
+            { key: "variants" as ProductFormStep, label: "Biến thể", ref: variantsSectionRef },
+            { key: "images" as ProductFormStep, label: "Ảnh", ref: imagesSectionRef },
+            { key: "status" as ProductFormStep, label: "Trạng thái", ref: statusSectionRef },
+        ],
+        []
+    );
+
+    const hasUnsavedChanges = (isDirty || mediaDirty) && !allowUnload;
+    const selectedVariantIndexes = useMemo(
+        () => fields.map((field, idx) => (selectedVariantIds[field.id] ? idx : -1)).filter((idx) => idx >= 0),
+        [fields, selectedVariantIds]
+    );
+    const selectedVariantCount = selectedVariantIndexes.length;
+
+    const selectedBulkAttribute = useMemo(
+        () => attributes.find((attr: any) => String(attr.id) === bulkAttributeId),
+        [attributes, bulkAttributeId]
+    );
+    const bulkAttributeOptions = selectedBulkAttribute?.valueDetails || [];
+    const estimateVariantHeight = useCallback((idx: number) => {
+        const isCollapsed = !!collapsedVariantIds[fields[idx]?.id];
+        const attributeRows = Math.max(1, Math.ceil(Math.max(attributes.length, 1) / 3));
+        return isCollapsed ? 186 : 270 + attributeRows * 96;
+    }, [attributes.length, collapsedVariantIds, fields]);
+
+    const variantMeasurements = useMemo(() => {
+        const starts: number[] = [];
+        let total = 0;
+
+        fields.forEach((_, idx) => {
+            starts.push(total);
+            total += estimateVariantHeight(idx);
+        });
+
+        return { starts, total };
+    }, [estimateVariantHeight, fields]);
+
+    const variantWindow = useMemo(() => {
+        if (fields.length <= VARIANT_VIRTUAL_THRESHOLD) {
+            return {
+                start: 0,
+                end: fields.length,
+                topPadding: 0,
+                bottomPadding: 0,
+                virtual: false,
+            };
+        }
+
+        const overscan = 600;
+        const starts = variantMeasurements.starts;
+
+        const findStart = (target: number) => {
+            let low = 0;
+            let high = starts.length;
+            while (low < high) {
+                const mid = (low + high) >> 1;
+                if (starts[mid] < target) low = mid + 1;
+                else high = mid;
+            }
+            return Math.max(0, low - 1);
+        };
+
+        const startPixel = Math.max(0, variantScrollTop - overscan);
+        const endPixel = variantScrollTop + variantViewportHeight + overscan;
+        const start = findStart(startPixel);
+        const end = Math.min(fields.length, findStart(endPixel) + 2);
+        const topPadding = starts[start] || 0;
+        const bottomPadding = Math.max(0, variantMeasurements.total - (starts[end] ?? variantMeasurements.total));
+
+        return {
+            start,
+            end,
+            topPadding,
+            bottomPadding,
+            virtual: true,
+        };
+    }, [fields.length, variantMeasurements, variantScrollTop, variantViewportHeight]);
+
+    const renderedVariantEntries = useMemo(() => {
+        const entries = fields.map((field, idx) => ({ field, idx }));
+        return entries.slice(variantWindow.start, variantWindow.end);
+    }, [fields, variantWindow.end, variantWindow.start]);
+
+    const variantValidationMap = useMemo(() => {
+        const map: Record<number, { missing: boolean; duplicate: boolean }> = {};
+        const comboMap = new Map<string, number[]>();
+
+        (variantsWatch || []).forEach((variant, idx) => {
+            const ids = variant?.attributeValueIds || [];
+            const missing = attributes.length > 0 && ids.length < attributes.length;
+            map[idx] = { missing, duplicate: false };
+
+            if (ids.length > 0) {
+                const combo = [...ids].sort((a, b) => a - b).join("_");
+                const list = comboMap.get(combo) || [];
+                list.push(idx);
+                comboMap.set(combo, list);
+            }
+        });
+
+        comboMap.forEach((indexes) => {
+            if (indexes.length > 1) {
+                indexes.forEach((idx) => {
+                    if (!map[idx]) map[idx] = { missing: false, duplicate: false };
+                    map[idx].duplicate = true;
+                });
+            }
+        });
+
+        return map;
+    }, [variantsWatch, attributes.length]);
+
+    const variantWarningCount = useMemo(
+        () => Object.values(variantValidationMap).filter((item) => item.missing || item.duplicate).length,
+        [variantValidationMap]
+    );
+
+    const syncDraftIndex = useCallback((entry: DraftIndexEntry) => {
+        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+        const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+        const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
+            .sort((a, b) => b.savedAt - a.savedAt)
+            .slice(0, 8);
+        localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
+        setRecentDrafts(merged);
+    }, []);
+
+    const missingWarnings = useMemo(() => {
+        const warnings: string[] = [];
+        if (!nameWatch?.trim()) warnings.push("Thiếu tên sản phẩm");
+        if (!categoryWatch) warnings.push("Chưa chọn danh mục");
+        if (!firstVariantImagePreview) warnings.push("Chưa có ảnh biến thể đầu tiên");
+        if (fields.length === 0) warnings.push("Chưa có biến thể");
+        return warnings;
+    }, [nameWatch, categoryWatch, firstVariantImagePreview, fields.length]);
+
+    const sectionStates = useMemo(() => {
+        const infoDone = !!nameWatch?.trim() && !!categoryWatch;
+        const descriptionDone = (descriptionWatch || "").replace(/<[^>]+>/g, "").trim().length > 20;
+        const variantsDone = (variantsWatch || []).length > 0;
+        const variantsWarning = variantWarningCount > 0;
+        const imagesDone = !!firstVariantImagePreview;
+        const statusDone = !!statusWatch;
+
+        return {
+            info: infoDone ? "done" : "warning",
+            description: descriptionDone ? "done" : "warning",
+            variants: variantsWarning ? "warning" : variantsDone ? "done" : "warning",
+            images: imagesDone ? "done" : "warning",
+            status: statusDone ? "done" : "warning",
+        } as Record<ProductFormStep, "done" | "warning">;
+    }, [nameWatch, categoryWatch, descriptionWatch, variantsWatch, variantWarningCount, firstVariantImagePreview, statusWatch]);
+
+    useEffect(() => {
+        const rawPreset = localStorage.getItem(PRODUCT_BULK_PRESETS_KEY);
+        if (rawPreset) {
+            try {
+                const parsed: VariantBulkPreset[] = JSON.parse(rawPreset);
+                const normalized = sortBulkPresets(parsed.map((preset) => normalizeBulkPreset(preset)).filter(Boolean) as VariantBulkPreset[]);
+                setBulkPresets(normalized);
+                setSelectedBulkPresetId(normalized.find((preset) => preset.isDefault)?.id || normalized[0]?.id || "none");
+            } catch {
+                localStorage.removeItem(PRODUCT_BULK_PRESETS_KEY);
+            }
+        }
+
+        const rawIndex = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+        if (rawIndex) {
+            try {
+                const list: DraftIndexEntry[] = JSON.parse(rawIndex);
+                setRecentDrafts(list.slice(0, 6));
+            } catch {
+                localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            }
+        }
+
+        const saved = localStorage.getItem(ADD_PRODUCT_DRAFT_KEY);
+        if (!saved) return;
+
+        try {
+            const parsed = JSON.parse(saved);
+            if (!parsed?.formData) return;
+            setPendingDraftData(parsed);
+            setDraftPromptOpen(true);
+        } catch {
+            localStorage.removeItem(ADD_PRODUCT_DRAFT_KEY);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (allowUnload) return;
+        const timer = window.setTimeout(() => {
+            const payload = {
+                formData: getValues(),
+                savedAt: Date.now(),
+            };
+            localStorage.setItem(ADD_PRODUCT_DRAFT_KEY, JSON.stringify(payload));
+            syncDraftIndex({
+                key: ADD_PRODUCT_DRAFT_KEY,
+                label: "Thêm sản phẩm mới",
+                savedAt: payload.savedAt,
+            });
+            setLastDraftSavedAt(new Date(payload.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+        }, 900);
+
+        return () => window.clearTimeout(timer);
+    }, [allowUnload, getValues, nameWatch, categoryWatch, statusWatch, descriptionWatch, fields.length, variantsWatch, mediaDirty, syncDraftIndex]);
 
     useEffect(() => {
         fields.forEach((_, idx) => {
@@ -452,20 +743,327 @@ export default function AddProductPage() {
         });
     }, [baseSkuWatch, fields.length, setValue]);
 
-    const handleMainImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            setProductImageFiles((prev) => [...prev, ...files]);
-            setProductImagePreviews((prev) => [
-                ...prev,
-                ...files.map((f) => URL.createObjectURL(f)),
-            ]);
+    useEffect(() => {
+        const onScroll = () => {
+            let currentStep: ProductFormStep = "info";
+            for (const step of steps) {
+                const top = step.ref.current?.getBoundingClientRect().top;
+                if (typeof top === "number" && top <= 180) {
+                    currentStep = step.key;
+                }
+            }
+            setActiveStep(currentStep);
+        };
+
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, [steps]);
+
+    useEffect(() => {
+        if (!hasUnsavedChanges) return;
+
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+
+        window.addEventListener("beforeunload", onBeforeUnload);
+        return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    useEffect(() => {
+        if (!hasUnsavedChanges) return;
+        const timer = window.setTimeout(() => {
+            setLastDraftSavedAt(new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+        }, 800);
+
+        return () => window.clearTimeout(timer);
+    }, [hasUnsavedChanges, nameWatch, categoryWatch, statusWatch, fields.length, firstVariantImagePreview]);
+
+    useEffect(() => {
+        const container = variantListRef.current;
+        if (!container) return;
+
+        const updateViewport = () => {
+            setVariantScrollTop(container.scrollTop);
+            setVariantViewportHeight(container.clientHeight || 720);
+        };
+
+        updateViewport();
+
+        let frame = 0;
+        const onScroll = () => {
+            window.cancelAnimationFrame(frame);
+            frame = window.requestAnimationFrame(updateViewport);
+        };
+
+        container.addEventListener("scroll", onScroll, { passive: true });
+
+        const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateViewport) : null;
+        observer?.observe(container);
+
+        return () => {
+            container.removeEventListener("scroll", onScroll);
+            window.cancelAnimationFrame(frame);
+            observer?.disconnect();
+        };
+    }, [fields.length]);
+
+    const confirmLeaveIfDirty = useCallback((onConfirm: () => void) => {
+        if (!hasUnsavedChanges) {
+            onConfirm();
+            return;
         }
+        setPendingLeaveAction(() => onConfirm);
+        setConfirmDialogOpen(true);
+    }, [hasUnsavedChanges]);
+
+    const scrollToStep = useCallback((step: ProductFormStep) => {
+        const target = steps.find((item) => item.key === step)?.ref.current;
+        if (!target) return;
+        window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - 120, behavior: "smooth" });
+    }, [steps]);
+
+    useEffect(() => {
+        setSelectedVariantIds((prev) => {
+            const next: Record<string, boolean> = {};
+            fields.forEach((field) => {
+                if (prev[field.id]) next[field.id] = true;
+            });
+            return next;
+        });
+    }, [fields]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (!window.matchMedia("(max-width: 767px)").matches) return;
+
+        setCollapsedVariantIds((prev) => {
+            const next = { ...prev };
+            fields.forEach((field) => {
+                if (typeof next[field.id] === "undefined") {
+                    next[field.id] = true;
+                }
+            });
+            return next;
+        });
+    }, [fields]);
+
+    const toggleSelectVariant = (fieldId: string) => {
+        setSelectedVariantIds((prev) => ({ ...prev, [fieldId]: !prev[fieldId] }));
     };
 
-    const removeMainImage = (idx: number) => {
-        setProductImageFiles((prev) => prev.filter((_, i) => i !== idx));
-        setProductImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+    const toggleSelectAllVariants = () => {
+        if (selectedVariantCount === fields.length) {
+            setSelectedVariantIds({});
+            return;
+        }
+
+        const next: Record<string, boolean> = {};
+        fields.forEach((field) => {
+            next[field.id] = true;
+        });
+        setSelectedVariantIds(next);
+    };
+
+    const applyAttributeValueToVariant = (variantIndex: number, attributeId: number, valueId: number | null) => {
+        const targetAttribute = attributes.find((attr: any) => Number(attr.id) === Number(attributeId));
+        const options = targetAttribute?.valueDetails || [];
+        const fieldName = `variants.${variantIndex}.attributeValueIds` as const;
+        const current = getValues(fieldName) || [];
+        const others = current.filter((id: number) => !options.some((opt: any) => Number(opt.valueId) === id));
+        const next = valueId ? [...others, Number(valueId)] : others;
+
+        setValue(fieldName, next, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true,
+        });
+    };
+
+    const handleBulkAssignAttribute = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể.");
+            return;
+        }
+        if (bulkAttributeId === "none" || bulkAttributeValueId === "none") {
+            toast.error("Vui lòng chọn thuộc tính và giá trị để gán nhanh.");
+            return;
+        }
+
+        selectedVariantIndexes.forEach((idx) => {
+            applyAttributeValueToVariant(idx, Number(bulkAttributeId), Number(bulkAttributeValueId));
+        });
+        toast.success(`Đã gán nhanh cho ${selectedVariantCount} biến thể.`);
+    };
+
+    const handleBulkDuplicateSelected = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể để nhân bản.");
+            return;
+        }
+
+        const snapshotIndexes = [...selectedVariantIndexes].sort((a, b) => a - b);
+        snapshotIndexes.forEach((idx) => handleDuplicateVariant(idx));
+        toast.success(`Đã nhân bản ${snapshotIndexes.length} biến thể.`);
+    };
+
+    const handleBulkDeleteSelected = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể để xóa.");
+            return;
+        }
+        if (fields.length - selectedVariantCount < 1) {
+            toast.error("Cần giữ lại ít nhất 1 biến thể.");
+            return;
+        }
+
+        const removeIndexes = [...selectedVariantIndexes].sort((a, b) => b - a);
+        removeIndexes.forEach((idx) => handleRemoveVariant(idx));
+        setSelectedVariantIds({});
+        toast.success(`Đã xóa ${removeIndexes.length} biến thể.`);
+    };
+
+    const handleRestoreDraft = () => {
+        if (!pendingDraftData?.formData) {
+            setDraftPromptOpen(false);
+            return;
+        }
+
+        const draftData = pendingDraftData.formData;
+        reset({
+            name: draftData.name || "",
+            categoryId: draftData.categoryId || "",
+            brand: draftData.brand || "",
+            origin: draftData.origin || "",
+            baseSku: draftData.baseSku || generateBaseSku(),
+            description: draftData.description || "",
+            status: draftData.status || "ACTIVE",
+            variants: Array.isArray(draftData.variants) && draftData.variants.length > 0
+                ? draftData.variants
+                : [{ ...DEFAULT_VARIANT, sku: `${generateBaseSku()}-V1`, barcode: generateBarcode() }],
+        });
+
+        const variantLength = Array.isArray(draftData.variants) && draftData.variants.length > 0 ? draftData.variants.length : 1;
+        setVariantImageFiles(Array(variantLength).fill(null));
+        setVariantImagePreviews(Array(variantLength).fill(""));
+
+        if (pendingDraftData.savedAt) {
+            setLastDraftSavedAt(new Date(pendingDraftData.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }));
+        }
+        setDraftPromptOpen(false);
+        toast.success("Đã khôi phục bản nháp.");
+    };
+
+    const handleDiscardDraft = () => {
+        localStorage.removeItem(ADD_PRODUCT_DRAFT_KEY);
+        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+        if (raw) {
+            try {
+                const list: DraftIndexEntry[] = JSON.parse(raw);
+                const next = list.filter((item) => item.key !== ADD_PRODUCT_DRAFT_KEY);
+                localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(next));
+                setRecentDrafts(next.slice(0, 6));
+            } catch {
+                localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+                setRecentDrafts([]);
+            }
+        }
+        setPendingDraftData(null);
+        setDraftPromptOpen(false);
+    };
+
+    const handleSaveBulkPreset = () => {
+        if (bulkAttributeId === "none" || bulkAttributeValueId === "none") {
+            toast.error("Chọn thuộc tính và giá trị trước khi lưu preset.");
+            return;
+        }
+
+        const name = bulkPresetName.trim() || `Preset ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+        const preset: VariantBulkPreset = {
+            id: `${Date.now()}`,
+            name,
+            attributeId: Number(bulkAttributeId),
+            attributeValueId: Number(bulkAttributeValueId),
+            savedAt: Date.now(),
+            isDefault: bulkPresets.length === 0,
+        };
+        const next = sortBulkPresets([preset, ...bulkPresets].slice(0, 12));
+        setBulkPresets(next);
+        localStorage.setItem(PRODUCT_BULK_PRESETS_KEY, JSON.stringify(next));
+        setBulkPresetName("");
+        setSelectedBulkPresetId(preset.id);
+        toast.success("Đã lưu preset bulk.");
+    };
+
+    const handleDeleteBulkPreset = () => {
+        if (selectedBulkPresetId === "none") {
+            toast.error("Vui lòng chọn preset để xóa.");
+            return;
+        }
+
+        const current = bulkPresets.find((item) => item.id === selectedBulkPresetId);
+        if (!current) {
+            toast.error("Preset không hợp lệ.");
+            return;
+        }
+
+        if (!window.confirm(`Xóa preset \"${current.name}\"?`)) {
+            return;
+        }
+
+        const next = bulkPresets.filter((item) => item.id !== selectedBulkPresetId);
+        if (current.isDefault && next.length > 0) {
+            next[0] = { ...next[0], isDefault: true };
+        }
+
+        const sorted = sortBulkPresets(next);
+        localStorage.setItem(PRODUCT_BULK_PRESETS_KEY, JSON.stringify(sorted));
+        setBulkPresets(sorted);
+        setSelectedBulkPresetId(sorted.find((item) => item.isDefault)?.id || sorted[0]?.id || "none");
+        toast.success("Đã xóa preset.");
+    };
+
+    const handleSetDefaultBulkPreset = () => {
+        if (selectedBulkPresetId === "none") {
+            toast.error("Vui lòng chọn preset để đặt mặc định.");
+            return;
+        }
+
+        const current = bulkPresets.find((item) => item.id === selectedBulkPresetId);
+        if (!current) {
+            toast.error("Preset không hợp lệ.");
+            return;
+        }
+
+        const next = sortBulkPresets(
+            bulkPresets.map((item) => ({
+                ...item,
+                isDefault: item.id === selectedBulkPresetId,
+            }))
+        );
+        localStorage.setItem(PRODUCT_BULK_PRESETS_KEY, JSON.stringify(next));
+        setBulkPresets(next);
+        setSelectedBulkPresetId(current.id);
+        toast.success("Đã đặt preset mặc định.");
+    };
+
+    const handleApplyBulkPreset = () => {
+        if (selectedVariantCount === 0) {
+            toast.error("Vui lòng chọn ít nhất 1 biến thể.");
+            return;
+        }
+        const preset = bulkPresets.find((item) => item.id === selectedBulkPresetId) || bulkPresets.find((item) => item.isDefault);
+        if (!preset) {
+            toast.error("Vui lòng chọn preset hợp lệ.");
+            return;
+        }
+
+        selectedVariantIndexes.forEach((idx) => {
+            applyAttributeValueToVariant(idx, preset.attributeId, preset.attributeValueId);
+        });
+        toast.success(`Đã áp preset cho ${selectedVariantCount} biến thể.`);
     };
 
     const handleVariantImageChange = (
@@ -484,12 +1082,34 @@ export default function AddProductPage() {
             n[variantIndex] = URL.createObjectURL(file);
             return n;
         });
+        setMediaDirty(true);
     };
 
     const handleAppendVariant = () => {
         append({ ...DEFAULT_VARIANT, sku: `${baseSkuWatch}-V${fields.length + 1}`, barcode: generateBarcode() });
         setVariantImageFiles((prev) => [...prev, null]);
         setVariantImagePreviews((prev) => [...prev, ""]);
+    };
+
+    const handleToggleVariant = (fieldId: string) => {
+        setCollapsedVariantIds((prev) => ({ ...prev, [fieldId]: !prev[fieldId] }));
+    };
+
+    const handleDuplicateVariant = (idx: number) => {
+        const source = getValues(`variants.${idx}`);
+        const nextIndex = fields.length + 1;
+        append({
+            ...DEFAULT_VARIANT,
+            sku: `${baseSkuWatch}-V${nextIndex}`,
+            barcode: generateBarcode(),
+            attributeValueIds: [...(source?.attributeValueIds || [])],
+        });
+
+        const sourceFile = variantImageFiles[idx];
+        const sourcePreview = variantImagePreviews[idx] || "";
+        setVariantImageFiles((prev) => [...prev, sourceFile ?? null]);
+        setVariantImagePreviews((prev) => [...prev, sourcePreview]);
+        setMediaDirty(true);
     };
 
     const handleRemoveVariant = (idx: number) => {
@@ -500,12 +1120,14 @@ export default function AddProductPage() {
         remove(idx);
         setVariantImageFiles((prev) => prev.filter((_, i) => i !== idx));
         setVariantImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+        setMediaDirty(true);
     };
 
     // ── SUBMIT ──
     const onSubmit = async (data: ProductFormData) => {
-        if (productImageFiles.length === 0) {
-            toast.error("Vui lòng tải lên ít nhất 1 ảnh sản phẩm.");
+        const firstVariantImageFile = variantImageFiles[0];
+        if (!firstVariantImageFile) {
+            toast.error("Vui lòng tải ảnh cho biến thể đầu tiên.");
             return;
         }
 
@@ -567,9 +1189,7 @@ export default function AddProductPage() {
                 })
             );
 
-            productImageFiles.forEach((file) => {
-                formData.append("productImages", file);
-            });
+            formData.append("productImages", firstVariantImageFile);
 
             variantImageFiles.forEach((file) => {
                 if (file) {
@@ -580,6 +1200,18 @@ export default function AddProductPage() {
             });
 
             await ProductService.create(formData);
+            setAllowUnload(true);
+            localStorage.removeItem(ADD_PRODUCT_DRAFT_KEY);
+            const rawIndex = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            if (rawIndex) {
+                try {
+                    const list: DraftIndexEntry[] = JSON.parse(rawIndex);
+                    const next = list.filter((item) => item.key !== ADD_PRODUCT_DRAFT_KEY);
+                    localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(next));
+                } catch {
+                    localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+                }
+            }
             toast.success("Tạo sản phẩm thành công!");
             router.push("/admin/products");
         } catch (error: any) {
@@ -593,14 +1225,19 @@ export default function AddProductPage() {
     return (
         <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-4 pb-[100px] bg-slate-50/30 p-4"
+            className="space-y-5 pb-[170px] sm:pb-[150px] bg-slate-50/30 p-3 sm:p-4 lg:p-5 max-w-[1680px] mx-auto"
         >
             <div className="flex items-center gap-3 mb-2 px-1">
                 <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => router.back()}
+                    onClick={() => {
+                        confirmLeaveIfDirty(() => {
+                            setAllowUnload(true);
+                            router.back();
+                        });
+                    }}
                     className="h-8 w-8 text-slate-400"
                 >
                     <ChevronLeft size={20} />
@@ -612,17 +1249,52 @@ export default function AddProductPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => router.back()}
+                    onClick={() => {
+                        confirmLeaveIfDirty(() => {
+                            setAllowUnload(true);
+                            router.back();
+                        });
+                    }}
                     className="h-8 w-8 text-slate-400"
                 >
                     <X size={18} />
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="sticky top-2 z-30 bg-slate-50/90 backdrop-blur rounded-xl border border-slate-200 px-3 py-2">
+                <div className="flex items-center gap-2 overflow-x-auto">
+                    {steps.map((step, idx) => {
+                        const isActive = activeStep === step.key;
+                        const stepState = sectionStates[step.key];
+                        return (
+                            <button
+                                key={step.key}
+                                type="button"
+                                onClick={() => scrollToStep(step.key)}
+                                className={cn(
+                                    "flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors border",
+                                    isActive
+                                        ? "bg-emerald-600 text-white border-emerald-600"
+                                        : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-700"
+                                )}
+                            >
+                                {stepState === "done" ? (
+                                    <Check size={12} className={isActive ? "text-white" : "text-emerald-600"} />
+                                ) : (
+                                    <AlertCircle size={12} className={isActive ? "text-white" : "text-amber-600"} />
+                                )}
+                                <span className={cn("inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]", isActive ? "bg-white/20" : "bg-slate-100")}>{idx + 1}</span>
+                                {step.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-9 space-y-5">
 
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
+                    <div ref={infoSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <SectionHeader num="1" icon={AlertCircle} title="Thông tin sản phẩm chính" />
                         <div className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -718,7 +1390,7 @@ export default function AddProductPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
+                    <div ref={descriptionSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <SectionHeader num="2" icon={FileText} title="Đặc tính & Bài viết mô tả" />
 
                         <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
@@ -739,7 +1411,7 @@ export default function AddProductPage() {
 
                     </div>
 
-                    <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                    <div ref={variantsSectionRef} className="bg-white border border-[#dcdcdc] rounded-xl shadow-sm overflow-hidden">
                         <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex justify-between items-center">
                             <h3 className="text-[11px] font-black text-slate-700 flex items-center gap-2 uppercase tracking-wider">
                                 <Layers size={15} className="text-emerald-600" />
@@ -755,13 +1427,88 @@ export default function AddProductPage() {
                             </Button>
                         </div>
 
-                        <div className="divide-y divide-slate-100">
-                            {fields.map((field, idx) => {
+                        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-600">Bulk actions biến thể</p>
+                                <button type="button" onClick={toggleSelectAllVariants} className="text-[11px] font-bold text-blue-600 hover:underline">
+                                    {selectedVariantCount === fields.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                <Select value={bulkAttributeId} onValueChange={(value) => {
+                                    setBulkAttributeId(value);
+                                    setBulkAttributeValueId("none");
+                                }}>
+                                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn thuộc tính" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Chọn thuộc tính</SelectItem>
+                                        {attributes.map((attr: any) => (
+                                            <SelectItem key={`bulk-attr-${attr.id}`} value={String(attr.id)}>{attr.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={bulkAttributeValueId} onValueChange={setBulkAttributeValueId}>
+                                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn giá trị" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Chọn giá trị</SelectItem>
+                                        {bulkAttributeOptions.map((option: any) => (
+                                            <SelectItem key={`bulk-value-${option.valueId}`} value={String(option.valueId)}>{option.value}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button type="button" variant="outline" onClick={handleBulkAssignAttribute} className="h-9 text-[11px] font-black uppercase border-emerald-200 text-emerald-700">Gán nhanh đã chọn</Button>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button type="button" variant="outline" onClick={handleBulkDuplicateSelected} className="h-9 text-[11px] font-black uppercase border-blue-200 text-blue-700">Nhân bản</Button>
+                                    <Button type="button" variant="outline" onClick={handleBulkDeleteSelected} className="h-9 text-[11px] font-black uppercase border-rose-200 text-rose-600">Xóa</Button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <Input value={bulkPresetName} onChange={(e) => setBulkPresetName(e.target.value)} placeholder="Tên preset (tùy chọn)" className="h-9 bg-white text-[12px]" />
+                                <Button type="button" variant="outline" onClick={handleSaveBulkPreset} className="h-9 text-[11px] font-black uppercase border-indigo-200 text-indigo-700">Lưu preset</Button>
+                                <div className="flex gap-2">
+                                    <Select value={selectedBulkPresetId} onValueChange={setSelectedBulkPresetId}>
+                                        <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn preset" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Chọn preset</SelectItem>
+                                            {bulkPresets.map((preset) => (
+                                                <SelectItem key={`preset-${preset.id}`} value={preset.id}>
+                                                    <span className="flex items-center gap-2">
+                                                        <span>{preset.name}</span>
+                                                        {preset.isDefault && <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-700">Mặc định</span>}
+                                                    </span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button type="button" variant="outline" onClick={handleApplyBulkPreset} className="h-9 text-[11px] font-black uppercase border-indigo-200 text-indigo-700">Áp</Button>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <Button type="button" variant="outline" onClick={handleSetDefaultBulkPreset} className="h-9 text-[11px] font-black uppercase border-emerald-200 text-emerald-700">Đặt preset mặc định</Button>
+                                <Button type="button" variant="outline" onClick={handleDeleteBulkPreset} className="h-9 text-[11px] font-black uppercase border-rose-200 text-rose-600">Xóa preset</Button>
+                            </div>
+                            {variantWarningCount > 0 && (
+                                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+                                    Có {variantWarningCount} biến thể thiếu thuộc tính hoặc trùng tổ hợp. Vui lòng kiểm tra trước khi lưu.
+                                </div>
+                            )}
+                            <p className="text-[11px] text-slate-400">Đang chọn {selectedVariantCount}/{fields.length} biến thể.</p>
+                            {variantWindow.virtual && (
+                                <p className="text-[11px] font-semibold text-slate-500">Đang hiển thị {variantWindow.start + 1}-{Math.min(variantWindow.end, fields.length)} / {fields.length} biến thể theo cửa sổ cuộn.</p>
+                            )}
+                        </div>
+
+                        <div ref={variantListRef} className={cn("divide-y divide-slate-100", fields.length > VARIANT_VIRTUAL_THRESHOLD && "max-h-[calc(100vh-430px)] lg:max-h-[calc(100vh-360px)] overflow-y-auto overscroll-contain pr-1")}>
+                            {variantWindow.virtual && <div style={{ height: variantWindow.topPadding }} />}
+                            {renderedVariantEntries.map(({ field, idx }) => {
                                 // Lấy mảng ID hiện tại
                                 const variantAttributeIds = watch(`variants.${idx}.attributeValueIds`) || [];
+                                const isCollapsed = !!collapsedVariantIds[field.id];
+                                const isSelected = !!selectedVariantIds[field.id];
+                                const variantIssue = variantValidationMap[idx] || { missing: false, duplicate: false };
 
                                 return (
-                                    <div key={field.id} className="p-5 bg-white">
+                                    <div key={field.id} className={cn("p-5 bg-white", isSelected && "bg-blue-50/40")}>
                                         <div className="flex flex-col xl:flex-row gap-5">
                                             {/* Ảnh biến thể */}
                                             <div className="flex flex-col items-center shrink-0">
@@ -802,16 +1549,35 @@ export default function AddProductPage() {
                                             </div>
 
                                             <div className="flex-1 space-y-4">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <label className="inline-flex items-center gap-2 text-[12px] font-bold text-slate-700 cursor-pointer">
+                                                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectVariant(field.id)} className="h-4 w-4 accent-emerald-600" />
+                                                        Biến thể #{idx + 1}
+                                                    </label>
+                                                    <div className="flex items-center gap-1.5 mr-auto ml-3">
+                                                        {variantIssue.missing && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 uppercase">Thiếu thuộc tính</span>}
+                                                        {variantIssue.duplicate && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 uppercase">Trùng tổ hợp</span>}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button type="button" variant="outline" onClick={() => handleDuplicateVariant(idx)} className="h-[28px] text-[10px] uppercase font-black px-3 border-blue-200 text-blue-600 hover:bg-blue-50">
+                                                            <Copy size={12} className="mr-1" /> Nhân bản
+                                                        </Button>
+                                                        <Button type="button" variant="outline" onClick={() => handleToggleVariant(field.id)} className="h-[28px] text-[10px] uppercase font-black px-3">
+                                                            {isCollapsed ? <ChevronDown size={12} className="mr-1" /> : <ChevronUp size={12} className="mr-1" />}
+                                                            {isCollapsed ? "Mở rộng" : "Thu gọn"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
 
-                                                {attributes.length > 0 && (
+                                                {!isCollapsed && attributes.length > 0 && (
                                                     <div
                                                         className={cn(
                                                             "grid gap-4",
                                                             attributes.length === 1
                                                                 ? "grid-cols-1 max-w-xs"
                                                                 : attributes.length === 2
-                                                                    ? "grid-cols-2"
-                                                                    : "grid-cols-3"
+                                                                    ? "grid-cols-1 sm:grid-cols-2"
+                                                                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
                                                         )}
                                                     >
                                                         {attributes.map((attr, attrIdx) => {
@@ -847,7 +1613,7 @@ export default function AddProductPage() {
                                                                                 <SelectTrigger className="h-[34px] border-[#ccc] rounded-none text-[13px] bg-white shadow-none">
                                                                                     <SelectValue placeholder={`-- Chọn --`} />
                                                                                 </SelectTrigger>
-                                                                                <SelectContent className="rounded-none">
+                                                                                <SelectContent className="rounded-none max-h-[280px]" position="item-aligned">
                                                                                     <SelectItem value="none">-- Bỏ chọn --</SelectItem>
                                                                                     {attributeOptions.map((v: any, vIdx: number) => {
 
@@ -862,9 +1628,20 @@ export default function AddProductPage() {
                                                                                         );
                                                                                     })}
                                                                                     {canUpdateAttribute && (
-                                                                                        <SelectItem value={`manage-${attr.id}`}>
-                                                                                            + Thêm giá trị mới cho {attr.name}
-                                                                                        </SelectItem>
+                                                                                        <>
+                                                                                            <SelectSeparator className="my-1 bg-slate-200" />
+                                                                                            <SelectItem
+                                                                                                value={`manage-${attr.id}`}
+                                                                                                className="mt-1 bg-emerald-50 text-emerald-700 font-semibold focus:bg-emerald-100 focus:text-emerald-800"
+                                                                                            >
+                                                                                                + Thêm giá trị mới cho {attr.name}
+                                                                                            </SelectItem>
+                                                                                        </>
+                                                                                    )}
+                                                                                    {attributeOptions.length > 8 && (
+                                                                                        <div className="px-2 py-1 text-[11px] text-slate-400 border-t border-dashed border-slate-200 mt-1">
+                                                                                            Lướt để xem thêm giá trị
+                                                                                        </div>
                                                                                     )}
                                                                                 </SelectContent>
                                                                             </Select>
@@ -876,8 +1653,9 @@ export default function AddProductPage() {
                                                     </div>
                                                 )}
 
-                                                <div className="grid grid-cols-12 gap-3 items-start">
-                                                    <div className="col-span-5 space-y-1">
+                                                {!isCollapsed && (
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+                                                    <div className="md:col-span-5 space-y-1">
                                                         <Label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
                                                             Mã SKU biến thể
                                                             <span title="Hệ thống tự động sinh"><Info size={11} className="text-slate-400" /></span>
@@ -893,7 +1671,7 @@ export default function AddProductPage() {
                                                         <ErrorMessage message={errors.variants?.[idx]?.sku?.message} />
                                                     </div>
 
-                                                    <div className="col-span-5 space-y-1 relative">
+                                                    <div className="md:col-span-5 space-y-1 relative">
                                                         <Label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
                                                             Mã vạch / Barcode
                                                             <span title="Hệ thống tự động sinh"><Info size={11} className="text-slate-400" /></span>
@@ -905,94 +1683,94 @@ export default function AddProductPage() {
                                                         />
                                                     </div>
 
-                                                    <div className="col-span-2 flex justify-end pt-5">
+                                                    <div className="md:col-span-2 flex justify-end md:pt-5">
                                                         <Button
                                                             type="button"
                                                             variant="outline"
                                                             onClick={() => handleRemoveVariant(idx)}
-                                                            className="w-full h-[34px] text-[10px] font-black text-rose-500 border-rose-100 rounded-none hover:bg-rose-50 shadow-none uppercase px-2"
+                                                            className="w-full h-[34px] text-[10px] font-black text-rose-500 border-rose-100 rounded-md hover:bg-rose-50 shadow-none uppercase px-2"
                                                         >
                                                             <Trash2 size={12} className="mr-1" />
                                                             Xóa
                                                         </Button>
                                                     </div>
                                                 </div>
+                                                )}
 
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
+                            {variantWindow.virtual && <div style={{ height: variantWindow.bottomPadding }} />}
                         </div>
                     </div>
 
                 </div>
 
                 <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
-                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center tracking-widest border-b pb-3">
-                            Album hình ảnh *
-                        </Label>
-
-                        {productImagePreviews.length === 0 ? (
-                            <div
-                                onClick={() => mainImagesRef.current?.click()}
-                                className="aspect-square border border-[#e0e0e0] flex flex-col items-center justify-center bg-white hover:bg-slate-50 cursor-pointer transition-colors group rounded-none"
-                            >
-                                <Camera
-                                    size={36}
-                                    className="text-slate-200 group-hover:text-slate-300 mb-2"
-                                />
-                                <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-500 uppercase tracking-wider">
-                  Tải ảnh lên
-                </span>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                {productImagePreviews.map((src, i) => (
-                                    <div
-                                        key={`main-img-preview-${i}`}
-                                        className="relative aspect-square border border-[#eee] group overflow-hidden"
-                                    >
-                                        <img
-                                            src={src}
-                                            className="w-full h-full object-cover"
-                                            alt="Product"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => removeMainImage(i)}
-                                            className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X size={11} />
-                                        </button>
-                                    </div>
-                                ))}
-                                <div
-                                    onClick={() => mainImagesRef.current?.click()}
-                                    className="aspect-square border-2 border-dashed border-[#ddd] flex flex-col items-center justify-center bg-[#fcfcfc] hover:bg-emerald-50 cursor-pointer transition-colors group"
-                                >
-                                    <Upload
-                                        size={18}
-                                        className="text-slate-300 group-hover:text-emerald-500 mb-1"
-                                    />
-                                    <span className="text-[8px] font-black text-slate-400 group-hover:text-emerald-600 uppercase">
-                    Tải thêm
-                  </span>
+                    <div className="bg-white border border-[#dcdcdc] p-4 rounded-xl shadow-sm lg:sticky lg:top-4">
+                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-3">Tóm tắt nhanh</p>
+                        <div className="space-y-2 text-[12px]">
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Số biến thể</span><span className="font-black text-slate-700">{fields.length}</span></div>
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Ảnh sản phẩm</span><span className="font-black text-slate-700">{firstVariantImagePreview ? 1 : 0}</span></div>
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Trạng thái</span><span className={cn("font-black", statusWatch === "ACTIVE" ? "text-emerald-600" : statusWatch === "INACTIVE" ? "text-rose-500" : "text-slate-500")}>{statusWatch === "ACTIVE" ? "Đang kinh doanh" : statusWatch === "INACTIVE" ? "Tạm ngừng" : "Lưu nháp"}</span></div>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                            <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 mb-2">Preview realtime</p>
+                            <div className="flex items-center gap-2.5">
+                                <div className="h-12 w-12 rounded-md bg-white border border-slate-200 overflow-hidden shrink-0">
+                                    {firstVariantImagePreview ? (
+                                        <img src={firstVariantImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-[9px] font-bold text-slate-300">NO IMG</div>
+                                    )}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[12px] font-bold text-slate-700 truncate">{nameWatch?.trim() || "Sản phẩm chưa đặt tên"}</p>
+                                    <p className="text-[11px] text-slate-500">{fields.length} SKU · {firstVariantImagePreview ? 1 : 0} ảnh</p>
                                 </div>
                             </div>
+                        </div>
+                        {missingWarnings.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                <p className="text-[11px] font-black text-amber-700 uppercase mb-1">Cần bổ sung</p>
+                                <ul className="text-[11px] text-amber-700 space-y-0.5">
+                                    {missingWarnings.map((warning) => (
+                                        <li key={warning}>- {warning}</li>
+                                    ))}
+                                </ul>
+                            </div>
                         )}
-                        <input
-                            type="file"
-                            ref={mainImagesRef}
-                            multiple
-                            hidden
-                            onChange={handleMainImagesChange}
-                            accept="image/*"
-                        />
+                        <p className="mt-3 text-[11px] text-slate-400">{lastDraftSavedAt ? `Đã lưu nháp cục bộ lúc ${lastDraftSavedAt}` : "Chưa có bản nháp cục bộ"}</p>
                     </div>
 
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm">
+                    <div ref={imagesSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
+                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center tracking-widest border-b pb-3">
+                            Ảnh sản phẩm (tự lấy từ biến thể đầu tiên)
+                        </Label>
+                        <div className="space-y-3">
+                            <p className="text-[12px] text-slate-500">
+                                Hệ thống sẽ tự dùng ảnh của <span className="font-bold text-slate-700">biến thể #1</span> làm ảnh sản phẩm.
+                            </p>
+                            <div className="aspect-square border border-[#e0e0e0] bg-white rounded-none overflow-hidden flex items-center justify-center">
+                                {firstVariantImagePreview ? (
+                                    <img
+                                        src={firstVariantImagePreview}
+                                        className="w-full h-full object-cover"
+                                        alt="Ảnh sản phẩm tự động"
+                                    />
+                                ) : (
+                                    <div className="text-center px-4">
+                                        <Camera size={32} className="mx-auto text-slate-300 mb-2" />
+                                        <p className="text-[11px] font-bold text-slate-400 uppercase">Chưa có ảnh biến thể #1</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div ref={statusSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
                         <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">
                             Trạng thái phát hành
                         </Label>
@@ -1031,6 +1809,75 @@ export default function AddProductPage() {
                 </div>
             </div>
 
+            <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[460px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">Bạn có thay đổi chưa lưu</DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Các thay đổi của bạn sẽ bị mất nếu rời khỏi trang này.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setConfirmDialogOpen(false)}
+                        >
+                            Ở lại
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                setConfirmDialogOpen(false);
+                                pendingLeaveAction?.();
+                            }}
+                            className="bg-rose-600 hover:bg-rose-700"
+                        >
+                            Rời khỏi trang
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
+                <DialogContent className="sm:max-w-[560px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">Khôi phục bản nháp gần nhất?</DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Hệ thống phát hiện bạn có bản nháp chưa hoàn tất cho form thêm sản phẩm.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[12px] text-slate-600">Nháp hiện tại: {pendingDraftData?.savedAt ? new Date(pendingDraftData.savedAt).toLocaleString("vi-VN") : "Không rõ thời gian"}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-black uppercase text-slate-500 mb-2">Các nháp gần đây</p>
+                            <div className="max-h-[160px] overflow-y-auto rounded-md border border-slate-200">
+                                {recentDrafts.length === 0 ? (
+                                    <p className="text-[12px] text-slate-400 p-3">Chưa có nháp gần đây.</p>
+                                ) : (
+                                    <ul className="divide-y divide-slate-100">
+                                        {recentDrafts.map((item) => (
+                                            <li key={item.key} className="px-3 py-2 text-[12px]">
+                                                <p className="font-semibold text-slate-700">{item.label}</p>
+                                                <p className="text-slate-400">{new Date(item.savedAt).toLocaleString("vi-VN")}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700">Khôi phục nháp</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog
                 open={!!attributeEditor}
                 onOpenChange={(open) => {
@@ -1045,7 +1892,7 @@ export default function AddProductPage() {
                             Cập nhật giá trị thuộc tính
                         </DialogTitle>
                         <DialogDescription className="text-[13px] text-slate-500">
-                            Thêm nhanh giá trị mới cho biến thể đang chỉnh sửa mà không cần rời trang tạo sản phẩm.
+                            Thêm nhanh giá trị mới cho biến thể đang chỉnh sửa mà không cần rời trang sản phẩm.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1149,19 +1996,24 @@ export default function AddProductPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-3 z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+            <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-[#ddd] p-3 sm:p-[12px_20px] lg:p-[12px_30px] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
                 <Button
                     type="button"
                     variant="outline"
-                    onClick={() => router.back()}
-                    className="min-w-[100px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-none uppercase"
+                    onClick={() => {
+                        confirmLeaveIfDirty(() => {
+                            setAllowUnload(true);
+                            router.back();
+                        });
+                    }}
+                    className="w-full sm:w-auto min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-md uppercase"
                 >
                     Hủy bỏ
                 </Button>
                 <Button
                     type="submit"
                     disabled={isLoading}
-                    className="min-w-[150px] h-[38px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-none shadow-md uppercase"
+                    className="w-full sm:w-auto min-w-[160px] h-[38px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-md uppercase"
                 >
                     {isLoading ? (
                         <Loader2 size={17} className="mr-2 animate-spin" />

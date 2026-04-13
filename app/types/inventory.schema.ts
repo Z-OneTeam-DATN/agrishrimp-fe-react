@@ -124,29 +124,30 @@ export const ProductSchema = z
 
 export type Product = z.infer<typeof ProductSchema>;
 
-
 export const ReceiptItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string(),
   imageUrl: z.string().optional(),
-  unit: z.string().default("Cái"),
-  plannedQuantity: z.coerce.number().min(0.001, "Số lượng phải > 0"),
-  actualQuantity: z.coerce.number().min(0).optional().default(0),
+  plannedQuantity: z.coerce.number().min(0.001, "Số lượng dự kiến phải > 0"),
+  quantityReal: z.coerce.number().min(0).default(0),
+  quantityAccepted: z.coerce.number().min(0).default(0),
+  quantityRejected: z.coerce.number().min(0).default(0),
   // Thêm maxQuantity để lưu tồn kho hiện tại, phục vụ validate
   maxQuantity: z.number().optional(),
-  lotNumber: z.string().min(1, "Số lô là bắt buộc"),
-  expiryDate: z.string().min(1, "Hạn dùng là bắt buộc"),
-  importPrice: z.coerce.number().min(0, "Giá nhập không được âm"),
-
+  lotNumber: z.string().nullable().optional(),
+  expiryDate: z.string().nullable().optional(),
+  importPrice: z.preprocess((val) => (val === "" || val === null || val === undefined ? 0 : val), z.coerce.number().min(0, "Giá nhập không được âm")),
+  newSellingPrice: z.preprocess((val) => (val === "" || val === null || val === undefined ? 0 : val), z.coerce.number().min(0, "Giá bán mới không được âm").optional().default(0)),
+  note: z.string().nullable().optional(),
 });
 
 export const ReceiptSchema = z.object({
   receiptType: z.string().default("NHAP_MUA"),
-  supplierCode: z.string().optional(),
-  supplierName: z.string().optional(),
+  supplierCode: z.string().nullable().optional(),
+  supplierName: z.string().nullable().optional(),
   importType: z.enum(["SUPPLIER", "INTERNAL"]).default("SUPPLIER"),
-  sourceBranchId: z.string().optional(),
-  receiptCode: z.string().optional(),
+  sourceBranchId: z.string().nullable().optional(),
+  receiptCode: z.string().nullable().optional(),
   warehouseId: z.string().default("HH"),
   branchName: z.string().min(1, "Vui lòng chọn chi nhánh"),
   importStatus: z.enum(["IMPORTED", "PO"]).default("IMPORTED"),
@@ -154,7 +155,7 @@ export const ReceiptSchema = z.object({
   entryDate: z.string().min(1, "Vui lòng chọn ngày nhập"),
   referenceCode: z.string().optional().default(""),
   description: z.string().optional().default(""),
-  status: z.enum(["PENDING", "VERIFYING", "COMPLETED", "CANCELLED"]).default("PENDING"),
+  status: z.enum(["PENDING", "APPROVED", "COMPLETED", "CANCELLED", "REJECTED"]).default("PENDING"),
   items: z.array(ReceiptItemSchema).min(1, "Cần ít nhất một mặt hàng"),
   paymentAmount: z.coerce
       .number({
@@ -163,6 +164,7 @@ export const ReceiptSchema = z.object({
       .min(0, "Số tiền thanh toán không được nhỏ hơn 0")
       .optional()
       .default(0),
+  creator: z.string().optional(),
   note: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
 }).superRefine((data, ctx) => {
@@ -199,106 +201,86 @@ export const ReceiptSchema = z.object({
 
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
-// Warehouse Export Schema
+// Warehouse Export Schema (Xuất kho)
 export const ExportItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string(),
   unit: z.string(),
   quantity: z.coerce.number({ invalid_type_error: "Vui lòng nhập số" })
-      .int("Số lượng phải là số nguyên")
-      .min(1, "Số lượng xuất phải lớn hơn 0"),
+      .min(0.001, "Số lượng xuất phải lớn hơn 0"),
   lotNumber: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 export type ExportItem = z.infer<typeof ExportItemSchema>;
 
 export const ExportSchema = z.object({
-  exportType: z.string().min(1, "Vui lòng chọn loại phiếu"),
-  customerId: z.string().min(1, "Vui lòng chọn khách hàng"),
-  customerName: z.string().min(1, "Tên khách hàng không được để trống"),
-  exportCode: z.string().optional(), // Auto-generated
-  warehouseId: z.string().min(1, "Vui lòng chọn kho xuất"),
-  branchName: z.string().min(1, "Vui lòng chọn chi nhánh"),
-  receiver: z.string().min(1, "Vui lòng nhập người nhận"),
-  deliveryAddress: z.string().min(1, "Vui lòng nhập địa chỉ giao hàng"),
+  exportType: z.enum(["RETURN_SUPPLIER", "DISPOSAL", "OTHER"]).default("OTHER"),
+  supplierCode: z.string().optional(), // Dùng khi xuất trả NCC
+  exportCode: z.string().optional(),
+  branchName: z.string().min(1, "Vui lòng chọn chi nhánh xuất"),
+  receiver: z.string().min(1, "Vui lòng nhập người nhận/đối tác"),
   exportDate: z.string().min(1, "Vui lòng chọn ngày xuất"),
   referenceCode: z.string().optional(),
-  description: z.string().min(1, "Vui lòng nhập diễn giải"),
+  description: z.string().optional().default(""),
+  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).default("PENDING"),
   items: z.array(ExportItemSchema).min(1, "Cần ít nhất một mặt hàng"),
   note: z.string().optional(),
 });
 
 export type Export = z.infer<typeof ExportSchema>;
 
-// Stock Transfer Schema
+// Stock Transfer Schema (Điều chuyển)
 export const TransferItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string().min(1, "Tên hàng không được để trống"),
   unit: z.string().min(1, "ĐVT không được để trống"),
-  quantity: z.coerce
+  plannedQuantity: z.coerce
     .number({ invalid_type_error: "Số lượng phải là số" })
     .min(0.001, "Số lượng phải lớn hơn 0"),
-  receivedQuantity: z.coerce
-    .number({ invalid_type_error: "Số lượng phải là số" })
-    .min(0, "Số lượng nhận không được âm")
-    .optional()
-    .default(0),
+  availableQuantity: z.number().optional(), // Tồn kho khả dụng của lô
+  quantityReal: z.coerce.number().min(0).default(0), // Thực nhận tại chi nhánh
+  quantityAccepted: z.coerce.number().min(0).default(0), // Đạt chuẩn
+  quantityRejected: z.coerce.number().min(0).default(0), // Lỗi do vận chuyển
+  lotNumber: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 export type TransferItem = z.infer<typeof TransferItemSchema>;
 
-export const TransferSchema = z
-  .object({
-    transferType: z
-      .enum(["BETWEEN_WAREHOUSES", "INTERNAL"])
-      .default("INTERNAL"),
-    description: z
-      .string()
-      .min(1, "Vui lòng nhập lý do điều chuyển")
-      .max(500, "Lý do quá dài"),
-    transporter: z
-      .string()
-      .min(1, "Vui lòng nhập người vận chuyển")
-      .max(100, "Tên người vận chuyển quá dài"),
+export const TransferSchema = z.object({
     transferCode: z.string().optional(),
-    sourceBranch: z.string().min(1, "Vui lòng chọn chi nhánh xuất"),
-    sourceWarehouse: z.string().min(1, "Vui lòng chọn kho xuất"),
-    sourceAddress: z.string().min(1, "Vui lòng nhập địa chỉ kho xuất"),
+    sourceBranchId: z.string().min(1, "Vui lòng chọn chi nhánh gửi"),
+    destBranchId: z.string().min(1, "Vui lòng chọn chi nhánh nhận"),
     transferDate: z.string().min(1, "Vui lòng chọn ngày điều chuyển"),
-    destBranch: z.string().min(1, "Vui lòng chọn chi nhánh nhận"),
-    destWarehouse: z.string().min(1, "Vui lòng chọn kho nhập"),
-    destAddress: z.string().min(1, "Vui lòng nhập địa chỉ kho nhập"),
-    status: z.string().default("Chờ xử lý"),
-    referenceCode: z
-      .string()
-      .min(1, "Vui lòng nhập tham chiếu")
-      .max(50, "Mã tham chiếu quá dài"),
+    status: z.enum(["PENDING", "APPROVED", "SHIPPING", "COMPLETED", "CANCELLED", "REJECTED"]).default("PENDING"),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
+    transferType: z.enum(["WAREHOUSE_TRANSFER", "BRANCH_TRANSFER", "OTHER"]).default("WAREHOUSE_TRANSFER"),
+    referenceCode: z.string().min(1, "Vui lòng nhập mã tham chiếu"),
+    description: z.string().min(1, "Vui lòng nhập lý do điều chuyển"),
     items: z.array(TransferItemSchema).min(1, "Cần ít nhất một mặt hàng"),
     note: z.string().optional(),
+    transporter: z.string().min(1, "Vui lòng nhập tên tài xế"),
   })
   .refine(
-    (data) => {
-      // Nếu là điều chuyển giữa các kho trong cùng chi nhánh hoặc khác chi nhánh
-      // thì kho xuất và kho nhập phải khác nhau
-      return data.sourceWarehouse !== data.destWarehouse;
-    },
+    (data) => data.sourceBranchId !== data.destBranchId,
     {
-      message: "Kho nhập phải khác kho xuất",
-      path: ["destWarehouse"],
-    },
+      message: "Chi nhánh nhận phải khác chi nhánh gửi",
+      path: ["destBranchId"],
+    }
   )
-  .refine(
-    (data) => {
-      if (data.transferType === "INTERNAL") {
-        return data.sourceBranch === data.destBranch;
+  .superRefine((data, ctx) => {
+    // Validate số lượng chuyển không vượt quá tồn kho khả dụng của lô
+    data.items.forEach((item, index) => {
+      if (item.availableQuantity !== undefined && item.plannedQuantity > item.availableQuantity) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Vượt quá tồn kho (Tối đa: ${item.availableQuantity})`,
+          path: ["items", index, "plannedQuantity"],
+        });
       }
-      return true;
-    },
-    {
-      message: "Điều chuyển nội bộ phải cùng một chi nhánh",
-      path: ["destBranch"],
-    },
-  );
+    });
+  });
 
 export type Transfer = z.infer<typeof TransferSchema>;
 

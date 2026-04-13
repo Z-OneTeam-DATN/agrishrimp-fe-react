@@ -10,6 +10,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 interface AdminPageHeaderProps {
   title: string;
+  subtitle?: string;
+  titleClassName?: string;
   addBtnLabel?: string;
   addBtnHref?: string;
   onAddClick?: () => void;
@@ -25,6 +27,8 @@ interface AdminPageHeaderProps {
 
 export function AdminPageHeader({ 
   title, 
+  subtitle,
+  titleClassName,
   addBtnLabel, 
   addBtnHref,
   onAddClick,
@@ -43,7 +47,10 @@ export function AdminPageHeader({
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-1">
       <div className="flex items-center gap-4">
-        <h1 className="text-[20px] font-bold text-slate-900 tracking-tight">{title}</h1>
+        <div>
+          <h1 className={cn("text-[20px] font-bold text-slate-900 tracking-tight uppercase", titleClassName)}>{title}</h1>
+          {subtitle && <p className="text-[13px] text-slate-500 mt-1">{subtitle}</p>}
+        </div>
         
         {tabs && onTabChange && (
           <div className="hidden md:flex gap-[5px]">

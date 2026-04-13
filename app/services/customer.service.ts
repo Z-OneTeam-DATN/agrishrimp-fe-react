@@ -1,6 +1,15 @@
 import { apiJava } from "@/lib/axios";
 import { CustomerFormValues } from "@/app/types/admin.schema";
 
+interface CustomerInternalNoteRequest {
+  content: string;
+}
+
+interface CustomerDuplicateCheck {
+  emailExists: boolean;
+  phoneExists: boolean;
+}
+
 export const customerService = {
   PREFIX: "/customers",
 
@@ -23,6 +32,11 @@ export const customerService = {
 
   getById: async (id: number) => {
     const response = await apiJava.get(`${customerService.PREFIX}/${id}`);
+    return response.data;
+  },
+
+  getDetailById: async (id: number) => {
+    const response = await apiJava.get(`${customerService.PREFIX}/${id}/detail`);
     return response.data;
   },
 
@@ -49,5 +63,44 @@ export const customerService = {
   getCustomerOrders: async (userId: number) => {
     const response = await apiJava.get(`/admin/orders/user/${userId}`);
     return response.data; 
+  },
+
+  getInternalNotes: async (userId: number) => {
+    const response = await apiJava.get(`${customerService.PREFIX}/${userId}/internal-notes`);
+    return response.data;
+  },
+
+  addInternalNote: async (userId: number, payload: CustomerInternalNoteRequest) => {
+    const response = await apiJava.post(`${customerService.PREFIX}/${userId}/internal-notes`, payload);
+    return response.data;
+  },
+
+  deleteInternalNote: async (noteId: number) => {
+    const response = await apiJava.delete(`${customerService.PREFIX}/internal-notes/${noteId}`);
+    return response.data;
+  },
+
+  getStatusLogs: async (userId: number) => {
+    const response = await apiJava.get(`${customerService.PREFIX}/${userId}/status-logs`);
+    return response.data;
+  },
+
+  checkDuplicate: async (email?: string, phone?: string): Promise<CustomerDuplicateCheck> => {
+    const response = await apiJava.get(`${customerService.PREFIX}/check-duplicate`, {
+      params: { email, phone },
+    });
+    return response.data;
+  },
+
+  // 🟢 Get all branches for dropdown
+  getAllBranches: async () => {
+    const response = await apiJava.get(`${customerService.PREFIX}/lookup/branches`);
+    return response.data;
+  },
+
+  // 🟢 Get staff by branch for dropdown
+  getStaffByBranch: async (branchId: string | number) => {
+    const response = await apiJava.get(`${customerService.PREFIX}/lookup/staff-by-branch/${branchId}`);
+    return response.data;
   },
 };

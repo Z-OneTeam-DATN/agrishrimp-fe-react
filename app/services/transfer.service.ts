@@ -22,49 +22,50 @@ export const transferService = {
     return response.data;
   },
 
-  // 3. Xác nhận Xuất kho (Đổi sang SHIPPING)
-  ship: async (id: number) => {
-    const response = await apiJava.put(`${transferService.PREFIX}/${id}/ship`);
-    return response.data;
-  },
-
-  // 4. Xác nhận Nhận hàng (Đổi sang COMPLETED)
-//   receive: async (id: number, receivedItems: any[]) => {
-//     const response = await apiJava.put(`${transferService.PREFIX}/${id}/receive`, receivedItems);
-//     return response.data;
-//   },
-
-  // 1. Lấy chi tiết phiếu (API vừa thêm ở trên)
+  // 3. Lấy chi tiết phiếu
   getById: async (id: string) => {
     const response = await apiJava.get(`${transferService.PREFIX}/${id}`);
     return response.data;
   },
 
-  // 2. Duyệt và xuất kho (Huy đang để là PUT và đuôi /ship)
+  // 4. Duyệt yêu cầu (Đổi sang APPROVED)
   approve: async (id: string) => {
-    const response = await apiJava.put(`${transferService.PREFIX}/${id}/ship`); // <--- Sửa post thành put và thêm /ship
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/approve`);
     return response.data;
   },
 
-  // Hủy phiếu
+  // 5. Xác nhận Xuất kho (Đổi sang SHIPPING)
+  ship: async (id: string) => {
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/ship`);
+    return response.data;
+  },
+
+  // 6. Kiểm nhận hàng (gửi danh sách số lượng thực nhận lên) (Đổi sang COMPLETED)
+  receive: async (id: string, items: any[]) => {
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/receive`, items);
+    return response.data;
+  },
+
+  // 7. Từ chối phiếu (Đổi sang REJECTED)
+  reject: async (id: string) => {
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/reject`);
+    return response.data;
+  },
+
+  // 8. Hủy phiếu (Đổi sang CANCELLED)
   cancel: async (id: string) => {
     const response = await apiJava.put(`${transferService.PREFIX}/${id}/cancel`);
     return response.data;
   },
 
-  // Đổi chi nhánh nhận
+  // 9. Đổi chi nhánh nhận
   changeDestination: async (id: string, branchId: string) => {
     const response = await apiJava.put(`${transferService.PREFIX}/${id}/change-destination?newBranchId=${branchId}`);
     return response.data;
   },
 
-  // Kiểm nhận hàng (gửi danh sách số lượng thực nhận lên)
-  receive: async (id: string, items: any[]) => {
-    const response = await apiJava.put(`${transferService.PREFIX}/${id}/receive`, items);
-    return response.data;
-  },
-
- delete: async (id: string) => {
+  // 10. Xóa phiếu
+  delete: async (id: string) => {
     const response = await apiJava.delete(`${transferService.PREFIX}/${id}`);
     return response.data;
   },

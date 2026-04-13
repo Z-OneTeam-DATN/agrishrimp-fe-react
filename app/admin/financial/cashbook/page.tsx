@@ -1,29 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
   ChevronDown,
   ChevronLeft,
-  HelpCircle,
   Download,
   FileText,
+  HelpCircle,
+  RefreshCw,
   Search,
-  Filter,
-  Plus,
-  Minus,
-  Equal,
-  RotateCcw,
-  Landmark,
-  User,
-  MessageSquare,
   Wallet,
-  Receipt,
-  Calculator,
-  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -31,193 +30,788 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn, formatNumber } from "@/lib/utils";
+import { branchService } from "@/app/services/branchService";
+import {
+  CashbookEntry,
+  CashbookService,
+} from "@/app/services/cashbook.service";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+type BranchOption = { id: number; name: string; branchCode?: string };
+type ChartMode = "day" | "month";
+type EntryTypeFilter = "all" | "IN" | "OUT";
+
+const formatDateVN = (dateStr: string) => {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-");
+  return `${day}/${month}/${year}`;
+};
+
+const today = new Date();
+const defaultStart = new Date(today);
+defaultStart.setDate(defaultStart.getDate() - 30);
+
+const toIso = (date: Date) => date.toISOString().slice(0, 10);
+const compactCurrency = (value: number) =>
+  new Intl.NumberFormat("vi-VN", {
+    notation: "compact",
+    maximumFractionDigits: value >= 1_000_000 ? 1 : 0,
+  }).format(value || 0);
 
 export default function CashbookPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [startDate, setStartDate] = useState(toIso(defaultStart));
+  const [endDate, setEndDate] = useState(toIso(today));
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>("all");
+  const [chartMode, setChartMode] = useState<ChartMode>("day");
+  const [entries, setEntries] = useState<CashbookEntry[]>([]);
+  const [isExplainOpen, setIsExplainOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchInitial = async () => {
+      try {
+        const branchRes = await branchService.getAll();
+        setBranches(
+          Array.isArray(branchRes)
+            ? branchRes
+            : branchRes?.data || branchRes?.content || [],
+        );
+      } catch (error) {
+        console.error("Không tải được dữ liệu sổ quỹ", error);
+        toast.error("Không thể tải dữ liệu sổ quỹ");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitial();
+  }, []);
+
+  useEffect(() => {
+    const fetchCashbook = async () => {
+      try {
+        setLoading(true);
+        const cashbookRes = await CashbookService.getEntries({
+          branchId: selectedBranchId,
+        });
+        setEntries(cashbookRes);
+      } catch (error) {
+        console.error("Không tải được dữ liệu sổ quỹ", error);
+        toast.error("Không thể tải dữ liệu sổ quỹ");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCashbook();
+  }, [selectedBranchId, startDate, endDate]);
+
+  const filteredEntries = useMemo(() => {
+    const rangedEntries = entries.filter((entry) => {
+      if (startDate && entry.date < startDate) return false;
+      if (endDate && entry.date > endDate) return false;
+      return true;
+    });
+
+    return rangedEntries.filter((entry) => {
+      const keyword = searchTerm.trim().toLowerCase();
+      const matchesKeyword =
+        !keyword ||
+        [
+          entry.code,
+          entry.title,
+          entry.description,
+          entry.branchName,
+          entry.creatorName,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(keyword));
+      const matchesType = typeFilter === "all" || entry.direction === typeFilter;
+      return matchesKeyword && matchesType;
+    });
+  }, [entries, startDate, endDate, searchTerm, typeFilter]);
+
+  const summary = useMemo(
+    () => CashbookService.buildSummary(entries, startDate, endDate),
+    [entries, startDate, endDate],
+  );
+
+  const chartData = useMemo(() => {
+    const grouped = CashbookService.groupByPeriod(filteredEntries, chartMode);
+    return grouped.map((item) => ({
+      period: chartMode === "day" ? formatDateVN(item.key) : item.key.replace("-", "/"),
+      income: item.income,
+      expense: item.expense,
+      net: item.net,
+    }));
+  }, [filteredEntries, chartMode]);
+
+  const branchLabel =
+    selectedBranchId === "all"
+      ? "Tất cả chi nhánh"
+      : branches.find((b) => b.id.toString() === selectedBranchId)?.name ||
+        "Chi nhánh";
+
+  const ledgerRows = filteredEntries.slice(0, 120);
+
+  const exportExcel = () => {
+    const data = filteredEntries.map((entry) => ({
+      Ngày: formatDateVN(entry.date),
+      "Mã phiếu": entry.code,
+      Loại: entry.direction === "IN" ? "THU" : "CHI",
+      Nguồn: entry.title,
+      "Diễn giải": entry.description,
+      "Chi nhánh": entry.branchName,
+      "Người tạo": entry.creatorName,
+      "Số tiền": entry.amount,
+      "Công nợ": entry.debtAmount,
+      "Trạng thái": entry.status,
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "So quy");
+    XLSX.writeFile(workbook, `So_quy_${startDate}_den_${endDate}.xlsx`);
+    toast.success("Đã xuất Excel sổ quỹ");
+  };
+
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text("SO QUY AGRI SHRIMP", 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Chi nhanh: ${branchLabel}`, 14, 20);
+    doc.text(`Ky bao cao: ${formatDateVN(startDate)} - ${formatDateVN(endDate)}`, 14, 25);
+ 
+    autoTable(doc, {
+      startY: 30,
+      head: [["Ngay", "Ma phieu", "Loai", "Nguon", "Dien giai", "So tien", "Cong no"]],
+      body: filteredEntries.map((entry) => [
+        formatDateVN(entry.date),
+        entry.code,
+        entry.direction === "IN" ? "THU" : "CHI",
+        entry.title,
+        entry.description,
+        formatNumber(entry.amount),
+        formatNumber(entry.debtAmount),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`So_quy_${startDate}_den_${endDate}.pdf`);
+    toast.success("Đã xuất PDF sổ quỹ");
+  };
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const cashbookRes = await CashbookService.getEntries({
+        branchId: selectedBranchId,
+      });
+      setEntries(cashbookRes);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chartWindow = useMemo(() => chartData.slice(-12), [chartData]);
+  const chartMax = useMemo(() => {
+    if (chartWindow.length === 0) return 1;
+    return Math.max(
+      1,
+      ...chartWindow.map((item) =>
+        Math.max(Number(item.income || 0), Number(item.expense || 0)),
+      ),
+    );
+  }, [chartWindow]);
+  const netAbsMax = useMemo(() => {
+    if (chartWindow.length === 0) return 1;
+    return Math.max(
+      1,
+      ...chartWindow.map((item) => Math.abs(Number(item.net || 0))),
+    );
+  }, [chartWindow]);
+  const totalFlowValue = useMemo(
+    () => summary.totalIncome + summary.totalExpense,
+    [summary.totalIncome, summary.totalExpense],
+  );
+  const totalFlow = useMemo(() => Math.max(1, totalFlowValue), [totalFlowValue]);
+  const incomeRatio = Math.round((summary.totalIncome / totalFlow) * 100);
+  const expenseRatio = 100 - incomeRatio;
 
   return (
-    <div className="space-y-0 pb-10 bg-[#f0f2f5] min-h-screen">
-      {/* Primary Filter Bar */}
-      <div className="px-6 py-3 flex items-center gap-6 bg-white border-b border-slate-200 shadow-sm">
-        <div className="flex items-center gap-3 border-r pr-6 border-slate-200">
+    <div className="min-h-screen space-y-0 bg-[#f0f2f5] pb-10">
+      <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
+        <div className="flex items-center gap-3 border-r border-slate-200 pr-6">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push("/admin/financial")}
-            className="h-8 w-8 text-slate-500 hover:text-blue-600 transition-colors border border-slate-200 rounded-none"
+            className="h-8 w-8 rounded-none border border-slate-200 text-slate-500 transition-colors hover:text-blue-600"
           >
             <ChevronLeft size={20} />
           </Button>
-          <h1 className="text-[18px] font-medium text-slate-800 tracking-tight whitespace-nowrap">
-            Sổ quỹ
-          </h1>
+          <div>
+            <h1 className="whitespace-nowrap text-[19px] font-black uppercase tracking-tight text-slate-800">
+              Sổ quỹ
+            </h1>
+            <p className="text-[11px] font-medium text-slate-500">
+              Theo dõi thu chi và số dư quỹ theo kỳ báo cáo
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-0 border border-slate-300 bg-white">
-          <Select defaultValue="record-date">
-            <SelectTrigger className="h-8 w-[130px] text-[12px] border-none rounded-none shadow-none focus:ring-0 font-medium">
-              <SelectValue />
+          <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+            <SelectTrigger className="h-8 w-[190px] rounded-none border-none text-[12px] font-medium shadow-none focus:ring-0">
+              <SelectValue placeholder="Tất cả chi nhánh" />
             </SelectTrigger>
             <SelectContent className="rounded-none">
-              <SelectItem value="record-date">Ngày ghi nhận</SelectItem>
+              <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id.toString()}>
+                  {branch.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        <div className="flex items-center gap-0 border border-slate-300 bg-white px-3 h-8 cursor-pointer hover:bg-slate-50 transition-colors">
-          <span className="text-[12px] text-slate-600 font-medium">
-            12/01/2026 - 11/02/2026
-          </span>
-          <ChevronDown size={14} className="ml-4 text-slate-400" />
+        <div className="flex h-8 items-center gap-2 border border-slate-300 bg-white px-3">
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            className="h-7 w-[140px] border-none p-0 text-[12px] shadow-none"
+          />
+          <span className="text-[12px] font-medium text-slate-400">-</span>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            className="h-7 w-[140px] border-none p-0 text-[12px] shadow-none"
+          />
+          <ChevronDown size={14} className="ml-1 text-slate-400" />
         </div>
 
-        <div className="ms-auto flex items-center gap-6">
-          <button className="flex items-center gap-1.5 text-[12px] text-slate-600 font-bold hover:text-blue-600 transition-colors uppercase">
-            <Download size={16} /> Xuất file
-          </button>
-          <button className="flex items-center gap-1.5 text-[12px] text-slate-600 font-bold hover:text-blue-600 transition-colors uppercase">
-            <HelpCircle size={16} /> Giải thích
-          </button>
+        <div className="ms-auto flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
+            onClick={refresh}
+            disabled={loading}
+          >
+            <RefreshCw
+              size={14}
+              className={cn("mr-2", loading && "animate-spin")}
+            />
+            Làm mới
+          </Button>
+          <Button
+            variant="outline"
+            className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
+            onClick={exportExcel}
+          >
+            <Download size={14} className="mr-2" />
+            Excel
+          </Button>
+          <Button
+            variant="outline"
+            className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
+            onClick={exportPdf}
+          >
+            <FileText size={14} className="mr-2" />
+            PDF
+          </Button>
+          <Button
+            variant="ghost"
+            className="h-8 rounded-none text-[12px] font-medium text-slate-500"
+            onClick={() => setIsExplainOpen(true)}
+          >
+            <HelpCircle size={14} className="mr-2" />
+            Trợ giúp
+          </Button>
         </div>
       </div>
 
-      {/* Summary Math Formula Bar */}
-      <div className="px-6 py-6 bg-white border-b border-slate-200 flex items-center justify-center gap-12">
-        <div className="text-center group cursor-pointer">
-          <p className="text-[12px] text-slate-500 font-medium mb-1 group-hover:text-blue-600 transition-colors">
-            Số dư đầu kì
-          </p>
-          <p className="text-[18px] font-bold text-slate-800">0</p>
-        </div>
-
-        <Plus size={20} className="text-slate-300 mt-4" />
-
-        <div className="text-center group cursor-pointer">
-          <p className="text-[12px] text-slate-500 font-medium mb-1 group-hover:text-emerald-600 transition-colors uppercase">
-            Tổng thu
-          </p>
-          <p className="text-[18px] font-bold text-emerald-600">0</p>
-        </div>
-
-        <Minus size={20} className="text-slate-300 mt-4" />
-
-        <div className="text-center group cursor-pointer">
-          <p className="text-[12px] text-slate-500 font-medium mb-1 group-hover:text-rose-600 transition-colors uppercase">
-            Tổng chi
-          </p>
-          <p className="text-[18px] font-bold text-rose-600">0</p>
-        </div>
-
-        <Equal size={20} className="text-slate-300 mt-4" />
-
-        <div className="text-center group cursor-pointer">
-          <p className="text-[12px] text-slate-500 font-medium mb-1 group-hover:text-blue-600 transition-colors uppercase">
-            Tồn cuối kì
-          </p>
-          <p className="text-[18px] font-black text-blue-600">0</p>
-        </div>
-      </div>
-
-      {/* Tabs & Main Content Area */}
-      <div className="p-4">
-        <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm min-h-[500px]">
-          {/* Tabs */}
-          <div className="px-6 border-b border-slate-100 flex items-center h-12 bg-[#fcfcfc]">
-            <div className="flex items-center gap-1 h-full">
-              <button
-                onClick={() => setActiveTab("all")}
-                className={cn(
-                  "h-full px-4 text-[13px] font-bold uppercase tracking-wider transition-all border-b-2",
-                  activeTab === "all"
-                    ? "text-blue-600 border-blue-600"
-                    : "text-slate-400 border-transparent hover:text-slate-600",
-                )}
-              >
-                Tất cả
-              </button>
-              <button
-                onClick={() => setActiveTab("payment")}
-                className={cn(
-                  "h-full px-4 text-[13px] font-bold uppercase tracking-wider transition-all border-b-2",
-                  activeTab === "payment"
-                    ? "text-blue-600 border-blue-600"
-                    : "text-slate-400 border-transparent hover:text-slate-600",
-                )}
-              >
-                Phiếu chi
-              </button>
-              <button
-                onClick={() => setActiveTab("receipt")}
-                className={cn(
-                  "h-full px-4 text-[13px] font-bold uppercase tracking-wider transition-all border-b-2",
-                  activeTab === "receipt"
-                    ? "text-blue-600 border-blue-600"
-                    : "text-slate-400 border-transparent hover:text-slate-600",
-                )}
-              >
-                Phiếu thu
-              </button>
-            </div>
+      <div className="border-b border-slate-200 bg-white px-6 py-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="group cursor-pointer rounded-[4px] border border-slate-100 bg-slate-50/30 p-4 text-center">
+            <p className="mb-1 text-[12px] font-medium text-slate-500 transition-colors group-hover:text-blue-600">
+              Số dư đầu kỳ
+            </p>
+            <p className="text-[18px] font-bold text-slate-800">
+              {formatNumber(summary.openingBalance)}
+            </p>
           </div>
-
-          {/* Search & Secondary Filter Bar */}
-          <div className="px-6 py-4 flex flex-wrap items-center gap-3 bg-white border-b border-slate-100">
-            <div className="relative flex-1 min-w-[300px]">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-                size={16}
-              />
-              <Input
-                placeholder="Tìm kiếm theo Mã phiếu, Mã chứng từ gốc, Tag"
-                className="h-[36px] pl-10 text-[13px] border-slate-200 rounded-none shadow-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="flex items-center gap-0 border border-slate-200 h-[36px] px-3 bg-white cursor-pointer hover:bg-slate-50 group">
-              <span className="text-[12px] text-slate-500 group-hover:text-slate-700">
-                Người tạo
-              </span>
-              <ChevronDown size={14} className="ml-4 text-slate-300" />
-            </div>
-
-            <div className="flex items-center gap-0 border border-slate-200 h-[36px] px-3 bg-white cursor-pointer hover:bg-slate-50 group">
-              <span className="text-[12px] text-slate-500 group-hover:text-slate-700">
-                Chi nhánh
-              </span>
-              <ChevronDown size={14} className="ml-4 text-slate-300" />
-            </div>
-
-            <div className="flex items-center gap-0 border border-slate-200 h-[36px] px-3 bg-white cursor-pointer hover:bg-slate-50 group">
-              <span className="text-[12px] text-slate-500 group-hover:text-slate-700">
-                Hình thức thanh toán
-              </span>
-              <ChevronDown size={14} className="ml-4 text-slate-300" />
-            </div>
-
-            <Button
-              variant="outline"
-              className="h-[36px] rounded-none border-slate-200 text-slate-500 font-medium text-[12px] hover:bg-slate-50"
-            >
-              Bộ lọc khác <Filter size={14} className="ml-2 text-slate-400" />
-            </Button>
+          <div className="group cursor-pointer rounded-[4px] border border-emerald-100 bg-emerald-50/30 p-4 text-center">
+            <p className="mb-1 text-[12px] font-medium uppercase text-slate-500 transition-colors group-hover:text-emerald-600">
+              Tổng thu
+            </p>
+            <p className="text-[18px] font-bold text-emerald-600">
+              {formatNumber(summary.totalIncome)}
+            </p>
           </div>
-
-          {/* Empty State - Table Placeholder */}
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-6">
-              <Search size={40} strokeWidth={1.5} />
-            </div>
-            <h3 className="text-[16px] font-bold text-slate-700 mb-2">
-              Không tìm thấy dữ liệu phù hợp với kết quả tìm kiếm
-            </h3>
-            <p className="text-[13px] text-slate-400 font-medium">
-              Thử thay đổi điều kiện lọc hoặc từ khóa tìm kiếm
+          <div className="group cursor-pointer rounded-[4px] border border-rose-100 bg-rose-50/30 p-4 text-center">
+            <p className="mb-1 text-[12px] font-medium uppercase text-slate-500 transition-colors group-hover:text-rose-600">
+              Tổng chi
+            </p>
+            <p className="text-[18px] font-bold text-rose-600">
+              {formatNumber(summary.totalExpense)}
+            </p>
+          </div>
+          <div className="group cursor-pointer rounded-[4px] border border-blue-100 bg-blue-50/30 p-4 text-center">
+            <p className="mb-1 text-[12px] font-medium uppercase text-slate-500 transition-colors group-hover:text-blue-600">
+              Tồn cuối kỳ
+            </p>
+            <p className="text-[18px] font-black text-blue-600">
+              {formatNumber(summary.closingBalance)}
             </p>
           </div>
         </div>
       </div>
+
+      <div className="space-y-4 p-4">
+        <Card className="rounded-none border border-[#dcdcdc] bg-white p-4 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                Biểu đồ sổ quỹ
+              </p>
+              <h2 className="text-[17px] font-bold text-slate-800">
+                Thu - chi theo {chartMode === "day" ? "ngày" : "tháng"}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={chartMode === "day" ? "default" : "outline"}
+                className="h-8 rounded-none"
+                onClick={() => setChartMode("day")}
+              >
+                Theo ngày
+              </Button>
+              <Button
+                variant={chartMode === "month" ? "default" : "outline"}
+                className="h-8 rounded-none"
+                onClick={() => setChartMode("month")}
+              >
+                Theo tháng
+              </Button>
+            </div>
+          </div>
+
+          <div className="w-full">
+            {chartWindow.length === 0 ? (
+              <div className="flex h-[280px] items-center justify-center rounded-[10px] border border-dashed border-slate-200 bg-slate-50/60 text-[13px] font-medium text-slate-400">
+                Chưa có dữ liệu để vẽ biểu đồ trong khoảng thời gian đã chọn
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.9fr)]">
+                <div className="rounded-[10px] border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-5 text-[11px] font-semibold text-slate-500">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        Thu
+                      </span>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+                        Chi
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Hiển thị {chartWindow.length} mốc gần nhất
+                    </span>
+                  </div>
+
+                  <div className="grid h-[300px] grid-cols-1 grid-rows-[1fr_auto] gap-3">
+                    <div className="relative overflow-hidden rounded-[8px] border border-slate-100 bg-white px-3 pt-4">
+                      <div className="pointer-events-none absolute inset-x-0 top-[20%] border-t border-dashed border-slate-200" />
+                      <div className="pointer-events-none absolute inset-x-0 top-[40%] border-t border-dashed border-slate-200" />
+                      <div className="pointer-events-none absolute inset-x-0 top-[60%] border-t border-dashed border-slate-200" />
+                      <div className="pointer-events-none absolute inset-x-0 top-[80%] border-t border-dashed border-slate-200" />
+                      <div className="flex h-full items-end gap-3 overflow-x-auto pb-3">
+                        {chartWindow.map((item) => {
+                          const incomeHeight = Math.max(
+                            item.income > 0 ? 10 : 0,
+                            Math.round((Number(item.income || 0) / chartMax) * 220),
+                          );
+                          const expenseHeight = Math.max(
+                            item.expense > 0 ? 10 : 0,
+                            Math.round((Number(item.expense || 0) / chartMax) * 220),
+                          );
+
+                          return (
+                            <div
+                              key={item.period}
+                              className="flex min-w-[56px] flex-1 flex-col items-center justify-end gap-2"
+                              title={`Kỳ ${item.period} | Thu: ${formatNumber(item.income)} | Chi: ${formatNumber(item.expense)}`}
+                            >
+                              <div className="flex h-[220px] items-end gap-1.5">
+                                <div
+                                  className="w-4 rounded-t-[6px] bg-emerald-500 shadow-[0_8px_18px_rgba(16,185,129,0.18)]"
+                                  style={{ height: `${incomeHeight}px` }}
+                                />
+                                <div
+                                  className="w-4 rounded-t-[6px] bg-rose-500 shadow-[0_8px_18px_rgba(239,68,68,0.18)]"
+                                  style={{ height: `${expenseHeight}px` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {chartWindow.map((item) => (
+                        <div
+                          key={`label-${item.period}`}
+                          className="min-w-[56px] flex-1 text-center text-[10px] font-medium text-slate-500"
+                        >
+                          {item.period}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="rounded-[10px] border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                          Tỉ trọng thu chi
+                        </p>
+                        <p className="text-sm font-semibold text-slate-700">
+                          Cơ cấu dòng tiền
+                        </p>
+                      </div>
+                      <div className="rounded-full bg-slate-100 p-2 text-slate-500">
+                        <Wallet size={16} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_minmax(0,1fr)] xl:grid-cols-1">
+                      <div className="relative">
+                        <div
+                          className="mx-auto h-[190px] w-[190px] rounded-full"
+                          style={{
+                            background: `conic-gradient(#10b981 0 ${incomeRatio}%, #ef4444 ${incomeRatio}% 100%)`,
+                          }}
+                        >
+                          <div className="mx-auto mt-[34px] flex h-[122px] w-[122px] flex-col items-center justify-center rounded-full bg-white">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                              Lưu chuyển
+                            </span>
+                            <span className="mt-1 text-lg font-black text-slate-800">
+                              {chartWindow.length}
+                            </span>
+                            <span className="text-[11px] text-slate-500">chu kỳ</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-[10px] bg-slate-50 px-4 py-3 text-center">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Tổng lưu chuyển
+                          </p>
+                          <p className="mt-1 text-xl font-black text-slate-800">
+                            {formatNumber(totalFlowValue)}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-[10px] border border-emerald-100 bg-emerald-50/70 px-3 py-3">
+                            <p className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                              <ArrowUpRight size={14} />
+                              Thu
+                            </p>
+                            <p className="mt-1 text-lg font-black text-emerald-600">
+                              {incomeRatio}%
+                            </p>
+                            <p className="text-[11px] text-emerald-700/80">
+                              {formatNumber(summary.totalIncome)}
+                            </p>
+                          </div>
+                          <div className="rounded-[10px] border border-rose-100 bg-rose-50/70 px-3 py-3">
+                            <p className="flex items-center gap-1 text-[11px] font-semibold text-rose-700">
+                              <ArrowDownRight size={14} />
+                              Chi
+                            </p>
+                            <p className="mt-1 text-lg font-black text-rose-600">
+                              {expenseRatio}%
+                            </p>
+                            <p className="text-[11px] text-rose-700/80">
+                              {formatNumber(summary.totalExpense)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[10px] border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                          Dòng tiền ròng
+                        </p>
+                        <p className="text-sm font-semibold text-slate-700">
+                          So sánh thặng dư từng kỳ
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-[11px] font-bold",
+                          summary.closingBalance >= 0
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-amber-50 text-amber-700",
+                        )}
+                      >
+                        {summary.closingBalance >= 0 ? "Dương" : "Âm"}
+                      </span>
+                    </div>
+
+                    <div className="relative h-[190px] overflow-hidden rounded-[8px] border border-slate-100 bg-white px-3 py-3">
+                      <div className="absolute inset-x-3 top-1/2 border-t border-dashed border-slate-300" />
+                      <div className="flex h-full items-center gap-3 overflow-x-auto">
+                        {chartWindow.map((item) => {
+                          const net = Number(item.net || 0);
+                          const height = Math.max(
+                            Math.abs(net) > 0 ? 10 : 0,
+                            Math.round((Math.abs(net) / netAbsMax) * 72),
+                          );
+
+                          return (
+                            <div
+                              key={`net-${item.period}`}
+                              className="flex min-w-[38px] flex-1 flex-col items-center justify-center"
+                              title={`Ròng ${item.period}: ${formatNumber(net)}`}
+                            >
+                              <div className="flex h-full items-center">
+                                <div className="flex h-[144px] items-center">
+                                  <div
+                                    className={cn(
+                                      "w-5 rounded-[6px]",
+                                      net >= 0 ? "self-start bg-blue-500" : "self-end bg-amber-500",
+                                    )}
+                                    style={{ height: `${height}px` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                      <span>Dương: xanh</span>
+                      <span>Âm: cam</span>
+                      <span>Biên độ max: {compactCurrency(netAbsMax)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="overflow-hidden rounded-none border border-[#dcdcdc] bg-white p-0 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-[#fcfcfc] px-6 py-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                Danh sách giao dịch
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-[280px]">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                  size={16}
+                />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Tìm mã phiếu, diễn giải, chi nhánh..."
+                  className="h-[36px] rounded-none border-slate-200 pl-10 text-[13px] shadow-none focus:border-blue-500"
+                />
+              </div>
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter(v as EntryTypeFilter)}
+              >
+                <SelectTrigger className="h-[36px] w-[160px] rounded-none border-slate-200 text-[12px] shadow-none">
+                  <SelectValue placeholder="Loại giao dịch" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="IN">Phiếu thu</SelectItem>
+                  <SelectItem value="OUT">Phiếu chi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <Table className="min-w-[1200px]">
+              <TableHeader>
+                <TableRow className="bg-[#f8f9fa] hover:bg-[#f8f9fa]">
+                  <TableHead className="w-[120px]">Ngày</TableHead>
+                  <TableHead className="w-[130px]">Mã phiếu</TableHead>
+                  <TableHead className="w-[90px]">Loại</TableHead>
+                  <TableHead className="min-w-[260px]">Diễn giải</TableHead>
+                  <TableHead className="w-[160px]">Chi nhánh</TableHead>
+                  <TableHead className="w-[170px]">Người tạo</TableHead>
+                  <TableHead className="w-[130px] text-right">Số tiền</TableHead>
+                  <TableHead className="w-[130px] text-right">Công nợ</TableHead>
+                  <TableHead className="w-[130px] text-center">Trạng thái</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ledgerRows.map((entry) => (
+                  <TableRow key={entry.id} className="hover:bg-blue-50/20">
+                    <TableCell className="whitespace-nowrap text-[12px] font-medium text-slate-600">
+                      {formatDateVN(entry.date)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-[12px] font-black uppercase text-slate-800">
+                      {entry.code}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={cn(
+                          "rounded-none border-none text-[10px] font-black",
+                          entry.direction === "IN"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-rose-50 text-rose-600",
+                        )}
+                      >
+                        {entry.direction === "IN" ? "THU" : "CHI"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[13px] font-bold text-slate-800">
+                          {entry.title}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {entry.description}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-[12px] text-slate-600">
+                      {entry.branchName || branchLabel}
+                    </TableCell>
+                    <TableCell className="text-[12px] text-slate-600">
+                      {entry.creatorName || "Hệ thống"}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "whitespace-nowrap text-right font-black",
+                        entry.direction === "IN"
+                          ? "text-emerald-600"
+                          : "text-rose-600",
+                      )}
+                    >
+                      {formatNumber(entry.amount)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-slate-600">
+                      {formatNumber(entry.debtAmount)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span
+                        className={cn(
+                          "rounded border px-2 py-0.5 text-[10px] font-black uppercase",
+                          entry.status === "COMPLETED" ||
+                            entry.status === "IMPORTED"
+                            ? "border-emerald-100 bg-emerald-50 text-emerald-600"
+                            : entry.status === "PENDING" || entry.status === "PO"
+                              ? "border-amber-100 bg-amber-50 text-amber-600"
+                              : "border-slate-100 bg-slate-50 text-slate-500",
+                        )}
+                      >
+                        {entry.status || "N/A"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-[#fcfcfc] px-6 py-3">
+            <div className="flex items-center gap-6 whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span>
+                Hiển thị {ledgerRows.length} / {filteredEntries.length} giao dịch
+              </span>
+              <span className="text-emerald-600">
+                Thu: {formatNumber(summary.totalIncome)}
+              </span>
+              <span className="text-rose-600">
+                Chi: {formatNumber(summary.totalExpense)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-none border-slate-200 text-[11px]"
+                onClick={exportExcel}
+              >
+                <Download size={14} className="mr-1.5" />
+                Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-none border-slate-200 text-[11px]"
+                onClick={exportPdf}
+              >
+                <FileText size={14} className="mr-1.5" />
+                PDF
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
+        <DialogContent className="max-w-2xl rounded-none">
+          <DialogHeader>
+            <DialogTitle className="uppercase">Trợ giúp sổ quỹ</DialogTitle>
+            <DialogDescription>
+              Sổ quỹ tổng hợp dữ liệu thật từ phiếu nhập, phiếu xuất và giao dịch kho theo kỳ đang chọn.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-slate-600">
+            <p><span className="font-bold text-slate-800">Số dư đầu kỳ:</span> số tiền còn lại trước ngày bắt đầu lọc.</p>
+            <p><span className="font-bold text-slate-800">Tổng thu / Tổng chi:</span> tổng tiền vào và ra trong khoảng thời gian hiện tại.</p>
+            <p><span className="font-bold text-slate-800">Biểu đồ:</span> cho thấy xu hướng thu chi theo ngày hoặc theo tháng để nhìn biến động nhanh.</p>
+            <p><span className="font-bold text-slate-800">Danh sách giao dịch:</span> chi tiết từng phiếu theo chi nhánh, người tạo, số tiền và công nợ.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

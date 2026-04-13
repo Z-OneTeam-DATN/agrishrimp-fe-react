@@ -65,14 +65,23 @@ export function InventoryTransferTable({ transfers }: any) {
                   <TableCell className="p-[10px]">
                     <span
                       className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-tighter ${
-                        item.status === "Hoàn thành"
+                        item.status === "COMPLETED"
                           ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                          : item.status === "Đang vận chuyển"
+                          : item.status === "SHIPPING" || item.status === "TRANSIT"
                             ? "bg-blue-50 text-blue-600 border-blue-100"
-                            : "bg-orange-50 text-orange-600 border-orange-100"
+                            : item.status === "PENDING"
+                              ? "bg-amber-50 text-amber-600 border-amber-100"
+                              : item.status === "APPROVED"
+                                ? "bg-indigo-50 text-indigo-600 border-indigo-100"
+                                : "bg-rose-50 text-rose-600 border-rose-100"
                       }`}
                     >
-                      {item.status}
+                      {item.status === "PENDING" ? "Chờ duyệt" : 
+                       item.status === "APPROVED" ? "Đã duyệt" :
+                       item.status === "SHIPPING" ? "Đang chuyển" :
+                       item.status === "COMPLETED" ? "Hoàn thành" :
+                       item.status === "CANCELLED" ? "Đã hủy" :
+                       item.status === "REJECTED" ? "Từ chối" : item.status}
                     </span>
                   </TableCell>
                 </TableRow>

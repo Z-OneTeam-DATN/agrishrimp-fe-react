@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import { BranchOrder, OrderStatus } from "@/app/types/order.types";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 // ── Tab config ──────────────────────────────────────────────────
 const TABS = [
@@ -135,6 +137,9 @@ const ActionButton = ({
     orderCode: string,
   ) => void;
 }) => {
+  const { hasPermission } = usePermissions();
+  const canConfirm = hasPermission(P.ORDER_CONFIRM);
+
   switch (status) {
     case "AWAITING_REPLENISHMENT":
       return (
@@ -147,6 +152,7 @@ const ActionButton = ({
         </Button>
       );
     case "PENDING":
+      if (!canConfirm) return null;
       return (
         <Button
           size="sm"

@@ -181,7 +181,7 @@ function OrderSuccessContent() {
             {(order.subOrders?.length ?? 0) > 0 && (
               <div className="space-y-2 mb-4">
                {order.subOrders?.map((sub: any) => (
-                  <div
+                <div
                     key={sub.subOrderId}
                     className="border border-gray-100 rounded-xl px-3 py-2.5 text-xs space-y-0.5"
                   >

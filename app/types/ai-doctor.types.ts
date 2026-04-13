@@ -28,12 +28,14 @@ export interface AiDoctorTopPrediction {
 
 export interface AiDoctorDiagnosisResponse {
   diagnosisId: string;
+  /** HEALTHY | DISEASE — FE dùng để phân nhánh UI */
+  status?: "HEALTHY" | "DISEASE";
   imageUrl?: string;
-  disease: AiDoctorDiseaseInfo;
+  disease?: AiDoctorDiseaseInfo;
   topPredictions?: AiDoctorTopPrediction[];
-  causes: string[];
-  signsSummary: string;
-  treatmentStages: AiDoctorTreatmentStage[];
+  causes?: string[];
+  signsSummary?: string;
+  treatmentStages?: AiDoctorTreatmentStage[];
   purchaseUrl?: string;
   createdAt?: string;
 }

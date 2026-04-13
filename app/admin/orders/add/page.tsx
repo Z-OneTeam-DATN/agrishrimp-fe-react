@@ -55,11 +55,66 @@ const MOCK_PRODUCT = {
   id: 1, sku: "TACT010", name: "Thức ăn cho tôm bao", unit: "kg", packaging: "bao", price: 110000, quantity: 5,
 };
 
+import { ProductService } from "@/app/services/product.service";
+import { Badge } from "@/components/ui/badge";
+
 export default function CreateOrderPage() {
   const router = useRouter();
 
   // --- STATES CHÍNH ---
   const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [branchId, setBranchId] = useState("1"); // Mặc định chi nhánh chính hoặc lấy từ store
+
+  const handleSearchProduct = async (term: string) => {
+    if (!term.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const data = await ProductService.searchVariants(term, branchId);
+      const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
+      setSearchResults(productList);
+    } catch (error) {
+      console.error(error);
+      toast.error("Không thể tìm kiếm sản phẩm");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm) handleSearchProduct(searchTerm);
+      else setSearchResults([]);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, branchId]);
+
+  const addItem = (variant: any) => {
+    const existing = orderItems.find(i => i.id === variant.id);
+    if (existing) {
+      setOrderItems(orderItems.map(i => i.id === variant.id ? { ...i, quantity: i.quantity + 1 } : i));
+    } else {
+      setOrderItems([...orderItems, { 
+        id: variant.id, 
+        sku: variant.sku, 
+        name: variant.productName || variant.name, 
+        unit: variant.unit || "Cái", 
+        packaging: variant.packaging || "", 
+        price: variant.price || variant.salePrice || 0, 
+        quantity: 1,
+        maxQuantity: variant.quantity // Tồn kho tối đa
+      }]);
+    }
+    setSearchTerm("");
+    setSearchResults([]);
+    toast.success("Đã thêm sản phẩm");
+  };
+
   const [shippingMethod, setShippingMethod] = useState<"gateway" | "self" | "delivered" | "later">("gateway");
   const [paymentStatus, setPaymentStatus] = useState<"paid" | "later">("later");
   const [customer, setCustomer] = useState<any>(null);
@@ -275,7 +330,48 @@ export default function CreateOrderPage() {
                 </div>
              </div>
              <div className="flex gap-2 mb-4">
-                <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/><Input placeholder="Tìm theo tên, mã SKU... (F3)" className="pl-9 h-10 border-blue-300 focus-visible:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddProductMock()}/></div>
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                  <Input 
+                    placeholder="Tìm theo tên, mã SKU... (F3)" 
+                    className="pl-9 h-10 border-blue-300 focus-visible:ring-blue-500" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  {searchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl rounded-md z-50 max-h-[400px] overflow-y-auto divide-y divide-slate-50 animate-in fade-in zoom-in-95 duration-100">
+                      {searchResults.map((variant) => (
+                        <div 
+                          key={variant.id} 
+                          className="p-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center group transition-colors"
+                          onClick={() => addItem(variant)}
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">{variant.productName || variant.name}</span>
+                              {variant.isLowStock && (
+                                <Badge className="bg-rose-500 hover:bg-rose-600 text-white text-[9px] px-1.5 py-0 rounded-full border-none font-bold uppercase tracking-tighter h-4">
+                                  Sắp hết hàng
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                              <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-wider">SKU: {variant.sku}</span>
+                              <span className="w-[1px] h-3 bg-slate-300"></span>
+                              <span className="flex items-center gap-1">
+                                Tồn: <span className={cn("font-black", variant.isLowStock ? "text-rose-600" : "text-blue-600")}>{variant.quantity || 0}</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[13px] font-black text-blue-600">{(variant.salePrice || variant.price || 0).toLocaleString()}đ</p>
+                            <Plus size={14} className="text-blue-400 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Button variant="outline" className="border-slate-300 text-slate-700 h-10">Chọn nhiều</Button>
              </div>
              <div className={cn("py-4", hasProducts ? "border-t border-slate-100" : "")}>

@@ -32,6 +32,25 @@ export const InventoryApiService = {
     const response = await apiJava.delete(`${BASE_URL}/receipts/${id}`);
     return response.data;
   },
+
+  // Duyệt phiếu nhập (Chuyển sang APPROVED)
+  approveReceipt: async (id: number | string) => {
+    const response = await apiJava.post(`${BASE_URL}/receipts/${id}/approve`);
+    return response.data;
+  },
+
+  // Từ chối phiếu nhập (Chuyển sang REJECTED)
+  rejectReceipt: async (id: number | string) => {
+    const response = await apiJava.post(`${BASE_URL}/receipts/${id}/reject`);
+    return response.data;
+  },
+
+  // 3. Xác nhận hoàn tất nhập kho - QC (Chuyển sang COMPLETED)
+  completeReceipt: async (id: number | string, payload: { items: any[] }) => {
+    // Gửi items theo yêu cầu lưu vết người chốt (người chốt lấy từ token)
+    const response = await apiJava.post(`${BASE_URL}/receipts/${id}/complete`, payload);
+    return response.data;
+  },
 };
 export const InventoryExportApiService = {
   // Lấy danh sách lệnh xuất
@@ -59,7 +78,22 @@ getAllProductsForExport: async () => {
     const response = await apiJava.get(`/products`);
     return response.data;
   },
-// Hàm chốt phiếu xuất (trừ kho)
+  
+  // Lấy danh sách hàng lỗi theo NCC và Chi nhánh (Dùng cho Xuất Trả NCC)
+  getDefectiveItems: async (supplierId: number | string, branchId?: number | string) => {
+    const response = await apiJava.get(`${BASE_URL}/defective-items`, {
+      params: { supplierId, branchId }
+    });
+    return response.data;
+  },
+
+  // Duyệt lệnh xuất (Chuyển sang APPROVED)
+  approveExportCommand: async (id: number | string) => {
+    const response = await apiJava.post(`${BASE_URL}/export-commands/${id}/approve`);
+    return response.data;
+  },
+
+  // Hàm chốt phiếu xuất (trừ kho - Chuyển sang COMPLETED)
   completeExportCommand: async (id: number | string) => {
     const response = await apiJava.post(`${BASE_URL}/export-commands/${id}/complete`);
     return response.data;
@@ -69,11 +103,15 @@ getExportCommandDetail: async (id: number | string) => {
     return response.data;
   },
 updateExportCommand: async (id: number | string, payload: any) => {
-    const response = await apiJava.put(`${BASE_URL}/export-commands/${id}`, payload);
-    return response.data;
-  },
-};
+  const response = await apiJava.put(`${BASE_URL}/export-commands/${id}`, payload);
+  return response.data;
+},
 
+rejectExportCommand: async (id: number | string) => {
+  const response = await apiJava.post(`${BASE_URL}/export-commands/${id}/reject`);
+  return response.data;
+},
+};
 export const InventoryCheckApiService = {
   // A. Lấy danh sách phiếu (Cả PENDING và COMPLETED)
   getAll: async () => {

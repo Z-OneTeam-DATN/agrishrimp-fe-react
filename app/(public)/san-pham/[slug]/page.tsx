@@ -117,7 +117,7 @@ export default function ProductDetailPage({
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
     const [activeImage, setActiveImage] = useState<string>("/placeholder.svg");
     const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState<"desc" | "specs">("desc");
+    const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
     const [isAdding, setIsAdding] = useState(false);
     const [reviewCount, setReviewCount] = useState<number | null>(null);
     const [reviewAverage, setReviewAverage] = useState<number | null>(null);
@@ -742,6 +742,16 @@ export default function ProductDetailPage({
                                     }`}
                                 >
                                     Thông số
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("reviews")}
+                                    className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                        activeTab === "reviews"
+                                            ? "text-teal-600 border-b-2 border-teal-600"
+                                            : "text-slate-400 hover:text-slate-600"
+                                    }`}
+                                >
+                                    Đánh giá {reviewTabLabel}
                                 </button>
                             </div>
 

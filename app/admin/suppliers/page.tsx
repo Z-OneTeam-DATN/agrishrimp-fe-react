@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
+import { useRouter } from "next/navigation";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminSupplierTable } from "@/components/admin/AdminSupplierTable";
 import { supplierService } from "@/app/services/supplier.service";
@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function SupplierListPage() {
+    const router = useRouter();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [keyword, setKeyword] = useState("");
@@ -57,11 +58,20 @@ export default function SupplierListPage() {
 
     return (
         <div className="space-y-3 pb-10">
-            <AdminPageHeader
-                title="Quản lý nhà cung cấp"
-                addBtnLabel="Thêm nhà cung cấp"
-                addBtnHref="/admin/suppliers/add"
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1 py-1">
+                <div>
+                    <h1 className="text-[18px] font-black uppercase text-[#1f1f1f] tracking-tight">QUẢN LÝ NHÀ CUNG CẤP</h1>
+                    <p className="text-[12px] text-slate-500 font-medium mt-1">Theo dõi danh sách đối tác, trạng thái giao dịch và lịch sử nhập hàng</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={() => router.push("/admin/suppliers/add")}
+                        className="h-[38px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[3px] uppercase px-5"
+                    >
+                        + Thêm nhà cung cấp
+                    </Button>
+                </div>
+            </div>
 
             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
                 {/* 👇 ĐÃ CẬP NHẬT FILTER Ở ĐÂY 👇 */}
@@ -96,7 +106,7 @@ export default function SupplierListPage() {
                     </div>
                 ) : suppliers.length > 0 ? (
                     <>
-                        <AdminSupplierTable suppliers={suppliers} />
+                        <AdminSupplierTable suppliers={suppliers} currentPage={currentPage} pageSize={pageSize} />
                         <div className="flex items-center justify-between px-5 py-3 border-t border-[#eee] bg-[#f8f9fa]">
                             <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
                                 Đang hiển thị {suppliers.length} / Tổng số {totalElements} kết quả
