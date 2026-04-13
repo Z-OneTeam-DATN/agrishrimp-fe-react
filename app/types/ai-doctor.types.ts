@@ -1,5 +1,6 @@
 export interface AiDoctorSuggestedProduct {
   id: number;
+  variantId?: number;
   name: string;
   image?: string;
   price?: number;
@@ -31,6 +32,7 @@ export interface AiDoctorDiagnosisResponse {
   /** HEALTHY | DISEASE — FE dùng để phân nhánh UI */
   status?: "HEALTHY" | "DISEASE";
   imageUrl?: string;
+  clientImageUrl?: string;
   disease?: AiDoctorDiseaseInfo;
   topPredictions?: AiDoctorTopPrediction[];
   causes?: string[];
