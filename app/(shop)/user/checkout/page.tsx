@@ -369,10 +369,12 @@ export default function CheckoutPage() {
       if (isRateLimitedError(error)) {
         const retryAfterSeconds = getRetryAfterSeconds(error);
         setRateLimitCooldown((prev) => Math.max(prev, retryAfterSeconds));
+        // Không show toast khi rate limit - chỉ disable button
+      } else {
+        const errData = error.response?.data;
+        const errMsg = typeof errData === "object" ? errData.detail || errData.message || errData.error : errData || error.message || "Lỗi xử lý đặt hàng!";
+        toast.error(errMsg);
       }
-      const errData = error.response?.data;
-      const errMsg = typeof errData === "object" ? errData.detail || errData.message || errData.error : errData || error.message || "Lỗi xử lý đặt hàng!";
-      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }

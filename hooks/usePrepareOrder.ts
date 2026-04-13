@@ -35,8 +35,10 @@ export function usePrepareOrder(options: UsePrepareOrderOptions = {}) {
       clearPrepareResponse()
       if (isRateLimitedError(error)) {
         onRateLimited?.(getRetryAfterSeconds(error))
+        // Không show toast khi rate limit - chỉ disable button
+      } else {
+        toast.error(getFriendlyError(error))
       }
-      toast.error(getFriendlyError(error))
     },
   })
 }
