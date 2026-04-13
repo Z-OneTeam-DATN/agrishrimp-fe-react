@@ -21,7 +21,7 @@ import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 
 const TABS = [
-  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them" },
+  { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
   { id: "all", label: "Tất cả" },
   { id: "SHIPPING", label: "Đang giao hàng" },
   { id: "COMPLETED", label: "Hoàn thành" },
@@ -89,10 +89,10 @@ export default function AllOrdersPage() {
     try {
       const response = await orderService.requestBranchOrderReplenishment(orderId);
       const transferSummary = response.transferCodes?.length ? ` (${response.transferCodes.join(", ")})` : "";
-      toast.success(`Da tao lenh dieu chuyen cho ${orderCode}${transferSummary}`);
+      toast.success(`Đã tạo lệnh điều chuyển cho ${orderCode}${transferSummary}`);
       fetchOrders(activeTab, search);
     } catch {
-      toast.error("Khong the tao lenh dieu chuyen bo sung.");
+      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
     }
   };
 
@@ -259,7 +259,7 @@ export default function AllOrdersPage() {
                                       className="h-[28px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold"
                                       onClick={(e) => handleRequestReplenishment(e, order.orderId, order.orderCode)}
                                     >
-                                      <Package size={14} className="mr-1.5" /> Tao lenh dieu chuyen
+                                      <Package size={14} className="mr-1.5" /> Tạo lệnh điều chuyển
                                     </Button>
                                   )}
                                 </div>
@@ -298,7 +298,7 @@ export default function AllOrdersPage() {
                                             <td className="p-2 text-center text-[12px] text-slate-700">
                                               <div>{item.quantity}</div>
                                               {(item.missingQuantity ?? 0) > 0 && (
-                                                <div className="text-[10px] font-semibold text-rose-600">Thieu {item.missingQuantity}</div>
+                                                <div className="text-[10px] font-semibold text-rose-600">Thiếu {item.missingQuantity}</div>
                                               )}
                                             </td>
                                             <td className="p-2 text-right text-[12px] text-slate-700">{formatCurrency(item.price)}</td>
@@ -337,7 +337,7 @@ export default function AllOrdersPage() {
 }
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
-  AWAITING_REPLENISHMENT: { label: "Cho nhap them", styles: "bg-rose-50 text-rose-600 border-rose-200" },
+  AWAITING_REPLENISHMENT: { label: "Chờ điều chuyển", styles: "bg-rose-50 text-rose-600 border-rose-200" },
   PENDING:    { label: "Chờ xác nhận",   styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]" },
   CONFIRMED:  { label: "Đã xác nhận",    styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]" },
   PROCESSING: { label: "Đang đóng gói",  styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]" },

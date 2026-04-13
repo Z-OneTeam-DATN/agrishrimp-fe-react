@@ -47,8 +47,8 @@ const statusConfig: Record<
     icon: <CreditCard size={28} />,
   },
   AWAITING_REPLENISHMENT: {
-    label: "Chờ lấy hàng",
-    subLabel: "Đơn hàng đã được xác nhận. Cửa hàng đang bổ sung thêm sản phẩm để sớm bàn giao cho vận chuyển.",
+    label: "Chờ điều chuyển",
+    subLabel: "Đơn hàng đang thiếu một số sản phẩm. Hệ thống sẽ tạo phiếu điều chuyển giữa các kho để xử lý sớm.",
     bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
