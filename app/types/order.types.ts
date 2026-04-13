@@ -1,6 +1,7 @@
 export interface CartItem {
   productVariantId: number;
   quantity: number;
+  cartItemId?: number; // ID từ cart backend
   // Dùng cho hiển thị UI — lấy từ cart store
   productName?: string;
   variantName?: string;

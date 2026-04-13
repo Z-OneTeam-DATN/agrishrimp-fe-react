@@ -46,6 +46,7 @@ type SavedAddress = {
 }
 
 type CheckoutCartApiItem = {
+    id?: number  // Thêm id từ backend
     variantId: number
     quantity: number
     name?: string
@@ -168,9 +169,11 @@ export default function CheckoutPage() {
                     variantName: item.variant,
                     unitPrice: item.price,
                     imageUrl: item.image,
+                    cartItemId: item.id, // Thêm để reference
                 }))
+                // Fix: Match theo item.id (cartItemId) từ URL, KHÔNG phải variantId
                 const filteredItems = selectedItemIds.length > 0
-                    ? mappedItems.filter((item) => selectedItemIds.includes(item.productVariantId))
+                    ? mappedItems.filter((item) => item.cartItemId && selectedItemIds.includes(item.cartItemId))
                     : mappedItems
 
                 if (selectedItemIds.length > 0 && filteredItems.length === 0) {
