@@ -240,7 +240,7 @@ export default function WarehouseDashboard() {
       stats: [
         {
           val: dbData.exports.pending,
-          label: "Chờ xuất",
+          label: "Đã duyệt",
           colorClass: "text-amber-600",
           bgClass: "bg-amber-500",
           width: getWidth(dbData.exports.pending, totalExports),
@@ -264,7 +264,7 @@ export default function WarehouseDashboard() {
       stats: [
         {
           val: dbData.transfers.pending,
-          label: "Chờ xuất",
+          label: "Đã duyệt",
           colorClass: "text-amber-500",
           bgClass: "bg-amber-500",
           width: getWidth(dbData.transfers.pending, totalTransfers),

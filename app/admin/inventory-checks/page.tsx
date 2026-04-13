@@ -38,6 +38,17 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle } from "lucide-react";
 
 export default function InventoryCheckListPage() {
   const router = useRouter();
@@ -46,6 +57,24 @@ export default function InventoryCheckListPage() {
   const [data, setData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"PENDING" | "COMPLETED">("PENDING");
+
+  // AlertDialog State
+  const [confirmConfig, setConfirmConfig] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: () => void;
+    variant?: "default" | "destructive";
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    action: () => {},
+  });
+
+  const showConfirm = (title: string, description: string, action: () => void, variant: "default" | "destructive" = "default") => {
+    setConfirmConfig({ open: true, title, description, action, variant });
+  };
 
   useEffect(() => {
     fetchData();
@@ -71,24 +100,29 @@ export default function InventoryCheckListPage() {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: number | string) => {
+  const handleDelete = (e: React.MouseEvent, id: number | string) => {
     e.stopPropagation();
-    if (!confirm("Bạn có chắc chắn muốn xóa phiếu kiểm kê này không? Hành động này không thể hoàn tác.")) return;
-    
-    try {
-      toast.promise(InventoryCheckApiService.deleteCheck(id), {
-        loading: 'Đang xóa phiếu...',
-        success: () => {
-          fetchData();
-          return 'Đã xóa phiếu thành công';
-        },
-        error: (err) => {
-          return err.response?.data?.message || 'Không thể xóa phiếu (Có thể do phiếu đã chốt hoặc lỗi hệ thống)';
+    showConfirm(
+      "Xác nhận XÓA phiếu",
+      "Bạn có chắc chắn muốn xóa phiếu kiểm kê này không? Hành động này không thể hoàn tác.",
+      async () => {
+        try {
+          toast.promise(InventoryCheckApiService.deleteCheck(id), {
+            loading: 'Đang xóa phiếu...',
+            success: () => {
+              fetchData();
+              return 'Đã xóa phiếu thành công';
+            },
+            error: (err) => {
+              return err.response?.data?.message || 'Không thể xóa phiếu (Có thể do phiếu đã chốt hoặc lỗi hệ thống)';
+            }
+          });
+        } catch (error) {
+          console.error(error);
         }
-      });
-    } catch (error) {
-      console.error(error);
-    }
+      },
+      "destructive"
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -305,6 +339,33 @@ export default function InventoryCheckListPage() {
           </Table>
         </div>
       </Card>
+
+      {/* AlertDialog dành cho các xác nhận quan trọng */}
+      <AlertDialog open={confirmConfig.open} onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}>
+        <AlertDialogContent className="rounded-none border-2 border-slate-200 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[16px] font-black uppercase text-slate-800 flex items-center gap-2">
+              <AlertCircle className={cn("w-5 h-5", confirmConfig.variant === "destructive" ? "text-rose-500" : "text-blue-500")} />
+              {confirmConfig.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] font-medium text-slate-500 leading-relaxed pt-2">
+              {confirmConfig.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-4 gap-3">
+            <AlertDialogCancel className="rounded-none border-slate-300 text-slate-500 font-bold uppercase text-[11px] h-9 px-6 hover:bg-slate-50">Quay lại</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmConfig.action}
+              className={cn(
+                "rounded-none font-black uppercase text-[11px] h-9 px-8 shadow-lg transition-all",
+                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+              )}
+            >
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

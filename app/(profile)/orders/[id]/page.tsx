@@ -199,7 +199,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const cfg = statusConfig[order.status];
   const showStepper = order.status !== "CANCELLED" && order.status !== "RETURNED";
+<<<<<<< Updated upstream
   const progressPct = activeStep <= 0 ? 0 : (activeStep / (steps.length - 1)) * 100;
+=======
+  const progressPct =
+    activeStep > 0
+      ? (activeStep / (steps.length - 1)) * 100
+      : 0;
+>>>>>>> Stashed changes
 
   return (
     <div className="min-h-screen bg-[#f6f8f7]">
@@ -285,6 +292,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
 
+<<<<<<< Updated upstream
             <div className="flex gap-3 px-4 py-3.5">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50">
                 <Store size={15} className="text-teal-600" />
@@ -296,6 +304,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="mt-0.5 text-sm leading-relaxed text-gray-500">
                   {order.branchAddress || "Đơn hàng được phân bổ cho chi nhánh phù hợp để xử lý."}
                 </p>
+=======
+            {/* Cửa hàng */}
+            <div className="px-4 py-3.5 flex gap-3">
+              <div className="mt-0.5 w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                <Store size={15} className="text-teal-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-teal-600 font-semibold uppercase tracking-wide mb-1">
+                  Cửa hàng xử lý
+                </p>
+                <p className="text-sm font-semibold text-gray-900">Cửa hàng AgriShrimp</p>
+                <p className="text-sm text-gray-500 mt-0.5">Đơn hàng được xử lý bởi hệ thống cửa hàng phù hợp.</p>
+>>>>>>> Stashed changes
               </div>
             </div>
           </div>

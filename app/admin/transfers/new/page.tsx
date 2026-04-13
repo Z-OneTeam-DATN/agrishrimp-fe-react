@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,10 +26,12 @@ import {
   Car,
   ScanBarcode,
   ListPlus,
+  ListChecks,
   History,
   MapPin,
   Building2,
   ArrowDownToLine,
+  Warehouse,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,11 +54,22 @@ import {
 } from "@/components/ui/table";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TransferSchema } from "@/app/types/inventory.schema";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function NewTransferPage() {
   const router = useRouter();
+<<<<<<< Updated upstream
+=======
+  const { hasPermission } = usePermissions();
+  const { user } = useAuthStore();
+  
+  // 🔥 CẬP NHẬT: Cho phép tất cả nhân viên (không phải USER) thấy giá & lô
+  const isAdmin = hasPermission(P.TRANSFER_APPROVE);
+  const canSeePrice = user?.role?.slug !== "USER"; 
+  
+>>>>>>> Stashed changes
   const searchParams = useSearchParams();
   const sourceCode = searchParams.get("source");
 
@@ -81,6 +94,9 @@ export default function NewTransferPage() {
     fetchBranches();
   }, []);
 
+  const userRole = user?.role?.slug || "USER";
+  const initialStatus = userRole === "ADMIN" ? "APPROVED" : "PENDING";
+
   const {
     register,
     handleSubmit,
@@ -92,91 +108,126 @@ export default function NewTransferPage() {
     resolver: zodResolver(TransferSchema),
     mode: "onTouched",
     defaultValues: {
-      transferType: "BETWEEN_WAREHOUSES",
+      transferCode: "PDC-" + Date.now().toString().slice(-6),
+      sourceBranchId: "",
+      destBranchId: "",
+      transferDate: new Date().toISOString().slice(0, 16),
+      status: initialStatus,
+      priority: "MEDIUM",
+      transferType: "WAREHOUSE_TRANSFER",
+      referenceCode: sourceCode || "",
+      items: [],
+      note: "",
       description: sourceCode ? `Xuất điều chuyển theo yêu cầu ${sourceCode}` : "",
       transporter: "",
-      vehicle: "",
-      dispatchOrder: "",
-      transferCode: "PDC-" + Date.now().toString().slice(-6),
-      sourceBranch: "",
-      sourceWarehouse: "wh-hn",
-      sourceAddress: "",
-      transferDate: new Date().toISOString().slice(0, 16),
-      destBranch: "",
-      destWarehouse: "wh-st",
-      destAddress: "",
-      status: "DRAFT",
-      importStatus: "PENDING",
-      referenceCode: sourceCode || "",
-      items: sourceCode ? [] : [],
-      note: "",
     },
   });
 
-  const transferType = watch("transferType");
-  const importStatus = watch("importStatus");
-  const currentSourceBranch = watch("sourceBranch");
+  const watchStatus = watch("status") || "PENDING";
+  const currentSourceBranch = watch("sourceBranchId");
+  const currentDestBranch = watch("destBranchId");
+
+  const selectedSourceData = useMemo(() => {
+    return branches.find(b => b.id.toString() === currentSourceBranch);
+  }, [branches, currentSourceBranch]);
+
+  const selectedDestData = useMemo(() => {
+    return branches.find(b => b.id.toString() === currentDestBranch);
+  }, [branches, currentDestBranch]);
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: "items",
   });
 
-  const auditLogs = [
-    {
-      time: new Date().toLocaleString("vi-VN"),
-      user: "Hệ thống",
-      action: "Khởi tạo phiếu dự thảo",
-      detail: "Hệ thống tự động cấp mã phiếu",
-    },
-  ];
+  const isQCMode = watchStatus === "SHIPPING" || watchStatus === "COMPLETED";
 
   const onSubmit = async (formData: any) => {
-    if (formData.sourceBranch === formData.destBranch) {
-      toast.error("Chi nhánh xuất và Chi nhánh nhận không được trùng nhau!");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const payload = {
-        fromBranchId: Number(formData.sourceBranch),
-        toBranchId: Number(formData.destBranch),
-        transferType: formData.transferType,
+        fromBranchId: formData.sourceBranchId,
+        toBranchId: formData.destBranchId,
+        transferDate: formData.transferDate,
         description: formData.description,
         transporter: formData.transporter,
-        vehicle: formData.vehicle,
-        dispatchOrder: formData.dispatchOrder,
         referenceCode: formData.referenceCode,
-        priority: "NORMAL",
-        transferDate: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
-        deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
+        status: formData.status,
+        priority: formData.priority,
+        transferType: formData.transferType,
+        note: formData.note,
         items: formData.items.map((item: any) => ({
-         sku: item.productCode,
-          quantity: Number(item.quantity),
-          quantityRequested: Number(item.quantity),
-          quantityReal: 0,
-          itemNote: item.itemNote,
+          sku: item.productCode,
+          productName: item.productName,
+          unit: item.unit,
+          quantity: Number(item.plannedQuantity),
+          quantityReal: Number(item.quantityReal) || 0,
+          quantityAccepted: Number(item.quantityAccepted) || 0,
+          quantityRejected: Number(item.quantityRejected) || 0,
+          lotNumber: item.lotNumber,
+          expiryDate: item.expiryDate,
         })),
       };
 
       await transferService.create(payload);
-      toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
+      toast.success("Đã tạo phiếu điều chuyển thành công!");
       router.push("/admin/transfers");
     } catch (error: any) {
-      console.error("Lỗi tạo phiếu:", error);
-      toast.error("Lỗi hệ thống: " + (error.response?.data || "Không thể tạo phiếu"));
+      toast.error(error?.response?.data?.message || error?.message || "Đã xảy ra lỗi!");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const steps = [
-    { label: "Khởi tạo", status: "completed", icon: Plus },
-    { label: "Chờ xuất kho", status: "active", icon: AlertCircle },
-    { label: "Đang vận chuyển", status: "upcoming", icon: Truck },
-    { label: "Đã nhận hàng", status: "upcoming", icon: CheckCircle2 },
+    { key: "START", label: "Khởi tạo", role: "Manager" },
+    { key: "PENDING", label: "Phê duyệt", role: "Admin" },
+    { key: "SHIPPING", label: "Vận chuyển", role: "Kho gửi" },
+    { key: "COMPLETED", label: "Hoàn thành", role: "Kho nhận" },
   ];
+
+  const WorkflowDiagram = () => {
+    return (
+      <div className="bg-white border border-slate-200 p-6 mb-6 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
+        <div className="flex items-center justify-between max-w-4xl mx-auto relative px-4">
+          {steps.map((step, idx) => {
+            const isDone = idx < 0; 
+            const isCurrent = idx === 0;
+
+            return (
+              <React.Fragment key={idx}>
+                <div className="flex flex-col items-center gap-2 relative z-10">
+                  <div className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-500 text-[13px] font-black",
+                    isDone ? "bg-emerald-500 border-emerald-500 text-white shadow-sm" : 
+                    isCurrent ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100" : 
+                    "bg-white border-slate-200 text-slate-400"
+                  )}>
+                    {idx + 1}
+                  </div>
+                  <div className="text-center">
+                    <p className={cn("text-[10px] font-black uppercase tracking-tight", isCurrent ? "text-blue-600" : isDone ? "text-emerald-600" : "text-slate-400")}>
+                      {step.label}
+                    </p>
+                    <p className="text-[9px] font-bold text-slate-300 uppercase">{step.role}</p>
+                  </div>
+                </div>
+                {idx < steps.length - 1 && (
+                  <div className="flex-1 h-[2px] bg-slate-100 mx-4 -mt-8 relative overflow-hidden">
+                    <div className={cn(
+                      "absolute inset-0 transition-all duration-700",
+                      isDone ? "bg-emerald-500" : "bg-transparent"
+                    )} />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -197,28 +248,31 @@ export default function NewTransferPage() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (!searchTerm && !showDropdown) return;
-      if (!currentSourceBranch) return;
+      // Chỉ fetch khi dropdown mở (onFocus) hoặc có searchTerm
+      if (!showDropdown || !currentSourceBranch) return;
 
       setIsSearching(true);
       try {
         const results = await ProductService.searchVariants(searchTerm, currentSourceBranch);
-        const finalData = Array.isArray(results) ? results : results?.data || [];
+        // Hỗ trợ cả Page object (content) và ApiResponse (data) hoặc Array trực tiếp
+        const finalData = Array.isArray(results) 
+          ? results 
+          : (results?.content || results?.data || []);
+        
         setSearchResults(finalData);
-
-        if (document.activeElement?.getAttribute("placeholder")?.includes("Tìm theo tên")) {
-          setShowDropdown(true);
-        }
-      } catch (error) {
-        console.error("Lỗi tìm sản phẩm", error);
+      } catch (error: any) {
+        console.error("Lỗi tìm sản phẩm chi tiết:", error);
+        // Handle Network Error or other API errors
+        toast.error("Lỗi kết nối khi tìm sản phẩm. Vui lòng kiểm tra backend hoặc CORS.");
       } finally {
         setIsSearching(false);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, currentSourceBranch]);
+  }, [searchTerm, currentSourceBranch, showDropdown]);
 
+<<<<<<< Updated upstream
   const handleSelectProduct = (variant: any) => {
       // 1. Kiểm tra trùng dựa trên SKU giống Nhập kho
       const isExist = fields.some((f: any) => f.productCode === variant.sku);
@@ -231,25 +285,60 @@ export default function NewTransferPage() {
       if (variant.sku) displayName += ` [${variant.sku}]`;
 
       // 2. Append dữ liệu - Dùng variant.sku làm định danh chính
+=======
+  const handleSelectProduct = (variant: any, batch?: any) => {
+      // 1. Xác định thông tin lô thực tế được chọn
+      const actualBatchNumber = batch ? batch.batchNumber : (variant.batchNumber || "");
+      const actualExpiryDate = batch ? batch.expiryDate : (variant.expiryDate || "");
+      const actualQuantity = batch ? batch.quantity : (variant.quantity || 0);
+
+      // 2. Kiểm tra trùng dựa trên SKU + Số lô
+      const isExist = fields.some((f: any) => 
+        f.productCode === variant.sku && 
+        (f.batchNumber || "") === (actualBatchNumber || "")
+      );
+      
+      if (isExist) {
+        toast.error(`Lô hàng "${actualBatchNumber || 'Mặc định'}" của sản phẩm này đã có trong danh sách!`);
+        return;
+      }
+
+      let displayName = variant.productName || variant.unit || "Sản phẩm";
+      if (variant.sku) displayName += ` [${variant.sku}]`;
+
+      // 3. Append dữ liệu vào bảng
+>>>>>>> Stashed changes
       append({
         variantId: variant.id,
         productCode: variant.sku, // <--- SKU là duy nhất
         productName: displayName,
         unit: variant.unit || "Cái",
+<<<<<<< Updated upstream
         quantity: 1,
         availableQuantity: variant.quantity || 0,
+=======
+        plannedQuantity: 1,
+        importPrice: variant.importPrice || 0,
+        availableQuantity: actualQuantity,
+        batchNumber: actualBatchNumber,
+        expiryDate: actualExpiryDate,
+>>>>>>> Stashed changes
         itemNote: "",
       });
 
       setSearchTerm("");
       setShowDropdown(false);
+<<<<<<< Updated upstream
       toast.success("Đã thêm biến thể thành công!");
+=======
+      toast.success(`Đã thêm lô "${actualBatchNumber || 'Mặc định'}" thành công!`);
+>>>>>>> Stashed changes
   };
 
   return (
     <form
       onSubmit={handleSubmit(onSubmit, onError)}
-      className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen"
+      className="space-y-4 pb-[100px] bg-slate-50/30 p-4"
     >
       {/* Page Header */}
       <div className="flex items-center gap-4 mb-2 px-1">
@@ -260,64 +349,11 @@ export default function NewTransferPage() {
           <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
             Lập phiếu điều chuyển hàng hóa
           </h1>
-          <div className="flex items-center gap-3 mt-1">
-            <Controller
-              name="transferType"
-              control={control}
-              render={({ field }) => (
-                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex items-center gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="BETWEEN_WAREHOUSES" id="type-wh" />
-                    <Label
-                      htmlFor="type-wh"
-                      className={cn("text-[11px] font-bold uppercase tracking-wider cursor-pointer", field.value === "BETWEEN_WAREHOUSES" ? "text-blue-600" : "text-slate-400")}
-                    >
-                      Điều chuyển liên kho
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="INTERNAL" id="type-internal" />
-                    <Label
-                      htmlFor="type-internal"
-                      className={cn("text-[11px] font-bold uppercase tracking-wider cursor-pointer", field.value === "INTERNAL" ? "text-blue-600" : "text-slate-400")}
-                    >
-                      Nội bộ
-                    </Label>
-                  </div>
-                </RadioGroup>
-              )}
-            />
-          </div>
         </div>
       </div>
 
-      {/* Step Bar */}
-      <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm mb-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          {steps.map((step, idx) => (
-            <React.Fragment key={idx}>
-              <div className="flex flex-col items-center gap-2 relative z-10">
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
-                    step.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white" : step.status === "active" ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100" : "bg-slate-50 border-slate-200 text-slate-300"
-                  )}
-                >
-                  <step.icon size={20} />
-                </div>
-                <span className={cn("text-[10px] font-black uppercase tracking-tighter", step.status === "active" ? "text-blue-600" : "text-slate-400")}>
-                  {step.label}
-                </span>
-              </div>
-              {idx < steps.length - 1 && (
-                <div className="flex-1 h-[3px] bg-slate-100 mx-2 -mt-6 relative">
-                  <div className={cn("absolute inset-0 transition-all duration-500", steps[idx].status === "completed" ? "bg-emerald-500" : "bg-transparent")} />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
+      {/* SƠ ĐỒ QUY TRÌNH */}
+      <WorkflowDiagram />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div className="lg:col-span-9 space-y-5">
@@ -328,16 +364,6 @@ export default function NewTransferPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
 
-              <div className="md:col-span-8 space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Lý do điều chuyển / Diễn giải *</Label>
-                <Input
-                  {...register("description")}
-                  className={cn("h-[34px] text-[13px] rounded-none font-bold shadow-none", errors.description ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                />
-                {/* HIỂN THỊ LỖI */}
-                {errors.description && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.description.message as string}</p>}
-              </div>
-
               <div className="md:col-span-4 space-y-1.5">
                 <Label className="text-[10px] font-black text-rose-600 uppercase tracking-tight">Mã phiếu hệ thống</Label>
                 <Input
@@ -347,45 +373,28 @@ export default function NewTransferPage() {
                 />
               </div>
 
-              {transferType === "BETWEEN_WAREHOUSES" && (
-                <React.Fragment>
-                  <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Phương tiện vận chuyển</Label>
-                    <div className="relative">
-                      <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <Input
-                        {...register("vehicle")}
-                        className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.vehicle ? "border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                        placeholder="Biển số xe..."
-                      />
-                    </div>
-                  </div>
-                  <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Tài xế vận chuyển *</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <Input
-                        {...register("transporter")}
-                        className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.transporter ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                        placeholder="Họ tên tài xế..."
-                      />
-                    </div>
-                    {/* HIỂN THỊ LỖI */}
-                    {errors.transporter && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transporter.message as string}</p>}
-                  </div>
-                  <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Lệnh điều động số</Label>
-                    <div className="relative">
-                      <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <Input
-                        {...register("dispatchOrder")}
-                        className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none font-mono focus:border-blue-500 shadow-none"
-                        placeholder="Số hiệu văn bản..."
-                      />
-                    </div>
-                  </div>
-                </React.Fragment>
-              )}
+              <div className="md:col-span-8 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
+                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Người / Tài xế vận chuyển</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input
+                    {...register("transporter")}
+                    className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.transporter ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
+                    placeholder="Họ tên người vận chuyển..."
+                  />
+                </div>
+                {errors.transporter && <p className="text-rose-500 text-[10px] font-medium">{errors.transporter.message as string}</p>}
+              </div>
+
+              <div className="md:col-span-12 space-y-1.5">
+                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Lý do điều chuyển / Diễn giải *</Label>
+                <Input
+                  {...register("description")}
+                  className={cn("h-[34px] text-[13px] rounded-none font-bold shadow-none", errors.description ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
+                />
+                {errors.description && <p className="text-rose-500 text-[10px] font-medium">{errors.description.message as string}</p>}
+              </div>
+
             </div>
           </div>
 
@@ -411,6 +420,7 @@ export default function NewTransferPage() {
                   />
 
                   {showDropdown && currentSourceBranch && (
+<<<<<<< Updated upstream
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[300px] overflow-y-auto">
                       {isSearching ? (
                         <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
@@ -433,6 +443,97 @@ export default function NewTransferPage() {
                             </div>
                           </div>
                         ))
+=======
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-[1001] max-h-[400px] overflow-y-auto">
+                      {isSearching ? (
+                        <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
+                      ) : searchResults.length > 0 ? (
+                        searchResults.map((variant, variantIdx) => {
+                          // Nếu variant có mảng batches, hiện từng batch
+                          if (variant.batches && variant.batches.length > 0) {
+                            return variant.batches.map((batch: any, batchIdx: number) => (
+                              <div
+                                key={`v-${variant.id || variant.sku}-b-${batch.id || batch.batchNumber || 'no-batch'}-${variantIdx}-${batchIdx}`}
+                                onMouseDown={() => handleSelectProduct(variant, batch)}
+                                className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors group"
+                              >
+                                <div className="flex items-center gap-3">
+                                   <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
+                                      {variant.imageUrl ? (
+                                        <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
+                                      ) : <Package size={16} className="text-slate-300" />}
+                                   </div>
+                                   <div>
+                                     <p className="text-[12px] font-bold text-slate-800 group-hover:text-blue-600 uppercase tracking-tight">{variant.productName || variant.unit}</p>
+                                     <div className="flex flex-col gap-0.5">
+                                       <p className="text-[10px] text-slate-500 font-medium italic">
+                                         SKU: <span className="font-mono text-blue-600 not-italic">{variant.sku}</span>
+                                       </p>
+                                       <div className="flex items-center gap-2 mt-0.5">
+                                          <div className="flex items-center gap-1 text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-100 rounded-sm uppercase">
+                                            LÔ: {batch.batchNumber || 'N/A'}
+                                          </div>
+                                          {batch.expiryDate && (
+                                            <div className="flex items-center gap-1 text-[9px] font-bold bg-rose-50 text-rose-700 px-1.5 py-0.5 border border-rose-100 rounded-sm uppercase">
+                                              HSD: {batch.expiryDate}
+                                            </div>
+                                          )}
+                                       </div>
+                                     </div>
+                                   </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="flex flex-col items-end gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tồn kho lô này</span>
+                                    <p className={cn(
+                                      "text-[14px] font-black px-3 py-1 rounded-none border-2 shadow-sm",
+                                      (batch.quantity || 0) > 0 ? "text-emerald-600 border-emerald-500" : "text-rose-600 border-rose-500"
+                                    )}>
+                                      {batch.quantity || 0} <span className="text-[10px] ml-0.5">{variant.unit || "SP"}</span>
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ));
+                          }
+
+                          // Trường hợp ko có lô (hiển thị variant gốc)
+                          return (
+                            <div
+                              key={variant.id || variant.sku}
+                              onMouseDown={() => handleSelectProduct(variant)}
+                              className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
+                                    {variant.imageUrl ? (
+                                      <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
+                                    ) : <Package size={16} className="text-slate-300" />}
+                                 </div>
+                                 <div>
+                                   <p className="text-[12px] font-bold text-slate-800 group-hover:text-blue-600 uppercase tracking-tight">{variant.productName || variant.unit}</p>
+                                   <div className="flex flex-col gap-0.5">
+                                     <p className="text-[10px] text-slate-500 font-medium italic">
+                                       SKU: <span className="font-mono text-blue-600 not-italic">{variant.sku}</span>
+                                     </p>
+                                   </div>
+                                 </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tồn kho tại nguồn</span>
+                                  <p className={cn(
+                                    "text-[14px] font-black px-3 py-1 rounded-none border-2 shadow-sm transition-all",
+                                    (variant.quantity || 0) > 0 ? "text-emerald-600 border-emerald-500" : "text-rose-600 border-rose-500 animate-pulse"
+                                  )}>
+                                    {variant.quantity || 0} <span className="text-[10px] ml-0.5">{variant.unit || "SP"}</span>
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+>>>>>>> Stashed changes
                       ) : (
                         <div className="p-3 text-center text-[12px] text-slate-400">Không có sản phẩm nào</div>
                       )}
@@ -450,6 +551,11 @@ export default function NewTransferPage() {
                     <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">Hàng hóa</TableHead>
                     <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ĐVT</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
+<<<<<<< Updated upstream
+=======
+                    <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Số lô / Hạn dùng</TableHead>
+                    
+>>>>>>> Stashed changes
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-emerald-600">Thực nhận</TableHead>
                     <TableHead className="p-2 text-[10px] font-black uppercase text-slate-500">Ghi chú</TableHead>
@@ -457,6 +563,7 @@ export default function NewTransferPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+<<<<<<< Updated upstream
                   {fields.map((field, index) => (
                     <TableRow key={field.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
                       <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
@@ -494,23 +601,80 @@ export default function NewTransferPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+=======
+                  {fields.map((field: any, index: number) => {
+                    const rowError = (errors?.items as any)?.[index];
+                    return (
+                      <React.Fragment key={field.id}>
+                        <TableRow 
+                          className={cn(
+                            "border-b border-slate-100 hover:bg-blue-50/20 transition-colors",
+                            rowError ? "bg-rose-50/30" : ""
+                          )}
+                        >
+                          <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
+                          <TableCell className="p-1">
+                            <Input {...register(`items.${index}.productName`)} className="h-8 text-[12px] border-none bg-transparent font-bold focus:ring-0" readOnly />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input {...register(`items.${index}.unit`)} className="h-8 text-[12px] border-none bg-transparent focus:ring-0" readOnly />
+                          </TableCell>
+                          <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
+                            {(watch(`items.${index}.availableQuantity`) || 0).toLocaleString("vi-VN")}
+                          </TableCell>
+                          
+                          <TableCell className="text-[12px] text-slate-600">
+                            {watch(`items.${index}.batchNumber`) ? (
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800">{watch(`items.${index}.batchNumber`)}</span>
+                                {watch(`items.${index}.expiryDate`) && (
+                                  <span className="text-[10px] text-rose-500 font-medium">Hạn: {watch(`items.${index}.expiryDate`)}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 italic">Mặc định</span>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="p-1 text-right">
+                            <Input
+                              type="number"
+                              step="any"
+                              {...register(`items.${index}.plannedQuantity`)}
+                              className={cn(
+                                "h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", 
+                                rowError?.plannedQuantity ? "border-rose-500 bg-rose-50" : "border-blue-200"
+                              )}
+                            />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input {...register(`items.${index}.itemNote`)} className="h-8 text-[11px] border-none italic bg-transparent focus:ring-0" placeholder="..." />
+                          </TableCell>
+                          <TableCell className="p-1 text-center">
+                            <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-rose-500 transition-colors">
+                              <Trash2 size={16} />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Dòng hiển thị lỗi riêng biệt */}
+                        {rowError?.plannedQuantity && (
+                          <TableRow className="bg-rose-50/40 border-none hover:bg-rose-50/40 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <TableCell colSpan={8} className="py-1 px-4">
+                              <div className="flex items-center gap-1.5 text-rose-600 font-black text-[10px] uppercase tracking-wider">
+                                <AlertCircle size={12} strokeWidth={3} />
+                                {rowError.plannedQuantity.message}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+>>>>>>> Stashed changes
                 </TableBody>
               </Table>
             </div>
-            {/* LỖI NẾU CHƯA CÓ ITEMS NÀO HOẶC LỖI TỪ ZOD ITEMS LEVEL */}
-            {(errors.items?.message || errors.items?.root?.message) && (
-                <div className="p-3 bg-rose-50 border-t border-rose-100 text-rose-500 text-[11px] font-bold text-center">
-                    {errors.items?.message as string || errors.items?.root?.message as string}
-                </div>
-            )}
-            {fields.length === 0 && (
-              <div className="py-16 flex flex-col items-center justify-center bg-white space-y-4">
-                <Search size={48} className="text-slate-200" />
-                <div className="text-center">
-                  <p className="text-[13px] font-black text-slate-600 uppercase tracking-widest">Danh mục điều chuyển đang trống</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -520,10 +684,10 @@ export default function NewTransferPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
-                  <Building2 size={12} /> Chi nhánh xuất hàng *
+                  <Warehouse size={12} className="text-blue-600" /> Chi nhánh xuất hàng *
                 </Label>
                 <Controller
-                  name="sourceBranch"
+                  name="sourceBranchId"
                   control={control}
                   render={({ field }) => (
                     <Select
@@ -531,35 +695,40 @@ export default function NewTransferPage() {
                       onValueChange={(val) => {
                         field.onChange(val);
                         remove();
-                        const selectedBranch = branches.find((b) => b.id.toString() === val);
-                        if (selectedBranch) setValue("sourceAddress", selectedBranch.addressDetail || "Chưa cập nhật địa chỉ");
                       }}
                     >
-                      <SelectTrigger className={cn("h-8 text-[12px] rounded-none font-bold focus:ring-0", errors.sourceBranch ? "border-rose-500" : "border-[#eee]")}>
+                      <SelectTrigger className={cn("h-auto min-h-[40px] text-[12px] rounded-none font-bold focus:ring-0 py-2", errors.sourceBranchId ? "border-rose-500" : "border-[#eee]")}>
                         <SelectValue placeholder="Chọn kho xuất..." />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-none max-w-[300px]">
                         {branches.map((b) => (
-                          <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
+                          <SelectItem key={b.id} value={b.id.toString()} className="py-2">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-black text-slate-700 uppercase text-[11px]">{b.name || b.branchName}</span>
+                              {(b.addressDetail) && (
+                                <span className="text-[10px] text-slate-400 font-medium line-clamp-1 flex items-center gap-1">
+                                  <MapPin size={10} /> {b.addressDetail}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   )}
                 />
-                {/* HIỂN THỊ LỖI */}
-                {errors.sourceBranch && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.sourceBranch.message as string}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                  <MapPin size={12} className="text-rose-500" /> Địa chỉ kho xuất
-                </Label>
-                <Controller
-                  name="sourceAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea {...field} readOnly className="min-h-[60px] text-[12px] border-[#ccc] rounded-none resize-none bg-slate-50 text-slate-600 cursor-not-allowed" />
-                  )}
-                />
+                {selectedSourceData && (
+                  <div className="mt-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                      <MapPin size={10} className="text-rose-500" /> Địa chỉ kho xuất
+                    </Label>
+                    <Input
+                      readOnly
+                      value={selectedSourceData.addressDetail || ""}
+                      className="h-8 text-[11px] bg-slate-50 border-slate-200 text-slate-500 rounded-none cursor-not-allowed italic"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -575,74 +744,112 @@ export default function NewTransferPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
-                  <Building2 size={12} /> Chi nhánh nhận hàng *
+                  <Warehouse size={12} className="text-emerald-600" /> Chi nhánh nhận hàng *
                 </Label>
                 <Controller
-                  name="destBranch"
+                  name="destBranchId"
                   control={control}
                   render={({ field }) => (
                     <Select
                       value={field.value}
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        const selectedBranch = branches.find((b) => b.id.toString() === val);
-                        if (selectedBranch) setValue("destAddress", selectedBranch.addressDetail || "Chưa cập nhật địa chỉ");
-                      }}
+                      onValueChange={field.onChange}
                     >
-                      <SelectTrigger className={cn("h-8 text-[12px] rounded-none font-bold focus:ring-0", errors.destBranch ? "border-rose-500" : "border-[#eee]")}>
+                      <SelectTrigger className={cn("h-auto min-h-[40px] text-[12px] rounded-none font-bold focus:ring-0 py-2", errors.destBranchId ? "border-rose-500" : "border-[#eee]")}>
                         <SelectValue placeholder="Chọn kho nhận..." />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-none max-w-[300px]">
                         {branches.map((b) => (
-                          <SelectItem key={b.id} value={b.id.toString()} disabled={b.id.toString() === currentSourceBranch}>
-                            {b.name}
+                          <SelectItem key={b.id} value={b.id.toString()} disabled={b.id.toString() === currentSourceBranch} className="py-2">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-black text-slate-700 uppercase text-[11px]">{b.name || b.branchName}</span>
+                              {(b.addressDetail) && (
+                                <span className="text-[10px] text-slate-400 font-medium line-clamp-1 flex items-center gap-1">
+                                  <MapPin size={10} /> {b.addressDetail}
+                                </span>
+                              )}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   )}
                 />
-                {/* HIỂN THỊ LỖI */}
-                {errors.destBranch && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.destBranch.message as string}</p>}
-                {errors.destWarehouse && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.destWarehouse.message as string}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                  <MapPin size={12} className="text-emerald-500" /> Địa chỉ kho nhận
-                </Label>
-                <Controller
-                  name="destAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea {...field} readOnly className="min-h-[60px] text-[12px] border-[#ccc] rounded-none resize-none bg-slate-50 text-slate-600 cursor-not-allowed" />
-                  )}
-                />
+                {selectedDestData && (
+                  <div className="mt-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <Label className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                      <MapPin size={10} className="text-emerald-500" /> Địa chỉ kho nhận
+                    </Label>
+                    <Input
+                      readOnly
+                      value={selectedDestData.addressDetail || ""}
+                      className="h-8 text-[11px] bg-slate-50 border-slate-200 text-slate-500 rounded-none cursor-not-allowed italic"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold text-slate-400 uppercase">Ngày điều chuyển (24H) *</Label>
-              <Input
-                type="datetime-local"
-                {...register("transferDate")}
-                className={cn("h-[34px] text-[12px] rounded-none", errors.transferDate ? "border-rose-500" : "border-[#ccc]")}
-              />
-              {/* HIỂN THỊ LỖI */}
-              {errors.transferDate && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transferDate.message as string}</p>}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-bold text-slate-400 uppercase">Ngày điều chuyển *</Label>
+                <Input
+                  type="datetime-local"
+                  {...register("transferDate")}
+                  className={cn("h-[34px] text-[12px] rounded-none", errors.transferDate ? "border-rose-500" : "border-[#ccc]")}
+                />
+                {errors.transferDate && <p className="text-rose-500 text-[10px] font-medium">{errors.transferDate.message as string}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-bold text-slate-400 uppercase">Tham chiếu *</Label>
+                <Input
+                  {...register("referenceCode")}
+                  className={cn("h-[34px] text-[12px] rounded-none font-mono", errors.referenceCode ? "border-rose-500" : "border-[#ccc]")}
+                  placeholder="Mã YCDC, Mã ĐH..."
+                />
+                {errors.referenceCode && <p className="text-rose-500 text-[10px] font-medium">{errors.referenceCode.message as string}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-bold text-slate-400 uppercase">Mức độ ưu tiên</Label>
+                <Controller
+                  name="priority"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="h-[34px] text-[12px] rounded-none border-[#ccc] focus:ring-0">
+                        <SelectValue placeholder="Chọn mức độ..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="LOW">Thấp</SelectItem>
+                        <SelectItem value="MEDIUM">Trung bình</SelectItem>
+                        <SelectItem value="HIGH">Cao</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-bold text-slate-400 uppercase">Loại điều chuyển</Label>
+                <Controller
+                  name="transferType"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="h-[34px] text-[12px] rounded-none border-[#ccc] focus:ring-0">
+                        <SelectValue placeholder="Chọn loại..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="WAREHOUSE_TRANSFER">Điều chuyển kho</SelectItem>
+                        <SelectItem value="BRANCH_TRANSFER">Điều chuyển chi nhánh</SelectItem>
+                        <SelectItem value="OTHER">Khác</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold text-slate-400 uppercase">Tham chiếu chứng từ *</Label>
-              <Input
-                {...register("referenceCode")}
-                className={cn("h-[34px] text-[12px] rounded-none font-mono", errors.referenceCode ? "border-rose-500" : "border-[#ccc]")}
-                placeholder="Mã YCDC, Mã ĐH..."
-              />
-              {/* HIỂN THỊ LỖI */}
-              {errors.referenceCode && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.referenceCode.message as string}</p>}
-            </div>
-          </div>
         </div>
       </div>
 

@@ -120,7 +120,12 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
   const fetchEmployees = async () => {
     try {
       const res = await EmployeeService.getAll({ status: "ACTIVE", size: 100 });
+<<<<<<< Updated upstream
       setEmployees(res.content ?? []);
+=======
+      const list = Array.isArray(res) ? res : (res?.data || res?.content || []);
+      setEmployees(list);
+>>>>>>> Stashed changes
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -153,7 +158,8 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
         sku: item.sku || "N/A",
         unit: item.unit || "Cái",
         systemQuantity: item.systemQuantity || 0,
-        actualQuantity: item.quantityReal || 0, // BE returns quantityReal
+        quantityReal: item.quantityReal || 0, // BE returns quantityReal
+        quantityRejected: item.quantityRejected || 0, // BE returns quantityRejected
         reason: item.note || "", // BE returns item-level note as reason
       }));
       
@@ -207,7 +213,8 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
       sku: variant.sku,
       unit: variant.unit || "Cái",
       systemQuantity: variant.quantity || 0, // 'quantity' từ searchVariants là số lượng tồn hiện tại
-      actualQuantity: variant.quantity || 0,
+      quantityReal: variant.quantity || 0,
+      quantityRejected: 0,
       batchNumber: variant.batchNumber || "N/A",
       importPrice: variant.importPrice || 0,
       reason: "",
@@ -240,7 +247,8 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
           batchNumber: item.batchNumber || "N/A",
           importPrice: item.importPrice || 0,
           systemQuantity: Number(item.systemQuantity), // Gửi kèm số tồn hệ thống lúc tạo
-          quantityReal: Number(item.actualQuantity),
+          quantityReal: Number(item.quantityReal),
+          quantityRejected: Number(item.quantityRejected || 0),
           note: item.reason
         }))
       };
@@ -469,13 +477,19 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                       {searchResults.map(p => (
                         <div key={p.id} className="p-2.5 hover:bg-blue-50 cursor-pointer flex justify-between items-center group" onClick={() => addItem(p)}>
                           <div className="flex flex-col">
-                            <span className="text-[12px] font-black text-slate-700">{p.productName || p.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[12px] font-black text-slate-700">{p.productName || p.name}</span>
+                              {p.isLowStock && (
+                                <Badge className="bg-rose-500 hover:bg-rose-600 text-white text-[9px] px-1.5 py-0 rounded-full border-none font-bold uppercase tracking-tighter h-4">
+                                  Sắp hết hàng
+                                </Badge>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">SKU: {p.sku} | Tồn: <span className="text-blue-600">{p.quantity}</span></span>
                           </div>
                           <Plus size={14} className="text-blue-500 opacity-0 group-hover:opacity-100" />
                         </div>
-                      ))}
-                    </div>
+                      ))}                    </div>
                   )}
                 </div>
               )}
@@ -491,6 +505,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                     <TableHead className="w-[70px] text-[10px] font-black uppercase text-slate-400 text-center">ĐVT</TableHead>
                     <TableHead className="w-[110px] text-right text-[10px] font-black uppercase text-blue-600">Số lượng tồn</TableHead>
                     <TableHead className="w-[110px] text-right text-[10px] font-black uppercase text-emerald-600">Kiểm kê</TableHead>
+                    <TableHead className="w-[110px] text-right text-[10px] font-black uppercase text-rose-600">Hàng lỗi</TableHead>
                     <TableHead className="w-[110px] text-right text-[10px] font-black uppercase text-slate-400">Chênh lệch</TableHead>
                     <TableHead className="w-[200px] text-center text-[10px] font-black uppercase text-slate-400">Nguyên nhân</TableHead>
                     {mode !== "view" && <TableHead className="w-[40px]"></TableHead>}
@@ -499,7 +514,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                 <TableBody>
                   {items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={mode === "view" ? 8 : 9} className="h-40 text-center text-slate-300">
+                      <TableCell colSpan={mode === "view" ? 9 : 10} className="h-40 text-center text-slate-300">
                         <div className="flex flex-col items-center gap-2">
                            <Box size={40} className="opacity-20" />
                            <p className="text-[11px] font-black uppercase tracking-widest opacity-50">Chưa có sản phẩm</p>
@@ -508,7 +523,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                     </TableRow>
                   ) : (
                     items.map((item, index) => {
-                      const diff = Number(item.actualQuantity || 0) - Number(item.systemQuantity || 0);
+                      const diff = Number(item.quantityReal || 0) - Number(item.systemQuantity || 0);
                       return (
                         <TableRow key={index} className="hover:bg-slate-50/30 border-b border-slate-50">
                           <TableCell className="text-center text-[11px] font-bold text-slate-400">{index + 1}</TableCell>
@@ -521,8 +536,17 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                               type="number"
                               disabled={mode === "view"}
                               className="h-7 w-20 ml-auto text-right text-[13px] font-black text-emerald-700 border-emerald-100 bg-emerald-50/20"
-                              value={item.actualQuantity}
-                              onChange={(e) => updateItem(index, "actualQuantity", e.target.value)}
+                              value={item.quantityReal}
+                              onChange={(e) => updateItem(index, "quantityReal", e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input 
+                              type="number"
+                              disabled={mode === "view"}
+                              className="h-7 w-20 ml-auto text-right text-[13px] font-black text-rose-700 border-rose-100 bg-rose-50/20"
+                              value={item.quantityRejected}
+                              onChange={(e) => updateItem(index, "quantityRejected", e.target.value)}
                             />
                           </TableCell>
                           <TableCell className="text-right">

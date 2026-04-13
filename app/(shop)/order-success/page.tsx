@@ -186,9 +186,13 @@ function OrderSuccessContent() {
                     className="border border-gray-100 rounded-xl px-3 py-2.5 text-xs space-y-0.5"
                   >
                     <div className="flex items-center justify-between">
+<<<<<<< Updated upstream
                       <span className="font-semibold text-gray-800 truncate">
                         {sub.branchName || "Cửa hàng AgriShrimp"}
                       </span>
+=======
+                      <span className="font-semibold text-gray-800 truncate">Cửa hàng AgriShrimp</span>
+>>>>>>> Stashed changes
                       <span className="text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded uppercase shrink-0 ml-2">
                         {sub.carrier || "N/A"}
                       </span>
