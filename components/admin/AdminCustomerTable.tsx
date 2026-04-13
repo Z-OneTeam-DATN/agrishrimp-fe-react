@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Eye, Phone, User, MapPin, ChevronLeft, ChevronRight, Lock, Unlock } from "lucide-react";
+import { Eye, Phone, User, MapPin, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -30,6 +30,8 @@ interface CustomerData {
     totalOrders?: number;
     totalSpent?: number;
     reputationScore?: number;
+    riskLevel?: string;
+    onlinePaymentOnly?: boolean;
     avatarUrl?: string;
 }
 
@@ -40,7 +42,6 @@ interface AdminCustomerTableProps {
     totalPages: number;
     totalElements: number;
     onPageChange: (newPage: number) => void;
-    onToggleStatus: (userId: number, currentStatus: string) => void;
 }
 
 export function AdminCustomerTable({
@@ -50,10 +51,20 @@ export function AdminCustomerTable({
                                        totalPages,
                                        totalElements,
                                        onPageChange,
-                                       onToggleStatus
                                    }: AdminCustomerTableProps) {
     const { hasPermission } = usePermissions();
-    const canAction = hasPermission(P.CUSTOMER_VIEW) || hasPermission(P.CUSTOMER_UPDATE);
+    const canAction = hasPermission(P.CUSTOMER_VIEW);
+
+    const getRiskLabel = (riskLevel?: string) => {
+        switch (riskLevel) {
+            case "HIGH":
+                return "Rủi ro cao";
+            case "MEDIUM":
+                return "Cần theo dõi";
+            default:
+                return "Uy tín tốt";
+        }
+    };
 
     return (
         <div className="w-full">
@@ -66,7 +77,8 @@ export function AdminCustomerTable({
                         <TableHead className="w-[140px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Chi tiêu (₫)</TableHead>
                         <TableHead className="w-[100px] text-center font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Đơn hàng</TableHead>
                         <TableHead className="w-[120px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
-                        {canAction && <TableHead className="w-[110px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Hành động</TableHead>}
+                        <TableHead className="w-[140px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Rủi ro</TableHead>
+                        {canAction && <TableHead className="w-[80px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Xem</TableHead>}
                     </TableRow>
                 </TableHeader>
 
@@ -137,6 +149,24 @@ export function AdminCustomerTable({
                                             {cus.userStatus === "ACTIVE" ? "Hoạt động" : "Bị Khóa"}
                                         </span>
                                     </TableCell>
+                                    <TableCell className="p-2 text-center">
+                                        <span
+                                            className={cn(
+                                                "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-[4px] tracking-wide uppercase whitespace-nowrap border",
+                                                cus.riskLevel === "HIGH"
+                                                    ? "bg-rose-50 text-rose-600 border-rose-100"
+                                                    : cus.riskLevel === "MEDIUM"
+                                                        ? "bg-orange-50 text-orange-600 border-orange-100"
+                                                        : "bg-emerald-50 text-emerald-600 border-emerald-100",
+                                            )}
+                                        >
+                                            {cus.riskLevel === "HIGH" && <AlertTriangle size={11} />}
+                                            {getRiskLabel(cus.riskLevel)}
+                                        </span>
+                                        {cus.onlinePaymentOnly && (
+                                            <p className="mt-1 text-[10px] font-bold text-rose-500 uppercase">Chỉ PayOS</p>
+                                        )}
+                                    </TableCell>
 
                                     {canAction && (
                                         <TableCell className="p-2 text-right pr-4">
@@ -148,23 +178,6 @@ export function AdminCustomerTable({
                                                         </Button>
                                                     </Link>
                                                 )}
-                                                {hasPermission(P.CUSTOMER_UPDATE) && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onToggleStatus(cus.userId, cus.userStatus);
-                                                        }}
-                                                        className={cn(
-                                                            "h-8 w-8 transition-all rounded-md",
-                                                            cus.userStatus === "ACTIVE" ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700" : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                                        )}
-                                                        title={cus.userStatus === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                                                    >
-                                                        {cus.userStatus === "ACTIVE" ? <Lock size={16} /> : <Unlock size={16} />}
-                                                    </Button>
-                                                )}
                                             </div>
                                         </TableCell>
                                     )}
@@ -173,7 +186,7 @@ export function AdminCustomerTable({
                         })
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={canAction ? 7 : 6} className="h-40 text-center">
+                            <TableCell colSpan={canAction ? 8 : 7} className="h-40 text-center">
                                 <div className="flex flex-col items-center justify-center gap-2">
                                     <p className="text-[12px] text-slate-400 italic font-bold uppercase tracking-widest">
                                         Không có dữ liệu hiển thị

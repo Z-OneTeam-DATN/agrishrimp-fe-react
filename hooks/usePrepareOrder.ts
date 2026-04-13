@@ -4,10 +4,15 @@ import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { prepareOrder } from "@/app/services/orderService"
 import { useCartStore } from "@/stores/useCartStore"
-import { getFriendlyError } from "@/app/utils/apiError"
+import { getFriendlyError, getRetryAfterSeconds, isRateLimitedError } from "@/app/utils/apiError"
 import type { PrepareOrderPayload } from "@/app/types/order.types"
 
-export function usePrepareOrder() {
+interface UsePrepareOrderOptions {
+  onRateLimited?: (seconds: number) => void
+}
+
+export function usePrepareOrder(options: UsePrepareOrderOptions = {}) {
+  const { onRateLimited } = options
   const { setPrepareResponse, clearPrepareResponse } = useCartStore()
 
   return useMutation({
@@ -27,6 +32,9 @@ export function usePrepareOrder() {
 
     onError: (error) => {
       clearPrepareResponse()
+      if (isRateLimitedError(error)) {
+        onRateLimited?.(getRetryAfterSeconds(error))
+      }
       toast.error(getFriendlyError(error))
     },
   })

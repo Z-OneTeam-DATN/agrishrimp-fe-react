@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { confirmOrder } from "@/app/services/orderService"
 import { useCartStore } from "@/stores/useCartStore"
-import { isConflictError, isTokenExpiredError, getFriendlyError } from "@/app/utils/apiError"
+import { isConflictError, isTokenExpiredError, getFriendlyError, isRateLimitedError, getRetryAfterSeconds } from "@/app/utils/apiError"
 import type { ConfirmOrderPayload } from "@/app/types/order.types"
 
 interface UseConfirmOrderOptions {
@@ -13,10 +13,12 @@ interface UseConfirmOrderOptions {
   onConflict?: () => void
   /** 400 Token hết hạn — prepareToken > 30 phút */
   onTokenExpired?: () => void
+  /** 409 Rate limited — thao tác quá nhanh */
+  onRateLimited?: (seconds: number) => void
 }
 
 export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
-  const { onConflict, onTokenExpired } = options
+  const { onConflict, onTokenExpired, onRateLimited } = options
   const router = useRouter()
   const { clearCart } = useCartStore()
 
@@ -43,6 +45,9 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
       if (isConflictError(error)) {
         // 409 — race condition, hàng vừa hết sau khi prepare
         onConflict?.()
+      } else if (isRateLimitedError(error)) {
+        onRateLimited?.(getRetryAfterSeconds(error))
+        toast.error(getFriendlyError(error))
       } else if (isTokenExpiredError(error)) {
         // 400 — prepareToken hết hạn (> 30 phút)
         onTokenExpired?.()

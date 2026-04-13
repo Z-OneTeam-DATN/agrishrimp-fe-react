@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -278,10 +278,21 @@ export default function CartPage() {
     toast.success("Áp dụng voucher thành công!");
   };
 
-  // Đóng gói URL checkout kèm mã voucher nếu có
-  const checkoutUrl = selectedVoucher
-    ? `/checkout?voucher=${selectedVoucher.code}`
-    : `/checkout`;
+  const checkoutUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    const selectedItemIds = checkedItems.map((item) => item.id);
+
+    if (selectedItemIds.length > 0) {
+      params.set("items", selectedItemIds.join(","));
+    }
+
+    if (selectedVoucher) {
+      params.set("voucher", selectedVoucher.code);
+    }
+
+    const query = params.toString();
+    return query ? `/checkout?${query}` : "/checkout";
+  }, [checkedItems, selectedVoucher]);
 
   if (loading) return <CartSkeleton />;
 

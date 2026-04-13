@@ -61,7 +61,7 @@ export default function ProductsPage() {
 
     // Phân trang
     const [currentPage, setCurrentPage] = useState(0);
-    const pageSize = 5;
+    const pageSize = 10;
 
     // State Cấu hình Lợi nhuận
     const [isSettingOpen, setIsSettingOpen] = useState(false);

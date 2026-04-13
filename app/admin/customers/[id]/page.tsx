@@ -16,7 +16,6 @@ import {
     Wallet,
     PackageCheck,
     Clock,
-    Unlock,
     Send,
     FileText,
     Activity,
@@ -90,6 +89,8 @@ interface CustomerData {
     totalOrders?: number;
     totalSpent?: number;
     reputationScore?: number;
+    riskLevel?: string;
+    onlinePaymentOnly?: boolean;
     avatarUrl?: string;
     lastOrderDate?: string;
     averageOrderValue?: number;
@@ -185,20 +186,6 @@ export default function CustomerDetailPage({
     useEffect(() => {
         fetchDetail();
     }, [customerId, mounted, router]);
-
-    // Hàm xử lý khôi phục tài khoản
-    const handleRestoreAccount = async () => {
-        if (!customer?.userId) return;
-        const toastId = toast.loading("Đang khôi phục tài khoản...");
-        try {
-            await customerService.toggleStatus(customer.userId);
-            toast.success("Khôi phục tài khoản thành công!", { id: toastId });
-            fetchDetail();
-        } catch (error) {
-            console.error("Lỗi khôi phục:", error);
-            toast.error("Khôi phục thất bại. Vui lòng thử lại!", { id: toastId });
-        }
-    };
 
     // Utility functions
     const calculateDaysSinceSignup = () => {
@@ -305,14 +292,10 @@ export default function CustomerDetailPage({
                   #{customerId}
                 </span>
                         </div>
-                        {/* NÚT KHÔI PHỤC TÀI KHOẢN KHI BỊ KHÓA */}
-                        {customer?.userStatus === "INACTIVE" && (
-                            <Button
-                                onClick={handleRestoreAccount}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-4 text-[11px] font-bold uppercase rounded shadow-sm"
-                            >
-                                <Unlock size={14} className="mr-2" /> Khôi phục tài khoản
-                            </Button>
+                        {customer?.onlinePaymentOnly && (
+                            <div className="text-[10px] font-bold px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 uppercase rounded">
+                                Chỉ thanh toán online
+                            </div>
                         )}
                     </div>
                     <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
@@ -486,16 +469,21 @@ export default function CustomerDetailPage({
                 <span className="text-[10px] font-black text-slate-400 uppercase">
                   Trạng thái vận hành
                 </span>
-                                <span
-                                    className={cn(
-                                        "text-[10px] font-black px-2 py-0.5 rounded-none border uppercase tracking-tighter",
-                                        customer?.userStatus === "ACTIVE"
-                                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                            : "bg-rose-50 text-rose-600 border-rose-100",
-                                    )}
-                                >
-                  {customer?.userStatus === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : "ĐÃ BỊ KHÓA BỞI HỆ THỐNG"}
-                </span>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span
+                                                className={cn(
+                                                    "text-[10px] font-black px-2 py-0.5 rounded-none border uppercase tracking-tighter",
+                                                    customer?.userStatus === "ACTIVE"
+                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                                        : "bg-slate-50 text-slate-500 border-slate-200",
+                                                )}
+                                            >
+                                              {customer?.userStatus === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : "TẠM NGƯNG"}
+                                            </span>
+                                            {customer?.onlinePaymentOnly && (
+                                                <span className="text-[10px] font-bold text-rose-600 uppercase">PayOS bắt buộc</span>
+                                            )}
+                                        </div>
                             </div>
                         </div>
                     </div>
@@ -796,11 +784,11 @@ export default function CustomerDetailPage({
                                 {/* Thêm phần chú thích về quy tắc khóa tài khoản */}
                                 <div className="mt-5 pt-3 border-t border-slate-100 text-[10px] text-slate-500 bg-slate-50 p-3">
                                     <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-1 uppercase text-[11px]">
-                                        <Info size={13} className="text-blue-500"/> Quy tắc hệ thống tự động:
+                                            <Info size={13} className="text-blue-500"/> Quy tắc hệ thống:
                                     </h4>
                                     <ul className="list-disc pl-4 space-y-0.5">
-                                        <li><span className="font-semibold text-orange-600">Dưới 50%</span>: Gửi Email cảnh báo tỷ lệ hủy/boom hàng cao.</li>
-                                        <li><span className="font-semibold text-rose-600">Dưới 30%</span>: Hệ thống tự động <span className="font-bold">KHÓA TÀI KHOẢN</span>.</li>
+                                            <li><span className="font-semibold text-orange-600">Dưới 50%</span>: Gửi cảnh báo và chỉ cho phép thanh toán online.</li>
+                                            <li><span className="font-semibold text-emerald-600">Từ 50% trở lên</span>: Có thể dùng COD nếu các quy trình khác cho phép.</li>
                                     </ul>
                                 </div>
                             </div>
