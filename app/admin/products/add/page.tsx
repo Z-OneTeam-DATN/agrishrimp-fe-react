@@ -358,6 +358,8 @@ export default function AddProductPage() {
     const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string>("");
     const [mediaDirty, setMediaDirty] = useState(false);
     const [allowUnload, setAllowUnload] = useState(false);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
 
     const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
     const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
@@ -809,9 +811,13 @@ export default function AddProductPage() {
         };
     }, [fields.length]);
 
-    const confirmLeaveIfDirty = useCallback(() => {
-        if (!hasUnsavedChanges) return true;
-        return window.confirm("Bạn có thay đổi chưa lưu. Bạn chắc chắn muốn rời khỏi trang?");
+    const confirmLeaveIfDirty = useCallback((onConfirm: () => void) => {
+        if (!hasUnsavedChanges) {
+            onConfirm();
+            return;
+        }
+        setPendingLeaveAction(() => onConfirm);
+        setConfirmDialogOpen(true);
     }, [hasUnsavedChanges]);
 
     const scrollToStep = useCallback((step: ProductFormStep) => {
@@ -1247,10 +1253,10 @@ export default function AddProductPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                        if (confirmLeaveIfDirty()) {
+                        confirmLeaveIfDirty(() => {
                             setAllowUnload(true);
                             router.back();
-                        }
+                        });
                     }}
                     className="h-8 w-8 text-slate-400"
                 >
@@ -1264,10 +1270,10 @@ export default function AddProductPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                        if (confirmLeaveIfDirty()) {
+                        confirmLeaveIfDirty(() => {
                             setAllowUnload(true);
                             router.back();
-                        }
+                        });
                     }}
                     className="h-8 w-8 text-slate-400"
                 >
@@ -1861,6 +1867,36 @@ export default function AddProductPage() {
                 </div>
             </div>
 
+            <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[460px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">Bạn có thay đổi chưa lưu</DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Các thay đổi của bạn sẽ bị mất nếu rời khỏi trang này.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setConfirmDialogOpen(false)}
+                        >
+                            Ở lại
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                setConfirmDialogOpen(false);
+                                pendingLeaveAction?.();
+                            }}
+                            className="bg-rose-600 hover:bg-rose-700"
+                        >
+                            Rời khỏi trang
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
                 <DialogContent className="sm:max-w-[560px] bg-white">
                     <DialogHeader>
@@ -2023,10 +2059,10 @@ export default function AddProductPage() {
                     type="button"
                     variant="outline"
                     onClick={() => {
-                        if (confirmLeaveIfDirty()) {
+                        confirmLeaveIfDirty(() => {
                             setAllowUnload(true);
                             router.back();
-                        }
+                        });
                     }}
                     className="w-full sm:w-auto min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-md uppercase"
                 >
