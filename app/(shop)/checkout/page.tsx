@@ -237,8 +237,7 @@ export default function CheckoutPage() {
 
     const handleConfirm = () => {
         if (rateLimitCooldown > 0) {
-            toast.error(`Bạn đang thao tác quá nhanh. Vui lòng chờ ${rateLimitCooldown}s rồi thử lại.`)
-            return
+            return // Chỉ disable button, không show toast
         }
         if (!prepareToken) { setShowTokenExpiredModal(true); return }
         confirmMutation.mutate({ prepareToken, paymentMethod, note: note.trim() || undefined })
@@ -246,8 +245,7 @@ export default function CheckoutPage() {
 
     const retryPrepare = () => {
         if (rateLimitCooldown > 0) {
-            toast.error(`Bạn đang thao tác quá nhanh. Vui lòng chờ ${rateLimitCooldown}s rồi thử lại.`)
-            return
+            return // Chỉ disable button, không show toast
         }
         setShowConflictModal(false)
         setShowTokenExpiredModal(false)

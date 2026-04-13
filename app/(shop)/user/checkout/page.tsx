@@ -299,8 +299,7 @@ export default function CheckoutPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rateLimitCooldown > 0) {
-      toast.error(`Bạn đang thao tác quá nhanh. Vui lòng chờ ${rateLimitCooldown}s rồi thử lại.`);
-      return;
+      return; // Chỉ disable button, không show toast
     }
     if (cartItems.length === 0) return;
     if (!selectedAddress) {
