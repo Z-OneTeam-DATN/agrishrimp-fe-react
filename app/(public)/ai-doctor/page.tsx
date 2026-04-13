@@ -198,12 +198,14 @@ export default function AiDoctorChatPage() {
 
     setResult(null);
     setSubmittedMessage((current) => {
-      if (current?.previewUrl?.startsWith("blob:")) {
+      // Chỉ revoke nếu là blob URL cũ và khác với cái đang dùng
+      if (current?.previewUrl?.startsWith("blob:") && current.previewUrl !== currentPreviewUrl) {
         URL.revokeObjectURL(current.previewUrl);
       }
 
       return {
-        previewUrl: currentPreviewUrl,
+        // Ưu tiên dùng clientPreviewUrl (base64) để ảnh không bị mất khi revoke blob
+        previewUrl: clientPreviewUrl || currentPreviewUrl,
         symptoms: currentSymptoms,
       };
     });
@@ -383,6 +385,17 @@ export default function AiDoctorChatPage() {
                       TÔM KHỎE MẠNH
                     </span>
                   </div>
+                  {(result.imageUrl || result.clientImageUrl) && (
+                    <div className="relative h-[220px] w-full bg-green-50">
+                      <Image
+                        src={result.imageUrl || result.clientImageUrl || ""}
+                        alt="Ảnh tôm đã được AI phân tích"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  )}
                   <div className="p-4 text-[13px] leading-relaxed text-gray-600">
                     Bác sĩ không thấy dấu hiệu bệnh gì lạ trên ảnh này. Bà con cứ yên tâm tiếp tục chăm sóc ao thật tốt nhé!
                   </div>
@@ -401,6 +414,20 @@ export default function AiDoctorChatPage() {
                     </div>
 
                     <div className="space-y-3 p-4">
+                      {(result.imageUrl || result.clientImageUrl) && (
+                        <div className="overflow-hidden rounded-xl border border-red-100 bg-slate-50">
+                          <div className="relative h-[220px] w-full">
+                            <Image
+                              src={result.imageUrl || result.clientImageUrl || ""}
+                              alt={result.disease?.nameVi ?? "Ảnh tôm đã được AI phân tích"}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div>
                         <h3 className="mb-1 text-[15px] font-extrabold uppercase text-red-600">
                           {result.disease?.nameVi}
