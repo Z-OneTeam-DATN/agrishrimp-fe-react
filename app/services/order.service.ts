@@ -65,6 +65,11 @@ export const orderService = {
     return response.data;
   },
 
+  confirmReceivedByCustomer: async (orderId: number | string): Promise<{ message: string }> => {
+    const response = await apiJava.post(`${orderService.V1_PREFIX}/${orderId}/confirm-received`);
+    return response.data;
+  },
+
   // 2. LẤY DANH SÁCH YÊU CẦU TRẢ HÀNG (CỦA USER)
   getReturnOrders: async (): Promise<ReturnOrder[]> => {
     const response = await apiJava.get<ReturnOrder[]>(`${orderService.PREFIX}/returns`);
@@ -130,6 +135,11 @@ export const orderService = {
     });
   },
 
+  requestAdminOrderReplenishment: async (orderId: number | string): Promise<{ message: string; transferCodes: string[] }> => {
+    const response = await apiJava.post(`/admin/${orderId}/request-replenishment`);
+    return response.data;
+  },
+
   // ==========================================
   // MODULE 3: CÁC API DÀNH CHO CHI NHÁNH
   // Endpoint: /api/branch/orders
@@ -156,6 +166,11 @@ export const orderService = {
     const response = await apiJava.put(`/branch/orders/${orderId}/status`, {}, {
       params: { status }
     });
+    return response.data;
+  },
+
+  requestBranchOrderReplenishment: async (orderId: number | string): Promise<{ message: string; transferCodes: string[] }> => {
+    const response = await apiJava.post(`/branch/orders/${orderId}/request-replenishment`);
     return response.data;
   },
 

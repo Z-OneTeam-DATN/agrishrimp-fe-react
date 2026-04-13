@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Search, Settings, ChevronDown, ChevronsRight, ChevronUp,
-  CheckCircle, Package
+  Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,14 +84,15 @@ export default function AllOrdersPage() {
     }
   };
 
-  const handleComplete = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
+  const handleRequestReplenishment = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
     e.stopPropagation();
     try {
-      await orderService.updateBranchOrderStatus(orderId, "COMPLETED");
-      toast.success(`Đơn hàng ${orderCode} đã hoàn thành!`);
+      const response = await orderService.requestBranchOrderReplenishment(orderId);
+      const transferSummary = response.transferCodes?.length ? ` (${response.transferCodes.join(", ")})` : "";
+      toast.success(`Da tao lenh dieu chuyen cho ${orderCode}${transferSummary}`);
       fetchOrders(activeTab, search);
     } catch {
-      toast.error("Lỗi khi cập nhật trạng thái đơn hàng.");
+      toast.error("Khong the tao lenh dieu chuyen bo sung.");
     }
   };
 
@@ -252,13 +253,13 @@ export default function AllOrdersPage() {
                               <div className="flex-1">
                                 <div className="flex justify-between items-center mb-3">
                                   <h3 className="text-[12px] font-bold text-slate-800">Chi tiết sản phẩm</h3>
-                                  {order.subOrderStatus === "SHIPPING" && hasPermission(P.ORDER_COMPLETE) && (
+                                  {order.subOrderStatus === "AWAITING_REPLENISHMENT" && hasPermission(P.ORDER_UPDATE) && (
                                     <Button
                                       size="sm"
-                                      className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
-                                      onClick={(e) => handleComplete(e, order.orderId, order.orderCode)}
+                                      className="h-[28px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold"
+                                      onClick={(e) => handleRequestReplenishment(e, order.orderId, order.orderCode)}
                                     >
-                                      <CheckCircle size={14} className="mr-1.5" /> Hoàn thành
+                                      <Package size={14} className="mr-1.5" /> Tao lenh dieu chuyen
                                     </Button>
                                   )}
                                 </div>
@@ -365,3 +366,4 @@ const PaymentBadge = ({ status }: { status: "PAID" | "UNPAID" }) => {
     </span>
   );
 };
+

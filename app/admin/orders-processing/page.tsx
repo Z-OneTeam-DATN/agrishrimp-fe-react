@@ -88,6 +88,18 @@ export default function OrderManagementPage() {
     }
   };
 
+  const handleRequestReplenishment = async (e: React.MouseEvent, orderId: number, orderCode: string) => {
+    e.stopPropagation();
+    try {
+      const response = await orderService.requestBranchOrderReplenishment(orderId);
+      const transferSummary = response.transferCodes?.length ? ` (${response.transferCodes.join(", ")})` : "";
+      toast.success(`Da tao lenh dieu chuyen cho ${orderCode}${transferSummary}`);
+      fetchOrders(activeTab, search);
+    } catch {
+      toast.error("Khong the tao lenh dieu chuyen bo sung.");
+    }
+  };
+
   return (
     <div className="p-4 space-y-4 bg-slate-50 min-h-screen">
       <div className="flex items-center justify-between">
@@ -245,9 +257,9 @@ export default function OrderManagementPage() {
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold shadow-sm"
-                                      onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "READY_FOR_PICKUP")}
+                                      onClick={(e) => handleRequestReplenishment(e, order.orderId, order.orderCode)}
                                     >
-                                      <CheckCircle size={15} className="mr-1.5" /> Da nhap du hang
+                                      <PackageCheck size={15} className="mr-1.5" /> Tao lenh dieu chuyen
                                     </Button>
                                   ) : activeTab === "PENDING" ? (
                                     <Button
