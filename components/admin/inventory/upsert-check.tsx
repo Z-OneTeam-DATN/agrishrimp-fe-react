@@ -115,10 +115,15 @@ const getItemMetrics = (item: CheckItem) => {
 
 const getItemBadge = (item: CheckItem) => {
   const metrics = getItemMetrics(item);
-  if (metrics.rejectedQty > 0) return { label: "Hu hai", className: "bg-rose-50 text-rose-700 border-rose-200" };
-  if (metrics.suggestedImport > 0) return { label: "Can nhap them", className: "bg-amber-50 text-amber-700 border-amber-200" };
-  if (metrics.diffQty !== 0) return { label: "Chenh lech", className: "bg-blue-50 text-blue-700 border-blue-200" };
-  return { label: "Khop kho", className: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  if (metrics.rejectedQty > 0) return { label: "Hư hại", className: "bg-rose-50 text-rose-700 border-rose-100" };
+  if (metrics.suggestedImport > 0) return { label: "Cần nhập thêm", className: "bg-amber-50 text-amber-700 border-amber-100" };
+  if (metrics.diffQty !== 0) return { label: "Chênh lệch", className: "bg-sky-50 text-sky-700 border-sky-100" };
+  return { label: "Khớp kho", className: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+};
+
+const isInternalEmployee = (employee: any) => {
+  const roleSlug = String(employee?.role?.slug || "").toLowerCase();
+  return roleSlug !== "user" && roleSlug !== "customer";
 };
 
 export default function InventoryUpsert({ mode, initialData, code }: InventoryUpsertProps) {
@@ -175,7 +180,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
     try {
       const res = await EmployeeService.getAll({ status: "ACTIVE", size: 100 });
       const list = Array.isArray(res) ? res : res?.content || [];
-      setEmployees(list);
+      setEmployees(list.filter(isInternalEmployee));
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -462,94 +467,94 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb] pb-20">
-      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-6 py-3 shadow-sm backdrop-blur">
+    <div className="min-h-screen bg-slate-50 pb-12">
+      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-5 py-2.5 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" onClick={() => router.push("/admin/inventory-checks")}>
-              <ChevronLeft size={18} />
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push("/admin/inventory-checks")}>
+              <ChevronLeft size={16} />
             </Button>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Inventory Check</p>
-              <h1 className="text-lg font-black text-slate-900">
+              <p className="text-[11px] font-medium text-slate-500">Kiểm kê kho</p>
+              <h1 className="text-base font-semibold text-slate-900">
                 {mode === "create"
-                  ? "Tao phieu kiem ke kho"
+                  ? "Tạo phiếu kiểm kê kho"
                   : mode === "edit"
-                    ? `Chinh sua phieu ${formData.code}`
-                    : `Chi tiet phieu ${formData.code}`}
+                    ? `Chỉnh sửa phiếu ${formData.code}`
+                    : `Chi tiết phiếu ${formData.code}`}
               </h1>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="h-9 rounded-full border-slate-200 px-4 text-[11px] font-black uppercase" onClick={handleExportExcel}>
+            <Button variant="outline" className="h-8 rounded-md border-slate-200 px-3 text-[12px] font-medium" onClick={handleExportExcel}>
               <FileSpreadsheet size={14} className="mr-2" />
-              Xuat Excel
+              Xuất Excel
             </Button>
 
             {mode === "view" && status === "PENDING" && hasPermission(P.CHECK_UPDATE) && (
               <Button
                 variant="outline"
-                className="h-9 rounded-full border-amber-200 px-4 text-[11px] font-black uppercase text-amber-700"
+                className="h-8 rounded-md border-amber-200 px-3 text-[12px] font-medium text-amber-700"
                 onClick={() => router.push(`/admin/inventory-checks/${formData.code}?edit=true`)}
               >
                 <Pencil size={14} className="mr-2" />
-                Sua phieu
+                Sửa phiếu
               </Button>
             )}
 
             {mode === "view" && status === "PENDING" && hasPermission(P.CHECK_APPROVE) && (
-              <Button className="h-9 rounded-full bg-emerald-600 px-4 text-[11px] font-black uppercase text-white hover:bg-emerald-700" disabled={isSubmitting} onClick={handleComplete}>
+              <Button className="h-8 rounded-md bg-emerald-600 px-3 text-[12px] font-medium text-white hover:bg-emerald-700" disabled={isSubmitting} onClick={handleComplete}>
                 {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <CheckCircle2 size={14} className="mr-2" />}
-                Chot phieu
+                Chốt phiếu
               </Button>
             )}
 
             {mode !== "view" && (
-              <Button className="h-9 rounded-full bg-slate-900 px-4 text-[11px] font-black uppercase text-white hover:bg-slate-800" disabled={isSubmitting} onClick={handleSubmit}>
+              <Button className="h-8 rounded-md bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800" disabled={isSubmitting} onClick={handleSubmit}>
                 {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
-                Luu phieu
+                Lưu phiếu
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1500px] space-y-6 px-6 py-6">
-        <div className="grid gap-4 xl:grid-cols-[1.25fr,0.75fr]">
-          <Card className="overflow-hidden border-none shadow-sm">
-            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-900 px-5 py-4 text-white">
+      <div className="mx-auto max-w-[1360px] space-y-4 px-5 py-4">
+        <div className="grid gap-4 xl:grid-cols-[1.35fr,0.65fr]">
+          <Card className="overflow-hidden border border-slate-200 shadow-none">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
               <div className="flex items-center gap-2">
-                <ClipboardCheck size={18} />
-                <h2 className="text-sm font-black uppercase tracking-[0.2em]">Thong tin kiem ke</h2>
+                <ClipboardCheck size={16} className="text-slate-500" />
+                <h2 className="text-sm font-semibold text-slate-900">Thông tin kiểm kê</h2>
               </div>
-              <p className="mt-2 text-sm text-white/75">
-                Kiem tra hang hoa hu hai, doi chieu ton kha dung va xac dinh san pham can nhap bo sung.
+              <p className="mt-1 text-xs text-slate-500">
+                Kiểm tra hàng hóa hư hại, đối chiếu tồn khả dụng và xác định mặt hàng cần nhập bổ sung.
               </p>
             </div>
 
-            <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">Loai kiem ke</Label>
+                <Label className="text-[12px] font-medium text-slate-600">Loại kiểm kê</Label>
                 <Select disabled={mode === "view"} value={formData.type} onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}>
-                  <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50">
+                  <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PERIODIC">Dinh ky</SelectItem>
-                    <SelectItem value="UNEXPECTED">Dot xuat</SelectItem>
-                    <SelectItem value="YEAR_END">Cuoi nam</SelectItem>
+                    <SelectItem value="PERIODIC">Định kỳ</SelectItem>
+                    <SelectItem value="UNEXPECTED">Đột xuất</SelectItem>
+                    <SelectItem value="YEAR_END">Cuối năm</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">Kho kiem ke</Label>
+                <Label className="text-[12px] font-medium text-slate-600">Kho kiểm kê</Label>
                 <Select disabled={mode !== "create"} value={formData.branchId} onValueChange={(value) => setFormData((prev) => ({ ...prev, branchId: value }))}>
-                  <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50">
+                  <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-sm">
                     <div className="flex items-center gap-2 truncate">
                       <Building2 size={14} className="text-slate-400" />
-                      <SelectValue placeholder="Chon kho kiem ke" />
+                      <SelectValue placeholder="Chọn kho kiểm kê" />
                     </div>
                   </SelectTrigger>
                   <SelectContent>
@@ -563,23 +568,23 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">So chung tu</Label>
-                <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-black text-slate-700">
+                <Label className="text-[12px] font-medium text-slate-600">Số chứng từ</Label>
+                <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
                   <Hash size={14} className="mr-2 text-slate-400" />
                   {formData.code}
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">Ngay kiem ke</Label>
+                <Label className="text-[12px] font-medium text-slate-600">Ngày kiểm kê</Label>
                 <div className="relative">
                   <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                  <Input type="date" disabled={mode === "view"} className="h-10 rounded-xl border-slate-200 bg-slate-50 pl-10" value={formData.checkDate} onChange={(e) => setFormData((prev) => ({ ...prev, checkDate: e.target.value }))} />
+                  <Input type="date" disabled={mode === "view"} className="h-9 rounded-md border-slate-200 bg-white pl-10 text-sm" value={formData.checkDate} onChange={(e) => setFormData((prev) => ({ ...prev, checkDate: e.target.value }))} />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">Nguoi kiem ke</Label>
+                <Label className="text-[12px] font-medium text-slate-600">Người kiểm kê</Label>
                 <Select
                   disabled={mode === "view"}
                   value=""
@@ -593,8 +598,8 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                     }));
                   }}
                 >
-                  <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50">
-                    <SelectValue placeholder="Them nguoi kiem ke" />
+                  <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-sm">
+                    <SelectValue placeholder="Thêm người kiểm kê" />
                   </SelectTrigger>
                   <SelectContent>
                     {employees.map((employee) => (
@@ -607,19 +612,19 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">Nguoi tao</Label>
-                <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-700">
+                <Label className="text-[12px] font-medium text-slate-600">Người tạo</Label>
+                <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
                   <User size={14} className="mr-2 text-slate-400" />
                   {formData.createdByName}
                 </div>
               </div>
             </div>
 
-            <div className="px-5 pb-5">
+            <div className="px-4 pb-4">
               {checkedByNames.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-2">
+                <div className="mb-3 flex flex-wrap gap-1.5">
                   {checkedByNames.map((name) => (
-                    <Badge key={name} className="gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-700">
+                    <Badge key={name} className="gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-normal text-slate-700">
                       {name}
                       {mode !== "view" && (
                         <X
@@ -638,11 +643,11 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                 </div>
               )}
 
-              <Label className="text-[11px] font-black uppercase tracking-wide text-slate-500">Ghi chu phieu</Label>
+              <Label className="text-[12px] font-medium text-slate-600">Ghi chú phiếu</Label>
               <Input
                 disabled={mode === "view"}
-                className="mt-1 h-11 rounded-xl border-slate-200 bg-slate-50"
-                placeholder="Mo ta dot kiem ke, hang hu hai hoac luu y xu ly ton kho..."
+                className="mt-1 h-9 rounded-md border-slate-200 bg-white text-sm"
+                placeholder="Mô tả đợt kiểm kê hoặc lưu ý xử lý tồn kho..."
                 value={formData.note}
                 onChange={(e) => setFormData((prev) => ({ ...prev, note: e.target.value }))}
               />
@@ -650,45 +655,45 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
           </Card>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <Card className="border-none bg-white p-5 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Tong quan kiem ke</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-                  <p className="text-[11px] font-black uppercase text-blue-700">Ton he thong</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(summary.systemQty)}</p>
+            <Card className="border border-slate-200 bg-white p-4 shadow-none">
+              <p className="text-sm font-semibold text-slate-900">Tổng quan kiểm kê</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[12px] font-medium text-slate-500">Tồn hệ thống</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.systemQty)}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-                  <p className="text-[11px] font-black uppercase text-emerald-700">Ton kha dung sau kiem</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(summary.usableQty)}</p>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[12px] font-medium text-slate-500">Tồn khả dụng sau kiểm</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.usableQty)}</p>
                 </div>
-                <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
-                  <p className="text-[11px] font-black uppercase text-rose-700">Don vi hu hai</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(summary.rejectedQty)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{summary.damagedLines} dong co hu hai</p>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[12px] font-medium text-slate-500">Đơn vị hư hại</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.rejectedQty)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{summary.damagedLines} dòng có hư hại</p>
                 </div>
-                <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
-                  <p className="text-[11px] font-black uppercase text-amber-700">Can nhap them</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(summary.suggestedImport)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{summary.replenishmentLines} dong duoi dinh muc</p>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[12px] font-medium text-slate-500">Cần nhập thêm</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.suggestedImport)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{summary.replenishmentLines} dòng dưới định mức</p>
                 </div>
               </div>
             </Card>
 
-            <Card className="border-none bg-white p-5 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Ket luan nhanh</p>
-              <div className="mt-4 space-y-3 text-sm text-slate-600">
-                <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+            <Card className="border border-slate-200 bg-white p-4 shadow-none">
+              <p className="text-sm font-semibold text-slate-900">Kết luận nhanh</p>
+              <div className="mt-3 space-y-2.5 text-sm text-slate-600">
+                <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                   <ShieldAlert size={18} className="mt-0.5 text-rose-500" />
                   <div>
-                    <p className="font-black text-slate-800">Uu tien xu ly hang hu hai</p>
-                    <p>{summary.damagedLines > 0 ? `Co ${summary.damagedLines} mat hang can cap nhat hao hut/hu hai.` : "Hien chua co dong nao ghi nhan hu hai."}</p>
+                    <p className="font-medium text-slate-800">Ưu tiên xử lý hàng hư hại</p>
+                    <p>{summary.damagedLines > 0 ? `Có ${summary.damagedLines} mặt hàng cần cập nhật hao hụt hoặc hư hại.` : "Hiện chưa có dòng nào ghi nhận hư hại."}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                   <AlertTriangle size={18} className="mt-0.5 text-amber-500" />
                   <div>
-                    <p className="font-black text-slate-800">De xuat nhap bo sung</p>
-                    <p>{summary.replenishmentLines > 0 ? `Co ${summary.replenishmentLines} mat hang dang duoi dinh muc va co the xuat Excel ngay.` : "Ton kha dung dang dap ung dinh muc toi thieu."}</p>
+                    <p className="font-medium text-slate-800">Đề xuất nhập bổ sung</p>
+                    <p>{summary.replenishmentLines > 0 ? `Có ${summary.replenishmentLines} mặt hàng đang dưới định mức và có thể xuất Excel ngay.` : "Tồn khả dụng đang đáp ứng định mức tối thiểu."}</p>
                   </div>
                 </div>
               </div>
@@ -696,44 +701,44 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
           </div>
         </div>
 
-        <Card className="overflow-hidden border-none bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-5 py-4">
+        <Card className="overflow-hidden border border-slate-200 bg-white shadow-none">
+          <div className="border-b border-slate-200 px-4 py-3">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-600">Kiem ke chi tiet</p>
-                <h2 className="mt-1 text-lg font-black text-slate-900">Theo doi hang hoa, hu hai va nhu cau nhap them</h2>
+                <p className="text-[12px] font-medium text-slate-500">Danh sách sản phẩm</p>
+                <h2 className="mt-1 text-base font-semibold text-slate-900">Theo dõi hàng hóa, hư hại và nhu cầu nhập thêm</h2>
               </div>
 
               {mode !== "view" && (
-                <div className="relative w-full max-w-2xl">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <div className="relative w-full max-w-xl">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input
-                    className="h-12 rounded-2xl border-slate-200 bg-slate-50 pl-11 pr-10 text-sm"
-                    placeholder="Tim SKU hoac ten san pham de them vao phieu kiem ke..."
+                    className="h-9 rounded-md border-slate-200 bg-white pl-9 pr-9 text-sm"
+                    placeholder="Tìm SKU hoặc tên sản phẩm để thêm..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={16} />}
+                  {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={15} />}
 
                   {searchResults.length > 0 && (
-                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                      <div className="max-h-[360px] overflow-y-auto">
+                    <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+                      <div className="max-h-[320px] overflow-y-auto">
                         {searchResults.map((product) => (
                           <button
                             key={product.id}
                             type="button"
-                            className="flex w-full items-center justify-between gap-4 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-emerald-50"
+                            className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50"
                             onClick={() => addItem(product)}
                           >
                             <div>
-                              <p className="text-sm font-black text-slate-900">{product.productName || product.name}</p>
+                              <p className="text-sm font-medium text-slate-900">{product.productName || product.name}</p>
                               <p className="mt-1 text-xs text-slate-500">
-                                SKU: {product.sku} | Ton hien tai: {formatNumber(toNumber(product.quantity))}
+                                SKU: {product.sku} | tồn hiện tại: {formatNumber(toNumber(product.quantity))}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
                               {toNumber(product.quantity) <= toNumber(product.minThreshold ?? product.minStock ?? 10, 10) && (
-                                <Badge className="rounded-full bg-amber-50 text-[10px] text-amber-700">Sap het hang</Badge>
+                                <Badge className="rounded-md border border-amber-100 bg-amber-50 text-[10px] font-medium text-amber-700">Sắp hết hàng</Badge>
                               )}
                               <Plus size={16} className="text-emerald-600" />
                             </div>
@@ -749,32 +754,32 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
 
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50">
+              <TableHeader className="bg-slate-50/80">
                 <TableRow className="border-slate-100">
-                  <TableHead className="w-14 text-center text-[11px] font-black uppercase text-slate-500">STT</TableHead>
-                  <TableHead className="w-[150px] text-[11px] font-black uppercase text-slate-500">SKU</TableHead>
-                  <TableHead className="min-w-[260px] text-[11px] font-black uppercase text-slate-500">Ten san pham</TableHead>
-                  <TableHead className="text-center text-[11px] font-black uppercase text-slate-500">DVT</TableHead>
-                  <TableHead className="text-right text-[11px] font-black uppercase text-slate-500">Ton he thong</TableHead>
-                  <TableHead className="text-right text-[11px] font-black uppercase text-slate-500">Dem thuc te</TableHead>
-                  <TableHead className="text-right text-[11px] font-black uppercase text-slate-500">Hu hai</TableHead>
-                  <TableHead className="text-right text-[11px] font-black uppercase text-slate-500">Kha dung</TableHead>
-                  <TableHead className="text-right text-[11px] font-black uppercase text-slate-500">Dinh muc</TableHead>
-                  <TableHead className="text-right text-[11px] font-black uppercase text-slate-500">Can nhap them</TableHead>
-                  <TableHead className="text-center text-[11px] font-black uppercase text-slate-500">Ket luan</TableHead>
-                  <TableHead className="min-w-[220px] text-[11px] font-black uppercase text-slate-500">Ghi chu</TableHead>
+                  <TableHead className="w-12 text-center text-[12px] font-medium text-slate-500">STT</TableHead>
+                  <TableHead className="w-[130px] text-[12px] font-medium text-slate-500">SKU</TableHead>
+                  <TableHead className="min-w-[220px] text-[12px] font-medium text-slate-500">Tên sản phẩm</TableHead>
+                  <TableHead className="text-center text-[12px] font-medium text-slate-500">ĐVT</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Tồn hệ thống</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Đếm thực tế</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Hư hại</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Khả dụng</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Định mức</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Cần nhập thêm</TableHead>
+                  <TableHead className="text-center text-[12px] font-medium text-slate-500">Kết luận</TableHead>
+                  <TableHead className="min-w-[200px] text-[12px] font-medium text-slate-500">Ghi chú</TableHead>
                   {mode !== "view" && <TableHead className="w-16" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={mode === "view" ? 12 : 13} className="h-44 text-center">
+                    <TableCell colSpan={mode === "view" ? 12 : 13} className="h-32 text-center">
                       <div className="flex flex-col items-center gap-3 text-slate-400">
-                        <Boxes size={40} className="opacity-40" />
+                        <Boxes size={32} className="opacity-40" />
                         <div>
-                          <p className="text-sm font-black uppercase tracking-[0.2em]">Chua co san pham kiem ke</p>
-                          <p className="mt-1 text-sm">Them san pham de theo doi hang hu hai va de xuat nhap kho.</p>
+                          <p className="text-sm font-medium text-slate-700">Chưa có sản phẩm kiểm kê</p>
+                          <p className="mt-1 text-sm">Thêm sản phẩm để theo dõi hư hại và đề xuất nhập kho.</p>
                         </div>
                       </div>
                     </TableCell>
@@ -785,43 +790,43 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                     const badge = getItemBadge(item);
                     return (
                       <TableRow key={`${item.productVariantId}-${index}`} className="border-slate-100">
-                        <TableCell className="text-center text-sm font-bold text-slate-500">{index + 1}</TableCell>
-                        <TableCell className="font-mono text-sm font-bold uppercase text-slate-700">{item.sku}</TableCell>
+                        <TableCell className="text-center text-sm text-slate-500">{index + 1}</TableCell>
+                        <TableCell className="font-mono text-sm font-medium text-slate-700">{item.sku}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="text-sm font-black text-slate-900">{item.name}</p>
+                            <p className="text-sm font-medium text-slate-900">{item.name}</p>
                             {metrics.diffQty !== 0 && (
                               <p className={cn("mt-1 text-xs font-semibold", metrics.diffQty < 0 ? "text-rose-600" : "text-blue-600")}>
-                                Chenh lech {metrics.diffQty > 0 ? `+${metrics.diffQty}` : metrics.diffQty}
+                                Chênh lệch {metrics.diffQty > 0 ? `+${metrics.diffQty}` : metrics.diffQty}
                               </p>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center text-sm font-semibold text-slate-600">{item.unit}</TableCell>
-                        <TableCell className="text-right text-sm font-black text-slate-800">{formatNumber(metrics.systemQty)}</TableCell>
+                        <TableCell className="text-center text-sm text-slate-600">{item.unit}</TableCell>
+                        <TableCell className="text-right text-sm font-medium text-slate-800">{formatNumber(metrics.systemQty)}</TableCell>
                         <TableCell className="text-right">
-                          <Input type="number" disabled={mode === "view"} className="ml-auto h-9 w-24 rounded-xl border-emerald-200 bg-emerald-50 text-right font-black text-emerald-700" value={item.quantityReal} onChange={(e) => updateItem(index, "quantityReal", e.target.value)} />
+                          <Input type="number" disabled={mode === "view"} className="ml-auto h-8 w-20 rounded-md border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800" value={item.quantityReal} onChange={(e) => updateItem(index, "quantityReal", e.target.value)} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input type="number" disabled={mode === "view"} className="ml-auto h-9 w-24 rounded-xl border-rose-200 bg-rose-50 text-right font-black text-rose-700" value={item.quantityRejected} onChange={(e) => updateItem(index, "quantityRejected", e.target.value)} />
+                          <Input type="number" disabled={mode === "view"} className="ml-auto h-8 w-20 rounded-md border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800" value={item.quantityRejected} onChange={(e) => updateItem(index, "quantityRejected", e.target.value)} />
                         </TableCell>
-                        <TableCell className="text-right text-sm font-black text-emerald-700">{formatNumber(metrics.usableQty)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium text-slate-800">{formatNumber(metrics.usableQty)}</TableCell>
                         <TableCell className="text-right">
-                          <Input type="number" disabled={mode === "view"} className="ml-auto h-9 w-24 rounded-xl border-amber-200 bg-amber-50 text-right font-black text-amber-700" value={item.minThreshold} onChange={(e) => updateItem(index, "minThreshold", e.target.value)} />
+                          <Input type="number" disabled={mode === "view"} className="ml-auto h-8 w-20 rounded-md border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800" value={item.minThreshold} onChange={(e) => updateItem(index, "minThreshold", e.target.value)} />
                         </TableCell>
-                        <TableCell className="text-right text-sm font-black text-amber-700">{formatNumber(metrics.suggestedImport)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium text-slate-800">{formatNumber(metrics.suggestedImport)}</TableCell>
                         <TableCell className="text-center">
-                          <Badge className={cn("rounded-full border px-2 py-1 text-[10px] font-black uppercase", badge.className)}>
+                          <Badge className={cn("rounded-md border px-2 py-0.5 text-[11px] font-normal", badge.className)}>
                             {badge.label}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Input disabled={mode === "view"} className="h-9 rounded-xl border-slate-200 bg-slate-50 text-sm" placeholder="Ghi ro nguyen nhan hu hai hoac chenh lech..." value={item.reason} onChange={(e) => updateItem(index, "reason", e.target.value)} />
+                          <Input disabled={mode === "view"} className="h-8 rounded-md border-slate-200 bg-white text-sm" placeholder="Ghi rõ nguyên nhân..." value={item.reason} onChange={(e) => updateItem(index, "reason", e.target.value)} />
                         </TableCell>
                         {mode !== "view" && (
                           <TableCell className="text-right">
-                            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600" onClick={() => removeItem(index)}>
-                              <Trash2 size={16} />
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-md text-slate-400 hover:bg-slate-100 hover:text-rose-600" onClick={() => removeItem(index)}>
+                              <Trash2 size={15} />
                             </Button>
                           </TableCell>
                         )}
