@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Settings,
@@ -189,6 +190,8 @@ const ActionButton = ({
 
 // ── Main Component ───────────────────────────────────────────────
 export default function OrderListPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<BranchOrder[]>([]);
@@ -212,6 +215,17 @@ export default function OrderListPage() {
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const requestedStatus = searchParams.get("status");
+    if (!requestedStatus) {
+      setActiveTab("all");
+      return;
+    }
+    const normalizedStatus = requestedStatus.toUpperCase();
+    const tabExists = TABS.some((tab) => tab.id === normalizedStatus);
+    setActiveTab(tabExists ? normalizedStatus : "all");
+  }, [searchParams]);
 
   useEffect(() => {
     fetchOrders(activeTab);
@@ -344,6 +358,14 @@ export default function OrderListPage() {
               onClick={() => {
                 setActiveTab(tab.id);
                 setSearch("");
+                const params = new URLSearchParams(searchParams.toString());
+                if (tab.id === "all") {
+                  params.delete("status");
+                } else {
+                  params.set("status", tab.id);
+                }
+                const query = params.toString();
+                router.replace(query ? `/admin/orders?${query}` : "/admin/orders");
               }}
               className={cn(
                 "py-3 px-4 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap",
