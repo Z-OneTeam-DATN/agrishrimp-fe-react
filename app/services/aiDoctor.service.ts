@@ -11,6 +11,8 @@ const canUseStorage = () => typeof window !== "undefined" && !!window.sessionSto
 
 const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
   if (!canUseStorage()) return;
+  // HEALTHY không có DB record thực — không persist để tránh fetch lại lỗi
+  if (diagnosis.status === "HEALTHY") return;
 
   window.sessionStorage.setItem(
     `${DIAGNOSIS_STORAGE_PREFIX}${diagnosis.diagnosisId}`,

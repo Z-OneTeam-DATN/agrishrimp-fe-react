@@ -183,7 +183,7 @@ export default function AiDoctorChatPage() {
             </h1>
             <div className="flex items-center gap-1.5 text-[11px] text-white/90">
               <span className="block h-2 w-2 rounded-full bg-green-400" />
-              Luồng chẩn đoán trực tiếp từ AI
+              YOLOv8 nhận diện bệnh, Gemini sinh phác đồ
             </div>
           </div>
 
@@ -214,8 +214,10 @@ export default function AiDoctorChatPage() {
 
             <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
               Xin chào {user?.displayName || user?.fullName || "bạn"}! Hãy gửi ảnh
-              tôm bệnh và mô tả thêm triệu chứng nếu có. Tôi sẽ chẩn đoán và trả
-              phác đồ điều trị ngay trên web.
+              tôm bệnh và mô tả thêm triệu chứng nếu có. Hệ thống sẽ dùng YOLOv8
+              để nhận diện dấu hiệu bệnh trên ảnh, sau đó backend đối chiếu với
+              triệu chứng bạn nhập và dùng Gemini để tạo phác đồ điều trị theo
+              từng giai đoạn kèm sản phẩm phù hợp đang có trong hệ thống.
             </div>
           </div>
 
@@ -228,7 +230,8 @@ export default function AiDoctorChatPage() {
                 Tải ảnh tôm để bắt đầu hội thoại
               </p>
               <p className="mb-4 text-xs text-emerald-800/70">
-                Hỗ trợ JPG, PNG, WEBP. Kích thước tối đa 10MB.
+                Hỗ trợ JPG, PNG, WEBP. AI sẽ đọc ảnh, nhận diện bệnh và dựng phác
+                đồ xử lý ngay trên web. Kích thước tối đa 10MB.
               </p>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -280,7 +283,9 @@ export default function AiDoctorChatPage() {
                   Đang phân tích ảnh và sinh phác đồ điều trị...
                 </div>
                 <p className="text-xs text-gray-500">
-                  AI đang gọi luồng chẩn đoán, nhận diện bệnh và chuẩn bị gợi ý sản phẩm.
+                  Hệ thống đang gửi ảnh sang model YOLOv8 để lấy top bệnh nghi ngờ,
+                  sau đó dùng Gemini tạo hướng xử lý và gắn các sản phẩm phù hợp từ
+                  danh sách còn sẵn trong hệ thống.
                 </p>
               </div>
             </div>
@@ -297,55 +302,70 @@ export default function AiDoctorChatPage() {
                 />
               </div>
 
-              <div className="flex max-w-[78%] flex-col gap-2">
-                <div className="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-lg">
-                  <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-2.5">
-                    <span className="flex items-center gap-1.5 text-[13px] font-bold text-red-600">
-                      <ShieldAlert size={14} />
-                      KẾT QUẢ CHẨN ĐOÁN
-                    </span>
-                    <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-red-500">
-                      {Number(result.disease.confidencePercent || 0).toFixed(1)}%
+              {result.status === "HEALTHY" ? (
+                <div className="max-w-[78%] overflow-hidden rounded-2xl border border-green-200 bg-white shadow-lg">
+                  <div className="flex items-center gap-2 border-b border-green-100 bg-green-50 px-4 py-2.5">
+                    <span className="text-xl">🦐</span>
+                    <span className="text-[13px] font-bold text-green-700">
+                      TÔM KHỎE MẠNH
                     </span>
                   </div>
+                  <div className="p-4 text-[13px] leading-relaxed text-gray-600">
+                    Không phát hiện dấu hiệu bệnh trong ảnh. Tiếp tục theo dõi và
+                    duy trì môi trường nuôi tốt.
+                  </div>
+                </div>
+              ) : (
+                <div className="flex max-w-[78%] flex-col gap-2">
+                  <div className="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-lg">
+                    <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-2.5">
+                      <span className="flex items-center gap-1.5 text-[13px] font-bold text-red-600">
+                        <ShieldAlert size={14} />
+                        KẾT QUẢ CHẨN ĐOÁN
+                      </span>
+                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-red-500">
+                        {Number(result.disease?.confidencePercent || 0).toFixed(1)}%
+                      </span>
+                    </div>
 
-                  <div className="space-y-3 p-4">
-                    <div>
-                      <h3 className="mb-1 text-[15px] font-extrabold uppercase text-red-600">
-                        {result.disease.nameVi}
-                      </h3>
-                      {result.disease.nameEn && (
-                        <p className="text-xs italic text-gray-500">{result.disease.nameEn}</p>
+                    <div className="space-y-3 p-4">
+                      <div>
+                        <h3 className="mb-1 text-[15px] font-extrabold uppercase text-red-600">
+                          {result.disease?.nameVi}
+                        </h3>
+                        {result.disease?.nameEn && (
+                          <p className="text-xs italic text-gray-500">{result.disease.nameEn}</p>
+                        )}
+                      </div>
+
+                      <p className="text-[13px] leading-relaxed text-gray-600">
+                        {result.signsSummary ||
+                          "AI đã hoàn tất chẩn đoán, bạn có thể xem báo cáo chi tiết bên dưới."}
+                      </p>
+
+                      {result.causes && result.causes.length > 0 && (
+                        <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                          <div className="mb-1 flex items-center gap-1 font-bold">
+                            <AlertTriangle size={13} />
+                            Nguyên nhân nổi bật
+                          </div>
+                          <p className="line-clamp-2">{result.causes[0]}</p>
+                        </div>
                       )}
                     </div>
 
-                    <p className="text-[13px] leading-relaxed text-gray-600">
-                      {result.signsSummary ||
-                        "AI đã hoàn tất chẩn đoán, bạn có thể xem báo cáo chi tiết bên dưới."}
-                    </p>
-
-                    {result.causes?.length > 0 && (
-                      <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-                        <div className="mb-1 flex items-center gap-1 font-bold">
-                          <AlertTriangle size={13} />
-                          Nguyên nhân nổi bật
-                        </div>
-                        <p className="line-clamp-2">{result.causes[0]}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t border-gray-100 p-3">
-                    <button
-                      onClick={openReport}
-                      className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#376E60] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#2f5c50]"
-                    >
-                      Xem phác đồ chi tiết
-                      <ArrowRight size={16} />
-                    </button>
+                    <div className="border-t border-gray-100 p-3">
+                      <button
+                        onClick={openReport}
+                        className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#376E60] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#2f5c50]"
+                      >
+                        Xem phác đồ chi tiết
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

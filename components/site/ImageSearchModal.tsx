@@ -137,7 +137,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                 Tìm kiếm bằng hình ảnh
               </h2>
               <p className="text-[11px] text-gray-400">
-                Tải lên ảnh sản phẩm để tìm kiếm tương tự
+                AI dùng CLIP để so khớp ảnh bạn tải lên với ảnh sản phẩm đã được index
               </p>
             </div>
           </div>
@@ -191,6 +191,11 @@ export default function ImageSearchModal({ onClose }: Props) {
                 <p className="text-[11px] text-gray-300 mt-2">
                   JPG · PNG · WebP &nbsp;·&nbsp; Tối đa {MAX_SIZE_MB}MB
                 </p>
+                <p className="mt-2 max-w-md text-[11px] leading-relaxed text-gray-400">
+                  Sau khi bạn tải ảnh lên, AI sẽ mã hóa ảnh thành vector đặc trưng,
+                  so sánh với vector ảnh sản phẩm trong kho và trả về những sản phẩm
+                  có độ giống cao nhất.
+                </p>
               </div>
               <input
                 ref={inputRef}
@@ -241,7 +246,7 @@ export default function ImageSearchModal({ onClose }: Props) {
             {isSearching ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Đang tìm kiếm...
+                Đang mã hóa ảnh và so khớp với kho sản phẩm...
               </>
             ) : (
               <>
