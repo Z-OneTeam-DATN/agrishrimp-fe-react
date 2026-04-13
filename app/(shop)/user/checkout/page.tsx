@@ -71,14 +71,14 @@ export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { location: userLocation } = useUserLocation();
+  const selectedItemsParam = searchParams.get("items") || "";
 
   const selectedCartItemIds = useMemo(() => {
-    const rawValue = searchParams.get("items") || "";
-    return rawValue
+    return selectedItemsParam
       .split(",")
       .map((value) => Number(value))
       .filter((value) => Number.isFinite(value) && value > 0);
-  }, [searchParams]);
+  }, [selectedItemsParam]);
 
   const selectedVoucherCode = searchParams.get("voucher");
 
@@ -172,7 +172,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetchCheckoutData();
     fetchPublicVouchers();
-  }, [router, selectedCartItemIds]);
+  }, [router, selectedItemsParam]);
 
   useEffect(() => {
     if (rateLimitCooldown <= 0) return;

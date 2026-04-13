@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, Loader2, X, Plus, MapPin, CheckCircle2, Banknote, Smartphone } from "lucide-react"
@@ -70,10 +70,14 @@ export default function CheckoutPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const voucherCode = searchParams.get("voucher")?.trim().toUpperCase() || undefined
-    const selectedItemIds = searchParams.get("items")
-        ?.split(",")
-        .map((value) => Number(value))
-        .filter((value) => Number.isFinite(value) && value > 0) || []
+    const selectedItemsParam = searchParams.get("items") || ""
+    const selectedItemIds = useMemo(
+        () => selectedItemsParam
+            .split(",")
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value) && value > 0),
+        [selectedItemsParam]
+    )
 
     const [cartItems, setCartItems] = useState<CartItem[]>([])
     const [isLoadingCart, setIsLoadingCart] = useState(true)
@@ -197,7 +201,7 @@ export default function CheckoutPage() {
             }
         }
         loadData()
-    }, [router, isAuthenticated, isLoadingAuth, selectedItemIds])
+    }, [router, isAuthenticated, isLoadingAuth, selectedItemsParam])
 
     const handleAddNewAddress = async (data: AddressFormValues) => {
         setIsSubmittingAddress(true)
