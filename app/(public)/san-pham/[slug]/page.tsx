@@ -117,10 +117,9 @@ export default function ProductDetailPage({
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
     const [activeImage, setActiveImage] = useState<string>("/placeholder.svg");
     const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState<"desc" | "specs">("desc");
+    const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
     const [isAdding, setIsAdding] = useState(false);
     const [reviewCount, setReviewCount] = useState<number | null>(null);
-<<<<<<< Updated upstream
     const [reviewAverage, setReviewAverage] = useState<number | null>(null);
     const [selectedReviewFilter, setSelectedReviewFilter] = useState<ReviewFilterValue>("all");
     const [pendingReviewScroll, setPendingReviewScroll] = useState(false);
@@ -129,8 +128,6 @@ export default function ProductDetailPage({
     const [hasThumbnailOverflow, setHasThumbnailOverflow] = useState(false);
     const thumbnailStripRef = React.useRef<HTMLDivElement | null>(null);
     const reviewSectionRef = React.useRef<HTMLDivElement | null>(null);
-=======
->>>>>>> Stashed changes
 
     useEffect(() => {
         const tab = searchParams.get("tab");
@@ -189,10 +186,7 @@ export default function ProductDetailPage({
         const loadReviewCount = async () => {
             if (!product?.id) {
                 setReviewCount(null);
-<<<<<<< Updated upstream
                 setReviewAverage(null);
-=======
->>>>>>> Stashed changes
                 return;
             }
 
@@ -200,22 +194,16 @@ export default function ProductDetailPage({
                 const reviews = await ReviewService.getReviewsByProduct(product.id);
                 if (isMounted) {
                     setReviewCount(reviews.length);
-<<<<<<< Updated upstream
                     setReviewAverage(
                         reviews.length > 0
                             ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
                             : 0
                     );
-=======
->>>>>>> Stashed changes
                 }
             } catch {
                 if (isMounted) {
                     setReviewCount(null);
-<<<<<<< Updated upstream
                     setReviewAverage(null);
-=======
->>>>>>> Stashed changes
                 }
             }
         };
@@ -394,14 +382,10 @@ export default function ProductDetailPage({
     const parentCategory = currentCategory?.parentId
         ? categories.find((c) => c.id === currentCategory.parentId)
         : null;
-<<<<<<< Updated upstream
     const totalReviewCount = reviewCount ?? product.reviewCount ?? 0;
     const displayAverageRating = Number(reviewAverage ?? product.ratingAverage ?? 0);
     const soldCount = Number(product.soldCount ?? 0);
     const reviewTabLabel = totalReviewCount > 0 ? `(${totalReviewCount})` : "";
-=======
-    const reviewTabLabel = reviewCount && reviewCount > 0 ? `(${reviewCount})` : "";
->>>>>>> Stashed changes
 
     return (
         <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
@@ -759,8 +743,6 @@ export default function ProductDetailPage({
                                 >
                                     Thông số
                                 </button>
-<<<<<<< Updated upstream
-=======
                                 <button
                                     onClick={() => setActiveTab("reviews")}
                                     className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
@@ -771,7 +753,6 @@ export default function ProductDetailPage({
                                 >
                                     Đánh giá {reviewTabLabel}
                                 </button>
->>>>>>> Stashed changes
                             </div>
 
                             <div className="p-6 text-slate-600 text-sm leading-relaxed">

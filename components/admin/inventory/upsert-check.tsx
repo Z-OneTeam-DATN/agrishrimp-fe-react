@@ -120,12 +120,8 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
   const fetchEmployees = async () => {
     try {
       const res = await EmployeeService.getAll({ status: "ACTIVE", size: 100 });
-<<<<<<< Updated upstream
-      setEmployees(res.content ?? []);
-=======
       const list = Array.isArray(res) ? res : (res?.data || res?.content || []);
       setEmployees(list);
->>>>>>> Stashed changes
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
