@@ -102,7 +102,7 @@ export default function AiHistoryPage() {
           <ChevronLeft size={24} />
         </Link>
         <h1 className="flex-1 truncate text-center text-lg font-bold text-gray-800">
-          Lịch sử chẩn đoán AI
+          Sổ khám bệnh
         </h1>
         <div className="w-8" />
       </div>
@@ -117,15 +117,15 @@ export default function AiHistoryPage() {
             Tài khoản
           </Link>
           <ChevronRight size={14} className="mx-2" />
-          <span className="font-bold text-gray-800">Lịch sử chẩn đoán AI</span>
+          <span className="font-bold text-gray-800">Sổ khám bệnh</span>
         </nav>
 
         <div className="min-h-[560px] rounded-lg border border-gray-100 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-gray-100 p-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <h5 className="text-lg font-bold uppercase text-gray-800">Hồ sơ bệnh án AI</h5>
+              <h5 className="text-lg font-bold uppercase text-gray-800">Lịch sử khám bệnh</h5>
               <p className="mt-1 text-sm text-gray-500">
-                Xem lại ca chẩn đoán và mở lại phác đồ điều trị đã lưu.
+                Bà con có thể xem lại các lần khám trước và cách điều trị ở đây.
               </p>
             </div>
 
@@ -134,7 +134,7 @@ export default function AiHistoryPage() {
               className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#329965] px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#268050]"
             >
               <Activity size={18} />
-              Chẩn đoán mới
+              Hỏi bác sĩ ca mới
             </Link>
           </div>
 
@@ -145,7 +145,7 @@ export default function AiHistoryPage() {
               </div>
               <input
                 type="text"
-                placeholder="Tìm tên bệnh hoặc mã chẩn đoán..."
+                placeholder="Tìm theo tên bệnh hoặc mã số..."
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className="h-12 w-full rounded-md border border-gray-200 bg-gray-50 pl-9 pr-4 text-sm transition-all focus:border-[#329965] focus:outline-none"
@@ -155,13 +155,13 @@ export default function AiHistoryPage() {
             {historyQuery.isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                 <Loader2 size={28} className="mb-3 animate-spin text-[#329965]" />
-                Đang tải lịch sử chẩn đoán...
+                Đang tìm sổ khám bệnh...
               </div>
             ) : historyQuery.isError ? (
               <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-8 text-center">
-                <p className="font-semibold text-red-600">Không tải được lịch sử chẩn đoán.</p>
+                <p className="font-semibold text-red-600">Lỗi không mở được sổ khám bệnh.</p>
                 <p className="mt-2 text-sm text-red-500">
-                  Vui lòng kiểm tra đăng nhập hoặc thử lại sau.
+                  Bà con hãy kiểm tra mạng hoặc thử lại sau nhé.
                 </p>
               </div>
             ) : filteredHistory.length > 0 ? (
@@ -175,7 +175,7 @@ export default function AiHistoryPage() {
                       {item.imageUrl ? (
                         <Image
                           src={item.imageUrl}
-                          alt={item.disease?.nameVi || "Ảnh chẩn đoán"}
+                          alt={item.disease?.nameVi || "Ảnh khám bệnh"}
                           fill
                           className="object-cover transition-transform duration-300 group-hover:scale-105"
                           unoptimized
@@ -190,16 +190,16 @@ export default function AiHistoryPage() {
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
-                          #{item.diagnosisId}
+                          Mã số: #{item.diagnosisId}
                         </span>
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <Clock size={12} />
-                          {formatDateTime(item.createdAt)}
+                          Ngày khám: {formatDateTime(item.createdAt)}
                         </span>
                       </div>
 
                       <h6 className="mb-2 truncate text-base font-bold text-gray-800 transition-colors group-hover:text-[#329965]">
-                        {item.disease?.nameVi || "Ca chẩn đoán đang xử lý"}
+                        {item.disease?.nameVi || "Đang chờ bác sĩ kết luận..."}
                       </h6>
 
                       <div className="mb-2 flex items-center gap-3">
@@ -208,7 +208,7 @@ export default function AiHistoryPage() {
                           Độ tin cậy:{" "}
                           <span className="font-bold text-gray-600">
                             {item.disease?.confidencePercent != null
-                              ? `${Number(item.disease.confidencePercent).toFixed(1)}%`
+                              ? `${Number(item.disease.confidencePercent).toFixed(0)}%`
                               : "Chưa có"}
                           </span>
                         </span>
@@ -221,7 +221,7 @@ export default function AiHistoryPage() {
                         className="flex h-12 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-[#329965] px-4 text-xs font-bold text-[#329965] transition-colors hover:bg-[#eaf7f4]"
                       >
                         <FileText size={14} />
-                        Xem chi tiết
+                        Xem kết quả
                       </Link>
                     </div>
                   </div>
@@ -232,9 +232,9 @@ export default function AiHistoryPage() {
                 <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
                   <FileText size={32} className="text-gray-300" />
                 </div>
-                <h3 className="mb-1 font-bold text-gray-900">Chưa có lịch sử phù hợp</h3>
+                <h3 className="mb-1 font-bold text-gray-900">Chưa có lịch sử khám bệnh</h3>
                 <p className="text-sm text-gray-500">
-                  Hãy thực hiện một ca chẩn đoán mới để lưu hồ sơ AI.
+                  Bà con hãy thực hiện lần khám đầu tiên để lưu vào sổ nhé.
                 </p>
               </div>
             )}

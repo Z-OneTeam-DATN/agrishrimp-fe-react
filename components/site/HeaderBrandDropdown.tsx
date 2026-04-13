@@ -64,54 +64,68 @@ export default function HeaderBrandDropdown() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            className="absolute top-full left-0 right-0 w-full bg-white shadow-2xl border-t border-gray-100 z-[100] overflow-hidden"
+            exit={{ opacity: 0, y: 10 }}
+            className="absolute top-full left-0 right-0 w-full bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-t border-gray-100 z-[100] overflow-hidden"
           >
-            <div className="max-w-screen-xl mx-auto flex min-h-[360px]">
+            <div className="max-w-screen-xl mx-auto flex min-h-[400px]">
               {!loading && !error && brands.length > 0 ? (
                 <>
-                  <div className="w-[160px] bg-gray-50/50 border-r border-gray-100 py-1 shrink-0 overflow-y-auto max-h-[480px]">
-                    <div className="px-5 py-3 font-black text-gray-400 text-[10px] uppercase tracking-widest border-b border-gray-100/50 mb-1">A-Z</div>
+                  {/* Alphabet Sidebar */}
+                  <div className="w-[80px] bg-gray-50 border-r border-gray-100 py-4 shrink-0 overflow-y-auto max-h-[500px] flex flex-col items-center gap-1">
                     {alphabet.map((letter) => (
-                      <div
+                      <button
                         key={letter}
                         onMouseEnter={() => setActiveLetter(letter)}
-                        className={`px-5 py-2 cursor-pointer transition-all flex items-center justify-between group ${
-                          activeLetter === letter ? "bg-white text-orange-600 font-bold shadow-sm" : "text-gray-600 hover:text-orange-500"
+                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all font-bold text-lg ${
+                          activeLetter === letter 
+                            ? "bg-orange-600 text-white shadow-lg shadow-orange-200 scale-110" 
+                            : "text-gray-400 hover:bg-orange-50 hover:text-orange-600"
                         }`}
                       >
-                        <span className="text-[16px] uppercase tracking-tighter">{letter}</span>
-                        <ChevronRight size={12} className={activeLetter === letter ? "opacity-100" : "opacity-0 group-hover:opacity-40"} />
-                      </div>
+                        {letter}
+                      </button>
                     ))}
                   </div>
 
-                  <div className="flex-1 p-6 bg-white overflow-y-auto max-h-[480px]">
+                  {/* Brands Grid Area */}
+                  <div className="flex-1 p-8 bg-white overflow-y-auto max-h-[500px]">
                     {activeLetter && (
-                      <motion.div key={activeLetter} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col">
-                        <div className="mb-6 pb-2 border-b border-gray-50 flex items-baseline gap-3">
-                           <span className="text-3xl font-black text-orange-600">{activeLetter}</span>
-                           <span className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">THƯƠNG HIỆU THEO CHỮ CÁI</span>
+                      <motion.div key={activeLetter} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="h-full flex flex-col">
+                        <div className="mb-8 flex items-center justify-between border-b border-gray-50 pb-4">
+                           <div className="flex items-center gap-4">
+                              <span className="text-4xl font-black text-orange-600">{activeLetter}</span>
+                              <div>
+                                <h4 className="font-bold text-gray-800 uppercase tracking-tight">Thương hiệu bắt đầu bằng "{activeLetter}"</h4>
+                                <p className="text-xs text-gray-400">Tìm thấy {activeBrands.length} đối tác</p>
+                              </div>
+                           </div>
+                           <Link 
+                            href="/brands" 
+                            className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"
+                            onClick={() => setIsOpen(false)}
+                           >
+                             Xem tất cả <ChevronRight size={14} />
+                           </Link>
                         </div>
                         
-                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                           {activeBrands.map((brand) => (
                             <Link
                               key={brand.id}
                               href={`/brand/${brand.id}`}
-                              className="group flex flex-col items-center p-3 rounded-xl hover:bg-orange-50/30 transition-all border border-gray-50 hover:border-orange-100"
+                              className="group flex flex-col items-center gap-2"
                               onClick={() => setIsOpen(false)}
                             >
-                               <div className="w-12 h-12 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden mb-2 group-hover:border-orange-200 transition-colors">
+                               <div className="w-full aspect-square rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden p-3 group-hover:border-orange-300 group-hover:shadow-md transition-all">
                                   {brand.logoUrl ? (
-                                    <img src={brand.logoUrl} alt={brand.name} className="w-full h-full object-contain p-1" />
+                                    <img src={brand.logoUrl} alt={brand.name} className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110" />
                                   ) : (
-                                    <Bookmark size={20} className="text-orange-100" />
+                                    <Bookmark size={24} className="text-gray-100 group-hover:text-orange-100" />
                                   )}
                                </div>
-                               <span className="text-[11px] font-bold text-gray-700 text-center group-hover:text-orange-700 transition-colors line-clamp-1">{brand.name}</span>
+                               <span className="text-xs font-bold text-gray-600 text-center group-hover:text-orange-700 transition-colors line-clamp-1 px-1">{brand.name}</span>
                             </Link>
                           ))}
                         </div>
@@ -121,7 +135,12 @@ export default function HeaderBrandDropdown() {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center py-20 text-gray-400">
-                  {loading ? <Loader2 className="animate-spin text-orange-500" size={24} /> : <span>{error || "Không có dữ liệu"}</span>}
+                  {loading ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="animate-spin text-orange-600" size={32} />
+                      <span className="text-sm font-medium">Đang lấy danh sách...</span>
+                    </div>
+                  ) : <span>{error || "Không có dữ liệu"}</span>}
                 </div>
               )}
             </div>

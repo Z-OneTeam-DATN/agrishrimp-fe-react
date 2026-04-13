@@ -9,14 +9,23 @@ const LAST_DIAGNOSIS_ID_KEY = "ai-doctor:last-id";
 
 const canUseStorage = () => typeof window !== "undefined" && !!window.sessionStorage;
 
+const getDiagnosisStorageKey = (diagnosisId: string) => `${DIAGNOSIS_STORAGE_PREFIX}${diagnosisId}`;
+
 const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
   if (!canUseStorage()) return;
   // HEALTHY không có DB record thực — không persist để tránh fetch lại lỗi
   if (diagnosis.status === "HEALTHY") return;
 
+  const cachedDiagnosis = getCachedDiagnosis(diagnosis.diagnosisId);
+  const mergedDiagnosis: AiDoctorDiagnosisResponse = {
+    ...cachedDiagnosis,
+    ...diagnosis,
+    clientImageUrl: diagnosis.clientImageUrl ?? cachedDiagnosis?.clientImageUrl,
+  };
+
   window.sessionStorage.setItem(
-    `${DIAGNOSIS_STORAGE_PREFIX}${diagnosis.diagnosisId}`,
-    JSON.stringify(diagnosis),
+    getDiagnosisStorageKey(diagnosis.diagnosisId),
+    JSON.stringify(mergedDiagnosis),
   );
   window.sessionStorage.setItem(LAST_DIAGNOSIS_ID_KEY, diagnosis.diagnosisId);
 };
@@ -24,7 +33,7 @@ const persistDiagnosis = (diagnosis: AiDoctorDiagnosisResponse) => {
 const getCachedDiagnosis = (diagnosisId: string) => {
   if (!canUseStorage()) return null;
 
-  const raw = window.sessionStorage.getItem(`${DIAGNOSIS_STORAGE_PREFIX}${diagnosisId}`);
+  const raw = window.sessionStorage.getItem(getDiagnosisStorageKey(diagnosisId));
   if (!raw) return null;
 
   try {
@@ -74,6 +83,26 @@ export const aiDoctorService = {
     );
     persistDiagnosis(response.data);
     return response.data;
+  },
+
+  saveClientImage(diagnosisId: string | number, clientImageUrl: string) {
+    if (!canUseStorage()) return null;
+
+    const normalizedDiagnosisId = String(diagnosisId);
+    const cachedDiagnosis = getCachedDiagnosis(normalizedDiagnosisId);
+    if (!cachedDiagnosis) return null;
+
+    const mergedDiagnosis: AiDoctorDiagnosisResponse = {
+      ...cachedDiagnosis,
+      clientImageUrl,
+    };
+
+    window.sessionStorage.setItem(
+      getDiagnosisStorageKey(normalizedDiagnosisId),
+      JSON.stringify(mergedDiagnosis),
+    );
+    window.sessionStorage.setItem(LAST_DIAGNOSIS_ID_KEY, normalizedDiagnosisId);
+    return mergedDiagnosis;
   },
 
   getCachedDiagnosis,
