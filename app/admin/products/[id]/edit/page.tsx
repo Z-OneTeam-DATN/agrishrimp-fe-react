@@ -209,7 +209,6 @@ export default function EditProductPage() {
     const router = useRouter();
     const params = useParams();
     const id = params.id as string;
-    const mainImagesRef = useRef<HTMLInputElement>(null);
     const infoSectionRef = useRef<HTMLDivElement>(null);
     const descriptionSectionRef = useRef<HTMLDivElement>(null);
     const variantsSectionRef = useRef<HTMLDivElement>(null);
@@ -234,8 +233,6 @@ export default function EditProductPage() {
     const [mediaDirty, setMediaDirty] = useState(false);
     const [allowUnload, setAllowUnload] = useState(false);
 
-    const [productImageFiles, setProductImageFiles] = useState<(File | string)[]>([]);
-    const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
     const [variantImageFiles, setVariantImageFiles] = useState<(File | string | null)[]>([]);
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([]);
 
@@ -266,6 +263,7 @@ export default function EditProductPage() {
 
     const { fields, append, remove } = useFieldArray({ control, name: "variants" });
     const [variantDataMap, setVariantDataMap] = useState<Record<number, any>>({});
+    const firstVariantImagePreview = (variantImagePreviews[0] || "").trim();
 
     const steps = useMemo(
         () => [
@@ -404,17 +402,17 @@ export default function EditProductPage() {
         const warnings: string[] = [];
         if (!nameWatch?.trim()) warnings.push("Thiếu tên sản phẩm");
         if (!categoryWatch) warnings.push("Chưa chọn danh mục");
-        if (productImagePreviews.length === 0) warnings.push("Chưa có ảnh sản phẩm");
+        if (!firstVariantImagePreview) warnings.push("Chưa có ảnh biến thể đầu tiên");
         if (fields.length === 0) warnings.push("Chưa có biến thể");
         return warnings;
-    }, [nameWatch, categoryWatch, productImagePreviews.length, fields.length]);
+    }, [nameWatch, categoryWatch, firstVariantImagePreview, fields.length]);
 
     const sectionStates = useMemo(() => {
         const infoDone = !!nameWatch?.trim() && !!categoryWatch;
         const descriptionDone = (descriptionWatch || "").replace(/<[^>]+>/g, "").trim().length > 20;
         const variantsDone = (variantsWatch || []).length > 0;
         const variantsWarning = variantWarningCount > 0;
-        const imagesDone = productImagePreviews.length > 0;
+        const imagesDone = !!firstVariantImagePreview;
         const statusDone = !!statusWatch;
 
         return {
@@ -424,7 +422,7 @@ export default function EditProductPage() {
             images: imagesDone ? "done" : "warning",
             status: statusDone ? "done" : "warning",
         } as Record<ProductFormStep, "done" | "warning">;
-    }, [nameWatch, categoryWatch, descriptionWatch, variantsWatch, variantWarningCount, productImagePreviews.length, statusWatch]);
+    }, [nameWatch, categoryWatch, descriptionWatch, variantsWatch, variantWarningCount, firstVariantImagePreview, statusWatch]);
 
     useEffect(() => {
         const rawPreset = localStorage.getItem(PRODUCT_BULK_PRESETS_KEY);
@@ -493,10 +491,6 @@ export default function EditProductPage() {
                     setVariantDataMap(extraData);
                     reset(mappedData);
 
-                    if (productDetail.imageUrls?.length > 0) {
-                        setProductImageFiles(productDetail.imageUrls);
-                        setProductImagePreviews(productDetail.imageUrls);
-                    }
                     const vImages = (productDetail.variants || []).map((v: any) => v.imageUrl || null);
                     setVariantImageFiles(vImages);
                     setVariantImagePreviews(vImages.map((img: string | null) => img || ""));
@@ -966,21 +960,6 @@ export default function EditProductPage() {
         }
     };
 
-    const handleMainImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            setProductImageFiles((prev) => [...prev, ...files]);
-            setProductImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
-            setMediaDirty(true);
-        }
-    };
-
-    const removeMainImage = (idx: number) => {
-        setProductImageFiles((prev) => prev.filter((_, i) => i !== idx));
-        setProductImagePreviews((prev) => prev.filter((_, i) => i !== idx));
-        setMediaDirty(true);
-    };
-
     const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -1076,7 +1055,8 @@ export default function EditProductPage() {
     };
 
     const onSubmit = async (data: ProductFormData) => {
-        if (productImageFiles.length === 0) return toast.error("Vui lòng tải lên ít nhất 1 ảnh sản phẩm.");
+        const firstVariantImage = variantImageFiles[0];
+        if (!firstVariantImage) return toast.error("Vui lòng tải ảnh cho biến thể đầu tiên.");
         const skus = data.variants.map(v => v.sku.toLowerCase().trim());
         if (skus.length !== new Set(skus).size) return toast.error("Mã SKU giữa các biến thể không được trùng lặp.");
 
@@ -1102,14 +1082,13 @@ export default function EditProductPage() {
 
         try {
             setIsLoading(true);
-
-            const existingMainImages = productImageFiles.filter(img => typeof img === 'string');
-            const newMainImageFiles = productImageFiles.filter(img => typeof img !== 'string');
+            const existingFirstVariantImage = typeof firstVariantImage === 'string' ? firstVariantImage : null;
+            const newFirstVariantImageFile = typeof firstVariantImage === 'string' ? null : firstVariantImage;
 
             const productData: any = {
                 name: data.name.trim(), categoryId: Number(data.categoryId), brand: data.brand?.trim() || "",
                 origin: data.origin?.trim() || "", description: data.description || "", status: data.status,
-                images: existingMainImages,
+                images: existingFirstVariantImage ? [existingFirstVariantImage] : [],
                 variants: rawVariants.map((v: any, vIdx: number) => {
                     const img = variantImageFiles[vIdx];
                     return {
@@ -1123,9 +1102,9 @@ export default function EditProductPage() {
             const formData = new FormData();
             formData.append("data", new Blob([JSON.stringify(productData)], { type: "application/json" }));
 
-            newMainImageFiles.forEach((file) => {
-                formData.append("productImages", file as File);
-            });
+            if (newFirstVariantImageFile) {
+                formData.append("productImages", newFirstVariantImageFile as File);
+            }
 
             variantImageFiles.forEach((file) => {
                 if (file && typeof file !== 'string') {
@@ -1553,22 +1532,22 @@ export default function EditProductPage() {
                         <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-3">Tóm tắt nhanh</p>
                         <div className="space-y-2 text-[12px]">
                             <div className="flex items-center justify-between"><span className="text-slate-500">Số biến thể</span><span className="font-black text-slate-700">{fields.length}</span></div>
-                            <div className="flex items-center justify-between"><span className="text-slate-500">Ảnh sản phẩm</span><span className="font-black text-slate-700">{productImagePreviews.length}</span></div>
+                            <div className="flex items-center justify-between"><span className="text-slate-500">Ảnh sản phẩm</span><span className="font-black text-slate-700">{firstVariantImagePreview ? 1 : 0}</span></div>
                             <div className="flex items-center justify-between"><span className="text-slate-500">Trạng thái</span><span className={cn("font-black", statusWatch === "ACTIVE" ? "text-emerald-600" : statusWatch === "INACTIVE" ? "text-rose-500" : "text-slate-500")}>{statusWatch === "ACTIVE" ? "Đang kinh doanh" : statusWatch === "INACTIVE" ? "Tạm ngừng" : "Lưu nháp"}</span></div>
                         </div>
                         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                             <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 mb-2">Preview realtime</p>
                             <div className="flex items-center gap-2.5">
                                 <div className="h-12 w-12 rounded-md bg-white border border-slate-200 overflow-hidden shrink-0">
-                                    {productImagePreviews[0] ? (
-                                        <img src={productImagePreviews[0]} alt="Preview" className="h-full w-full object-cover" />
+                                    {firstVariantImagePreview ? (
+                                        <img src={firstVariantImagePreview} alt="Preview" className="h-full w-full object-cover" />
                                     ) : (
                                         <div className="h-full w-full flex items-center justify-center text-[9px] font-bold text-slate-300">NO IMG</div>
                                     )}
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-[12px] font-bold text-slate-700 truncate">{nameWatch?.trim() || "Sản phẩm chưa đặt tên"}</p>
-                                    <p className="text-[11px] text-slate-500">{fields.length} SKU · {productImagePreviews.length} ảnh</p>
+                                    <p className="text-[11px] text-slate-500">{fields.length} SKU · {firstVariantImagePreview ? 1 : 0} ảnh</p>
                                 </div>
                             </div>
                         </div>
@@ -1586,19 +1565,22 @@ export default function EditProductPage() {
                     </div>
 
                     <div ref={imagesSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
-                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center border-b pb-3 tracking-widest">Album hình ảnh *</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {productImagePreviews.map((src, i) => (
-                                <div key={`main-img-preview-${i}`} className="relative aspect-square border group">
-                                    <img src={src} className="w-full h-full object-cover" alt="" />
-                                    <button type="button" onClick={() => removeMainImage(i)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
-                                </div>
-                            ))}
-                            <div onClick={() => mainImagesRef.current?.click()} className="aspect-square border-2 border-dashed flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
-                                <Upload size={20} className="text-slate-300" />
+                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center border-b pb-3 tracking-widest">Ảnh sản phẩm (tự lấy từ biến thể đầu tiên)</Label>
+                        <div className="space-y-3">
+                            <p className="text-[12px] text-slate-500">
+                                Hệ thống sẽ tự dùng ảnh của <span className="font-bold text-slate-700">biến thể #1</span> làm ảnh sản phẩm.
+                            </p>
+                            <div className="aspect-square border border-[#e0e0e0] bg-white rounded-none overflow-hidden flex items-center justify-center">
+                                {firstVariantImagePreview ? (
+                                    <img src={firstVariantImagePreview} className="w-full h-full object-cover" alt="Ảnh sản phẩm tự động" />
+                                ) : (
+                                    <div className="text-center px-4">
+                                        <Camera size={32} className="mx-auto text-slate-300 mb-2" />
+                                        <p className="text-[11px] font-bold text-slate-400 uppercase">Chưa có ảnh biến thể #1</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <input type="file" ref={mainImagesRef} multiple hidden onChange={handleMainImagesChange} accept="image/*" />
                     </div>
 
                     <div ref={statusSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
