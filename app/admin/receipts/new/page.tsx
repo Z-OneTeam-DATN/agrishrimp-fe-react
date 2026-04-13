@@ -165,14 +165,14 @@ function AdminReceiptFormContent() {
           const fieldName = Object.keys(itemError)[0];
           const message = itemError[fieldName]?.message;
           if (message) {
-            toast.error(`Lá»—i sáº£n pháº©m: ${message}`);
+            toast.error(`Lỗi sản phẩm: ${message}`);
             return;
           }
         }
       }
 
       if (firstError?.message) toast.error(firstError.message);
-      else toast.error("Vui lĂ²ng kiá»ƒm tra láº¡i thĂ´ng tin cĂ¡c trÆ°á»ng báº¯t buá»™c");
+      else toast.error("Vui lòng kiểm tra lại thông tin các trường bắt buộc");
     }
   }, [errors]);
 
@@ -185,13 +185,13 @@ function AdminReceiptFormContent() {
   const watchPaymentAmount = watch("paymentAmount") || 0;
   const currentTargetBranch = watch("branchName");
 
-  // Kiá»ƒm hĂ ng khi tráº¡ng thĂ¡i lĂ  APPROVED hoáº·c Ä‘Ă£ hoĂ n táº¥t (COMPLETED/IMPORTED)
+  // Kiểm hàng khi trạng thái là APPROVED hoặc đã hoàn tất (COMPLETED/IMPORTED)
   const isQCMode =
     (watchStatus || "").toUpperCase() === "APPROVED" ||
     (watchStatus || "").toUpperCase() === "COMPLETED" ||
     (watchStatus || "").toUpperCase() === "IMPORTED";
 
-  // CĂ¡c trÆ°á»ng thĂ´ng tin chung khĂ´ng Ä‘Æ°á»£c sá»­a khi Ä‘ang kiá»ƒm hĂ ng (EditMode + status >= APPROVED)
+  // Các trường thông tin chung không được sửa khi đang kiểm hàng (EditMode + status >= APPROVED)
   const isInfoReadOnly = isReadOnly || (isEditMode && isQCMode);
 
   const selectedDestBranch = useMemo(() => {
@@ -203,7 +203,7 @@ function AdminReceiptFormContent() {
 
   const targetBranchId = selectedDestBranch?.id?.toString() || "";
 
-  // TĂ­nh tá»•ng tiá»n dá»±a trĂªn sá»‘ lÆ°á»£ng (YĂªu cáº§u khi táº¡o, Thá»±c nháº­n tá»‘t khi kiá»ƒm)
+  // Tính tổng tiền dựa trên số lượng (Yêu cầu khi tạo, Thực nhận khi kiểm)
   const subTotal = watchItems.reduce((acc, item) => {
     const qty = isQCMode
       ? Number(item.quantityReal) || 0
@@ -235,19 +235,19 @@ function AdminReceiptFormContent() {
           JSON.stringify(r).toUpperCase().includes("SKU"),
         );
         if (headerIndex === -1) {
-          toast.error("KhĂ´ng tĂ¬m tháº¥y cá»™t SKU.");
+          toast.error("Không tìm thấy cột SKU.");
           return;
         }
         const data = XLSX.utils.sheet_to_json(ws, {
           range: headerIndex,
         }) as any[];
         if (!targetBranchId) {
-          toast.error("Chá»n chi nhĂ¡nh trÆ°á»›c.");
+          toast.error("Chọn chi nhánh trước.");
           return;
         }
-        const loadingId = toast.loading("Äang xá»­ lĂ½...");
+        const loadingId = toast.loading("Đang xử lý...");
         const tasks = data.map(async (row) => {
-          const sku = String(row["SKU"] || row["MĂ£ sáº£n pháº©m"] || "").trim();
+          const sku = String(row["SKU"] || row["Mã sản phẩm"] || "").trim();
           if (!sku) return null;
           const apiRes = await ProductService.searchVariants(
             sku,
@@ -258,17 +258,17 @@ function AdminReceiptFormContent() {
           return match
             ? {
                 productCode: match.sku,
-                productName: match.productName || "SP",
-                plannedQuantity: Number(row["Sá»‘ lÆ°á»£ng"] || 1),
+                productName: match.productName || "Sản phẩm",
+                plannedQuantity: Number(row["Số lượng"] || 1),
                 importPrice:
-                  row["GiĂ¡ nháº­p"] || row["Price"]
-                    ? Number(row["GiĂ¡ nháº­p"] || row["Price"])
+                  row["Giá nhập"] || row["Price"]
+                    ? Number(row["Giá nhập"] || row["Price"])
                     : undefined,
                 lotNumber:
-                  row["Sá»‘ lĂ´"] ||
+                  row["Số lô"] ||
                   row["Lot"] ||
                   "L" + Date.now().toString().slice(-6),
-                expiryDate: row["Háº¡n dĂ¹ng"] || "",
+                expiryDate: row["Hạn dùng"] || "",
                 imageUrl: match.imageUrl || "",
                 note: "",
               }
@@ -276,9 +276,9 @@ function AdminReceiptFormContent() {
         });
         const results = (await Promise.all(tasks)).filter(Boolean);
         append(results as any);
-        toast.success(`ÄĂ£ nháº­p ${results.length} sáº£n pháº©m`, { id: loadingId });
+        toast.success(`Đã nhập ${results.length} sản phẩm`, { id: loadingId });
       } catch (err) {
-        toast.error("Lá»—i Ä‘á»c file.");
+        toast.error("Lỗi đọc file.");
       }
     };
     reader.readAsBinaryString(file);
@@ -298,7 +298,7 @@ function AdminReceiptFormContent() {
     else
       append({
         productCode: v.sku,
-        productName: v.productName || "Sáº£n pháº©m",
+        productName: v.productName || "Sản phẩm",
         plannedQuantity: 1,
         importPrice: undefined,
         lotNumber: "L" + Date.now().toString().slice(-6),
@@ -379,7 +379,7 @@ function AdminReceiptFormContent() {
       isEditMode
         ? await InventoryApiService.updateReceipt(receiptId!, payload)
         : await InventoryApiService.createReceipt(payload);
-      toast.success("ÄĂ£ lÆ°u!");
+      toast.success("Đã lưu!");
       router.push("/admin/receipts");
     } catch (e) {
       toast.error(getErrorMessage(e as any));
@@ -391,7 +391,7 @@ function AdminReceiptFormContent() {
   const onConfirmComplete = async (data: Receipt) => {
     setIsSubmitting(true);
     try {
-      // Khi nháº¥n "XĂ¡c nháº­n nháº­p kho", gá»­i object chá»©a items
+      // Khi nhấn "Xác nhận nhập kho", gửi object chứa items
       const payloadItems = data.items.map((i) => {
         return {
           ...i,
@@ -401,7 +401,7 @@ function AdminReceiptFormContent() {
       await InventoryApiService.completeReceipt(receiptId!, {
         items: payloadItems,
       });
-      toast.success("ÄĂ£ hoĂ n táº¥t nháº­p kho!");
+      toast.success("Đã hoàn tất nhập kho!");
       router.push("/admin/receipts");
     } catch (e) {
       toast.error(getErrorMessage(e as any));
@@ -421,7 +421,7 @@ function AdminReceiptFormContent() {
           if (data.status === "COMPLETED" || data.status === "IMPORTED")
             setIsReadOnly(true);
 
-          // Map dá»¯ liá»‡u tá»« BE sang schema FE má»™t cĂ¡ch an toĂ n
+          // Map dữ liệu từ BE sang schema FE một cách an toàn
           const mappedItems = (data.items || []).map((i: any) => ({
             ...i,
             plannedQuantity: i.plannedQuantity || i.quantity || 0,
@@ -516,13 +516,13 @@ function AdminReceiptFormContent() {
   const handleReject = async () => {
     if (!receiptId) return;
     showConfirm(
-      "XĂ¡c nháº­n Tá»ª CHá»I phiáº¿u",
-      "HĂ nh Ä‘á»™ng nĂ y sáº½ tá»« chá»‘i Ä‘Æ¡n nháº­p hĂ ng nĂ y. Báº¡n khĂ´ng thá»ƒ hoĂ n tĂ¡c.",
+      "Xác nhận TỪ CHỐI phiếu",
+      "Hành động này sẽ từ chối đơn nhập hàng này. Bạn không thể hoàn tác.",
       async () => {
         setIsSubmitting(true);
         try {
           await InventoryApiService.rejectReceipt(receiptId);
-          toast.success("ÄĂ£ tá»« chá»‘i phiáº¿u nháº­p!");
+          toast.success("Đã từ chối phiếu nhập!");
           router.push("/admin/receipts");
         } catch (e) {
           toast.error(getErrorMessage(e as any));
@@ -536,10 +536,10 @@ function AdminReceiptFormContent() {
 
   const onSubmitWithConfirm = (data: Receipt) => {
     const isComplete = watchStatus === "APPROVED";
-    const title = isComplete ? "XĂ¡c nháº­n NHáº¬P KHO" : "XĂ¡c nháº­n LÆ¯U PHIáº¾U";
+    const title = isComplete ? "Xác nhận NHẬP KHO" : "Xác nhận LƯU PHIẾU";
     const msg = isComplete
-      ? "Tá»“n kho thá»±c táº¿ sáº½ Ä‘Æ°á»£c cáº­p nháº­t ngay láº­p tá»©c. Báº¡n Ä‘Ă£ kiá»ƒm tra ká»¹ sá»‘ lÆ°á»£ng chÆ°a?"
-      : "Há»‡ thá»‘ng sáº½ lÆ°u láº¡i thĂ´ng tin phiáº¿u nháº­p hiá»‡n táº¡i. Báº¡n cĂ³ cháº¯c cháº¯n khĂ´ng?";
+      ? "Tồn kho thực tế sẽ được cập nhật ngay lập tức. Bạn đã kiểm tra kỹ số lượng chưa?"
+      : "Hệ thống sẽ lưu lại thông tin phiếu nhập hiện tại. Bạn có chắc chắn không?";
 
     showConfirm(title, msg, () => {
       if (isComplete) onConfirmComplete(data);
@@ -559,7 +559,7 @@ function AdminReceiptFormContent() {
       {/* 1. Workflow Diagram (Fixed 80px) */}
       <div className="h-[80px] w-full bg-white border-b border-slate-200 flex items-center justify-center px-10 shrink-0">
         <div className="flex items-center w-full max-w-4xl relative">
-          {["Láº¬P PHIáº¾U", "PHĂ DUYá»†T", "KIá»‚M HĂ€NG", "HOĂ€N Táº¤T"].map(
+          {["LẬP PHIẾU", "PHÊ DUYỆT", "KIỂM HÀNG", "HOÀN TẤT"].map(
             (label, idx) => {
               const status = (watchStatus || "").toUpperCase();
               let activeIdx = 0;
@@ -610,8 +610,8 @@ function AdminReceiptFormContent() {
         <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-sm flex items-center gap-3 text-amber-800">
           <AlertCircle size={18} className="shrink-0" />
           <p className="text-xs font-bold uppercase tracking-wide">
-            Cháº¿ Ä‘á»™ kiá»ƒm hĂ ng: Vui lĂ²ng nháº­p sá»‘ lÆ°á»£ng thá»±c nháº­n vĂ  kiá»ƒm tra cháº¥t
-            lÆ°á»£ng sáº£n pháº©m.
+            Chế độ kiểm hàng: Vui lòng nhập số lượng thực nhận và kiểm tra chất
+            lượng sản phẩm.
           </p>
         </div>
       )}
@@ -621,7 +621,7 @@ function AdminReceiptFormContent() {
         {/* Left: Supplier Info */}
         <div className="md:col-span-7 bg-white border border-slate-200 p-5 shadow-sm rounded-sm min-h-[160px] flex flex-col">
           <h2 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-            NhĂ  cung cáº¥p
+            Nhà cung cấp
           </h2>
           <div className="relative mb-4" ref={dropdownRef}>
             <Search
@@ -630,7 +630,7 @@ function AdminReceiptFormContent() {
             />
             <Input
               className="pl-10 h-10 text-xs border-slate-200"
-              placeholder="TĂ¬m theo tĂªn hoáº·c mĂ£ NCC (F4)..."
+              placeholder="Tìm theo tên hoặc mã NCC (F4)..."
               value={searchSupplierText}
               onChange={(e) => {
                 setSearchSupplierText(e.target.value);
@@ -643,7 +643,7 @@ function AdminReceiptFormContent() {
               <div className="absolute top-full left-0 w-full mt-1 bg-white border shadow-xl z-50 max-h-40 overflow-auto text-xs">
                 {isLoadingSuppliers ? (
                   <div className="p-3 text-center text-slate-400">
-                    Äang táº£i...
+                    Đang tải...
                   </div>
                 ) : suppliers.length > 0 ? (
                   suppliers.map((s) => (
@@ -658,7 +658,7 @@ function AdminReceiptFormContent() {
                   ))
                 ) : (
                   <div className="p-3 text-center text-slate-400">
-                    KhĂ´ng tĂ¬m tháº¥y NCC
+                    Không tìm thấy NCC
                   </div>
                 )}
               </div>
@@ -684,10 +684,10 @@ function AdminReceiptFormContent() {
                   {selectedSupplier.name}
                 </span>
                 <span className="text-[11px] text-slate-500 mt-1">
-                  MĂ£ NCC: {selectedSupplier.code}
+                  Mã NCC: {selectedSupplier.code}
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  {selectedSupplier.phone || "ChÆ°a cĂ³ SÄT"}
+                  {selectedSupplier.phone || "Chưa có SĐT"}
                 </span>
               </div>
             </div>
@@ -697,18 +697,18 @@ function AdminReceiptFormContent() {
         {/* Right: Receipt Info */}
         <div className="md:col-span-5 bg-white border border-slate-200 p-5 shadow-sm rounded-sm space-y-3">
           <h2 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-            ThĂ´ng tin phiáº¿u
+            Thông tin phiếu
           </h2>
 
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[11px] font-bold text-slate-500">
-              Chi nhĂ¡nh nháº­p (*)
+              Chi nhánh nhập (*)
             </Label>
             <div className="col-span-8">
               <Controller
                 name="branchName"
                 control={control}
-                rules={{ required: "Vui lĂ²ng chá»n chi nhĂ¡nh nháº­p" }}
+                rules={{ required: "Vui lòng chọn chi nhánh nhập" }}
                 render={({ field }) => (
                   <Select
                     onValueChange={field.onChange}
@@ -716,7 +716,7 @@ function AdminReceiptFormContent() {
                     disabled={isInfoReadOnly}
                   >
                     <SelectTrigger className="h-8 text-xs border-slate-200 shadow-none font-bold text-blue-600">
-                      <SelectValue placeholder="-- Chá»n chi nhĂ¡nh nháº­p --" />
+                      <SelectValue placeholder="-- Chọn chi nhánh nhập --" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches
@@ -744,7 +744,7 @@ function AdminReceiptFormContent() {
 
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[11px] font-bold text-slate-500">
-              MĂ£ phiáº¿u
+              Mã phiếu
             </Label>
             <Input
               readOnly
@@ -754,7 +754,7 @@ function AdminReceiptFormContent() {
           </div>
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[11px] font-bold text-slate-500">
-              NgĂ y nháº­p
+              Ngày nhập
             </Label>
             <div className="col-span-8 relative">
               <input
@@ -771,7 +771,7 @@ function AdminReceiptFormContent() {
           </div>
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[11px] font-bold text-slate-500">
-              NgÆ°á»i táº¡o
+              Người tạo
             </Label>
             <Input
               readOnly
@@ -789,7 +789,7 @@ function AdminReceiptFormContent() {
             <div className="p-4 border-b bg-white flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3 flex-1">
                 <h3 className="text-[12px] font-bold text-slate-700 whitespace-nowrap uppercase">
-                  ThĂ´ng tin sáº£n pháº©m
+                  Thông tin sản phẩm
                 </h3>
                 <div className="relative flex-1 max-w-md">
                   <Search
@@ -798,7 +798,7 @@ function AdminReceiptFormContent() {
                   />
                   <Input
                     className="pl-9 h-9 text-xs border-slate-200"
-                    placeholder="TĂ¬m tĂªn, mĂ£ SKU, Barcode... (F3)"
+                    placeholder="Tìm tên, mã SKU, Barcode... (F3)"
                     value={searchProductText}
                     onChange={(e) => {
                       setSearchProductText(e.target.value);
@@ -855,13 +855,13 @@ function AdminReceiptFormContent() {
                               </div>
                             </div>
                             <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 border">
-                              Tá»’N: {v.quantity || 0}
+                              TỒN: {v.quantity || 0}
                             </span>
                           </div>
                         ))
                       ) : (
                         <div className="p-10 text-center text-slate-400 text-xs font-bold italic">
-                          KhĂ´ng cĂ³ sáº£n pháº©m
+                          Không có sản phẩm
                         </div>
                       )}
                     </div>
@@ -875,7 +875,7 @@ function AdminReceiptFormContent() {
                   className="h-8 text-[10px] font-bold"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <FileUp size={14} className="mr-2" /> NHáº¬P EXCEL
+                  <FileUp size={14} className="mr-2" /> NHẬP EXCEL
                 </Button>
                 <input
                   type="file"
@@ -896,39 +896,39 @@ function AdminReceiptFormContent() {
                     #
                   </TableHead>
                   <TableHead className="text-[10px] font-bold text-slate-400">
-                    Sáº¢N PHáº¨M / SKU
+                    SẢN PHẨM / SKU
                   </TableHead>
                   <TableHead className="w-32 text-center text-[10px] font-bold text-slate-400">
-                    Sá» LĂ”
+                    SỐ LÔ
                   </TableHead>
                   <TableHead className="w-32 text-center text-[10px] font-bold text-slate-400">
-                    Háº N DĂ™NG
+                    HẠN DÙNG
                   </TableHead>
                   {isQCMode ? (
                     <>
                       <TableHead className="w-20 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                        YĂU Cáº¦U
+                        YÊU CẦU
                       </TableHead>
                       <TableHead className="w-20 text-right text-[10px] font-bold text-emerald-600 whitespace-nowrap">
-                        THá»°C NHáº¬N
+                        THỰC NHẬN
                       </TableHead>
                       <TableHead className="w-20 text-right text-[10px] font-bold text-rose-600 whitespace-nowrap">
-                        Lá»–I
+                        LỖI
                       </TableHead>
                     </>
                   ) : (
                     <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                      YĂU Cáº¦U
+                      YÊU CẦU
                     </TableHead>
                   )}
                   <TableHead className="w-32 text-right text-[10px] font-bold text-blue-600">
-                    GIĂ NHáº¬P (â‚«)
+                    GIÁ NHẬP (₫)
                   </TableHead>
                   <TableHead className="w-32 text-right text-[10px] font-bold text-slate-400">
-                    THĂ€NH TIá»€N
+                    THÀNH TIỀN
                   </TableHead>
                   <TableHead className="w-40 text-[10px] font-bold text-slate-400">
-                    GHI CHĂ / NGUYĂN NHĂ‚N
+                    GHI CHÚ / NGUYÊN NHÂN
                   </TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -940,7 +940,7 @@ function AdminReceiptFormContent() {
                       colSpan={isQCMode ? 11 : 9}
                       className="h-40 text-center text-slate-300 text-xs font-bold uppercase tracking-widest"
                     >
-                      ChÆ°a cĂ³ sáº£n pháº©m nĂ o
+                      Chưa có sản phẩm nào
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -1032,7 +1032,7 @@ function AdminReceiptFormContent() {
                           <Input
                             className="h-7 text-[10px] border-slate-200 bg-slate-50/30 italic"
                             {...register(`items.${idx}.note`)}
-                            placeholder="NguyĂªn nhĂ¢n..."
+                            placeholder="Nguyên nhân..."
                             disabled={isReadOnly}
                           />
                         </TableCell>
@@ -1056,7 +1056,7 @@ function AdminReceiptFormContent() {
           <div className="p-6 bg-slate-50/50 border-t flex flex-col md:flex-row justify-between items-start gap-10 shrink-0">
             <div className="flex-1 w-full md:max-w-lg space-y-2">
               <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Ghi chĂº / NguyĂªn nhĂ¢n
+                Ghi chú / Nguyên nhân
               </Label>
               <textarea
                 {...register("note")}
@@ -1067,13 +1067,13 @@ function AdminReceiptFormContent() {
             </div>
             <div className="w-full md:w-80 space-y-3">
               <div className="flex justify-between text-xs font-bold text-slate-500 uppercase">
-                <span>Tá»•ng tiá»n hĂ ng:</span>
+                <span>Tổng tiền hàng:</span>
                 <span className="text-slate-900">
                   {formatNumber(subTotal)} â‚«
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs font-bold text-emerald-600 uppercase">
-                <span>ÄĂ£ thanh toĂ¡n:</span>
+                <span>Đã thanh toán:</span>
                 <Input
                   type="number"
                   className="h-8 w-32 text-right font-bold text-emerald-600 border-emerald-300"
@@ -1082,7 +1082,7 @@ function AdminReceiptFormContent() {
                 />
               </div>
               <div className="pt-3 border-t border-slate-200 flex justify-between text-[14px] font-black uppercase">
-                <span>CĂ²n ná»£ NCC:</span>
+                <span>Còn nợ NCC:</span>
                 <span
                   className={
                     debtAmount > 0 ? "text-rose-600" : "text-emerald-600"
@@ -1104,7 +1104,7 @@ function AdminReceiptFormContent() {
             className="text-xs font-bold uppercase text-slate-400"
             onClick={() => router.back()}
           >
-            Há»§y bá»
+            Hủy bỏ
           </Button>
         </div>
 
@@ -1116,7 +1116,7 @@ function AdminReceiptFormContent() {
               onClick={handleReject}
               disabled={isSubmitting}
             >
-              <Ban size={14} className="mr-2" /> Tá»« chá»‘i
+              <Ban size={14} className="mr-2" /> Từ chối
             </Button>
           )}
 
@@ -1131,12 +1131,12 @@ function AdminReceiptFormContent() {
               )}
               {watchStatus === "APPROVED" ? (
                 <>
-                  <CheckCircle2 size={14} className="mr-2" /> XĂ¡c nháº­n nháº­p kho
+                  <CheckCircle2 size={14} className="mr-2" /> Xác nhận nhập kho
                 </>
               ) : (
                 <>
                   <Save size={14} className="mr-2" />{" "}
-                  {isAdmin ? "LÆ°u & Duyá»‡t ngay" : "LÆ°u & Gá»­i duyá»‡t"}
+                  {isAdmin ? "Lưu & Duyệt ngay" : "Lưu & Gửi duyệt"}
                 </>
               )}
             </Button>
@@ -1144,7 +1144,7 @@ function AdminReceiptFormContent() {
         </div>
       </div>
 
-      {/* AlertDialog dĂ nh cho cĂ¡c xĂ¡c nháº­n quan trá»ng */}
+      {/* AlertDialog dành cho các xác nhận quan trọng */}
       <AlertDialog
         open={confirmConfig.open}
         onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}
@@ -1168,7 +1168,7 @@ function AdminReceiptFormContent() {
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-4 gap-3">
             <AlertDialogCancel className="rounded-none border-slate-300 text-slate-500 font-bold uppercase text-[11px] h-9 px-6 hover:bg-slate-50">
-              Quay láº¡i
+              Quay lại
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmConfig.action}
@@ -1179,7 +1179,7 @@ function AdminReceiptFormContent() {
                   : "bg-blue-600 hover:bg-blue-700",
               )}
             >
-              XĂ¡c nháº­n
+              Xác nhận
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
