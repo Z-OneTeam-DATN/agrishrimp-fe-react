@@ -14,6 +14,7 @@ import { LoginSchema, LoginFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage } from "@/lib/axios";
+import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -46,10 +47,16 @@ export default function LoginForm() {
     },
     onSuccess: (res) => {
       const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
+      const setPermissions = useAuthStore.getState().setPermissions;
+      try {
+        sessionStorage.removeItem("_u");
+        sessionStorage.removeItem("_p");
+      } catch {}
+      setPermissions([]);
       setAccessAndRefreshToken(res);
       toast.success("Đăng nhập thành công!");
-      const role = (res.role || "").toUpperCase().replace("ROLE_", "");
-      window.location.href = (role === "ADMIN" || role === "MANAGER") ? "/admin" : "/";
+      const role = normalizeRoleSlug(res.role);
+      window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
     },
     onError: (error: any) => {
       const status = error?.response?.status;

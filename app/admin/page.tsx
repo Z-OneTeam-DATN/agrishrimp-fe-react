@@ -38,10 +38,14 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { isAdminRole } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { data: user, isLoading: isUserLoading, error: userError } = useCurrentUser();
+  const { hasPermission, isLoadingAuth } = usePermissions();
   
   // Mặc định là undefined để Admin thấy TẤT CẢ (theo đặc tả BE: không gửi branchId = xem hết)
   const [selectedBranchId, setSelectedBranchId] = useState<string | undefined>(undefined);
@@ -49,8 +53,14 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   // Chuẩn hóa role slug
-  const roleSlug = user?.role?.slug?.toUpperCase() || "";
-  const isAdmin = ["ADMIN", "SUPER_ADMIN", "ADMINISTRATOR"].includes(roleSlug);
+  const roleSlug =
+    typeof user?.role === "object" && user?.role !== null
+      ? (user.role.slug || "").toUpperCase()
+      : typeof user?.role === "string"
+        ? user.role.toUpperCase()
+        : "";
+  const isAdmin = isAdminRole(user?.role);
+  const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
   // Manager và Staff đều bị giới hạn theo chi nhánh
   const isRestricted = ["MANAGER", "STAFF", "EMPLOYEE"].includes(roleSlug);
 
@@ -79,7 +89,7 @@ export default function AdminDashboard() {
   const { data: branches = [] } = useQuery({
     queryKey: ["branches-list"],
     queryFn: () => branchService.getAll(),
-    enabled: isAdmin,
+    enabled: isAdmin && canViewDashboard && hasPermission(P.BRANCH_VIEW),
   });
 
   useEffect(() => {
@@ -98,7 +108,7 @@ export default function AdminDashboard() {
   } = useQuery({
     queryKey: ["recent-activities", selectedBranchId],
     queryFn: () => dashboardService.getRecentActivities(selectedBranchId),
-    enabled: !!user,
+    enabled: !!user && canViewDashboard,
     refetchInterval: 120000, // Tăng lên 2 phút để tối ưu hiệu năng
   });
 
@@ -120,9 +130,15 @@ export default function AdminDashboard() {
     { label: "Nhập hàng", icon: Package, href: "/admin/receipts", color: "bg-emerald-600" },
     { label: "Điều chuyển", icon: ArrowRightLeft, href: "/admin/transfers", color: "bg-amber-600" },
     { label: "Kiểm kê", icon: CheckCircle2, href: "/admin/inventory-checks", color: "bg-indigo-600" },
-  ];
+  ].filter((action) => {
+    if (action.href === "/admin/exports") return hasPermission(P.EXPORT_VIEW);
+    if (action.href === "/admin/receipts") return hasPermission(P.IMPORT_VIEW);
+    if (action.href === "/admin/transfers") return hasPermission(P.TRANSFER_VIEW);
+    if (action.href === "/admin/inventory-checks") return hasPermission(P.CHECK_VIEW);
+    return false;
+  });
 
-  if (isUserLoading) return (
+  if (isUserLoading || isLoadingAuth) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
       <RefreshCw className="animate-spin text-blue-600" size={32} />
       <p className="text-sm font-medium text-slate-600">Đang tải thông tin hệ thống...</p>
@@ -137,6 +153,20 @@ export default function AdminDashboard() {
       <Button onClick={() => window.location.reload()} className="mt-6">Thử lại</Button>
     </div>
   );
+
+  if (!canViewDashboard) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center space-y-2">
+          <AlertTriangle className="mx-auto text-amber-500" size={42} />
+          <h2 className="text-xl font-bold text-slate-800">Bạn không có quyền truy cập</h2>
+          <p className="text-sm text-slate-500">
+            Tài khoản của bạn chưa được cấp quyền xem tổng quan hệ thống.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-10 bg-gray-50/50 min-h-screen p-4">
@@ -197,20 +227,22 @@ export default function AdminDashboard() {
       <DashboardStats branchId={selectedBranchId} />
 
       {/* Quick Actions Bar */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        {quickActions.map((action, index) => (
-          <button
-            key={index}
-            onClick={() => router.push(action.href)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-sm shadow-sm hover:shadow-md transition-all group"
-          >
-            <div className={`${action.color} p-1.5 rounded-sm text-white group-hover:scale-110 transition-transform`}>
-              <action.icon size={16} />
-            </div>
-            <span className="text-xs font-bold text-gray-700">{action.label}</span>
-          </button>
-        ))}
-      </div>
+      {quickActions.length > 0 && (
+        <div className="flex flex-wrap gap-3 mb-6">
+          {quickActions.map((action, index) => (
+            <button
+              key={index}
+              onClick={() => router.push(action.href)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-sm shadow-sm hover:shadow-md transition-all group"
+            >
+              <div className={`${action.color} p-1.5 rounded-sm text-white group-hover:scale-110 transition-transform`}>
+                <action.icon size={16} />
+              </div>
+              <span className="text-xs font-bold text-gray-700">{action.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 space-y-4">

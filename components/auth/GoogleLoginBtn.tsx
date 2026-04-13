@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage } from "@/lib/axios";
+import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 
 export default function GoogleLoginBtn() {
   const setAccessAndRefreshToken = useAuthStore((state) => state.setAccessAndRefreshToken);
@@ -25,14 +26,19 @@ export default function GoogleLoginBtn() {
     },
     onSuccess: (res) => {
       // 1. Lưu token + user data vào zustand
+      try {
+        sessionStorage.removeItem("_u");
+        sessionStorage.removeItem("_p");
+      } catch {}
+      useAuthStore.getState().setPermissions([]);
       setAccessAndRefreshToken(res);
 
       // 2. Thông báo thành công
       toast.success("Đăng nhập với Google thành công!");
 
       // 3. Full page reload để layoutClient hydrate lại user đầy đủ từ API
-      const role = (res.role || "").toUpperCase().replace("ROLE_", "");
-      window.location.href = (role === "ADMIN" || role === "MANAGER") ? "/admin" : "/";
+      const role = normalizeRoleSlug(res.role);
+      window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);
