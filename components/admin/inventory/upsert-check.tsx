@@ -294,8 +294,8 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
     [branches, formData.branchId],
   );
 
-  const checkedByNames = useMemo(
-    () => formData.checkedBy.split(", ").filter(Boolean),
+  const checkedByNames = useMemo<string[]>(
+    () => formData.checkedBy.split(", ").filter((name: string) => Boolean(name)),
     [formData.checkedBy],
   );
 
