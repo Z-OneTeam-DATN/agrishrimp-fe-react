@@ -503,7 +503,7 @@ function AdminReceiptFormContent() {
           toast.success("Đã từ chối phiếu nhập!");
           router.push("/admin/receipts");
         } catch (e) {
-          toast.error(getErrorMessage(e));
+          toast.error(getErrorMessage(e as any));
         } finally {
           setIsSubmitting(false);
         }
