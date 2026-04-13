@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -65,8 +65,8 @@ export default function NewTransferPage() {
   const [branches, setBranches] = useState<any[]>([]);
 
   const onError = (errors: any) => {
-    console.log("Lỗi Validation của Zod:", errors);
-    toast.error("Dữ liệu chưa hợp lệ! Vui lòng kiểm tra các ô báo lỗi màu đỏ.");
+    console.log("Lá»—i Validation cá»§a Zod:", errors);
+    toast.error("Dá»¯ liá»‡u chÆ°a há»£p lá»‡! Vui lĂ²ng kiá»ƒm tra cĂ¡c Ă´ bĂ¡o lá»—i mĂ u Ä‘á».");
   };
 
   useEffect(() => {
@@ -75,8 +75,8 @@ export default function NewTransferPage() {
         const data = await branchService.getAll();
         setBranches(data);
       } catch (error) {
-        console.error("Lỗi fetch chi nhánh", error);
-        toast.error("Không thể tải danh sách chi nhánh");
+        console.error("Lá»—i fetch chi nhĂ¡nh", error);
+        toast.error("KhĂ´ng thá»ƒ táº£i danh sĂ¡ch chi nhĂ¡nh");
       }
     };
     fetchBranches();
@@ -94,7 +94,7 @@ export default function NewTransferPage() {
     mode: "onTouched",
     defaultValues: {
       transferType: "BETWEEN_WAREHOUSES",
-      description: sourceCode ? `Xuất điều chuyển theo yêu cầu ${sourceCode}` : "",
+      description: sourceCode ? `Xuáº¥t Ä‘iá»u chuyá»ƒn theo yĂªu cáº§u ${sourceCode}` : "",
       transporter: "",
       vehicle: "",
       dispatchOrder: "",
@@ -126,15 +126,15 @@ export default function NewTransferPage() {
   const auditLogs = [
     {
       time: new Date().toLocaleString("vi-VN"),
-      user: "Hệ thống",
-      action: "Khởi tạo phiếu dự thảo",
-      detail: "Hệ thống tự động cấp mã phiếu",
+      user: "Há»‡ thá»‘ng",
+      action: "Khá»Ÿi táº¡o phiáº¿u dá»± tháº£o",
+      detail: "Há»‡ thá»‘ng tá»± Ä‘á»™ng cáº¥p mĂ£ phiáº¿u",
     },
   ];
 
   const onSubmit = async (formData: any) => {
     if (formData.sourceBranch === formData.destBranch) {
-      toast.error("Chi nhánh xuất và Chi nhánh nhận không được trùng nhau!");
+      toast.error("Chi nhĂ¡nh xuáº¥t vĂ  Chi nhĂ¡nh nháº­n khĂ´ng Ä‘Æ°á»£c trĂ¹ng nhau!");
       return;
     }
 
@@ -162,21 +162,21 @@ export default function NewTransferPage() {
       };
 
       await transferService.create(payload);
-      toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
+      toast.success("ÄĂ£ táº¡o phiáº¿u vĂ  gá»­i yĂªu cáº§u duyá»‡t chuyá»ƒn kho!");
       router.push("/admin/transfers");
     } catch (error: any) {
-      console.error("Lỗi tạo phiếu:", error);
-      toast.error("Lỗi hệ thống: " + (error.response?.data || "Không thể tạo phiếu"));
+      console.error("Lá»—i táº¡o phiáº¿u:", error);
+      toast.error("Lá»—i há»‡ thá»‘ng: " + (error.response?.data || "KhĂ´ng thá»ƒ táº¡o phiáº¿u"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const steps = [
-    { label: "Khởi tạo", status: "completed", icon: Plus },
-    { label: "Chờ xuất kho", status: "active", icon: AlertCircle },
-    { label: "Đang vận chuyển", status: "upcoming", icon: Truck },
-    { label: "Đã nhận hàng", status: "upcoming", icon: CheckCircle2 },
+    { label: "Khá»Ÿi táº¡o", status: "completed", icon: Plus },
+    { label: "Chá» xuáº¥t kho", status: "active", icon: AlertCircle },
+    { label: "Äang váº­n chuyá»ƒn", status: "upcoming", icon: Truck },
+    { label: "ÄĂ£ nháº­n hĂ ng", status: "upcoming", icon: CheckCircle2 },
   ];
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -188,7 +188,7 @@ export default function NewTransferPage() {
 
   const openProductDropdown = () => {
     if (!currentSourceBranch) {
-      toast.error("Vui lòng chọn 'Chi nhánh xuất hàng' trước khi thêm hàng hóa!");
+      toast.error("Vui lĂ²ng chá»n 'Chi nhĂ¡nh xuáº¥t hĂ ng' trÆ°á»›c khi thĂªm hĂ ng hĂ³a!");
       return;
     }
     if (searchInputRef.current) {
@@ -208,11 +208,11 @@ export default function NewTransferPage() {
         const finalData = Array.isArray(results) ? results : results?.data || [];
         setSearchResults(finalData);
 
-        if (document.activeElement?.getAttribute("placeholder")?.includes("Tìm theo tên")) {
+        if (document.activeElement?.getAttribute("placeholder")?.includes("TĂ¬m theo tĂªn")) {
           setShowDropdown(true);
         }
       } catch (error) {
-        console.error("Lỗi tìm sản phẩm", error);
+        console.error("Lá»—i tĂ¬m sáº£n pháº©m", error);
       } finally {
         setIsSearching(false);
       }
@@ -222,22 +222,22 @@ export default function NewTransferPage() {
   }, [searchTerm, currentSourceBranch]);
 
   const handleSelectProduct = (variant: any) => {
-      // 1. Kiểm tra trùng dựa trên SKU giống Nhập kho
+      // 1. Kiá»ƒm tra trĂ¹ng dá»±a trĂªn SKU giá»‘ng Nháº­p kho
       const isExist = fields.some((f: any) => f.productCode === variant.sku);
       if (isExist) {
-        toast.error("Sản phẩm này đã có trong danh sách!");
+        toast.error("Sáº£n pháº©m nĂ y Ä‘Ă£ cĂ³ trong danh sĂ¡ch!");
         return;
       }
 
-      let displayName = variant.productName || "Sản phẩm";
+      let displayName = variant.productName || "Sáº£n pháº©m";
       if (variant.sku) displayName += ` [${variant.sku}]`;
 
-      // 2. Append dữ liệu - Dùng variant.sku làm định danh chính
+      // 2. Append dá»¯ liá»‡u - DĂ¹ng variant.sku lĂ m Ä‘á»‹nh danh chĂ­nh
       append({
         variantId: variant.id,
-        productCode: variant.sku, // <--- SKU là duy nhất
+        productCode: variant.sku, // <--- SKU lĂ  duy nháº¥t
         productName: displayName,
-        unit: variant.unit || "Cái",
+        unit: variant.unit || "CĂ¡i",
         quantity: 1,
         availableQuantity: variant.quantity || 0,
         itemNote: "",
@@ -245,7 +245,7 @@ export default function NewTransferPage() {
 
       setSearchTerm("");
       setShowDropdown(false);
-      toast.success("Đã thêm biến thể thành công!");
+      toast.success("ÄĂ£ thĂªm biáº¿n thá»ƒ thĂ nh cĂ´ng!");
   };
 
   const toggleSelectedProduct = (productId: number | string) => {
@@ -261,7 +261,7 @@ export default function NewTransferPage() {
       selectedProductIds.some((id) => String(id) === String(variant.id)),
     );
     if (selectedVariants.length === 0) {
-      toast.warning("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t sáº£n pháº©m");
+      toast.warning("Vui lòng chọn ít nhất một sản phẩm");
       return;
     }
     selectedVariants.forEach((variant) => handleSelectProduct(variant));
@@ -282,7 +282,7 @@ export default function NewTransferPage() {
         </Button>
         <div className="flex flex-col">
           <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
-            Lập phiếu điều chuyển hàng hóa
+            Láº­p phiáº¿u Ä‘iá»u chuyá»ƒn hĂ ng hĂ³a
           </h1>
           <div className="flex items-center gap-3 mt-1">
             <Controller
@@ -296,7 +296,7 @@ export default function NewTransferPage() {
                       htmlFor="type-wh"
                       className={cn("text-[11px] font-bold uppercase tracking-wider cursor-pointer", field.value === "BETWEEN_WAREHOUSES" ? "text-blue-600" : "text-slate-400")}
                     >
-                      Điều chuyển liên kho
+                      Äiá»u chuyá»ƒn liĂªn kho
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -305,7 +305,7 @@ export default function NewTransferPage() {
                       htmlFor="type-internal"
                       className={cn("text-[11px] font-bold uppercase tracking-wider cursor-pointer", field.value === "INTERNAL" ? "text-blue-600" : "text-slate-400")}
                     >
-                      Nội bộ
+                      Ná»™i bá»™
                     </Label>
                   </div>
                 </RadioGroup>
@@ -345,25 +345,25 @@ export default function NewTransferPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div className="lg:col-span-9 space-y-5">
-          {/* Section 1: Thông tin lệnh */}
+          {/* Section 1: ThĂ´ng tin lá»‡nh */}
           <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
             <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <ArrowRightLeft size={16} /> 1. Thông tin lệnh điều chuyển hàng hóa
+              <ArrowRightLeft size={16} /> 1. ThĂ´ng tin lá»‡nh Ä‘iá»u chuyá»ƒn hĂ ng hĂ³a
             </div>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
 
               <div className="md:col-span-8 space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Lý do điều chuyển / Diễn giải *</Label>
+                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">LĂ½ do Ä‘iá»u chuyá»ƒn / Diá»…n giáº£i *</Label>
                 <Input
                   {...register("description")}
                   className={cn("h-[34px] text-[13px] rounded-none font-bold shadow-none", errors.description ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
                 />
-                {/* HIỂN THỊ LỖI */}
+                {/* HIá»‚N THá» Lá»–I */}
                 {errors.description && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.description.message as string}</p>}
               </div>
 
               <div className="md:col-span-4 space-y-1.5">
-                <Label className="text-[10px] font-black text-rose-600 uppercase tracking-tight">Mã phiếu hệ thống</Label>
+                <Label className="text-[10px] font-black text-rose-600 uppercase tracking-tight">MĂ£ phiáº¿u há»‡ thá»‘ng</Label>
                 <Input
                   {...register("transferCode")}
                   readOnly
@@ -374,37 +374,37 @@ export default function NewTransferPage() {
               {transferType === "BETWEEN_WAREHOUSES" && (
                 <React.Fragment>
                   <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Phương tiện vận chuyển</Label>
+                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">PhÆ°Æ¡ng tiá»‡n váº­n chuyá»ƒn</Label>
                     <div className="relative">
                       <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                       <Input
                         {...register("vehicle")}
                         className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.vehicle ? "border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                        placeholder="Biển số xe..."
+                        placeholder="Biá»ƒn sá»‘ xe..."
                       />
                     </div>
                   </div>
                   <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Tài xế vận chuyển *</Label>
+                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">TĂ i xáº¿ váº­n chuyá»ƒn *</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                       <Input
                         {...register("transporter")}
                         className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.transporter ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                        placeholder="Họ tên tài xế..."
+                        placeholder="Há» tĂªn tĂ i xáº¿..."
                       />
                     </div>
-                    {/* HIỂN THỊ LỖI */}
+                    {/* HIá»‚N THá» Lá»–I */}
                     {errors.transporter && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transporter.message as string}</p>}
                   </div>
                   <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Lệnh điều động số</Label>
+                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Lá»‡nh Ä‘iá»u Ä‘á»™ng sá»‘</Label>
                     <div className="relative">
                       <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                       <Input
                         {...register("dispatchOrder")}
                         className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none font-mono focus:border-blue-500 shadow-none"
-                        placeholder="Số hiệu văn bản..."
+                        placeholder="Sá»‘ hiá»‡u vÄƒn báº£n..."
                       />
                     </div>
                   </div>
@@ -413,11 +413,11 @@ export default function NewTransferPage() {
             </div>
           </div>
 
-          {/* Section 2: Danh mục hàng hóa */}
+          {/* Section 2: Danh má»¥c hĂ ng hĂ³a */}
           <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm">
             <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex flex-wrap items-center justify-between gap-4">
               <h3 className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-2 tracking-wider whitespace-nowrap">
-                <Plus size={16} className="text-blue-600" /> 2. Danh mục vật tư điều chuyển
+                <Plus size={16} className="text-blue-600" /> 2. Danh má»¥c váº­t tÆ° Ä‘iá»u chuyá»ƒn
               </h3>
 
               <div className="flex flex-1 items-center gap-2 min-w-[300px] max-w-[600px]">
@@ -430,7 +430,7 @@ export default function NewTransferPage() {
                     onFocus={openProductDropdown}
                     onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                     disabled={!currentSourceBranch}
-                    placeholder={!currentSourceBranch ? "Vui lòng chọn Kho xuất trước..." : "Tìm theo tên, mã SKU...(F3)"}
+                    placeholder={!currentSourceBranch ? "Vui lĂ²ng chá»n Kho xuáº¥t trÆ°á»›c..." : "TĂ¬m theo tĂªn, mĂ£ SKU...(F3)"}
                     className="pl-10 h-9 text-[13px] border-slate-200 rounded-none focus:border-blue-500 shadow-none bg-white relative z-20 disabled:bg-slate-50"
                   />
 
@@ -439,15 +439,15 @@ export default function NewTransferPage() {
                       {searchResults.length > 0 && (
                         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
                           <span className="text-slate-500">
-                            Da chon <span className="font-bold text-slate-700">{selectedProductIds.length}</span> san pham
+                            Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
                           </span>
                           <Button type="button" size="sm" className="h-7 text-[11px]" onMouseDown={(e) => e.preventDefault()} onClick={handleAddSelectedProducts}>
-                            Them da chon
+                            Thêm đã chọn
                           </Button>
                         </div>
                       )}
                       {isSearching ? (
-                        <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
+                        <div className="p-3 text-center text-[12px] text-slate-400 italic">Äang táº£i dá»¯ liá»‡u...</div>
                       ) : searchResults.length > 0 ? (
                         searchResults.map((variant) => (
                           <div
@@ -469,14 +469,14 @@ export default function NewTransferPage() {
                             </div>
                             <div className="text-right">
                               <p className={cn("text-[11px] font-black", (variant.quantity || 0) > 0 ? "text-emerald-600" : "text-rose-500")}>
-                                Tồn: {variant.quantity || 0}
+                                Tá»“n: {variant.quantity || 0}
                               </p>
-                              <p className="text-[10px] text-slate-400">Cái</p>
+                              <p className="text-[10px] text-slate-400">CĂ¡i</p>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="p-3 text-center text-[12px] text-slate-400">Không có sản phẩm nào</div>
+                        <div className="p-3 text-center text-[12px] text-slate-400">KhĂ´ng cĂ³ sáº£n pháº©m nĂ o</div>
                       )}
                     </div>
                   )}
@@ -489,12 +489,12 @@ export default function NewTransferPage() {
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-[#ccc]">
                     <TableHead className="w-[40px] text-center p-2 text-[10px] font-black uppercase text-slate-500">STT</TableHead>
-                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">Hàng hóa</TableHead>
-                    <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ĐVT</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-emerald-600">Thực nhận</TableHead>
-                    <TableHead className="p-2 text-[10px] font-black uppercase text-slate-500">Ghi chú</TableHead>
+                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">HĂ ng hĂ³a</TableHead>
+                    <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ÄVT</TableHead>
+                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tá»“n kho</TableHead>
+                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyá»ƒn</TableHead>
+                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-emerald-600">Thá»±c nháº­n</TableHead>
+                    <TableHead className="p-2 text-[10px] font-black uppercase text-slate-500">Ghi chĂº</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -518,7 +518,7 @@ export default function NewTransferPage() {
                           {...register(`items.${index}.quantity`)}
                           className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", (errors?.items as any)?.[index]?.quantity ? "border-rose-500" : "border-blue-200")}
                         />
-                        {/* HIỂN THỊ LỖI ITEMS */}
+                        {/* HIá»‚N THá» Lá»–I ITEMS */}
                         {(errors?.items as any)?.[index]?.quantity && (
                           <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].quantity?.message as string}</p>
                         )}
@@ -539,7 +539,7 @@ export default function NewTransferPage() {
                 </TableBody>
               </Table>
             </div>
-            {/* LỖI NẾU CHƯA CÓ ITEMS NÀO HOẶC LỖI TỪ ZOD ITEMS LEVEL */}
+            {/* Lá»–I Náº¾U CHÆ¯A CĂ“ ITEMS NĂ€O HOáº¶C Lá»–I Tá»ª ZOD ITEMS LEVEL */}
             {(errors.items?.message || errors.items?.root?.message) && (
                 <div className="p-3 bg-rose-50 border-t border-rose-100 text-rose-500 text-[11px] font-bold text-center">
                     {errors.items?.message as string || errors.items?.root?.message as string}
@@ -549,7 +549,7 @@ export default function NewTransferPage() {
               <div className="py-16 flex flex-col items-center justify-center bg-white space-y-4">
                 <Search size={48} className="text-slate-200" />
                 <div className="text-center">
-                  <p className="text-[13px] font-black text-slate-600 uppercase tracking-widest">Danh mục điều chuyển đang trống</p>
+                  <p className="text-[13px] font-black text-slate-600 uppercase tracking-widest">Danh má»¥c Ä‘iá»u chuyá»ƒn Ä‘ang trá»‘ng</p>
                 </div>
               </div>
             )}
@@ -562,7 +562,7 @@ export default function NewTransferPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
-                  <Building2 size={12} /> Chi nhánh xuất hàng *
+                  <Building2 size={12} /> Chi nhĂ¡nh xuáº¥t hĂ ng *
                 </Label>
                 <Controller
                   name="sourceBranch"
@@ -574,11 +574,11 @@ export default function NewTransferPage() {
                         field.onChange(val);
                         remove();
                         const selectedBranch = branches.find((b) => b.id.toString() === val);
-                        if (selectedBranch) setValue("sourceAddress", selectedBranch.addressDetail || "Chưa cập nhật địa chỉ");
+                        if (selectedBranch) setValue("sourceAddress", selectedBranch.addressDetail || "ChÆ°a cáº­p nháº­t Ä‘á»‹a chá»‰");
                       }}
                     >
                       <SelectTrigger className={cn("h-8 text-[12px] rounded-none font-bold focus:ring-0", errors.sourceBranch ? "border-rose-500" : "border-[#eee]")}>
-                        <SelectValue placeholder="Chọn kho xuất..." />
+                        <SelectValue placeholder="Chá»n kho xuáº¥t..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
                         {branches.map((b) => (
@@ -588,12 +588,12 @@ export default function NewTransferPage() {
                     </Select>
                   )}
                 />
-                {/* HIỂN THỊ LỖI */}
+                {/* HIá»‚N THá» Lá»–I */}
                 {errors.sourceBranch && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.sourceBranch.message as string}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                  <MapPin size={12} className="text-rose-500" /> Địa chỉ kho xuất
+                  <MapPin size={12} className="text-rose-500" /> Äá»‹a chá»‰ kho xuáº¥t
                 </Label>
                 <Controller
                   name="sourceAddress"
@@ -617,7 +617,7 @@ export default function NewTransferPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
-                  <Building2 size={12} /> Chi nhánh nhận hàng *
+                  <Building2 size={12} /> Chi nhĂ¡nh nháº­n hĂ ng *
                 </Label>
                 <Controller
                   name="destBranch"
@@ -628,11 +628,11 @@ export default function NewTransferPage() {
                       onValueChange={(val) => {
                         field.onChange(val);
                         const selectedBranch = branches.find((b) => b.id.toString() === val);
-                        if (selectedBranch) setValue("destAddress", selectedBranch.addressDetail || "Chưa cập nhật địa chỉ");
+                        if (selectedBranch) setValue("destAddress", selectedBranch.addressDetail || "ChÆ°a cáº­p nháº­t Ä‘á»‹a chá»‰");
                       }}
                     >
                       <SelectTrigger className={cn("h-8 text-[12px] rounded-none font-bold focus:ring-0", errors.destBranch ? "border-rose-500" : "border-[#eee]")}>
-                        <SelectValue placeholder="Chọn kho nhận..." />
+                        <SelectValue placeholder="Chá»n kho nháº­n..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
                         {branches.map((b) => (
@@ -644,13 +644,13 @@ export default function NewTransferPage() {
                     </Select>
                   )}
                 />
-                {/* HIỂN THỊ LỖI */}
+                {/* HIá»‚N THá» Lá»–I */}
                 {errors.destBranch && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.destBranch.message as string}</p>}
                 {errors.destWarehouse && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.destWarehouse.message as string}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                  <MapPin size={12} className="text-emerald-500" /> Địa chỉ kho nhận
+                  <MapPin size={12} className="text-emerald-500" /> Äá»‹a chá»‰ kho nháº­n
                 </Label>
                 <Controller
                   name="destAddress"
@@ -665,23 +665,23 @@ export default function NewTransferPage() {
 
           <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold text-slate-400 uppercase">Ngày điều chuyển (24H) *</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase">NgĂ y Ä‘iá»u chuyá»ƒn (24H) *</Label>
               <Input
                 type="datetime-local"
                 {...register("transferDate")}
                 className={cn("h-[34px] text-[12px] rounded-none", errors.transferDate ? "border-rose-500" : "border-[#ccc]")}
               />
-              {/* HIỂN THỊ LỖI */}
+              {/* HIá»‚N THá» Lá»–I */}
               {errors.transferDate && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transferDate.message as string}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold text-slate-400 uppercase">Tham chiếu chứng từ *</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase">Tham chiáº¿u chá»©ng tá»« *</Label>
               <Input
                 {...register("referenceCode")}
                 className={cn("h-[34px] text-[12px] rounded-none font-mono", errors.referenceCode ? "border-rose-500" : "border-[#ccc]")}
-                placeholder="Mã YCDC, Mã ĐH..."
+                placeholder="MĂ£ YCDC, MĂ£ ÄH..."
               />
-              {/* HIỂN THỊ LỖI */}
+              {/* HIá»‚N THá» Lá»–I */}
               {errors.referenceCode && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.referenceCode.message as string}</p>}
             </div>
           </div>
@@ -691,11 +691,11 @@ export default function NewTransferPage() {
       {/* Footer Actions */}
       <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-[15px] z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
         <Button variant="outline" type="button" className="min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] bg-white rounded-none uppercase hover:bg-slate-50 transition-all" onClick={() => router.back()}>
-          HỦY BỎ
+          Há»¦Y Bá»
         </Button>
         <Button type="submit" disabled={isSubmitting} className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-none shadow-md shadow-blue-100 uppercase transition-all active:scale-[0.98] flex items-center justify-center">
           {isSubmitting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : <Save size={18} className="mr-2" />}
-          {isSubmitting ? "ĐANG LƯU..." : "LƯU & GỬI DUYỆT"}
+          {isSubmitting ? "ÄANG LÆ¯U..." : "LÆ¯U & Gá»¬I DUYá»†T"}
         </Button>
       </div>
     </form>

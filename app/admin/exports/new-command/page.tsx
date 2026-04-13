@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,19 +28,19 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 
 // =================================================================
-// 1. ĐỊNH NGHĨA ZOD SCHEMA ĐỂ BẮT LỖI (VALIDATION)
+// 1. Äá»NH NGHÄ¨A ZOD SCHEMA Äá»‚ Báº®T Lá»–I (VALIDATION)
 // =================================================================
 const ExportItemSchema = z.object({
   productVariantId: z.number(), sku: z.string(), name: z.string(), unit: z.string(), stock: z.number(), price: z.number(),
-  quantity: z.coerce.number().min(1, "Số lượng xuất phải lớn hơn 0"), returnReason: z.string().optional()
+  quantity: z.coerce.number().min(1, "Sá»‘ lÆ°á»£ng xuáº¥t pháº£i lá»›n hÆ¡n 0"), returnReason: z.string().optional()
 });
 
 const ExportCommandSchema = z.object({
-  noteCode: z.string(), exportType: z.enum(["INTERNAL", "RETURN"]), expectedDate: z.string().min(1, "Chọn ngày"),
+  noteCode: z.string(), exportType: z.enum(["INTERNAL", "RETURN"]), expectedDate: z.string().min(1, "Chá»n ngĂ y"),
   referenceCode: z.string(),
-  note: z.string().min(1, "Nhập lý do"), branchId: z.string().min(1, "Chọn kho xuất"), targetId: z.string().min(1, "Chọn đối tượng"),
+  note: z.string().min(1, "Nháº­p lĂ½ do"), branchId: z.string().min(1, "Chá»n kho xuáº¥t"), targetId: z.string().min(1, "Chá»n Ä‘á»‘i tÆ°á»£ng"),
   specificReceiver: z.string(), shippingAddress: z.string(), creatorName: z.string(),
-  items: z.array(ExportItemSchema).min(1, "Chọn ít nhất 1 SP")
+  items: z.array(ExportItemSchema).min(1, "Chá»n Ă­t nháº¥t 1 SP")
 });
 
 type ExportCommandFormValues = z.infer<typeof ExportCommandSchema>;
@@ -118,13 +118,13 @@ function AdminExportFormContent() {
             specificReceiver: data.deliverer || "", shippingAddress: data.shippingAddress || "",
             referenceCode: data.referenceCode || "", creatorName: data.creatorName || "",
             items: (data.details || []).map((item: any) => ({
-              productVariantId: item.productVariantId, sku: item.sku, name: item.productName || "SP", unit: "Cái",
+              productVariantId: item.productVariantId, sku: item.sku, name: item.productName || "SP", unit: "CĂ¡i",
               stock: item.stock || 0, quantity: item.quantityRequested, price: item.price || 0, returnReason: item.note || ""
             }))
           });
           setIsInitialLoading(false);
         }).catch(() => {
-          toast.error("Không thể tải chi tiết phiếu xuất");
+          toast.error("KhĂ´ng thá»ƒ táº£i chi tiáº¿t phiáº¿u xuáº¥t");
           router.push("/admin/exports");
         });
       }
@@ -134,7 +134,7 @@ function AdminExportFormContent() {
     if (!showDropdown) return;
     const fetchProducts = async () => {
       if (!watchBranchId) {
-        toast.warning("Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm");
+        toast.warning("Vui lĂ²ng chá»n Kho xuáº¥t hĂ ng trÆ°á»›c khi tĂ¬m sáº£n pháº©m");
         setShowDropdown(false);
         return;
       }
@@ -143,7 +143,7 @@ function AdminExportFormContent() {
         const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
         setAllProducts(productList);
       } catch (error) {
-        toast.error("Không thể tải danh sách sản phẩm");
+        toast.error("KhĂ´ng thá»ƒ táº£i danh sĂ¡ch sáº£n pháº©m");
       }
     };
     const debounceTimer = setTimeout(fetchProducts, 300);
@@ -159,7 +159,7 @@ function AdminExportFormContent() {
         ]);
         if (resB) setBranches(resB);
         if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : []);
-      } catch (err) { toast.error("Lỗi tải danh mục"); }
+      } catch (err) { toast.error("Lá»—i táº£i danh má»¥c"); }
     };
     loadMasterData();
 
@@ -182,12 +182,12 @@ function AdminExportFormContent() {
     if (watchExportType === "INTERNAL") {
       const branch = branches.find(b => b.id?.toString() === watchTargetId);
       if (branch) {
-        targetInfo = { name: branch.managerNames?.[0] || "Quản lý", phone: branch.phone || "", address: branch.addressDetail || "" };
+        targetInfo = { name: branch.managerNames?.[0] || "Quáº£n lĂ½", phone: branch.phone || "", address: branch.addressDetail || "" };
       }
     } else {
       const supplier = suppliers.find(s => s.id?.toString() === watchTargetId);
       if (supplier) {
-        targetInfo = { name: supplier.contactName || "Người đại diện", phone: supplier.phone || "", address: supplier.addressDetail || "" };
+        targetInfo = { name: supplier.contactName || "NgÆ°á»i Ä‘áº¡i diá»‡n", phone: supplier.phone || "", address: supplier.addressDetail || "" };
       }
     }
   }
@@ -202,17 +202,17 @@ function AdminExportFormContent() {
   const addVariantToTable = (variant: any, productName: string) => {
     if (isReadOnly) return;
     if (watchItems.some(item => item.productVariantId === variant.id)) {
-      toast.warning("Sản phẩm đã có trong danh sách");
+      toast.warning("Sáº£n pháº©m Ä‘Ă£ cĂ³ trong danh sĂ¡ch");
       return;
     }
     append({
       productVariantId: variant.id,
       sku: variant.sku,
       name: `${productName} ${variant.packaging ? `- ${variant.packaging}` : ''}`,
-      unit: variant.unit || "Cái",
+      unit: variant.unit || "CĂ¡i",
       stock: variant.quantity || 0,
       quantity: 1,
-      // 👇 ĐÃ CẬP NHẬT Ở ĐÂY: Lấy importPrice để làm giá trị xuất kho
+      // đŸ‘‡ ÄĂƒ Cáº¬P NHáº¬T á» ÄĂ‚Y: Láº¥y importPrice Ä‘á»ƒ lĂ m giĂ¡ trá»‹ xuáº¥t kho
       price: variant.importPrice || variant.price || 0,
       returnReason: ""
     });
@@ -231,7 +231,7 @@ function AdminExportFormContent() {
       selectedProductIds.some((id) => String(id) === String(variant.id)),
     );
     if (selectedVariants.length === 0) {
-      toast.warning("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t sáº£n pháº©m");
+      toast.warning("Vui lòng chọn ít nhất một sản phẩm");
       return;
     }
     selectedVariants.forEach((variant) =>
@@ -247,7 +247,7 @@ function AdminExportFormContent() {
 
     const invalidItems = data.items.filter(item => item.quantity > item.stock);
     if (invalidItems.length > 0) {
-      toast.error(`Sản phẩm ${invalidItems[0].name} có số lượng xuất vượt quá tồn kho hiện tại.`);
+      toast.error(`Sáº£n pháº©m ${invalidItems[0].name} cĂ³ sá»‘ lÆ°á»£ng xuáº¥t vÆ°á»£t quĂ¡ tá»“n kho hiá»‡n táº¡i.`);
       return;
     }
 
@@ -275,14 +275,14 @@ function AdminExportFormContent() {
     try {
       if (isEditMode) {
         await InventoryExportApiService.updateExportCommand(exportId as string, payload);
-        toast.success("Cập nhật lệnh xuất thành công!");
+        toast.success("Cáº­p nháº­t lá»‡nh xuáº¥t thĂ nh cĂ´ng!");
       } else {
         await InventoryExportApiService.createExportCommand(payload);
-        toast.success("Tạo lệnh xuất kho thành công!");
+        toast.success("Táº¡o lá»‡nh xuáº¥t kho thĂ nh cĂ´ng!");
       }
       router.push("/admin/exports");
     } catch (e: any) {
-      toast.error(e.response?.data?.message || "Lỗi server");
+      toast.error(e.response?.data?.message || "Lá»—i server");
     } finally {
       setIsSubmitting(false);
     }
@@ -293,7 +293,7 @@ function AdminExportFormContent() {
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
           <Loader2 className="animate-spin mx-auto text-blue-600 mb-2" size={32} />
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Đang tải dữ liệu...</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Äang táº£i dá»¯ liá»‡u...</p>
         </div>
       </div>
     );
@@ -305,10 +305,10 @@ function AdminExportFormContent() {
         <Button type="button" variant="ghost" size="icon" onClick={() => router.back()}><ChevronLeft /></Button>
         <div className="flex flex-col">
             <h1 className="text-[18px] font-black uppercase tracking-tight text-[#1f1f1f]">
-               {isEditMode ? (isReadOnly ? "Chi tiết phiếu xuất (Đã xuất)" : "Chi tiết lệnh xuất") : "Tạo lệnh xuất kho"}
+               {isEditMode ? (isReadOnly ? "Chi tiáº¿t phiáº¿u xuáº¥t (ÄĂ£ xuáº¥t)" : "Chi tiáº¿t lá»‡nh xuáº¥t") : "Táº¡o lá»‡nh xuáº¥t kho"}
             </h1>
             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                <Hash size={12}/> Mã: <span className="text-blue-600">{watch("noteCode")}</span>
+                <Hash size={12}/> MĂ£: <span className="text-blue-600">{watch("noteCode")}</span>
             </p>
         </div>
       </div>
@@ -320,8 +320,8 @@ function AdminExportFormContent() {
         <AlertCircle size={18} />
         <p className="text-[12px] font-bold uppercase tracking-wide">
           {isAdmin
-            ? "Chế độ Quản trị: Hệ thống sẽ tự động chốt đơn và cập nhật tồn kho ngay lập tức."
-            : "Chế độ Nhân viên: Đơn sau khi lưu sẽ ở trạng thái Chờ Duyệt bởi Quản trị viên."}
+            ? "Cháº¿ Ä‘á»™ Quáº£n trá»‹: Há»‡ thá»‘ng sáº½ tá»± Ä‘á»™ng chá»‘t Ä‘Æ¡n vĂ  cáº­p nháº­t tá»“n kho ngay láº­p tá»©c."
+            : "Cháº¿ Ä‘á»™ NhĂ¢n viĂªn: ÄÆ¡n sau khi lÆ°u sáº½ á»Ÿ tráº¡ng thĂ¡i Chá» Duyá»‡t bá»Ÿi Quáº£n trá»‹ viĂªn."}
         </p>
       </div>
 
@@ -329,12 +329,12 @@ function AdminExportFormContent() {
         <div className="lg:col-span-8 space-y-5">
           <div className="bg-white border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <FileText size={16} /> 1. Thông tin lệnh xuất kho
+              <FileText size={16} /> 1. ThĂ´ng tin lá»‡nh xuáº¥t kho
             </div>
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-5">
               <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Loại lệnh xuất (*)</Label>
+                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Loáº¡i lá»‡nh xuáº¥t (*)</Label>
                 <Controller
                   name="exportType"
                   control={control}
@@ -342,8 +342,8 @@ function AdminExportFormContent() {
                     <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode}>
                       <SelectTrigger className="rounded-none h-10 w-full shadow-none border-slate-200"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-none">
-                        <SelectItem value="INTERNAL">Xuất dùng nội bộ</SelectItem>
-                        {isMainBranch && <SelectItem value="RETURN">Xuất trả NCC</SelectItem>}
+                        <SelectItem value="INTERNAL">Xuáº¥t dĂ¹ng ná»™i bá»™</SelectItem>
+                        {isMainBranch && <SelectItem value="RETURN">Xuáº¥t tráº£ NCC</SelectItem>}
                       </SelectContent>
                     </Select>
                   )}
@@ -351,13 +351,13 @@ function AdminExportFormContent() {
               </div>
 
               <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase flex items-center gap-1 mb-1 text-slate-400 tracking-wider"><Hash size={12}/> Mã phiếu (Tự động)</Label>
+                <Label className="text-[10px] font-bold uppercase flex items-center gap-1 mb-1 text-slate-400 tracking-wider"><Hash size={12}/> MĂ£ phiáº¿u (Tá»± Ä‘á»™ng)</Label>
                 <Input {...register("noteCode")} readOnly className="rounded-none bg-slate-50 text-slate-500 font-mono text-[13px] h-10 w-full border-slate-200" />
               </div>
 
 
               <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1 mb-1 tracking-wider">Ngày hẹn xuất</Label>
+                <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1 mb-1 tracking-wider">NgĂ y háº¹n xuáº¥t</Label>
                 <div className="relative w-full">
                   <Input readOnly={isReadOnly} type="date" {...register("expectedDate")} className={`rounded-none border-slate-200 text-[13px] h-10 w-full pr-10 shadow-none block ${errors.expectedDate ? "border-rose-500" : ""} ${isReadOnly ? 'bg-slate-50' : ''}`} />
                   <CalendarIcon size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -366,8 +366,8 @@ function AdminExportFormContent() {
               </div>
 
               <div className="col-span-2 space-y-1.5 flex flex-col mt-2">
-                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Lý do / Diễn giải (*)</Label>
-                <Textarea readOnly={isReadOnly} {...register("note")} className={`rounded-none min-h-[80px] text-[13px] w-full shadow-none ${errors.note ? "border-rose-500" : "border-slate-200"} ${isReadOnly ? 'bg-slate-50' : ''}`} placeholder="Nhập lý do xuất kho..." />
+                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">LĂ½ do / Diá»…n giáº£i (*)</Label>
+                <Textarea readOnly={isReadOnly} {...register("note")} className={`rounded-none min-h-[80px] text-[13px] w-full shadow-none ${errors.note ? "border-rose-500" : "border-slate-200"} ${isReadOnly ? 'bg-slate-50' : ''}`} placeholder="Nháº­p lĂ½ do xuáº¥t kho..." />
                 {errors.note && <p className="text-rose-500 text-[10px] mt-1">{errors.note.message}</p>}
               </div>
             </div>
@@ -375,12 +375,12 @@ function AdminExportFormContent() {
 
           <div className="bg-white border border-slate-200 shadow-sm overflow-visible">
              <div className="px-5 py-3 bg-[#f8f9fa] border-b flex flex-wrap items-center gap-4">
-                <h3 className="text-[11px] font-black uppercase flex items-center gap-2 whitespace-nowrap"><ShoppingBag size={16} className="text-blue-600"/> 2. Danh mục sản phẩm</h3>
+                <h3 className="text-[11px] font-black uppercase flex items-center gap-2 whitespace-nowrap"><ShoppingBag size={16} className="text-blue-600"/> 2. Danh má»¥c sáº£n pháº©m</h3>
 
                 <div className="relative flex-1 min-w-[300px]" ref={dropdownRef}>
                   <div className="relative">
                     {!isReadOnly && <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />}
-                    <Input readOnly={isReadOnly} placeholder={isReadOnly ? "Phiếu đã xuất" : "Tìm theo tên, SKU, danh mục..."} className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly ? 'bg-slate-50' : ''}`} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} />
+                    <Input readOnly={isReadOnly} placeholder={isReadOnly ? "Phiáº¿u Ä‘Ă£ xuáº¥t" : "TĂ¬m theo tĂªn, SKU, danh má»¥c..."} className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly ? 'bg-slate-50' : ''}`} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} />
                   </div>
 
                   {showDropdown && !isReadOnly && (
@@ -388,7 +388,7 @@ function AdminExportFormContent() {
                       {allProducts.length > 0 && (
                         <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
                           <span className="text-slate-500">
-                            ÄĂ£ chá»n <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sáº£n pháº©m
+                            Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
                           </span>
                           <Button
                             type="button"
@@ -396,7 +396,7 @@ function AdminExportFormContent() {
                             className="h-7 text-[11px]"
                             onClick={addSelectedVariantsToTable}
                           >
-                            ThĂªm Ä‘Ă£ chá»n
+                            Thêm đã chọn
                           </Button>
                         </div>
                       )}
@@ -434,22 +434,22 @@ function AdminExportFormContent() {
                               </div>
 
                               <div className="text-right">
-                                {/* 👇 ĐÃ SỬA CẢ HIỂN THỊ TẠI DROPDOWN THÀNH GIÁ NHẬP */}
-                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} ₫</p>
+                                {/* đŸ‘‡ ÄĂƒ Sá»¬A Cáº¢ HIá»‚N THá» Táº I DROPDOWN THĂ€NH GIĂ NHáº¬P */}
+                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} â‚«</p>
                                 <p className={cn(
                                     "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
                                     variant.quantity > 0
                                       ? "text-blue-600 bg-blue-50 border-blue-100"
                                       : "text-rose-600 bg-rose-50 border-rose-100"
                                 )}>
-                                   Tồn kho xuất: {variant.quantity || 0}
+                                   Tá»“n kho xuáº¥t: {variant.quantity || 0}
                                 </p>
                               </div>
                             </div>
                           ))
                         ) : (
                           <div className="p-4 text-center text-slate-500 text-[12px]">
-                             {searchTerm ? "Không tìm thấy sản phẩm nào." : "Hãy gõ từ khóa để tìm kiếm..."}
+                             {searchTerm ? "KhĂ´ng tĂ¬m tháº¥y sáº£n pháº©m nĂ o." : "HĂ£y gĂµ tá»« khĂ³a Ä‘á»ƒ tĂ¬m kiáº¿m..."}
                           </div>
                         )}
                       </div>
@@ -463,19 +463,19 @@ function AdminExportFormContent() {
                   <TableHeader className="bg-slate-50">
                      <TableRow>
                         <TableHead className="w-[40px] text-[10px] font-black uppercase text-slate-500 text-center tracking-wider">#</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Mã SKU</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tên sản phẩm</TableHead>
-                        <TableHead className="text-right text-[10px] font-black uppercase text-blue-600 w-[110px] tracking-wider">SL Xuất</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">MĂ£ SKU</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">TĂªn sáº£n pháº©m</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-blue-600 w-[110px] tracking-wider">SL Xuáº¥t</TableHead>
                         {watchExportType === "RETURN" && (
-                          <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">Lý do trả hàng</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">LĂ½ do tráº£ hĂ ng</TableHead>
                         )}
-                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Giá Vốn</TableHead>
+                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">GiĂ¡ Vá»‘n</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                      </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fields.length === 0 ? (
-                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">ChÆ°a cĂ³ sáº£n pháº©m nĂ o Ä‘Æ°á»£c chá»n</TableCell></TableRow>
                     ) : (
                       fields.map((field, index) => {
                         const hasQtyError = errors.items?.[index]?.quantity;
@@ -490,7 +490,7 @@ function AdminExportFormContent() {
                               <TableCell className="font-bold text-[13px] text-slate-700">
                                 {currentItem?.name}
                                 <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
-                                  Tồn kho xuất: {currentItem?.stock || 0}
+                                  Tá»“n kho xuáº¥t: {currentItem?.stock || 0}
                                 </div>
                               </TableCell>
 
@@ -505,17 +505,17 @@ function AdminExportFormContent() {
                                     isReadOnly ? "bg-slate-50 border-transparent" : ""
                                   )}
                                 />
-                                {/* 👇 CẢNH BÁO VƯỢT TỒN KHO */}
+                                {/* đŸ‘‡ Cáº¢NH BĂO VÆ¯á»¢T Tá»’N KHO */}
                                 {!isReadOnly && currentItem?.quantity > currentItem?.stock && (
                                    <div className="text-[10px] text-rose-500 font-bold mt-1 text-right animate-pulse">
-                                     Vượt tồn kho!
+                                     VÆ°á»£t tá»“n kho!
                                    </div>
                                 )}
                               </TableCell>
 
                               {watchExportType === "RETURN" && (
                                 <TableCell className="p-1">
-                                  <Input readOnly={isReadOnly} placeholder="Nhập lý do..." {...register(`items.${index}.returnReason`)} className={`h-8 text-[12px] rounded-none focus:bg-white ${hasReasonError ? "border-rose-500" : "border-rose-100"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
+                                  <Input readOnly={isReadOnly} placeholder="Nháº­p lĂ½ do..." {...register(`items.${index}.returnReason`)} className={`h-8 text-[12px] rounded-none focus:bg-white ${hasReasonError ? "border-rose-500" : "border-rose-100"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
                                 </TableCell>
                               )}
 
@@ -527,8 +527,8 @@ function AdminExportFormContent() {
                             {(hasQtyError || hasReasonError) && (
                               <TableRow className="bg-rose-50">
                                 <TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="p-1 px-4 text-[11px] text-rose-500 font-bold">
-                                  {hasQtyError && <span className="mr-4">• Lỗi SL: {hasQtyError.message}</span>}
-                                  {hasReasonError && <span>• Lỗi Lý do: {hasReasonError.message}</span>}
+                                  {hasQtyError && <span className="mr-4">â€¢ Lá»—i SL: {hasQtyError.message}</span>}
+                                  {hasReasonError && <span>â€¢ Lá»—i LĂ½ do: {hasReasonError.message}</span>}
                                 </TableCell>
                               </TableRow>
                             )}
@@ -546,9 +546,9 @@ function AdminExportFormContent() {
         <div className="lg:col-span-4 space-y-5">
 
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
+             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuáº¥t hĂ ng</div>
              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Chọn chi nhánh xuất hàng (*)</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Chá»n chi nhĂ¡nh xuáº¥t hĂ ng (*)</Label>
                 <Controller
                   name="branchId"
                   control={control}
@@ -558,14 +558,14 @@ function AdminExportFormContent() {
                         const b = branches.find(x => x.id.toString() === val);
                         if (b && b.branchType !== 'WAREHOUSE' && watchExportType === 'RETURN') {
                             setValue('exportType', 'INTERNAL');
-                            toast.warning("Kho lẻ chỉ được phép xuất nội bộ. Đã tự động chuyển loại phiếu.");
+                            toast.warning("Kho láº» chá»‰ Ä‘Æ°á»£c phĂ©p xuáº¥t ná»™i bá»™. ÄĂ£ tá»± Ä‘á»™ng chuyá»ƒn loáº¡i phiáº¿u.");
                         }
                     }} value={field.value} disabled={isReadOnly || isEditMode}>
-                       <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn kho xuất --" /></SelectTrigger>
+                       <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chá»n kho xuáº¥t --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
                          {branches.map(b => (
                            <SelectItem key={b.id} value={b.id.toString()}>
-                             {b.name.toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">{b.branchType === "WAREHOUSE" ? "(Kho tổng)" : "(Kho lẻ)"}</span>
+                             {b.name.toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">{b.branchType === "WAREHOUSE" ? "(Kho tá»•ng)" : "(Kho láº»)"}</span>
                            </SelectItem>
                          ))}
                        </SelectContent>
@@ -575,21 +575,21 @@ function AdminExportFormContent() {
                 {errors.branchId && <p className="text-rose-500 text-[10px] mt-1">{errors.branchId.message}</p>}
              </div>
              <div className="space-y-1.5 pt-1">
-                <Label className="text-[10px] font-bold uppercase text-rose-500 flex items-center gap-1 mb-1"><MapPin size={12} /> Địa chỉ kho xuất</Label>
-                <Textarea readOnly value={branches.find(b => b.id.toString() === watchBranchId)?.addressDetail || ""} className="min-h-[40px] text-[12px] border-slate-200 rounded-none bg-slate-50 resize-none text-slate-600" placeholder="Địa chỉ tự động hiển thị..."/>
+                <Label className="text-[10px] font-bold uppercase text-rose-500 flex items-center gap-1 mb-1"><MapPin size={12} /> Äá»‹a chá»‰ kho xuáº¥t</Label>
+                <Textarea readOnly value={branches.find(b => b.id.toString() === watchBranchId)?.addressDetail || ""} className="min-h-[40px] text-[12px] border-slate-200 rounded-none bg-slate-50 resize-none text-slate-600" placeholder="Äá»‹a chá»‰ tá»± Ä‘á»™ng hiá»ƒn thá»‹..."/>
              </div>
           </div>
 
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><UserCheck size={16}/> Đối tượng nhận</div>
+             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><UserCheck size={16}/> Äá»‘i tÆ°á»£ng nháº­n</div>
              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Chọn đối tượng nhận (*)</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Chá»n Ä‘á»‘i tÆ°á»£ng nháº­n (*)</Label>
                 <Controller
                   name="targetId"
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode}>
-                       <SelectTrigger className={`rounded-none h-10 font-bold ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn đối tượng --" /></SelectTrigger>
+                       <SelectTrigger className={`rounded-none h-10 font-bold ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chá»n Ä‘á»‘i tÆ°á»£ng --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
                           {watchExportType === "INTERNAL"
                             ? branches.filter(b => b.id?.toString() !== watchBranchId).map(b => <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>)
@@ -602,13 +602,13 @@ function AdminExportFormContent() {
                 {errors.targetId && <p className="text-rose-500 text-[10px] mt-1">{errors.targetId.message}</p>}
              </div>
              <div className="space-y-1.5 pt-2 flex flex-col">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Tên người nhận (*)</Label>
-                 <Input readOnly={isReadOnly} {...register("specificReceiver")} className={`rounded-none text-[13px] h-10 ${errors.specificReceiver ? "border-rose-500" : "border-slate-200"}`} placeholder="Tên người nhận..." />
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">TĂªn ngÆ°á»i nháº­n (*)</Label>
+                 <Input readOnly={isReadOnly} {...register("specificReceiver")} className={`rounded-none text-[13px] h-10 ${errors.specificReceiver ? "border-rose-500" : "border-slate-200"}`} placeholder="TĂªn ngÆ°á»i nháº­n..." />
                  {errors.specificReceiver && <p className="text-rose-500 text-[10px] mt-1">{errors.specificReceiver.message}</p>}
              </div>
              <div className="space-y-1.5 flex flex-col">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Địa chỉ giao hàng (*)</Label>
-                 <Textarea readOnly={isReadOnly} {...register("shippingAddress")} className={`rounded-none min-h-[60px] text-[13px] ${errors.shippingAddress ? "border-rose-500" : "border-slate-200"}`} placeholder="Địa chỉ giao hàng thực tế..." />
+                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Äá»‹a chá»‰ giao hĂ ng (*)</Label>
+                 <Textarea readOnly={isReadOnly} {...register("shippingAddress")} className={`rounded-none min-h-[60px] text-[13px] ${errors.shippingAddress ? "border-rose-500" : "border-slate-200"}`} placeholder="Äá»‹a chá»‰ giao hĂ ng thá»±c táº¿..." />
                  {errors.shippingAddress && <p className="text-rose-500 text-[10px] mt-1">{errors.shippingAddress.message}</p>}
              </div>
           </div>
@@ -617,16 +617,16 @@ function AdminExportFormContent() {
 
       <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t p-[12px_30px] flex justify-between items-center z-[999] shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
          <div className="text-[12px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-4">
-            <span>Tổng số lượng: <span className="text-slate-800 font-black text-[14px]">
+            <span>Tá»•ng sá»‘ lÆ°á»£ng: <span className="text-slate-800 font-black text-[14px]">
                {watchItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)}
             </span></span>
             <div className="h-4 w-[1px] bg-slate-300"></div>
-            <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">
-               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} ₫
+            <span>Tá»•ng giĂ¡ trá»‹: <span className="text-blue-600 font-black text-[15px]">
+               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} â‚«
             </span></span>
          </div>
          <div className="flex gap-3">
-           <Button type="button" variant="outline" className="rounded-none uppercase px-8 border-slate-300 bg-white" onClick={() => router.back()}>{isReadOnly ? "Quay lại" : "Hủy bỏ"}</Button>
+           <Button type="button" variant="outline" className="rounded-none uppercase px-8 border-slate-300 bg-white" onClick={() => router.back()}>{isReadOnly ? "Quay láº¡i" : "Há»§y bá»"}</Button>
            {!isReadOnly && (
              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white rounded-none font-black px-10">
                {isSubmitting ? (
@@ -634,7 +634,7 @@ function AdminExportFormContent() {
                ) : (
                  <>
                    <Save size={18} className="mr-2" />
-                   {isAdmin ? "LƯU & DUYỆT NGAY" : "LƯU & GỬI DUYỆT"}
+                   {isAdmin ? "LÆ¯U & DUYá»†T NGAY" : "LÆ¯U & Gá»¬I DUYá»†T"}
                  </>
                )}
              </Button>
