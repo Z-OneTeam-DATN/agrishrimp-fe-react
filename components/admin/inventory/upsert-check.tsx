@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -140,6 +141,7 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
 
   const [formData, setFormData] = useState({
     type: initialData?.type || "PERIODIC",
@@ -272,8 +274,28 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
       },
       ...prev,
     ]);
+  };
+
+  const toggleSelectedProduct = (productId: number | string) => {
+    setSelectedProductIds((prev) =>
+      prev.some((id) => String(id) === String(productId))
+        ? prev.filter((id) => String(id) !== String(productId))
+        : [...prev, productId],
+    );
+  };
+
+  const handleAddSelectedProducts = () => {
+    const selectedProducts = searchResults.filter((product) =>
+      selectedProductIds.some((id) => String(id) === String(product.id)),
+    );
+    if (selectedProducts.length === 0) {
+      toast.warning("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t sáº£n pháº©m");
+      return;
+    }
+    selectedProducts.forEach((product) => addItem(product));
     setSearchTerm("");
     setSearchResults([]);
+    setSelectedProductIds([]);
   };
 
   const updateItem = (index: number, field: keyof CheckItem, value: string) => {
@@ -722,6 +744,14 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
 
                   {searchResults.length > 0 && (
                     <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+                      <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                        <span className="text-slate-500">
+                          Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
+                        </span>
+                        <Button type="button" size="sm" className="h-7 text-[11px]" onClick={handleAddSelectedProducts}>
+                          Thêm đã chọn
+                        </Button>
+                      </div>
                       <div className="max-h-[320px] overflow-y-auto">
                         {searchResults.map((product) => (
                           <button
@@ -730,11 +760,19 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
                             className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50"
                             onClick={() => addItem(product)}
                           >
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">{product.productName || product.name}</p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                SKU: {product.sku} | tồn hiện tại: {formatNumber(toNumber(product.quantity))}
-                              </p>
+                            <div className="flex items-center gap-2">
+                              <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                                <Checkbox
+                                  checked={selectedProductIds.some((id) => String(id) === String(product.id))}
+                                  onCheckedChange={() => toggleSelectedProduct(product.id)}
+                                />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{product.productName || product.name}</p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  SKU: {product.sku} | tồn hiện tại: {formatNumber(toNumber(product.quantity))}
+                                </p>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               {toNumber(product.quantity) <= toNumber(product.minThreshold ?? product.minStock ?? 10, 10) && (
@@ -756,18 +794,18 @@ export default function InventoryUpsert({ mode, initialData, code }: InventoryUp
             <Table>
               <TableHeader className="bg-slate-50/80">
                 <TableRow className="border-slate-100">
-                  <TableHead className="w-12 text-center text-[12px] font-medium text-slate-500">STT</TableHead>
-                  <TableHead className="w-[130px] text-[12px] font-medium text-slate-500">SKU</TableHead>
-                  <TableHead className="min-w-[220px] text-[12px] font-medium text-slate-500">Tên sản phẩm</TableHead>
-                  <TableHead className="text-center text-[12px] font-medium text-slate-500">ĐVT</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Tồn hệ thống</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Đếm thực tế</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Hư hại</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Khả dụng</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Định mức</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500">Cần nhập thêm</TableHead>
-                  <TableHead className="text-center text-[12px] font-medium text-slate-500">Kết luận</TableHead>
-                  <TableHead className="min-w-[200px] text-[12px] font-medium text-slate-500">Ghi chú</TableHead>
+                  <TableHead className="w-12 text-center text-[12px] font-medium text-slate-500 whitespace-nowrap">STT</TableHead>
+                  <TableHead className="w-[130px] text-[12px] font-medium text-slate-500 whitespace-nowrap">SKU</TableHead>
+                  <TableHead className="min-w-[220px] text-[12px] font-medium text-slate-500 whitespace-nowrap">Tên sản phẩm</TableHead>
+                  <TableHead className="text-center text-[12px] font-medium text-slate-500 whitespace-nowrap">ĐVT</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Tồn hệ thống</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Đếm thực tế</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Hư hại</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Khả dụng</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Định mức</TableHead>
+                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Cần nhập thêm</TableHead>
+                  <TableHead className="text-center text-[12px] font-medium text-slate-500 whitespace-nowrap">Kết luận</TableHead>
+                  <TableHead className="min-w-[200px] text-[12px] font-medium text-slate-500 whitespace-nowrap">Ghi chú</TableHead>
                   {mode !== "view" && <TableHead className="w-16" />}
                 </TableRow>
               </TableHeader>

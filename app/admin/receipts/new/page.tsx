@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -114,6 +115,7 @@ function AdminReceiptFormContent() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [searchProductText, setSearchProductText] = useState("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -304,8 +306,28 @@ function AdminReceiptFormContent() {
         imageUrl: v.imageUrl || "",
         note: "",
       } as any);
+  };
+
+  const toggleSelectedProduct = (productId: number | string) => {
+    setSelectedProductIds((prev) =>
+      prev.some((id) => String(id) === String(productId))
+        ? prev.filter((id) => String(id) !== String(productId))
+        : [...prev, productId],
+    );
+  };
+
+  const handleAddSelectedProducts = () => {
+    const selectedProducts = products.filter((product) =>
+      selectedProductIds.some((id) => String(id) === String(product.id)),
+    );
+    if (selectedProducts.length === 0) {
+      toast.warning("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t sáº£n pháº©m");
+      return;
+    }
+    selectedProducts.forEach((product) => handleSelectProduct(product));
     setIsProductDropdownOpen(false);
     setSearchProductText("");
+    setSelectedProductIds([]);
   };
 
   useEffect(() => {
@@ -786,6 +808,21 @@ function AdminReceiptFormContent() {
                   />
                   {isProductDropdownOpen && (
                     <div className="absolute top-full left-0 w-full mt-1 bg-white border shadow-2xl z-50 max-h-60 overflow-auto">
+                      {products.length > 0 && (
+                        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                          <span className="text-slate-500">
+                            ÄĂ£ chá»n <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sáº£n pháº©m
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-[11px]"
+                            onClick={handleAddSelectedProducts}
+                          >
+                            ThĂªm Ä‘Ă£ chá»n
+                          </Button>
+                        </div>
+                      )}
                       {isLoadingProducts ? (
                         <div className="p-10 text-center">
                           <Loader2
@@ -800,11 +837,22 @@ function AdminReceiptFormContent() {
                             className="p-2 border-b hover:bg-slate-50 cursor-pointer flex justify-between items-center text-xs"
                             onClick={() => handleSelectProduct(v)}
                           >
-                            <div className="flex flex-col">
-                              <span className="font-bold">{v.productName}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">
+                            <div className="flex items-center gap-2">
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center"
+                              >
+                                <Checkbox
+                                  checked={selectedProductIds.some((id) => String(id) === String(v.id))}
+                                  onCheckedChange={() => toggleSelectedProduct(v.id)}
+                                />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-bold">{v.productName}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">
                                 #{v.sku}
-                              </span>
+                                </span>
+                              </div>
                             </div>
                             <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 border">
                               TỒN: {v.quantity || 0}

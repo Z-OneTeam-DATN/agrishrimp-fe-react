@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -66,6 +67,7 @@ function AdminExportFormContent() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const generateNoteCode = (type: string) => {
@@ -214,7 +216,30 @@ function AdminExportFormContent() {
       price: variant.importPrice || variant.price || 0,
       returnReason: ""
     });
+  };
+
+  const toggleSelectedProduct = (productId: number | string) => {
+    setSelectedProductIds((prev) =>
+      prev.some((id) => String(id) === String(productId))
+        ? prev.filter((id) => String(id) !== String(productId))
+        : [...prev, productId],
+    );
+  };
+
+  const addSelectedVariantsToTable = () => {
+    const selectedVariants = allProducts.filter((variant) =>
+      selectedProductIds.some((id) => String(id) === String(variant.id)),
+    );
+    if (selectedVariants.length === 0) {
+      toast.warning("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t sáº£n pháº©m");
+      return;
+    }
+    selectedVariants.forEach((variant) =>
+      addVariantToTable(variant, variant.productName || variant.unit),
+    );
     setShowDropdown(false);
+    setSearchTerm("");
+    setSelectedProductIds([]);
   };
 
   const onSubmit = async (data: ExportCommandFormValues) => {
@@ -360,6 +385,21 @@ function AdminExportFormContent() {
 
                   {showDropdown && !isReadOnly && (
                     <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm overflow-hidden flex flex-col z-[9999]">
+                      {allProducts.length > 0 && (
+                        <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                          <span className="text-slate-500">
+                            ÄĂ£ chá»n <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sáº£n pháº©m
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-[11px]"
+                            onClick={addSelectedVariantsToTable}
+                          >
+                            ThĂªm Ä‘Ă£ chá»n
+                          </Button>
+                        </div>
+                      )}
                       <div className="max-h-[400px] overflow-y-auto">
                         {allProducts.length > 0 ? (
                           allProducts.map((variant) => (
@@ -369,6 +409,15 @@ function AdminExportFormContent() {
                               onClick={() => addVariantToTable(variant, variant.productName || variant.unit)}
                             >
                               <div className="flex items-center gap-3">
+                                 <div
+                                   onClick={(e) => e.stopPropagation()}
+                                   className="flex items-center"
+                                 >
+                                   <Checkbox
+                                     checked={selectedProductIds.some((id) => String(id) === String(variant.id))}
+                                     onCheckedChange={() => toggleSelectedProduct(variant.id)}
+                                   />
+                                 </div>
                                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
                                     {variant.imageUrl ? (
                                       <img src={variant.imageUrl} alt={variant.sku} className="w-full h-full object-cover" />
