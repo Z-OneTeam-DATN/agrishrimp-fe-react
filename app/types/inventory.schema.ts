@@ -232,17 +232,16 @@ export type Export = z.infer<typeof ExportSchema>;
 
 // Stock Transfer Schema (Điều chuyển)
 export const TransferItemSchema = z.object({
+  variantId: z.number().optional(),
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string().min(1, "Tên hàng không được để trống"),
   unit: z.string().min(1, "ĐVT không được để trống"),
-  plannedQuantity: z.coerce
+  quantity: z.coerce
     .number({ invalid_type_error: "Số lượng phải là số" })
     .min(0.001, "Số lượng phải lớn hơn 0"),
-  availableQuantity: z.number().optional(), // Tồn kho khả dụng của lô
-  quantityReal: z.coerce.number().min(0).default(0), // Thực nhận tại chi nhánh
-  quantityAccepted: z.coerce.number().min(0).default(0), // Đạt chuẩn
-  quantityRejected: z.coerce.number().min(0).default(0), // Lỗi do vận chuyển
-  lotNumber: z.string().optional(),
+  availableQuantity: z.number().optional(), // Tồn kho khả dụng
+  receivedQuantity: z.coerce.number().min(0).default(0), // Thực nhận (chỉ đọc ở form tạo)
+  itemNote: z.string().optional(),
   imageUrl: z.string().optional(),
 });
 
@@ -250,33 +249,50 @@ export type TransferItem = z.infer<typeof TransferItemSchema>;
 
 export const TransferSchema = z.object({
     transferCode: z.string().optional(),
-    sourceBranchId: z.string().min(1, "Vui lòng chọn chi nhánh gửi"),
-    destBranchId: z.string().min(1, "Vui lòng chọn chi nhánh nhận"),
+    // Form lưu branch ID vào các field này (dùng toString() của branch.id)
+    sourceBranch: z.string().min(1, "Vui lòng chọn chi nhánh xuất hàng"),
+    destBranch: z.string().min(1, "Vui lòng chọn chi nhánh nhận hàng"),
+    sourceWarehouse: z.string().optional(),
+    destWarehouse: z.string().optional(),
+    sourceAddress: z.string().optional(),
+    destAddress: z.string().optional(),
     transferDate: z.string().min(1, "Vui lòng chọn ngày điều chuyển"),
-    status: z.enum(["PENDING", "APPROVED", "SHIPPING", "COMPLETED", "CANCELLED", "REJECTED"]).default("PENDING"),
-    priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
-    transferType: z.enum(["WAREHOUSE_TRANSFER", "BRANCH_TRANSFER", "OTHER"]).default("WAREHOUSE_TRANSFER"),
-    referenceCode: z.string().min(1, "Vui lòng nhập mã tham chiếu"),
+    status: z.enum(["DRAFT", "PENDING", "APPROVED", "SHIPPING", "TRANSIT", "COMPLETED", "CANCELLED", "REJECTED"]).default("DRAFT"),
+    importStatus: z.string().optional(),
+    transferType: z.enum(["BETWEEN_WAREHOUSES", "INTERNAL"]).default("BETWEEN_WAREHOUSES"),
+    referenceCode: z.string().optional().default(""),
     description: z.string().min(1, "Vui lòng nhập lý do điều chuyển"),
-    items: z.array(TransferItemSchema).min(1, "Cần ít nhất một mặt hàng"),
+    dispatchOrder: z.string().optional(),
+    vehicle: z.string().optional(),
     note: z.string().optional(),
-    transporter: z.string().min(1, "Vui lòng nhập tên tài xế"),
+    // transporter: bắt buộc khi BETWEEN_WAREHOUSES, tuỳ chọn khi INTERNAL
+    transporter: z.string().optional(),
+    items: z.array(TransferItemSchema).min(1, "Cần ít nhất một mặt hàng"),
   })
-  .refine(
-    (data) => data.sourceBranchId !== data.destBranchId,
-    {
-      message: "Chi nhánh nhận phải khác chi nhánh gửi",
-      path: ["destBranchId"],
-    }
-  )
   .superRefine((data, ctx) => {
-    // Validate số lượng chuyển không vượt quá tồn kho khả dụng của lô
+    // Chi nhánh xuất và nhận không được trùng
+    if (data.sourceBranch && data.destBranch && data.sourceBranch === data.destBranch) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Chi nhánh nhận phải khác chi nhánh xuất",
+        path: ["destBranch"],
+      });
+    }
+    // Bắt buộc nhập tài xế khi điều chuyển liên kho
+    if (data.transferType === "BETWEEN_WAREHOUSES" && (!data.transporter || data.transporter.trim() === "")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng nhập tên tài xế",
+        path: ["transporter"],
+      });
+    }
+    // Validate số lượng chuyển không vượt quá tồn kho khả dụng
     data.items.forEach((item, index) => {
-      if (item.availableQuantity !== undefined && item.plannedQuantity > item.availableQuantity) {
+      if (item.availableQuantity !== undefined && item.quantity > item.availableQuantity) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Vượt quá tồn kho (Tối đa: ${item.availableQuantity})`,
-          path: ["items", index, "plannedQuantity"],
+          path: ["items", index, "quantity"],
         });
       }
     });

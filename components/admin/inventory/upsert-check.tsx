@@ -93,7 +93,7 @@ const mapItem = (item: any): CheckItem => ({
   productVariantId: item.productVariantId ?? item.id,
   name: item.name || item.productName || item.variantName || "N/A",
   sku: item.sku || "N/A",
-  unit: item.unit || "Cai",
+  unit: item.unit || "Cái",
   systemQuantity: toNumber(item.systemQuantity ?? item.quantity ?? 0),
   quantityReal: toNumber(item.quantityReal ?? item.quantity ?? 0),
   quantityRejected: toNumber(item.quantityRejected ?? 0),
@@ -201,7 +201,7 @@ export default function InventoryUpsert({
         setFormData((prev) => ({ ...prev, branchId: String(list[0].id) }));
       }
     } catch {
-      toast.error("Khong the tai danh sach chi nhanh");
+      toast.error("Không thể tải danh sách chi nhánh");
     }
   };
 
@@ -239,7 +239,7 @@ export default function InventoryUpsert({
       setStatus(res.status || "PENDING");
     } catch (error) {
       console.error("Error fetching detail:", error);
-      toast.error("Khong the tai chi tiet phieu");
+      toast.error("Không thể tải chi tiết phiếu");
     } finally {
       setLoading(false);
     }
@@ -251,7 +251,7 @@ export default function InventoryUpsert({
       return;
     }
     if (!formData.branchId) {
-      toast.warning("Vui long chon kho truoc khi tim san pham");
+      toast.warning("Vui lòng chọn kho trước khi tìm sản phẩm");
       return;
     }
     setIsSearching(true);
@@ -261,7 +261,7 @@ export default function InventoryUpsert({
       setSearchResults(productList);
     } catch (error) {
       console.error(error);
-      toast.error("Khong the tim kiem san pham");
+      toast.error("Không thể tìm kiếm sản phẩm");
     } finally {
       setIsSearching(false);
     }
@@ -283,7 +283,7 @@ export default function InventoryUpsert({
       (item) => String(item.productVariantId) === String(variant.id),
     );
     if (exists) {
-      toast.warning("San pham da co trong phieu kiem ke");
+      toast.warning("Sản phẩm đã có trong phiếu kiểm kê");
       return;
     }
 
@@ -292,7 +292,7 @@ export default function InventoryUpsert({
         productVariantId: variant.id,
         name: variant.productName || variant.name || "N/A",
         sku: variant.sku || "N/A",
-        unit: variant.unit || "Cai",
+        unit: variant.unit || "Cái",
         systemQuantity: toNumber(variant.quantity ?? 0),
         quantityReal: toNumber(variant.quantity ?? 0),
         quantityRejected: 0,
@@ -418,7 +418,7 @@ export default function InventoryUpsert({
     }[];
 
     if (lowStockItems.length === 0) {
-      toast.info("Hien chua co san pham nao duoi dinh muc ton kho");
+      toast.info("Hiện chưa có sản phẩm nào dưới định mức tồn kho");
       return;
     }
 
@@ -426,11 +426,11 @@ export default function InventoryUpsert({
     const time = now.toLocaleTimeString("vi-VN");
     const date = now.toLocaleDateString("vi-VN");
     const rows = [
-      ["BAO CAO CHI TIET SAN PHAM DUOI DINH MUC TON KHO"],
-      [`Chi nhanh: ${String(branchName).toUpperCase()}`],
-      [`Thoi gian xuat: ${time} ${date}`],
+      ["BÁO CÁO CHI TIẾT SẢN PHẨM DƯỚI ĐỊNH MỨC TỒN KHO"],
+      [`Chi nhánh: ${String(branchName).toUpperCase()}`],
+      [`Thời gian xuất: ${time} ${date}`],
       [],
-      ["STT", "SKU", "Ten san pham", "Ton hien tai", "Dinh muc"],
+      ["STT", "SKU", "Tên sản phẩm", "Tồn hiện tại", "Định mức"],
       ...lowStockItems.map((item) => [
         item.stt,
         item.sku,
@@ -455,18 +455,18 @@ export default function InventoryUpsert({
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Bao cao ton");
+    XLSX.utils.book_append_sheet(wb, ws, "Báo cáo tồn");
     XLSX.writeFile(wb, `bao-cao-ton-duoi-dinh-muc-${Date.now()}.xlsx`);
-    toast.success("Da xuat file Excel de xuat nhap them");
+    toast.success("Đã xuất file Excel danh sách cần nhập thêm");
   };
 
   const handleSubmit = async () => {
     if (!formData.branchId) {
-      toast.error("Vui long chon kho kiem ke");
+      toast.error("Vui lòng chọn kho kiểm kê");
       return;
     }
     if (items.length === 0) {
-      toast.error("Vui long them it nhat mot san pham");
+      toast.error("Vui lòng thêm ít nhất một sản phẩm");
       return;
     }
 
@@ -494,15 +494,11 @@ export default function InventoryUpsert({
       }
 
       await InventoryCheckApiService.saveCheck(payload);
-      toast.success(
-        payload.id
-          ? "Cap nhat phieu kiem ke thanh cong"
-          : "Tao phieu kiem ke thanh cong",
-      );
+      toast.success(payload.id ? "Cập nhật phiếu kiểm kê thành công" : "Tạo phiếu kiểm kê thành công");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
-      toast.error("Loi khi luu phieu kiem ke");
+      toast.error("Lỗi khi lưu phiếu kiểm kê");
     } finally {
       setIsSubmitting(false);
     }
@@ -517,15 +513,15 @@ export default function InventoryUpsert({
         checkId = detail?.id;
       }
       if (!checkId) {
-        toast.error("Khong tim thay phieu de chot");
+        toast.error("Không tìm thấy phiếu để chốt");
         return;
       }
       await InventoryCheckApiService.completeCheck(checkId);
-      toast.success("Da chot phieu va cap nhat ton kho thanh cong");
+      toast.success("Đã chốt phiếu và cập nhật tồn kho thành công");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
-      toast.error("Loi khi chot phieu kiem ke");
+      toast.error("Lỗi khi chốt phiếu kiểm kê");
     } finally {
       setIsSubmitting(false);
     }

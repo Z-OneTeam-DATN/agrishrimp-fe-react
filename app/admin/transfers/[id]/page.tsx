@@ -80,16 +80,12 @@ export default function TransferDetailPage() {
 
   // 1. Duyệt xuất kho
   const handleApprove = () => {
-    if (window.confirm("Xác nhận xuất kho? Hệ thống sẽ trừ tồn thực tế.")) {
-      handleApiCall(() => transferService.approve(id as string), "Đã xuất kho thành công!");
-    }
+    handleApiCall(() => transferService.approve(id as string), "Đã xuất kho thành công!");
   };
 
   // 2. Hủy phiếu
   const handleCancel = () => {
-    if (window.confirm("Hủy phiếu chuyển này? Tồn kho xuất sẽ được hoàn lại.")) {
-      handleApiCall(() => transferService.cancel(id as string), "Đã hủy phiếu thành công!");
-    }
+    handleApiCall(() => transferService.cancel(id as string), "Đã hủy phiếu thành công!");
   };
 
   // 3. Thay đổi chi nhánh nhận
@@ -101,7 +97,6 @@ export default function TransferDetailPage() {
 
   // 4. Nhận đủ hàng nhanh
   const handleReceiveAll = () => {
-    if (!window.confirm("Xác nhận NHẬN ĐỦ toàn bộ hàng hóa trên phiếu?")) return;
     const payload = (transfer?.items || []).map((i: any) => ({
       variantId: i.variantId,
       quantityReal: i.quantityRequested,
@@ -127,7 +122,7 @@ export default function TransferDetailPage() {
       note: i.note || ""
     }));
 
-    handleApiCall(() => transferService.receive(id as string, payload), "...");
+    handleApiCall(() => transferService.receive(id as string, payload), "Đã kiểm đếm và nhập kho thành công!");
     setShowInspectModal(false);
   };
 

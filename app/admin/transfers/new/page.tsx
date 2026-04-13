@@ -73,7 +73,7 @@ export default function NewTransferPage() {
     const fetchBranches = async () => {
       try {
         const data = await branchService.getAll();
-        setBranches(data);
+        setBranches(Array.isArray(data) ? data : data?.content || []);
       } catch (error) {
         console.error("Lỗi fetch chi nhánh", error);
         toast.error("Không thể tải danh sách chi nhánh");
@@ -93,23 +93,23 @@ export default function NewTransferPage() {
     resolver: zodResolver(TransferSchema),
     mode: "onTouched",
     defaultValues: {
-      transferType: "BETWEEN_WAREHOUSES",
+      transferType: "BETWEEN_WAREHOUSES" as const,
       description: sourceCode ? `Xuất điều chuyển theo yêu cầu ${sourceCode}` : "",
       transporter: "",
       vehicle: "",
       dispatchOrder: "",
       transferCode: "PDC-" + Date.now().toString().slice(-6),
       sourceBranch: "",
-      sourceWarehouse: "wh-hn",
+      sourceWarehouse: "",
       sourceAddress: "",
       transferDate: new Date().toISOString().slice(0, 16),
       destBranch: "",
-      destWarehouse: "wh-st",
+      destWarehouse: "",
       destAddress: "",
-      status: "DRAFT",
+      status: "DRAFT" as const,
       importStatus: "PENDING",
       referenceCode: sourceCode || "",
-      items: sourceCode ? [] : [],
+      items: [],
       note: "",
     },
   });
@@ -133,11 +133,6 @@ export default function NewTransferPage() {
   ];
 
   const onSubmit = async (formData: any) => {
-    if (formData.sourceBranch === formData.destBranch) {
-      toast.error("Chi nhánh xuất và Chi nhánh nhận không được trùng nhau!");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const payload = {
@@ -145,19 +140,19 @@ export default function NewTransferPage() {
         toBranchId: Number(formData.destBranch),
         transferType: formData.transferType,
         description: formData.description,
-        transporter: formData.transporter,
-        vehicle: formData.vehicle,
-        dispatchOrder: formData.dispatchOrder,
-        referenceCode: formData.referenceCode,
+        transporter: formData.transporter || null,
+        vehicle: formData.vehicle || null,
+        dispatchOrder: formData.dispatchOrder || null,
+        referenceCode: formData.referenceCode || null,
         priority: "NORMAL",
         transferDate: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
         deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
         items: formData.items.map((item: any) => ({
-         sku: item.productCode,
+          sku: item.productCode,
           quantity: Number(item.quantity),
           quantityRequested: Number(item.quantity),
           quantityReal: 0,
-          itemNote: item.itemNote,
+          itemNote: item.itemNote || "",
         })),
       };
 
@@ -165,8 +160,8 @@ export default function NewTransferPage() {
       toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
       router.push("/admin/transfers");
     } catch (error: any) {
-      console.error("Lỗi tạo phiếu:", error);
-      toast.error("Lỗi hệ thống: " + (error.response?.data || "Không thể tạo phiếu"));
+      const errMsg = error.response?.data?.message || error.response?.data || "Không thể tạo phiếu";
+      toast.error("Lỗi: " + errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -235,11 +230,12 @@ export default function NewTransferPage() {
       // 2. Append dữ liệu - Dùng variant.sku làm định danh chính
       append({
         variantId: variant.id,
-        productCode: variant.sku, // <--- SKU là duy nhất
+        productCode: variant.sku,
         productName: displayName,
         unit: variant.unit || "Cái",
         quantity: 1,
         availableQuantity: variant.quantity || 0,
+        receivedQuantity: 0,
         itemNote: "",
       });
 

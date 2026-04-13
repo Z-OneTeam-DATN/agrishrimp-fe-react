@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { cn, formatNumber } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/axios";
 
 import { branchService } from "@/app/services/branchService";
 import { supplierService } from "@/app/services/supplier.service";
@@ -37,9 +38,9 @@ const ExportItemSchema = z.object({
 
 const ExportCommandSchema = z.object({
   noteCode: z.string(), exportType: z.enum(["INTERNAL", "RETURN"]), expectedDate: z.string().min(1, "Chọn ngày"),
-  referenceCode: z.string(),
+  referenceCode: z.string().optional().default(""),
   note: z.string().min(1, "Nhập lý do"), branchId: z.string().min(1, "Chọn kho xuất"), targetId: z.string().min(1, "Chọn đối tượng"),
-  specificReceiver: z.string(), shippingAddress: z.string(), creatorName: z.string(),
+  specificReceiver: z.string().optional().default(""), shippingAddress: z.string().optional().default(""), creatorName: z.string().optional().default(""),
   items: z.array(ExportItemSchema).min(1, "Chọn ít nhất 1 SP")
 });
 
@@ -91,6 +92,8 @@ function AdminExportFormContent() {
       targetId: "",
       specificReceiver: "",
       shippingAddress: "",
+      referenceCode: "",
+      creatorName: "",
       items: []
     }
   });
@@ -157,8 +160,8 @@ function AdminExportFormContent() {
           branchService.getAll(),
           supplierService.getAll(undefined, undefined, 0, 100),
         ]);
-        if (resB) setBranches(resB);
-        if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : []);
+        if (resB) setBranches(Array.isArray(resB) ? resB : resB?.content || []);
+        if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : (Array.isArray(resS) ? resS : []));
       } catch (err) { toast.error("Lỗi tải danh mục"); }
     };
     loadMasterData();
@@ -176,6 +179,12 @@ function AdminExportFormContent() {
       setValue("noteCode", generateNoteCode(watchExportType));
     }
   }, [watchExportType, isEditMode, setValue]);
+
+  useEffect(() => {
+    if (currentUser && !isEditMode) {
+      setValue("creatorName", currentUser.fullName || currentUser.displayName || "");
+    }
+  }, [currentUser, isEditMode, setValue]);
 
   let targetInfo = { name: "", phone: "", address: "" };
   if (watchTargetId) {
@@ -282,7 +291,7 @@ function AdminExportFormContent() {
       }
       router.push("/admin/exports");
     } catch (e: any) {
-      toast.error(e.response?.data?.message || "Lỗi server");
+      toast.error(getErrorMessage(e));
     } finally {
       setIsSubmitting(false);
     }
@@ -435,7 +444,7 @@ function AdminExportFormContent() {
 
                               <div className="text-right">
                                 {/* Hiển thị giá nhập ở dropdown */}
-                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} â‚«</p>
+                                <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} VND</p>
                                 <p className={cn(
                                     "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
                                     variant.quantity > 0
@@ -622,7 +631,7 @@ function AdminExportFormContent() {
             </span></span>
             <div className="h-4 w-[1px] bg-slate-300"></div>
             <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">
-               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} â‚«
+               {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} VND
             </span></span>
          </div>
          <div className="flex gap-3">
