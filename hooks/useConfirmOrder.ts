@@ -24,6 +24,7 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
 
   return useMutation({
     mutationFn: (payload: ConfirmOrderPayload) => confirmOrder(payload),
+    retry: false, // Disable auto-retry để tránh spam submit
 
     onSuccess: (data) => {
       if (data.checkoutUrl) {

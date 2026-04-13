@@ -17,6 +17,7 @@ export function usePrepareOrder(options: UsePrepareOrderOptions = {}) {
 
   return useMutation({
     mutationFn: (payload: PrepareOrderPayload) => prepareOrder(payload),
+    retry: false, // Disable auto-retry để tránh spam submit
 
     onSuccess: (data) => {
       // prepareToken nằm trực tiếp trong response body
