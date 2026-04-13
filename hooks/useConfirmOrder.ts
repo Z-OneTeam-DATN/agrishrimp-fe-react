@@ -48,7 +48,7 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
         onConflict?.()
       } else if (isRateLimitedError(error)) {
         onRateLimited?.(getRetryAfterSeconds(error))
-        toast.error(getFriendlyError(error))
+        // Không show toast khi rate limit - chỉ disable button
       } else if (isTokenExpiredError(error)) {
         // 400 — prepareToken hết hạn (> 30 phút)
         onTokenExpired?.()
