@@ -46,7 +46,7 @@ export const EmployeeUpdateSchema = EmployeeCreateSchema.omit({
     email: true, 
     citizenId: true // CitizenId bị lock sau khi tạo theo đặc tả 5.4
 }).extend({
-    // Cho phép sửa CitizenId nếu là ADMIN (Logic xử lý trong Component)
+    // Giữ field này ở dạng optional để form edit có thể bind input disabled mà không submit thay đổi.
     citizenId: z.string().regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số").optional(),
 });
 
