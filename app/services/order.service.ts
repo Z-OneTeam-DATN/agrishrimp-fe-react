@@ -42,6 +42,13 @@ export interface CheckoutPayload {
   paymentMethod: string; // ✅ THÊM DÒNG NÀY ĐỂ CHỌN PT THANH TOÁN
 }
 
+interface PageResponse<T> {
+  content: T[];
+  totalPages?: number;
+  number?: number;
+  last?: boolean;
+}
+
 export const orderService = {
   PREFIX: "/orders",
   V1_PREFIX: "/v1/orders",
@@ -137,12 +144,40 @@ export const orderService = {
     status?: string,
     search?: string,
   ): Promise<MyOrder[]> => {
-    const params: any = {};
+    const pageSize = 100;
+    const params: Record<string, string | number> = {
+      page: 0,
+      size: pageSize,
+    };
     if (status && status !== "ALL") params.status = status;
     if (search) params.search = search;
 
-    const response = await apiJava.get("/admin/all", { params });
-    return response.data;
+    const orders: MyOrder[] = [];
+    let page = 0;
+
+    while (true) {
+      const response = await apiJava.get<PageResponse<MyOrder>>("/admin/all", {
+        params: {
+          ...params,
+          page,
+        },
+      });
+
+      const responseData = response.data;
+      orders.push(...(responseData.content ?? []));
+
+      if (
+        responseData.last === true ||
+        responseData.content?.length === 0 ||
+        (responseData.totalPages != null && page + 1 >= responseData.totalPages)
+      ) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    return orders;
   },
 
   // 7. LẤY CHI TIẾT ĐƠN HÀNG (ADMIN VIEW)
