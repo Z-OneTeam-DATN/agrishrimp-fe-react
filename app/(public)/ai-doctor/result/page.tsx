@@ -322,6 +322,22 @@ export default function TreatmentResultPage() {
               Ca bệnh này có thể không tồn tại hoặc bạn không có quyền xem.
             </p>
           </div>
+        ) : diagnosis?.status === "HEALTHY" ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-green-200 bg-white py-20 text-center">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-5xl shadow-inner">
+              🦐
+            </div>
+            <h2 className="mb-2 text-2xl font-extrabold text-green-700">Tôm khỏe mạnh!</h2>
+            <p className="mb-6 text-sm text-slate-500">
+              Không phát hiện dấu hiệu bệnh. Tiếp tục theo dõi và duy trì môi trường nuôi tốt.
+            </p>
+            <Link
+              href="/ai-doctor"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white"
+            >
+              Chẩn đoán ảnh khác
+            </Link>
+          </div>
         ) : diagnosis ? (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="space-y-4 lg:col-span-4">
@@ -333,7 +349,7 @@ export default function TreatmentResultPage() {
                       Kết quả chẩn đoán
                     </span>
                     <span className="rounded-sm bg-red-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                      {Number(diagnosis.disease.confidencePercent || 0).toFixed(1)}%
+                      {Number(diagnosis.disease?.confidencePercent || 0).toFixed(1)}%
                     </span>
                   </div>
 
@@ -341,7 +357,7 @@ export default function TreatmentResultPage() {
                     {diagnosis.imageUrl ? (
                       <Image
                         src={diagnosis.imageUrl}
-                        alt={diagnosis.disease.nameVi}
+                        alt={diagnosis.disease?.nameVi ?? "Ảnh chẩn đoán"}
                         fill
                         className="object-cover"
                         unoptimized
@@ -355,9 +371,9 @@ export default function TreatmentResultPage() {
 
                   <div className="p-4">
                     <h2 className="mb-0.5 text-lg font-extrabold leading-tight text-red-700">
-                      {diagnosis.disease.nameVi}
+                      {diagnosis.disease?.nameVi}
                     </h2>
-                    {diagnosis.disease.nameEn && (
+                    {diagnosis.disease?.nameEn && (
                       <div className="mb-4 text-xs italic text-slate-400">
                         {diagnosis.disease.nameEn}
                       </div>
