@@ -170,7 +170,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                       )}
                       
                       {hasPermission(P.BRANCH_DELETE) && (
-                        isHQ ? (
+                        isWarehouse ? (
                           <Button
                             variant="ghost"
                             size="icon"
