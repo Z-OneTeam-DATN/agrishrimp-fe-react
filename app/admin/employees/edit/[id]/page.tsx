@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    ChevronLeft, Users, Building2, 
+    ChevronLeft, Users,
     Mail, Phone, MapPin, 
     Lock, Loader2, Camera, UserCircle2, Briefcase, Fingerprint
 } from "lucide-react";
@@ -24,12 +24,16 @@ import { BranchService } from "@/app/services/branchService";
 import { RoleType } from "@/app/types/role.schema";
 import { BranchType, UserRequest, EmployeeUpdateSchema, EmployeeUpdateInput } from "@/app/types/employee.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { canManageSystemAdminRoles } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 export default function EditEmployeePage() {
     const router = useRouter();
     const params = useParams();
     const userId = Number(params.id);
-    const { user: currentUser } = useAuthStore();
+    const { user: currentUser, isLoadingAuth } = useAuthStore();
+    const { hasAllPermissions } = usePermissions();
 
     // Data States
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +62,16 @@ export default function EditEmployeePage() {
     const currentRoleId = watch("roleId");
 
     useEffect(() => {
+        if (!isLoadingAuth && !hasAllPermissions([P.STAFF_VIEW, P.STAFF_UPDATE])) {
+            router.push("/admin/forbidden");
+        }
+    }, [hasAllPermissions, isLoadingAuth, router]);
+
+    useEffect(() => {
+        if (isLoadingAuth || !hasAllPermissions([P.STAFF_VIEW, P.STAFF_UPDATE])) {
+            return;
+        }
+
         async function loadInitData() {
             setLoading(true);
             try {
@@ -69,8 +83,9 @@ export default function EditEmployeePage() {
                 
                 let rolesList = Array.isArray(rolesRes) ? rolesRes : (rolesRes as any).content || [];
                 rolesList = rolesList.filter((r: RoleType) => {
-                    if (r.slug.toLowerCase() === "user") return false;
-                    if (currentUser?.role?.slug !== "admin" && r.slug.toLowerCase() === "admin") return false;
+                    const slug = r.slug.toLowerCase();
+                    if (slug === "user" || slug === "customer") return false;
+                    if (!canManageSystemAdminRoles(currentUser?.role) && (slug === "admin" || slug === "super_admin")) return false;
                     return true;
                 });
                 setRoles(rolesList);
@@ -105,7 +120,7 @@ export default function EditEmployeePage() {
             }
         }
         loadInitData();
-    }, [userId, router, reset, currentUser]);
+    }, [userId, router, reset, currentUser, hasAllPermissions, isLoadingAuth]);
 
     const onFormSubmit = async (data: EmployeeUpdateInput) => {
         try {
@@ -167,7 +182,7 @@ export default function EditEmployeePage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center flex-col gap-4 bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={32} /><p className="text-sm font-medium text-slate-50">Đang tải dữ liệu nhân viên...</p></div>;
+    if (loading || isLoadingAuth) return <div className="min-h-screen flex items-center justify-center flex-col gap-4 bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={32} /><p className="text-sm font-medium text-slate-50">Đang tải dữ liệu nhân viên...</p></div>;
 
     return (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pb-[100px] bg-slate-50 min-h-screen text-slate-800">
@@ -314,6 +329,7 @@ export default function EditEmployeePage() {
                                     <SelectContent>
                                         <SelectItem value="ACTIVE" className="text-emerald-600 font-bold">ĐANG HOẠT ĐỘNG</SelectItem>
                                         <SelectItem value="INACTIVE" className="text-rose-600 font-bold">TẠM KHÓA</SelectItem>
+                                        <SelectItem value="BANNED" className="text-amber-700 font-bold">CẤM TRUY CẬP</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
