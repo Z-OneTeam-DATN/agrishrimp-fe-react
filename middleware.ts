@@ -162,8 +162,8 @@ export function middleware(req: NextRequest) {
       role = role.replace("ROLE_", "");
     }
 
-    // USER hoàn toàn không có quyền vào /admin
-    if (role === "USER") {
+    // USER/CUSTOMER hoàn toàn không có quyền vào /admin
+    if (role === "USER" || role === "CUSTOMER") {
       return NextResponse.redirect(new URL("/", req.url));
     }
 

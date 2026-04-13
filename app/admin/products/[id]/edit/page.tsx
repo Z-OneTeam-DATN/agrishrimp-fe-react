@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
 import { SettingService } from "@/app/services/setting.service";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -133,7 +134,7 @@ export default function EditProductPage() {
     // 👉 Bỏ biến systemProfitMargin vì giờ Backend đã tự động tính sellingPrice
 
     const { isLoadingAuth, isAuthenticated, user } = useAuthStore();
-    const isAdmin = user?.role?.slug === "ADMIN";
+    const isAdmin = isAdminRole(user?.role);
 
     const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),

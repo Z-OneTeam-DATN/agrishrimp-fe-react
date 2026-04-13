@@ -26,12 +26,13 @@ import {
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
 
 export default function ProductsPage() {
     const router = useRouter();
 
     const { user, isLoadingAuth } = useAuthStore();
-    const isAdmin = user?.role?.slug === "ADMIN";
+    const isAdmin = isAdminRole(user?.role);
 
     // Hook phân quyền
     const { hasPermission } = usePermissions();

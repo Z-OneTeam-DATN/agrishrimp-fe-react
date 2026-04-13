@@ -80,6 +80,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         isAuthenticated: true,
         isLoadingAuth: false,
         warehouseId: warehouseId || state.warehouseId,
+        permissions: [],
         user: updatedUser as UserType,
       };
     }),

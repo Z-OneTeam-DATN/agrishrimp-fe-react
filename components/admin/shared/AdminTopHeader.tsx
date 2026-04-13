@@ -31,6 +31,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
+import { isAdminRole } from "@/lib/roles";
+import { P } from "@/lib/permissions";
 
 export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
@@ -44,6 +46,7 @@ export default function AdminTopHeader() {
   const { data: branches, isLoading: isBranchesLoading } = useQuery({
     queryKey: ["branches"],
     queryFn: () => branchService.getAll(),
+    enabled: hasPermission(P.BRANCH_VIEW),
     staleTime: 1000 * 60 * 30, // Cache 30 phút vì danh sách chi nhánh ít thay đổi
   });
 
@@ -105,8 +108,7 @@ export default function AdminTopHeader() {
     // 3. Dự phòng logic mặc định nếu không tìm thấy ánh xạ
     if (warehouseId === 1) return "Kho Tổng Cần Thơ";
     
-    const roleSlug = typeof user?.role === "object" ? user.role?.slug : user?.role;
-    if (roleSlug?.toLowerCase() === "admin") {
+    if (isAdminRole(user?.role)) {
       return "Kho Tổng Cần Thơ";
     }
 
@@ -161,7 +163,7 @@ export default function AdminTopHeader() {
         </div>
 
         {/* Quản lý vai trò quick access */}
-        {hasPermission("ROLE_MANAGE") && (
+        {hasPermission(P.ROLE_VIEW) && (
           <Link href="/admin/employees/roles">
             <Button
               variant="outline"
@@ -220,7 +222,7 @@ export default function AdminTopHeader() {
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  {user?.role?.slug === "admin" || user?.role?.slug === "ADMIN"
+                  {isAdminRole(user?.role)
                     ? "Quyền hạn cao nhất"
                     : "Thông tin tài khoản"}
                 </span>

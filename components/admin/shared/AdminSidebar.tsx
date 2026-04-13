@@ -38,16 +38,22 @@ import { customerService } from "@/app/services/customer.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const { hasPermission, hasAnyPermission } = usePermissions();
   // Normalize role (chỉ dùng để hiển thị label, logic bảo vệ dùng hasPermission)
-  const rawRole = (typeof user?.role === "object" ? user.role?.slug : user?.role)?.toUpperCase() || "USER";
-  const role = rawRole.startsWith("ROLE_") ? rawRole.replace("ROLE_", "") : rawRole;
-  const isAdmin = role === "ADMIN";
+  const role = normalizeRoleSlug(user?.role) || "USER";
+  const isAdmin = isAdminRole(user?.role);
   const isManager = role === "MANAGER";
+  const canViewSystemSection = hasAnyPermission([P.DASHBOARD_VIEW, P.WORKSPACE_VIEW]);
+  const canViewAdminSection = hasAnyPermission([P.STAFF_VIEW, P.BRANCH_VIEW, P.ROLE_VIEW, P.SUPPLIER_VIEW]);
+  const canViewBusinessSection = hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]);
+  const canViewCatalogSection = hasAnyPermission([P.PRODUCT_VIEW, P.CATEGORY_VIEW, P.ATTRIBUTE_VIEW]);
+  const canViewInventorySection = hasAnyPermission([P.IMPORT_VIEW, P.EXPORT_VIEW, P.TRANSFER_VIEW, P.CHECK_VIEW]);
+  const canViewSettings = hasPermission(P.SETTING_VIEW);
 
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
@@ -64,16 +70,37 @@ export default function AdminSidebar() {
 
   const fetchCounts = async () => {
     try {
-      const results = await Promise.allSettled([
-        supplierService.getAll(undefined, undefined, 0, 1),
-        customerService.getAll("", "all", 0, 1)
-      ]);
+      const tasks: Promise<any>[] = [];
 
-      if (results[0].status === 'fulfilled') {
-        setSupplierCount(results[0].value.totalElements || 0);
+      if (hasPermission(P.SUPPLIER_VIEW)) {
+        tasks.push(supplierService.getAll(undefined, undefined, 0, 1));
       }
-      if (results[1].status === 'fulfilled') {
-        setCustomerCount(results[1].value.totalElements || 0);
+
+      if (hasPermission(P.CUSTOMER_VIEW)) {
+        tasks.push(customerService.getAll("", "all", 0, 1));
+      }
+
+      if (tasks.length === 0) return;
+
+      const results = await Promise.allSettled(tasks);
+      let cursor = 0;
+
+      if (hasPermission(P.SUPPLIER_VIEW)) {
+        const supplierResult = results[cursor++];
+        if (supplierResult?.status === "fulfilled") {
+          setSupplierCount(supplierResult.value.totalElements || 0);
+        }
+      } else {
+        setSupplierCount(0);
+      }
+
+      if (hasPermission(P.CUSTOMER_VIEW)) {
+        const customerResult = results[cursor];
+        if (customerResult?.status === "fulfilled") {
+          setCustomerCount(customerResult.value.totalElements || 0);
+        }
+      } else {
+        setCustomerCount(0);
       }
     } catch (error) {
       console.warn("Sidebar counts sync failed");
@@ -92,7 +119,7 @@ export default function AdminSidebar() {
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
     };
-  }, []);
+  }, [hasPermission]);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
@@ -115,7 +142,7 @@ export default function AdminSidebar() {
               AGRI<span className="text-emerald-500">SHRIMP</span>
             </h1>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em] mt-1">
-              {role === "ADMIN" ? "Administrator" : role === "MANAGER" ? "Manager" : "User"}
+              {isAdmin ? "Administrator" : isManager ? "Manager" : "User"}
             </span>
           </div>
         </div>
@@ -124,15 +151,21 @@ export default function AdminSidebar() {
       <div className="flex-1 overflow-y-auto px-4 space-y-6 no-scrollbar pb-10">
         {/* SECTION: HỆ THỐNG */}
 
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-            Hệ thống
-          </p>
-          <div className="space-y-0.5">
-            <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={pathname === "/admin"} color="text-emerald-500" />
-            <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
-          </div>
-        </section>
+        {canViewSystemSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Hệ thống
+            </p>
+            <div className="space-y-0.5">
+              {hasPermission(P.DASHBOARD_VIEW) && (
+                <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={pathname === "/admin"} color="text-emerald-500" />
+              )}
+              {hasPermission(P.WORKSPACE_VIEW) && (
+                <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
+              )}
+            </div>
+          </section>
+        )}
 
         {/* SECTION: BÁO CÁO */}
         {hasAnyPermission([P.REPORT_REVENUE_VIEW, P.REPORT_INVENTORY_VIEW, P.REPORT_FINANCE_VIEW]) && (
@@ -173,7 +206,7 @@ export default function AdminSidebar() {
         )}
 
         {/* SECTION: QUẢN TRỊ */}
-        {hasAnyPermission([P.STAFF_VIEW, P.BRANCH_VIEW, P.ROLE_VIEW, P.SUPPLIER_VIEW]) && (
+        {canViewAdminSection && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
               Quản trị
@@ -186,7 +219,7 @@ export default function AdminSidebar() {
                 <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} />
               )}
               {hasPermission(P.ROLE_VIEW) && (
-                <SidebarLink href="/admin/roles" icon={ShieldCheck} label="Vai trò & Quyền" active={isActive("/admin/roles")} color="text-violet-400" />
+                <SidebarLink href="/admin/employees/roles" icon={ShieldCheck} label="Vai trò & Quyền" active={isActive("/admin/employees/roles")} color="text-violet-400" />
               )}
               {hasPermission(P.SUPPLIER_VIEW) && (
                 <SidebarLink
@@ -205,118 +238,128 @@ export default function AdminSidebar() {
         {/* =======================
             SECTION MỚI: KINH DOANH
             ======================= */}
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-            Kinh doanh
-          </p>
-          <div className="space-y-0.5">
-            <SidebarGroup
-              label="Quản lý Đơn hàng"
-              icon={ShoppingCart}
-              isOpen={openGroups.includes("orders")}
-              onToggle={() => toggleGroup("orders")}
-              active={pathname.startsWith("/admin/orders")}
-            >
-              <SidebarLink
-                href="/admin/orders"
-                icon={List}
-                label="Danh sách đơn hàng"
-                active={pathname === "/admin/orders" || (pathname.startsWith("/admin/orders/") && !pathname.includes("return"))}
-                isChild
-              />
-              <SidebarLink href="/admin/orders-processing" icon={Box} label="Điều hành & Gom đơn" active={pathname === "/admin/orders-processing"} isChild />
-              <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
-              <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
-              <SidebarLink
-                href="/admin/orders/return"
-                icon={RotateCcw}
-                label="Trả hàng"
-                active={pathname.startsWith("/admin/orders/return")}
-                isChild
-              />
-            </SidebarGroup>
-
-            {hasPermission(P.VOUCHER_VIEW) && ( // Đã thêm kiểm tra quyền nếu bạn có cài đặt
+        {canViewBusinessSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Kinh doanh
+            </p>
+            <div className="space-y-0.5">
+              {hasPermission(P.ORDER_VIEW) && (
+                <SidebarGroup
+                  label="Quản lý Đơn hàng"
+                  icon={ShoppingCart}
+                  isOpen={openGroups.includes("orders")}
+                  onToggle={() => toggleGroup("orders")}
+                  active={pathname.startsWith("/admin/orders")}
+                >
                   <SidebarLink
-                    href="/admin/vouchers"
-                    icon={Ticket}
-                    label="Khuyến mãi & Voucher"
-                    active={isActive("/admin/vouchers")}
-                    color="text-pink-400"
+                    href="/admin/orders"
+                    icon={List}
+                    label="Danh sách đơn hàng"
+                    active={pathname === "/admin/orders" || (pathname.startsWith("/admin/orders/") && !pathname.includes("return"))}
+                    isChild
                   />
-                )}
-            {hasPermission(P.CUSTOMER_VIEW) && (
-              <SidebarLink
-                href="/admin/customers"
-                icon={Users}
-                label="Khách hàng"
-                active={isActive("/admin/customers")}
-                badge={customerCount}
-                color="text-blue-400"
-              />
-            )}
-          </div>
-        </section>
+                  <SidebarLink href="/admin/orders-processing" icon={Box} label="Điều hành & Gom đơn" active={pathname === "/admin/orders-processing"} isChild />
+                  <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
+                  <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
+                  <SidebarLink
+                    href="/admin/orders/return"
+                    icon={RotateCcw}
+                    label="Trả hàng"
+                    active={pathname.startsWith("/admin/orders/return")}
+                    isChild
+                  />
+                </SidebarGroup>
+              )}
+
+              {hasPermission(P.VOUCHER_VIEW) && (
+                <SidebarLink
+                  href="/admin/vouchers"
+                  icon={Ticket}
+                  label="Khuyến mãi & Voucher"
+                  active={isActive("/admin/vouchers")}
+                  color="text-pink-400"
+                />
+              )}
+              {hasPermission(P.CUSTOMER_VIEW) && (
+                <SidebarLink
+                  href="/admin/customers"
+                  icon={Users}
+                  label="Khách hàng"
+                  active={isActive("/admin/customers")}
+                  badge={customerCount}
+                  color="text-blue-400"
+                />
+              )}
+            </div>
+          </section>
+        )}
 
         {/* SECTION: HÀNG HÓA - Only for ADMIN */}
 
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-            Hàng hóa
-          </p>
+        {canViewCatalogSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Hàng hóa
+            </p>
 
-          <div className="space-y-0.5">
-            {hasPermission(P.PRODUCT_VIEW) && (
-              <SidebarLink
-                href="/admin/products"
-                icon={Package}
-                label="Sản phẩm"
-                active={isActive("/admin/products")}
-              />
-            )}
-            {hasPermission(P.CATEGORY_VIEW) && (
-              <SidebarLink
-                href="/admin/categories"
-                icon={Tags}
-                label="Danh mục"
-                active={isActive("/admin/categories")}
-              />
-            )}
-            {hasPermission(P.ATTRIBUTE_VIEW) && (
-              <SidebarLink
-                href="/admin/variants"
-                icon={Layers}
-                label="Thuộc tính"
-                active={isActive("/admin/variants")}
-              />
-            )}
-          </div>
-        </section>
+            <div className="space-y-0.5">
+              {hasPermission(P.PRODUCT_VIEW) && (
+                <SidebarLink
+                  href="/admin/products"
+                  icon={Package}
+                  label="Sản phẩm"
+                  active={isActive("/admin/products")}
+                />
+              )}
+              {hasPermission(P.CATEGORY_VIEW) && (
+                <SidebarLink
+                  href="/admin/categories"
+                  icon={Tags}
+                  label="Danh mục"
+                  active={isActive("/admin/categories")}
+                />
+              )}
+              {hasPermission(P.ATTRIBUTE_VIEW) && (
+                <SidebarLink
+                  href="/admin/variants"
+                  icon={Layers}
+                  label="Thuộc tính"
+                  active={isActive("/admin/variants")}
+                />
+              )}
+            </div>
+          </section>
+        )}
 
         {/* SECTION: GIAO DỊCH KHO */}
-        <section>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-            Giao dịch kho
-          </p>
-          <div className="space-y-0.5">
-            {hasPermission(P.IMPORT_VIEW) && (
-              <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} />
-            )}
-            {hasPermission(P.EXPORT_VIEW) && (
-              <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} />
-            )}
-            {hasPermission(P.TRANSFER_VIEW) && (
-              <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} />
-            )}
-            {hasPermission(P.IMPORT_VIEW) && (
-              <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
-            )}
-          </div>
-        </section>
+        {canViewInventorySection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Giao dịch kho
+            </p>
+            <div className="space-y-0.5">
+              {hasPermission(P.IMPORT_VIEW) && (
+                <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} />
+              )}
+              {hasPermission(P.EXPORT_VIEW) && (
+                <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} />
+              )}
+              {hasPermission(P.TRANSFER_VIEW) && (
+                <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} />
+              )}
+              {hasPermission(P.CHECK_VIEW) && (
+                <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50">
-        <SidebarLink href="/admin/settings" icon={Settings} label="Cài đặt" active={isActive("/admin/settings")} />
+        {canViewSettings && (
+          <SidebarLink href="/admin/settings" icon={Settings} label="Cài đặt" active={isActive("/admin/settings")} />
+        )}
         <SidebarLink href="#" icon={HelpCircle} label="Hỗ trợ" active={false} />
       </div>
     </div>

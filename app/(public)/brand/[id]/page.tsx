@@ -99,21 +99,31 @@ export default function BrandPage() {
               <h6 className="font-bold text-gray-800 uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
                 <LayoutGrid size={16} className="text-[#329965]" /> Các Thương Hiệu Khác
               </h6>
-              <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              <ul className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                 {allBrands.map((brand) => (
                   <li key={brand.id}>
                     <Link
                       href={`/brand/${brand.id}`}
-                      className={`text-sm flex items-center gap-2 group py-1.5 px-2 rounded-md transition-all ${
+                      className={`text-[13px] flex items-center gap-3 group py-2 px-3 rounded-xl transition-all ${
                         currentBrandId === brand.id.toString() 
-                          ? "bg-green-50 text-[#329965] font-bold" 
-                          : "text-gray-600 hover:bg-gray-50 hover:text-[#329965]"
+                          ? "bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 shadow-sm" 
+                          : "text-gray-600 hover:bg-gray-50 hover:text-emerald-600 border border-transparent"
                       }`}
                     >
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        currentBrandId === brand.id.toString() ? "bg-[#329965]" : "bg-gray-300 group-hover:bg-[#329965]"
-                      }`}></div>
-                      {brand.name}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden border ${
+                        currentBrandId === brand.id.toString() ? "bg-white border-emerald-200" : "bg-gray-50 border-gray-100 group-hover:bg-white transition-colors"
+                      }`}>
+                        {brand.logoUrl ? (
+                          <img src={brand.logoUrl} alt={brand.name} className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <div className={`w-full h-full flex items-center justify-center text-[10px] font-black ${
+                            currentBrandId === brand.id.toString() ? "text-emerald-300" : "text-gray-300 group-hover:text-emerald-200"
+                          }`}>
+                            {brand.name[0].toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="truncate flex-1">{brand.name}</span>
                     </Link>
                   </li>
                 ))}

@@ -1,6 +1,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
+import { isAdminRole } from "@/lib/roles";
 
 type JwtAuthPayload = {
   exp?: number;
@@ -50,9 +51,8 @@ export function usePermissions() {
     (permission: string): boolean => {
       if (!user) return false;
       
-      // Admin bypass: Nếu role là ADMIN thì luôn có quyền
-      const role = (typeof user.role === "object" ? user.role.slug : user.role)?.toUpperCase() || "";
-      if (role === "ADMIN" || role === "ROLE_ADMIN") return true;
+      // Admin-like bypass: ADMIN / SUPER_ADMIN luôn có toàn quyền
+      if (isAdminRole(user.role)) return true;
       
       return getAuthorities().includes(permission);
     },

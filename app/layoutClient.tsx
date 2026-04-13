@@ -80,7 +80,7 @@ export default function LayoutClient({
 
         // Bước 2: Load permissions từ cache trước để sidebar render đúng ngay lập tức
         const cachedPerms = readPermissionsCache();
-        if (cachedPerms.length > 0) setPermissions(cachedPerms);
+        setPermissions(cachedPerms);
 
         // Bước 3: Hiện trang ngay với dữ liệu cũ
         setUser(cachedUser as any);
@@ -97,7 +97,7 @@ export default function LayoutClient({
             writeCache(freshResult.value);
             setUser(freshResult.value);
           }
-          if (permsResult.status === "fulfilled" && permsResult.value.length > 0) {
+          if (permsResult.status === "fulfilled") {
             writePermissionsCache(permsResult.value);
             setPermissions(permsResult.value);
           }
@@ -126,7 +126,7 @@ export default function LayoutClient({
           }
 
           // Set permissions TRƯỚC setUser (setUser sẽ release isLoadingAuth: false)
-          if (permsResult.status === "fulfilled" && permsResult.value.length > 0) {
+          if (permsResult.status === "fulfilled") {
             writePermissionsCache(permsResult.value);
             setPermissions(permsResult.value);
           }

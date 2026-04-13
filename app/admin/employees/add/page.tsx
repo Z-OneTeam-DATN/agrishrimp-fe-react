@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    ChevronLeft, Users, Building2,
+    ChevronLeft, Users,
     ShieldCheck, Mail, Phone, MapPin,
-    Key, Loader2, Camera, UserCircle2, Briefcase, Fingerprint, Calendar, Upload
+    Loader2, Camera, UserCircle2, Briefcase, Fingerprint, Calendar, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,9 @@ import { BranchService } from "@/app/services/branchService";
 import { RoleType } from "@/app/types/role.schema";
 import { BranchType, UserRequest, EmployeeCreateSchema, EmployeeCreateInput } from "@/app/types/employee.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { canManageSystemAdminRoles } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 const inferBirthYearAndGenderFromCitizenId = (citizenId: string) => {
     if (!/^\d{12}$/.test(citizenId)) return null;
@@ -78,7 +81,8 @@ const sanitizeOcrAddress = (value?: string | null) => {
 
 export default function AddEmployeePage() {
     const router = useRouter();
-    const { user: currentUser } = useAuthStore();
+    const { user: currentUser, isLoadingAuth } = useAuthStore();
+    const { hasPermission } = usePermissions();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cccdFileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedInitRef = useRef(false);
@@ -125,6 +129,16 @@ export default function AddEmployeePage() {
     const currentCitizenId = watch("citizenId");
 
     useEffect(() => {
+        if (!isLoadingAuth && !hasPermission(P.STAFF_CREATE)) {
+            router.push("/admin/forbidden");
+        }
+    }, [hasPermission, isLoadingAuth, router]);
+
+    useEffect(() => {
+        if (isLoadingAuth || !hasPermission(P.STAFF_CREATE)) {
+            return;
+        }
+
         async function loadInitData() {
             if (!hasLoadedInitRef.current) {
                 setLoading(true);
@@ -142,7 +156,7 @@ export default function AddEmployeePage() {
                 rolesList = rolesList.filter(r => {
                     const slug = r.slug.toLowerCase();
                     if (slug === "user" || slug === "customer") return false;
-                    if (currentUser?.role?.slug !== "admin" && slug === "admin") return false;
+                    if (!canManageSystemAdminRoles(currentUser?.role) && (slug === "admin" || slug === "super_admin")) return false;
                     return true;
                 });
 
@@ -159,7 +173,7 @@ export default function AddEmployeePage() {
             }
         }
         loadInitData();
-    }, [currentUser?.role?.slug]);
+    }, [currentUser?.role?.slug, hasPermission, isLoadingAuth]);
 
     useEffect(() => {
         if (!currentBranchId && branches.length > 0) {
@@ -366,7 +380,7 @@ export default function AddEmployeePage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>;
+    if (loading || isLoadingAuth) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={32} /></div>;
 
     return (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pb-[100px] bg-slate-50 min-h-screen">
@@ -569,14 +583,15 @@ export default function AddEmployeePage() {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold uppercase text-slate-400">Trạng thái tài khoản</Label>
-                            <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val)}>
-                                <SelectTrigger className="h-9 text-[12px] font-bold uppercase"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ACTIVE" className="text-emerald-600 font-bold">ĐANG HOẠT ĐỘNG</SelectItem>
-                                    <SelectItem value="INACTIVE" className="text-rose-600 font-bold">TẠM KHÓA</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val)}>
+                                    <SelectTrigger className="h-9 text-[12px] font-bold uppercase"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ACTIVE" className="text-emerald-600 font-bold">ĐANG HOẠT ĐỘNG</SelectItem>
+                                        <SelectItem value="INACTIVE" className="text-rose-600 font-bold">TẠM KHÓA</SelectItem>
+                                        <SelectItem value="BANNED" className="text-amber-700 font-bold">CẤM TRUY CẬP</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
                         {/* Box thông báo về mật khẩu */}
                         <div className="p-3 bg-blue-50 border border-blue-100 rounded-[4px] mt-4 flex items-start gap-2">
