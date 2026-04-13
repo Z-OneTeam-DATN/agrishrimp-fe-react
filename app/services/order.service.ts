@@ -4,7 +4,12 @@ import {
   OrderStatus,
   CancelReasonFormValues,
 } from "@/app/types/order.schema";
-import { MyOrder, OrderStatus as MyOrderStatus, BranchOrder } from "@/app/types/order.types";
+import {
+  MyOrder,
+  OrderStatus as MyOrderStatus,
+  BranchOrder,
+  MissingItemReport,
+} from "@/app/types/order.types";
 
 export interface ReturnOrder {
   id: string;
@@ -53,26 +58,37 @@ export const orderService = {
   // 1b. LẤY DANH SÁCH ĐƠN HÀNG CỦA TÔI (API V1 MỚI)
   getMyOrders: async (status?: MyOrderStatus | "ALL"): Promise<MyOrder[]> => {
     const params = status && status !== "ALL" ? { status } : {};
-    const response = await apiJava.get<MyOrder[]>(`${orderService.V1_PREFIX}/my-orders`, {
-      params,
-    });
+    const response = await apiJava.get<MyOrder[]>(
+      `${orderService.V1_PREFIX}/my-orders`,
+      {
+        params,
+      },
+    );
     return response.data;
   },
 
   // 1c. LẤY CHI TIẾT ĐƠN HÀNG (API V1 MỚI)
   getOrderById: async (id: number | string): Promise<MyOrder> => {
-    const response = await apiJava.get<MyOrder>(`${orderService.V1_PREFIX}/${id}`);
+    const response = await apiJava.get<MyOrder>(
+      `${orderService.V1_PREFIX}/${id}`,
+    );
     return response.data;
   },
 
-  confirmReceivedByCustomer: async (orderId: number | string): Promise<{ message: string }> => {
-    const response = await apiJava.post(`${orderService.V1_PREFIX}/${orderId}/confirm-received`);
+  confirmReceivedByCustomer: async (
+    orderId: number | string,
+  ): Promise<{ message: string }> => {
+    const response = await apiJava.post(
+      `${orderService.V1_PREFIX}/${orderId}/confirm-received`,
+    );
     return response.data;
   },
 
   // 2. LẤY DANH SÁCH YÊU CẦU TRẢ HÀNG (CỦA USER)
   getReturnOrders: async (): Promise<ReturnOrder[]> => {
-    const response = await apiJava.get<ReturnOrder[]>(`${orderService.PREFIX}/returns`);
+    const response = await apiJava.get<ReturnOrder[]>(
+      `${orderService.PREFIX}/returns`,
+    );
     return response.data;
   },
 
@@ -94,13 +110,19 @@ export const orderService = {
   },
 
   // 4. HỦY ĐƠN HÀNG
-  cancelOrder: async (orderId: string, data: CancelReasonFormValues): Promise<void> => {
+  cancelOrder: async (
+    orderId: string,
+    data: CancelReasonFormValues,
+  ): Promise<void> => {
     await apiJava.post(`${orderService.PREFIX}/${orderId}/cancel`, data);
   },
 
   // 5. ĐẶT HÀNG (CHECKOUT)
   checkout: async (payload: CheckoutPayload): Promise<any> => {
-    const response = await apiJava.post(`${orderService.PREFIX}/checkout`, payload);
+    const response = await apiJava.post(
+      `${orderService.PREFIX}/checkout`,
+      payload,
+    );
     return response.data;
   },
 
@@ -111,11 +133,14 @@ export const orderService = {
 
   // 6. LẤY TOÀN BỘ ĐƠN HÀNG (ADMIN)
   // Endpoint: GET /api/admin/all?status=...&search=...
-  getAdminOrders: async (status?: string, search?: string): Promise<MyOrder[]> => {
+  getAdminOrders: async (
+    status?: string,
+    search?: string,
+  ): Promise<MyOrder[]> => {
     const params: any = {};
     if (status && status !== "ALL") params.status = status;
     if (search) params.search = search;
-    
+
     const response = await apiJava.get("/admin/all", { params });
     return response.data;
   },
@@ -129,14 +154,31 @@ export const orderService = {
 
   // 8. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (DUYỆT ĐƠN)
   // Endpoint: PUT /api/admin/{id}/status?status=NEW_STATUS
-  updateOrderStatus: async (orderId: string | number, status: string): Promise<void> => {
-    await apiJava.put(`/admin/${orderId}/status`, {}, {
-      params: { status }
-    });
+  updateOrderStatus: async (
+    orderId: string | number,
+    status: string,
+  ): Promise<void> => {
+    await apiJava.put(
+      `/admin/${orderId}/status`,
+      {},
+      {
+        params: { status },
+      },
+    );
   },
 
-  requestAdminOrderReplenishment: async (orderId: number | string): Promise<{ message: string; transferCodes: string[] }> => {
-    const response = await apiJava.post(`/admin/${orderId}/request-replenishment`);
+  requestAdminOrderReplenishment: async (
+    orderId: number | string,
+  ): Promise<{ message: string; transferCodes: string[] }> => {
+    const response = await apiJava.post(
+      `/admin/${orderId}/request-replenishment`,
+    );
+    return response.data;
+  },
+
+  getBackorderReport: async (): Promise<MissingItemReport[]> => {
+    const response =
+      await apiJava.get<MissingItemReport[]>("/admin/backorders");
     return response.data;
   },
 
@@ -146,62 +188,82 @@ export const orderService = {
   // ==========================================
 
   // 9. LẤY DANH SÁCH ĐƠN HÀNG CỦA CHI NHÁNH
-  getBranchOrders: async (status?: string, search?: string): Promise<BranchOrder[]> => {
+  getBranchOrders: async (
+    status?: string,
+    search?: string,
+  ): Promise<BranchOrder[]> => {
     const params: any = {};
     if (status && status !== "ALL") params.status = status;
     if (search) params.search = search;
-    const response = await apiJava.get<BranchOrder[]>("/branch/orders", { params });
+    const response = await apiJava.get<BranchOrder[]>("/branch/orders", {
+      params,
+    });
     return response.data;
   },
 
   // 10. LẤY CHI TIẾT ĐƠN HÀNG CỦA CHI NHÁNH (có items)
-  getBranchOrderById: async (orderId: number | string): Promise<BranchOrder> => {
-    const response = await apiJava.get<BranchOrder>(`/branch/orders/${orderId}`);
+  getBranchOrderById: async (
+    orderId: number | string,
+  ): Promise<BranchOrder> => {
+    const response = await apiJava.get<BranchOrder>(
+      `/branch/orders/${orderId}`,
+    );
     return response.data;
   },
 
   // 11. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG CHI NHÁNH
   // Endpoint: PUT /api/branch/orders/{orderId}/status?status=NEW_STATUS
-  updateBranchOrderStatus: async (orderId: number | string, status: string): Promise<{ message: string }> => {
-    const response = await apiJava.put(`/branch/orders/${orderId}/status`, {}, {
-      params: { status }
+  updateBranchOrderStatus: async (
+    orderId: number | string,
+    status: string,
+  ): Promise<{ message: string }> => {
+    const response = await apiJava.put(
+      `/branch/orders/${orderId}/status`,
+      {},
+      {
+        params: { status },
+      },
+    );
+    return response.data;
+  },
+
+  requestBranchOrderReplenishment: async (
+    orderId: number | string,
+  ): Promise<{ message: string; transferCodes: string[] }> => {
+    const response = await apiJava.post(
+      `/branch/orders/${orderId}/request-replenishment`,
+    );
+    return response.data;
+  },
+
+  // 12. Lấy danh sách đơn nhánh đang Đóng gói để chuẩn bị bàn giao
+  getReadyToShipSubOrders: async (): Promise<BranchOrder[]> => {
+    // Tận dụng lại API lấy đơn hàng chi nhánh nhưng lọc cứng status PROCESSING
+    const response = await apiJava.get<BranchOrder[]>("/branch/orders", {
+      params: { status: "READY_FOR_PICKUP" },
     });
     return response.data;
   },
 
-  requestBranchOrderReplenishment: async (orderId: number | string): Promise<{ message: string; transferCodes: string[] }> => {
-    const response = await apiJava.post(`/branch/orders/${orderId}/request-replenishment`);
+  // 13. Gọi API tạo Phiếu Bàn Giao (Gom đơn)
+  createHandover: async (data: {
+    subOrderIds: number[];
+    carrier: string;
+    totalWeight: number;
+  }): Promise<any> => {
+    const response = await apiJava.post("/branch/handovers", data);
     return response.data;
   },
 
-    // 12. Lấy danh sách đơn nhánh đang Đóng gói để chuẩn bị bàn giao
-    getReadyToShipSubOrders: async (): Promise<BranchOrder[]> => {
-        // Tận dụng lại API lấy đơn hàng chi nhánh nhưng lọc cứng status PROCESSING
-        const response = await apiJava.get<BranchOrder[]>("/branch/orders", {
-            params: { status: "READY_FOR_PICKUP" }
-        });
-        return response.data;
-    },
+  // 14. Lấy danh sách lịch sử các Phiếu Bàn Giao đã tạo
+  getHandoverList: async (): Promise<any[]> => {
+    const response = await apiJava.get<any[]>("/branch/handovers");
+    return response.data;
+  },
 
-    // 13. Gọi API tạo Phiếu Bàn Giao (Gom đơn)
-    createHandover: async (data: {
-        subOrderIds: number[],
-        carrier: string,
-        totalWeight: number
-    }): Promise<any> => {
-        const response = await apiJava.post("/branch/handovers", data);
-        return response.data;
-    },
-
-    // 14. Lấy danh sách lịch sử các Phiếu Bàn Giao đã tạo
-    getHandoverList: async (): Promise<any[]> => {
-        const response = await apiJava.get<any[]>("/branch/handovers");
-        return response.data;
-    },
-
-    // Thêm vào trong orderService
-    getHandoverDetail: async (id: number | string): Promise<any> => {
-        const response = await apiJava.get(`/branch/handovers/${id}`);
-        return response.data;
-    },
+  // Thêm vào trong orderService
+  getHandoverDetail: async (id: number | string): Promise<any> => {
+    const response = await apiJava.get(`/branch/handovers/${id}`);
+    return response.data;
+  },
 };

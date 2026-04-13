@@ -31,7 +31,7 @@ import { P } from "@/lib/permissions";
 
 // ── Tab config ──────────────────────────────────────────────────
 const TABS = [
-  { id: "AWAITING_REPLENISHMENT", label: "Cho nhap them" },
+  { id: "AWAITING_REPLENISHMENT", label: "Chờ nhập thêm" },
   { id: "all", label: "Tất cả" },
   { id: "PENDING", label: "Chờ xác nhận" },
   { id: "READY_FOR_PICKUP", label: "Chờ lấy hàng" },
@@ -44,7 +44,7 @@ const TABS = [
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   AWAITING_REPLENISHMENT: {
-    label: "Cho nhap them",
+    label: "Chờ nhập thêm",
     styles: "bg-rose-50 text-rose-600 border-rose-200",
   },
   PENDING: {
@@ -148,7 +148,7 @@ const ActionButton = ({
           className="h-[28px] bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-bold"
           onClick={(e) => onRequestReplenishment(e, orderId, orderCode)}
         >
-          <Package size={13} className="mr-1.5" /> Tao lenh dieu chuyen
+          <Package size={13} className="mr-1.5" /> Tạo lệnh điều chuyển
         </Button>
       );
     case "PENDING":
@@ -287,11 +287,11 @@ export default function OrderListPage() {
         ? ` (${response.transferCodes.join(", ")})`
         : "";
       toast.success(
-        `Da tao lenh dieu chuyen cho ${orderCode}${transferSummary}`,
+        `Đã tạo lệnh điều chuyển cho ${orderCode}${transferSummary}`,
       );
       fetchOrders(activeTab, search);
     } catch {
-      toast.error("Khong the tao lenh dieu chuyen bo sung.");
+      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
     }
   };
 
@@ -604,7 +604,7 @@ export default function OrderListPage() {
                                               {(item.missingQuantity ?? 0) >
                                                 0 && (
                                                 <div className="text-[10px] font-semibold text-rose-600">
-                                                  Thieu {item.missingQuantity}
+                                                  Thiếu {item.missingQuantity}
                                                 </div>
                                               )}
                                             </td>
