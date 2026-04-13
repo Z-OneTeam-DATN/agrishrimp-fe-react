@@ -96,7 +96,6 @@ export default function CategoryManagementPage() {
   const isActiveStatus = (status: string) =>
     status === "ACTIVE" || status === "Hiển thị";
 
-<<<<<<< Updated upstream
   const validateCategoryName = useCallback((value: string) => {
     const trimmed = value.trim();
 
@@ -130,11 +129,6 @@ export default function CategoryManagementPage() {
     []
   );
 
-=======
-  const getStatusLabel = (status: string) =>
-    isActiveStatus(status) ? "Hiển thị" : "Tạm ẩn";
-
->>>>>>> Stashed changes
   useEffect(() => {
     if (!isLoadingAuth && !hasPermission(P.CATEGORY_VIEW)) {
       router.push("/admin/forbidden");
@@ -159,7 +153,6 @@ export default function CategoryManagementPage() {
     return roots;
   };
 
-<<<<<<< Updated upstream
   const sortCategories = useCallback((data: Category[], sortValue: string) => {
     const sorted = [...data];
 
@@ -176,11 +169,6 @@ export default function CategoryManagementPage() {
           return b.id - a.id;
       }
     });
-=======
-  const loadData = async (keyword = "", status = "all") => {
-    try {
-      const dataArray = await getCategories(keyword, status);
->>>>>>> Stashed changes
 
     return sorted;
   }, []);
@@ -259,11 +247,7 @@ export default function CategoryManagementPage() {
         name: cat.name,
         parentId: cat.parentId ? String(cat.parentId) : "none",
         status: isActiveStatus(cat.status) ? "ACTIVE" : "INACTIVE",
-<<<<<<< Updated upstream
         imageUrl: cat.imageUrl || "", 
-=======
-        imageUrl: cat.imageUrl || "",
->>>>>>> Stashed changes
       });
       setNameError("");
       setNameTouched(false);
@@ -275,10 +259,6 @@ export default function CategoryManagementPage() {
   const handleToggleStatus = async () => {
     if (!statusModal) return;
     try {
-<<<<<<< Updated upstream
-=======
-      // Xác định trạng thái mới cần đổi
->>>>>>> Stashed changes
       const newStatus = isActiveStatus(statusModal.currentStatus) ? "INACTIVE" : "ACTIVE";
 
       await toggleCategoryStatus(statusModal.id, {

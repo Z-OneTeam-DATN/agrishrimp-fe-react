@@ -325,14 +325,8 @@ export default function AdminSidebar() {
           </div>
         </section>
 
-        {/* SECTION: HÀNG HÓA */}
-        {(isAdmin || hasAnyPermission([P.PRODUCT_VIEW, P.CATEGORY_VIEW, P.ATTRIBUTE_VIEW])) && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Hàng hóa
-            </p>
+        {/* SECTION: HÀNG HÓA - Only for ADMIN */}
 
-<<<<<<< Updated upstream
         <section>
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
             Hàng hóa
@@ -389,59 +383,6 @@ export default function AdminSidebar() {
             )}
           </div>
         </section>
-=======
-            <div className="space-y-0.5">
-              {(isAdmin || hasPermission(P.PRODUCT_VIEW)) && (
-                <SidebarLink
-                  href="/admin/products"
-                  icon={Package}
-                  label="Sản phẩm"
-                  active={isActive("/admin/products")}
-                />
-              )}
-              {(isAdmin || hasPermission(P.CATEGORY_VIEW)) && (
-                <SidebarLink
-                  href="/admin/categories"
-                  icon={Tags}
-                  label="Danh mục"
-                  active={isActive("/admin/categories")}
-                />
-              )}
-              {(isAdmin || hasPermission(P.ATTRIBUTE_VIEW)) && (
-                <SidebarLink
-                  href="/admin/variants"
-                  icon={Layers}
-                  label="Thuộc tính"
-                  active={isActive("/admin/variants")}
-                />
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* SECTION: GIAO DỊCH KHO */}
-        {(isAdmin || isManager || hasAnyPermission([P.IMPORT_VIEW, P.EXPORT_VIEW, P.TRANSFER_VIEW, P.CHECK_VIEW])) && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Giao dịch kho
-            </p>
-            <div className="space-y-0.5">
-              {(isAdmin || isManager || hasPermission(P.IMPORT_VIEW)) && (
-                <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} />
-              )}
-              {(isAdmin || isManager || hasPermission(P.EXPORT_VIEW)) && (
-                <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} />
-              )}
-              {(isAdmin || isManager || hasPermission(P.TRANSFER_VIEW)) && (
-                <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} />
-              )}
-              {(isAdmin || isManager || hasPermission(P.CHECK_VIEW)) && (
-                <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} />
-              )}
-            </div>
-          </section>
-        )}
->>>>>>> Stashed changes
       </div>
 
       <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50">

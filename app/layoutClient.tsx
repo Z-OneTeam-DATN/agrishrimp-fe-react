@@ -162,13 +162,9 @@ export default function LayoutClient({
   const isChangePasswordPage = pathname === "/change-password";
   const isAdminPage = pathname?.startsWith("/admin");
   const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
-<<<<<<< Updated upstream
   const isProtectedPath = ["/profile", "/orders", "/checkout", "/user/checkout", "/ai-doctor"].some(
     (p) => pathname?.startsWith(p),
   );
-=======
-  const isProtectedPath = ["/profile", "/orders", "/user/checkout", "/ai-doctor"].some(p => pathname?.startsWith(p));
->>>>>>> Stashed changes
 
   // Redirect bắt buộc đổi mật khẩu
   useEffect(() => {
