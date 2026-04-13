@@ -38,7 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { isAdminRole } from "@/lib/roles";
+import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 
@@ -55,12 +55,7 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   // Chuẩn hóa role slug
-  const roleSlug =
-    typeof user?.role === "object" && user?.role !== null
-      ? (user.role.slug || "").toUpperCase()
-      : typeof user?.role === "string"
-        ? user.role.toUpperCase()
-        : "";
+  const roleSlug = normalizeRoleSlug(user?.role);
   const isAdmin = isAdminRole(user?.role);
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
   // Manager và Staff đều bị giới hạn theo chi nhánh
