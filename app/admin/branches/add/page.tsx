@@ -79,7 +79,9 @@ export default function AddBranchPage() {
 
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingAddressSuggestions, setIsLoadingAddressSuggestions] = useState(false);
   const suggestionRef = useRef<HTMLDivElement>(null);
+  const addressSuggestionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { register, handleSubmit, control, setValue, reset, watch, formState: { errors } } = useForm<AdminBranchForm>({
     resolver: zodResolver(AdminBranchSchema),
@@ -187,23 +189,88 @@ export default function AddBranchPage() {
     }
   }, [watchedDistrict, isInitialLoaded, isLoading]);
 
-  // Logic gợi ý địa chỉ (Không đổi)
+  const getScopedAddressDetail = (label: string) => {
+    const ignoredScopes = [
+      currentWard ? normalizeText(getWardName(currentWard)) : "",
+      currentDistrict ? normalizeText(getDistName(currentDistrict)) : "",
+      currentProvince ? normalizeText(getProvName(currentProvince)) : "",
+    ].filter(Boolean);
+
+    const detailParts = label
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .filter((part) => {
+        const normalizedPart = normalizeText(part);
+        return !ignoredScopes.some(
+          (scope) =>
+            normalizedPart === scope ||
+            normalizedPart.includes(scope) ||
+            scope.includes(normalizedPart)
+        );
+      });
+
+    if (detailParts.length === 0) {
+      return label.split(",")[0]?.trim() || label;
+    }
+
+    return detailParts.slice(0, 3).join(", ");
+  };
+
+  // Logic gợi ý địa chỉ chi tiết realtime, luôn khóa trong tỉnh/quận/phường đã chọn
   useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (addressDetailValue && addressDetailValue.length > 2 && watchedProvince) {
-        try {
-          const query = `${addressDetailValue}, ${currentWard ? getWardName(currentWard) : ''}, ${currentDistrict ? getDistName(currentDistrict) : ''}, ${getProvName(currentProvince)}`;
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=vn&limit=5`);
-          if (response.ok) {
-            const data = await response.json();
-            setAddressSuggestions(data);
-            setShowSuggestions(true);
-          }
-        } catch (e) { console.error(e); }
+    if (addressSuggestionTimeoutRef.current) {
+      clearTimeout(addressSuggestionTimeoutRef.current);
+    }
+
+    const input = addressDetailValue?.trim() || "";
+    if (!input || input.length < 2 || !currentProvince || !currentDistrict || !currentWard) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      setIsLoadingAddressSuggestions(false);
+      return;
+    }
+
+    addressSuggestionTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsLoadingAddressSuggestions(true);
+
+        const params = new URLSearchParams({
+          input,
+          province: getProvName(currentProvince),
+          district: getDistName(currentDistrict),
+          ward: getWardName(currentWard),
+        });
+
+        const response = await fetchWithAuth(`/api/ghn/address-suggestions?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch address suggestions");
+        }
+
+        const data = await response.json();
+        const nextSuggestions = Array.isArray(data) ? data.filter((item) => item?.label) : [];
+        setAddressSuggestions(nextSuggestions);
+        setShowSuggestions(nextSuggestions.length > 0);
+      } catch (e) {
+        console.error("Error fetching scoped address suggestions", e);
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      } finally {
+        setIsLoadingAddressSuggestions(false);
       }
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    }, 350);
+
+    return () => {
+      if (addressSuggestionTimeoutRef.current) {
+        clearTimeout(addressSuggestionTimeoutRef.current);
+      }
+    };
   }, [addressDetailValue, currentProvince, currentDistrict, currentWard]);
+
+  useEffect(() => {
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+  }, [watchedProvince, watchedDistrict, watchedWard]);
 
   useEffect(() => {
     function handleClickOutside(event: any) {
@@ -550,20 +617,47 @@ export default function AddBranchPage() {
 
               <div className="md:col-span-3 space-y-1.5 relative" ref={suggestionRef}>
                 <Label className="text-[10px] font-black uppercase text-slate-500">Địa chỉ chi tiết (Số nhà, tên đường) *</Label>
-                <Input {...register("addressDetail")} autoComplete="off" onBlur={handleAddressBlur} className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`} />
+                <div className="relative">
+                  <Input
+                    {...register("addressDetail")}
+                    autoComplete="off"
+                    onBlur={handleAddressBlur}
+                    onFocus={() => {
+                      if (addressSuggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    placeholder={
+                      currentProvince && currentDistrict && currentWard
+                        ? "Ví dụ: 12 Nguyễn Văn Cừ, hẻm 5, khu dân cư..."
+                        : "Chọn đủ Tỉnh / Quận / Phường trước để gợi ý realtime"
+                    }
+                    className={`h-[34px] pr-9 text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`}
+                  />
+                  {isLoadingAddressSuggestions && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={14} />
+                  )}
+                </div>
+                {currentProvince && currentDistrict && currentWard && (
+                  <p className="text-[10px] text-slate-400">
+                    Gợi ý đang được khóa theo: <span className="font-bold text-slate-600">{getWardName(currentWard)}, {getDistName(currentDistrict)}, {getProvName(currentProvince)}</span>
+                  </p>
+                )}
                 {showSuggestions && addressSuggestions.length > 0 && (
                   <div className="absolute top-full left-0 right-0 z-[1100] bg-white border border-[#ccc] shadow-xl max-h-[200px] overflow-y-auto mt-1">
                     {addressSuggestions.map((item: any, idx: number) => (
                       <div key={idx} className="px-4 py-2 text-[12px] hover:bg-slate-50 cursor-pointer border-b"
                         onClick={() => {
-                          const parts = item.display_name.split(',');
-                          setValue("addressDetail", `${parts[0].trim()}${parts[1] ? ', ' + parts[1].trim() : ''}`);
-                          setValue("lat", parseFloat(item.lat));
-                          setValue("lng", parseFloat(item.lon));
+                          setValue("addressDetail", getScopedAddressDetail(item.label), { shouldDirty: true, shouldValidate: true });
+                          if (typeof item.lat === "number" && typeof item.lng === "number") {
+                            setValue("lat", item.lat, { shouldDirty: true });
+                            setValue("lng", item.lng, { shouldDirty: true });
+                          }
                           setShowSuggestions(false);
+                          setAddressSuggestions([]);
                         }}>
-                        <p className="font-bold">{item.display_name.split(',')[0]}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{item.display_name}</p>
+                        <p className="font-bold">{getScopedAddressDetail(item.label)}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{item.label}</p>
                       </div>
                     ))}
                   </div>
