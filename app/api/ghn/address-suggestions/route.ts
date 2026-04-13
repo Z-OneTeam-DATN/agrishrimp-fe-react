@@ -71,6 +71,10 @@ const dedupeSuggestions = (suggestions: AddressSuggestion[]) => {
   })
 }
 
+const isAddressSuggestion = (
+  suggestion: AddressSuggestion | null
+): suggestion is AddressSuggestion => suggestion !== null
+
 const sanitizeSuggestions = (raw: unknown, scope: Scope) => {
   if (!Array.isArray(raw)) return []
 
@@ -89,6 +93,7 @@ const sanitizeSuggestions = (raw: unknown, scope: Scope) => {
           lng: typeof suggestion.lng === "number" ? suggestion.lng : Number(suggestion.lng ?? NaN),
         } satisfies AddressSuggestion
       })
+      .filter(isAddressSuggestion)
       .filter(
         (suggestion): suggestion is AddressSuggestion =>
           Boolean(suggestion?.label) && isSuggestionWithinScope(suggestion, scope)
@@ -133,6 +138,7 @@ const mapNominatimResults = (raw: unknown, scope: Scope) => {
           lng: Number(suggestion.lon ?? NaN),
         } satisfies AddressSuggestion
       })
+      .filter(isAddressSuggestion)
       .filter(
         (suggestion): suggestion is AddressSuggestion =>
           Boolean(suggestion?.label) && isSuggestionWithinScope(suggestion, scope)
