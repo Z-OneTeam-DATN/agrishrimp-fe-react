@@ -78,73 +78,67 @@ const isAddressSuggestion = (
 const sanitizeSuggestions = (raw: unknown, scope: Scope) => {
   if (!Array.isArray(raw)) return []
 
-  return dedupeSuggestions(
-    raw
-      .map((item) => {
-        if (!item || typeof item !== "object") return null
+  const suggestions: AddressSuggestion[] = raw
+    .map((item): AddressSuggestion | null => {
+      if (!item || typeof item !== "object") return null
 
-        const suggestion = item as Record<string, unknown>
-        return {
-          label: String(suggestion.label ?? "").trim(),
-          province: String(suggestion.province ?? "").trim(),
-          district: String(suggestion.district ?? "").trim(),
-          ward: String(suggestion.ward ?? "").trim(),
-          lat: typeof suggestion.lat === "number" ? suggestion.lat : Number(suggestion.lat ?? NaN),
-          lng: typeof suggestion.lng === "number" ? suggestion.lng : Number(suggestion.lng ?? NaN),
-        } satisfies AddressSuggestion
-      })
-      .filter(isAddressSuggestion)
-      .filter(
-        (suggestion): suggestion is AddressSuggestion =>
-          Boolean(suggestion?.label) && isSuggestionWithinScope(suggestion, scope)
-      )
-      .slice(0, 8)
-  )
+      const suggestion = item as Record<string, unknown>
+      return {
+        label: String(suggestion.label ?? "").trim(),
+        province: String(suggestion.province ?? "").trim(),
+        district: String(suggestion.district ?? "").trim(),
+        ward: String(suggestion.ward ?? "").trim(),
+        lat: typeof suggestion.lat === "number" ? suggestion.lat : Number(suggestion.lat ?? NaN),
+        lng: typeof suggestion.lng === "number" ? suggestion.lng : Number(suggestion.lng ?? NaN),
+      }
+    })
+    .filter(isAddressSuggestion)
+    .filter((suggestion) => Boolean(suggestion.label) && isSuggestionWithinScope(suggestion, scope))
+    .slice(0, 8)
+
+  return dedupeSuggestions(suggestions)
 }
 
 const mapNominatimResults = (raw: unknown, scope: Scope) => {
   if (!Array.isArray(raw)) return []
 
-  return dedupeSuggestions(
-    raw
-      .map((item) => {
-        if (!item || typeof item !== "object") return null
+  const suggestions: AddressSuggestion[] = raw
+    .map((item): AddressSuggestion | null => {
+      if (!item || typeof item !== "object") return null
 
-        const suggestion = item as Record<string, any>
-        const addr = suggestion.address ?? {}
-        const province = addr.state || addr.city || addr.region || ""
-        const district =
-          addr.city_district || addr.county || addr.state_district || addr.municipality || ""
-        const ward =
-          addr.suburb ||
-          addr.quarter ||
-          addr.city_block ||
-          addr.neighbourhood ||
-          addr.village ||
-          addr.hamlet ||
-          ""
-        const street = [addr.house_number, addr.road, addr.building]
-          .filter(Boolean)
-          .join(" ")
-          .trim()
-        const label = [street, ward, district, province].filter(Boolean).join(", ")
+      const suggestion = item as Record<string, any>
+      const addr = suggestion.address ?? {}
+      const province = addr.state || addr.city || addr.region || ""
+      const district =
+        addr.city_district || addr.county || addr.state_district || addr.municipality || ""
+      const ward =
+        addr.suburb ||
+        addr.quarter ||
+        addr.city_block ||
+        addr.neighbourhood ||
+        addr.village ||
+        addr.hamlet ||
+        ""
+      const street = [addr.house_number, addr.road, addr.building]
+        .filter(Boolean)
+        .join(" ")
+        .trim()
+      const label = [street, ward, district, province].filter(Boolean).join(", ")
 
-        return {
-          label,
-          province,
-          district,
-          ward,
-          lat: Number(suggestion.lat ?? NaN),
-          lng: Number(suggestion.lon ?? NaN),
-        } satisfies AddressSuggestion
-      })
-      .filter(isAddressSuggestion)
-      .filter(
-        (suggestion): suggestion is AddressSuggestion =>
-          Boolean(suggestion?.label) && isSuggestionWithinScope(suggestion, scope)
-      )
-      .slice(0, 8)
-  )
+      return {
+        label,
+        province,
+        district,
+        ward,
+        lat: Number(suggestion.lat ?? NaN),
+        lng: Number(suggestion.lon ?? NaN),
+      }
+    })
+    .filter(isAddressSuggestion)
+    .filter((suggestion) => Boolean(suggestion.label) && isSuggestionWithinScope(suggestion, scope))
+    .slice(0, 8)
+
+  return dedupeSuggestions(suggestions)
 }
 
 const fetchBackendSuggestions = async (input: string, scope: Scope) => {
