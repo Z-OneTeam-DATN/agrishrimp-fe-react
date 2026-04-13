@@ -2,6 +2,7 @@
 
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useMemo } from "react";
+import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
 
 /**
  * useWarehouseFilter Hook
@@ -15,14 +16,14 @@ export function useWarehouseFilter<T extends { warehouseId?: number | string }>(
   const { user } = useAuthStore();
   
   // Normalize user role and warehouseId
-  const role = (typeof user?.role === "object" ? user.role?.slug : user?.role)?.toUpperCase();
+  const role = normalizeRoleSlug(user?.role);
   const userWarehouseId = (user as any)?.warehouseId;
 
   const filteredData = useMemo(() => {
     if (!data) return [];
     
     // If Admin, return all data
-    if (role === "ADMIN") return data;
+    if (isAdminRole(user?.role)) return data;
     
     // If Manager, filter by their warehouseId
     if (role === "MANAGER" && userWarehouseId) {

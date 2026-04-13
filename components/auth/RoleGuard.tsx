@@ -2,8 +2,9 @@
 
 import React from "react";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { normalizeRoleSlug } from "@/lib/roles";
 
-type Role = "ADMIN" | "MANAGER" | "USER";
+type Role = "ADMIN" | "SUPER_ADMIN" | "ADMINISTRATOR" | "MANAGER" | "BRANCH_MANAGER" | "USER";
 
 interface RoleGuardProps {
   allowedRoles: Role[];
@@ -27,7 +28,7 @@ export const RoleGuard = ({
   }
 
   // Normalize role string (handle object or string)
-  const userRole = (typeof user.role === "object" ? user.role?.slug : user.role)?.toUpperCase() as Role;
+  const userRole = normalizeRoleSlug(user.role) as Role;
 
   if (!allowedRoles.includes(userRole)) {
     return <>{fallback}</>;

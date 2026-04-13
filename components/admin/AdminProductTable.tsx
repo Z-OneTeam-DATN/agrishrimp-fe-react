@@ -40,6 +40,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ";
 
@@ -104,7 +105,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 export function AdminProductTable({ products, currentPage, pageSize, onDelete, onEdit, onDisable, onEnable }: AdminProductTableProps) {
     const { hasPermission } = usePermissions();
     const { user } = useAuthStore();
-    const isAdmin = user?.role?.slug === "ADMIN"; // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
+    const isAdmin = isAdminRole(user?.role); // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
     const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
