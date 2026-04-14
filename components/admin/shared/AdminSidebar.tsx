@@ -47,6 +47,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
+import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -56,6 +57,12 @@ export default function AdminSidebar() {
   const role = normalizeRoleSlug(user?.role) || "USER";
   const isAdmin = isAdminRole(user?.role);
   const isManager = role === "MANAGER";
+  const isBranchScopedOrderUser = isBranchOrderUser(user);
+  const orderListHref = getOrderListPath(user);
+  const isOrderListActive =
+    pathname === "/admin/orders" ||
+    pathname === "/admin/orders-all" ||
+    (pathname.startsWith("/admin/orders/") && !pathname.includes("return"));
   const canViewSystemSection = hasAnyPermission([P.DASHBOARD_VIEW, P.WORKSPACE_VIEW]);
   const canViewAdminSection = hasAnyPermission([P.STAFF_VIEW, P.BRANCH_VIEW, P.ROLE_VIEW, P.SUPPLIER_VIEW]);
   const canViewBusinessSection = hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]);
@@ -308,15 +315,21 @@ export default function AdminSidebar() {
                   active={pathname.startsWith("/admin/orders")}
                 >
                   <SidebarLink
-                    href="/admin/orders"
+                    href={orderListHref}
                     icon={List}
-                    label="Danh sách đơn hàng"
-                    active={pathname === "/admin/orders" || (pathname.startsWith("/admin/orders/") && !pathname.includes("return"))}
+                    label={isAdmin ? "Tất cả đơn hàng" : "Đơn hàng chi nhánh"}
+                    active={isOrderListActive}
                     isChild
                   />
-                  <SidebarLink href="/admin/orders-processing" icon={Box} label="Điều hành & Gom đơn" active={pathname === "/admin/orders-processing"} isChild />
-                  <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
-                  <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
+                  {isBranchScopedOrderUser && (
+                    <SidebarLink href="/admin/orders-processing" icon={Box} label="Điều hành & Gom đơn" active={pathname === "/admin/orders-processing"} isChild />
+                  )}
+                  {isBranchScopedOrderUser && (
+                    <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
+                  )}
+                  {isAdmin && (
+                    <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
+                  )}
                   <SidebarLink
                     href="/admin/orders/return"
                     icon={RotateCcw}

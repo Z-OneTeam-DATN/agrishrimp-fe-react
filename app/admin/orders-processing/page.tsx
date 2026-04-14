@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import { BranchOrder } from "@/app/types/order.types";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isBranchOrderUser } from "@/lib/order-routing";
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
@@ -26,6 +29,8 @@ const TABS = [
 ];
 
 export default function OrderManagementPage() {
+  const router = useRouter();
+  const { user, isLoadingAuth } = useAuthStore();
   const [activeTab, setActiveTab] = useState("PENDING");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -33,8 +38,11 @@ export default function OrderManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [detailCache, setDetailCache] = useState<Record<number, BranchOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
+  const canUseBranchOrders = isBranchOrderUser(user);
 
   const fetchOrders = useCallback(async (status: string, q?: string) => {
+    if (!canUseBranchOrders) return;
+
     setIsLoading(true);
     try {
       const data = await orderService.getBranchOrders(status, q || undefined);
@@ -44,11 +52,19 @@ export default function OrderManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [canUseBranchOrders]);
 
   useEffect(() => {
+    if (isLoadingAuth) return;
+    if (!canUseBranchOrders) {
+      router.replace("/admin/forbidden");
+    }
+  }, [canUseBranchOrders, isLoadingAuth, router]);
+
+  useEffect(() => {
+    if (isLoadingAuth || !canUseBranchOrders) return;
     fetchOrders(activeTab, search);
-  }, [activeTab, fetchOrders]);
+  }, [activeTab, canUseBranchOrders, fetchOrders, isLoadingAuth]);
 
   const handleToggleRow = async (orderId: number) => {
     if (expandedId === orderId) { setExpandedId(null); return; }

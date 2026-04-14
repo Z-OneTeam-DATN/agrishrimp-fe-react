@@ -22,20 +22,27 @@ import { dashboardService } from "@/app/services/dashboard.service";
 import { orderService } from "@/app/services/order.service";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
+import { getOrderListPath } from "@/lib/order-routing";
 
 interface PendingOrdersProps {
   branchId?: string;
 }
 
 export default function PendingOrders({ branchId }: PendingOrdersProps) {
+  const { user } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
+
   const { data, isLoading } = useQuery({
     queryKey: ["pending-orders-summary", branchId],
     queryFn: () => dashboardService.getPendingOrdersSummary(branchId),
   });
 
   const { data: backorders, isLoading: isBackordersLoading } = useQuery({
-    queryKey: ["backorder-report"],
+    queryKey: ["backorder-report", isAdmin],
     queryFn: () => orderService.getBackorderReport(),
+    enabled: isAdmin,
     refetchInterval: 60000,
   });
 
@@ -51,49 +58,49 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       count: backorderCount,
       icon: AlertTriangle,
       color: "text-rose-600",
-      href: "/admin/orders?status=AWAITING_REPLENISHMENT",
+      href: getOrderListPath(user, "AWAITING_REPLENISHMENT"),
     },
     {
       label: "Chờ duyệt",
       count: data?.pendingApproval ?? 0,
       icon: FileSearch,
       color: "text-blue-500",
-      href: "/admin/orders?status=PENDING",
+      href: getOrderListPath(user, "PENDING"),
     },
     {
       label: "Chờ thanh toán",
       count: data?.pendingPayment ?? 0,
       icon: CreditCard,
       color: "text-amber-500",
-      href: "/admin/orders?status=AWAITING_PAYMENT",
+      href: getOrderListPath(user, "AWAITING_PAYMENT"),
     },
     {
       label: "Chờ đóng gói",
       count: data?.pendingPacking ?? 0,
       icon: Package,
       color: "text-indigo-500",
-      href: "/admin/orders?status=PROCESSING",
+      href: getOrderListPath(user, "PROCESSING"),
     },
     {
       label: "Chờ lấy hàng",
       count: data?.pendingPickup ?? 0,
       icon: Truck,
       color: "text-emerald-500",
-      href: "/admin/orders?status=READY_FOR_PICKUP",
+      href: getOrderListPath(user, "READY_FOR_PICKUP"),
     },
     {
       label: "Đang giao hàng",
       count: data?.shipping ?? 0,
       icon: Share2,
       color: "text-cyan-500",
-      href: "/admin/orders?status=SHIPPING",
+      href: getOrderListPath(user, "SHIPPING"),
     },
     {
       label: "Hủy giao - Chờ nhận",
       count: data?.cancelPending ?? 0,
       icon: Ban,
       color: "text-red-500",
-      href: "/admin/orders?status=CANCELLED",
+      href: getOrderListPath(user, "CANCELLED"),
     },
   ];
 
@@ -115,7 +122,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
           </Select>
         </div>
       </div>
-      {!isBackordersLoading && backorderCount > 0 && (
+      {isAdmin && !isBackordersLoading && backorderCount > 0 && (
         <div className="mx-4 mt-4 rounded-sm border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="mt-0.5 rounded-sm bg-white p-2 text-rose-600 border border-rose-200">
@@ -133,7 +140,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
             </div>
           </div>
           <Link
-            href="/admin/orders?status=AWAITING_REPLENISHMENT"
+            href={getOrderListPath(user, "AWAITING_REPLENISHMENT")}
             className="shrink-0 rounded-sm border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
           >
             Xem ngay

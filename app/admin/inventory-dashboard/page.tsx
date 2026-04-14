@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { InventoryApiService, InventoryExportApiService } from "@/app/services/inventory.service";
 import { transferService } from "@/app/services/transfer.service";
 import { orderService } from "@/app/services/order.service"; // Thêm API Đơn hàng
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getOrderListPath } from "@/lib/order-routing";
 
 interface StatItem {
   val: number;
@@ -121,6 +123,7 @@ const BusinessCard = ({
 };
 
 export default function WarehouseDashboard() {
+  const { user } = useAuthStore();
   const [currentTime, setCurrentTime] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -288,7 +291,7 @@ export default function WarehouseDashboard() {
     {
       title: "Đơn đặt hàng",
       totalAction: `${dbData.orders.pending} Cần duyệt`,
-      href: "/admin/orders", // Nhớ tạo route này hoặc sửa lại cho đúng với file quản lý đơn hàng
+      href: getOrderListPath(user),
       icon: ShoppingCart,
       iconColor: "bg-indigo-50 text-indigo-600",
       time: currentTime || "Đang tải",

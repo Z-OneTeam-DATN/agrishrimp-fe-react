@@ -27,7 +27,10 @@ import { MyOrder, OrderStatus } from "@/app/types/order.types";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getOrderListPath } from "@/lib/order-routing";
+import { isAdminRole } from "@/lib/roles";
 
 const TABS = [
   { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
@@ -48,6 +51,8 @@ const formatCurrency = (amount: number) =>
 export default function AllOrdersPage() {
   const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -57,6 +62,7 @@ export default function AllOrdersPage() {
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const isAdmin = isAdminRole(user?.role);
 
   useEffect(() => {
     if (!isLoadingAuth && !hasPermission(P.ORDER_VIEW)) {
@@ -64,7 +70,29 @@ export default function AllOrdersPage() {
     }
   }, [isLoadingAuth, hasPermission, router]);
 
+  useEffect(() => {
+    if (isLoadingAuth) return;
+
+    if (!isAdmin) {
+      router.replace(getOrderListPath(user, searchParams.get("status")));
+    }
+  }, [isAdmin, isLoadingAuth, router, searchParams, user]);
+
+  useEffect(() => {
+    const requestedStatus = searchParams.get("status");
+    if (!requestedStatus) {
+      setActiveTab("all");
+      return;
+    }
+
+    const normalizedStatus = requestedStatus.toUpperCase();
+    const tabExists = TABS.some((tab) => tab.id === normalizedStatus);
+    setActiveTab(tabExists ? normalizedStatus : "all");
+  }, [searchParams]);
+
   const fetchOrders = useCallback(async (tab: string, q?: string) => {
+    if (!isAdmin) return;
+
     setIsLoading(true);
     setExpandedId(null);
     try {
@@ -77,11 +105,12 @@ export default function AllOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
+    if (isLoadingAuth || !isAdmin) return;
     fetchOrders(activeTab);
-  }, [activeTab, fetchOrders]);
+  }, [activeTab, fetchOrders, isAdmin, isLoadingAuth]);
 
   const handleToggleRow = async (orderId: number) => {
     if (expandedId === orderId) {
@@ -125,7 +154,7 @@ export default function AllOrdersPage() {
 
   const toggleSelectAll = () => {
     setSelectedItems((prev) =>
-      prev.length === orders.length ? [] : orders.map((o) => o.orderId),
+      prev.length === orders.length ? [] : orders.map((o) => o.id),
     );
   };
 

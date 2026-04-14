@@ -29,6 +29,9 @@ import { orderService } from "@/app/services/order.service";
 import { BranchOrder, OrderStatus } from "@/app/types/order.types";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
+import { isAdminRole } from "@/lib/roles";
 
 // ── Tab config ──────────────────────────────────────────────────
 const TABS = [
@@ -192,6 +195,7 @@ const ActionButton = ({
 export default function OrderListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, isLoadingAuth } = useAuthStore();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<BranchOrder[]>([]);
@@ -201,8 +205,12 @@ export default function OrderListPage() {
     {},
   );
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
+  const isAdmin = isAdminRole(user?.role);
+  const canUseBranchOrders = isBranchOrderUser(user);
 
   const fetchOrders = useCallback(async (tab: string, q?: string) => {
+    if (!canUseBranchOrders) return;
+
     setIsLoading(true);
     setExpandedId(null);
     try {
@@ -214,7 +222,20 @@ export default function OrderListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [canUseBranchOrders]);
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+
+    if (isAdmin) {
+      router.replace(getOrderListPath(user, searchParams.get("status")));
+      return;
+    }
+
+    if (!canUseBranchOrders) {
+      router.replace("/admin/forbidden");
+    }
+  }, [canUseBranchOrders, isAdmin, isLoadingAuth, router, searchParams, user]);
 
   useEffect(() => {
     const requestedStatus = searchParams.get("status");
@@ -228,8 +249,9 @@ export default function OrderListPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (isLoadingAuth || !canUseBranchOrders) return;
     fetchOrders(activeTab);
-  }, [activeTab, fetchOrders]);
+  }, [activeTab, canUseBranchOrders, fetchOrders, isLoadingAuth]);
 
   // Expand row → lazy-load detail (items)
   const handleToggleRow = async (orderId: number) => {
