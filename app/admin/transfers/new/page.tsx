@@ -485,7 +485,7 @@ export default function NewTransferPage() {
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-[#ccc]">
                     <TableHead className="w-[40px] text-center p-2 text-[10px] font-black uppercase text-slate-500">STT</TableHead>
-                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">HĂ ng hĂ³a</TableHead>
+                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">Hàng hóa</TableHead>
                     <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ĐVT</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>

@@ -538,7 +538,7 @@ function AdminReceiptFormContent() {
     const isComplete = watchStatus === "APPROVED";
     const title = isComplete ? "Xác nhận NHẬP KHO" : "Xác nhận LƯU PHIẾU";
     const msg = isComplete
-      ? "Tồn kho thực tế sẽ được cập nhật ngay lập tức. Bạn đã kiểm tra kỹ số lượng chưa?"
+      ? "Hệ thống sẽ ghi nhận số lượng đạt và số lượng lỗi vào tồn kho. Bạn đã kiểm tra kỹ số lượng thực nhận chưa?"
       : "Hệ thống sẽ lưu lại thông tin phiếu nhập hiện tại. Bạn có chắc chắn không?";
 
     showConfirm(title, msg, () => {
@@ -615,6 +615,13 @@ function AdminReceiptFormContent() {
           </p>
         </div>
       )}
+
+      <div className="mx-6 mt-4 p-3 bg-white border border-slate-200 rounded-sm flex items-start gap-3 text-slate-700">
+        <AlertCircle size={18} className="shrink-0 mt-0.5" />
+        <p className="text-xs font-bold uppercase tracking-wide">
+          Nghiệp vụ chuẩn: chỉ kho tổng mới nhập hàng trực tiếp từ nhà cung cấp. Các kho khác nhận hàng qua điều chuyển. Sau khi duyệt phiếu, hàng phải qua bước kiểm hàng; phần lỗi sẽ được lưu riêng vào tồn lỗi trong kho.
+        </p>
+      </div>
 
       {/* 2. Information Row (Supplier & Receipt Info) */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 shrink-0">

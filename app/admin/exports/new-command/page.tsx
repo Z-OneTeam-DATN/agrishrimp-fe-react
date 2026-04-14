@@ -32,8 +32,15 @@ import { P } from "@/lib/permissions";
 // 1. ĐỊNH NGHĨA ZOD SCHEMA ĐỂ BẮT LỖI (VALIDATION)
 // =================================================================
 const ExportItemSchema = z.object({
-  productVariantId: z.number(), sku: z.string(), name: z.string(), unit: z.string(), stock: z.number(), price: z.number(),
-  quantity: z.coerce.number().min(1, "Số lượng xuất phải lớn hơn 0"), returnReason: z.string().optional()
+  productVariantId: z.number(),
+  sku: z.string(),
+  name: z.string(),
+  unit: z.string(),
+  stock: z.number(),
+  price: z.number(),
+  quantity: z.coerce.number().min(1, "Số lượng xuất phải lớn hơn 0"),
+  returnReason: z.string().optional(),
+  lotNumber: z.string().optional(),
 });
 
 const ExportCommandSchema = z.object({
@@ -68,6 +75,7 @@ function AdminExportFormContent() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +106,7 @@ function AdminExportFormContent() {
     }
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: "items" });
 
   const watchExportType = watch("exportType");
   const watchBranchId = watch("branchId");
@@ -122,7 +130,11 @@ function AdminExportFormContent() {
             referenceCode: data.referenceCode || "", creatorName: data.creatorName || "",
             items: (data.details || []).map((item: any) => ({
               productVariantId: item.productVariantId, sku: item.sku, name: item.productName || "SP", unit: "Cái",
-              stock: item.stock || 0, quantity: item.quantityRequested, price: item.price || 0, returnReason: item.note || ""
+              stock: item.quantityRejected || item.stock || 0,
+              quantity: item.quantityRequested,
+              price: item.price || 0,
+              returnReason: item.note || "",
+              lotNumber: item.batchNumber || ""
             }))
           });
           setIsInitialLoading(false);
@@ -141,17 +153,54 @@ function AdminExportFormContent() {
         setShowDropdown(false);
         return;
       }
+      setIsLoadingSearch(true);
       try {
+        if (watchExportType === "RETURN") {
+          if (!watchTargetId) {
+            toast.warning("Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi");
+            setShowDropdown(false);
+            return;
+          }
+          const results = await InventoryExportApiService.getDefectiveItems(
+            Number(watchTargetId),
+            Number(watchBranchId),
+          );
+          const keyword = searchTerm.trim().toLowerCase();
+          const defectiveBatches = (results || [])
+            .filter((item: any) => Number(item.defectiveQuantity || 0) > 0)
+            .filter((item: any) => {
+              if (!keyword) return true;
+              return [
+                item.sku,
+                item.productName,
+                item.batchNumber,
+                item.supplierName,
+              ]
+                .filter(Boolean)
+                .some((value) =>
+                  String(value).toLowerCase().includes(keyword),
+                );
+            });
+          setAllProducts(defectiveBatches);
+          return;
+        }
+
         const data = await ProductService.searchVariants(searchTerm, watchBranchId);
         const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
         setAllProducts(productList);
       } catch (error) {
-        toast.error("Không thể tải danh sách sản phẩm");
+        toast.error(
+          watchExportType === "RETURN"
+            ? "Không thể tải danh sách lô hàng lỗi"
+            : "Không thể tải danh sách sản phẩm",
+        );
+      } finally {
+        setIsLoadingSearch(false);
       }
     };
     const debounceTimer = setTimeout(fetchProducts, 300);
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, showDropdown, watchBranchId]);
+  }, [searchTerm, showDropdown, watchBranchId, watchExportType, watchTargetId]);
 
   useEffect(() => {
     const loadMasterData = async () => {
@@ -179,6 +228,16 @@ function AdminExportFormContent() {
       setValue("noteCode", generateNoteCode(watchExportType));
     }
   }, [watchExportType, isEditMode, setValue]);
+
+  useEffect(() => {
+    if (isEditMode || isReadOnly) return;
+    setSearchTerm("");
+    setShowDropdown(false);
+    setSelectedProductIds([]);
+    if (watchExportType === "RETURN") {
+      replace([]);
+    }
+  }, [watchExportType, watchBranchId, watchTargetId, isEditMode, isReadOnly, replace]);
 
   useEffect(() => {
     if (currentUser && !isEditMode) {
@@ -210,20 +269,37 @@ function AdminExportFormContent() {
 
   const addVariantToTable = (variant: any, productName: string) => {
     if (isReadOnly) return;
-    if (watchItems.some(item => item.productVariantId === variant.id)) {
-      toast.warning("Sản phẩm đã có trong danh sách");
+    const variantId = Number(variant.variantId ?? variant.id);
+    const lotNumber = variant.batchNumber || "";
+    const isDuplicate = watchItems.some((item) =>
+      watchExportType === "RETURN"
+        ? item.productVariantId === variantId && (item.lotNumber || "") === lotNumber
+        : item.productVariantId === variantId,
+    );
+    if (isDuplicate) {
+      toast.warning(
+        watchExportType === "RETURN"
+          ? "Lô hàng lỗi này đã có trong danh sách"
+          : "Sản phẩm đã có trong danh sách",
+      );
       return;
     }
     append({
-      productVariantId: variant.id,
+      productVariantId: variantId,
       sku: variant.sku,
-      name: `${productName} ${variant.packaging ? `- ${variant.packaging}` : ''}`,
+      name:
+        watchExportType === "RETURN"
+          ? `${variant.productName || productName} ${lotNumber ? `- Lô ${lotNumber}` : ""}`
+          : `${productName} ${variant.packaging ? `- ${variant.packaging}` : ''}`,
       unit: variant.unit || "Cái",
-      stock: variant.quantity || 0,
+      stock:
+        watchExportType === "RETURN"
+          ? Number(variant.defectiveQuantity || 0)
+          : Number(variant.quantity || 0),
       quantity: 1,
-      // Cập nhật: lấy importPrice để làm giá trị xuất kho
       price: variant.importPrice || variant.price || 0,
-      returnReason: ""
+      returnReason: watchExportType === "RETURN" ? variant.reason || "" : "",
+      lotNumber,
     });
   };
 
@@ -235,9 +311,16 @@ function AdminExportFormContent() {
     );
   };
 
+  const getSelectableProductKey = (variant: any) =>
+    watchExportType === "RETURN"
+      ? `${variant.variantId ?? variant.id}::${variant.batchNumber ?? ""}`
+      : String(variant.variantId ?? variant.id);
+
   const addSelectedVariantsToTable = () => {
     const selectedVariants = allProducts.filter((variant) =>
-      selectedProductIds.some((id) => String(id) === String(variant.id)),
+      selectedProductIds.some((id) =>
+        String(id) === getSelectableProductKey(variant),
+      ),
     );
     if (selectedVariants.length === 0) {
       toast.warning("Vui lòng chọn ít nhất một sản phẩm");
@@ -275,6 +358,9 @@ function AdminExportFormContent() {
       details: data.items.map(it => ({
         productVariantId: it.productVariantId,
         requestedQuantity: it.quantity,
+        batchNumber: it.lotNumber || null,
+        defectiveQuantity: data.exportType === "RETURN" ? it.stock : 0,
+        plannedQuantity: data.exportType === "RETURN" ? it.stock : null,
         price: it.price,
         note: data.exportType === "RETURN" ? it.returnReason : ""
       }))
@@ -329,9 +415,20 @@ function AdminExportFormContent() {
         <AlertCircle size={18} />
         <p className="text-[12px] font-bold uppercase tracking-wide">
           {isAdmin
-            ? "Chế độ Quản trị: Hệ thống sẽ tự động chốt đơn và cập nhật tồn kho ngay lập tức."
-            : "Chế độ Nhân viên: Đơn sau khi lưu sẽ ở trạng thái Chờ Duyệt bởi Quản trị viên."}
+            ? "Chế độ Quản trị: Có thể duyệt nhanh phiếu xuất, nhưng hệ thống vẫn khóa đúng nghiệp vụ theo kho và lô hàng."
+            : "Chế độ Nhân viên: Đơn sau khi lưu sẽ ở trạng thái chờ duyệt bởi quản trị viên."}
         </p>
+      </div>
+
+      <div className="mt-3 p-3 border border-slate-200 bg-white text-slate-700 rounded-sm shadow-sm">
+        <p className="text-[12px] font-bold uppercase tracking-wide">
+          Nghiệp vụ chuẩn: chỉ kho tổng được nhập từ và trả về nhà cung cấp. Các kho còn lại dùng lệnh điều chuyển để nhận hoặc chuyển hàng nội bộ.
+        </p>
+        {watchExportType === "RETURN" && (
+          <p className="mt-2 text-[12px] text-rose-700 font-medium">
+            Phiếu trả NCC chỉ cho phép chọn các lô hàng lỗi đang còn số lượng lỗi lớn hơn 0, đúng nhà cung cấp và đúng kho nhập.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -351,8 +448,8 @@ function AdminExportFormContent() {
                     <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode}>
                       <SelectTrigger className="rounded-none h-10 w-full shadow-none border-slate-200"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-none">
-                        <SelectItem value="INTERNAL">Xuất dùng nội bộ</SelectItem>
-                        {isMainBranch && <SelectItem value="RETURN">Xuất trả NCC</SelectItem>}
+                        <SelectItem value="INTERNAL">Điều chuyển nội bộ</SelectItem>
+                        {isMainBranch && <SelectItem value="RETURN">Trả nhà cung cấp từ lô lỗi</SelectItem>}
                       </SelectContent>
                     </Select>
                   )}
@@ -389,7 +486,20 @@ function AdminExportFormContent() {
                 <div className="relative flex-1 min-w-[300px]" ref={dropdownRef}>
                   <div className="relative">
                     {!isReadOnly && <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />}
-                    <Input readOnly={isReadOnly} placeholder={isReadOnly ? "Phiếu đã xuất" : "Tìm theo tên, SKU, danh mục..."} className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly ? 'bg-slate-50' : ''}`} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} />
+                    <Input
+                      readOnly={isReadOnly}
+                      placeholder={
+                        isReadOnly
+                          ? "Phiếu đã xuất"
+                          : watchExportType === "RETURN"
+                            ? "Tìm theo mã lô lỗi, SKU, tên sản phẩm..."
+                            : "Tìm theo tên, SKU, danh mục..."
+                      }
+                      className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly ? 'bg-slate-50' : ''}`}
+                      value={searchTerm}
+                      onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                      onFocus={() => setShowDropdown(true)}
+                    />
                   </div>
 
                   {showDropdown && !isReadOnly && (
@@ -410,10 +520,14 @@ function AdminExportFormContent() {
                         </div>
                       )}
                       <div className="max-h-[400px] overflow-y-auto">
-                        {allProducts.length > 0 ? (
+                        {isLoadingSearch ? (
+                          <div className="p-4 text-center text-slate-500 text-[12px]">
+                            Đang tải dữ liệu...
+                          </div>
+                        ) : allProducts.length > 0 ? (
                           allProducts.map((variant) => (
                             <div
-                              key={variant.id || variant.sku}
+                              key={`${variant.variantId ?? variant.id}-${variant.batchNumber ?? variant.sku}`}
                               className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer flex justify-between items-center group"
                               onClick={() => addVariantToTable(variant, variant.productName || variant.unit)}
                             >
@@ -423,8 +537,8 @@ function AdminExportFormContent() {
                                    className="flex items-center"
                                  >
                                    <Checkbox
-                                     checked={selectedProductIds.some((id) => String(id) === String(variant.id))}
-                                     onCheckedChange={() => toggleSelectedProduct(variant.id)}
+                                     checked={selectedProductIds.some((id) => String(id) === getSelectableProductKey(variant))}
+                                     onCheckedChange={() => toggleSelectedProduct(getSelectableProductKey(variant))}
                                    />
                                  </div>
                                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center">
@@ -435,30 +549,40 @@ function AdminExportFormContent() {
                                  <div>
                                    <p className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">
                                      {variant.productName || variant.unit} {variant.packaging ? `- ${variant.packaging}` : ''}
-                                   </p>
+                                    </p>
                                    <p className="text-[11px] text-slate-500 mt-0.5">
                                      SKU: <span className="font-mono text-blue-600">{variant.sku}</span>
+                                     {watchExportType === "RETURN" && variant.batchNumber ? (
+                                       <span className="ml-2">| Lô: <span className="font-mono text-rose-600">{variant.batchNumber}</span></span>
+                                     ) : null}
                                    </p>
                                  </div>
                               </div>
 
                               <div className="text-right">
-                                {/* Hiển thị giá nhập ở dropdown */}
                                 <p className="text-[13px] font-bold text-slate-700">{formatNumber(variant.importPrice || variant.price || 0)} VND</p>
                                 <p className={cn(
                                     "text-[11px] font-bold px-2 py-0.5 rounded-sm mt-1 inline-block border",
-                                    variant.quantity > 0
+                                    (watchExportType === "RETURN" ? variant.defectiveQuantity : variant.quantity) > 0
                                       ? "text-blue-600 bg-blue-50 border-blue-100"
                                       : "text-rose-600 bg-rose-50 border-rose-100"
                                 )}>
-                                   Tồn kho xuất: {variant.quantity || 0}
+                                   {watchExportType === "RETURN"
+                                     ? `SL lỗi: ${variant.defectiveQuantity || 0}`
+                                     : `Tồn kho xuất: ${variant.quantity || 0}`}
                                 </p>
                               </div>
                             </div>
                           ))
                         ) : (
                           <div className="p-4 text-center text-slate-500 text-[12px]">
-                             {searchTerm ? "Không tìm thấy sản phẩm nào." : "Hãy gõ từ khóa để tìm kiếm..."}
+                             {searchTerm
+                               ? watchExportType === "RETURN"
+                                 ? "Không tìm thấy lô lỗi phù hợp."
+                                 : "Không tìm thấy sản phẩm nào."
+                               : watchExportType === "RETURN"
+                                 ? "Hãy chọn nhà cung cấp và gõ mã lô lỗi hoặc SKU..."
+                                 : "Hãy gõ từ khóa để tìm kiếm..."}
                           </div>
                         )}
                       </div>
@@ -474,6 +598,9 @@ function AdminExportFormContent() {
                         <TableHead className="w-[40px] text-[10px] font-black uppercase text-slate-500 text-center tracking-wider">#</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Mã SKU</TableHead>
                         <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tên sản phẩm</TableHead>
+                        {watchExportType === "RETURN" && (
+                          <TableHead className="text-[10px] font-black uppercase text-amber-600 tracking-wider">Lô lỗi</TableHead>
+                        )}
                         <TableHead className="text-right text-[10px] font-black uppercase text-blue-600 w-[110px] tracking-wider">SL Xuất</TableHead>
                         {watchExportType === "RETURN" && (
                           <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">Lý do trả hàng</TableHead>
@@ -484,7 +611,7 @@ function AdminExportFormContent() {
                   </TableHeader>
                   <TableBody>
                     {fields.length === 0 ? (
-                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 8 : 6} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
                     ) : (
                       fields.map((field, index) => {
                         const hasQtyError = errors.items?.[index]?.quantity;
@@ -499,9 +626,17 @@ function AdminExportFormContent() {
                               <TableCell className="font-bold text-[13px] text-slate-700">
                                 {currentItem?.name}
                                 <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
-                                  Tồn kho xuất: {currentItem?.stock || 0}
+                                  {watchExportType === "RETURN"
+                                    ? `SL lỗi hiện có: ${currentItem?.stock || 0}`
+                                    : `Tồn kho xuất: ${currentItem?.stock || 0}`}
                                 </div>
                               </TableCell>
+
+                              {watchExportType === "RETURN" && (
+                                <TableCell className="font-mono text-[12px] text-amber-700">
+                                  {currentItem?.lotNumber || "---"}
+                                </TableCell>
+                              )}
 
                               <TableCell className="p-1">
                                 <Input
@@ -535,7 +670,7 @@ function AdminExportFormContent() {
                             </TableRow>
                             {(hasQtyError || hasReasonError) && (
                               <TableRow className="bg-rose-50">
-                                <TableCell colSpan={watchExportType === "RETURN" ? 7 : 6} className="p-1 px-4 text-[11px] text-rose-500 font-bold">
+                                <TableCell colSpan={watchExportType === "RETURN" ? 8 : 6} className="p-1 px-4 text-[11px] text-rose-500 font-bold">
                                   {hasQtyError && <span className="mr-4">• Lỗi SL: {hasQtyError.message}</span>}
                                   {hasReasonError && <span>• Lỗi Lý do: {hasReasonError.message}</span>}
                                 </TableCell>
