@@ -202,6 +202,15 @@ export const orderService = {
     );
   },
 
+  approvePackedAndShipOrder: async (
+    orderId: string | number,
+  ): Promise<{ message: string }> => {
+    const response = await apiJava.put(
+      `/admin/${orderId}/approve-packed-and-ship`,
+    );
+    return response.data;
+  },
+
   requestAdminOrderReplenishment: async (
     orderId: number | string,
   ): Promise<{ message: string; transferCodes: string[] }> => {

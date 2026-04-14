@@ -8,6 +8,7 @@ import {
   ChevronsRight,
   ChevronUp,
   Package,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ export default function AllOrdersPage() {
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [shippingOrderId, setShippingOrderId] = useState<number | null>(null);
   const isAdmin = isAdminRole(user?.role);
 
   useEffect(() => {
@@ -149,6 +151,26 @@ export default function AllOrdersPage() {
       fetchOrders(activeTab, search);
     } catch {
       toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
+    }
+  };
+
+  const handleApprovePackedAndShip = async (
+    e: React.MouseEvent,
+    orderId: number,
+    orderCode: string,
+  ) => {
+    e.stopPropagation();
+    try {
+      setShippingOrderId(orderId);
+      await orderService.approvePackedAndShipOrder(orderId);
+      toast.success(
+        `Đơn hàng ${orderCode} đã chuyển sang trạng thái đang giao.`,
+      );
+      await fetchOrders(activeTab, search);
+    } catch {
+      toast.error("Không thể chuyển đơn hàng sang trạng thái đang giao.");
+    } finally {
+      setShippingOrderId(null);
     }
   };
 
@@ -381,6 +403,26 @@ export default function AllOrdersPage() {
                                   <h3 className="text-[12px] font-bold text-slate-800">
                                     Chi tiết sản phẩm
                                   </h3>
+                                  {canApprovePackedAndShip(order.status) &&
+                                    hasPermission(P.ORDER_UPDATE) && (
+                                      <Button
+                                        size="sm"
+                                        className="h-[28px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold"
+                                        disabled={shippingOrderId === orderId}
+                                        onClick={(e) =>
+                                          handleApprovePackedAndShip(
+                                            e,
+                                            orderId,
+                                            orderCode,
+                                          )
+                                        }
+                                      >
+                                        <Truck size={14} className="mr-1.5" />
+                                        {shippingOrderId === orderId
+                                          ? "Dang chuyen..."
+                                          : "Duyet dong goi & chuyen giao"}
+                                      </Button>
+                                    )}
                                   {order.status === "AWAITING_REPLENISHMENT" &&
                                     hasPermission(P.ORDER_UPDATE) && (
                                       <Button
@@ -520,6 +562,9 @@ export default function AllOrdersPage() {
   );
 }
 
+const canApprovePackedAndShip = (status: string) =>
+  ["CONFIRMED", "PROCESSING", "READY_FOR_PICKUP"].includes(status);
+
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   AWAITING_REPLENISHMENT: {
     label: "Chờ điều chuyển",
@@ -540,6 +585,10 @@ const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   PROCESSING: {
     label: "Đang đóng gói",
     styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]",
+  },
+  READY_FOR_PICKUP: {
+    label: "Cho lay hang",
+    styles: "bg-teal-50 text-teal-700 border-teal-200",
   },
   SHIPPING: {
     label: "Đang giao",

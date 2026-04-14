@@ -38,6 +38,22 @@ interface AdminEmployeeTableProps {
   onPageChange?: (page: number) => void;
 }
 
+const ADMIN_ROLE_SLUGS = new Set(["ADMIN", "SUPER_ADMIN", "ADMINISTRATOR"]);
+
+const getEmployeeRoleLabel = (employee: UserResponse) => {
+  const roleSlug = String(employee.role?.slug || "").toUpperCase();
+  if (ADMIN_ROLE_SLUGS.has(roleSlug)) return "Quản trị viên";
+  return employee.role?.displayName || "N/A";
+};
+
+const getEmployeeRoleBadgeClass = (employee: UserResponse) => {
+  const roleSlug = String(employee.role?.slug || "").toUpperCase();
+  if (ADMIN_ROLE_SLUGS.has(roleSlug)) {
+    return "bg-blue-50 text-blue-700 border-blue-200";
+  }
+  return "bg-slate-50 text-slate-500 border-slate-200";
+};
+
 export function AdminEmployeeTable({ 
   employees, 
   onRefresh, 
@@ -155,8 +171,11 @@ export function AdminEmployeeTable({
                 </div>
               </TableCell>
               <TableCell className="p-2">
-                <span className="bg-slate-50 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 w-fit uppercase tracking-tight whitespace-nowrap shadow-none">
-                  <ShieldCheck size={10} className="text-emerald-500" /> {emp.role?.displayName || "N/A"}
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 w-fit uppercase tracking-tight whitespace-nowrap shadow-none border",
+                  getEmployeeRoleBadgeClass(emp),
+                )}>
+                  <ShieldCheck size={10} className="text-emerald-500" /> {getEmployeeRoleLabel(emp)}
                 </span>
               </TableCell>
               <TableCell className="p-2 text-center">
