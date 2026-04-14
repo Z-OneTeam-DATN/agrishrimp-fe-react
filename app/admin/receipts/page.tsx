@@ -56,7 +56,7 @@ export default function AdminReceiptListPage() {
           warehouse: item.branchName || "Kho tổng",
           total: item.totalAmount || 0,
           paid: item.paymentAmount || 0,
-          debt: (item.totalAmount || 0) - (item.paymentAmount || 0),
+          debt: item.debtAmount ?? ((item.totalAmount || 0) - (item.paymentAmount || 0)),
           status: (item.status || "PENDING").toUpperCase(),
           creator: item.creatorName || item.createdByName || item.creator || "Hệ thống",
         };
