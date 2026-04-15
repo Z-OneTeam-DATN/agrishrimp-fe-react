@@ -30,6 +30,8 @@ import {
   MapPin,
   Building2,
   ArrowDownToLine,
+  DollarSign,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +96,7 @@ export default function NewTransferPage() {
     mode: "onTouched",
     defaultValues: {
       transferType: "BETWEEN_WAREHOUSES" as const,
+      transferBusinessType: "STOCK_TRANSFER" as const,
       description: sourceCode ? `Xuất điều chuyển theo yêu cầu ${sourceCode}` : "",
       transporter: "",
       vehicle: "",
@@ -115,8 +118,21 @@ export default function NewTransferPage() {
   });
 
   const transferType = watch("transferType");
+  const transferBusinessType = watch("transferBusinessType");
   const importStatus = watch("importStatus");
   const currentSourceBranch = watch("sourceBranch");
+  const watchedItems = watch("items");
+
+  const isInternalSale = transferBusinessType === "INTERNAL_SALE";
+
+  // Tính tổng thành tiền nội bộ (chỉ hiện khi INTERNAL_SALE)
+  const totalTransferAmount = isInternalSale
+    ? (watchedItems || []).reduce((sum: number, item: any) => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number(item.unitTransferPrice) || 0;
+        return sum + qty * price;
+      }, 0)
+    : 0;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -135,10 +151,12 @@ export default function NewTransferPage() {
   const onSubmit = async (formData: any) => {
     setIsSubmitting(true);
     try {
+      const isInternalSalePayload = formData.transferBusinessType === "INTERNAL_SALE";
       const payload = {
         fromBranchId: Number(formData.sourceBranch),
         toBranchId: Number(formData.destBranch),
         transferType: formData.transferType,
+        transferBusinessType: formData.transferBusinessType || "STOCK_TRANSFER",
         description: formData.description,
         transporter: formData.transporter || null,
         vehicle: formData.vehicle || null,
@@ -153,6 +171,7 @@ export default function NewTransferPage() {
           quantityRequested: Number(item.quantity),
           quantityReal: 0,
           itemNote: item.itemNote || "",
+          unitTransferPrice: isInternalSalePayload ? (Number(item.unitTransferPrice) || 0) : null,
         })),
       };
 
@@ -346,6 +365,53 @@ export default function NewTransferPage() {
             <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
               <ArrowRightLeft size={16} /> 1. Thông tin lệnh điều chuyển hàng hóa
             </div>
+
+            {/* Loại nghiệp vụ điều chuyển */}
+            <div className="mb-5 p-4 border border-dashed border-slate-300 bg-slate-50/50 rounded-none">
+              <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex items-center gap-2 block">
+                <Receipt size={13} className="text-blue-600" /> Loại nghiệp vụ điều chuyển *
+              </Label>
+              <Controller
+                name="transferBusinessType"
+                control={control}
+                render={({ field }) => (
+                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap items-center gap-6 mt-2">
+                    <div className={cn("flex items-center gap-3 p-3 border-2 cursor-pointer transition-all min-w-[220px]",
+                      field.value === "STOCK_TRANSFER" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    )}>
+                      <RadioGroupItem value="STOCK_TRANSFER" id="bt-stock" />
+                      <div>
+                        <Label htmlFor="bt-stock" className="text-[12px] font-black text-slate-700 cursor-pointer block">
+                          Điều chuyển kho thuần
+                        </Label>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Cùng đơn vị — không phát sinh doanh thu / công nợ nội bộ</p>
+                      </div>
+                    </div>
+                    <div className={cn("flex items-center gap-3 p-3 border-2 cursor-pointer transition-all min-w-[220px]",
+                      field.value === "INTERNAL_SALE" ? "border-amber-500 bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    )}>
+                      <RadioGroupItem value="INTERNAL_SALE" id="bt-sale" />
+                      <div>
+                        <Label htmlFor="bt-sale" className="text-[12px] font-black text-slate-700 cursor-pointer block">
+                          Bán nội bộ (có hạch toán)
+                        </Label>
+                        <p className="text-[10px] text-slate-400 mt-0.5">2 chi nhánh hạch toán riêng — cần nhập đơn giá điều chuyển</p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                )}
+              />
+              {isInternalSale && (
+                <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 text-amber-800">
+                  <DollarSign size={14} className="mt-0.5 shrink-0" />
+                  <p className="text-[11px] font-medium">
+                    Chế độ <strong>Bán nội bộ</strong>: Vui lòng nhập <strong>đơn giá điều chuyển</strong> cho từng mặt hàng bên dưới.
+                    Hệ thống sẽ tự động ghi nhận <strong>phải thu nội bộ</strong> cho kho xuất và <strong>phải trả nội bộ</strong> cho kho nhận.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
 
               <div className="md:col-span-8 space-y-1.5">
@@ -490,12 +556,22 @@ export default function NewTransferPage() {
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>
                     <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-emerald-600">Thực nhận</TableHead>
+                    {isInternalSale && (
+                      <>
+                        <TableHead className="w-[120px] text-right p-2 text-[10px] font-black uppercase text-amber-600">Đơn giá NB</TableHead>
+                        <TableHead className="w-[120px] text-right p-2 text-[10px] font-black uppercase text-amber-700">Thành tiền NB</TableHead>
+                      </>
+                    )}
                     <TableHead className="p-2 text-[10px] font-black uppercase text-slate-500">Ghi chú</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fields.map((field, index) => (
+                  {fields.map((field, index) => {
+                    const qty = Number(watch(`items.${index}.quantity`)) || 0;
+                    const unitPrice = Number(watch(`items.${index}.unitTransferPrice`)) || 0;
+                    const lineTotal = qty * unitPrice;
+                    return (
                     <TableRow key={field.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
                       <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
                       <TableCell className="p-1">
@@ -514,7 +590,6 @@ export default function NewTransferPage() {
                           {...register(`items.${index}.quantity`)}
                           className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", (errors?.items as any)?.[index]?.quantity ? "border-rose-500" : "border-blue-200")}
                         />
-                        {/* HIỂN THỊ LỖI ITEMS */}
                         {(errors?.items as any)?.[index]?.quantity && (
                           <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].quantity?.message as string}</p>
                         )}
@@ -522,6 +597,25 @@ export default function NewTransferPage() {
                       <TableCell className="p-1">
                         <Input type="number" {...register(`items.${index}.receivedQuantity`)} readOnly className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0 cursor-not-allowed" />
                       </TableCell>
+                      {isInternalSale && (
+                        <>
+                          <TableCell className="p-1 text-right">
+                            <Input
+                              type="number"
+                              step="any"
+                              {...register(`items.${index}.unitTransferPrice`)}
+                              className={cn("h-8 text-[13px] text-right bg-amber-50/40 rounded-none font-black text-amber-700 focus:ring-0", (errors?.items as any)?.[index]?.unitTransferPrice ? "border-rose-500" : "border-amber-200")}
+                              placeholder="0"
+                            />
+                            {(errors?.items as any)?.[index]?.unitTransferPrice && (
+                              <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].unitTransferPrice?.message as string}</p>
+                            )}
+                          </TableCell>
+                          <TableCell className="p-1 text-right font-black text-amber-700 text-[12px] pr-3">
+                            {lineTotal > 0 ? lineTotal.toLocaleString("vi-VN") : <span className="text-slate-300">—</span>}
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="p-1">
                         <Input {...register(`items.${index}.itemNote`)} className="h-8 text-[11px] border-none italic bg-transparent focus:ring-0" placeholder="..." />
                       </TableCell>
@@ -531,10 +625,22 @@ export default function NewTransferPage() {
                         </button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
+            {/* Footer tổng tiền nội bộ (chỉ hiện khi INTERNAL_SALE) */}
+            {isInternalSale && fields.length > 0 && (
+              <div className="flex items-center justify-end gap-4 px-5 py-3 bg-amber-50 border-t border-amber-200">
+                <span className="text-[11px] font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <DollarSign size={14} /> Tổng thành tiền nội bộ:
+                </span>
+                <span className="text-[16px] font-black text-amber-700 font-mono">
+                  {totalTransferAmount.toLocaleString("vi-VN")} ₫
+                </span>
+              </div>
+            )}
             {/* Lỗi nếu chưa có items nào hoặc lỗi từ Zod items level */}
             {(errors.items?.message || errors.items?.root?.message) && (
                 <div className="p-3 bg-rose-50 border-t border-rose-100 text-rose-500 text-[11px] font-bold text-center">

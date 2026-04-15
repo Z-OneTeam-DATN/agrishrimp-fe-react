@@ -195,7 +195,6 @@ function AdminReceiptFormContent() {
   const watchItems = watch("items") || [];
   const watchPurchaseRequestId = watch("purchaseRequestId");
   const watchStatus = watch("status") || "PENDING";
-  const watchPaymentAmount = watch("paymentAmount") || 0;
   const currentTargetBranch = watch("branchName");
 
   // Kiểm hàng khi trạng thái là APPROVED hoặc đã hoàn tất (COMPLETED/IMPORTED)
@@ -209,6 +208,8 @@ function AdminReceiptFormContent() {
   const isLinkedPurchaseRequest = Boolean(watchPurchaseRequestId);
   const isMasterDataLocked = isInfoReadOnly || isLinkedPurchaseRequest;
   const isItemSourceLocked = isInfoReadOnly || isLinkedPurchaseRequest;
+  const deferLotTrackingToQC = isLinkedPurchaseRequest && !isQCMode;
+  const tableColCount = isQCMode ? 11 : isLinkedPurchaseRequest ? 10 : 9;
 
   const selectedDestBranch = useMemo(() => {
     return branches.find(
@@ -232,7 +233,7 @@ function AdminReceiptFormContent() {
     (acc, item) => acc + (Number(item.plannedQuantity) || 0),
     0,
   );
-  const debtAmount = subTotal - watchPaymentAmount;
+  const debtAmount = subTotal;
 
   // --- Actions ---
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -381,17 +382,25 @@ function AdminReceiptFormContent() {
     setIsSubmitting(true);
     try {
       const { creator, purchaseRequestCode, ...restOfData } = data;
+      const payloadItems = data.items
+        .filter((i) => Number(i.plannedQuantity) > 0)
+        .map((i) => ({
+          productCode: i.productCode,
+          plannedQuantity: Number(i.plannedQuantity),
+          quantityReal: Number(i.quantityReal) || 0,
+          quantityAccepted: Number(i.quantityAccepted) || 0,
+          quantityRejected: Number(i.quantityRejected) || 0,
+          lotNumber: i.lotNumber || "",
+          expiryDate: i.expiryDate || "",
+          importPrice: Number(i.importPrice) || 0,
+          newSellingPrice: Number(i.newSellingPrice) || 0,
+          note: i.note || "",
+        }));
+
       const payload = {
         ...restOfData,
         status: isAdmin && !isEditMode ? "APPROVED" : data.status,
-        items: data.items.map((i) => {
-          return {
-            ...i,
-            plannedQuantity: Number(i.plannedQuantity),
-            importPrice: Number(i.importPrice),
-            quantityReal: Number(i.quantityReal) || 0,
-          };
-        }),
+        items: payloadItems,
       };
       isEditMode
         ? await InventoryApiService.updateReceipt(receiptId!, payload)
@@ -409,12 +418,16 @@ function AdminReceiptFormContent() {
     setIsSubmitting(true);
     try {
       // Khi nhấn "Xác nhận nhập kho", gửi object chứa items
-      const payloadItems = data.items.map((i) => {
-        return {
-          ...i,
+      const payloadItems = data.items
+        .filter((i) => Number(i.plannedQuantity) > 0)
+        .map((i) => ({
+          productCode: i.productCode,
           quantityReal: Number(i.quantityReal) || 0,
-        };
-      });
+          quantityRejected: Number(i.quantityRejected) || 0,
+          lotNumber: i.lotNumber || "",
+          expiryDate: i.expiryDate || "",
+          note: i.note || "",
+        }));
       await InventoryApiService.completeReceipt(receiptId!, {
         items: payloadItems,
       });
@@ -525,7 +538,9 @@ function AdminReceiptFormContent() {
             productCode: item.productCode,
             productName: item.productName,
             imageUrl: item.imageUrl || "",
-            plannedQuantity: item.remainingQty || 0,
+            plannedQuantity: 0,
+            requestedQuantity: item.requestedQty || 0,
+            deliveredQuantity: item.deliveredQty || 0,
             remainingQuantity: item.remainingQty || 0,
             quantityReal: 0,
             quantityAccepted: 0,
@@ -639,10 +654,10 @@ function AdminReceiptFormContent() {
 
   const onSubmitWithConfirm = (data: Receipt) => {
     const isComplete = watchStatus === "APPROVED";
-    const title = isComplete ? "Xác nhận NHẬP KHO" : "Xác nhận LƯU PHIẾU";
+    const title = isComplete ? "Xác nhận NHẬP KHO" : "Xác nhận LƯU ĐỢT NHẬP";
     const msg = isComplete
       ? "Hệ thống sẽ ghi nhận số lượng đạt và số lượng lỗi vào tồn kho. Bạn đã kiểm tra kỹ số lượng thực nhận chưa?"
-      : "Hệ thống sẽ lưu lại thông tin phiếu nhập hiện tại. Bạn có chắc chắn không?";
+      : "Hệ thống sẽ lưu lại đợt nhận hàng hiện tại theo số NCC giao của đợt này. Bạn có chắc chắn không?";
 
     showConfirm(title, msg, () => {
       if (isComplete) onConfirmComplete(data);
@@ -733,7 +748,7 @@ function AdminReceiptFormContent() {
             Phiếu nhập này đang liên kết với yêu cầu mua{" "}
             <span className="text-blue-600">{linkedPurchaseRequestMeta.code}</span>.
             Hệ thống đã tự nạp nhà cung cấp, kho nhận và các mặt hàng còn thiếu.
-            Người dùng chỉ cần điều chỉnh số lượng của đợt nhập này, rồi thực hiện kiểm hàng theo thực tế.
+            Hãy nhập số NCC giao trong đợt này; số lô, hạn dùng, số đạt và số lỗi sẽ được xác nhận ở bước kiểm hàng.
           </p>
         </div>
       )}
@@ -1029,7 +1044,7 @@ function AdminReceiptFormContent() {
                   {isQCMode ? (
                     <>
                       <TableHead className="w-20 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                        YÊU CẦU
+                        SL ĐỢT NÀY
                       </TableHead>
                       <TableHead className="w-20 text-right text-[10px] font-bold text-emerald-600 whitespace-nowrap">
                         THỰC NHẬN
@@ -1039,9 +1054,18 @@ function AdminReceiptFormContent() {
                       </TableHead>
                     </>
                   ) : (
-                    <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                      YÊU CẦU
-                    </TableHead>
+                    <>
+                      <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                        {isLinkedPurchaseRequest
+                          ? "SL NCC GIAO ĐỢT NÀY"
+                          : "YÊU CẦU"}
+                      </TableHead>
+                      {isLinkedPurchaseRequest ? (
+                        <TableHead className="w-24 text-right text-[10px] font-bold text-amber-600 whitespace-nowrap">
+                          CÒN THIẾU YCM
+                        </TableHead>
+                      ) : null}
+                    </>
                   )}
                   <TableHead className="w-32 text-right text-[10px] font-bold text-blue-600">
                     GIÁ NHẬP (₫)
@@ -1059,7 +1083,7 @@ function AdminReceiptFormContent() {
                 {fields.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={isQCMode ? 11 : 9}
+                      colSpan={tableColCount}
                       className="h-40 text-center text-slate-300 text-xs font-bold uppercase tracking-widest"
                     >
                       Chưa có sản phẩm nào
@@ -1083,21 +1107,52 @@ function AdminReceiptFormContent() {
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">
                             #{item.productCode}
                           </div>
+                          {isLinkedPurchaseRequest ? (
+                            <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                              YCM {formatNumber(Number(item.requestedQuantity) || 0)} ·
+                              Đã nhận {formatNumber(Number(item.deliveredQuantity) || 0)} ·
+                              Còn thiếu {formatNumber(Number(item.remainingQuantity) || 0)}
+                            </div>
+                          ) : null}
                         </TableCell>
                         <TableCell className="px-1">
-                          <Input
-                            className="h-7 text-xs text-center border-slate-200"
-                            {...register(`items.${idx}.lotNumber`)}
-                            disabled={isInfoReadOnly}
-                          />
+                          {deferLotTrackingToQC ? (
+                            item.lotNumber ? (
+                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                {item.lotNumber}
+                              </div>
+                            ) : (
+                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                                Nhập khi kiểm hàng
+                              </div>
+                            )
+                          ) : (
+                            <Input
+                              className="h-7 text-xs text-center border-slate-200"
+                              {...register(`items.${idx}.lotNumber`)}
+                              disabled={isInfoReadOnly}
+                            />
+                          )}
                         </TableCell>
                         <TableCell className="px-1">
-                          <Input
-                            type="date"
-                            className="h-7 text-xs px-1 border-slate-200"
-                            {...register(`items.${idx}.expiryDate`)}
-                            disabled={isInfoReadOnly}
-                          />
+                          {deferLotTrackingToQC ? (
+                            item.expiryDate ? (
+                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                {item.expiryDate}
+                              </div>
+                            ) : (
+                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                                Xác nhận ở QC
+                              </div>
+                            )
+                          ) : (
+                            <Input
+                              type="date"
+                              className="h-7 text-xs px-1 border-slate-200"
+                              {...register(`items.${idx}.expiryDate`)}
+                              disabled={isInfoReadOnly}
+                            />
+                          )}
                         </TableCell>
                         {isQCMode ? (
                           <>
@@ -1120,16 +1175,27 @@ function AdminReceiptFormContent() {
                             </TableCell>
                           </>
                         ) : (
-                          <TableCell className="px-1">
-                            <Input
-                              type="number"
-                              className="h-7 text-xs text-right font-bold border-slate-200"
-                              {...register(`items.${idx}.plannedQuantity`, {
-                                valueAsNumber: true,
-                              })}
-                              disabled={isInfoReadOnly}
-                            />
-                          </TableCell>
+                          <>
+                            <TableCell className="px-1">
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder={
+                                  isLinkedPurchaseRequest ? "Nhập SL đợt này" : ""
+                                }
+                                className="h-7 text-xs text-right font-bold border-slate-200"
+                                {...register(`items.${idx}.plannedQuantity`, {
+                                  valueAsNumber: true,
+                                })}
+                                disabled={isInfoReadOnly}
+                              />
+                            </TableCell>
+                            {isLinkedPurchaseRequest ? (
+                              <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
+                                {formatNumber(Number(item.remainingQuantity) || 0)}
+                              </TableCell>
+                            ) : null}
+                          </>
                         )}
                         <TableCell className="px-1 bg-blue-50/20">
                           <Input
@@ -1196,12 +1262,9 @@ function AdminReceiptFormContent() {
               </div>
               <div className="flex justify-between items-center text-xs font-bold text-emerald-600 uppercase">
                 <span>Đã thanh toán:</span>
-                <Input
-                  type="number"
-                  className="h-8 w-32 text-right font-bold text-emerald-600 border-emerald-300"
-                  {...register("paymentAmount", { valueAsNumber: true })}
-                  disabled={isReadOnly}
-                />
+                <span className="inline-flex h-8 min-w-32 items-center justify-end rounded-sm border border-emerald-200 bg-emerald-50 px-3 text-right font-bold text-emerald-600">
+                  0 VND
+                </span>
               </div>
               <div className="pt-3 border-t border-slate-200 flex justify-between text-[14px] font-black uppercase">
                 <span>Còn nợ NCC:</span>
@@ -1213,6 +1276,9 @@ function AdminReceiptFormContent() {
                   {formatNumber(debtAmount)} VND
                 </span>
               </div>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                Thanh toán NCC được ghi nhận theo từng lần sau khi phiếu nhập hoàn tất kiểm hàng, không nhập trực tiếp ở bước lập phiếu.
+              </p>
             </div>
           </div>
         </div>
@@ -1258,7 +1324,7 @@ function AdminReceiptFormContent() {
               ) : (
                 <>
                   <Save size={14} className="mr-2" />{" "}
-                  {isAdmin ? "Lưu & Duyệt ngay" : "Lưu & Gửi duyệt"}
+                  {isAdmin ? "Lưu đợt nhập & Duyệt" : "Lưu đợt nhập & Gửi duyệt"}
                 </>
               )}
             </Button>

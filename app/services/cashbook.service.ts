@@ -1,7 +1,8 @@
-import { InventoryApiService, InventoryExportApiService } from "@/app/services/inventory.service";
+import { InventoryExportApiService } from "@/app/services/inventory.service";
+import { FinancialService } from "@/app/services/financial.service";
 
 export type CashbookDirection = "IN" | "OUT";
-export type CashbookSource = "RECEIPT" | "EXPORT_COMMAND" | "EXPORT_RECEIPT";
+export type CashbookSource = "SUPPLIER_PAYMENT" | "EXPORT_COMMAND" | "EXPORT_RECEIPT";
 
 export interface CashbookEntry {
   id: string;
@@ -66,25 +67,25 @@ const extractAmount = (item: any, fallback = 0) => {
 
 const extractDate = (item: any) => normalizeDate(item?.createdAt || item?.entryDate || item?.checkDate || item?.date);
 
-const mapReceipt = (item: any): CashbookEntry | null => {
-  const date = extractDate(item);
+const mapSupplierPayment = (item: any): CashbookEntry | null => {
+  const date = normalizeDate(item?.paymentDate || item?.createdAt);
   if (!date) return null;
   return {
-    id: `receipt-${item.id ?? item.code ?? date}`,
+    id: `supplier-payment-${item.id ?? item.receiptCode ?? date}`,
     date,
     branchId: item?.branchId != null ? String(item.branchId) : undefined,
     direction: "OUT",
-    source: "RECEIPT",
-    code: item.code || `RC-${item.id}`,
-    title: item.noteType === "IMPORT" || item.noteType === "PO" ? "Phiếu nhập kho" : "Phiếu nhập kho",
-    description: item.supplierName || item.displayPartnerName || item.partnerBranchName || "Nhà cung cấp / đối tác",
+    source: "SUPPLIER_PAYMENT",
+    code: item.receiptCode || `PAY-${item.id}`,
+    title: "Thanh toán NCC",
+    description: item.referenceCode || item.note || item.supplierName || "Thanh toán phiếu nhập",
     branchName: item.branchName || "",
-    partnerName: item.supplierName || item.displayPartnerName || item.partnerBranchName || "",
-    creatorName: item.creatorName || item.createdByName || "",
-    status: item.status || "",
-    amount: extractAmount(item),
-    debtAmount: toNumber(item.debtAmount),
-    paymentAmount: toNumber(item.paymentAmount),
+    partnerName: item.supplierName || "",
+    creatorName: item.createdByName || "",
+    status: item.paymentMethod || "",
+    amount: toNumber(item.amount),
+    debtAmount: toNumber(item.remainingDebtAfter),
+    paymentAmount: toNumber(item.amount),
   };
 };
 
@@ -115,18 +116,22 @@ const mapExport = (item: any, source: CashbookSource): CashbookEntry | null => {
 
 export const CashbookService = {
   async getEntries(filters: CashbookFilters = {}): Promise<CashbookEntry[]> {
-    const [receiptsRes, exportCommandsRes, exportReceiptsRes] = await Promise.all([
-      InventoryApiService.getAllReceipts(),
+    const [supplierPaymentsRes, exportCommandsRes, exportReceiptsRes] = await Promise.all([
+      FinancialService.getSupplierPayments({
+        branchId: filters.branchId ?? undefined,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+      }),
       InventoryExportApiService.getAllExportCommands(),
       InventoryExportApiService.getAllExportReceipts(),
     ]);
 
-    const receipts = Array.isArray(receiptsRes) ? receiptsRes : (receiptsRes?.data || receiptsRes?.content || []);
+    const supplierPayments = Array.isArray(supplierPaymentsRes) ? supplierPaymentsRes : [];
     const exportCommands = Array.isArray(exportCommandsRes) ? exportCommandsRes : (exportCommandsRes?.data || exportCommandsRes?.content || []);
     const exportReceipts = Array.isArray(exportReceiptsRes) ? exportReceiptsRes : (exportReceiptsRes?.data || exportReceiptsRes?.content || []);
 
     const entries = [
-      ...receipts.map(mapReceipt).filter(Boolean),
+      ...supplierPayments.map(mapSupplierPayment).filter(Boolean),
       ...exportCommands.map((item: any) => mapExport(item, "EXPORT_COMMAND")).filter(Boolean),
       ...exportReceipts.map((item: any) => mapExport(item, "EXPORT_RECEIPT")).filter(Boolean),
     ] as CashbookEntry[];

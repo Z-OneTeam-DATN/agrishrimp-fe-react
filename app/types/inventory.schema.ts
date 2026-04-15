@@ -128,7 +128,9 @@ export const ReceiptItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn hàng hóa"),
   productName: z.string(),
   imageUrl: z.string().optional(),
-  plannedQuantity: z.coerce.number().min(0.001, "Số lượng dự kiến phải > 0"),
+  plannedQuantity: z.coerce.number().min(0, "Số lượng không được âm"),
+  requestedQuantity: z.number().optional(),
+  deliveredQuantity: z.number().optional(),
   remainingQuantity: z.number().optional(),
   quantityReal: z.coerce.number().min(0).default(0),
   quantityAccepted: z.coerce.number().min(0).default(0),
@@ -175,6 +177,15 @@ export const ReceiptSchema = z.object({
   note: z.string().optional(),
   tags: z.array(z.string()).optional().default([]),
 }).superRefine((data, ctx) => {
+  const hasPositiveItem = data.items.some((item) => item.plannedQuantity > 0);
+  if (!hasPositiveItem) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Cần nhập số lượng cho ít nhất một mặt hàng trong đợt nhập này",
+      path: ["items"],
+    });
+  }
+
   // Validate điều kiện Chọn nguồn
   if (data.importType === "SUPPLIER") {
     if (!data.supplierCode || !data.supplierName) {
@@ -195,7 +206,11 @@ export const ReceiptSchema = z.object({
 
     // BẮT LỖI SỐ LƯỢNG VƯỢT QUÁ TỒN KHO XUẤT
     data.items.forEach((item, index) => {
-      if (item.maxQuantity !== undefined && item.plannedQuantity > item.maxQuantity) {
+      if (
+        item.plannedQuantity > 0 &&
+        item.maxQuantity !== undefined &&
+        item.plannedQuantity > item.maxQuantity
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Vượt quá tồn kho (Tối đa: ${item.maxQuantity})`,
@@ -208,6 +223,7 @@ export const ReceiptSchema = z.object({
   if (data.purchaseRequestId) {
     data.items.forEach((item, index) => {
       if (
+        item.plannedQuantity > 0 &&
         item.remainingQuantity !== undefined &&
         item.plannedQuantity > item.remainingQuantity
       ) {
@@ -265,6 +281,8 @@ export const TransferItemSchema = z.object({
   receivedQuantity: z.coerce.number().min(0).default(0), // Thực nhận (chỉ đọc ở form tạo)
   itemNote: z.string().optional(),
   imageUrl: z.string().optional(),
+  // Đơn giá điều chuyển nội bộ (chỉ bắt buộc khi INTERNAL_SALE)
+  unitTransferPrice: z.coerce.number().min(0).optional(),
 });
 
 export type TransferItem = z.infer<typeof TransferItemSchema>;
@@ -282,6 +300,8 @@ export const TransferSchema = z.object({
     status: z.enum(["DRAFT", "PENDING", "APPROVED", "SHIPPING", "TRANSIT", "COMPLETED", "CANCELLED", "REJECTED"]).default("DRAFT"),
     importStatus: z.string().optional(),
     transferType: z.enum(["BETWEEN_WAREHOUSES", "INTERNAL"]).default("BETWEEN_WAREHOUSES"),
+    // Loại nghiệp vụ: STOCK_TRANSFER = thuần kho, INTERNAL_SALE = bán nội bộ có hạch toán
+    transferBusinessType: z.enum(["STOCK_TRANSFER", "INTERNAL_SALE"]).default("STOCK_TRANSFER"),
     referenceCode: z.string().optional().default(""),
     description: z.string().min(1, "Vui lòng nhập lý do điều chuyển"),
     dispatchOrder: z.string().optional(),
@@ -316,6 +336,16 @@ export const TransferSchema = z.object({
           message: `Vượt quá tồn kho (Tối đa: ${item.availableQuantity})`,
           path: ["items", index, "quantity"],
         });
+      }
+      // INTERNAL_SALE: mỗi dòng bắt buộc có đơn giá nội bộ > 0
+      if (data.transferBusinessType === "INTERNAL_SALE") {
+        if (!item.unitTransferPrice || item.unitTransferPrice <= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Vui lòng nhập đơn giá điều chuyển nội bộ (> 0)",
+            path: ["items", index, "unitTransferPrice"],
+          });
+        }
       }
     });
   });

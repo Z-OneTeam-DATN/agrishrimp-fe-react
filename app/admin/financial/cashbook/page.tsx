@@ -111,6 +111,8 @@ export default function CashbookPage() {
         setLoading(true);
         const cashbookRes = await CashbookService.getEntries({
           branchId: selectedBranchId,
+          startDate,
+          endDate,
         });
         setEntries(cashbookRes);
       } catch (error) {
@@ -226,6 +228,8 @@ export default function CashbookPage() {
     try {
       const cashbookRes = await CashbookService.getEntries({
         branchId: selectedBranchId,
+        startDate,
+        endDate,
       });
       setEntries(cashbookRes);
     } finally {

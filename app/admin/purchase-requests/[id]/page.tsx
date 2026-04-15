@@ -205,7 +205,7 @@ export default function PurchaseRequestDetailPage() {
               onClick={handleCreateReceipt}
             >
               <Plus size={13} className="mr-1.5" />
-              Tạo phiếu nhập
+              Tạo đợt nhập
             </Button>
           )}
 
@@ -329,7 +329,7 @@ export default function PurchaseRequestDetailPage() {
                 onClick={handleCreateReceipt}
               >
                 <Plus size={12} className="mr-1" />
-                Thêm đợt nhập
+                Tạo đợt nhập mới
               </Button>
             )}
           </div>
@@ -345,7 +345,7 @@ export default function PurchaseRequestDetailPage() {
                 className="mt-3 bg-green-600 hover:bg-green-700 text-white h-8 text-[12px] font-bold rounded-[3px]"
                 onClick={handleCreateReceipt}
               >
-                <Plus size={13} className="mr-1.5" /> Tạo phiếu nhập đầu tiên
+                <Plus size={13} className="mr-1.5" /> Tạo đợt nhập đầu tiên
               </Button>
             )}
           </div>
@@ -374,11 +374,14 @@ export default function PurchaseRequestDetailPage() {
                       {/* Card */}
                       <div className="flex-1 bg-slate-50 border border-slate-200 rounded-[4px] p-3 hover:border-blue-200 transition-colors">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Link
-                              href={`/admin/receipts/${receipt.id}`}
-                              className="font-bold text-blue-600 text-[13px] hover:underline"
-                            >
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-600">
+                            Đợt {idx + 1}
+                          </span>
+                          <Link
+                            href={`/admin/receipts/${receipt.id}`}
+                            className="font-bold text-blue-600 text-[13px] hover:underline"
+                          >
                               {receipt.code}
                             </Link>
                             <span className={cn(

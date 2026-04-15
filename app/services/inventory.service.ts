@@ -51,6 +51,16 @@ export const InventoryApiService = {
     const response = await apiJava.post(`${BASE_URL}/receipts/${id}/complete`, payload);
     return response.data;
   },
+
+  getReceiptPayments: async (id: number | string) => {
+    const response = await apiJava.get(`${BASE_URL}/receipts/${id}/payments`);
+    return response.data;
+  },
+
+  createReceiptPayment: async (id: number | string, payload: any) => {
+    const response = await apiJava.post(`${BASE_URL}/receipts/${id}/payments`, payload);
+    return response.data;
+  },
 };
 export const InventoryExportApiService = {
   // Lấy danh sách lệnh xuất

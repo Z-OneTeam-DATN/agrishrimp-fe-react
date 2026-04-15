@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   ChevronLeft, Printer, CheckCircle2, FileText, Package, 
   Settings, HelpCircle, X, ArrowDownToLine, History, 
-  Ban, CheckSquare, ListChecks, Play, ImageIcon, AlertCircle
+  Ban, CheckSquare, ListChecks, Play, ImageIcon, AlertCircle, Wallet, PlusCircle
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -67,6 +67,15 @@ export default function ReceiptDetailPage() {
   // Modal States
   const [showInspectModal, setShowInspectModal] = useState(false);
   const [inspectItems, setInspectItems] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    paymentMethod: "TRANSFER",
+    paymentDate: new Date().toISOString().slice(0, 10),
+    referenceCode: "",
+    note: "",
+  });
 
   useEffect(() => {
     fetchData();
@@ -74,8 +83,12 @@ export default function ReceiptDetailPage() {
 
   const fetchData = async () => {
     try {
-      const data = await InventoryApiService.getReceiptDetail(id as string);
+      const [data, payments] = await Promise.all([
+        InventoryApiService.getReceiptDetail(id as string),
+        InventoryApiService.getReceiptPayments(id as string),
+      ]);
       setReceipt(data);
+      setPaymentHistory(Array.isArray(payments) ? payments : []);
     } catch (error) {
       toast.error("Lỗi tải dữ liệu. Vui lòng thử lại!");
     } finally {
@@ -88,8 +101,56 @@ export default function ReceiptDetailPage() {
     try {
       await action();
       toast.success(successMsg);
-      const updated = await InventoryApiService.getReceiptDetail(id as string);
-      setReceipt(updated);
+      await fetchData();
+    } catch (error: any) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const currentDebt = Number(
+    receipt?.debtAmount ?? ((receipt?.totalAmount || 0) - (receipt?.paymentAmount || 0)),
+  );
+  const canRecordPayment =
+    (isAdmin || hasPermission(P.REPORT_FINANCE_VIEW) || hasPermission(P.IMPORT_APPROVE)) &&
+    receipt?.status === "COMPLETED" &&
+    currentDebt > 0;
+
+  const openPaymentModal = (payFull = false) => {
+    setPaymentForm({
+      amount: payFull ? String(currentDebt) : "",
+      paymentMethod: "TRANSFER",
+      paymentDate: new Date().toISOString().slice(0, 10),
+      referenceCode: "",
+      note: "",
+    });
+    setShowPaymentModal(true);
+  };
+
+  const submitPayment = async () => {
+    const amount = Number(paymentForm.amount || 0);
+    if (!amount || amount <= 0) {
+      toast.error("Vui lòng nhập số tiền thanh toán hợp lệ");
+      return;
+    }
+    if (amount > currentDebt) {
+      toast.error("Số tiền thanh toán vượt quá công nợ còn lại");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await InventoryApiService.createReceiptPayment(id as string, {
+        amount,
+        paymentMethod: paymentForm.paymentMethod,
+        paymentDate: paymentForm.paymentDate,
+        referenceCode: paymentForm.referenceCode,
+        note: paymentForm.note,
+      });
+      toast.success("Đã ghi nhận thanh toán NCC");
+      setShowPaymentModal(false);
+      await fetchData();
     } catch (error: any) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -128,7 +189,9 @@ export default function ReceiptDetailPage() {
   const openInspectModal = () => {
     setInspectItems((receipt?.items || []).map((i: any) => ({
       ...i,
-      quantityReal: i.plannedQuantity || 0,
+      plannedQuantity: i.plannedQuantity || i.quantity || 0,
+      quantityDelivered: i.quantityReal || i.plannedQuantity || i.quantity || 0,
+      quantityAccepted: i.quantityAccepted || i.plannedQuantity || i.quantity || 0,
       quantityRejected: 0,
       lotNumber: i.lotNumber || "",
       expiryDate: i.expiryDate || "",
@@ -138,19 +201,32 @@ export default function ReceiptDetailPage() {
   };
 
   const submitInspect = () => {
-    // Validation logic QC: Chỉ cần đảm bảo Thực nhận <= Dự kiến (Yêu cầu)
+    // Validation logic QC: phân tách rõ NCC giao / đạt QC / lỗi
     for (const item of inspectItems) {
       const planned = Number(item.plannedQuantity) || 0;
-      const real = Number(item.quantityReal) || 0;
+      const delivered = Number(item.quantityDelivered) || 0;
+      const accepted = Number(item.quantityAccepted) || 0;
+      const rejected = Number(item.quantityRejected) || 0;
 
-      if (real > planned) {
-        toast.error(`SP ${item.productName}: Số lượng thực nhận (${real}) không được lớn hơn yêu cầu (${planned})`);
+      if (delivered > planned) {
+        toast.error(`SP ${item.productName}: Số NCC giao (${delivered}) không được lớn hơn số lượng của đợt này (${planned})`);
+        return;
+      }
+      if (accepted + rejected !== delivered) {
+        toast.error(`SP ${item.productName}: Đạt QC + Lỗi phải đúng bằng số NCC giao`);
+        return;
+      }
+      if (accepted < 0 || rejected < 0) {
+        toast.error(`SP ${item.productName}: Số lượng đạt/lỗi không được âm`);
         return;
       }
 
-      // 2. Bắt buộc Số lô & Hạn dùng
-      if (!item.lotNumber?.trim() || !item.expiryDate) {
+      if (delivered > 0 && (!item.lotNumber?.trim() || !item.expiryDate)) {
         toast.error(`SP ${item.productName}: Vui lòng điền đầy đủ Số lô và Hạn dùng`);
+        return;
+      }
+      if ((rejected > 0 || delivered < planned) && !item.note?.trim()) {
+        toast.error(`SP ${item.productName}: Vui lòng ghi rõ lý do lỗi hoặc phần giao thiếu`);
         return;
       }
     }
@@ -161,8 +237,9 @@ export default function ReceiptDetailPage() {
       () => {
         const payload = inspectItems.map((i) => ({
           productCode: i.productCode,
-          quantityReal: Number(i.quantityReal || 0),
-          quantityRejected: Math.max(0, (Number(i.plannedQuantity) || 0) - Number(i.quantityReal || 0)),
+          quantityReal: Number(i.quantityAccepted || 0),
+          quantityDelivered: Number(i.quantityDelivered || 0),
+          quantityRejected: Number(i.quantityRejected || 0),
           lotNumber: i.lotNumber,
           expiryDate: i.expiryDate,
           note: i.note || ""
@@ -351,10 +428,11 @@ export default function ReceiptDetailPage() {
                       <th className="p-4 text-left w-[220px]">Sản phẩm / SKU</th>
                       <th className="p-4 text-center">ĐVT</th>
                       <th className="p-4 text-center">Số lô / Hạn dùng</th>
-                      <th className="p-4 text-right">SL Yêu cầu</th>
+                      <th className="p-4 text-right">SL Đợt Nhập</th>
                       {isQCMode ? (
                         <>
-                          <th className="p-4 text-right text-emerald-600 bg-emerald-50/50 whitespace-nowrap">THỰC NHẬN</th>
+                          <th className="p-4 text-right text-blue-600 bg-blue-50/50 whitespace-nowrap">NCC GIAO</th>
+                          <th className="p-4 text-right text-emerald-600 bg-emerald-50/50 whitespace-nowrap">ĐẠT QC</th>
                           <th className="p-4 text-right text-rose-600 bg-rose-50/50 whitespace-nowrap">LỖI</th>
                         </>
                       ) : null}
@@ -366,7 +444,8 @@ export default function ReceiptDetailPage() {
                 <tbody>
                    {(receipt.items || []).map((item: any, i: number) => {
                       const planned = item.plannedQuantity || item.quantity || 0;
-                      const actual = item.quantityReal || 0;
+                      const delivered = item.quantityReal || 0;
+                      const accepted = item.quantityAccepted || 0;
                       const rejected = item.quantityRejected || 0;
 
                       return (
@@ -395,14 +474,15 @@ export default function ReceiptDetailPage() {
                          
                          {isQCMode ? (
                            <>
-                              <td className="p-4 text-right font-black text-emerald-600 text-base bg-emerald-50/30 border-l border-emerald-100">{actual}</td>
+                              <td className="p-4 text-right font-black text-blue-600 text-base bg-blue-50/30 border-l border-blue-100">{delivered}</td>
+                              <td className="p-4 text-right font-black text-emerald-600 text-base bg-emerald-50/30">{accepted}</td>
                               <td className="p-4 text-right font-black text-rose-600 text-base bg-rose-50/30">{rejected > 0 ? rejected : "-"}</td>
                            </>
                          ) : null}
                          
                          <td className="p-4 text-right font-bold text-slate-600">{formatNumber(item.importPrice || 0)} ₫</td>
                          <td className="p-4 text-right font-black text-emerald-600">{formatNumber(item.newSellingPrice || 0)} ₫</td>
-                         <td className="p-4 text-right font-black text-slate-900">{formatNumber((isQCMode ? actual : planned) * (item.importPrice || 0))} ₫</td>
+                         <td className="p-4 text-right font-black text-slate-900">{formatNumber((isQCMode ? accepted : planned) * (item.importPrice || 0))} ₫</td>
                       </tr>
                    )})}
                 </tbody>
@@ -428,11 +508,74 @@ export default function ReceiptDetailPage() {
 
         <div className="lg:col-span-3 space-y-5">
            <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm space-y-4">
-              <h3 className="font-black text-[11px] uppercase text-slate-400 border-b pb-2 flex items-center gap-2"><CheckCircle2 size={14}/> Thanh toán Nhà cung cấp</h3>
-              <div className="text-[13px] space-y-3">
-                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Đã thanh toán:</span><span className="font-black text-emerald-600">{formatNumber(receipt.paymentAmount || 0)} ₫</span></p>
-                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Còn nợ NCC:</span><span className="font-black text-rose-600">{formatNumber((receipt.totalAmount || 0) - (receipt.paymentAmount || 0))} ₫</span></p>
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="font-black text-[11px] uppercase text-slate-400 flex items-center gap-2"><CheckCircle2 size={14}/> Thanh toán Nhà cung cấp</h3>
+                {canRecordPayment ? (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 rounded-none border-emerald-200 text-[11px] font-bold text-emerald-700"
+                      onClick={() => openPaymentModal(true)}
+                    >
+                      <Wallet size={12} className="mr-1" />
+                      Thanh toán đủ
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 rounded-none bg-blue-600 text-[11px] font-bold hover:bg-blue-700"
+                      onClick={() => openPaymentModal(false)}
+                    >
+                      <PlusCircle size={12} className="mr-1" />
+                      Ghi nhận thanh toán
+                    </Button>
+                  </div>
+                ) : null}
               </div>
+              <div className="text-[13px] space-y-3">
+                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Giá trị phải trả sau QC:</span><span className="font-black text-blue-600">{formatNumber(receipt.totalAmount || 0)} ₫</span></p>
+                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Đã thanh toán:</span><span className="font-black text-emerald-600">{formatNumber(receipt.paymentAmount || 0)} ₫</span></p>
+                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Còn nợ NCC:</span><span className="font-black text-rose-600">{formatNumber(currentDebt)} ₫</span></p>
+              </div>
+              {receipt.status !== "COMPLETED" ? (
+                <p className="text-[11px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-100 p-3">
+                  Công nợ và thanh toán chỉ được chốt sau khi phiếu nhập hoàn tất kiểm hàng. Trước thời điểm đó, hệ thống chưa ghi nhận tiền chi thực tế.
+                </p>
+              ) : null}
+           </div>
+           <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm space-y-4">
+              <h3 className="font-black text-[11px] uppercase text-slate-400 border-b pb-2 flex items-center gap-2"><History size={14}/> Lịch sử thanh toán</h3>
+              {paymentHistory.length === 0 ? (
+                <p className="text-[12px] text-slate-400 italic">Chưa có lần thanh toán nào được ghi nhận.</p>
+              ) : (
+                <div className="space-y-3">
+                  {paymentHistory.map((payment) => (
+                    <div key={payment.id} className="border border-slate-100 bg-slate-50/50 p-3 rounded-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[12px] font-black text-slate-700">
+                            {formatNumber(payment.amount || 0)} ₫
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {payment.paymentMethod} · {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString("vi-VN") : "Không có ngày"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase text-slate-400">Còn nợ sau lần này</p>
+                          <p className="text-[12px] font-black text-rose-600">{formatNumber(payment.remainingDebtAfter || 0)} ₫</p>
+                        </div>
+                      </div>
+                      {(payment.referenceCode || payment.note || payment.createdByName) ? (
+                        <div className="mt-2 space-y-1 text-[11px] text-slate-500">
+                          {payment.referenceCode ? <p>Tham chiếu: <span className="font-semibold text-slate-700">{payment.referenceCode}</span></p> : null}
+                          {payment.createdByName ? <p>Người ghi nhận: <span className="font-semibold text-slate-700">{payment.createdByName}</span></p> : null}
+                          {payment.note ? <p>Ghi chú: <span className="font-semibold text-slate-700">{payment.note}</span></p> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
            </div>
            <div className="bg-amber-50 border border-amber-100 p-5 rounded-none">
               <h3 className="font-black text-[11px] uppercase text-amber-600 flex items-center gap-2 mb-2"><AlertCircle size={14}/> Diễn giải ghi chú</h3>
@@ -459,10 +602,11 @@ export default function ReceiptDetailPage() {
                     <div className="text-[12px]">
                        <p className="font-black uppercase mb-1">Hướng dẫn kiểm đếm:</p>
                        <ul className="list-disc pl-4 space-y-1 font-bold">
-                          <li>Cột <span className="bg-slate-200 px-1">Dự kiến</span> là số lượng theo kế hoạch ban đầu để đối chiếu.</li>
+                          <li>Cột <span className="bg-slate-200 px-1">SL đợt này</span> là số lượng đã lập cho đợt giao hiện tại.</li>
+                          <li>Nhập riêng <span className="text-blue-700 underline">NCC giao</span>, <span className="text-emerald-700 underline">Đạt QC</span> và <span className="text-rose-700 underline">Lỗi</span>.</li>
                           <li>Cần nhập đủ <span className="text-blue-700 underline">Số lô</span> và <span className="text-blue-700 underline">Hạn dùng</span> để truy xuất nguồn gốc.</li>
-                          <li>Công thức bắt buộc: <span className="text-amber-600">Thực nhận</span> = <span className="text-emerald-600">Đạt chuẩn</span> + <span className="text-rose-600">Lỗi/Hỏng</span>.</li>
-                          <li>Nếu có hàng <span className="text-rose-600">Lỗi (NG)</span>, bắt buộc phải nhập <span className="text-rose-600 underline">Lý do lỗi</span> tại ô ghi chú.</li>
+                          <li>Công thức bắt buộc: <span className="text-blue-600">NCC giao</span> = <span className="text-emerald-600">Đạt QC</span> + <span className="text-rose-600">Lỗi/Hỏng</span>.</li>
+                          <li>Nếu có hàng lỗi hoặc NCC giao thiếu so với đợt này, bắt buộc phải ghi chú lý do để đối soát.</li>
                        </ul>
                     </div>
                  </div>
@@ -472,18 +616,20 @@ export default function ReceiptDetailPage() {
                        <tr className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
                           <th className="p-4 border-r w-[240px]">Sản phẩm / SKU</th>
                           <th className="p-4 text-center border-r w-[140px]">Số lô / Hạn dùng (*)</th>
-                          <th className="p-4 text-center border-r w-[90px] bg-slate-200/50 text-slate-600">Yêu cầu</th>
-                          <th className="p-4 text-center bg-emerald-50 text-emerald-700 border-r w-[130px]">Thực nhận (Tốt)</th>
-                          <th className="p-4 text-center bg-rose-50 text-rose-700 border-r w-[100px]">Lỗi/Thiếu</th>
+                          <th className="p-4 text-center border-r w-[90px] bg-slate-200/50 text-slate-600">SL Đợt</th>
+                          <th className="p-4 text-center bg-blue-50 text-blue-700 border-r w-[120px]">NCC giao</th>
+                          <th className="p-4 text-center bg-emerald-50 text-emerald-700 border-r w-[120px]">Đạt QC</th>
+                          <th className="p-4 text-center bg-rose-50 text-rose-700 border-r w-[100px]">Lỗi</th>
                           <th className="p-4 text-left">Lý do lỗi / Ghi chú</th>
                        </tr>
                     </thead>
                     <tbody>
                        {inspectItems.map((item, idx) => {
                           const planned = item.plannedQuantity || 0;
-                          const real = Number(item.quantityReal) || 0;
-                          const rejected = Math.max(0, planned - real);
-                          const isNoteRequired = rejected > 0;
+                          const delivered = Number(item.quantityDelivered) || 0;
+                          const accepted = Number(item.quantityAccepted) || 0;
+                          const rejected = Number(item.quantityRejected) || 0;
+                          const isNoteRequired = rejected > 0 || delivered < planned;
 
                           return (
                          <tr key={idx} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
@@ -517,21 +663,46 @@ export default function ReceiptDetailPage() {
 
                             <td className="p-4 text-center font-black text-[15px] text-slate-400 border-r bg-slate-100/50">{planned}</td>
                             
-                            <td className="p-2 bg-emerald-50/30 border-r">
+                            <td className="p-2 bg-blue-50/30 border-r">
                                <Input 
-                                 type="number" 
-                                 value={item.quantityReal} 
+                                 type="number"
+                                 min={0}
+                                 value={item.quantityDelivered}
                                  onChange={(e) => {
                                    const newItems = [...inspectItems];
-                                   newItems[idx].quantityReal = e.target.value;
+                                   newItems[idx].quantityDelivered = e.target.value;
+                                   setInspectItems(newItems);
+                                 }}
+                                 className="h-10 w-full text-right font-black text-blue-700 border-blue-300 rounded-none shadow-inner focus-visible:ring-blue-500 bg-white"
+                               />
+                            </td>
+
+                            <td className="p-2 bg-emerald-50/30 border-r">
+                               <Input 
+                                 type="number"
+                                 min={0}
+                                 value={item.quantityAccepted} 
+                                 onChange={(e) => {
+                                   const newItems = [...inspectItems];
+                                   newItems[idx].quantityAccepted = e.target.value;
                                    setInspectItems(newItems);
                                  }}
                                  className="h-10 w-full text-right font-black text-emerald-700 border-emerald-300 rounded-none shadow-inner focus-visible:ring-emerald-500 bg-white"
                                />
                             </td>
 
-                            <td className="p-4 text-center border-r bg-rose-50/30 font-black text-[15px] text-rose-600">
-                               {rejected > 0 ? rejected : "-"}
+                            <td className="p-2 bg-rose-50/30 border-r">
+                               <Input
+                                 type="number"
+                                 min={0}
+                                 value={item.quantityRejected}
+                                 onChange={(e) => {
+                                   const newItems = [...inspectItems];
+                                   newItems[idx].quantityRejected = e.target.value;
+                                   setInspectItems(newItems);
+                                 }}
+                                 className="h-10 w-full text-right font-black text-rose-600 border-rose-300 rounded-none shadow-inner focus-visible:ring-rose-500 bg-white"
+                               />
                             </td>
 
                             <td className="p-2">
@@ -542,7 +713,7 @@ export default function ReceiptDetailPage() {
                                    newItems[idx].note = e.target.value;
                                    setInspectItems(newItems);
                                  }}
-                                 placeholder={isNoteRequired ? "Bắt buộc: Nhập lý do lỗi..." : "Ghi chú thêm..."} 
+                                 placeholder={isNoteRequired ? "Bắt buộc: Nêu lý do lỗi hoặc giao thiếu..." : "Ghi chú thêm..."} 
                                  className={cn(
                                    "h-10 rounded-none border-slate-200 text-[11px] font-medium italic shadow-none transition-all bg-white", 
                                    isNoteRequired ? "border-rose-400 bg-rose-50 ring-1 ring-rose-200" : ""
@@ -559,6 +730,94 @@ export default function ReceiptDetailPage() {
                  <Button onClick={submitInspect} disabled={isProcessing} className="h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[13px] font-black shadow-lg shadow-emerald-100 flex items-center gap-2"><CheckCircle2 size={18}/> HOÀN TẤT KIỂM HÀNG & NHẬP KHO</Button>
               </div>
            </div>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-[560px] rounded-none shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <div>
+                <h3 className="text-[16px] font-black uppercase text-slate-800">Ghi nhận thanh toán NCC</h3>
+                <p className="text-[11px] text-slate-400 mt-1">Phiếu {receipt.code} · Còn nợ {formatNumber(currentDebt)} ₫</p>
+              </div>
+              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[12px] font-bold text-slate-500 uppercase">Số tiền thanh toán</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    className="h-10 rounded-none text-right font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px] font-bold text-slate-500 uppercase">Ngày thanh toán</Label>
+                  <Input
+                    type="date"
+                    value={paymentForm.paymentDate}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
+                    className="h-10 rounded-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[12px] font-bold text-slate-500 uppercase">Phương thức</Label>
+                  <select
+                    value={paymentForm.paymentMethod}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+                    className="h-10 w-full border border-slate-200 px-3 text-[13px] font-medium outline-none"
+                  >
+                    <option value="TRANSFER">Chuyển khoản</option>
+                    <option value="CASH">Tiền mặt</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px] font-bold text-slate-500 uppercase">Tham chiếu</Label>
+                  <Input
+                    value={paymentForm.referenceCode}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, referenceCode: e.target.value })}
+                    className="h-10 rounded-none"
+                    placeholder="UNC / mã giao dịch..."
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[12px] font-bold text-slate-500 uppercase">Ghi chú</Label>
+                <Input
+                  value={paymentForm.note}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
+                  className="h-10 rounded-none"
+                  placeholder="Ví dụ: thanh toán đợt 1, chuyển khoản ngân hàng..."
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t bg-slate-50 px-5 py-4">
+              <Button
+                variant="outline"
+                className="h-9 rounded-none"
+                onClick={() => setShowPaymentModal(false)}
+                disabled={isProcessing}
+              >
+                Hủy
+              </Button>
+              <Button
+                className="h-9 rounded-none bg-blue-600 hover:bg-blue-700"
+                onClick={submitPayment}
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Đang ghi nhận..." : "Xác nhận thanh toán"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
