@@ -222,7 +222,12 @@ export default function AttributeManagementPage() {
       setIsModalOpen(false);
       loadData();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Không thể lưu thuộc tính. Vui lòng kiểm tra lại dữ liệu.");
+      const errorMsg = error.response?.data?.message;
+      if (errorMsg) {
+        toast.error(errorMsg);
+      } else {
+        toast.error("Không thể lưu: có thể do giá trị đang được sử dụng ở biến thể sản phẩm hoặc thuộc tính không có giá trị nào.");
+      }
     } finally {
       setIsSaving(false);
     }
