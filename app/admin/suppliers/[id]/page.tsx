@@ -625,7 +625,7 @@ export default function SupplierDetailPage() {
                                                                             router.push(`/admin/receipts/${item.id}`);
                                                                         }}
                                                                     >
-                                                                        Xem chi tiáº¿t <ArrowUpRight size={12} className="ml-1" />
+                                                                        Xem chi tiết <ArrowUpRight size={12} className="ml-1" />
                                                                     </Button>
                                                                 </div>
                                                             </TableCell>
