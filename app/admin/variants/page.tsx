@@ -60,6 +60,11 @@ export interface Attribute {
   code: string;
   status: string;
   values: string[];
+  valueDetails?: Array<{
+    valueId: number;
+    value: string;
+    usedInVariant?: boolean;
+  }>;
 }
 
 const VALUE_SOFT_LIMIT = 20;
@@ -94,13 +99,14 @@ export default function AttributeManagementPage() {
   const [newValueInput, setNewValueInput] = useState("");
   const [valueInputError, setValueInputError] = useState("");
   const [autoSortValues, setAutoSortValues] = useState(true);
+  const [lockedValues, setLockedValues] = useState<Record<string, boolean>>({});
 
   const [currentKeyword, setCurrentKeyword] = useState("");
   const [currentStatusFilter, setCurrentStatusFilter] = useState("all");
   const [currentCountFilter, setCurrentCountFilter] = useState("all");
   const [currentSort, setCurrentSort] = useState("id,desc");
 
-  const { register, handleSubmit, control, reset, setValue, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, reset, setValue, watch, setError, clearErrors, formState: { errors } } = useForm({
     defaultValues: {
       name: "",
       code: "",
@@ -140,6 +146,7 @@ export default function AttributeManagementPage() {
     setNewValueInput("");
     setValueInputError("");
     setAutoSortValues(true);
+    setLockedValues({});
     reset({ name: "", code: "", status: "ACTIVE", values: [] });
     setIsModalOpen(true);
   };
@@ -149,6 +156,11 @@ export default function AttributeManagementPage() {
     setNewValueInput("");
     setValueInputError("");
     setAutoSortValues(true);
+    setLockedValues(
+      Object.fromEntries(
+        (attr.valueDetails || []).map((detail) => [detail.value, Boolean(detail.usedInVariant)])
+      )
+    );
     reset({
       name: attr.name,
       code: attr.code,
@@ -186,10 +198,19 @@ export default function AttributeManagementPage() {
     setValue("values", [...values, val], { shouldValidate: true });
     setNewValueInput("");
     setValueInputError("");
+    clearErrors("values");
   };
 
   const removeValue = (valToRemove: string) => {
+    if (lockedValues[valToRemove]) {
+      toast.error(`Không thể xóa giá trị "${valToRemove}" vì đang được sử dụng bởi biến thể sản phẩm.`);
+      return;
+    }
+
     setValue("values", values.filter((v) => v !== valToRemove), { shouldValidate: true });
+    if (values.length - 1 > 0) {
+      clearErrors("values");
+    }
   };
 
   const onSubmit = async (data: any) => {
@@ -199,6 +220,17 @@ export default function AttributeManagementPage() {
       const cleanedValues = (data.values || [])
         .map((item: string) => item.trim())
         .filter((item: string) => item.length > 0);
+
+      if (cleanedValues.length === 0) {
+        setError("values", {
+          type: "manual",
+          message: "Thuộc tính phải có ít nhất 1 giá trị.",
+        });
+        toast.error("Thuộc tính phải có ít nhất 1 giá trị.");
+        return;
+      }
+
+      clearErrors("values");
 
       const finalValues = autoSortValues
         ? [...cleanedValues].sort((a: string, b: string) => a.localeCompare(b, "vi", { sensitivity: "base" }))
@@ -449,13 +481,24 @@ export default function AttributeManagementPage() {
                 {values.map((val) => (
                   <div key={val} className="flex items-center bg-slate-50 border border-slate-200 rounded-full px-3 py-1 shadow-sm">
                     <span className="text-sm font-bold text-slate-700 mr-2">{val}</span>
-                    <button type="button" onClick={() => removeValue(val)} className="text-slate-400 hover:text-red-500 transition-colors" title="Xóa giá trị">
+                    <button
+                      type="button"
+                      onClick={() => removeValue(val)}
+                      className={cn(
+                        "transition-colors",
+                        lockedValues[val]
+                          ? "text-slate-300 cursor-not-allowed"
+                          : "text-slate-400 hover:text-red-500"
+                      )}
+                      title={lockedValues[val] ? "Giá trị này đang được biến thể sử dụng, không thể xóa" : "Xóa giá trị"}
+                    >
                       <X size={14} />
                     </button>
                   </div>
                 ))}
                 {values.length === 0 && <span className="text-slate-400 text-xs font-bold m-auto italic">Chưa có giá trị nào</span>}
               </div>
+              {errors.values && <p className="text-xs text-red-500 font-bold">{errors.values.message as string}</p>}
               <div className="flex items-center justify-between text-[11px] font-semibold">
                 <span className="text-slate-400">Mẹo: nhấn Enter để thêm nhanh từng giá trị.</span>
                 <span className={cn(valuesCount > VALUE_SOFT_LIMIT ? "text-amber-600" : "text-slate-500")}>{valuesCount}/{VALUE_SOFT_LIMIT} giá trị khuyến nghị</span>
