@@ -129,6 +129,7 @@ export const ReceiptItemSchema = z.object({
   productName: z.string(),
   imageUrl: z.string().optional(),
   plannedQuantity: z.coerce.number().min(0.001, "Số lượng dự kiến phải > 0"),
+  remainingQuantity: z.number().optional(),
   quantityReal: z.coerce.number().min(0).default(0),
   quantityAccepted: z.coerce.number().min(0).default(0),
   quantityRejected: z.coerce.number().min(0).default(0),
@@ -143,6 +144,12 @@ export const ReceiptItemSchema = z.object({
 
 export const ReceiptSchema = z.object({
   receiptType: z.string().default("NHAP_MUA"),
+  purchaseRequestId: z.preprocess(
+    (val) =>
+      val === "" || val === null || val === undefined ? undefined : Number(val),
+    z.number().int().positive().optional(),
+  ),
+  purchaseRequestCode: z.string().optional().default(""),
   supplierCode: z.string().nullable().optional(),
   supplierName: z.string().nullable().optional(),
   importType: z.enum(["SUPPLIER", "INTERNAL"]).default("SUPPLIER"),
@@ -193,6 +200,21 @@ export const ReceiptSchema = z.object({
           code: z.ZodIssueCode.custom,
           message: `Vượt quá tồn kho (Tối đa: ${item.maxQuantity})`,
           path: ["items", index, "plannedQuantity"], // Trỏ đúng vào ô quantity bị lỗi
+        });
+      }
+    });
+  }
+
+  if (data.purchaseRequestId) {
+    data.items.forEach((item, index) => {
+      if (
+        item.remainingQuantity !== undefined &&
+        item.plannedQuantity > item.remainingQuantity
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Vượt quá số lượng còn thiếu của yêu cầu mua (Tối đa: ${item.remainingQuantity})`,
+          path: ["items", index, "plannedQuantity"],
         });
       }
     });
