@@ -318,6 +318,9 @@ const normalizeAttributeValues = (attribute: any): string[] => {
         .filter((value: string, index: number, array: string[]) => value.length > 0 && array.indexOf(value) === index);
 };
 
+const filterActiveAttributes = (attributes: any[] = []) =>
+    attributes.filter((attribute) => (attribute?.status ?? "ACTIVE") === "ACTIVE");
+
 const findLatestAddedValueDetail = (
     valueDetails: AttributeOption[],
     initialValues: string[],
@@ -385,7 +388,7 @@ export default function AddProductPage() {
                 .then(([catRes, brandRes, attrRes]) => {
                     setCategories(catRes || []);
                     setBrands(brandRes?.map((b: any) => b.name) || []);
-                    setAttributes(attrRes || []);
+                    setAttributes(filterActiveAttributes(attrRes || []));
                 })
                 .catch(console.error);
         }
@@ -451,7 +454,7 @@ export default function AddProductPage() {
                 values: attributeEditor.values,
             });
 
-            const refreshedAttributes: any[] = (await ProductService.getAttributes()) || [];
+            const refreshedAttributes: any[] = filterActiveAttributes((await ProductService.getAttributes()) || []);
             setAttributes(refreshedAttributes);
 
             const refreshedAttribute = refreshedAttributes.find(

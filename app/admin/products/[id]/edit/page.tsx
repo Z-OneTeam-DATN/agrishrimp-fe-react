@@ -192,6 +192,9 @@ const normalizeAttributeValues = (attribute: any): string[] => {
         .filter((value: string, index: number, array: string[]) => value.length > 0 && array.indexOf(value) === index);
 };
 
+const filterActiveAttributes = (attributes: any[] = []) =>
+    attributes.filter((attribute) => (attribute?.status ?? "ACTIVE") === "ACTIVE");
+
 const findLatestAddedValueDetail = (
     valueDetails: AttributeOption[],
     initialValues: string[],
@@ -463,7 +466,7 @@ export default function EditProductPage() {
 
                     setCategories(catRes || []);
                     setBrands(Array.from(new Set(brandRes?.map((b: any) => b.name) || [])) as string[]);
-                    setAttributes(attrRes || []);
+                    setAttributes(filterActiveAttributes(attrRes || []));
 
                     // Đổ dữ liệu
                     const mappedData: any = {
