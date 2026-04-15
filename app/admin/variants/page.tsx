@@ -223,11 +223,7 @@ export default function AttributeManagementPage() {
       loadData();
     } catch (error: any) {
       const errorMsg = error.response?.data?.message;
-      if (errorMsg) {
-        toast.error(errorMsg);
-      } else {
-        toast.error("Không thể lưu: có thể do giá trị đang được sử dụng ở biến thể sản phẩm hoặc thuộc tính không có giá trị nào.");
-      }
+      toast.error(errorMsg || "Không thể lưu thuộc tính.");
     } finally {
       setIsSaving(false);
     }
