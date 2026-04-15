@@ -222,8 +222,7 @@ export default function AttributeManagementPage() {
       setIsModalOpen(false);
       loadData();
     } catch (error: any) {
-      // Hiển thị chính xác thông báo lỗi trùng lặp từ Backend
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra khi lưu (có thể do trùng mã Code hoặc giá trị đang được sử dụng)!");
+      toast.error(error.response?.data?.message || "Không thể lưu thuộc tính. Vui lòng kiểm tra lại dữ liệu.");
     } finally {
       setIsSaving(false);
     }
