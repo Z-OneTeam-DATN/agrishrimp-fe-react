@@ -319,7 +319,7 @@ const normalizeAttributeValues = (attribute: any): string[] => {
 };
 
 const filterActiveAttributes = (attributes: any[] = []) =>
-    attributes.filter((attribute) => (attribute?.status ?? "ACTIVE") === "ACTIVE");
+    attributes.filter((attribute) => String(attribute?.status || "").trim().toUpperCase() === "ACTIVE");
 
 const findLatestAddedValueDetail = (
     valueDetails: AttributeOption[],
