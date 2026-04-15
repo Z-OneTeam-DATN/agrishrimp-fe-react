@@ -23,6 +23,7 @@ import {
     PencilLine,
     Check,
     CalendarClock,
+    ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,6 +54,8 @@ interface ImportHistoryItem {
     status: string;
     totalAmount: number;
     createdAt: string;
+    itemCount?: number;
+    totalQuantity?: number;
 }
 
 interface SupplierMeta {
@@ -153,10 +156,22 @@ export default function SupplierDetailPage() {
         return `${date.toLocaleDateString("vi-VN")} ${date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
     };
 
+    const getImportScaleLabel = (item: ImportHistoryItem) => {
+        const itemCount = item.itemCount || 0;
+        const totalQuantity = item.totalQuantity || 0;
+
+        return {
+            itemLabel: `${itemCount} mã hàng`,
+            quantityLabel: `${totalQuantity} sản phẩm`,
+        };
+    };
+
     const getNoteStatus = (status: string) => {
         switch (status) {
             case "COMPLETED":
                 return { label: "ĐÃ HOÀN THÀNH", class: "bg-emerald-50 text-emerald-600 border-emerald-200" };
+            case "APPROVED":
+                return { label: "ĐÃ DUYỆT", class: "bg-blue-50 text-blue-600 border-blue-200" };
             case "PENDING":
                 return { label: "ĐANG XỬ LÝ", class: "bg-orange-50 text-orange-600 border-orange-200" };
             case "CANCELLED":
@@ -564,16 +579,55 @@ export default function SupplierDetailPage() {
                                                 filteredHistory.map((item) => {
                                                     const statusInfo = getNoteStatus(item.status);
                                                     return (
-                                                        <TableRow key={item.id} className="border-b border-slate-50 hover:bg-emerald-50/20">
-                                                            <TableCell className="text-[12px] font-black text-emerald-600 pl-4">{item.code}</TableCell>
+                                                        <TableRow
+                                                            key={item.id}
+                                                            className="border-b border-slate-50 hover:bg-emerald-50/20 cursor-pointer"
+                                                            onClick={() => router.push(`/admin/receipts/${item.id}`)}
+                                                        >
+                                                            <TableCell className="pl-4">
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-[12px] font-black text-emerald-600 hover:text-emerald-700"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        router.push(`/admin/receipts/${item.id}`);
+                                                                    }}
+                                                                >
+                                                                    {item.code}
+                                                                </button>
+                                                                <div className="mt-1 flex flex-col">
+                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                                                        {getImportScaleLabel(item).itemLabel}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-semibold text-slate-400">
+                                                                        {getImportScaleLabel(item).quantityLabel}
+                                                                    </span>
+                                                                </div>
+                                                            </TableCell>
                                                             <TableCell className="text-[11px] text-slate-500 font-medium">{formatDate(item.createdAt)}</TableCell>
                                                             <TableCell>
                                                                 <span className={cn("text-[9px] font-bold border px-1.5 py-0.5 rounded", statusInfo.class)}>
                                                                     {statusInfo.label}
                                                                 </span>
                                                             </TableCell>
-                                                            <TableCell className="text-[12px] font-black text-slate-800 text-right pr-4">
-                                                                {formatCurrency(item.totalAmount)}
+                                                            <TableCell className="text-right pr-4">
+                                                                <div className="flex flex-col items-end gap-1">
+                                                                    <span className="text-[12px] font-black text-slate-800">
+                                                                        {formatCurrency(item.totalAmount)}
+                                                                    </span>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-7 px-2 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                                                        onClick={(event) => {
+                                                                            event.stopPropagation();
+                                                                            router.push(`/admin/receipts/${item.id}`);
+                                                                        }}
+                                                                    >
+                                                                        Xem chi tiáº¿t <ArrowUpRight size={12} className="ml-1" />
+                                                                    </Button>
+                                                                </div>
                                                             </TableCell>
                                                         </TableRow>
                                                     );
