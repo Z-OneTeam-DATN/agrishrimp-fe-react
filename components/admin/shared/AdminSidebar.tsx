@@ -23,8 +23,6 @@ import {
   ClipboardList,
   ChevronRight,
   ShoppingCart,
-  Printer,
-  CheckSquare,
   Box,
   List,
   Archive,
@@ -35,7 +33,6 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
-import { dashboardService } from "@/app/services/dashboard.service";
 import { ProductService } from "@/app/services/product.service";
 import { getCategories } from "@/app/services/CategoryService";
 import { branchService } from "@/app/services/branchService";
@@ -43,6 +40,7 @@ import { EmployeeService } from "@/app/services/employee.service";
 import { voucherService } from "@/app/services/voucher.service";
 import { InventoryApiService, InventoryCheckApiService, InventoryExportApiService } from "@/app/services/inventory.service";
 import { transferService } from "@/app/services/transfer.service";
+import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -68,6 +66,8 @@ export default function AdminSidebar() {
   const canViewBusinessSection = hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]);
   const canViewCatalogSection = hasAnyPermission([P.PRODUCT_VIEW, P.CATEGORY_VIEW, P.ATTRIBUTE_VIEW]);
   const canViewInventorySection = hasAnyPermission([P.IMPORT_VIEW, P.EXPORT_VIEW, P.TRANSFER_VIEW, P.CHECK_VIEW]);
+  const canViewProcurementSection = hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
+  const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
   const canViewSettings = hasPermission(P.SETTING_VIEW);
 
   const [supplierCount, setSupplierCount] = useState(0);
@@ -78,6 +78,7 @@ export default function AdminSidebar() {
   const [employeeCount, setEmployeeCount] = useState(0);
   const [branchCount, setBranchCount] = useState(0);
   const [voucherCount, setVoucherCount] = useState(0);
+  const [purchaseRequestPendingCount, setPurchaseRequestPendingCount] = useState(0);
   const [receiptPendingCount, setReceiptPendingCount] = useState(0);
   const [exportPendingCount, setExportPendingCount] = useState(0);
   const [transferPendingCount, setTransferPendingCount] = useState(0);
@@ -95,75 +96,159 @@ export default function AdminSidebar() {
 
   const fetchCounts = async () => {
     try {
-      const tasks: Promise<any>[] = [];
+      const results = await Promise.allSettled([
+        hasPermission(P.SUPPLIER_VIEW)
+          ? supplierService.getAll(undefined, undefined, 0, 1)
+          : Promise.resolve(null),
+        hasPermission(P.CUSTOMER_VIEW)
+          ? customerService.getAll("", "all", 0, 1)
+          : Promise.resolve(null),
+        hasPermission(P.PRODUCT_VIEW)
+          ? ProductService.getAll({ status: "ACTIVE" })
+          : Promise.resolve(null),
+        hasPermission(P.CATEGORY_VIEW)
+          ? getCategories()
+          : Promise.resolve(null),
+        hasPermission(P.ATTRIBUTE_VIEW)
+          ? ProductService.getAttributes()
+          : Promise.resolve(null),
+        hasPermission(P.STAFF_VIEW)
+          ? EmployeeService.getAll({ page: 0, size: 1 })
+          : Promise.resolve(null),
+        hasPermission(P.BRANCH_VIEW)
+          ? branchService.getAll()
+          : Promise.resolve(null),
+        hasPermission(P.VOUCHER_VIEW)
+          ? voucherService.getAllAdmin({ page: 0, size: 1 })
+          : Promise.resolve(null),
+        hasPermission(P.PURCHASE_REQUEST_VIEW)
+          ? PurchaseRequestApiService.getAll()
+          : Promise.resolve(null),
+        hasPermission(P.IMPORT_VIEW)
+          ? InventoryApiService.getAllReceipts()
+          : Promise.resolve(null),
+        hasPermission(P.EXPORT_VIEW)
+          ? InventoryExportApiService.getAllExportCommands()
+          : Promise.resolve(null),
+        hasPermission(P.TRANSFER_VIEW)
+          ? transferService.getAll("", "all", 0, 1)
+          : Promise.resolve(null),
+        hasPermission(P.CHECK_VIEW)
+          ? InventoryCheckApiService.getAll()
+          : Promise.resolve(null),
+      ]);
 
-      if (hasPermission(P.SUPPLIER_VIEW)) {
-        tasks.push(supplierService.getAll(undefined, undefined, 0, 1));
-      }
+      const [
+        supplierResult,
+        customerResult,
+        productResult,
+        categoryResult,
+        attributeResult,
+        employeeResult,
+        branchResult,
+        voucherResult,
+        purchaseRequestResult,
+        receiptResult,
+        exportResult,
+        transferResult,
+        checkResult,
+      ] = results;
 
-      if (hasPermission(P.CUSTOMER_VIEW)) {
-        tasks.push(customerService.getAll("", "all", 0, 1));
-      }
+      const supplierValue =
+        supplierResult.status === "fulfilled" ? (supplierResult.value as any) : null;
+      const customerValue =
+        customerResult.status === "fulfilled" ? (customerResult.value as any) : null;
+      const productValue =
+        productResult.status === "fulfilled" ? (productResult.value as any) : null;
+      const categoryValue =
+        categoryResult.status === "fulfilled" ? (categoryResult.value as any) : null;
+      const attributeValue =
+        attributeResult.status === "fulfilled" ? (attributeResult.value as any) : null;
+      const employeeValue =
+        employeeResult.status === "fulfilled" ? (employeeResult.value as any) : null;
+      const branchValue =
+        branchResult.status === "fulfilled" ? (branchResult.value as any) : null;
+      const voucherValue =
+        voucherResult.status === "fulfilled" ? (voucherResult.value as any) : null;
 
-      if (tasks.length === 0) return;
+      setSupplierCount(
+        supplierValue?.totalElements || 0,
+      );
+      setCustomerCount(
+        customerValue?.totalElements || 0,
+      );
+      setProductCount(
+        Array.isArray(productValue)
+          ? productValue.length
+          : productValue?.totalProducts || 0,
+      );
+      setCategoryCount(
+        Array.isArray(categoryValue) ? categoryValue.length : 0,
+      );
+      setAttributeCount(
+        Array.isArray(attributeValue) ? attributeValue.length : 0,
+      );
+      setEmployeeCount(
+        employeeValue?.totalElements || 0,
+      );
+      setBranchCount(
+        Array.isArray(branchValue)
+          ? branchValue.length
+          : branchValue?.totalElements || 0,
+      );
+      setVoucherCount(
+        voucherValue?.totalElements ||
+          (Array.isArray(voucherValue) ? voucherValue.length : 0),
+      );
 
-      const results = await Promise.allSettled(tasks);
-      let cursor = 0;
+      const purchaseRequests =
+        purchaseRequestResult.status === "fulfilled"
+          ? Array.isArray(purchaseRequestResult.value)
+            ? purchaseRequestResult.value
+            : []
+          : [];
+      setPurchaseRequestPendingCount(
+        purchaseRequests.filter((item: any) => item.status === "PENDING_APPROVAL")
+          .length,
+      );
 
-      if (hasPermission(P.SUPPLIER_VIEW)) {
-        const supplierResult = results[cursor++];
-        if (supplierResult?.status === "fulfilled") {
-          setSupplierCount(supplierResult.value.totalElements || 0);
-        }
-      } else {
-        setSupplierCount(0);
-      }
+      const receipts =
+        receiptResult.status === "fulfilled"
+          ? Array.isArray(receiptResult.value)
+            ? receiptResult.value
+            : receiptResult.value?.data || receiptResult.value?.content || []
+          : [];
+      setReceiptPendingCount(
+        receipts.filter((item: any) => item.status === "PENDING" || item.status === "PO")
+          .length,
+      );
 
-      if (hasPermission(P.CUSTOMER_VIEW)) {
-        const customerResult = results[cursor];
-        if (customerResult?.status === "fulfilled") {
-          setCustomerCount(customerResult.value.totalElements || 0);
-        }
-      } else {
-        setCustomerCount(0);
-      }
-      if (results[2].status === 'fulfilled') {
-        setProductCount(results[2].value?.totalProducts || 0);
-      }
-      if (results[3].status === 'fulfilled') {
-        setProductCount(Array.isArray(results[3].value) ? results[3].value.length : 0);
-      }
-      if (results[4].status === 'fulfilled') {
-        setCategoryCount(Array.isArray(results[4].value) ? results[4].value.length : 0);
-      }
-      if (results[5].status === 'fulfilled') {
-        setAttributeCount(Array.isArray(results[5].value) ? results[5].value.length : 0);
-      }
-      if (results[6].status === 'fulfilled') {
-        setEmployeeCount(results[6].value.totalElements || 0);
-      }
-      if (results[7].status === 'fulfilled') {
-        const branches = Array.isArray(results[7].value) ? results[7].value : [];
-        setBranchCount(branches.length || results[7].value?.totalElements || 0);
-      }
-      if (results[8].status === 'fulfilled') {
-        setVoucherCount(results[8].value?.totalElements || (Array.isArray(results[8].value) ? results[8].value.length : 0));
-      }
-      if (results[9].status === 'fulfilled') {
-        const receipts = Array.isArray(results[9].value) ? results[9].value : (results[9].value?.data || results[9].value?.content || []);
-        setReceiptPendingCount(receipts.filter((item: any) => item.status === "PENDING" || item.status === "PO").length);
-      }
-      if (results[10].status === 'fulfilled') {
-        const exportsList = Array.isArray(results[10].value) ? results[10].value : (results[10].value?.data || results[10].value?.content || []);
-        setExportPendingCount(exportsList.filter((item: any) => item.status === "PENDING" || item.status === "DRAFT").length);
-      }
-      if (results[11].status === 'fulfilled') {
-        setTransferPendingCount(results[11].value?.totalElements || 0);
-      }
-      if (results[12].status === 'fulfilled') {
-        const checks = Array.isArray(results[12].value) ? results[12].value : (results[12].value?.data || results[12].value?.content || []);
-        setCheckPendingCount(checks.filter((item: any) => item.status === "PENDING").length);
-      }
+      const exportsList =
+        exportResult.status === "fulfilled"
+          ? Array.isArray(exportResult.value)
+            ? exportResult.value
+            : exportResult.value?.data || exportResult.value?.content || []
+          : [];
+      setExportPendingCount(
+        exportsList.filter((item: any) => item.status === "PENDING" || item.status === "DRAFT")
+          .length,
+      );
+
+      setTransferPendingCount(
+        transferResult.status === "fulfilled"
+          ? transferResult.value?.totalElements || 0
+          : 0,
+      );
+
+      const checks =
+        checkResult.status === "fulfilled"
+          ? Array.isArray(checkResult.value)
+            ? checkResult.value
+            : checkResult.value?.data || checkResult.value?.content || []
+          : [];
+      setCheckPendingCount(
+        checks.filter((item: any) => item.status === "PENDING").length,
+      );
     } catch (error) {
       console.warn("Sidebar counts sync failed");
     }
@@ -224,74 +309,6 @@ export default function AdminSidebar() {
               )}
               {hasPermission(P.WORKSPACE_VIEW) && (
                 <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* SECTION: BÁO CÁO */}
-        {hasAnyPermission([P.REPORT_REVENUE_VIEW, P.REPORT_INVENTORY_VIEW, P.REPORT_FINANCE_VIEW]) && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Báo cáo
-            </p>
-            <div className="space-y-0.5">
-              {hasPermission(P.REPORT_REVENUE_VIEW) && (
-                <SidebarLink
-                  href="/admin/reports/sales"
-                  icon={TrendingUp}
-                  label="Doanh thu"
-                  active={isActive("/admin/reports/sales")}
-                  color="text-blue-500"
-                />
-              )}
-              {hasPermission(P.REPORT_INVENTORY_VIEW) && (
-                <SidebarLink
-                  href="/admin/reports/inventory"
-                  icon={Warehouse}
-                  label="Báo cáo kho"
-                  active={isActive("/admin/reports/inventory")}
-                  color="text-amber-500"
-                />
-              )}
-              {hasPermission(P.REPORT_FINANCE_VIEW) && (
-                <SidebarLink
-                  href="/admin/financial"
-                  icon={FileBarChart}
-                  label="Tài chính"
-                  active={isActive("/admin/financial")}
-                  color="text-emerald-500"
-                />
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* SECTION: QUẢN TRỊ */}
-        {canViewAdminSection && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Quản trị
-            </p>
-            <div className="space-y-0.5">
-              {hasPermission(P.STAFF_VIEW) && (
-                <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} badge={employeeCount} />
-              )}
-              {hasPermission(P.BRANCH_VIEW) && (
-                <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} badge={branchCount} />
-              )}
-              {hasPermission(P.ROLE_VIEW) && (
-                <SidebarLink href="/admin/employees/roles" icon={ShieldCheck} label="Vai trò & Quyền" active={isActive("/admin/employees/roles")} color="text-violet-400" />
-              )}
-              {hasPermission(P.SUPPLIER_VIEW) && (
-                <SidebarLink
-                  href="/admin/suppliers"
-                  icon={Truck}
-                  label="Nhà cung cấp"
-                  active={isActive("/admin/suppliers")}
-                  badge={supplierCount}
-                  color="text-orange-400"
-                />
               )}
             </div>
           </section>
@@ -363,6 +380,47 @@ export default function AdminSidebar() {
           </section>
         )}
 
+        {/* SECTION: MUA HÀNG */}
+        {canViewProcurementSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Mua hàng
+            </p>
+            <div className="space-y-0.5">
+              {hasPermission(P.PURCHASE_REQUEST_VIEW) && (
+                <SidebarLink
+                  href="/admin/purchase-requests"
+                  icon={ShoppingCart}
+                  label="Yêu cầu mua NCC"
+                  active={isActive("/admin/purchase-requests")}
+                  badge={purchaseRequestPendingCount}
+                  color="text-indigo-400"
+                />
+              )}
+              {hasPermission(P.IMPORT_VIEW) && (
+                <SidebarLink
+                  href="/admin/receipts"
+                  icon={Warehouse}
+                  label="Phiếu nhập hàng"
+                  active={isActive("/admin/receipts")}
+                  badge={receiptPendingCount}
+                  color="text-emerald-400"
+                />
+              )}
+              {hasPermission(P.SUPPLIER_VIEW) && (
+                <SidebarLink
+                  href="/admin/suppliers"
+                  icon={Truck}
+                  label="Nhà cung cấp"
+                  active={isActive("/admin/suppliers")}
+                  badge={supplierCount}
+                  color="text-orange-400"
+                />
+              )}
+            </div>
+          </section>
+        )}
+
         {/* SECTION: HÀNG HÓA - Only for ADMIN */}
 
         {canViewCatalogSection && (
@@ -403,24 +461,118 @@ export default function AdminSidebar() {
           </section>
         )}
 
-        {/* SECTION: GIAO DỊCH KHO */}
+        {/* SECTION: KHO VẬN */}
         {canViewInventorySection && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Giao dịch kho
+              Kho vận
             </p>
             <div className="space-y-0.5">
-              {hasPermission(P.IMPORT_VIEW) && (
-                <SidebarLink href="/admin/receipts" icon={Warehouse} label="Nhập hàng" active={isActive("/admin/receipts")} badge={receiptPendingCount} />
-              )}
               {hasPermission(P.EXPORT_VIEW) && (
-                <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất hàng" active={isActive("/admin/exports")} badge={exportPendingCount} />
+                <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất kho & Trả NCC" active={isActive("/admin/exports")} badge={exportPendingCount} />
               )}
               {hasPermission(P.TRANSFER_VIEW) && (
-                <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển" active={isActive("/admin/transfers")} badge={transferPendingCount} />
+                <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển kho" active={isActive("/admin/transfers")} badge={transferPendingCount} />
               )}
               {hasPermission(P.CHECK_VIEW) && (
                 <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} badge={checkPendingCount} />
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: TÀI CHÍNH */}
+        {canViewFinanceSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Tài chính
+            </p>
+            <div className="space-y-0.5">
+              <SidebarLink
+                href="/admin/financial"
+                icon={FileBarChart}
+                label="Tổng quan tài chính"
+                active={pathname === "/admin/financial"}
+                color="text-emerald-500"
+              />
+              <SidebarLink
+                href="/admin/financial/supplier-debt"
+                icon={Truck}
+                label="Công nợ NCC"
+                active={isActive("/admin/financial/supplier-debt")}
+                color="text-orange-400"
+              />
+              <SidebarLink
+                href="/admin/financial/cashbook"
+                icon={Archive}
+                label="Sổ quỹ / Tiền chi"
+                active={isActive("/admin/financial/cashbook")}
+                color="text-blue-400"
+              />
+              <SidebarLink
+                href="/admin/financial/profit-loss"
+                icon={TrendingUp}
+                label="Lãi lỗ"
+                active={isActive("/admin/financial/profit-loss")}
+                color="text-emerald-400"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: BÁO CÁO */}
+        {hasAnyPermission([P.REPORT_REVENUE_VIEW, P.REPORT_INVENTORY_VIEW, P.REPORT_FINANCE_VIEW]) && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Báo cáo
+            </p>
+            <div className="space-y-0.5">
+              {hasPermission(P.REPORT_REVENUE_VIEW) && (
+                <SidebarLink
+                  href="/admin/reports/sales"
+                  icon={TrendingUp}
+                  label="Doanh thu"
+                  active={isActive("/admin/reports/sales")}
+                  color="text-blue-500"
+                />
+              )}
+              {hasPermission(P.REPORT_INVENTORY_VIEW) && (
+                <SidebarLink
+                  href="/admin/reports/inventory"
+                  icon={Warehouse}
+                  label="Nhập xuất tồn"
+                  active={isActive("/admin/reports/inventory")}
+                  color="text-amber-500"
+                />
+              )}
+              {hasPermission(P.REPORT_FINANCE_VIEW) && (
+                <SidebarLink
+                  href="/admin/financial/profit-loss"
+                  icon={FileBarChart}
+                  label="Báo cáo tài chính"
+                  active={isActive("/admin/financial/profit-loss")}
+                  color="text-emerald-500"
+                />
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: QUẢN TRỊ */}
+        {canViewAdminSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Quản trị
+            </p>
+            <div className="space-y-0.5">
+              {hasPermission(P.STAFF_VIEW) && (
+                <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} badge={employeeCount} />
+              )}
+              {hasPermission(P.BRANCH_VIEW) && (
+                <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} badge={branchCount} />
+              )}
+              {hasPermission(P.ROLE_VIEW) && (
+                <SidebarLink href="/admin/employees/roles" icon={ShieldCheck} label="Vai trò & Quyền" active={isActive("/admin/employees/roles")} color="text-violet-400" />
               )}
             </div>
           </section>

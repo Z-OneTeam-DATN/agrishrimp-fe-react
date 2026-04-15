@@ -49,6 +49,7 @@ import { Supplier } from "@/app/types/supplier.type";
 import { branchService } from "@/app/services/branchService";
 import { ProductService } from "@/app/services/product.service";
 import { InventoryApiService } from "@/app/services/inventory.service";
+import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -68,8 +69,12 @@ function AdminReceiptFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const receiptId = searchParams.get("id");
+  const purchaseRequestIdParam = searchParams.get("purchaseRequestId");
   const isEditMode = Boolean(receiptId);
+  const isCreateFromPurchaseRequest =
+    !isEditMode && Boolean(purchaseRequestIdParam);
   const hasFetched = useRef(false);
+  const hasPrefilledPurchaseRequest = useRef(false);
 
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
@@ -77,7 +82,13 @@ function AdminReceiptFormContent() {
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(isEditMode);
+  const [isInitialLoading, setIsInitialLoading] = useState(
+    isEditMode || isCreateFromPurchaseRequest,
+  );
+  const [linkedPurchaseRequestMeta, setLinkedPurchaseRequestMeta] = useState<{
+    id: number;
+    code: string;
+  } | null>(null);
 
   // AlertDialog State
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -134,6 +145,7 @@ function AdminReceiptFormContent() {
     mode: "onTouched",
     defaultValues: {
       importType: "SUPPLIER",
+      purchaseRequestCode: "",
       receiptCode: "PNK" + Date.now().toString().slice(-6),
       branchName: "",
       status: "PENDING",
@@ -181,6 +193,7 @@ function AdminReceiptFormContent() {
     name: "items",
   });
   const watchItems = watch("items") || [];
+  const watchPurchaseRequestId = watch("purchaseRequestId");
   const watchStatus = watch("status") || "PENDING";
   const watchPaymentAmount = watch("paymentAmount") || 0;
   const currentTargetBranch = watch("branchName");
@@ -193,6 +206,9 @@ function AdminReceiptFormContent() {
 
   // Các trường thông tin chung không được sửa khi đang kiểm hàng (EditMode + status >= APPROVED)
   const isInfoReadOnly = isReadOnly || (isEditMode && isQCMode);
+  const isLinkedPurchaseRequest = Boolean(watchPurchaseRequestId);
+  const isMasterDataLocked = isInfoReadOnly || isLinkedPurchaseRequest;
+  const isItemSourceLocked = isInfoReadOnly || isLinkedPurchaseRequest;
 
   const selectedDestBranch = useMemo(() => {
     return branches.find(
@@ -220,7 +236,7 @@ function AdminReceiptFormContent() {
 
   // --- Actions ---
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isInfoReadOnly) return;
+    if (isItemSourceLocked) return;
     const file = e.target.files?.[0];
     if (!file) return;
     const XLSX = await import("xlsx");
@@ -286,7 +302,7 @@ function AdminReceiptFormContent() {
   };
 
   const handleSelectProduct = (v: any) => {
-    if (isInfoReadOnly) return;
+    if (isItemSourceLocked) return;
     const idx = (getValues("items") || []).findIndex(
       (i: any) => i.productCode === v.sku,
     );
@@ -317,6 +333,7 @@ function AdminReceiptFormContent() {
   };
 
   const handleAddSelectedProducts = () => {
+    if (isItemSourceLocked) return;
     const selectedProducts = products.filter((product) =>
       selectedProductIds.some((id) => String(id) === String(product.id)),
     );
@@ -344,7 +361,7 @@ function AdminReceiptFormContent() {
   }, []);
 
   const handleSelectSupplier = (s: Supplier) => {
-    if (isInfoReadOnly) return;
+    if (isMasterDataLocked) return;
     setValue("supplierCode", s.code);
     setValue("supplierName", s.name);
     setSelectedSupplier(s);
@@ -353,7 +370,7 @@ function AdminReceiptFormContent() {
   };
 
   const handleClearSupplier = () => {
-    if (isInfoReadOnly) return;
+    if (isMasterDataLocked) return;
     setValue("supplierCode", "");
     setValue("supplierName", "");
     setSelectedSupplier(null);
@@ -363,7 +380,7 @@ function AdminReceiptFormContent() {
   const onSaveDraft = async (data: Receipt) => {
     setIsSubmitting(true);
     try {
-      const { creator, ...restOfData } = data;
+      const { creator, purchaseRequestCode, ...restOfData } = data;
       const payload = {
         ...restOfData,
         status: isAdmin && !isEditMode ? "APPROVED" : data.status,
@@ -451,6 +468,14 @@ function AdminReceiptFormContent() {
             } as any);
             setSearchSupplierText(data.supplierName || "");
           }
+          if (data.purchaseRequestId) {
+            setLinkedPurchaseRequestMeta({
+              id: data.purchaseRequestId,
+              code:
+                data.purchaseRequestCode ||
+                `YCM-${data.purchaseRequestId}`,
+            });
+          }
         } catch (error) {
           router.push("/admin/receipts");
         } finally {
@@ -461,20 +486,98 @@ function AdminReceiptFormContent() {
   }, [isEditMode, receiptId, reset, router]);
 
   useEffect(() => {
+    if (
+      isEditMode ||
+      !purchaseRequestIdParam ||
+      hasPrefilledPurchaseRequest.current
+    ) {
+      return;
+    }
+
+    hasPrefilledPurchaseRequest.current = true;
+
+    (async () => {
+      try {
+        setIsInitialLoading(true);
+        const purchaseRequest =
+          await PurchaseRequestApiService.getById(purchaseRequestIdParam);
+        const remainingItems = (purchaseRequest.items || []).filter(
+          (item) => (item.remainingQty || 0) > 0,
+        );
+
+        if (remainingItems.length === 0) {
+          toast.warning(
+            "Phiếu yêu cầu này không còn mặt hàng nào cần tạo phiếu nhập.",
+          );
+          router.push(`/admin/purchase-requests/${purchaseRequestIdParam}`);
+          return;
+        }
+
+        const currentValues = getValues();
+        reset({
+          ...currentValues,
+          purchaseRequestId: purchaseRequest.id,
+          purchaseRequestCode: purchaseRequest.code,
+          supplierCode: purchaseRequest.supplierCode,
+          supplierName: purchaseRequest.supplierName,
+          branchName: purchaseRequest.branchName,
+          items: remainingItems.map((item) => ({
+            productCode: item.productCode,
+            productName: item.productName,
+            imageUrl: item.imageUrl || "",
+            plannedQuantity: item.remainingQty || 0,
+            remainingQuantity: item.remainingQty || 0,
+            quantityReal: 0,
+            quantityAccepted: 0,
+            quantityRejected: 0,
+            lotNumber: "",
+            expiryDate: "",
+            importPrice: Number(item.unitPrice) || 0,
+            newSellingPrice: 0,
+            note: item.note || "",
+          })),
+        });
+
+        setSelectedSupplier({
+          code: purchaseRequest.supplierCode,
+          name: purchaseRequest.supplierName,
+        } as any);
+        setSearchSupplierText(purchaseRequest.supplierName || "");
+        setLinkedPurchaseRequestMeta({
+          id: purchaseRequest.id,
+          code: purchaseRequest.code,
+        });
+      } catch (error) {
+        toast.error("Không thể nạp dữ liệu từ phiếu yêu cầu mua.");
+        router.push("/admin/purchase-requests");
+      } finally {
+        setIsInitialLoading(false);
+      }
+    })();
+  }, [
+    getValues,
+    isEditMode,
+    purchaseRequestIdParam,
+    reset,
+    router,
+  ]);
+
+  useEffect(() => {
     (async () => {
       const data = await branchService.getAll();
       const list = Array.isArray(data) ? data : data.content || [];
       setBranches(list);
-      if (!isEditMode && list.length > 0) {
+      if (!isEditMode && !purchaseRequestIdParam && list.length > 0) {
         const mainWh = list.find((b: any) => b.branchType === "WAREHOUSE");
         if (mainWh) setValue("branchName", mainWh.name || mainWh.branchName);
       }
     })();
-  }, [setValue, isEditMode]);
+  }, [setValue, isEditMode, purchaseRequestIdParam]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (!isProductDropdownOpen || !targetBranchId || isInfoReadOnly) return;
+      if (!isProductDropdownOpen || !targetBranchId || isItemSourceLocked)
+        return;
       setIsLoadingProducts(true);
       try {
         const data = await ProductService.searchVariants(
@@ -491,12 +594,12 @@ function AdminReceiptFormContent() {
     searchProductText,
     isProductDropdownOpen,
     targetBranchId,
-    isInfoReadOnly,
+    isItemSourceLocked,
   ]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (!isSupplierDropdownOpen || isInfoReadOnly) return;
+      if (!isSupplierDropdownOpen || isMasterDataLocked) return;
       setIsLoadingSuppliers(true);
       try {
         const data = await supplierService.getAll(
@@ -511,7 +614,7 @@ function AdminReceiptFormContent() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchSupplierText, isSupplierDropdownOpen, isInfoReadOnly]);
+  }, [searchSupplierText, isSupplierDropdownOpen, isMasterDataLocked]);
 
   const handleReject = async () => {
     if (!receiptId) return;
@@ -623,6 +726,18 @@ function AdminReceiptFormContent() {
         </p>
       </div>
 
+      {linkedPurchaseRequestMeta && (
+        <div className="mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-sm flex items-start gap-3 text-blue-800">
+          <AlertCircle size={18} className="shrink-0 mt-0.5" />
+          <p className="text-xs font-bold uppercase tracking-wide leading-relaxed">
+            Phiếu nhập này đang liên kết với yêu cầu mua{" "}
+            <span className="text-blue-600">{linkedPurchaseRequestMeta.code}</span>.
+            Hệ thống đã tự nạp nhà cung cấp, kho nhận và các mặt hàng còn thiếu.
+            Người dùng chỉ cần điều chỉnh số lượng của đợt nhập này, rồi thực hiện kiểm hàng theo thực tế.
+          </p>
+        </div>
+      )}
+
       {/* 2. Information Row (Supplier & Receipt Info) */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 shrink-0">
         {/* Left: Supplier Info */}
@@ -644,9 +759,9 @@ function AdminReceiptFormContent() {
                 setIsSupplierDropdownOpen(true);
               }}
               onFocus={() => setIsSupplierDropdownOpen(true)}
-              disabled={isInfoReadOnly}
+              disabled={isMasterDataLocked}
             />
-            {isSupplierDropdownOpen && !isInfoReadOnly && (
+            {isSupplierDropdownOpen && !isMasterDataLocked && (
               <div className="absolute top-full left-0 w-full mt-1 bg-white border shadow-xl z-50 max-h-40 overflow-auto text-xs">
                 {isLoadingSuppliers ? (
                   <div className="p-3 text-center text-slate-400">
@@ -674,7 +789,7 @@ function AdminReceiptFormContent() {
 
           {selectedSupplier && (
             <div className="flex items-start gap-4 bg-blue-50/50 border border-blue-100 p-4 rounded-sm relative animate-in fade-in duration-300">
-              {!isInfoReadOnly && (
+              {!isMasterDataLocked && (
                 <button
                   type="button"
                   onClick={handleClearSupplier}
@@ -720,7 +835,7 @@ function AdminReceiptFormContent() {
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={isInfoReadOnly}
+                    disabled={isMasterDataLocked}
                   >
                     <SelectTrigger className="h-8 text-xs border-slate-200 shadow-none font-bold text-blue-600">
                       <SelectValue placeholder="-- Chọn chi nhánh nhập --" />
@@ -792,7 +907,7 @@ function AdminReceiptFormContent() {
       {/* 3. Product Entry & Table */}
       <div className="flex-1 flex flex-col px-6 pb-6 overflow-hidden">
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col h-full overflow-hidden">
-          {!isInfoReadOnly && (
+          {!isItemSourceLocked && (
             <div className="p-4 border-b bg-white flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3 flex-1">
                 <h3 className="text-[12px] font-bold text-slate-700 whitespace-nowrap uppercase">
