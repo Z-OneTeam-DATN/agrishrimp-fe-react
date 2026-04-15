@@ -130,7 +130,7 @@ export default function CustomerDetailPage({
 }) {
     const router = useRouter();
     const resolvedParams = use(params);
-    const customerId = resolvedParams.id;
+    const customerIdentifier = resolvedParams.id;
 
     const [customer, setCustomer] = useState<CustomerData | null>(null);
     const [orders, setOrders] = useState<OrderData[]>([]);
@@ -169,11 +169,15 @@ export default function CustomerDetailPage({
         if (!mounted) return;
         setIsLoading(true);
         try {
-            const data = await customerService.getDetailById(Number(customerId));
+            const data = await customerService.getDetailById(Number(customerIdentifier));
             setCustomer(data);
             setNotes(data.internalNotes || []);
             setStatusLogs(data.statusLogs || []);
-            fetchOrders(Number(customerId));
+            if (data?.userId) {
+                fetchOrders(data.userId);
+            } else {
+                setOrders([]);
+            }
         } catch (error) {
             console.error("Lỗi fetch:", error);
             toast.error("Không thể tải thông tin khách hàng");
@@ -185,7 +189,7 @@ export default function CustomerDetailPage({
 
     useEffect(() => {
         fetchDetail();
-    }, [customerId, mounted, router]);
+    }, [customerIdentifier, mounted, router]);
 
     // Utility functions
     const calculateDaysSinceSignup = () => {
@@ -302,7 +306,7 @@ export default function CustomerDetailPage({
                                 Chi tiết hồ sơ khách hàng
                             </h1>
                             <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded uppercase">
-                  #{customerId}
+                  #{customerIdentifier}
                 </span>
                         </div>
                         {customer?.onlinePaymentOnly && (
