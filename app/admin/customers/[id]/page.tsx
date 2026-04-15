@@ -231,7 +231,20 @@ export default function CustomerDetailPage({
     };
 
     const isRiskAccount = () => {
-        return (customer?.reputationScore || 0) < 50;
+        return customer?.riskLevel === 'HIGH';
+    };
+
+    const getRiskLabel = () => {
+        switch (customer?.riskLevel) {
+            case 'HIGH':
+                return 'Rủi ro cao';
+            case 'MEDIUM':
+                return 'Cần theo dõi';
+            case 'UNKNOWN':
+                return 'Chưa đủ dữ liệu';
+            default:
+                return 'Uy tín tốt';
+        }
     };
 
     const handleAddNote = async () => {
@@ -751,8 +764,9 @@ export default function CustomerDetailPage({
                                             </p>
                                             <p className={cn(
                                                 "text-[24px] font-black leading-none",
-                                                (customer?.reputationScore || 0) >= 80 ? "text-emerald-600" :
-                                                    (customer?.reputationScore || 0) >= 50 ? "text-orange-500" : "text-rose-600"
+                                                customer?.riskLevel === 'HIGH' ? "text-rose-600" :
+                                                    customer?.riskLevel === 'MEDIUM' ? "text-orange-500" :
+                                                        customer?.riskLevel === 'UNKNOWN' ? "text-slate-500" : "text-emerald-600"
                                             )}>
                                                 {customer?.reputationScore || 0} %
                                             </p>
@@ -760,23 +774,25 @@ export default function CustomerDetailPage({
                                     </div>
                                     <div className={cn(
                                         "text-right px-3 py-2 border",
-                                        (customer?.reputationScore || 0) >= 80 ? "bg-emerald-50 border-emerald-100" :
-                                            (customer?.reputationScore || 0) >= 50 ? "bg-orange-50 border-orange-100" : "bg-rose-50 border-rose-100"
+                                        customer?.riskLevel === 'HIGH' ? "bg-rose-50 border-rose-100" :
+                                            customer?.riskLevel === 'MEDIUM' ? "bg-orange-50 border-orange-100" :
+                                                customer?.riskLevel === 'UNKNOWN' ? "bg-slate-50 border-slate-200" : "bg-emerald-50 border-emerald-100"
                                     )}>
                                         <p className={cn(
                                             "text-[10px] font-bold uppercase",
-                                            (customer?.reputationScore || 0) >= 80 ? "text-emerald-600" :
-                                                (customer?.reputationScore || 0) >= 50 ? "text-orange-600" : "text-rose-600"
+                                            customer?.riskLevel === 'HIGH' ? "text-rose-600" :
+                                                customer?.riskLevel === 'MEDIUM' ? "text-orange-600" :
+                                                    customer?.riskLevel === 'UNKNOWN' ? "text-slate-600" : "text-emerald-600"
                                         )}>
                                             Phân loại
                                         </p>
                                         <p className={cn(
                                             "text-[12px] font-black uppercase",
-                                            (customer?.reputationScore || 0) >= 80 ? "text-emerald-700" :
-                                                (customer?.reputationScore || 0) >= 50 ? "text-orange-700" : "text-rose-700"
+                                            customer?.riskLevel === 'HIGH' ? "text-rose-700" :
+                                                customer?.riskLevel === 'MEDIUM' ? "text-orange-700" :
+                                                    customer?.riskLevel === 'UNKNOWN' ? "text-slate-600" : "text-emerald-700"
                                         )}>
-                                            {(customer?.reputationScore || 0) >= 80 ? "Đối tác uy tín" :
-                                                (customer?.reputationScore || 0) >= 50 ? "Cần theo dõi" : "Rủi ro cao"}
+                                            {getRiskLabel()}
                                         </p>
                                     </div>
                                 </div>
@@ -787,6 +803,7 @@ export default function CustomerDetailPage({
                                             <Info size={13} className="text-blue-500"/> Quy tắc hệ thống:
                                     </h4>
                                     <ul className="list-disc pl-4 space-y-0.5">
+                                            <li><span className="font-semibold text-slate-600">Dưới 3 đơn</span>: Chưa đủ dữ liệu để đánh giá rủi ro, không ép chỉ thanh toán online.</li>
                                             <li><span className="font-semibold text-orange-600">Dưới 50%</span>: Gửi cảnh báo và chỉ cho phép thanh toán online.</li>
                                             <li><span className="font-semibold text-emerald-600">Từ 50% trở lên</span>: Có thể dùng COD nếu các quy trình khác cho phép.</li>
                                     </ul>

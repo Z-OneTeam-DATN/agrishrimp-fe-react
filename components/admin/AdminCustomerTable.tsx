@@ -61,6 +61,8 @@ export function AdminCustomerTable({
                 return "Rủi ro cao";
             case "MEDIUM":
                 return "Cần theo dõi";
+            case "UNKNOWN":
+                return "Chưa đủ dữ liệu";
             default:
                 return "Uy tín tốt";
         }
@@ -157,6 +159,8 @@ export function AdminCustomerTable({
                                                     ? "bg-rose-50 text-rose-600 border-rose-100"
                                                     : cus.riskLevel === "MEDIUM"
                                                         ? "bg-orange-50 text-orange-600 border-orange-100"
+                                                        : cus.riskLevel === "UNKNOWN"
+                                                            ? "bg-slate-50 text-slate-500 border-slate-200"
                                                         : "bg-emerald-50 text-emerald-600 border-emerald-100",
                                             )}
                                         >
