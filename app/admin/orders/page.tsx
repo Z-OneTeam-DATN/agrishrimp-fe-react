@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import { BranchOrder, OrderStatus } from "@/app/types/order.types";
+import { formatDate } from "@/lib/dateUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -480,7 +481,7 @@ export default function OrderListPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-[13px] text-slate-700 whitespace-nowrap">
-                          {new Date(order.createdAt).toLocaleString("vi-VN")}
+                          {formatDate(order.createdAt, "dd/MM/yyyy HH:mm:ss")}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">

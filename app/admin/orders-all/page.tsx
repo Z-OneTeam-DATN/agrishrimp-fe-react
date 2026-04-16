@@ -32,6 +32,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getOrderListPath } from "@/lib/order-routing";
 import { isAdminRole } from "@/lib/roles";
+import { formatDate } from "@/lib/dateUtils";
 
 const TABS = [
   { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
@@ -335,7 +336,7 @@ export default function AllOrdersPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-[13px] text-slate-700">
-                          {new Date(order.createdAt).toLocaleString("vi-VN")}
+                          {formatDate(order.createdAt, "dd/MM/yyyy HH:mm:ss")}
                         </TableCell>
                         <TableCell className="text-[13px] font-medium text-slate-800 text-right">
                           {formatCurrency(
