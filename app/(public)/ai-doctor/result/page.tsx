@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ExternalLink,
   FileText,
+  FlaskConical,
   Loader2,
   ShoppingBag,
   ShieldAlert,
@@ -169,12 +170,16 @@ function StageCard({
   );
 }
 
+type PrescriptionState = "idle" | "loading" | "loaded" | "error";
+
 export default function TreatmentResultPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawDiagnosisId = searchParams.get("id");
   const [diagnosisId, setDiagnosisId] = useState<string | null>(rawDiagnosisId);
   const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [prescriptionState, setPrescriptionState] = useState<PrescriptionState>("idle");
+  const [prescriptionData, setPrescriptionData] = useState<Partial<AiDoctorDiagnosisResponse> | null>(null);
   const variantIdCache = useRef<Map<number, number>>(new Map());
   const { fetchCartCount } = useCartStore();
 
@@ -196,12 +201,27 @@ export default function TreatmentResultPage() {
 
   const diagnosis = diagnosisQuery.data;
   const diagnosisImageUrl = diagnosis?.imageUrl ?? diagnosis?.clientImageUrl;
-  const diagnosisCauses = diagnosis?.causes ?? [];
-  const treatmentStages = diagnosis?.treatmentStages ?? [];
+  const causes = prescriptionData?.causes ?? diagnosis?.causes ?? [];
+  const signsSummary = prescriptionData?.signsSummary ?? diagnosis?.signsSummary ?? null;
+  const treatmentStages = prescriptionData?.treatmentStages ?? diagnosis?.treatmentStages ?? [];
+  const hasPrescription = treatmentStages.length > 0;
   const secondaryPredictions = diagnosis?.topPredictions?.slice(1, 4) ?? [];
   const stageTotals = treatmentStages.map((stage) => getStageTotal(stage.products));
   const overallTotal = stageTotals.reduce((sum, total) => sum + total, 0);
   const overallProducts = treatmentStages.flatMap((stage) => stage.products ?? []);
+
+  const handleGetPrescription = async () => {
+    if (!diagnosisId || prescriptionState === "loading") return;
+    setPrescriptionState("loading");
+    try {
+      const data = await aiDoctorService.generatePrescription(diagnosisId);
+      setPrescriptionData(data);
+      setPrescriptionState("loaded");
+    } catch {
+      setPrescriptionState("error");
+      toast.error("Không thể lấy phác đồ điều trị. Bà con hãy thử lại nhé.");
+    }
+  };
 
   const resolveVariantId = async (product: AiDoctorSuggestedProduct) => {
     // 1. Ưu tiên variantId từ backend trả về trong phác đồ (nếu có)
@@ -409,7 +429,7 @@ export default function TreatmentResultPage() {
                         Lời khuyên của bác sĩ
                       </div>
                       <p className="text-sm leading-relaxed text-slate-700">
-                        {diagnosis.signsSummary || "Bác sĩ chưa có nhận xét cụ thể."}
+                        {signsSummary || "Bác sĩ chưa có nhận xét cụ thể."}
                       </p>
                     </div>
 
@@ -417,9 +437,9 @@ export default function TreatmentResultPage() {
                       <div className="mb-2 text-[11px] font-bold uppercase text-slate-500">
                         Tại sao tôm bị bệnh?
                       </div>
-                      {diagnosisCauses.length > 0 ? (
+                      {causes.length > 0 ? (
                         <ul className="space-y-2 text-sm text-slate-600">
-                          {diagnosisCauses.map((cause, index) => (
+                          {causes.map((cause, index) => (
                             <li key={index} className="flex items-start gap-2">
                               <AlertTriangle
                                 size={14}
@@ -461,50 +481,52 @@ export default function TreatmentResultPage() {
                   </div>
                 )}
 
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="mb-3 text-xs font-bold uppercase text-slate-500">
-                    Tiền thuốc dự kiến
-                  </div>
-                  <div className="space-y-2">
-                    {stageTotals.map((total, index) => (
-                      <div
-                        key={`stage-total-${index}`}
-                        className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
-                      >
-                        <span className="font-medium text-slate-600">Bước {index + 1}</span>
-                        <span className="font-bold text-slate-800">{formatPrice(total)}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 rounded-xl bg-[#376E60] px-4 py-3 text-white">
-                    <div className="mb-1 text-xs uppercase tracking-wide text-white/80">
-                      Tổng tiền thuốc (các bước)
+                {hasPrescription && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="mb-3 text-xs font-bold uppercase text-slate-500">
+                      Tiền thuốc dự kiến
                     </div>
-                    <div className="text-2xl font-extrabold">{formatPrice(overallTotal)}</div>
-                  </div>
+                    <div className="space-y-2">
+                      {stageTotals.map((total, index) => (
+                        <div
+                          key={`stage-total-${index}`}
+                          className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium text-slate-600">Bước {index + 1}</span>
+                          <span className="font-bold text-slate-800">{formatPrice(total)}</span>
+                        </div>
+                      ))}
+                    </div>
 
-                  <button
-                    onClick={() =>
-                      addProductsToCart(overallProducts, "all-stages", "toàn bộ phác đồ")
-                    }
-                    disabled={addingKey === "all-stages"}
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {addingKey === "all-stages" ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <ShoppingBag size={16} />
-                    )}
-                    Thêm tất cả thuốc vào giỏ
-                  </button>
-                </div>
+                    <div className="mt-4 rounded-xl bg-[#376E60] px-4 py-3 text-white">
+                      <div className="mb-1 text-xs uppercase tracking-wide text-white/80">
+                        Tổng tiền thuốc (các bước)
+                      </div>
+                      <div className="text-2xl font-extrabold">{formatPrice(overallTotal)}</div>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        addProductsToCart(overallProducts, "all-stages", "toàn bộ phác đồ")
+                      }
+                      disabled={addingKey === "all-stages"}
+                      className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {addingKey === "all-stages" ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <ShoppingBag size={16} />
+                      )}
+                      Thêm tất cả thuốc vào giỏ
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-6 lg:col-span-8">
               <h2 className="mb-4 text-xl font-bold text-slate-800">CÁCH ĐIỀU TRỊ CHI TIẾT</h2>
-              {treatmentStages.length > 0 ? (
+              {hasPrescription ? (
                 treatmentStages.map((stage, index) => (
                   <StageCard
                     key={`${index}-${stage.stageTitle}`}
@@ -522,9 +544,36 @@ export default function TreatmentResultPage() {
                   />
                 ))
               ) : (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-gray-400">
-                  <ShoppingBag size={40} className="mb-3 text-gray-200" />
-                  <p className="text-sm font-medium">Bác sĩ chưa đưa ra phác đồ thuốc cụ thể.</p>
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-center text-gray-400">
+                  <FlaskConical size={40} className="mb-3 text-slate-300" />
+                  <p className="mb-2 text-sm font-medium text-slate-600">
+                    Bác sĩ chưa lập phác đồ điều trị.
+                  </p>
+                  <p className="mb-6 text-xs text-slate-400">
+                    Nhấn nút bên dưới để bác sĩ AI phân tích và đưa ra phác đồ thuốc phù hợp.
+                  </p>
+                  {prescriptionState === "error" && (
+                    <p className="mb-3 text-xs text-red-500">
+                      Có lỗi xảy ra. Bà con thử lại nhé.
+                    </p>
+                  )}
+                  <button
+                    onClick={handleGetPrescription}
+                    disabled={prescriptionState === "loading"}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#2f5c50] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {prescriptionState === "loading" ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Đang lập phác đồ...
+                      </>
+                    ) : (
+                      <>
+                        <FlaskConical size={16} />
+                        Xem phác đồ điều trị
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>

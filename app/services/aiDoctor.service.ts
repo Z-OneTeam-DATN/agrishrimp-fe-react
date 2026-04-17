@@ -85,6 +85,15 @@ export const aiDoctorService = {
     return response.data;
   },
 
+  async generatePrescription(diagnosisId: string | number) {
+    const response = await apiJava.post<AiDoctorDiagnosisResponse>(
+      `/miniapp/diagnosis/${diagnosisId}/prescription`,
+      {},
+      { timeout: 120000 },
+    );
+    return response.data;
+  },
+
   saveClientImage(diagnosisId: string | number, clientImageUrl: string) {
     if (!canUseStorage()) return null;
 
