@@ -6,6 +6,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SupplierSchema, SupplierFormValues } from "@/app/types/admin.schema";
 import { supplierService } from "@/app/services/supplier.service";
+import { ProductService } from "@/app/services/product.service";
+import { ProductListItem } from "@/app/types/product.schema";
+import { SupplierProductCatalogItem, SupplierProductCatalogStatus } from "@/app/types/supplier.type";
 import {
     ChevronLeft,
     Phone,
@@ -70,9 +73,13 @@ export default function SupplierDetailPage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isCatalogSaving, setIsCatalogSaving] = useState(false);
     const [isContactEdit, setIsContactEdit] = useState(false);
     const [supplierMeta, setSupplierMeta] = useState<SupplierMeta>({});
     const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
+    const [catalogItems, setCatalogItems] = useState<SupplierProductCatalogItem[]>([]);
+    const [catalogProducts, setCatalogProducts] = useState<ProductListItem[]>([]);
+    const [catalogKeyword, setCatalogKeyword] = useState("");
 
     const [historyKeyword, setHistoryKeyword] = useState("");
     const [historyStatus, setHistoryStatus] = useState("all");
@@ -97,9 +104,11 @@ export default function SupplierDetailPage() {
             if (!supplierId) return;
 
             try {
-                const [supplierInfo, historyData] = await Promise.all([
+                const [supplierInfo, historyData, catalogData, productsData] = await Promise.all([
                     supplierService.getById(supplierId),
                     supplierService.getImportHistory(supplierId),
+                    supplierService.getProductCatalog(supplierId),
+                    ProductService.getAll({ status: "ACTIVE" }),
                 ]);
 
                 if (supplierInfo) {
@@ -115,6 +124,8 @@ export default function SupplierDetailPage() {
                 }
 
                 setImportHistory(Array.isArray(historyData) ? historyData : []);
+                setCatalogItems(Array.isArray(catalogData) ? catalogData : []);
+                setCatalogProducts(Array.isArray(productsData) ? productsData : []);
             } catch (error) {
                 toast.error("Không tải được dữ liệu");
                 router.push("/admin/suppliers");
@@ -237,6 +248,75 @@ export default function SupplierDetailPage() {
             return keywordOk && statusOk && fromOk && toOk;
         });
     }, [importHistory, historyKeyword, historyStatus, fromDate, toDate]);
+
+    const catalogByProductId = useMemo(() => {
+        return new Map(catalogItems.map((item) => [item.productId, item]));
+    }, [catalogItems]);
+
+    const filteredCatalogProducts = useMemo(() => {
+        const keyword = catalogKeyword.trim().toLowerCase();
+        if (!keyword) return catalogProducts;
+
+        return catalogProducts.filter((product) => {
+            return (
+                product.name?.toLowerCase().includes(keyword) ||
+                product.brandName?.toLowerCase().includes(keyword) ||
+                product.origin?.toLowerCase().includes(keyword) ||
+                product.categoryName?.toLowerCase().includes(keyword) ||
+                product.baseSku?.toLowerCase().includes(keyword)
+            );
+        });
+    }, [catalogProducts, catalogKeyword]);
+
+    const updateCatalogItem = (productId: number, patch: Partial<{ status: SupplierProductCatalogStatus; note: string }>) => {
+        setCatalogItems((prev) => {
+            const existing = prev.find((item) => item.productId === productId);
+            if (existing) {
+                return prev.map((item) => item.productId === productId ? { ...item, ...patch } : item);
+            }
+
+            const product = catalogProducts.find((item) => item.id === productId);
+            return [
+                ...prev,
+                {
+                    id: 0,
+                    supplierId,
+                    supplierCode: supplierData.taxCode || "",
+                    productId,
+                    productName: product?.name || "",
+                    productSlug: product?.slug || "",
+                    brandName: product?.brandName,
+                    origin: product?.origin,
+                    categoryName: product?.categoryName,
+                    status: patch.status || "CHECKING",
+                    note: patch.note || "",
+                },
+            ];
+        });
+    };
+
+    const saveCatalog = async () => {
+        setIsCatalogSaving(true);
+        try {
+            const payload = catalogProducts.map((product) => {
+                const current = catalogByProductId.get(product.id);
+                return {
+                    productId: product.id,
+                    status: (current?.status || "CHECKING") as SupplierProductCatalogStatus,
+                    note: current?.note || "",
+                };
+            });
+
+            const saved = await supplierService.saveProductCatalog(supplierId, payload);
+            setCatalogItems(saved);
+            toast.success("Đã lưu catalog sản phẩm của nhà cung cấp");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Lỗi khi lưu catalog";
+            toast.error(message);
+        } finally {
+            setIsCatalogSaving(false);
+        }
+    };
 
     const timelineEvents = useMemo(
         () => [
@@ -409,6 +489,9 @@ export default function SupplierDetailPage() {
                             <TabsTrigger value="info" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                                 <Info size={14} className="mr-1.5" /> Thông tin chi tiết
                             </TabsTrigger>
+                            <TabsTrigger value="catalog" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                                <Warehouse size={14} className="mr-1.5" /> Catalog sản phẩm ({catalogProducts.length})
+                            </TabsTrigger>
                             <TabsTrigger value="history" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                                 <History size={14} className="mr-1.5" /> Lịch sử nhập hàng ({filteredHistory.length})
                             </TabsTrigger>
@@ -503,6 +586,114 @@ export default function SupplierDetailPage() {
                                             <p className="text-[10px] font-bold text-emerald-600 mt-1">{formatDate(event.at)}</p>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="catalog" className="mt-4">
+                            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 border-b border-slate-100 bg-[#fcfcfc] flex flex-col gap-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <h3 className="text-[12px] font-black text-slate-700 uppercase flex items-center gap-2">
+                                            <Warehouse size={14} className="text-emerald-600" /> Danh mục sản phẩm nhà cung cấp
+                                        </h3>
+                                        <Button
+                                            type="button"
+                                            className="h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 uppercase"
+                                            onClick={saveCatalog}
+                                            disabled={isCatalogSaving}
+                                        >
+                                            <Save size={14} className="mr-1.5" /> {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
+                                        </Button>
+                                    </div>
+                                    <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <Input
+                                            value={catalogKeyword}
+                                            onChange={(e) => setCatalogKeyword(e.target.value)}
+                                            placeholder="Tìm theo tên sản phẩm, thương hiệu, xuất xứ, danh mục..."
+                                            className="h-[34px] pl-9 text-[12px]"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="p-0 overflow-x-auto">
+                                    <Table className="table-custom border-collapse table-fixed min-w-[980px]">
+                                        <colgroup>
+                                            <col className="w-[300px]" />
+                                            <col className="w-[220px]" />
+                                            <col className="w-[200px]" />
+                                            <col />
+                                        </colgroup>
+                                        <TableHeader>
+                                            <TableRow className="bg-slate-50 border-b border-slate-100">
+                                                <TableHead className="text-[10px] font-bold uppercase py-3 pl-4">Sản phẩm</TableHead>
+                                                <TableHead className="text-[10px] font-bold uppercase py-3">Thương hiệu / Xuất xứ</TableHead>
+                                                <TableHead className="text-[10px] font-bold uppercase py-3">Trạng thái NCC</TableHead>
+                                                <TableHead className="text-[10px] font-bold uppercase py-3 pr-4">Ghi chú</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredCatalogProducts.length > 0 ? (
+                                                filteredCatalogProducts.map((product) => {
+                                                    const current = catalogByProductId.get(product.id);
+                                                    const status = current?.status || "CHECKING";
+                                                    const statusStyle =
+                                                        status === "AVAILABLE"
+                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                            : status === "UNAVAILABLE"
+                                                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                                                : "bg-amber-50 text-amber-700 border-amber-200";
+
+                                                    return (
+                                                        <TableRow key={product.id} className="border-b border-slate-50 hover:bg-emerald-50/20 align-top">
+                                                            <TableCell className="pl-4 py-3">
+                                                                <p className="text-[12px] font-black text-slate-800 line-clamp-2">{product.name}</p>
+                                                                <p className="text-[10px] text-slate-400 font-mono mt-1">SKU gốc: {product.baseSku || "---"}</p>
+                                                                <p className="text-[10px] text-slate-500 mt-1">{product.categoryName || "---"} · {product.variants?.length || 0} biến thể</p>
+                                                            </TableCell>
+                                                            <TableCell className="py-3">
+                                                                <p className="text-[11px] font-bold text-slate-700">{product.brandName || "---"}</p>
+                                                                <p className="text-[10px] text-slate-500 mt-1">Xuất xứ: {product.origin || "---"}</p>
+                                                            </TableCell>
+                                                            <TableCell className="py-3">
+                                                                <Select
+                                                                    value={status}
+                                                                    onValueChange={(value) => updateCatalogItem(product.id, { status: value as SupplierProductCatalogStatus })}
+                                                                >
+                                                                    <SelectTrigger className="h-8 text-[11px] font-bold">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="AVAILABLE" className="text-emerald-700 font-bold">CÓ CUNG CẤP</SelectItem>
+                                                                        <SelectItem value="UNAVAILABLE" className="text-rose-700 font-bold">KHÔNG CUNG CẤP</SelectItem>
+                                                                        <SelectItem value="CHECKING" className="text-amber-700 font-bold">ĐANG KIỂM TRA</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <span className={cn("mt-2 inline-flex items-center rounded border px-2 py-0.5 text-[9px] font-black uppercase", statusStyle)}>
+                                                                    {status === "AVAILABLE" ? "Có cung cấp" : status === "UNAVAILABLE" ? "Không cung cấp" : "Đang kiểm tra"}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="py-3 pr-4">
+                                                                <Textarea
+                                                                    value={current?.note || ""}
+                                                                    onChange={(e) => updateCatalogItem(product.id, { note: e.target.value })}
+                                                                    placeholder="Ghi chú kiểm tra / điều kiện bán..."
+                                                                    className="min-h-[72px] text-[11px]"
+                                                                />
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-center py-8 text-[12px] text-slate-400 font-bold uppercase tracking-widest">
+                                                        Không có sản phẩm phù hợp bộ lọc
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
                                 </div>
                             </div>
                         </TabsContent>

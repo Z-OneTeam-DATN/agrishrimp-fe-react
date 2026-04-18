@@ -30,6 +30,24 @@ export interface Supplier {
   createdAt: string;
 }
 
+export type SupplierProductCatalogStatus = "AVAILABLE" | "UNAVAILABLE" | "CHECKING";
+
+export interface SupplierProductCatalogItem {
+  id: number;
+  supplierId: number;
+  supplierCode: string;
+  productId: number;
+  productName: string;
+  productSlug: string;
+  brandName?: string;
+  origin?: string;
+  categoryName?: string;
+  status: SupplierProductCatalogStatus;
+  note?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalPages: number;

@@ -91,8 +91,8 @@ const variantSchema = z.object({
 const productSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    brand: z.string().optional(),
-    origin: z.string().optional(),
+    brand: z.string().trim().min(1, "Vui lòng nhập thương hiệu").max(100, "Thương hiệu không được vượt quá 100 ký tự"),
+    origin: z.string().trim().min(1, "Vui lòng nhập xuất xứ").max(100, "Xuất xứ không được vượt quá 100 ký tự"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -1170,8 +1170,8 @@ export default function AddProductPage() {
             const productData: any = {
                 name: data.name.trim(),
                 categoryId: Number(data.categoryId),
-                ...(data.brand?.trim() && { brand: data.brand.trim() }),
-                ...(data.origin?.trim() && { origin: data.origin.trim() }),
+                brand: data.brand.trim(),
+                origin: data.origin.trim(),
                 ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
                 ...(data.description?.trim() && { description: data.description }),
                 ...(data.status && { status: data.status }),

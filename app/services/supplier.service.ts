@@ -1,6 +1,6 @@
 import { apiJava } from "@/lib/axios";
 import { SupplierFormValues } from "@/app/types/admin.schema";
-import { Supplier, PageResponse } from "@/app/types/supplier.type";
+import { Supplier, PageResponse, SupplierProductCatalogItem, SupplierProductCatalogStatus } from "@/app/types/supplier.type";
 
 export const supplierService = {
     PREFIX: "/suppliers",
@@ -81,6 +81,23 @@ export const supplierService = {
     // Lấy lịch sử nhập hàng của 1 NCC
     getImportHistory: async (id: number) => {
         const response = await apiJava.get(`${supplierService.PREFIX}/${id}/imports`);
+        return response.data;
+    },
+
+    getProductCatalog: async (id: number): Promise<SupplierProductCatalogItem[]> => {
+        const response = await apiJava.get(`${supplierService.PREFIX}/${id}/product-catalog`);
+        return response.data;
+    },
+
+    saveProductCatalog: async (
+        id: number,
+        items: Array<{
+            productId: number;
+            status: SupplierProductCatalogStatus;
+            note?: string;
+        }>,
+    ): Promise<SupplierProductCatalogItem[]> => {
+        const response = await apiJava.put(`${supplierService.PREFIX}/${id}/product-catalog`, items);
         return response.data;
     },
 };
