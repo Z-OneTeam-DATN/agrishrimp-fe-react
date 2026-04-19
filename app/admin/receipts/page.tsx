@@ -105,8 +105,7 @@ export default function AdminReceiptListPage() {
   const filteredData = receipts.filter((item) => {
     let matchTab = true;
     if (activeTab === "pending") matchTab = item.status === "PENDING" || item.status === "PO";
-    else if (activeTab === "approved") matchTab = item.status === "APPROVED";
-    else if (activeTab === "completed") matchTab = item.status === "COMPLETED" || item.status === "IMPORTED";
+    else if (activeTab === "completed") matchTab = item.status === "APPROVED" || item.status === "COMPLETED" || item.status === "IMPORTED";
     else if (activeTab === "cancelled") matchTab = item.status === "CANCELLED" || item.status === "REJECTED";
     if (!matchTab) return false;
 
@@ -127,8 +126,7 @@ export default function AdminReceiptListPage() {
     return {
       all: receipts.length,
       pending: receipts.filter(r => r.status === "PENDING" || r.status === "PO").length,
-      approved: receipts.filter(r => r.status === "APPROVED").length,
-      completed: receipts.filter(r => r.status === "COMPLETED" || r.status === "IMPORTED").length,
+      completed: receipts.filter(r => r.status === "APPROVED" || r.status === "COMPLETED" || r.status === "IMPORTED").length,
       cancelled: receipts.filter(r => r.status === "CANCELLED" || r.status === "REJECTED").length,
     };
   }, [receipts]);
@@ -136,7 +134,6 @@ export default function AdminReceiptListPage() {
   const tabs = [
     { id: "all", label: "TẤT CẢ" },
     { id: "pending", label: "CHỜ DUYỆT" },
-    { id: "approved", label: "ĐÃ DUYỆT" },
     { id: "completed", label: "ĐÃ NHẬP KHO" },
     { id: "cancelled", label: "ĐÃ HỦY" },
   ];
@@ -160,7 +157,7 @@ export default function AdminReceiptListPage() {
         <div className="px-6 flex items-center h-[48px] gap-8">
           {tabs.map((tab) => {
             const hasItems = (counts as any)[tab.id] > 0;
-            const showRedDot = (tab.id === "pending" || tab.id === "approved") && hasItems;
+            const showRedDot = tab.id === "pending" && hasItems;
 
             return (
               <button

@@ -65,8 +65,7 @@ export default function AdminExportListPage() {
     let matchTab = true;
     const status = (item.status || "").toUpperCase();
     if (activeTab === "pending") matchTab = status === "PENDING";
-    else if (activeTab === "approved") matchTab = status === "APPROVED";
-    else if (activeTab === "completed") matchTab = status === "COMPLETED";
+    else if (activeTab === "completed") matchTab = status === "APPROVED" || status === "COMPLETED";
     else if (activeTab === "cancelled") matchTab = status === "CANCELLED" || status === "REJECTED";
     
     if (!matchTab) return false;
@@ -96,8 +95,7 @@ export default function AdminExportListPage() {
     return {
       all: exports.length,
       pending: exports.filter(t => s(t.status) === "PENDING").length,
-      approved: exports.filter(t => s(t.status) === "APPROVED").length,
-      completed: exports.filter(t => s(t.status) === "COMPLETED").length,
+      completed: exports.filter(t => s(t.status) === "APPROVED" || s(t.status) === "COMPLETED").length,
       cancelled: exports.filter(t => s(t.status) === "CANCELLED" || s(t.status) === "REJECTED").length,
     };
   }, [exports]);
@@ -105,7 +103,6 @@ export default function AdminExportListPage() {
   const tabs = [
     { id: "all", label: "TẤT CẢ" },
     { id: "pending", label: "CHỜ DUYỆT" },
-    { id: "approved", label: "ĐÃ DUYỆT" },
     { id: "completed", label: "ĐÃ XUẤT KHO" },
     { id: "cancelled", label: "ĐÃ HỦY" },
   ];
@@ -127,7 +124,7 @@ export default function AdminExportListPage() {
         <div className="px-6 flex items-center h-[48px] gap-8">
           {tabs.map((tab) => {
             const hasItems = (counts as any)[tab.id] > 0;
-            const showRedDot = (tab.id === "pending" || tab.id === "approved") && hasItems;
+            const showRedDot = tab.id === "pending" && hasItems;
 
             return (
               <button

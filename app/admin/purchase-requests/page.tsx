@@ -28,7 +28,6 @@ import { PR_STATUS_LABEL, PR_STATUS_COLOR } from "@/app/types/purchase.schema";
 
 const TABS = [
   { id: "all",              label: "TẤT CẢ" },
-  { id: "DRAFT",            label: "NHÁP" },
   { id: "PENDING_APPROVAL", label: "CHỜ DUYỆT" },
   { id: "APPROVED",         label: "ĐÃ DUYỆT" },
   { id: "SENT_TO_SUPPLIER", label: "GỬI NCC" },
