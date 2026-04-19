@@ -102,15 +102,17 @@ export default function NewPurchaseRequestPage() {
         const allBranches = Array.isArray(branchData)
           ? branchData
           : (branchData?.content ?? []);
-        const warehouseOnly = allBranches.filter(
+        const warehouseOnly: BranchDTO[] = allBranches.filter(
           (branch: BranchDTO) => branch.branchType === "WAREHOUSE",
         );
 
         setWarehouseBranches(warehouseOnly);
 
         const defaultWarehouse =
-          warehouseOnly.find((branch) => branch.name === currentUser?.branch?.name) ??
-          warehouseOnly.find((branch) => branch.id === warehouseId) ??
+          warehouseOnly.find(
+            (branch: BranchDTO) => branch.name === currentUser?.branch?.name,
+          ) ??
+          warehouseOnly.find((branch: BranchDTO) => branch.id === warehouseId) ??
           warehouseOnly[0];
 
         if (defaultWarehouse) {
