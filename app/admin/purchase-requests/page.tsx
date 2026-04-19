@@ -7,6 +7,7 @@ import { Loader2, ShoppingCart, RefreshCcw, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import {
@@ -60,6 +61,9 @@ export default function PurchaseRequestListPage() {
   const isWarehouseUser =
     (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
+  const canAccessPurchaseRequests =
+    isWarehouseUser &&
+    (isAdminRole(currentUser?.role) || isManagerRole(currentUser?.role));
 
   const fetchAll = async () => {
     setIsLoading(true);
@@ -126,7 +130,7 @@ export default function PurchaseRequestListPage() {
             <ShoppingCart className="text-slate-400" size={18} />
             Phiếu yêu cầu mua hàng NCC
           </h1>
-          {isWarehouseUser && <Link href="/admin/purchase-requests/new">
+          {canAccessPurchaseRequests && <Link href="/admin/purchase-requests/new">
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-[12px] font-bold rounded-[3px]">
               <Plus size={14} className="mr-1" />
               Lập phiếu yêu cầu

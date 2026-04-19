@@ -44,7 +44,7 @@ import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
+import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
 
 export default function AdminSidebar() {
@@ -60,6 +60,9 @@ export default function AdminSidebar() {
   const isWarehouseUser =
     (user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
+  const canAccessPurchaseRequests =
+    isWarehouseUser &&
+    (hasPermission(P.PURCHASE_REQUEST_VIEW) || isAdmin || isManager || isManagerRole(user?.role));
   const orderListHref = getOrderListPath(user);
   const isOrderListActive =
     pathname === "/admin/orders" ||
@@ -125,7 +128,7 @@ export default function AdminSidebar() {
         hasPermission(P.VOUCHER_VIEW)
           ? voucherService.getAllAdmin({ page: 0, size: 1 })
           : Promise.resolve(null),
-        hasPermission(P.PURCHASE_REQUEST_VIEW) && isWarehouseUser
+        canAccessPurchaseRequests
           ? PurchaseRequestApiService.getAll()
           : Promise.resolve(null),
         hasPermission(P.IMPORT_VIEW)
@@ -391,7 +394,7 @@ export default function AdminSidebar() {
               Mua hàng
             </p>
             <div className="space-y-0.5">
-              {hasPermission(P.PURCHASE_REQUEST_VIEW) && isWarehouseUser && (
+              {canAccessPurchaseRequests && (
                 <SidebarLink
                   href="/admin/purchase-requests"
                   icon={ShoppingCart}

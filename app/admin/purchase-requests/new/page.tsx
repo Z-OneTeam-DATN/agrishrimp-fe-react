@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { getErrorMessage, apiJava } from "@/lib/axios";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { supplierService } from "@/app/services/supplier.service";
@@ -55,6 +56,9 @@ export default function NewPurchaseRequestPage() {
   const isWarehouseUser =
     (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
+  const canAccessPurchaseRequests =
+    isWarehouseUser &&
+    (isAdminRole(currentUser?.role) || isManagerRole(currentUser?.role));
 
   const {
     register,
@@ -207,10 +211,10 @@ export default function NewPurchaseRequestPage() {
     return null;
   }
 
-  if (!isWarehouseUser) {
+  if (!canAccessPurchaseRequests) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
-        Chỉ tài khoản thuộc kho tổng mới được tạo phiếu yêu cầu nhập NCC.
+        Chỉ admin hoặc quản lý thuộc kho tổng mới được tạo phiếu yêu cầu nhập NCC.
       </div>
     );
   }
