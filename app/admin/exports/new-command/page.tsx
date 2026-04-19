@@ -66,7 +66,10 @@ function AdminExportFormContent() {
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const isAdmin = hasPermission(P.EXPORT_APPROVE);
-  const isWarehouseBranch = currentUser?.branch?.branchType === "WAREHOUSE";
+  const currentUserBranchType = (
+    currentUser?.branch as { branchType?: string } | undefined
+  )?.branchType;
+  const isWarehouseBranch = currentUserBranchType === "WAREHOUSE";
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
