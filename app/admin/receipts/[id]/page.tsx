@@ -62,7 +62,7 @@ export default function ReceiptDetailPage() {
   const isAdmin = user?.role?.slug === "ADMIN";
   const canSeePrice = isAdmin || hasPermission(P.IMPORT_VIEW) || hasPermission(P.CHECK_VIEW);
   const canApprove = isAdmin || hasPermission(P.IMPORT_APPROVE);
-  const canImport = isAdmin || hasPermission(P.IMPORT_CREATE);
+  const canCreateReturn = isAdmin || hasPermission(P.EXPORT_CREATE);
 
   // Modal States
   const [showInspectModal, setShowInspectModal] = useState(false);
@@ -116,6 +116,13 @@ export default function ReceiptDetailPage() {
     (isAdmin || hasPermission(P.REPORT_FINANCE_VIEW) || hasPermission(P.IMPORT_APPROVE)) &&
     receipt?.status === "COMPLETED" &&
     currentDebt > 0;
+  const hasRejectedItems = (receipt?.items || []).some(
+    (item: any) => Number(item.quantityRejected || 0) > 0,
+  );
+  const canCreateSupplierReturn =
+    canCreateReturn &&
+    hasRejectedItems &&
+    ["APPROVED", "COMPLETED"].includes(receipt?.status || "");
 
   const openPaymentModal = (payFull = false) => {
     setPaymentForm({
@@ -162,7 +169,7 @@ export default function ReceiptDetailPage() {
   const handleApprove = () => {
     showConfirm(
       "Xác nhận DUYỆT phiếu",
-      "Bạn có chắc chắn muốn duyệt kế hoạch nhập kho này không? Sau khi duyệt, nhân viên kho có thể thực hiện nhập hàng.",
+      "Admin duyệt phiếu này sẽ ghi nhận ngay tồn kho hàng đạt, tách hàng lỗi sang kho chờ trả và cộng công nợ nhà cung cấp.",
       () => handleApiCall(() => InventoryApiService.approveReceipt(id as string), "Đã duyệt phiếu thành công!")
     );
   };
@@ -183,6 +190,15 @@ export default function ReceiptDetailPage() {
       () => handleApiCall(() => InventoryApiService.rejectReceipt(id as string), "Đã hủy phiếu thành công!"),
       "destructive"
     );
+  };
+
+  const handleCreateSupplierReturn = () => {
+    if (!receipt) return;
+    const query = new URLSearchParams({
+      exportType: "RETURN",
+      fromReceiptId: String(receipt.id || id),
+    });
+    router.push(`/admin/exports/new-command?${query.toString()}`);
   };
 
   // GIAI ĐOẠN 3: Kiểm đếm QC & Nhập kho
@@ -374,9 +390,9 @@ export default function ReceiptDetailPage() {
               </div>
             )}
 
-            {receipt.status === "APPROVED" && canImport && (
-              <Button onClick={openInspectModal} disabled={isProcessing} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-none px-6 shadow-lg shadow-emerald-100">
-                <Play size={14} className="mr-1.5"/> KIỂM HÀNG & NHẬP KHO
+            {canCreateSupplierReturn && (
+              <Button onClick={handleCreateSupplierReturn} disabled={isProcessing} className="h-8 bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] rounded-none px-6 shadow-lg shadow-rose-100">
+                <Package size={14} className="mr-1.5"/> TẠO PHIẾU XUẤT TRẢ NCC
               </Button>
             )}
 
@@ -482,7 +498,7 @@ export default function ReceiptDetailPage() {
                          
                          <td className="p-4 text-right font-bold text-slate-600">{formatNumber(item.importPrice || 0)} ₫</td>
                          <td className="p-4 text-right font-black text-emerald-600">{formatNumber(item.newSellingPrice || 0)} ₫</td>
-                         <td className="p-4 text-right font-black text-slate-900">{formatNumber((isQCMode ? accepted : planned) * (item.importPrice || 0))} ₫</td>
+                         <td className="p-4 text-right font-black text-slate-900">{formatNumber((isQCMode ? delivered : planned) * (item.importPrice || 0))} ₫</td>
                       </tr>
                    )})}
                 </tbody>

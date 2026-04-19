@@ -22,7 +22,7 @@ import { getErrorMessage } from "@/lib/axios";
 
 import { branchService } from "@/app/services/branchService";
 import { supplierService } from "@/app/services/supplier.service";
-import { InventoryExportApiService } from "@/app/services/inventory.service";
+import { InventoryApiService, InventoryExportApiService } from "@/app/services/inventory.service";
 import { ProductService } from "@/app/services/product.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -60,11 +60,13 @@ function AdminExportFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const exportId = searchParams.get("id");
+  const fromReceiptId = searchParams.get("fromReceiptId");
   const isEditMode = Boolean(exportId);
 
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const isAdmin = hasPermission(P.EXPORT_APPROVE);
+  const isWarehouseBranch = currentUser?.branch?.branchType === "WAREHOUSE";
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +79,7 @@ function AdminExportFormContent() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
+  const [returnSourceLocked, setReturnSourceLocked] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const generateNoteCode = (type: string) => {
@@ -230,20 +233,84 @@ function AdminExportFormContent() {
   }, [watchExportType, isEditMode, setValue]);
 
   useEffect(() => {
-    if (isEditMode || isReadOnly) return;
+    if (isEditMode || isReadOnly || returnSourceLocked) return;
     setSearchTerm("");
     setShowDropdown(false);
     setSelectedProductIds([]);
     if (watchExportType === "RETURN") {
       replace([]);
     }
-  }, [watchExportType, watchBranchId, watchTargetId, isEditMode, isReadOnly, replace]);
+  }, [watchExportType, watchBranchId, watchTargetId, isEditMode, isReadOnly, replace, returnSourceLocked]);
 
   useEffect(() => {
     if (currentUser && !isEditMode) {
       setValue("creatorName", currentUser.fullName || currentUser.displayName || "");
     }
   }, [currentUser, isEditMode, setValue]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (watchExportType === "RETURN" && !isAdmin && !isWarehouseBranch) {
+      toast.error("Chỉ kho tổng hoặc admin mới được tạo phiếu xuất trả nhà cung cấp.");
+      router.replace("/admin/forbidden");
+    }
+  }, [currentUser, watchExportType, isAdmin, isWarehouseBranch, router]);
+
+  useEffect(() => {
+    if (isEditMode || !fromReceiptId || suppliers.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const receipt = await InventoryApiService.getReceiptDetail(fromReceiptId);
+        if (cancelled) return;
+
+        const supplier = suppliers.find(
+          (item) =>
+            String(item.id) === String(receipt.supplierId || "") ||
+            item.code === receipt.supplierCode ||
+            item.name === receipt.supplierName,
+        );
+
+        const rejectedItems = (receipt.items || [])
+          .filter((item: any) => Number(item.quantityRejected || 0) > 0)
+          .map((item: any) => ({
+            productVariantId: Number(item.productVariantId ?? item.variantId ?? item.id),
+            sku: item.productCode || item.sku,
+            name: item.productName || item.name,
+            unit: item.unit || "Cái",
+            stock: Number(item.quantityRejected || 0),
+            quantity: Number(item.quantityRejected || 0),
+            price: Number(item.importPrice || item.price || 0),
+            returnReason: item.note || "Trả hàng lỗi từ phiếu nhập",
+            lotNumber: item.lotNumber || item.batchNumber || "",
+          }));
+
+        if (rejectedItems.length === 0) {
+          toast.warning("Phiếu nhập này không có hàng lỗi để tạo phiếu xuất trả.");
+          return;
+        }
+
+        setValue("exportType", "RETURN");
+        setValue("branchId", String(receipt.branchId || receipt.branch?.id || ""));
+        if (supplier?.id) {
+          setValue("targetId", String(supplier.id));
+        }
+        setValue(
+          "note",
+          `Xuất trả NCC từ phiếu nhập ${receipt.receiptCode || receipt.code || fromReceiptId}`,
+        );
+        replace(rejectedItems);
+        setReturnSourceLocked(true);
+      } catch (error) {
+        toast.error("Không thể khởi tạo phiếu xuất trả từ phiếu nhập đã chọn.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fromReceiptId, suppliers, isEditMode, replace, setValue]);
 
   let targetInfo = { name: "", phone: "", address: "" };
   if (watchTargetId) {
@@ -429,6 +496,11 @@ function AdminExportFormContent() {
             Phiếu trả NCC chỉ cho phép chọn các lô hàng lỗi đang còn số lượng lỗi lớn hơn 0, đúng nhà cung cấp và đúng kho nhập.
           </p>
         )}
+        {returnSourceLocked && (
+          <p className="mt-2 text-[12px] text-blue-700 font-medium">
+            Phiếu xuất trả này được khởi tạo trực tiếp từ phiếu nhập có hàng lỗi. Nhà cung cấp và danh sách lô hàng đã được khóa theo phiếu nguồn.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -445,7 +517,7 @@ function AdminExportFormContent() {
                   name="exportType"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
                       <SelectTrigger className="rounded-none h-10 w-full shadow-none border-slate-200"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-none">
                         <SelectItem value="INTERNAL">Điều chuyển nội bộ</SelectItem>
@@ -485,24 +557,28 @@ function AdminExportFormContent() {
 
                 <div className="relative flex-1 min-w-[300px]" ref={dropdownRef}>
                   <div className="relative">
-                    {!isReadOnly && <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />}
+                    {!isReadOnly && !returnSourceLocked && <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />}
                     <Input
-                      readOnly={isReadOnly}
+                      readOnly={isReadOnly || returnSourceLocked}
                       placeholder={
                         isReadOnly
                           ? "Phiếu đã xuất"
+                          : returnSourceLocked
+                            ? "Danh sách hàng lỗi đã được nạp từ phiếu nhập"
                           : watchExportType === "RETURN"
                             ? "Tìm theo mã lô lỗi, SKU, tên sản phẩm..."
                             : "Tìm theo tên, SKU, danh mục..."
                       }
-                      className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly ? 'bg-slate-50' : ''}`}
+                      className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly || returnSourceLocked ? 'bg-slate-50' : ''}`}
                       value={searchTerm}
                       onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
-                      onFocus={() => setShowDropdown(true)}
+                      onFocus={() => {
+                        if (!returnSourceLocked) setShowDropdown(true);
+                      }}
                     />
                   </div>
 
-                  {showDropdown && !isReadOnly && (
+                  {showDropdown && !isReadOnly && !returnSourceLocked && (
                     <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm overflow-hidden flex flex-col z-[9999]">
                       {allProducts.length > 0 && (
                         <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
@@ -704,7 +780,7 @@ function AdminExportFormContent() {
                             setValue('exportType', 'INTERNAL');
                             toast.warning("Kho lẻ chỉ được phép xuất nội bộ. Đã tự động chuyển loại phiếu.");
                         }
-                    }} value={field.value} disabled={isReadOnly || isEditMode}>
+                    }} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
                        <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn kho xuất --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
                          {branches.map(b => (
@@ -732,7 +808,7 @@ function AdminExportFormContent() {
                   name="targetId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
                        <SelectTrigger className={`rounded-none h-10 font-bold ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn đối tượng --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
                           {watchExportType === "INTERNAL"

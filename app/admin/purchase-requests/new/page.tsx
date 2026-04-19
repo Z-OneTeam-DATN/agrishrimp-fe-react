@@ -5,13 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import {
-  ShoppingCart,
-  Plus,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-} from "lucide-react";
+import { ShoppingCart, Plus, Trash2, Loader2, ChevronLeft } from "lucide-react";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -53,7 +47,9 @@ export default function NewPurchaseRequestPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
-  const [supplierProducts, setSupplierProducts] = useState<SupplierCatalogVariant[]>([]);
+  const [supplierProducts, setSupplierProducts] = useState<
+    SupplierCatalogVariant[]
+  >([]);
   const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
 
   const isWarehouseUser =
@@ -112,23 +108,42 @@ export default function NewPurchaseRequestPage() {
           warehouseOnly.find(
             (branch: BranchDTO) => branch.name === currentUser?.branch?.name,
           ) ??
-          warehouseOnly.find((branch: BranchDTO) => branch.id === warehouseId) ??
+          warehouseOnly.find(
+            (branch: BranchDTO) => branch.id === warehouseId,
+          ) ??
           warehouseOnly[0];
 
         if (defaultWarehouse) {
-          setValue("branchName", defaultWarehouse.name, { shouldValidate: true });
+          setValue("branchName", defaultWarehouse.name, {
+            shouldValidate: true,
+          });
         }
 
-        const suppData = await supplierService.getAll(undefined, "ACTIVE", 0, 200);
-        setSuppliers(Array.isArray(suppData) ? suppData : (suppData?.content ?? []));
+        const suppData = await supplierService.getAll(
+          undefined,
+          "ACTIVE",
+          0,
+          200,
+        );
+        setSuppliers(
+          Array.isArray(suppData) ? suppData : (suppData?.content ?? []),
+        );
       } catch (error) {
         console.error("Failed to load purchase request dependencies", error);
       }
     })();
-  }, [currentUser?.branch?.name, currentUser?.role, isWarehouseUser, setValue, warehouseId]);
+  }, [
+    currentUser?.branch?.name,
+    currentUser?.role,
+    isWarehouseUser,
+    setValue,
+    warehouseId,
+  ]);
 
   const totalAmount = watchedItems.reduce((sum, item) => {
-    return sum + (Number(item.requestedQty) || 0) * (Number(item.unitPrice) || 0);
+    return (
+      sum + (Number(item.requestedQty) || 0) * (Number(item.unitPrice) || 0)
+    );
   }, 0);
 
   const openSupplierCatalog = async (supplierCode: string) => {
@@ -162,7 +177,9 @@ export default function NewPurchaseRequestPage() {
   };
 
   const handleSupplierChange = async (supplierCode: string) => {
-    const selectedSupplier = suppliers.find((supplier) => supplier.code === supplierCode);
+    const selectedSupplier = suppliers.find(
+      (supplier) => supplier.code === supplierCode,
+    );
 
     setValue("supplierCode", supplierCode, { shouldValidate: true });
     setValue("supplierName", selectedSupplier?.name ?? "");
@@ -232,7 +249,8 @@ export default function NewPurchaseRequestPage() {
   if (!canAccessPurchaseRequests) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
-        Chỉ admin hoặc quản lý thuộc kho tổng mới được tạo phiếu yêu cầu nhập NCC.
+        Chỉ admin hoặc quản lý thuộc kho tổng mới được tạo phiếu yêu cầu nhập
+        NCC.
       </div>
     );
   }
@@ -254,7 +272,8 @@ export default function NewPurchaseRequestPage() {
             Lập phiếu yêu cầu mua hàng NCC
           </h1>
           <p className="text-[12px] text-slate-400 mt-0.5">
-            Chỉ kho tổng được tạo phiếu yêu cầu nhập NCC. Hàng hóa được chọn từ danh mục đang bán của nhà cung cấp.
+            Chỉ kho tổng được tạo phiếu yêu cầu nhập NCC. Hàng hóa được chọn từ
+            danh mục đang bán của nhà cung cấp.
           </p>
         </div>
       </div>
@@ -273,7 +292,9 @@ export default function NewPurchaseRequestPage() {
               <div className="flex gap-2">
                 <select
                   {...register("supplierCode")}
-                  onChange={(event) => void handleSupplierChange(event.target.value)}
+                  onChange={(event) =>
+                    void handleSupplierChange(event.target.value)
+                  }
                   className={cn(
                     "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
                     errors.supplierCode ? "border-red-400" : "border-slate-200",
@@ -319,7 +340,7 @@ export default function NewPurchaseRequestPage() {
                 )}
                 value={watchedBranchName || ""}
               >
-                <option value="">-- Chá»n kho tá»•ng --</option>
+                <option value="">-- Chọn kho nhập --</option>
                 {warehouseBranches.map((branch) => (
                   <option key={branch.id} value={branch.name}>
                     {branch.name}
@@ -387,7 +408,8 @@ export default function NewPurchaseRequestPage() {
             <div className="text-center py-8 text-slate-400">
               <ShoppingCart size={32} className="mx-auto opacity-20 mb-2" />
               <p className="text-[12px]">
-                Chọn nhà cung cấp để mở popup danh sách hàng hóa đang bán và tick các món cần nhập.
+                Chọn nhà cung cấp để mở popup danh sách hàng hóa đang bán và
+                tick các món cần nhập.
               </p>
             </div>
           ) : (
@@ -420,10 +442,14 @@ export default function NewPurchaseRequestPage() {
                   {fields.map((field, idx) => {
                     const item = watchedItems[idx];
                     const subtotal =
-                      (Number(item?.requestedQty) || 0) * (Number(item?.unitPrice) || 0);
+                      (Number(item?.requestedQty) || 0) *
+                      (Number(item?.unitPrice) || 0);
 
                     return (
-                      <tr key={field.id} className="border-b hover:bg-slate-50/50">
+                      <tr
+                        key={field.id}
+                        className="border-b hover:bg-slate-50/50"
+                      >
                         <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
@@ -578,7 +604,10 @@ export default function NewPurchaseRequestPage() {
                         type="checkbox"
                         checked={checked}
                         onChange={(event) =>
-                          toggleProductSelection(product.sku, event.target.checked)
+                          toggleProductSelection(
+                            product.sku,
+                            event.target.checked,
+                          )
                         }
                         className="h-4 w-4"
                       />
@@ -597,7 +626,9 @@ export default function NewPurchaseRequestPage() {
                         </div>
                         <div className="text-[11px] text-slate-500 truncate">
                           SKU: {product.sku}
-                          {product.customSpecs ? ` • ${product.customSpecs}` : ""}
+                          {product.customSpecs
+                            ? ` • ${product.customSpecs}`
+                            : ""}
                         </div>
                       </div>
                     </label>

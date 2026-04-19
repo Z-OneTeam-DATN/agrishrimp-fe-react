@@ -79,6 +79,7 @@ function AdminReceiptFormContent() {
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const isAdmin = hasPermission(P.IMPORT_APPROVE);
+  const isWarehouseBranch = currentUser?.branch?.branchType === "WAREHOUSE";
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,6 +168,14 @@ function AdminReceiptFormContent() {
   }, [currentUser, isEditMode, setValue]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    if (!isAdmin && !isWarehouseBranch) {
+      toast.error("Chỉ kho tổng hoặc admin mới được lập phiếu nhập từ nhà cung cấp.");
+      router.replace("/admin/forbidden");
+    }
+  }, [currentUser, isAdmin, isWarehouseBranch, router]);
+
+  useEffect(() => {
     if (Object.keys(errors).length > 0) {
       console.log("Form Errors:", errors);
       const firstError = Object.values(errors)[0] as any;
@@ -197,19 +206,16 @@ function AdminReceiptFormContent() {
   const watchStatus = watch("status") || "PENDING";
   const currentTargetBranch = watch("branchName");
 
-  // Kiểm hàng khi trạng thái là APPROVED hoặc đã hoàn tất (COMPLETED/IMPORTED)
   const isQCMode =
-    (watchStatus || "").toUpperCase() === "APPROVED" ||
     (watchStatus || "").toUpperCase() === "COMPLETED" ||
     (watchStatus || "").toUpperCase() === "IMPORTED";
 
-  // Các trường thông tin chung không được sửa khi đang kiểm hàng (EditMode + status >= APPROVED)
-  const isInfoReadOnly = isReadOnly || (isEditMode && isQCMode);
+  const isInfoReadOnly =
+    isReadOnly || (isEditMode && (watchStatus || "").toUpperCase() !== "PENDING");
   const isLinkedPurchaseRequest = Boolean(watchPurchaseRequestId);
   const isMasterDataLocked = isInfoReadOnly || isLinkedPurchaseRequest;
   const isItemSourceLocked = isInfoReadOnly || isLinkedPurchaseRequest;
-  const deferLotTrackingToQC = isLinkedPurchaseRequest && !isQCMode;
-  const tableColCount = isQCMode ? 11 : isLinkedPurchaseRequest ? 10 : 9;
+  const tableColCount = isLinkedPurchaseRequest ? 13 : 12;
 
   const selectedDestBranch = useMemo(() => {
     return branches.find(
@@ -220,11 +226,8 @@ function AdminReceiptFormContent() {
 
   const targetBranchId = selectedDestBranch?.id?.toString() || "";
 
-  // Tính tổng tiền dựa trên số lượng (Yêu cầu khi tạo, Thực nhận khi kiểm)
   const subTotal = watchItems.reduce((acc, item) => {
-    const qty = isQCMode
-      ? Number(item.quantityReal) || 0
-      : Number(item.plannedQuantity) || 0;
+    const qty = Number(item.plannedQuantity) || 0;
     const price = Number(item.importPrice) || 0;
     return acc + qty * price;
   }, 0);
@@ -234,6 +237,25 @@ function AdminReceiptFormContent() {
     0,
   );
   const debtAmount = subTotal;
+
+  const validateReceiptItems = (items: Receipt["items"]) => {
+    for (const item of items) {
+      const plannedQty = Number(item.plannedQuantity) || 0;
+      if (plannedQty <= 0) continue;
+
+      const acceptedQty = Number(item.quantityAccepted) || 0;
+      const rejectedQty = Number(item.quantityRejected) || 0;
+
+      if (acceptedQty + rejectedQty !== plannedQty) {
+        toast.error(
+          `${item.productName}: Số đạt + số lỗi phải đúng bằng số NCC giao đợt này.`,
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
 
   // --- Actions ---
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,20 +404,27 @@ function AdminReceiptFormContent() {
     setIsSubmitting(true);
     try {
       const { creator, purchaseRequestCode, ...restOfData } = data;
+      if (!validateReceiptItems(data.items)) {
+        return;
+      }
       const payloadItems = data.items
         .filter((i) => Number(i.plannedQuantity) > 0)
-        .map((i) => ({
-          productCode: i.productCode,
-          plannedQuantity: Number(i.plannedQuantity),
-          quantityReal: Number(i.quantityReal) || 0,
-          quantityAccepted: Number(i.quantityAccepted) || 0,
-          quantityRejected: Number(i.quantityRejected) || 0,
+        .map((i) => {
+          const acceptedQty = Number(i.quantityAccepted) || 0;
+          const rejectedQty = Number(i.quantityRejected) || 0;
+          return {
+            productCode: i.productCode,
+            plannedQuantity: Number(i.plannedQuantity),
+            quantityReal: acceptedQty + rejectedQty,
+            quantityAccepted: acceptedQty,
+            quantityRejected: rejectedQty,
           lotNumber: i.lotNumber || "",
           expiryDate: i.expiryDate || "",
           importPrice: Number(i.importPrice) || 0,
           newSellingPrice: Number(i.newSellingPrice) || 0,
           note: i.note || "",
-        }));
+          };
+        });
 
       const payload = {
         ...restOfData,
@@ -406,32 +435,6 @@ function AdminReceiptFormContent() {
         ? await InventoryApiService.updateReceipt(receiptId!, payload)
         : await InventoryApiService.createReceipt(payload);
       toast.success("Đã lưu!");
-      router.push("/admin/receipts");
-    } catch (e) {
-      toast.error(getErrorMessage(e as any));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const onConfirmComplete = async (data: Receipt) => {
-    setIsSubmitting(true);
-    try {
-      // Khi nhấn "Xác nhận nhập kho", gửi object chứa items
-      const payloadItems = data.items
-        .filter((i) => Number(i.plannedQuantity) > 0)
-        .map((i) => ({
-          productCode: i.productCode,
-          quantityReal: Number(i.quantityReal) || 0,
-          quantityRejected: Number(i.quantityRejected) || 0,
-          lotNumber: i.lotNumber || "",
-          expiryDate: i.expiryDate || "",
-          note: i.note || "",
-        }));
-      await InventoryApiService.completeReceipt(receiptId!, {
-        items: payloadItems,
-      });
-      toast.success("Đã hoàn tất nhập kho!");
       router.push("/admin/receipts");
     } catch (e) {
       toast.error(getErrorMessage(e as any));
@@ -461,6 +464,13 @@ function AdminReceiptFormContent() {
               i.quantity ||
               i.plannedQuantity ||
               0,
+            quantityAccepted:
+              i.quantityAccepted ||
+              i.quantityReal ||
+              i.quantity ||
+              i.plannedQuantity ||
+              0,
+            quantityRejected: i.quantityRejected || 0,
             importPrice: i.importPrice || i.price || i.unitPrice || i.cost || 0,
             note: i.note || "",
           }));
@@ -653,15 +663,15 @@ function AdminReceiptFormContent() {
   };
 
   const onSubmitWithConfirm = (data: Receipt) => {
-    const isComplete = watchStatus === "APPROVED";
-    const title = isComplete ? "Xác nhận NHẬP KHO" : "Xác nhận LƯU ĐỢT NHẬP";
-    const msg = isComplete
-      ? "Hệ thống sẽ ghi nhận số lượng đạt và số lượng lỗi vào tồn kho. Bạn đã kiểm tra kỹ số lượng thực nhận chưa?"
-      : "Hệ thống sẽ lưu lại đợt nhận hàng hiện tại theo số NCC giao của đợt này. Bạn có chắc chắn không?";
+    const title = isAdmin
+      ? "Xác nhận LƯU VÀ DUYỆT PHIẾU"
+      : "Xác nhận LƯU PHIẾU CHỜ DUYỆT";
+    const msg = isAdmin
+      ? "Admin duyệt phiếu này sẽ ghi nhận ngay hàng đạt vào kho bán, hàng lỗi vào kho chờ trả và công nợ nhà cung cấp."
+      : "Phiếu nhập sẽ được lưu ở trạng thái chờ admin duyệt. Khi duyệt, hệ thống mới cập nhật tồn kho và công nợ.";
 
     showConfirm(title, msg, () => {
-      if (isComplete) onConfirmComplete(data);
-      else onSaveDraft(data);
+      onSaveDraft(data);
     });
   };
 
@@ -677,13 +687,12 @@ function AdminReceiptFormContent() {
       {/* 1. Workflow Diagram (Fixed 80px) */}
       <div className="h-[80px] w-full bg-white border-b border-slate-200 flex items-center justify-center px-10 shrink-0">
         <div className="flex items-center w-full max-w-4xl relative">
-          {["LẬP PHIẾU", "PHÊ DUYỆT", "KIỂM HÀNG", "HOÀN TẤT"].map(
+          {["LẬP PHIẾU", "CHỜ DUYỆT", "DUYỆT & HẠCH TOÁN"].map(
             (label, idx) => {
               const status = (watchStatus || "").toUpperCase();
               let activeIdx = 0;
-              if (status === "APPROVED") activeIdx = 2;
-              else if (status === "COMPLETED" || status === "IMPORTED")
-                activeIdx = 3;
+              if (status === "COMPLETED" || status === "IMPORTED" || status === "APPROVED")
+                activeIdx = 2;
               else if (status !== "PENDING") activeIdx = 1;
               const isDone = idx < activeIdx;
               const isCurrent = idx === activeIdx;
@@ -709,7 +718,7 @@ function AdminReceiptFormContent() {
                       {label}
                     </span>
                   </div>
-                  {idx < 3 && (
+                  {idx < 2 && (
                     <div
                       className={cn(
                         "flex-1 h-[2px] mx-2 -mt-4",
@@ -724,20 +733,10 @@ function AdminReceiptFormContent() {
         </div>
       </div>
 
-      {isQCMode && !isReadOnly && (
-        <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-sm flex items-center gap-3 text-amber-800">
-          <AlertCircle size={18} className="shrink-0" />
-          <p className="text-xs font-bold uppercase tracking-wide">
-            Chế độ kiểm hàng: Vui lòng nhập số lượng thực nhận và kiểm tra chất
-            lượng sản phẩm.
-          </p>
-        </div>
-      )}
-
       <div className="mx-6 mt-4 p-3 bg-white border border-slate-200 rounded-sm flex items-start gap-3 text-slate-700">
         <AlertCircle size={18} className="shrink-0 mt-0.5" />
         <p className="text-xs font-bold uppercase tracking-wide">
-          Nghiệp vụ chuẩn: chỉ kho tổng mới nhập hàng trực tiếp từ nhà cung cấp. Các kho khác nhận hàng qua điều chuyển. Sau khi duyệt phiếu, hàng phải qua bước kiểm hàng; phần lỗi sẽ được lưu riêng vào tồn lỗi trong kho.
+          Nghiệp vụ chuẩn: người lập phiếu phải nhập ngay số đạt chuẩn và số lỗi cho từng mặt hàng. Admin duyệt là thời điểm hệ thống cộng tồn kho, tách hàng lỗi và ghi nhận công nợ nhà cung cấp.
         </p>
       </div>
 
@@ -748,7 +747,7 @@ function AdminReceiptFormContent() {
             Phiếu nhập này đang liên kết với yêu cầu mua{" "}
             <span className="text-blue-600">{linkedPurchaseRequestMeta.code}</span>.
             Hệ thống đã tự nạp nhà cung cấp, kho nhận và các mặt hàng còn thiếu.
-            Hãy nhập số NCC giao trong đợt này; số lô, hạn dùng, số đạt và số lỗi sẽ được xác nhận ở bước kiểm hàng.
+            Hãy nhập tổng số NCC giao đợt này, số lượng đạt chuẩn và số lỗi ngay trên từng dòng sản phẩm.
           </p>
         </div>
       )}
@@ -1041,32 +1040,25 @@ function AdminReceiptFormContent() {
                   <TableHead className="w-32 text-center text-[10px] font-bold text-slate-400">
                     HẠN DÙNG
                   </TableHead>
-                  {isQCMode ? (
-                    <>
-                      <TableHead className="w-20 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                        SL ĐỢT NÀY
-                      </TableHead>
-                      <TableHead className="w-20 text-right text-[10px] font-bold text-emerald-600 whitespace-nowrap">
-                        THỰC NHẬN
-                      </TableHead>
-                      <TableHead className="w-20 text-right text-[10px] font-bold text-rose-600 whitespace-nowrap">
-                        LỖI
-                      </TableHead>
-                    </>
-                  ) : (
-                    <>
-                      <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                        {isLinkedPurchaseRequest
-                          ? "SL NCC GIAO ĐỢT NÀY"
-                          : "YÊU CẦU"}
-                      </TableHead>
-                      {isLinkedPurchaseRequest ? (
-                        <TableHead className="w-24 text-right text-[10px] font-bold text-amber-600 whitespace-nowrap">
-                          CÒN THIẾU YCM
-                        </TableHead>
-                      ) : null}
-                    </>
-                  )}
+                  <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                    {isLinkedPurchaseRequest
+                      ? "SL NCC GIAO ĐỢT NÀY"
+                      : "SỐ LƯỢNG GIAO"}
+                  </TableHead>
+                  {isLinkedPurchaseRequest ? (
+                    <TableHead className="w-24 text-right text-[10px] font-bold text-amber-600 whitespace-nowrap">
+                      CÒN THIẾU YCM
+                    </TableHead>
+                  ) : null}
+                  <TableHead className="w-24 text-right text-[10px] font-bold text-emerald-600 whitespace-nowrap">
+                    ĐẠT CHUẨN
+                  </TableHead>
+                  <TableHead className="w-24 text-right text-[10px] font-bold text-rose-600 whitespace-nowrap">
+                    LỖI / HỎNG
+                  </TableHead>
+                  <TableHead className="w-24 text-right text-[10px] font-bold text-blue-600 whitespace-nowrap">
+                    TỔNG THỰC NHẬN
+                  </TableHead>
                   <TableHead className="w-32 text-right text-[10px] font-bold text-blue-600">
                     GIÁ NHẬP (₫)
                   </TableHead>
@@ -1116,87 +1108,67 @@ function AdminReceiptFormContent() {
                           ) : null}
                         </TableCell>
                         <TableCell className="px-1">
-                          {deferLotTrackingToQC ? (
-                            item.lotNumber ? (
-                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                                {item.lotNumber}
-                              </div>
-                            ) : (
-                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                                Nhập khi kiểm hàng
-                              </div>
-                            )
-                          ) : (
-                            <Input
-                              className="h-7 text-xs text-center border-slate-200"
-                              {...register(`items.${idx}.lotNumber`)}
-                              disabled={isInfoReadOnly}
-                            />
-                          )}
+                          <Input
+                            className="h-7 text-xs text-center border-slate-200"
+                            {...register(`items.${idx}.lotNumber`)}
+                            disabled={isInfoReadOnly}
+                          />
                         </TableCell>
                         <TableCell className="px-1">
-                          {deferLotTrackingToQC ? (
-                            item.expiryDate ? (
-                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                                {item.expiryDate}
-                              </div>
-                            ) : (
-                              <div className="text-center text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                                Xác nhận ở QC
-                              </div>
-                            )
-                          ) : (
-                            <Input
-                              type="date"
-                              className="h-7 text-xs px-1 border-slate-200"
-                              {...register(`items.${idx}.expiryDate`)}
-                              disabled={isInfoReadOnly}
-                            />
+                          <Input
+                            type="date"
+                            className="h-7 text-xs px-1 border-slate-200"
+                            {...register(`items.${idx}.expiryDate`)}
+                            disabled={isInfoReadOnly}
+                          />
+                        </TableCell>
+                        <TableCell className="px-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder={
+                              isLinkedPurchaseRequest ? "Nhập SL đợt này" : ""
+                            }
+                            className="h-7 text-xs text-right font-bold border-slate-200"
+                            {...register(`items.${idx}.plannedQuantity`, {
+                              valueAsNumber: true,
+                            })}
+                            disabled={isInfoReadOnly}
+                          />
+                        </TableCell>
+                        {isLinkedPurchaseRequest ? (
+                          <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
+                            {formatNumber(Number(item.remainingQuantity) || 0)}
+                          </TableCell>
+                        ) : null}
+                        <TableCell className="px-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            className="h-7 text-xs text-right border-emerald-200 bg-emerald-50/10 font-bold text-emerald-700"
+                            {...register(`items.${idx}.quantityAccepted`, {
+                              valueAsNumber: true,
+                            })}
+                            disabled={isInfoReadOnly}
+                          />
+                        </TableCell>
+                        <TableCell className="px-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            className="h-7 text-xs text-right border-rose-200 bg-rose-50/10 font-bold text-rose-600"
+                            {...register(`items.${idx}.quantityRejected`, {
+                              valueAsNumber: true,
+                            })}
+                            disabled={isInfoReadOnly}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right text-xs font-bold text-blue-600 pr-4">
+                          {formatNumber(
+                            (Number(item.quantityAccepted) || 0) +
+                              (Number(item.quantityRejected) || 0),
                           )}
                         </TableCell>
-                        {isQCMode ? (
-                          <>
-                            <TableCell className="text-right text-xs font-bold text-slate-400">
-                              {item.plannedQuantity}
-                            </TableCell>
-                            <TableCell className="px-1">
-                              <Input
-                                type="number"
-                                className="h-7 text-xs text-right border-emerald-200 bg-emerald-50/10 font-bold text-emerald-700"
-                                {...register(`items.${idx}.quantityReal`, {
-                                  valueAsNumber: true,
-                                })}
-                                disabled={isReadOnly}
-                              />
-                            </TableCell>
-                            <TableCell className="text-right text-xs font-bold text-rose-600 pr-4">
-                              {(Number(item.plannedQuantity) || 0) -
-                                (Number(item.quantityReal) || 0)}
-                            </TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell className="px-1">
-                              <Input
-                                type="number"
-                                min={0}
-                                placeholder={
-                                  isLinkedPurchaseRequest ? "Nhập SL đợt này" : ""
-                                }
-                                className="h-7 text-xs text-right font-bold border-slate-200"
-                                {...register(`items.${idx}.plannedQuantity`, {
-                                  valueAsNumber: true,
-                                })}
-                                disabled={isInfoReadOnly}
-                              />
-                            </TableCell>
-                            {isLinkedPurchaseRequest ? (
-                              <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
-                                {formatNumber(Number(item.remainingQuantity) || 0)}
-                              </TableCell>
-                            ) : null}
-                          </>
-                        )}
                         <TableCell className="px-1 bg-blue-50/20">
                           <Input
                             type="number"
@@ -1209,11 +1181,8 @@ function AdminReceiptFormContent() {
                         </TableCell>
                         <TableCell className="text-right text-xs font-bold text-slate-900 pr-4">
                           {formatNumber(
-                            (Number(
-                              isQCMode
-                                ? item.quantityReal
-                                : item.plannedQuantity,
-                            ) || 0) * (Number(item.importPrice) || 0),
+                            (Number(item.plannedQuantity) || 0) *
+                              (Number(item.importPrice) || 0),
                           )}
                         </TableCell>
                         <TableCell className="px-1 min-w-[150px]">
@@ -1277,7 +1246,7 @@ function AdminReceiptFormContent() {
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed text-slate-400">
-                Thanh toán NCC được ghi nhận theo từng lần sau khi phiếu nhập hoàn tất kiểm hàng, không nhập trực tiếp ở bước lập phiếu.
+                Công nợ NCC được ghi nhận khi admin duyệt phiếu. Hệ thống luôn tính trên tổng số hàng thực nhận gồm cả hàng đạt và hàng lỗi để đối soát với phiếu xuất trả sau này.
               </p>
             </div>
           </div>
@@ -1317,16 +1286,10 @@ function AdminReceiptFormContent() {
               {isSubmitting && (
                 <Loader2 size={14} className="animate-spin mr-2" />
               )}
-              {watchStatus === "APPROVED" ? (
-                <>
-                  <CheckCircle2 size={14} className="mr-2" /> Xác nhận nhập kho
-                </>
-              ) : (
-                <>
-                  <Save size={14} className="mr-2" />{" "}
-                  {isAdmin ? "Lưu đợt nhập & Duyệt" : "Lưu đợt nhập & Gửi duyệt"}
-                </>
-              )}
+              <>
+                <Save size={14} className="mr-2" />{" "}
+                {isAdmin ? "Lưu phiếu & Duyệt ngay" : "Lưu phiếu & Gửi duyệt"}
+              </>
             </Button>
           )}
         </div>
