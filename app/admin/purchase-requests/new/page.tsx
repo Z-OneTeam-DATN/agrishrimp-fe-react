@@ -21,6 +21,7 @@ import { getErrorMessage } from "@/lib/axios";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { supplierService } from "@/app/services/supplier.service";
 import { branchService } from "@/app/services/branchService";
+import type { BranchDTO } from "@/app/types/branch.type";
 import { apiJava } from "@/lib/axios";
 import {
   PurchaseRequestSchema,
@@ -34,12 +35,14 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
 }
 
+type BranchResponse = BranchDTO[] | { content?: BranchDTO[] };
+
 export default function NewPurchaseRequestPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [branches, setBranches] = useState<BranchDTO[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [productResults, setProductResults] = useState<any[]>([]);
   const [activeItemIdx, setActiveItemIdx] = useState<number | null>(null);
@@ -76,17 +79,18 @@ export default function NewPurchaseRequestPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [suppData, branchData] = await Promise.all([
+        const [suppData, rawBranchData] = await Promise.all([
           supplierService.getAll(),
           branchService.getAll(),
         ]);
+        const branchData = rawBranchData as BranchResponse;
         setSuppliers(
           Array.isArray(suppData) ? suppData : (suppData?.content ?? []),
         );
         // Lọc chỉ lấy kho tổng
         const mainWarehouse = Array.isArray(branchData)
-          ? branchData.filter((b) => b.name?.toLowerCase().includes("kho tổng"))
-          : (branchData?.content ?? []).filter((b) =>
+          ? branchData.filter((b: BranchDTO) => b.name?.toLowerCase().includes("kho tổng"))
+          : (branchData?.content ?? []).filter((b: BranchDTO) =>
               b.name?.toLowerCase().includes("kho tổng"),
             );
         setBranches(mainWarehouse);
