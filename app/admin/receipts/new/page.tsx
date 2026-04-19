@@ -1028,7 +1028,7 @@ function AdminReceiptFormContent() {
           )}
 
           <div className="flex-1 overflow-auto">
-            <Table>
+            <Table className="min-w-[1550px]">
               <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
                 <TableRow>
                   <TableHead className="w-10 text-center text-[10px] font-bold text-slate-400">
@@ -1043,14 +1043,19 @@ function AdminReceiptFormContent() {
                   <TableHead className="w-32 text-center text-[10px] font-bold text-slate-400">
                     HẠN DÙNG
                   </TableHead>
+                  {isLinkedPurchaseRequest ? (
+                    <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                      SỐ LƯỢNG YÊU CẦU
+                    </TableHead>
+                  ) : null}
                   <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
                     {isLinkedPurchaseRequest
-                      ? "SL NCC GIAO ĐỢT NÀY"
+                      ? "SỐ LƯỢNG GIAO"
                       : "SỐ LƯỢNG GIAO"}
                   </TableHead>
                   {isLinkedPurchaseRequest ? (
                     <TableHead className="w-24 text-right text-[10px] font-bold text-amber-600 whitespace-nowrap">
-                      CÒN THIẾU YCM
+                      CÒN THIẾU
                     </TableHead>
                   ) : null}
                   <TableHead className="w-24 text-right text-[10px] font-bold text-emerald-600 whitespace-nowrap">
@@ -1087,6 +1092,17 @@ function AdminReceiptFormContent() {
                 ) : (
                   fields.map((field, idx) => {
                     const item = watchItems[idx];
+                    const actualReceived =
+                      (Number(item.quantityAccepted) || 0) +
+                      (Number(item.quantityRejected) || 0);
+                    const remainingAfterReceipt = isLinkedPurchaseRequest
+                      ? Math.max(
+                          (Number(item.requestedQuantity) || 0) -
+                            (Number(item.deliveredQuantity) || 0) -
+                            actualReceived,
+                          0,
+                        )
+                      : 0;
                     return (
                       <TableRow
                         key={field.id}
@@ -1125,6 +1141,11 @@ function AdminReceiptFormContent() {
                             disabled={isInfoReadOnly}
                           />
                         </TableCell>
+                        {isLinkedPurchaseRequest ? (
+                          <TableCell className="text-right text-xs font-bold text-slate-700 pr-4">
+                            {formatNumber(Number(item.requestedQuantity) || 0)}
+                          </TableCell>
+                        ) : null}
                         <TableCell className="px-1">
                           <Input
                             type="number"
@@ -1141,7 +1162,7 @@ function AdminReceiptFormContent() {
                         </TableCell>
                         {isLinkedPurchaseRequest ? (
                           <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
-                            {formatNumber(Number(item.remainingQuantity) || 0)}
+                            {formatNumber(remainingAfterReceipt)}
                           </TableCell>
                         ) : null}
                         <TableCell className="px-1">
@@ -1167,10 +1188,7 @@ function AdminReceiptFormContent() {
                           />
                         </TableCell>
                         <TableCell className="text-right text-xs font-bold text-blue-600 pr-4">
-                          {formatNumber(
-                            (Number(item.quantityAccepted) || 0) +
-                              (Number(item.quantityRejected) || 0),
-                          )}
+                          {formatNumber(actualReceived)}
                         </TableCell>
                         <TableCell className="px-1 bg-blue-50/20">
                           <Input
@@ -1232,14 +1250,8 @@ function AdminReceiptFormContent() {
                   {formatNumber(subTotal)} VND
                 </span>
               </div>
-              <div className="flex justify-between items-center text-xs font-bold text-emerald-600 uppercase">
-                <span>Đã thanh toán:</span>
-                <span className="inline-flex h-8 min-w-32 items-center justify-end rounded-sm border border-emerald-200 bg-emerald-50 px-3 text-right font-bold text-emerald-600">
-                  0 VND
-                </span>
-              </div>
               <div className="pt-3 border-t border-slate-200 flex justify-between text-[14px] font-black uppercase">
-                <span>Còn nợ NCC:</span>
+                <span>Tổng nợ:</span>
                 <span
                   className={
                     debtAmount > 0 ? "text-rose-600" : "text-emerald-600"

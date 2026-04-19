@@ -98,8 +98,8 @@ function AdminExportFormContent() {
     resolver: zodResolver(ExportCommandSchema),
     mode: "onTouched",
     defaultValues: {
-      exportType: "INTERNAL",
-      noteCode: generateNoteCode("INTERNAL"),
+      exportType: "RETURN",
+      noteCode: generateNoteCode("RETURN"),
       note: "",
       expectedDate: new Date().toLocaleDateString('en-CA'),
       branchId: "",
@@ -215,7 +215,19 @@ function AdminExportFormContent() {
           branchService.getAll(),
           supplierService.getAll(undefined, undefined, 0, 100),
         ]);
-        if (resB) setBranches(Array.isArray(resB) ? resB : resB?.content || []);
+        if (resB) {
+          const branchList = Array.isArray(resB) ? resB : resB?.content || [];
+          setBranches(branchList);
+          if (!isEditMode) {
+            const warehouseBranches = branchList.filter((branch: any) => branch.branchType === "WAREHOUSE");
+            const preferredWarehouse =
+              warehouseBranches.find((branch: any) => String(branch.id) === String(currentUser?.branch?.id ?? "")) ||
+              warehouseBranches[0];
+            if (preferredWarehouse) {
+              setValue("branchId", String(preferredWarehouse.id));
+            }
+          }
+        }
         if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : (Array.isArray(resS) ? resS : []));
       } catch (err) { toast.error("Lỗi tải danh mục"); }
     };
@@ -226,14 +238,15 @@ function AdminExportFormContent() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [currentUser?.branch?.id, isEditMode, setValue]);
 
   useEffect(() => {
     if (!isEditMode) {
+      setValue("exportType", "RETURN");
       setValue("targetId", "");
-      setValue("noteCode", generateNoteCode(watchExportType));
+      setValue("noteCode", generateNoteCode("RETURN"));
     }
-  }, [watchExportType, isEditMode, setValue]);
+  }, [isEditMode, setValue]);
 
   useEffect(() => {
     if (isEditMode || isReadOnly || returnSourceLocked) return;
@@ -440,10 +453,10 @@ function AdminExportFormContent() {
     try {
       if (isEditMode) {
         await InventoryExportApiService.updateExportCommand(exportId as string, payload);
-        toast.success("Cập nhật lệnh xuất thành công!");
+        toast.success("Cập nhật phiếu xuất trả thành công!");
       } else {
         await InventoryExportApiService.createExportCommand(payload);
-        toast.success("Tạo lệnh xuất kho thành công!");
+        toast.success("Tạo phiếu xuất trả thành công!");
       }
       router.push("/admin/exports");
     } catch (e: any) {
@@ -470,7 +483,7 @@ function AdminExportFormContent() {
         <Button type="button" variant="ghost" size="icon" onClick={() => router.back()}><ChevronLeft /></Button>
         <div className="flex flex-col">
             <h1 className="text-[18px] font-black uppercase tracking-tight text-[#1f1f1f]">
-               {isEditMode ? (isReadOnly ? "Chi tiết phiếu xuất (Đã xuất)" : "Chi tiết lệnh xuất") : "Tạo lệnh xuất kho"}
+               {isEditMode ? (isReadOnly ? "Chi tiết phiếu xuất trả NCC" : "Chi tiết phiếu xuất trả NCC") : "Tạo phiếu xuất trả NCC"}
             </h1>
             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
                 <Hash size={12}/> Mã: <span className="text-blue-600">{watch("noteCode")}</span>
@@ -485,14 +498,14 @@ function AdminExportFormContent() {
         <AlertCircle size={18} />
         <p className="text-[12px] font-bold uppercase tracking-wide">
           {isAdmin
-            ? "Chế độ Quản trị: Có thể duyệt nhanh phiếu xuất, nhưng hệ thống vẫn khóa đúng nghiệp vụ theo kho và lô hàng."
-            : "Chế độ Nhân viên: Đơn sau khi lưu sẽ ở trạng thái chờ duyệt bởi quản trị viên."}
+            ? "Chế độ Quản trị: Có thể duyệt nhanh phiếu xuất trả, nhưng hệ thống vẫn khóa đúng nghiệp vụ theo kho tổng và lô hàng lỗi."
+            : "Chế độ Quản lý kho tổng: Phiếu xuất trả sau khi lưu sẽ chờ admin duyệt mới có hiệu lực."}
         </p>
       </div>
 
       <div className="mt-3 p-3 border border-slate-200 bg-white text-slate-700 rounded-sm shadow-sm">
         <p className="text-[12px] font-bold uppercase tracking-wide">
-          Nghiệp vụ chuẩn: chỉ kho tổng được nhập từ và trả về nhà cung cấp. Các kho còn lại dùng lệnh điều chuyển để nhận hoặc chuyển hàng nội bộ.
+          Nghiệp vụ chuẩn: màn hình này chỉ phục vụ xuất trả nhà cung cấp từ kho tổng, dựa trên các lô hàng lỗi đang còn tồn.
         </p>
         {watchExportType === "RETURN" && (
           <p className="mt-2 text-[12px] text-rose-700 font-medium">
@@ -516,19 +529,7 @@ function AdminExportFormContent() {
             <div className="grid grid-cols-2 gap-x-6 gap-y-5">
               <div className="space-y-1.5 flex flex-col">
                 <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Loại lệnh xuất (*)</Label>
-                <Controller
-                  name="exportType"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
-                      <SelectTrigger className="rounded-none h-10 w-full shadow-none border-slate-200"><SelectValue /></SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        <SelectItem value="INTERNAL">Điều chuyển nội bộ</SelectItem>
-                        {isMainBranch && <SelectItem value="RETURN">Trả nhà cung cấp từ lô lỗi</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+                <Input value="Xuất trả nhà cung cấp" readOnly className="rounded-none h-10 w-full shadow-none border-slate-200 bg-slate-50 font-bold text-rose-700" />
               </div>
 
               <div className="space-y-1.5 flex flex-col">
@@ -771,24 +772,17 @@ function AdminExportFormContent() {
           <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Chọn chi nhánh xuất hàng (*)</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Kho tổng xuất hàng (*)</Label>
                 <Controller
                   name="branchId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={(val) => {
-                        field.onChange(val);
-                        const b = branches.find(x => x.id.toString() === val);
-                        if (b && b.branchType !== 'WAREHOUSE' && watchExportType === 'RETURN') {
-                            setValue('exportType', 'INTERNAL');
-                            toast.warning("Kho lẻ chỉ được phép xuất nội bộ. Đã tự động chuyển loại phiếu.");
-                        }
-                    }} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
-                       <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn kho xuất --" /></SelectTrigger>
+                    <Select onValueChange={field.onChange} value={field.value} disabled>
+                       <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"} bg-slate-50`}><SelectValue placeholder="-- Chọn kho tổng --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
-                         {branches.map(b => (
+                         {branches.filter(b => b.branchType === "WAREHOUSE").map(b => (
                            <SelectItem key={b.id} value={b.id.toString()}>
-                             {b.name.toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">{b.branchType === "WAREHOUSE" ? "(Kho tổng)" : "(Kho lẻ)"}</span>
+                             {b.name.toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">(Kho tổng)</span>
                            </SelectItem>
                          ))}
                        </SelectContent>
@@ -857,7 +851,7 @@ function AdminExportFormContent() {
                ) : (
                  <>
                    <Save size={18} className="mr-2" />
-                   {isAdmin ? "LƯU & DUYỆT NGAY" : "LƯU & GỬI DUYỆT"}
+                   {isAdmin ? "LƯU & DUYỆT PHIẾU TRẢ" : "LƯU & GỬI DUYỆT"}
                  </>
                )}
              </Button>

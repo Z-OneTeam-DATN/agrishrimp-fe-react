@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
+import { InventoryApiService } from "@/app/services/inventory.service";
 import type { PurchaseRequestResponse, PurchaseRequestStatus } from "@/app/types/purchase.schema";
 import { PR_STATUS_LABEL, PR_STATUS_COLOR } from "@/app/types/purchase.schema";
 
@@ -52,6 +53,7 @@ export default function PurchaseRequestDetailPage() {
   const [pr, setPr]             = useState<PurchaseRequestResponse | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [receiptHistoryDetails, setReceiptHistoryDetails] = useState<Record<number, any>>({});
   const [confirmAction, setConfirmAction] = useState<
     { type: "submit" | "approve" | "reject" | "sendToSupplier" | "cancel" | "close"; label: string } | null
   >(null);
@@ -70,24 +72,54 @@ export default function PurchaseRequestDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!pr?.goodsReceipts?.length) {
+      setReceiptHistoryDetails({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          pr.goodsReceipts.map(async (receipt) => {
+            const detail = await InventoryApiService.getReceiptDetail(receipt.id);
+            return [receipt.id, detail] as const;
+          }),
+        );
+
+        if (!cancelled) {
+          setReceiptHistoryDetails(Object.fromEntries(entries));
+        }
+      } catch {
+        if (!cancelled) {
+          setReceiptHistoryDetails({});
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pr?.goodsReceipts]);
+
   // ── Actions ─────────────────────────────────────────────────────────────
 
   const executeAction = async () => {
     if (!confirmAction || !pr) return;
     setActionLoading(true);
     try {
-      let updated: PurchaseRequestResponse;
       switch (confirmAction.type) {
-        case "submit":         updated = await PurchaseRequestApiService.submit(pr.id); break;
-        case "approve":        updated = await PurchaseRequestApiService.approve(pr.id); break;
-        case "reject":         updated = await PurchaseRequestApiService.reject(pr.id); break;
-        case "sendToSupplier": updated = await PurchaseRequestApiService.sendToSupplier(pr.id); break;
-        case "cancel":         updated = await PurchaseRequestApiService.cancel(pr.id); break;
-        case "close":          updated = await PurchaseRequestApiService.close(pr.id); break;
+        case "submit":         await PurchaseRequestApiService.submit(pr.id); break;
+        case "approve":        await PurchaseRequestApiService.approve(pr.id); break;
+        case "reject":         await PurchaseRequestApiService.reject(pr.id); break;
+        case "sendToSupplier": await PurchaseRequestApiService.sendToSupplier(pr.id); break;
+        case "cancel":         await PurchaseRequestApiService.cancel(pr.id); break;
+        case "close":          await PurchaseRequestApiService.close(pr.id); break;
         default: return;
       }
       toast.success("Cập nhật thành công");
-      setPr(updated);
+      await load();
     } catch (err) {
       toast.error(getErrorMessage(err as any));
     } finally {
@@ -118,7 +150,7 @@ export default function PurchaseRequestDetailPage() {
     );
   }
 
-  const canCreateReceipt = ["APPROVED", "SENT_TO_SUPPLIER", "PARTIALLY_RECEIVED"].includes(pr.status);
+  const canCreateReceipt = ["SENT_TO_SUPPLIER", "PARTIALLY_RECEIVED"].includes(pr.status);
   const hasRemaining     = pr.items?.some(i => (i.remainingQty ?? 0) > 0);
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
@@ -408,6 +440,41 @@ export default function PurchaseRequestDetailPage() {
                             <div className="font-bold text-red-600">{receipt.totalDefective}</div>
                           </div>
                         </div>
+
+                        {receiptHistoryDetails[receipt.id]?.items?.length ? (
+                          <div className="mt-3 overflow-x-auto rounded border border-slate-200 bg-white">
+                            <table className="min-w-[760px] w-full text-[11px]">
+                              <thead className="bg-slate-50">
+                                <tr className="text-slate-500 uppercase">
+                                  <th className="px-3 py-2 text-left font-black">Sáº£n pháº©m / SKU</th>
+                                  <th className="px-3 py-2 text-left font-black">Sá»‘ lĂ´ / Háº¡n dĂ¹ng</th>
+                                  <th className="px-3 py-2 text-right font-black">Nháº­p Ä‘á»£t nĂ y</th>
+                                  <th className="px-3 py-2 text-right font-black">HĂ ng lá»—i</th>
+                                  <th className="px-3 py-2 text-right font-black">ÄÆ¡n giĂ¡</th>
+                                  <th className="px-3 py-2 text-left font-black">Ghi chĂº</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {receiptHistoryDetails[receipt.id].items.map((item: any, itemIdx: number) => (
+                                  <tr key={`${receipt.id}-${item.id ?? item.productVariantId ?? itemIdx}`} className="border-t border-slate-100">
+                                    <td className="px-3 py-2">
+                                      <div className="font-semibold text-slate-700">{item.productName}</div>
+                                      <div className="text-[10px] text-slate-400 font-mono">{item.productCode || item.sku}</div>
+                                    </td>
+                                    <td className="px-3 py-2 text-slate-500">
+                                      <div>{item.lotNumber || item.batchNumber || "—"}</div>
+                                      <div className="text-[10px]">{item.expiryDate || "—"}</div>
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-bold text-slate-700">{item.quantityReal ?? 0}</td>
+                                    <td className="px-3 py-2 text-right font-bold text-red-600">{item.quantityRejected ?? 0}</td>
+                                    <td className="px-3 py-2 text-right font-semibold text-slate-700">{fmtCurrency(item.importPrice ?? item.price ?? 0)}</td>
+                                    <td className="px-3 py-2 text-slate-500">{item.note || "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : null}
 
                         {receipt.createdByName && (
                           <p className="text-[10px] text-slate-400 mt-2">Bởi: {receipt.createdByName}</p>
