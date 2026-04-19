@@ -56,6 +56,8 @@ export default function AdminSidebar() {
   const isAdmin = isAdminRole(user?.role);
   const isManager = role === "MANAGER";
   const isBranchScopedOrderUser = isBranchOrderUser(user);
+  const isWarehouseUser =
+    user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false;
   const orderListHref = getOrderListPath(user);
   const isOrderListActive =
     pathname === "/admin/orders" ||
@@ -121,7 +123,7 @@ export default function AdminSidebar() {
         hasPermission(P.VOUCHER_VIEW)
           ? voucherService.getAllAdmin({ page: 0, size: 1 })
           : Promise.resolve(null),
-        hasPermission(P.PURCHASE_REQUEST_VIEW)
+        hasPermission(P.PURCHASE_REQUEST_VIEW) && isWarehouseUser
           ? PurchaseRequestApiService.getAll()
           : Promise.resolve(null),
         hasPermission(P.IMPORT_VIEW)
@@ -266,7 +268,7 @@ export default function AdminSidebar() {
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
     };
-  }, [hasPermission]);
+  }, [hasPermission, isWarehouseUser]);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
@@ -387,7 +389,7 @@ export default function AdminSidebar() {
               Mua hàng
             </p>
             <div className="space-y-0.5">
-              {hasPermission(P.PURCHASE_REQUEST_VIEW) && (
+              {hasPermission(P.PURCHASE_REQUEST_VIEW) && isWarehouseUser && (
                 <SidebarLink
                   href="/admin/purchase-requests"
                   icon={ShoppingCart}

@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -13,51 +11,54 @@ import {
   Trash2,
   Loader2,
   ChevronLeft,
-  Search,
-  X,
 } from "lucide-react";
+
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getErrorMessage } from "@/lib/axios";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getErrorMessage, apiJava } from "@/lib/axios";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { supplierService } from "@/app/services/supplier.service";
-import { branchService } from "@/app/services/branchService";
-import type { BranchDTO } from "@/app/types/branch.type";
-import { apiJava } from "@/lib/axios";
+import type { Supplier } from "@/app/types/supplier.type";
 import {
   PurchaseRequestSchema,
   type PurchaseRequestForm,
 } from "@/app/types/purchase.schema";
 import { cn } from "@/lib/utils";
 
-// ─────────────────────────────────────────────────────────────────────────────
+type SupplierCatalogVariant = {
+  id: number;
+  sku: string;
+  productName: string;
+  imageUrl?: string;
+  quantity?: number;
+  customSpecs?: string;
+};
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
 }
 
-type BranchResponse = BranchDTO[] | { content?: BranchDTO[] };
-
 export default function NewPurchaseRequestPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
   const router = useRouter();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [branches, setBranches] = useState<BranchDTO[]>([]);
-  const [productSearch, setProductSearch] = useState("");
-  const [productResults, setProductResults] = useState<any[]>([]);
-  const [activeItemIdx, setActiveItemIdx] = useState<number | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  // Popup chọn hàng hóa NCC
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
-  const [supplierProducts, setSupplierProducts] = useState<any[]>([]);
-  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+  const [supplierProducts, setSupplierProducts] = useState<SupplierCatalogVariant[]>([]);
+  const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
+
+  const isWarehouseUser =
+    currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false;
 
   const {
     register,
-    control,
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = useForm<PurchaseRequestForm>({
     resolver: zodResolver(PurchaseRequestSchema),
@@ -71,82 +72,120 @@ export default function NewPurchaseRequestPage() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, replace, remove } = useFieldArray({
+    control,
+    name: "items",
+  });
+
   const watchedItems = watch("items");
-
-  // ── Load dữ liệu master ────────────────────────────────────────────────────
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [suppData, rawBranchData] = await Promise.all([
-          supplierService.getAll(),
-          branchService.getAll(),
-        ]);
-        const branchData = rawBranchData as BranchResponse;
-        setSuppliers(
-          Array.isArray(suppData) ? suppData : (suppData?.content ?? []),
-        );
-        // Lọc chỉ lấy kho tổng
-        const mainWarehouse = Array.isArray(branchData)
-          ? branchData.filter((b: BranchDTO) => b.name?.toLowerCase().includes("kho tổng"))
-          : (branchData?.content ?? []).filter((b: BranchDTO) =>
-              b.name?.toLowerCase().includes("kho tổng"),
-            );
-        setBranches(mainWarehouse);
-      } catch (e) {
-        console.error("Lỗi tải master data", e);
-      }
-    })();
-  }, []);
-
-  // ── Tìm kiếm sản phẩm ────────────────────────────────────────────────────
+  const selectedSupplierCode = watch("supplierCode");
+  const watchedBranchName = watch("branchName");
 
   useEffect(() => {
-    if (!productSearch.trim()) {
-      setProductResults([]);
+    if (currentUser?.branch?.name) {
+      setValue("branchName", currentUser.branch.name, { shouldValidate: true });
+    }
+  }, [currentUser?.branch?.name, setValue]);
+
+  useEffect(() => {
+    if (!isWarehouseUser) {
       return;
     }
-    const timer = setTimeout(async () => {
-      setSearchLoading(true);
+
+    (async () => {
       try {
-        const res = await apiJava.get("/product-variants/search", {
-          params: { keyword: productSearch, size: 20 },
-        });
-        const variants = Array.isArray(res.data)
-          ? res.data
-          : (res.data?.content ?? []);
-        setProductResults(variants);
-      } catch {
-        setProductResults([]);
-      } finally {
-        setSearchLoading(false);
+        const suppData = await supplierService.getAll(undefined, "ACTIVE", 0, 200);
+        setSuppliers(Array.isArray(suppData) ? suppData : (suppData?.content ?? []));
+      } catch (error) {
+        console.error("Failed to load suppliers", error);
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [productSearch]);
-
-  const addProduct = (variant: any, index: number) => {
-    setValue(`items.${index}.productCode`, variant.sku);
-    setValue(
-      `items.${index}.productName`,
-      variant.productName ?? variant.name ?? "",
-    );
-    setValue(`items.${index}.imageUrl`, variant.imageUrl ?? "");
-    setProductSearch("");
-    setProductResults([]);
-    setActiveItemIdx(null);
-  };
-
-  // ── Tổng tiền ────────────────────────────────────────────────────────────
+    })();
+  }, [isWarehouseUser]);
 
   const totalAmount = watchedItems.reduce((sum, item) => {
-    return (
-      sum + (Number(item.requestedQty) || 0) * (Number(item.unitPrice) || 0)
-    );
+    return sum + (Number(item.requestedQty) || 0) * (Number(item.unitPrice) || 0);
   }, 0);
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  const openSupplierCatalog = async (supplierCode: string) => {
+    if (!supplierCode) {
+      toast.error("Vui lòng chọn nhà cung cấp trước");
+      return;
+    }
+
+    setCatalogLoading(true);
+    try {
+      const response = await apiJava.get("/product-variants/search", {
+        params: {
+          supplierCode,
+        },
+      });
+
+      const variants = Array.isArray(response.data) ? response.data : [];
+      setSupplierProducts(variants);
+      setSelectedProductSkus(
+        watchedItems
+          .map((item) => item.productCode)
+          .filter((sku): sku is string => Boolean(sku)),
+      );
+      setShowProductModal(true);
+    } catch (error) {
+      setSupplierProducts([]);
+      toast.error(getErrorMessage(error as Error));
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const handleSupplierChange = async (supplierCode: string) => {
+    const selectedSupplier = suppliers.find((supplier) => supplier.code === supplierCode);
+
+    setValue("supplierCode", supplierCode, { shouldValidate: true });
+    setValue("supplierName", selectedSupplier?.name ?? "");
+    replace([]);
+    setSupplierProducts([]);
+    setSelectedProductSkus([]);
+
+    if (selectedSupplier) {
+      await openSupplierCatalog(selectedSupplier.code);
+    }
+  };
+
+  const toggleProductSelection = (sku: string, checked: boolean) => {
+    setSelectedProductSkus((prev) => {
+      if (checked) {
+        return prev.includes(sku) ? prev : [...prev, sku];
+      }
+      return prev.filter((itemSku) => itemSku !== sku);
+    });
+  };
+
+  const applySelectedProducts = () => {
+    const existingBySku = new Map(
+      watchedItems
+        .filter((item) => item.productCode)
+        .map((item) => [item.productCode, item]),
+    );
+
+    const selectedVariants = supplierProducts.filter((product) =>
+      selectedProductSkus.includes(product.sku),
+    );
+
+    replace(
+      selectedVariants.map((product) => {
+        const existing = existingBySku.get(product.sku);
+        return {
+          productCode: product.sku,
+          productName: product.productName ?? existing?.productName ?? "",
+          imageUrl: product.imageUrl ?? existing?.imageUrl,
+          requestedQty: existing?.requestedQty ?? 1,
+          unitPrice: existing?.unitPrice ?? 0,
+          note: existing?.note ?? "",
+        };
+      }),
+    );
+
+    setShowProductModal(false);
+  };
 
   const onSubmit = async (data: PurchaseRequestForm) => {
     setIsSubmitting(true);
@@ -154,30 +193,27 @@ export default function NewPurchaseRequestPage() {
       const created = await PurchaseRequestApiService.create(data);
       toast.success(`Đã tạo phiếu yêu cầu "${created.code}"`);
       router.push(`/admin/purchase-requests/${created.id}`);
-    } catch (err) {
-      toast.error(getErrorMessage(err as any));
+    } catch (error) {
+      toast.error(getErrorMessage(error as Error));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  if (isLoading) {
+    return null;
+  }
 
-  // Nếu chưa load user hoặc user không phải kho tổng thì ẩn trang
-  if (isLoading) return null;
-  if (!currentUser?.branch?.name?.toLowerCase().includes("kho tổng")) {
+  if (!isWarehouseUser) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
-        Chỉ tài khoản thuộc Kho tổng mới được tạo phiếu yêu cầu nhập NCC
+        Chỉ tài khoản thuộc kho tổng mới được tạo phiếu yêu cầu nhập NCC.
       </div>
     );
   }
 
   return (
     <div className="max-w-5xl mx-auto py-6 px-4">
-      {/* Page Header */}
       <div className="flex items-center gap-3 mb-6">
         <Button
           variant="ghost"
@@ -193,19 +229,19 @@ export default function NewPurchaseRequestPage() {
             Lập phiếu yêu cầu mua hàng NCC
           </h1>
           <p className="text-[12px] text-slate-400 mt-0.5">
-            Phiếu được tạo ở trạng thái Nháp, cần gửi duyệt trước khi gửi NCC.
+            Chỉ kho tổng được tạo phiếu yêu cầu nhập NCC. Hàng hóa được chọn từ danh mục đang bán của nhà cung cấp.
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* ── Section 1: Thông tin chung ──────────────────────────────────── */}
+        <input type="hidden" {...register("branchName")} />
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
           <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600 mb-4 border-b pb-2">
             Thông tin chung
           </h2>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Nhà cung cấp */}
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
                 Nhà cung cấp <span className="text-red-500">*</span>
@@ -213,154 +249,50 @@ export default function NewPurchaseRequestPage() {
               <div className="flex gap-2">
                 <select
                   {...register("supplierCode")}
-                  onChange={async (e) => {
-                    const selected = suppliers.find(
-                      (s) => s.code === e.target.value,
-                    );
-                    setValue("supplierCode", e.target.value);
-                    setValue("supplierName", selected?.name ?? "");
-                    setSelectedProducts([]);
-                    if (selected) {
-                      // Lấy danh sách sản phẩm NCC
-                      setShowProductModal(true);
-                      try {
-                        const products =
-                          await supplierService.getProductCatalog(selected.id);
-                        setSupplierProducts(products);
-                      } catch {
-                        setSupplierProducts([]);
-                      }
-                    }
-                  }}
+                  onChange={(event) => void handleSupplierChange(event.target.value)}
                   className={cn(
                     "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
                     errors.supplierCode ? "border-red-400" : "border-slate-200",
                   )}
                 >
-                  <option value="">— Chọn nhà cung cấp —</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.code}>
-                      {s.name} ({s.code})
+                  <option value="">-- Chọn nhà cung cấp --</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.code}>
+                      {supplier.name} ({supplier.code})
                     </option>
                   ))}
                 </select>
-                {supplierProducts.length > 0 && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowProductModal(true)}
-                  >
-                    Chọn hàng NCC
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void openSupplierCatalog(selectedSupplierCode)}
+                  disabled={!selectedSupplierCode || catalogLoading}
+                >
+                  {catalogLoading ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    "Chọn hàng NCC"
+                  )}
+                </Button>
               </div>
               {errors.supplierCode && (
                 <p className="text-[11px] text-red-500 mt-1">
                   {errors.supplierCode.message}
                 </p>
               )}
-              {/* Modal chọn hàng hóa NCC */}
-              <Dialog
-                open={showProductModal}
-                onOpenChange={setShowProductModal}
-              >
-                <DialogContent className="max-w-xl p-4">
-                  <h3 className="font-bold mb-2">
-                    Danh sách hàng NCC đang bán
-                  </h3>
-                  <div className="max-h-72 overflow-y-auto border rounded mb-3">
-                    {supplierProducts.length === 0 && (
-                      <div className="p-4 text-center text-slate-400">
-                        Không có hàng hóa nào
-                      </div>
-                    )}
-                    {supplierProducts.map((prod) => (
-                      <label
-                        key={prod.productId}
-                        className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 cursor-pointer hover:bg-blue-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedProducts.some(
-                            (p) => p.productId === prod.productId,
-                          )}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedProducts((prev) => [...prev, prod]);
-                            } else {
-                              setSelectedProducts((prev) =>
-                                prev.filter(
-                                  (p) => p.productId !== prod.productId,
-                                ),
-                              );
-                            }
-                          }}
-                        />
-                        <span className="font-medium">{prod.productName}</span>
-                        <span className="text-xs text-slate-400">
-                          ({prod.productId})
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowProductModal(false)}
-                    >
-                      Đóng
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        // Thêm các sản phẩm đã chọn vào danh sách items
-                        selectedProducts.forEach((prod) => {
-                          if (
-                            !fields.some(
-                              (item) =>
-                                item.productCode === prod.productId?.toString(),
-                            )
-                          ) {
-                            append({
-                              productCode: prod.productId?.toString() ?? "",
-                              productName: prod.productName ?? "",
-                              requestedQty: 1,
-                              unitPrice: 0,
-                              note: "",
-                            });
-                          }
-                        });
-                        setShowProductModal(false);
-                      }}
-                    >
-                      Chọn
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
             </div>
 
-            {/* Chi nhánh nhận */}
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Chi nhánh nhận hàng <span className="text-red-500">*</span>
+                Kho tổng nhận hàng <span className="text-red-500">*</span>
               </label>
-              <select
-                {...register("branchName")}
-                className={cn(
-                  "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
-                  errors.branchName ? "border-red-400" : "border-slate-200",
-                )}
-              >
-                <option value="">— Chọn chi nhánh —</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={watchedBranchName || currentUser?.branch?.name || ""}
+                disabled
+                className="w-full h-9 border border-slate-200 rounded-[3px] px-3 text-[13px] bg-slate-100 text-slate-600"
+              />
               {errors.branchName && (
                 <p className="text-[11px] text-red-500 mt-1">
                   {errors.branchName.message}
@@ -368,7 +300,6 @@ export default function NewPurchaseRequestPage() {
               )}
             </div>
 
-            {/* Ngày tạo phiếu */}
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
                 Ngày tạo phiếu
@@ -377,11 +308,10 @@ export default function NewPurchaseRequestPage() {
                 type="text"
                 value={new Date().toLocaleDateString("vi-VN")}
                 disabled
-                className="w-full h-9 border border-slate-200 rounded-[3px] px-3 text-[13px] bg-gray-100 text-gray-500"
+                className="w-full h-9 border border-slate-200 rounded-[3px] px-3 text-[13px] bg-slate-100 text-slate-600"
               />
             </div>
 
-            {/* Ghi chú */}
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
                 Ghi chú
@@ -396,7 +326,6 @@ export default function NewPurchaseRequestPage() {
           </div>
         </div>
 
-        {/* ── Section 2: Danh sách hàng hóa ──────────────────────────────── */}
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
           <div className="flex items-center justify-between mb-4 border-b pb-2">
             <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600">
@@ -407,17 +336,11 @@ export default function NewPurchaseRequestPage() {
               size="sm"
               variant="outline"
               className="h-7 text-[11px] font-bold border-blue-300 text-blue-600 hover:bg-blue-50"
-              onClick={() =>
-                append({
-                  productCode: "",
-                  productName: "",
-                  requestedQty: 1,
-                  unitPrice: 0,
-                  note: "",
-                })
-              }
+              onClick={() => void openSupplierCatalog(selectedSupplierCode)}
+              disabled={!selectedSupplierCode || catalogLoading}
             >
-              <Plus size={12} className="mr-1" /> Thêm hàng
+              <Plus size={12} className="mr-1" />
+              Chọn từ NCC
             </Button>
           </div>
 
@@ -431,7 +354,7 @@ export default function NewPurchaseRequestPage() {
             <div className="text-center py-8 text-slate-400">
               <ShoppingCart size={32} className="mx-auto opacity-20 mb-2" />
               <p className="text-[12px]">
-                Chưa có hàng hóa. Nhấn "Thêm hàng" để bắt đầu.
+                Chọn nhà cung cấp để mở popup danh sách hàng hóa đang bán và tick các món cần nhập.
               </p>
             </div>
           ) : (
@@ -442,7 +365,7 @@ export default function NewPurchaseRequestPage() {
                     <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider w-8">
                       #
                     </th>
-                    <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider min-w-[200px]">
+                    <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider min-w-[220px]">
                       Sản phẩm
                     </th>
                     <th className="px-3 py-2 text-center font-black text-slate-500 uppercase tracking-wider w-[110px]">
@@ -457,119 +380,42 @@ export default function NewPurchaseRequestPage() {
                     <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider min-w-[120px]">
                       Ghi chú
                     </th>
-                    <th className="w-8"></th>
+                    <th className="w-8" />
                   </tr>
                 </thead>
                 <tbody>
                   {fields.map((field, idx) => {
                     const item = watchedItems[idx];
                     const subtotal =
-                      (Number(item?.requestedQty) || 0) *
-                      (Number(item?.unitPrice) || 0);
+                      (Number(item?.requestedQty) || 0) * (Number(item?.unitPrice) || 0);
 
                     return (
-                      <tr
-                        key={field.id}
-                        className="border-b hover:bg-slate-50/50"
-                      >
+                      <tr key={field.id} className="border-b hover:bg-slate-50/50">
                         <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
-
-                        {/* Sản phẩm */}
                         <td className="px-3 py-2">
-                          <div className="relative">
-                            {item?.productCode ? (
-                              <div className="flex items-center gap-1.5">
-                                {item.imageUrl && (
-                                  <img
-                                    src={item.imageUrl}
-                                    alt=""
-                                    className="w-6 h-6 rounded object-cover"
-                                  />
-                                )}
-                                <span className="font-medium text-slate-700">
-                                  {item.productName}
-                                </span>
-                                <span className="text-slate-400 text-[10px]">
-                                  ({item.productCode})
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setValue(`items.${idx}.productCode`, "");
-                                    setValue(`items.${idx}.productName`, "");
-                                  }}
-                                  className="ml-auto text-slate-400 hover:text-red-500"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ) : (
-                              <div>
-                                <div className="relative">
-                                  <Search
-                                    size={12}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={
-                                      activeItemIdx === idx ? productSearch : ""
-                                    }
-                                    onChange={(e) => {
-                                      setActiveItemIdx(idx);
-                                      setProductSearch(e.target.value);
-                                    }}
-                                    onFocus={() => setActiveItemIdx(idx)}
-                                    placeholder="Tìm sản phẩm..."
-                                    className="w-full h-7 pl-6 pr-2 border border-slate-200 rounded-[3px] text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                  {searchLoading && activeItemIdx === idx && (
-                                    <Loader2
-                                      size={10}
-                                      className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
-                                    />
-                                  )}
-                                </div>
-                                {activeItemIdx === idx &&
-                                  productResults.length > 0 && (
-                                    <div className="absolute z-50 left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded-[3px] shadow-lg max-h-[200px] overflow-y-auto">
-                                      {productResults.map((v) => (
-                                        <button
-                                          key={v.id}
-                                          type="button"
-                                          onClick={() => addProduct(v, idx)}
-                                          className="w-full px-3 py-2 text-left hover:bg-blue-50 flex items-center gap-2"
-                                        >
-                                          {v.imageUrl && (
-                                            <img
-                                              src={v.imageUrl}
-                                              alt=""
-                                              className="w-6 h-6 rounded object-cover"
-                                            />
-                                          )}
-                                          <div>
-                                            <div className="font-medium text-slate-700 text-[12px]">
-                                              {v.productName}
-                                            </div>
-                                            <div className="text-[10px] text-slate-400">
-                                              {v.sku} · {v.customSpecs}
-                                            </div>
-                                          </div>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                              </div>
+                          <div className="flex items-center gap-2">
+                            {item?.imageUrl && (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.productName}
+                                className="w-8 h-8 rounded object-cover"
+                              />
                             )}
-                            {errors.items?.[idx]?.productCode && (
-                              <p className="text-[10px] text-red-500 mt-0.5">
-                                {errors.items[idx]?.productCode?.message}
-                              </p>
-                            )}
+                            <div>
+                              <div className="font-medium text-slate-700">
+                                {item?.productName}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {item?.productCode}
+                              </div>
+                            </div>
                           </div>
+                          {errors.items?.[idx]?.productCode && (
+                            <p className="text-[10px] text-red-500 mt-0.5">
+                              {errors.items[idx]?.productCode?.message}
+                            </p>
+                          )}
                         </td>
-
-                        {/* SL yêu cầu */}
                         <td className="px-3 py-2">
                           <input
                             type="number"
@@ -583,8 +429,6 @@ export default function NewPurchaseRequestPage() {
                             )}
                           />
                         </td>
-
-                        {/* Đơn giá */}
                         <td className="px-3 py-2">
                           <input
                             type="number"
@@ -593,13 +437,9 @@ export default function NewPurchaseRequestPage() {
                             className="w-full h-7 border border-slate-200 rounded-[3px] px-2 text-[12px] text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </td>
-
-                        {/* Thành tiền */}
                         <td className="px-3 py-2 text-right font-semibold text-slate-700">
                           {formatCurrency(subtotal)}
                         </td>
-
-                        {/* Ghi chú */}
                         <td className="px-3 py-2">
                           <input
                             type="text"
@@ -608,8 +448,6 @@ export default function NewPurchaseRequestPage() {
                             className="w-full h-7 border border-slate-200 rounded-[3px] px-2 text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </td>
-
-                        {/* Xóa */}
                         <td className="px-3 py-2 text-center">
                           <button
                             type="button"
@@ -642,7 +480,6 @@ export default function NewPurchaseRequestPage() {
           )}
         </div>
 
-        {/* ── Actions ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-end gap-3">
           <Button
             type="button"
@@ -668,6 +505,94 @@ export default function NewPurchaseRequestPage() {
           </Button>
         </div>
       </form>
+
+      <Dialog open={showProductModal} onOpenChange={setShowProductModal}>
+        <DialogContent className="max-w-3xl p-0">
+          <div className="p-5 border-b">
+            <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-tight">
+              Danh sách hàng hóa nhà cung cấp đang bán
+            </h3>
+            <p className="text-[12px] text-slate-500 mt-1">
+              Tick từng món hàng để thêm vào phiếu yêu cầu nhập.
+            </p>
+          </div>
+
+          <div className="max-h-[60vh] overflow-y-auto p-5">
+            {catalogLoading ? (
+              <div className="py-12 flex items-center justify-center text-slate-400">
+                <Loader2 size={18} className="animate-spin mr-2" />
+                Đang tải danh mục hàng hóa...
+              </div>
+            ) : supplierProducts.length === 0 ? (
+              <div className="py-12 text-center text-slate-400">
+                Không có hàng hóa nào đang bán cho nhà cung cấp này.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {supplierProducts.map((product) => {
+                  const checked = selectedProductSkus.includes(product.sku);
+                  return (
+                    <label
+                      key={product.sku}
+                      className={cn(
+                        "flex items-center gap-3 rounded-[6px] border px-3 py-3 cursor-pointer transition-colors",
+                        checked
+                          ? "border-blue-300 bg-blue-50"
+                          : "border-slate-200 hover:border-blue-200 hover:bg-slate-50",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) =>
+                          toggleProductSelection(product.sku, event.target.checked)
+                        }
+                        className="h-4 w-4"
+                      />
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.productName}
+                          className="w-12 h-12 rounded object-cover border border-slate-200"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded border border-slate-200 bg-slate-100" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-slate-700 truncate">
+                          {product.productName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          SKU: {product.sku}
+                          {product.customSpecs ? ` • ${product.customSpecs}` : ""}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t p-5">
+            <span className="text-[12px] text-slate-500">
+              Đã chọn {selectedProductSkus.length} mặt hàng
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowProductModal(false)}
+              >
+                Đóng
+              </Button>
+              <Button type="button" onClick={applySelectedProducts}>
+                Áp dụng
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

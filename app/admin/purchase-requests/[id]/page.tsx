@@ -230,7 +230,7 @@ export default function PurchaseRequestDetailPage() {
         {[
           { label: "Nhà cung cấp",       value: `${pr.supplierName} (${pr.supplierCode})`,  icon: <Package size={14} /> },
           { label: "Chi nhánh nhận",     value: pr.branchName,                              icon: <PackageCheck size={14} /> },
-          { label: "Ngày giao dự kiến",  value: fmtDate(pr.expectedDeliveryDate),           icon: <CalendarDays size={14} /> },
+          { label: "Ngày tạo phiếu",     value: fmtDate(pr.createdAt),                      icon: <CalendarDays size={14} /> },
           { label: "Tổng giá trị",       value: fmtCurrency(pr.totalAmount ?? 0),           icon: <FileText size={14} /> },
         ].map(card => (
           <div key={card.label} className="bg-white border border-slate-200 rounded-sm p-4 shadow-sm">

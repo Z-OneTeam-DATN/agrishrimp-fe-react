@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, ShoppingCart, RefreshCcw, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import {
@@ -46,6 +47,7 @@ function formatDate(dateStr?: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PurchaseRequestListPage() {
+  const { data: currentUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [data, setData]           = useState<PurchaseRequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +55,8 @@ export default function PurchaseRequestListPage() {
   const [cancelTarget, setCancelTarget] = useState<PurchaseRequestResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
+  const isWarehouseUser =
+    currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false;
 
   const fetchAll = async () => {
     setIsLoading(true);
@@ -119,12 +123,12 @@ export default function PurchaseRequestListPage() {
             <ShoppingCart className="text-slate-400" size={18} />
             Phiếu yêu cầu mua hàng NCC
           </h1>
-          <Link href="/admin/purchase-requests/new">
+          {isWarehouseUser && <Link href="/admin/purchase-requests/new">
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-[12px] font-bold rounded-[3px]">
               <Plus size={14} className="mr-1" />
               Lập phiếu yêu cầu
             </Button>
-          </Link>
+          </Link>}
         </div>
 
         {/* Tabs */}
