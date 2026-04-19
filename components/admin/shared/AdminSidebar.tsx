@@ -50,6 +50,7 @@ import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
   // Normalize role (chỉ dùng để hiển thị label, logic bảo vệ dùng hasPermission)
   const role = normalizeRoleSlug(user?.role) || "USER";
@@ -57,7 +58,8 @@ export default function AdminSidebar() {
   const isManager = role === "MANAGER";
   const isBranchScopedOrderUser = isBranchOrderUser(user);
   const isWarehouseUser =
-    user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false;
+    (user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
+    warehouseId === 1;
   const orderListHref = getOrderListPath(user);
   const isOrderListActive =
     pathname === "/admin/orders" ||

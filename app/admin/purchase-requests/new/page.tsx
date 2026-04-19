@@ -16,6 +16,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage, apiJava } from "@/lib/axios";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { supplierService } from "@/app/services/supplier.service";
@@ -41,6 +42,7 @@ function formatCurrency(n: number) {
 
 export default function NewPurchaseRequestPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
   const router = useRouter();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +53,8 @@ export default function NewPurchaseRequestPage() {
   const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
 
   const isWarehouseUser =
-    currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false;
+    (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
+    warehouseId === 1;
 
   const {
     register,

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, ShoppingCart, RefreshCcw, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import {
@@ -48,6 +49,7 @@ function formatDate(dateStr?: string) {
 
 export default function PurchaseRequestListPage() {
   const { data: currentUser } = useCurrentUser();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [data, setData]           = useState<PurchaseRequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +58,8 @@ export default function PurchaseRequestListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
   const isWarehouseUser =
-    currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false;
+    (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
+    warehouseId === 1;
 
   const fetchAll = async () => {
     setIsLoading(true);
