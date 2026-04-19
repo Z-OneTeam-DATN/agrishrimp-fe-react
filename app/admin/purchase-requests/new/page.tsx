@@ -130,7 +130,7 @@ export default function NewPurchaseRequestPage() {
       setShowProductModal(true);
     } catch (error) {
       setSupplierProducts([]);
-      toast.error(getErrorMessage(error as Error));
+      toast.error(getErrorMessage(error as any));
     } finally {
       setCatalogLoading(false);
     }
@@ -194,7 +194,7 @@ export default function NewPurchaseRequestPage() {
       toast.success(`Đã tạo phiếu yêu cầu "${created.code}"`);
       router.push(`/admin/purchase-requests/${created.id}`);
     } catch (error) {
-      toast.error(getErrorMessage(error as Error));
+      toast.error(getErrorMessage(error as any));
     } finally {
       setIsSubmitting(false);
     }
