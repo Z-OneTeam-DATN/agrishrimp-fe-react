@@ -19,8 +19,10 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { getErrorMessage, apiJava } from "@/lib/axios";
+import { branchService } from "@/app/services/branchService";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { supplierService } from "@/app/services/supplier.service";
+import type { BranchDTO } from "@/app/types/branch.type";
 import type { Supplier } from "@/app/types/supplier.type";
 import {
   PurchaseRequestSchema,
@@ -47,6 +49,7 @@ export default function NewPurchaseRequestPage() {
   const router = useRouter();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [warehouseBranches, setWarehouseBranches] = useState<BranchDTO[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -89,25 +92,38 @@ export default function NewPurchaseRequestPage() {
   const watchedBranchName = watch("branchName");
 
   useEffect(() => {
-    if (currentUser?.branch?.name) {
-      setValue("branchName", currentUser.branch.name, { shouldValidate: true });
-    }
-  }, [currentUser?.branch?.name, setValue]);
-
-  useEffect(() => {
     if (!isWarehouseUser && !isAdminRole(currentUser?.role)) {
       return;
     }
 
     (async () => {
       try {
+        const branchData = await branchService.getAll();
+        const allBranches = Array.isArray(branchData)
+          ? branchData
+          : (branchData?.content ?? []);
+        const warehouseOnly = allBranches.filter(
+          (branch: BranchDTO) => branch.branchType === "WAREHOUSE",
+        );
+
+        setWarehouseBranches(warehouseOnly);
+
+        const defaultWarehouse =
+          warehouseOnly.find((branch) => branch.name === currentUser?.branch?.name) ??
+          warehouseOnly.find((branch) => branch.id === warehouseId) ??
+          warehouseOnly[0];
+
+        if (defaultWarehouse) {
+          setValue("branchName", defaultWarehouse.name, { shouldValidate: true });
+        }
+
         const suppData = await supplierService.getAll(undefined, "ACTIVE", 0, 200);
         setSuppliers(Array.isArray(suppData) ? suppData : (suppData?.content ?? []));
       } catch (error) {
-        console.error("Failed to load suppliers", error);
+        console.error("Failed to load purchase request dependencies", error);
       }
     })();
-  }, [currentUser?.role, isWarehouseUser]);
+  }, [currentUser?.branch?.name, currentUser?.role, isWarehouseUser, setValue, warehouseId]);
 
   const totalAmount = watchedItems.reduce((sum, item) => {
     return sum + (Number(item.requestedQty) || 0) * (Number(item.unitPrice) || 0);
@@ -242,7 +258,6 @@ export default function NewPurchaseRequestPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <input type="hidden" {...register("branchName")} />
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
           <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600 mb-4 border-b pb-2">
             Thông tin chung
@@ -294,12 +309,21 @@ export default function NewPurchaseRequestPage() {
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
                 Kho tổng nhận hàng <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={watchedBranchName || currentUser?.branch?.name || ""}
-                disabled
-                className="w-full h-9 border border-slate-200 rounded-[3px] px-3 text-[13px] bg-slate-100 text-slate-600"
-              />
+              <select
+                {...register("branchName")}
+                className={cn(
+                  "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
+                  errors.branchName ? "border-red-400" : "border-slate-200",
+                )}
+                value={watchedBranchName || ""}
+              >
+                <option value="">-- Chá»n kho tá»•ng --</option>
+                {warehouseBranches.map((branch) => (
+                  <option key={branch.id} value={branch.name}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
               {errors.branchName && (
                 <p className="text-[11px] text-red-500 mt-1">
                   {errors.branchName.message}
