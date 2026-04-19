@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Modal from "@/components/ui/modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
@@ -257,11 +257,11 @@ export default function NewPurchaseRequestPage() {
                 </p>
               )}
               {/* Modal chọn hàng hóa NCC */}
-              <Modal
+              <Dialog
                 open={showProductModal}
-                onClose={() => setShowProductModal(false)}
+                onOpenChange={setShowProductModal}
               >
-                <div className="p-4 max-w-xl w-full bg-white rounded shadow-lg">
+                <DialogContent className="max-w-xl p-4">
                   <h3 className="font-bold mb-2">
                     Danh sách hàng NCC đang bán
                   </h3>
@@ -334,8 +334,8 @@ export default function NewPurchaseRequestPage() {
                       Chọn
                     </Button>
                   </div>
-                </div>
-              </Modal>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Chi nhánh nhận */}
