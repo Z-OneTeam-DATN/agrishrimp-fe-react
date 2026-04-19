@@ -57,8 +57,8 @@ export default function NewPurchaseRequestPage() {
     (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
   const canAccessPurchaseRequests =
-    isWarehouseUser &&
-    (isAdminRole(currentUser?.role) || isManagerRole(currentUser?.role));
+    isAdminRole(currentUser?.role) ||
+    (isWarehouseUser && isManagerRole(currentUser?.role));
 
   const {
     register,
@@ -95,7 +95,7 @@ export default function NewPurchaseRequestPage() {
   }, [currentUser?.branch?.name, setValue]);
 
   useEffect(() => {
-    if (!isWarehouseUser) {
+    if (!isWarehouseUser && !isAdminRole(currentUser?.role)) {
       return;
     }
 
@@ -107,7 +107,7 @@ export default function NewPurchaseRequestPage() {
         console.error("Failed to load suppliers", error);
       }
     })();
-  }, [isWarehouseUser]);
+  }, [currentUser?.role, isWarehouseUser]);
 
   const totalAmount = watchedItems.reduce((sum, item) => {
     return sum + (Number(item.requestedQty) || 0) * (Number(item.unitPrice) || 0);

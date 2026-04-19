@@ -62,8 +62,8 @@ export default function PurchaseRequestListPage() {
     (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
   const canAccessPurchaseRequests =
-    isWarehouseUser &&
-    (isAdminRole(currentUser?.role) || isManagerRole(currentUser?.role));
+    isAdminRole(currentUser?.role) ||
+    (isWarehouseUser && isManagerRole(currentUser?.role));
 
   const fetchAll = async () => {
     setIsLoading(true);

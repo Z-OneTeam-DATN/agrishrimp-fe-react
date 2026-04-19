@@ -61,8 +61,9 @@ export default function AdminSidebar() {
     (user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
   const canAccessPurchaseRequests =
-    isWarehouseUser &&
-    (hasPermission(P.PURCHASE_REQUEST_VIEW) || isAdmin || isManager || isManagerRole(user?.role));
+    isAdmin ||
+    (isWarehouseUser &&
+      (hasPermission(P.PURCHASE_REQUEST_VIEW) || isManager || isManagerRole(user?.role)));
   const orderListHref = getOrderListPath(user);
   const isOrderListActive =
     pathname === "/admin/orders" ||
@@ -273,7 +274,7 @@ export default function AdminSidebar() {
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
     };
-  }, [hasPermission, isWarehouseUser]);
+  }, [hasPermission, isWarehouseUser, canAccessPurchaseRequests]);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
@@ -391,14 +392,14 @@ export default function AdminSidebar() {
         {canViewProcurementSection && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Mua hàng
+              Yêu cầu nhập hàng
             </p>
             <div className="space-y-0.5">
               {canAccessPurchaseRequests && (
                 <SidebarLink
                   href="/admin/purchase-requests"
                   icon={ShoppingCart}
-                  label="Yêu cầu mua NCC"
+                  label="Yêu cầu nhập NCC"
                   active={isActive("/admin/purchase-requests")}
                   badge={purchaseRequestPendingCount}
                   color="text-indigo-400"
