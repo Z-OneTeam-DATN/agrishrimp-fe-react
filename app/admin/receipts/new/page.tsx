@@ -471,6 +471,13 @@ function AdminReceiptFormContent() {
           const mappedItems = (data.items || []).map((i: any) => ({
             ...i,
             plannedQuantity: i.plannedQuantity || i.quantity || 0,
+            acceptedBeforeQuantity:
+              i.acceptedBeforeQuantity ||
+              Math.max(
+                (Number(i.requestedQuantity) || 0) -
+                  (Number(i.remainingQuantity) || 0),
+                0,
+              ),
             quantityReal:
               i.quantityReal ||
               i.quantityActual ||
@@ -564,6 +571,7 @@ function AdminReceiptFormContent() {
             plannedQuantity: 0,
             requestedQuantity: item.requestedQty || 0,
             deliveredQuantity: item.deliveredQty || 0,
+            acceptedBeforeQuantity: item.acceptedQty || 0,
             remainingQuantity: item.remainingQty || 0,
             quantityReal: 0,
             quantityAccepted: 0,
@@ -1120,11 +1128,17 @@ function AdminReceiptFormContent() {
                     const plannedQty = Number(item.plannedQuantity) || 0;
                     const hasQuantityMismatch =
                       plannedQty > 0 && actualReceived !== plannedQty;
+                    const acceptedBeforeQty =
+                      Number(item.acceptedBeforeQuantity) || 0;
+                    const defectiveBeforeQty = Math.max(
+                      (Number(item.deliveredQuantity) || 0) - acceptedBeforeQty,
+                      0,
+                    );
                     const remainingAfterReceipt = isLinkedPurchaseRequest
                       ? Math.max(
                           (Number(item.requestedQuantity) || 0) -
-                            (Number(item.deliveredQuantity) || 0) -
-                            actualReceived,
+                            acceptedBeforeQty -
+                            (Number(item.quantityAccepted) || 0),
                           0,
                         )
                       : 0;
@@ -1144,7 +1158,8 @@ function AdminReceiptFormContent() {
                             {isLinkedPurchaseRequest ? (
                               <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">
                                 YCM {formatNumber(Number(item.requestedQuantity) || 0)} ·
-                                Đã nhận {formatNumber(Number(item.deliveredQuantity) || 0)} ·
+                                Đã đạt {formatNumber(acceptedBeforeQty)} ·
+                                Lỗi trước {formatNumber(defectiveBeforeQty)} ·
                                 Còn thiếu {formatNumber(Number(item.remainingQuantity) || 0)}
                               </div>
                             ) : null}

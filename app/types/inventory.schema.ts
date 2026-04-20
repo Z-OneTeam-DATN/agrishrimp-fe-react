@@ -131,6 +131,7 @@ export const ReceiptItemSchema = z.object({
   plannedQuantity: z.coerce.number().min(0, "Số lượng không được âm"),
   requestedQuantity: z.number().optional(),
   deliveredQuantity: z.number().optional(),
+  acceptedBeforeQuantity: z.number().optional(),
   remainingQuantity: z.number().optional(),
   quantityReal: z.coerce.number().min(0).default(0),
   quantityAccepted: z.coerce.number().min(0).default(0),
