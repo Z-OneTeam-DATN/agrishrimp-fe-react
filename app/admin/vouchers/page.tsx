@@ -12,7 +12,11 @@ import {
   AlertCircle,
   EyeOff,
 } from "lucide-react";
-import { voucherService, Voucher } from "@/app/services/voucher.service";
+import {
+  voucherService,
+  Voucher,
+  VoucherUpsertPayload,
+} from "@/app/services/voucher.service";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -284,7 +288,7 @@ export default function AdminVoucherPage() {
 
     setIsSubmitting(true);
     try {
-      const dataToSubmit: any = {
+      const dataToSubmit: VoucherUpsertPayload = {
         code: formData.code,
         title: formData.title,
         discountType: formData.discountType,
@@ -408,7 +412,7 @@ export default function AdminVoucherPage() {
         toast.success("Đã xóa voucher vĩnh viễn");
       } else {
         // Tạo payload sạch sẽ, không dùng ...spread để tránh gửi rác xuống Backend
-        const payload: any = {
+        const payload: VoucherUpsertPayload = {
           code: deleteConfirmVoucher.code,
           title: deleteConfirmVoucher.title,
           discountType: deleteConfirmVoucher.discountType,
