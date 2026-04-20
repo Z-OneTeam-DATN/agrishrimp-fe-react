@@ -16,7 +16,7 @@ import { orderService } from "@/app/services/order.service";
 import { BranchOrder } from "@/app/types/order.types";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isBranchOrderUser } from "@/lib/order-routing";
+import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
@@ -30,7 +30,7 @@ const TABS = [
 
 export default function OrderManagementPage() {
   const router = useRouter();
-  const { user, isLoadingAuth } = useAuthStore();
+  const { user, isLoadingAuth, warehouseId } = useAuthStore();
   const [activeTab, setActiveTab] = useState("PENDING");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -38,7 +38,7 @@ export default function OrderManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [detailCache, setDetailCache] = useState<Record<number, BranchOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
-  const canUseBranchOrders = isBranchOrderUser(user);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
 
   const fetchOrders = useCallback(async (status: string, q?: string) => {
     if (!canUseBranchOrders) return;

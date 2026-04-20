@@ -45,7 +45,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
-import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
+import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -56,7 +56,7 @@ export default function AdminSidebar() {
   const role = normalizeRoleSlug(user?.role) || "USER";
   const isAdmin = isAdminRole(user?.role);
   const isManager = role === "MANAGER";
-  const isBranchScopedOrderUser = isBranchOrderUser(user);
+  const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const isBranchAccount = !isAdmin && Boolean(user?.branch?.id || warehouseId);
   const isWarehouseUser =
     (user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
