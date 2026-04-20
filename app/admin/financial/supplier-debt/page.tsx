@@ -44,6 +44,8 @@ import { FinancialService, SupplierDebtData } from "@/app/services/financial.ser
 import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string };
 type StaffOption = { id: number; displayName: string };
@@ -54,6 +56,9 @@ const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 export default function SupplierDebtReportPage() {
     const router = useRouter();
+    const { user, warehouseId } = useAuthStore();
+    const isAdmin = isAdminRole(user?.role);
+    const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<SupplierDebtData[]>([]);
@@ -61,7 +66,7 @@ export default function SupplierDebtReportPage() {
     const today = new Date();
     const [startDate, setStartDate] = useState(() => toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)));
     const [endDate, setEndDate] = useState(() => toIsoDate(today));
-    const [branchId, setBranchId] = useState<string>("all");
+    const [branchId, setBranchId] = useState<string>(isAdmin ? "all" : ownBranchId || "all");
     const [staffId, setStaffId] = useState<string>("all");
     const [branches, setBranches] = useState<BranchOption[]>([]);
     const [staffs, setStaffs] = useState<StaffOption[]>([]);
@@ -78,7 +83,12 @@ export default function SupplierDebtReportPage() {
                 ]);
 
                 const branchItems = Array.isArray(branchRes) ? branchRes : (branchRes?.data || branchRes?.content || []);
-                setBranches((branchItems as BranchApiItem[]).map((item) => ({ id: Number(item.id), name: item.name || "Chi nhánh" })));
+                const normalizedBranches = (branchItems as BranchApiItem[]).map((item) => ({ id: Number(item.id), name: item.name || "Chi nhánh" }));
+                if (!isAdmin && ownBranchId) {
+                    setBranches(normalizedBranches.filter((item) => String(item.id) === ownBranchId));
+                } else {
+                    setBranches(normalizedBranches);
+                }
 
                 const staffItems = Array.isArray(staffRes) ? staffRes : (staffRes?.data || staffRes?.content || []);
                 setStaffs(
@@ -95,7 +105,13 @@ export default function SupplierDebtReportPage() {
         };
 
         loadOptions();
-    }, []);
+    }, [isAdmin, ownBranchId]);
+
+    useEffect(() => {
+        if (!isAdmin && ownBranchId) {
+            setBranchId(ownBranchId);
+        }
+    }, [isAdmin, ownBranchId]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
@@ -203,11 +219,11 @@ export default function SupplierDebtReportPage() {
                         </DropdownMenu>
 
                         <Select value={branchId} onValueChange={setBranchId}>
-                            <SelectTrigger className="h-[36px] w-[180px] rounded-none border-slate-200 text-[12px] shadow-none">
+                            <SelectTrigger className="h-[36px] w-[180px] rounded-none border-slate-200 text-[12px] shadow-none" disabled={!isAdmin}>
                                 <SelectValue placeholder="Chi nhánh" />
                             </SelectTrigger>
                             <SelectContent className="rounded-none">
-                                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                                {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                                 {branches.map((branch) => (
                                     <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
                                 ))}

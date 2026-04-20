@@ -45,7 +45,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
-import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
+import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -56,7 +56,8 @@ export default function AdminSidebar() {
   const role = normalizeRoleSlug(user?.role) || "USER";
   const isAdmin = isAdminRole(user?.role);
   const isManager = role === "MANAGER";
-  const isBranchScopedOrderUser = isBranchOrderUser(user);
+  const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
+  const isBranchAccount = !isAdmin && Boolean(user?.branch?.id || warehouseId);
   const isWarehouseUser =
     (user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
@@ -74,7 +75,7 @@ export default function AdminSidebar() {
   const canViewBusinessSection = hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]);
   const canViewCatalogSection = hasAnyPermission([P.PRODUCT_VIEW, P.CATEGORY_VIEW, P.ATTRIBUTE_VIEW]);
   const canViewInventorySection = hasAnyPermission([P.IMPORT_VIEW, P.EXPORT_VIEW, P.TRANSFER_VIEW, P.CHECK_VIEW]);
-  const canViewProcurementSection = hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
+  const canViewProcurementSection = !isBranchAccount && hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
   const canViewSettings = hasPermission(P.SETTING_VIEW);
   const canAccessOrderManagement = hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
@@ -130,10 +131,10 @@ export default function AdminSidebar() {
         hasPermission(P.VOUCHER_VIEW)
           ? voucherService.getAllAdmin({ page: 0, size: 1 })
           : Promise.resolve(null),
-        canAccessPurchaseRequests
+        !isBranchAccount && canAccessPurchaseRequests
           ? PurchaseRequestApiService.getAll()
           : Promise.resolve(null),
-        hasPermission(P.IMPORT_VIEW)
+        !isBranchAccount && hasPermission(P.IMPORT_VIEW)
           ? InventoryApiService.getAllReceipts()
           : Promise.resolve(null),
         hasPermission(P.EXPORT_VIEW)
@@ -353,9 +354,6 @@ export default function AdminSidebar() {
                   {isBranchScopedOrderUser && (
                     <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
                   )}
-                  {isAdmin && (
-                    <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
-                  )}
                   <SidebarLink
                     href="/admin/orders/return"
                     icon={RotateCcw}
@@ -417,6 +415,7 @@ export default function AdminSidebar() {
                 />
               )}
               {hasPermission(P.SUPPLIER_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/suppliers"
                   icon={Truck}
@@ -425,6 +424,7 @@ export default function AdminSidebar() {
                   badge={supplierCount}
                   color="text-orange-400"
                 />
+                )
               )}
             </div>
           </section>
@@ -449,6 +449,7 @@ export default function AdminSidebar() {
                 />
               )}
               {hasPermission(P.CATEGORY_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/categories"
                   icon={Tags}
@@ -456,8 +457,10 @@ export default function AdminSidebar() {
                   active={isActive("/admin/categories")}
                   badge={categoryCount}
                 />
+                )
               )}
               {hasPermission(P.ATTRIBUTE_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/variants"
                   icon={Layers}
@@ -465,6 +468,7 @@ export default function AdminSidebar() {
                   active={isActive("/admin/variants")}
                   badge={attributeCount}
                 />
+                )
               )}
             </div>
           </section>
@@ -478,7 +482,9 @@ export default function AdminSidebar() {
             </p>
             <div className="space-y-0.5">
               {hasPermission(P.EXPORT_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất kho & Trả NCC" active={isActive("/admin/exports")} badge={exportPendingCount} />
+                )
               )}
               {hasPermission(P.TRANSFER_VIEW) && (
                 <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển kho" active={isActive("/admin/transfers")} badge={transferPendingCount} />
@@ -504,13 +510,15 @@ export default function AdminSidebar() {
                 active={pathname === "/admin/financial"}
                 color="text-emerald-500"
               />
-              <SidebarLink
-                href="/admin/financial/supplier-debt"
-                icon={Truck}
-                label="Công nợ NCC"
-                active={isActive("/admin/financial/supplier-debt")}
-                color="text-orange-400"
-              />
+              {!isBranchAccount && (
+                <SidebarLink
+                  href="/admin/financial/supplier-debt"
+                  icon={Truck}
+                  label="Công nợ NCC"
+                  active={isActive("/admin/financial/supplier-debt")}
+                  color="text-orange-400"
+                />
+              )}
               <SidebarLink
                 href="/admin/financial/cashbook"
                 icon={Archive}
@@ -555,6 +563,7 @@ export default function AdminSidebar() {
                 />
               )}
               {hasPermission(P.REPORT_FINANCE_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/financial/profit-loss"
                   icon={FileBarChart}
@@ -562,6 +571,7 @@ export default function AdminSidebar() {
                   active={isActive("/admin/financial/profit-loss")}
                   color="text-emerald-500"
                 />
+                )
               )}
             </div>
           </section>

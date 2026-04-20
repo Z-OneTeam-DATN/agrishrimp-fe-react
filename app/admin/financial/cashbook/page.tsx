@@ -50,6 +50,8 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string; branchCode?: string };
 type ChartMode = "day" | "month";
@@ -74,9 +76,12 @@ const compactCurrency = (value: number) =>
 
 export default function CashbookPage() {
   const router = useRouter();
+  const { user, warehouseId } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
+  const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(isAdmin ? "all" : ownBranchId || "all");
   const [startDate, setStartDate] = useState(toIso(defaultStart));
   const [endDate, setEndDate] = useState(toIso(today));
   const [searchTerm, setSearchTerm] = useState("");
@@ -89,11 +94,14 @@ export default function CashbookPage() {
     const fetchInitial = async () => {
       try {
         const branchRes = await branchService.getAll();
-        setBranches(
-          Array.isArray(branchRes)
-            ? branchRes
-            : branchRes?.data || branchRes?.content || [],
-        );
+        const list = Array.isArray(branchRes)
+          ? branchRes
+          : branchRes?.data || branchRes?.content || [];
+        if (!isAdmin && ownBranchId) {
+          setBranches(list.filter((item: BranchOption) => item.id.toString() === ownBranchId));
+        } else {
+          setBranches(list);
+        }
       } catch (error) {
         console.error("Không tải được dữ liệu sổ quỹ", error);
         toast.error("Không thể tải dữ liệu sổ quỹ");
@@ -103,7 +111,13 @@ export default function CashbookPage() {
     };
 
     fetchInitial();
-  }, []);
+  }, [isAdmin, ownBranchId]);
+
+  useEffect(() => {
+    if (!isAdmin && ownBranchId) {
+      setSelectedBranchId(ownBranchId);
+    }
+  }, [isAdmin, ownBranchId]);
 
   useEffect(() => {
     const fetchCashbook = async () => {
@@ -286,11 +300,11 @@ export default function CashbookPage() {
 
         <div className="flex items-center gap-0 border border-slate-300 bg-white">
           <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-            <SelectTrigger className="h-8 w-[190px] rounded-none border-none text-[12px] font-medium shadow-none focus:ring-0">
+            <SelectTrigger className="h-8 w-[190px] rounded-none border-none text-[12px] font-medium shadow-none focus:ring-0" disabled={!isAdmin}>
               <SelectValue placeholder="Tất cả chi nhánh" />
             </SelectTrigger>
             <SelectContent className="rounded-none">
-              <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+              {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
               {branches.map((branch) => (
                 <SelectItem key={branch.id} value={branch.id.toString()}>
                   {branch.name}

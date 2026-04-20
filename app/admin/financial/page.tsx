@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FinancialService, ProfitLossData, SupplierDebtData } from "@/app/services/financial.service";
 import { branchService } from "@/app/services/branchService";
 import { cn, formatNumber } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string; branchCode?: string };
 
@@ -61,8 +63,11 @@ const formatMoney = (value?: number | null) => formatNumber(value ?? 0);
 
 export default function FinancialReportListPage() {
   const router = useRouter();
+  const { user, warehouseId } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
+  const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(isAdmin ? "all" : ownBranchId || "all");
   const [startDate, setStartDate] = useState(() => toIsoDate(new Date(new Date().setDate(new Date().getDate() - 30))));
   const [endDate, setEndDate] = useState(() => toIsoDate(new Date()));
   const [loading, setLoading] = useState(false);
@@ -74,14 +79,26 @@ export default function FinancialReportListPage() {
     const loadBranches = async () => {
       try {
         const response = await branchService.getAll();
-        setBranches(Array.isArray(response) ? response : (response?.data || response?.content || []));
+        const list = Array.isArray(response) ? response : (response?.data || response?.content || []);
+        if (!isAdmin && ownBranchId) {
+          const scoped = list.filter((branch: BranchOption) => branch.id.toString() === ownBranchId);
+          setBranches(scoped);
+        } else {
+          setBranches(list);
+        }
       } catch (error) {
         console.error("Không tải được chi nhánh", error);
       }
     };
 
     loadBranches();
-  }, []);
+  }, [isAdmin, ownBranchId]);
+
+  useEffect(() => {
+    if (!isAdmin && ownBranchId) {
+      setSelectedBranchId(ownBranchId);
+    }
+  }, [isAdmin, ownBranchId]);
 
   const loadFinancialData = useCallback(async () => {
     try {
@@ -157,11 +174,11 @@ export default function FinancialReportListPage() {
           <div className="space-y-1.5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Chi nhánh</p>
             <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-              <SelectTrigger className="h-[38px] rounded-none border-[#dcdcdc] shadow-none text-[13px] bg-white">
+              <SelectTrigger className="h-[38px] rounded-none border-[#dcdcdc] shadow-none text-[13px] bg-white" disabled={!isAdmin}>
                 <SelectValue placeholder="Tất cả chi nhánh" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                 {branches.map((branch) => (
                   <SelectItem key={branch.id} value={branch.id.toString()}>
                     {branch.name}

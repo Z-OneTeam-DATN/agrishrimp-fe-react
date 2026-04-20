@@ -446,10 +446,16 @@ function AdminReceiptFormContent() {
         status: isAdmin && !isEditMode ? "APPROVED" : data.status,
         items: payloadItems,
       };
-      isEditMode
+      const savedReceipt = isEditMode
         ? await InventoryApiService.updateReceipt(receiptId!, payload)
         : await InventoryApiService.createReceipt(payload);
-      toast.success("Đã lưu!");
+      toast.success(
+        savedReceipt?.status === "COMPLETED"
+          ? "Đã lưu và duyệt phiếu nhập thành công!"
+          : savedReceipt?.status === "APPROVED"
+            ? "Đã lưu và chuyển phiếu sang trạng thái đã duyệt."
+            : "Đã lưu!",
+      );
       router.push("/admin/receipts");
     } catch (e) {
       toast.error(getErrorMessage(e as any));
@@ -690,7 +696,7 @@ function AdminReceiptFormContent() {
       ? "Xác nhận LƯU VÀ DUYỆT PHIẾU"
       : "Xác nhận LƯU PHIẾU CHỜ DUYỆT";
     const msg = isAdmin
-      ? "Admin duyệt phiếu này sẽ ghi nhận ngay hàng đạt vào kho bán, hàng lỗi vào kho chờ trả và công nợ nhà cung cấp."
+      ? "Phiếu nhập do admin tạo sẽ được duyệt ngay. Nếu đã nhập đủ số lượng đạt/lỗi, hệ thống sẽ chốt luôn tồn kho và công nợ nhà cung cấp."
       : "Phiếu nhập sẽ được lưu ở trạng thái chờ admin duyệt. Khi duyệt, hệ thống mới cập nhật tồn kho và công nợ.";
 
     showConfirm(title, msg, () => {

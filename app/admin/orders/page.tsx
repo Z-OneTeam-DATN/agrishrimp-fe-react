@@ -31,7 +31,7 @@ import { formatDate } from "@/lib/dateUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { getOrderListPath, isBranchOrderUser } from "@/lib/order-routing";
+import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 import { isAdminRole } from "@/lib/roles";
 
 // ── Tab config ──────────────────────────────────────────────────
@@ -196,7 +196,7 @@ const ActionButton = ({
 export default function OrderListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoadingAuth } = useAuthStore();
+  const { user, isLoadingAuth, warehouseId } = useAuthStore();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<BranchOrder[]>([]);
@@ -207,7 +207,7 @@ export default function OrderListPage() {
   );
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const isAdmin = isAdminRole(user?.role);
-  const canUseBranchOrders = isBranchOrderUser(user);
+  const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
 
   const fetchOrders = useCallback(async (tab: string, q?: string) => {
     if (!canUseBranchOrders) return;

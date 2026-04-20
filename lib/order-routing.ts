@@ -19,6 +19,13 @@ export function isBranchOrderUser(user: OrderRouteUser): boolean {
   return !isAdminRole(user?.role) && !!user?.branch?.id;
 }
 
+export function canUseBranchOrderRoutes(
+  user: OrderRouteUser,
+  warehouseId?: number | null,
+): boolean {
+  return !isAdminRole(user?.role) && Boolean(user?.branch?.id || warehouseId);
+}
+
 export function getOrderListPath(
   user: OrderRouteUser,
   status?: string | null,

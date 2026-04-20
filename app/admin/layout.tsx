@@ -10,7 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 import { normalizeRoleSlug } from "@/lib/roles";
-import { isBranchOrderUser } from "@/lib/order-routing";
+import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 
 type RouteRule = {
   exact?: boolean;
@@ -59,10 +59,10 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const { hasPermission, hasAnyPermission } = usePermissions();
-  const { isLoadingAuth, user } = useAuthStore();
+  const { isLoadingAuth, user, warehouseId } = useAuthStore();
   const normalizedRole = normalizeRoleSlug(user?.role);
   const isBlockedAdminRole = normalizedRole === "USER" || normalizedRole === "CUSTOMER";
-  const isBranchScopedOrderUser = isBranchOrderUser(user);
+  const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>

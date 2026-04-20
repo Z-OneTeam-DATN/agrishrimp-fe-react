@@ -228,7 +228,7 @@ export default function NewTransferPage() {
       try {
         const results = await ProductService.searchVariants(searchTerm, currentSourceBranch);
         const finalData = Array.isArray(results) ? results : results?.data || [];
-        setSearchResults(finalData);
+        setSearchResults(finalData.filter((v: any) => Number(v.quantity ?? 0) > 0));
 
         if (document.activeElement?.getAttribute("placeholder")?.includes("Tìm theo tên")) {
           setShowDropdown(true);
@@ -661,7 +661,17 @@ export default function NewTransferPage() {
                         <SelectValue placeholder="Chọn kho xuất..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
-                        {branches.map((b) => (
+                        {(transferBusinessType === "STOCK_TRANSFER"
+                          ? branches.filter((b) => {
+                              const code = String(b.branchCode || "").toUpperCase();
+                              const type = String(b.branchType || "").toUpperCase();
+                              const name = String(b.name || "").toLowerCase();
+                              if (code === "SYSTEM_DEFECT") return false;
+                              if (code === "MAIN_WH") return true;
+                              return type === "WAREHOUSE" && name.includes("kho tổng");
+                            })
+                          : branches
+                        ).map((b) => (
                           <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
                         ))}
                       </SelectContent>

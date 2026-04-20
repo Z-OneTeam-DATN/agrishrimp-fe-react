@@ -92,9 +92,11 @@ export default function RolesManagementPage() {
 
   return (
     <div className="space-y-3">
-      <div className="bg-white border border-slate-200 rounded-lg p-4 mb-4 shadow-sm">
+      <div className="mx-6 mt-5">
         <AdminPageHeader 
           title="Danh sách vai trò hệ thống" 
+          titleClassName="text-[26px] font-black tracking-[0.04em]"
+          subtitle="Quản lý nhóm quyền truy cập, phân loại vai trò và trạng thái hoạt động trong hệ thống."
           addBtnLabel="Thêm vai trò mới" 
           addBtnHref="/admin/employees/roles/add" 
           secondaryBtnLabel="Quản lý nhân sự"

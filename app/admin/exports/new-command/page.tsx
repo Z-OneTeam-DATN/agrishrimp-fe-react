@@ -222,7 +222,14 @@ function AdminExportFormContent() {
           const branchList = Array.isArray(resB) ? resB : resB?.content || [];
           setBranches(branchList);
           if (!isEditMode) {
-            const warehouseBranches = branchList.filter((branch: any) => branch.branchCode === "MAIN_WH");
+            const warehouseBranches = branchList.filter((branch: any) => {
+              const code = String(branch.branchCode || "").toUpperCase();
+              const type = String(branch.branchType || "").toUpperCase();
+              const name = String(branch.name || "").toLowerCase();
+              if (code === "SYSTEM_DEFECT") return false;
+              if (code === "MAIN_WH") return true;
+              return type === "WAREHOUSE" && name.includes("kho tổng");
+            });
             const preferredWarehouse =
               warehouseBranches.find((branch: any) => String(branch.id) === String(currentUser?.branch?.id ?? "")) ||
               warehouseBranches[0];
@@ -808,14 +815,30 @@ function AdminExportFormContent() {
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
              <div className="space-y-1.5 flex flex-col">
                 <Label className="text-[10px] font-bold uppercase text-slate-400">Kho tổng xuất hàng (*)</Label>
-                <input type="hidden" {...register("branchId")} />
-                <Input
-                  readOnly
-                  value={
-                    branches.find((b) => b.id.toString() === watchBranchId)?.name?.toUpperCase() ||
-                    "-- KHO TỔNG --"
-                  }
-                  className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"} bg-slate-50 text-slate-700`}
+                <Controller
+                  name="branchId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
+                      <SelectTrigger className={`rounded-none h-10 font-bold ${errors.branchId ? "border-rose-500" : "border-slate-200"} bg-slate-50 text-slate-700`}>
+                        <SelectValue placeholder="-- KHO TỔNG --" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        {branches
+                          .filter((b: any) => {
+                            const code = String(b.branchCode || "").toUpperCase();
+                            const type = String(b.branchType || "").toUpperCase();
+                            const name = String(b.name || "").toLowerCase();
+                            if (code === "SYSTEM_DEFECT") return false;
+                            if (code === "MAIN_WH") return true;
+                            return type === "WAREHOUSE" && name.includes("kho tổng");
+                          })
+                          .map((b: any) => (
+                            <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
                 {errors.branchId && <p className="text-rose-500 text-[10px] mt-1">{errors.branchId.message}</p>}
              </div>
