@@ -353,9 +353,6 @@ export default function AdminSidebar() {
                   {isBranchScopedOrderUser && (
                     <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
                   )}
-                  {isAdmin && (
-                    <SidebarLink href="/admin/orders-all" icon={List} label="Tất cả kiện hàng" active={pathname === "/admin/orders-all"} isChild />
-                  )}
                   <SidebarLink
                     href="/admin/orders/return"
                     icon={RotateCcw}
