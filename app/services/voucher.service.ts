@@ -6,13 +6,13 @@ export interface Voucher {
   title: string;
   description: string;
   discountType: "FIXED" | "PERCENT";
-  discountValue: number;
-  minOrderValue: number;
-  maxDiscount?: number;
+  discountValue: number | string;
+  minOrderValue: number | string;
+  maxDiscount?: number | string;
   startDate: string;
   endDate: string;
-  quantity: number;     // Tổng số lượng phát hành
-  usageLimit: number;   // Số lần dùng tối đa mỗi người
+  quantity: number | string; // Tổng số lượng phát hành
+  usageLimit: number | string; // Số lần dùng tối đa mỗi người
   usedCount?: number;
   status: "ACTIVE" | "INACTIVE" | "EXPIRED";
 }
@@ -27,6 +27,7 @@ export const voucherService = {
   create: async (data: Voucher) => {
     const payload = {
       code: data.code,
+      title: data.title,
       discountType: data.discountType,
       value: data.discountValue,
       maxUsagePerUser: data.usageLimit,
@@ -44,6 +45,7 @@ export const voucherService = {
   update: async (id: number, data: Voucher) => {
     const payload = {
       code: data.code,
+      title: data.title,
       discountType: data.discountType,
       value: data.discountValue,
       maxUsagePerUser: data.usageLimit,
@@ -71,5 +73,5 @@ export const voucherService = {
   getByCode: async (code: string) => {
     const response = await apiJava.get(`/vouchers/${code}`);
     return response.data;
-  }
+  },
 };
