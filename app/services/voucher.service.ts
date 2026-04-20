@@ -49,8 +49,13 @@ const buildVoucherPayload = (data: VoucherUpsertPayload) => ({
   status: data.status,
 });
 
+type VoucherListParams = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
 export const voucherService = {
-  getAllAdmin: async (params?: any) => {
+  getAllAdmin: async (params?: VoucherListParams) => {
     const response = await apiJava.get("/vouchers", { params });
     return response.data;
   },

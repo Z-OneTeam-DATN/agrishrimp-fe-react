@@ -59,7 +59,18 @@ const toNumber = (value: number | string | undefined | null) =>
 
 const isEmptyNumeric = (value: string) => sanitizeNumericInput(value) === "";
 
-const mapVoucherToFormData = (voucher: any): VoucherFormData => ({
+type VoucherApiErrorItem = {
+  field?: string;
+  defaultMessage?: string;
+};
+
+type VoucherApiErrorResponse = {
+  message?: string;
+  error?: string;
+  errors?: VoucherApiErrorItem[];
+};
+
+const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
   code: voucher.code,
   title: voucher.title || "",
   description: voucher.description || "",
@@ -281,8 +292,7 @@ export default function AdminVoucherPage() {
     }
     if (!formData.endDate) {
       nextErrors.endDate = "Vui lòng chọn ngày kết thúc";
-    } else
-    if (dateError) {
+    } else if (dateError) {
       nextErrors.endDate = dateError;
     }
 
@@ -349,14 +359,22 @@ export default function AdminVoucherPage() {
       }
       setIsModalOpen(false);
       fetchVouchers();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as {
+        response?: { data?: unknown };
+        message?: string;
+      };
+
       console.error(
         "API Error Details:",
-        error.response?.data || error.message,
+        apiError.response?.data || apiError.message,
       );
 
       let message = "Có lỗi xảy ra khi lưu voucher";
-      const data = error.response?.data;
+      const data = apiError.response?.data as
+        | VoucherApiErrorResponse
+        | string
+        | undefined;
 
       if (data) {
         if (typeof data === "string") {
@@ -366,7 +384,7 @@ export default function AdminVoucherPage() {
         } else if (data.errors && Array.isArray(data.errors)) {
           // Bóc tách chi tiết lỗi Validation từ Spring Boot
           message = data.errors
-            .map((e: any) => `${e.field || "Lỗi"}: ${e.defaultMessage}`)
+            .map((e) => `${e.field || "Lỗi"}: ${e.defaultMessage}`)
             .join(" | ");
         } else if (data.error) {
           message = data.error;
@@ -424,8 +442,7 @@ export default function AdminVoucherPage() {
           title: deleteConfirmVoucher.title,
           discountType: deleteConfirmVoucher.discountType,
           value: toNumber(
-            (deleteConfirmVoucher as any).value ??
-              (deleteConfirmVoucher as any).discountValue,
+            deleteConfirmVoucher.value ?? deleteConfirmVoucher.discountValue,
           ),
           minOrderValue: toNumber(deleteConfirmVoucher.minOrderValue),
           maxDiscount:
@@ -438,8 +455,8 @@ export default function AdminVoucherPage() {
           endDate: deleteConfirmVoucher.endDate,
           quantity: toNumber(deleteConfirmVoucher.quantity),
           maxUsagePerUser: toNumber(
-            (deleteConfirmVoucher as any).maxUsagePerUser ??
-              (deleteConfirmVoucher as any).usageLimit,
+            deleteConfirmVoucher.maxUsagePerUser ??
+              deleteConfirmVoucher.usageLimit,
           ),
           status: "INACTIVE",
         };
@@ -455,7 +472,7 @@ export default function AdminVoucherPage() {
     }
   };
 
-  const getDiscountValue = (v: any) => toNumber(v.value ?? v.discountValue);
+  const getDiscountValue = (v: Voucher) => toNumber(v.value ?? v.discountValue);
 
   const generateTitle = (type: string, val: number) => {
     if (type === "PERCENT") return `Giảm ${val}%`;
@@ -988,4 +1005,9 @@ export default function AdminVoucherPage() {
                 )}
               </button>
             </div>
-          </div
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
