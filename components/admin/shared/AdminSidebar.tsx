@@ -75,7 +75,7 @@ export default function AdminSidebar() {
   const canViewBusinessSection = hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]);
   const canViewCatalogSection = hasAnyPermission([P.PRODUCT_VIEW, P.CATEGORY_VIEW, P.ATTRIBUTE_VIEW]);
   const canViewInventorySection = hasAnyPermission([P.IMPORT_VIEW, P.EXPORT_VIEW, P.TRANSFER_VIEW, P.CHECK_VIEW]);
-  const canViewProcurementSection = hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
+  const canViewProcurementSection = !isBranchAccount && hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
   const canViewSettings = hasPermission(P.SETTING_VIEW);
   const canAccessOrderManagement = hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
@@ -131,10 +131,10 @@ export default function AdminSidebar() {
         hasPermission(P.VOUCHER_VIEW)
           ? voucherService.getAllAdmin({ page: 0, size: 1 })
           : Promise.resolve(null),
-        canAccessPurchaseRequests
+        !isBranchAccount && canAccessPurchaseRequests
           ? PurchaseRequestApiService.getAll()
           : Promise.resolve(null),
-        hasPermission(P.IMPORT_VIEW)
+        !isBranchAccount && hasPermission(P.IMPORT_VIEW)
           ? InventoryApiService.getAllReceipts()
           : Promise.resolve(null),
         hasPermission(P.EXPORT_VIEW)
