@@ -16,7 +16,7 @@ export default function LoginPage() {
     <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden bg-white">
       {/* --- LEFT SIDE (Desktop Image) --- */}
       <div className="hidden lg:flex w-1/2 relative bg-zinc-900 overflow-hidden group">
-        <div className="absolute inset-0 transition-transform duration-[20s] ease-in-out group-hover:scale-105">
+        <div className="absolute inset-0 transition-transform [transition-duration:20s] ease-in-out group-hover:scale-105">
           <Image
             src="/images/shrimp-farm-bg.png"
             alt="AgriShrimp Background"

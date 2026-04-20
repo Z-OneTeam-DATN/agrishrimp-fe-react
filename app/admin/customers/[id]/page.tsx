@@ -9,9 +9,7 @@ import {
     MapPin,
     User,
     History,
-    Info,
     ShoppingCart,
-    CheckCircle2,
     UserCircle,
     Wallet,
     PackageCheck,
@@ -99,17 +97,26 @@ interface CustomerData {
     statusLogs?: CustomerStatusLog[];
 }
 
-const translateOrderStatus = (status: string) => {
+const translateStatusLabel = (status: string) => {
     switch (status) {
         case 'PENDING': return 'Chờ xử lý';
         case 'CONFIRMED': return 'Đã xác nhận';
+        case 'AWAITING_REPLENISHMENT': return 'Chờ bổ sung hàng';
+        case 'PROCESSING': return 'Đang xử lý';
         case 'SHIPPING': return 'Đang giao hàng';
         case 'COMPLETED': return 'Hoàn thành';
         case 'CANCELLED': return 'Đã hủy';
         case 'RETURNED': return 'Hoàn trả';
+        case 'ACTIVE': return 'Hoạt động';
+        case 'INACTIVE': return 'Tạm ngưng';
+        case 'SUSPENDED': return 'Tạm ngưng';
+        case 'LOCKED': return 'Bị khóa';
+        case 'BLOCKED': return 'Bị khóa';
         default: return status;
     }
 };
+
+const translateOrderStatus = (status: string) => translateStatusLabel(status);
 
 const getOrderStatusColor = (status: string) => {
     switch (status) {
@@ -562,12 +569,6 @@ export default function CustomerDetailPage({
                             >
                                 <Activity size={13} className="mr-1.5" /> Lịch sử thay đổi
                             </TabsTrigger>
-                            <TabsTrigger
-                                value="info"
-                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
-                            >
-                                <Info size={13} className="mr-1.5" /> Chỉ số uy tín
-                            </TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="history" className="mt-0">
@@ -582,6 +583,8 @@ export default function CustomerDetailPage({
                                         <option value="all">Tất cả trạng thái</option>
                                         <option value="PENDING">Chờ xử lý</option>
                                         <option value="CONFIRMED">Đã xác nhận</option>
+                                        <option value="AWAITING_REPLENISHMENT">Chờ bổ sung hàng</option>
+                                        <option value="PROCESSING">Đang xử lý</option>
                                         <option value="SHIPPING">Đang giao</option>
                                         <option value="COMPLETED">Hoàn thành</option>
                                         <option value="CANCELLED">Đã hủy</option>
@@ -738,7 +741,7 @@ export default function CustomerDetailPage({
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div>
                                                         <p className="text-[11px] font-bold text-slate-800">
-                                                            {log.fromStatus} → {log.toStatus}
+                                                            {translateStatusLabel(log.fromStatus)} → {translateStatusLabel(log.toStatus)}
                                                         </p>
                                                         <p className="text-[10px] text-slate-600 mt-1">{log.reason || 'Cập nhật trạng thái'}</p>
                                                         <p className="text-[9px] text-slate-500 mt-1.5">
@@ -751,66 +754,6 @@ export default function CustomerDetailPage({
                                     ) : (
                                         <p className="text-center text-[10px] text-slate-400 py-8">Chưa có lịch sử thay đổi</p>
                                     )}
-                                </div>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="info" className="mt-0">
-                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm p-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 bg-orange-50 rounded-none flex items-center justify-center text-orange-600 border border-orange-100 shadow-sm">
-                                            <CheckCircle2 size={28} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                                Tỉ lệ nhận hàng thành công
-                                            </p>
-                                            <p className={cn(
-                                                "text-[24px] font-black leading-none",
-                                                customer?.riskLevel === 'HIGH' ? "text-rose-600" :
-                                                    customer?.riskLevel === 'MEDIUM' ? "text-orange-500" :
-                                                        customer?.riskLevel === 'UNKNOWN' ? "text-slate-500" : "text-emerald-600"
-                                            )}>
-                                                {customer?.reputationScore || 0} %
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className={cn(
-                                        "text-right px-3 py-2 border",
-                                        customer?.riskLevel === 'HIGH' ? "bg-rose-50 border-rose-100" :
-                                            customer?.riskLevel === 'MEDIUM' ? "bg-orange-50 border-orange-100" :
-                                                customer?.riskLevel === 'UNKNOWN' ? "bg-slate-50 border-slate-200" : "bg-emerald-50 border-emerald-100"
-                                    )}>
-                                        <p className={cn(
-                                            "text-[10px] font-bold uppercase",
-                                            customer?.riskLevel === 'HIGH' ? "text-rose-600" :
-                                                customer?.riskLevel === 'MEDIUM' ? "text-orange-600" :
-                                                    customer?.riskLevel === 'UNKNOWN' ? "text-slate-600" : "text-emerald-600"
-                                        )}>
-                                            Phân loại
-                                        </p>
-                                        <p className={cn(
-                                            "text-[12px] font-black uppercase",
-                                            customer?.riskLevel === 'HIGH' ? "text-rose-700" :
-                                                customer?.riskLevel === 'MEDIUM' ? "text-orange-700" :
-                                                    customer?.riskLevel === 'UNKNOWN' ? "text-slate-600" : "text-emerald-700"
-                                        )}>
-                                            {getRiskLabel()}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Thêm phần chú thích về quy tắc khóa tài khoản */}
-                                <div className="mt-5 pt-3 border-t border-slate-100 text-[10px] text-slate-500 bg-slate-50 p-3">
-                                    <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-1 uppercase text-[11px]">
-                                            <Info size={13} className="text-blue-500"/> Quy tắc hệ thống:
-                                    </h4>
-                                    <ul className="list-disc pl-4 space-y-0.5">
-                                            <li><span className="font-semibold text-slate-600">Dưới 3 đơn</span>: Chưa đủ dữ liệu để đánh giá rủi ro, không ép chỉ thanh toán online.</li>
-                                            <li><span className="font-semibold text-orange-600">Dưới 50%</span>: Gửi cảnh báo và chỉ cho phép thanh toán online.</li>
-                                            <li><span className="font-semibold text-emerald-600">Từ 50% trở lên</span>: Có thể dùng COD nếu các quy trình khác cho phép.</li>
-                                    </ul>
                                 </div>
                             </div>
                         </TabsContent>
