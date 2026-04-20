@@ -17,9 +17,7 @@ const loadSavedVoucherCodes = () => {
 
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)
-      ? parsed
-          .map((code) => String(code).trim().toUpperCase())
-          .filter(Boolean)
+      ? parsed.map((code) => String(code).trim().toUpperCase()).filter(Boolean)
       : [];
   } catch {
     return [];

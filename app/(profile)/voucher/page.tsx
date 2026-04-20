@@ -46,9 +46,7 @@ const loadSavedVoucherCodes = () => {
 
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)
-      ? parsed
-          .map((code) => String(code).trim().toUpperCase())
-          .filter(Boolean)
+      ? parsed.map((code) => String(code).trim().toUpperCase()).filter(Boolean)
       : [];
   } catch {
     return [];
@@ -125,7 +123,9 @@ export default function VoucherWalletPage() {
 
   const handleRemoveSaved = (code: string) => {
     const normalized = code.trim().toUpperCase();
-    const nextCodes = savedCodes.filter((savedCode) => savedCode !== normalized);
+    const nextCodes = savedCodes.filter(
+      (savedCode) => savedCode !== normalized,
+    );
     setSavedCodes(nextCodes);
     persistSavedVoucherCodes(nextCodes);
     toast.success(`Đã gỡ voucher ${normalized} khỏi ví`);
@@ -158,7 +158,10 @@ export default function VoucherWalletPage() {
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-28 rounded-2xl bg-gray-100 animate-pulse" />
+              <div
+                key={item}
+                className="h-28 rounded-2xl bg-gray-100 animate-pulse"
+              />
             ))}
           </div>
         ) : (
@@ -177,7 +180,9 @@ export default function VoucherWalletPage() {
             {savedVouchers.length > 0 ? (
               <div className="space-y-4">
                 {savedVouchers.map((voucher) => {
-                  const value = Number(voucher.value ?? voucher.discountValue ?? 0);
+                  const value = Number(
+                    voucher.value ?? voucher.discountValue ?? 0,
+                  );
                   const isPercent = voucher.discountType === "PERCENT";
                   const isSaved = savedCodeSet.has(voucher.code.toUpperCase());
 
@@ -189,7 +194,11 @@ export default function VoucherWalletPage() {
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex gap-4 min-w-0">
                           <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-600">
-                            {isPercent ? <Percent size={28} /> : <Ticket size={28} />}
+                            {isPercent ? (
+                              <Percent size={28} />
+                            ) : (
+                              <Ticket size={28} />
+                            )}
                           </div>
 
                           <div className="min-w-0">
@@ -199,7 +208,10 @@ export default function VoucherWalletPage() {
                             <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
                               <span className="flex items-center gap-1">
                                 <Clock size={12} />
-                                HSD: {new Date(voucher.endDate).toLocaleDateString("vi-VN")}
+                                HSD:{" "}
+                                {new Date(voucher.endDate).toLocaleDateString(
+                                  "vi-VN",
+                                )}
                               </span>
                               <span className="text-gray-300">|</span>
                               <span className="flex items-center gap-1">
@@ -217,7 +229,8 @@ export default function VoucherWalletPage() {
                             )}
 
                             <div className="mt-2 text-xs text-gray-500">
-                              Đơn tối thiểu: {formatMoney(voucher.minOrderValue)}
+                              Đơn tối thiểu:{" "}
+                              {formatMoney(voucher.minOrderValue)}
                               {isPercent
                                 ? ` · Giảm ${value}%${voucher.maxDiscount ? `, tối đa ${formatMoney(voucher.maxDiscount)}` : ""}`
                                 : ` · Giảm ${formatMoney(value)}`}
