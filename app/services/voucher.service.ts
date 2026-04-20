@@ -32,6 +32,7 @@ export const voucherService = {
       value: data.discountValue,
       maxUsagePerUser: data.usageLimit,
       minOrderValue: data.minOrderValue,
+      maxDiscount: data.maxDiscount,
       startDate: data.startDate,
       endDate: data.endDate,
       quantity: data.quantity, // Đã lấy từ form, không còn hardcode 100
@@ -50,6 +51,7 @@ export const voucherService = {
       value: data.discountValue,
       maxUsagePerUser: data.usageLimit,
       minOrderValue: data.minOrderValue,
+      maxDiscount: data.maxDiscount,
       startDate: data.startDate,
       endDate: data.endDate,
       quantity: data.quantity,

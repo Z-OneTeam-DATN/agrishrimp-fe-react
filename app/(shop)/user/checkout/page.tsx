@@ -266,6 +266,12 @@ export default function CheckoutPage() {
   const selectedShipping = SHIPPING_METHODS.find((s) => s.id === shippingMethodId) || SHIPPING_METHODS[0];
   const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  useEffect(() => {
+    if (selectedVoucher && subTotal < (selectedVoucher.minOrderValue || 0)) {
+      setSelectedVoucher(null);
+    }
+  }, [subTotal, selectedVoucher]);
+
   let voucherDiscount = 0;
   if (selectedVoucher) {
     if (subTotal >= (selectedVoucher.minOrderValue || 0)) {
@@ -278,8 +284,6 @@ export default function CheckoutPage() {
       } else {
         voucherDiscount = actualValue;
       }
-    } else {
-      setSelectedVoucher(null);
     }
   }
 

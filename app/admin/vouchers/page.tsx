@@ -287,10 +287,8 @@ export default function AdminVoucherPage() {
       const dataToSubmit: any = {
         code: formData.code,
         title: formData.title,
-        description: formData.description,
         discountType: formData.discountType,
-        value: discountValue, // Đã đổi thành value cho khớp BE
-        discountValue: discountValue, // Backup dự phòng BE hoặc Service chưa cập nhật
+        value: discountValue,
         minOrderValue,
         maxDiscount: formData.maxDiscount === "" ? null : maxDiscount,
         startDate:
@@ -302,8 +300,7 @@ export default function AdminVoucherPage() {
             ? `${formData.endDate}:00`
             : formData.endDate, // Bổ sung giây
         quantity,
-        maxUsagePerUser: usageLimit, // Đã đổi thành maxUsagePerUser cho khớp BE
-        usageLimit: usageLimit, // Backup dự phòng
+        maxUsagePerUser: usageLimit,
         status: formData.status,
       };
 
@@ -341,14 +338,33 @@ export default function AdminVoucherPage() {
       }
       setIsModalOpen(false);
       fetchVouchers();
-    } catch (error) {
-      const message =
-        typeof error === "object" && error !== null && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : undefined;
-      toast.error(message || "Có lỗi xảy ra");
-      if (message) {
+    } catch (error: any) {
+      console.error(
+        "API Error Details:",
+        error.response?.data || error.message,
+      );
+
+      let message = "Có lỗi xảy ra khi lưu voucher";
+      const data = error.response?.data;
+
+      if (data) {
+        if (typeof data === "string") {
+          message = data;
+        } else if (data.message) {
+          message = data.message;
+        } else if (data.errors && Array.isArray(data.errors)) {
+          // Bóc tách chi tiết lỗi Validation từ Spring Boot
+          message = data.errors
+            .map((e: any) => `${e.field || "Lỗi"}: ${e.defaultMessage}`)
+            .join(" | ");
+        } else if (data.error) {
+          message = data.error;
+        }
+      }
+
+      toast.error(message);
+
+      if (message && typeof message === "string") {
         const lowerMessage = message.toLowerCase();
         if (lowerMessage.includes("ngày kết thúc")) {
           setErrors((prev) => ({ ...prev, endDate: message }));
@@ -391,25 +407,27 @@ export default function AdminVoucherPage() {
         await voucherService.delete(deleteConfirmVoucher.id);
         toast.success("Đã xóa voucher vĩnh viễn");
       } else {
+        // Tạo payload sạch sẽ, không dùng ...spread để tránh gửi rác xuống Backend
         const payload: any = {
-          ...deleteConfirmVoucher,
-          value: toNumber((deleteConfirmVoucher as any).value),
-          discountValue: toNumber(
-            (deleteConfirmVoucher as any).value ||
+          code: deleteConfirmVoucher.code,
+          title: deleteConfirmVoucher.title,
+          discountType: deleteConfirmVoucher.discountType,
+          value: toNumber(
+            (deleteConfirmVoucher as any).value ??
               (deleteConfirmVoucher as any).discountValue,
           ),
           minOrderValue: toNumber(deleteConfirmVoucher.minOrderValue),
           maxDiscount:
             deleteConfirmVoucher.maxDiscount === undefined ||
+            deleteConfirmVoucher.maxDiscount === null ||
             deleteConfirmVoucher.maxDiscount === ""
               ? null
               : toNumber(deleteConfirmVoucher.maxDiscount),
+          startDate: deleteConfirmVoucher.startDate,
+          endDate: deleteConfirmVoucher.endDate,
           quantity: toNumber(deleteConfirmVoucher.quantity),
           maxUsagePerUser: toNumber(
-            (deleteConfirmVoucher as any).maxUsagePerUser,
-          ),
-          usageLimit: toNumber(
-            (deleteConfirmVoucher as any).maxUsagePerUser ||
+            (deleteConfirmVoucher as any).maxUsagePerUser ??
               (deleteConfirmVoucher as any).usageLimit,
           ),
           status: "INACTIVE",

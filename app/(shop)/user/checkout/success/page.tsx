@@ -73,7 +73,9 @@ export default function CheckoutPage() {
   const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
   const [note, setNote] = useState("");
 
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null,
+  );
   const [shippingMethodId, setShippingMethodId] = useState<string>("fast");
   const [paymentMethod, setPaymentMethod] = useState<string>("COD");
 
@@ -137,10 +139,13 @@ export default function CheckoutPage() {
   }, [router]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
-  const subTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subTotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
 
   useEffect(() => {
-    const codeFromUrl = searchParams.get('voucher');
+    const codeFromUrl = searchParams.get("voucher");
     if (codeFromUrl && availableVouchers.length > 0 && subTotal > 0) {
       const found = availableVouchers.find((v) => v.code === codeFromUrl);
       if (found && subTotal >= (found.minOrderValue || 0)) {
@@ -165,7 +170,10 @@ export default function CheckoutPage() {
           const estimated = branchProvince === userProvince ? 1 : 3;
           return { ...branch, estimatedDays: estimated };
         });
-        processedBranches.sort((a: Branch, b: Branch) => (a.estimatedDays || 0) - (b.estimatedDays || 0));
+        processedBranches.sort(
+          (a: Branch, b: Branch) =>
+            (a.estimatedDays || 0) - (b.estimatedDays || 0),
+        );
         setAvailableBranches(processedBranches);
         if (processedBranches.length > 0) {
           setSelectedBranchId(processedBranches[0].id);
@@ -184,7 +192,9 @@ export default function CheckoutPage() {
     findEligibleBranches();
   }, [selectedAddressId, addresses, cartItems]);
 
-  const selectedBranch = availableBranches.find((b) => b.id === selectedBranchId);
+  const selectedBranch = availableBranches.find(
+    (b) => b.id === selectedBranchId,
+  );
 
   const handleAddNewAddress = async (data: any) => {
     setIsSubmittingAddress(true);
@@ -212,7 +222,9 @@ export default function CheckoutPage() {
     }
   };
 
-  const selectedShipping = SHIPPING_METHODS.find((s) => s.id === shippingMethodId) || SHIPPING_METHODS[0];
+  const selectedShipping =
+    SHIPPING_METHODS.find((s) => s.id === shippingMethodId) ||
+    SHIPPING_METHODS[0];
 
   // ==========================================
   // LOGIC TÍNH TOÁN TIỀN VOUCHER (ĐÃ FIX LẠI)
@@ -221,7 +233,9 @@ export default function CheckoutPage() {
   if (selectedVoucher) {
     if (subTotal >= (selectedVoucher.minOrderValue || 0)) {
       // Đọc giá trị voucher từ thuộc tính `value` hoặc `discountValue`
-      const actualValue = Number(selectedVoucher.value || selectedVoucher.discountValue || 0);
+      const actualValue = Number(
+        selectedVoucher.value || selectedVoucher.discountValue || 0,
+      );
 
       if (selectedVoucher.discountType === "PERCENT") {
         const calculatedDiscount = (subTotal * actualValue) / 100;
@@ -236,9 +250,6 @@ export default function CheckoutPage() {
       if (voucherDiscount > subTotal) {
         voucherDiscount = subTotal;
       }
-    } else {
-      // Đơn hàng không còn đủ điều kiện tối thiểu -> Hủy chọn voucher
-      setSelectedVoucher(null);
     }
   }
 
@@ -259,7 +270,9 @@ export default function CheckoutPage() {
   };
 
   const applyVoucherByCode = () => {
-    const found = availableVouchers.find((v) => v.code === voucherInput.trim().toUpperCase());
+    const found = availableVouchers.find(
+      (v) => v.code === voucherInput.trim().toUpperCase(),
+    );
     if (!found) {
       toast.error("Mã voucher không hợp lệ hoặc đã hết hạn");
       return;
@@ -305,12 +318,18 @@ export default function CheckoutPage() {
       const response = await orderService.checkout(payload);
 
       if (paymentMethod === "PAYOS") {
-        let checkoutUrl = response?.checkoutUrl || response?.paymentUrl || response?.payUrl || response?.url;
+        let checkoutUrl =
+          response?.checkoutUrl ||
+          response?.paymentUrl ||
+          response?.payUrl ||
+          response?.url;
         const orderId = response?.orderId || response?.id;
 
         if (!checkoutUrl && orderId) {
           try {
-            const { getPaymentLink } = await import("@/app/services/orderService");
+            const { getPaymentLink } = await import(
+              "@/app/services/orderService"
+            );
             checkoutUrl = await getPaymentLink(orderId);
           } catch (linkError) {
             console.error("Lỗi khi lấy lại link thanh toán:", linkError);
@@ -321,7 +340,9 @@ export default function CheckoutPage() {
           window.location.href = checkoutUrl;
           return;
         } else {
-          toast.error("Máy chủ không trả về liên kết thanh toán. Vui lòng thử lại hoặc chọn phương thức khác!");
+          toast.error(
+            "Máy chủ không trả về liên kết thanh toán. Vui lòng thử lại hoặc chọn phương thức khác!",
+          );
           setIsSubmitting(false);
           return;
         }
@@ -339,11 +360,16 @@ export default function CheckoutPage() {
       toast.success("🎉 Đặt hàng thành công! Cảm ơn bạn.");
       useCartStore.getState().clearCart();
       useCartStore.getState().fetchCartCount();
-      router.push(`/order-success?orderId=${finalOrderId}&orderCode=${encodeURIComponent(finalOrderCode || "")}&method=offline`);
+      router.push(
+        `/order-success?orderId=${finalOrderId}&orderCode=${encodeURIComponent(finalOrderCode || "")}&method=offline`,
+      );
       router.refresh();
     } catch (error: any) {
       const errData = error.response?.data;
-      const errMsg = typeof errData === "object" ? errData.detail || errData.message || errData.error : errData || error.message || "Lỗi xử lý đặt hàng!";
+      const errMsg =
+        typeof errData === "object"
+          ? errData.detail || errData.message || errData.error
+          : errData || error.message || "Lỗi xử lý đặt hàng!";
       toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -369,12 +395,21 @@ export default function CheckoutPage() {
             <Link href="/user/cart" className="p-1 -ml-1">
               <ChevronLeft size={22} className="text-gray-600" />
             </Link>
-            <h1 className="font-semibold text-base text-gray-800 flex-1 text-center pr-6">Thanh toán</h1>
+            <h1 className="font-semibold text-base text-gray-800 flex-1 text-center pr-6">
+              Thanh toán
+            </h1>
           </div>
           <nav className="hidden md:flex items-center gap-1.5 py-4 text-sm text-gray-500">
-            <Link href="/" className="hover:text-teal-600 transition-colors">Trang chủ</Link>
+            <Link href="/" className="hover:text-teal-600 transition-colors">
+              Trang chủ
+            </Link>
             <ChevronRight size={13} className="text-gray-300" />
-            <Link href="/user/cart" className="hover:text-teal-600 transition-colors">Giỏ hàng</Link>
+            <Link
+              href="/user/cart"
+              className="hover:text-teal-600 transition-colors"
+            >
+              Giỏ hàng
+            </Link>
             <ChevronRight size={13} className="text-gray-300" />
             <span className="text-gray-800 font-medium">Thanh toán</span>
           </nav>
@@ -382,35 +417,69 @@ export default function CheckoutPage() {
       </div>
 
       <div className="container mx-auto px-4 max-w-5xl py-5">
-        <form id="checkout-form" onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <form
+          id="checkout-form"
+          onSubmit={handleCheckout}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-5"
+        >
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
-                <h2 className="text-sm font-semibold text-gray-700">Địa chỉ nhận hàng</h2>
+                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                  1
+                </span>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Địa chỉ nhận hàng
+                </h2>
               </div>
               <div className="p-5 space-y-4">
                 {selectedAddress ? (
                   <div className="flex items-start gap-3">
-                    <MapPin size={15} className="text-teal-600 mt-0.5 shrink-0" />
+                    <MapPin
+                      size={15}
+                      className="text-teal-600 mt-0.5 shrink-0"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                        <span className="text-sm font-semibold text-gray-900">{selectedAddress.receiverName}</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {selectedAddress.receiverName}
+                        </span>
                         <span className="text-gray-300 text-xs">·</span>
-                        <span className="text-sm text-gray-600">{selectedAddress.receiverPhone}</span>
+                        <span className="text-sm text-gray-600">
+                          {selectedAddress.receiverPhone}
+                        </span>
                         {selectedAddress.isDefault && (
-                          <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded font-medium">Mặc định</span>
+                          <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded font-medium">
+                            Mặc định
+                          </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 leading-relaxed">{selectedAddress.addressDetail}</p>
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                        {selectedAddress.addressDetail}
+                      </p>
                     </div>
-                    <button type="button" onClick={() => setIsAddressModalOpen(true)} className="text-sm text-teal-600 hover:text-teal-700 font-medium shrink-0 transition-colors">Đổi</button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressModalOpen(true)}
+                      className="text-sm text-teal-600 hover:text-teal-700 font-medium shrink-0 transition-colors"
+                    >
+                      Đổi
+                    </button>
                   </div>
                 ) : (
                   <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 flex flex-col items-center text-center">
                     <MapPin size={28} className="text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500 mb-4">Chưa có địa chỉ nhận hàng</p>
-                    <button type="button" onClick={() => { setIsAddingNewAddress(true); setIsAddressModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                    <p className="text-sm text-gray-500 mb-4">
+                      Chưa có địa chỉ nhận hàng
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingNewAddress(true);
+                        setIsAddressModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                    >
                       <Plus size={15} /> Thêm địa chỉ
                     </button>
                   </div>
@@ -426,70 +495,155 @@ export default function CheckoutPage() {
             </div>
 
             {selectedAddress && (
-              <div onClick={() => { if (availableBranches.length > 1) setIsBranchModalOpen(true); }} className={`bg-white border rounded-xl overflow-hidden transition-all ${availableBranches.length > 1 && !isFindingBranch ? "cursor-pointer hover:border-teal-300" : ""} ${availableBranches.length === 0 && !isFindingBranch ? "border-red-200" : "border-gray-200"}`}>
+              <div
+                onClick={() => {
+                  if (availableBranches.length > 1) setIsBranchModalOpen(true);
+                }}
+                className={`bg-white border rounded-xl overflow-hidden transition-all ${availableBranches.length > 1 && !isFindingBranch ? "cursor-pointer hover:border-teal-300" : ""} ${availableBranches.length === 0 && !isFindingBranch ? "border-red-200" : "border-gray-200"}`}
+              >
                 <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                  <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
-                  <h2 className="text-sm font-semibold text-gray-700">Kho xuất hàng</h2>
+                  <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <h2 className="text-sm font-semibold text-gray-700">
+                    Kho xuất hàng
+                  </h2>
                 </div>
                 <div className="px-5 py-4">
                   {isFindingBranch ? (
-                    <div className="flex items-center gap-3 text-gray-400"><Loader2 size={15} className="animate-spin text-teal-500 shrink-0" /><span className="text-sm">Đang kiểm tra tồn kho tại các chi nhánh...</span></div>
+                    <div className="flex items-center gap-3 text-gray-400">
+                      <Loader2
+                        size={15}
+                        className="animate-spin text-teal-500 shrink-0"
+                      />
+                      <span className="text-sm">
+                        Đang kiểm tra tồn kho tại các chi nhánh...
+                      </span>
+                    </div>
                   ) : availableBranches.length === 0 ? (
-                    <div className="flex items-center gap-3"><AlertTriangle size={15} className="text-red-500 shrink-0" /><div><p className="text-sm font-medium text-red-700">Không có chi nhánh đủ hàng</p><p className="text-xs text-red-400 mt-0.5">Vui lòng thử lại sau hoặc liên hệ hỗ trợ</p></div></div>
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle
+                        size={15}
+                        className="text-red-500 shrink-0"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-red-700">
+                          Không có chi nhánh đủ hàng
+                        </p>
+                        <p className="text-xs text-red-400 mt-0.5">
+                          Vui lòng thử lại sau hoặc liên hệ hỗ trợ
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
                         <Store size={15} className="text-teal-600 shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{selectedBranch?.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{getDeliveryDateText(selectedBranch?.estimatedDays)}</p>
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {selectedBranch?.name}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {getDeliveryDateText(selectedBranch?.estimatedDays)}
+                          </p>
                         </div>
                       </div>
-                      {availableBranches.length > 1 && <span className="text-xs text-teal-600 font-medium flex items-center gap-0.5 shrink-0">Đổi <ChevronRight size={13} /></span>}
+                      {availableBranches.length > 1 && (
+                        <span className="text-xs text-teal-600 font-medium flex items-center gap-0.5 shrink-0">
+                          Đổi <ChevronRight size={13} />
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden transition-opacity ${!canCheckout ? "opacity-40 pointer-events-none" : ""}`}>
+            <div
+              className={`bg-white border border-gray-200 rounded-xl overflow-hidden transition-opacity ${!canCheckout ? "opacity-40 pointer-events-none" : ""}`}
+            >
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">3</span>
-                <h2 className="text-sm font-semibold text-gray-700">Phương thức vận chuyển</h2>
+                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                  3
+                </span>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Phương thức vận chuyển
+                </h2>
               </div>
               <div className="p-5">
                 <div className="flex items-center justify-between p-3.5 border border-teal-400 bg-teal-50/40 rounded-xl">
                   <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full border-2 border-teal-600 flex items-center justify-center shrink-0"><div className="w-2 h-2 rounded-full bg-teal-600" /></div>
+                    <div className="w-4 h-4 rounded-full border-2 border-teal-600 flex items-center justify-center shrink-0">
+                      <div className="w-2 h-2 rounded-full bg-teal-600" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Giao hàng tiêu chuẩn</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{selectedBranch ? getDeliveryDateText(selectedBranch.estimatedDays) : "Đang cập nhật..."}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        Giao hàng tiêu chuẩn
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {selectedBranch
+                          ? getDeliveryDateText(selectedBranch.estimatedDays)
+                          : "Đang cập nhật..."}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-gray-800">{formatMoney(actualShippingFee)}</span>
+                  <span className="text-sm font-semibold text-gray-800">
+                    {formatMoney(actualShippingFee)}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden transition-opacity ${!canCheckout ? "opacity-40 pointer-events-none" : ""}`}>
+            <div
+              className={`bg-white border border-gray-200 rounded-xl overflow-hidden transition-opacity ${!canCheckout ? "opacity-40 pointer-events-none" : ""}`}
+            >
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">4</span>
-                <h2 className="text-sm font-semibold text-gray-700">Phương thức thanh toán</h2>
+                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                  4
+                </span>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Phương thức thanh toán
+                </h2>
               </div>
               <div className="p-5 space-y-3">
                 {[
-                  { val: "COD", label: "Thanh toán khi nhận hàng", sub: "Trả tiền mặt trực tiếp cho shipper", icon: "https://cdn-icons-png.flaticon.com/512/2331/2331941.png" },
-                  { val: "PAYOS", label: "Thanh toán online (payOS)", sub: "QR Code / thẻ ATM / thẻ tín dụng", icon: "https://incanhsat.com/wp-content/uploads/2020/12/logo-payos.png" },
+                  {
+                    val: "COD",
+                    label: "Thanh toán khi nhận hàng",
+                    sub: "Trả tiền mặt trực tiếp cho shipper",
+                    icon: "https://cdn-icons-png.flaticon.com/512/2331/2331941.png",
+                  },
+                  {
+                    val: "PAYOS",
+                    label: "Thanh toán online (payOS)",
+                    sub: "QR Code / thẻ ATM / thẻ tín dụng",
+                    icon: "https://incanhsat.com/wp-content/uploads/2020/12/logo-payos.png",
+                  },
                 ].map((pm) => (
-                  <label key={pm.val} onClick={() => setPaymentMethod(pm.val)} className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${paymentMethod === pm.val ? "border-teal-500 bg-teal-50/40 ring-1 ring-teal-400" : "border-gray-200 hover:border-gray-300"}`}>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${paymentMethod === pm.val ? "border-teal-600" : "border-gray-300"}`}>
-                      {paymentMethod === pm.val && <div className="w-2 h-2 rounded-full bg-teal-600" />}
+                  <label
+                    key={pm.val}
+                    onClick={() => setPaymentMethod(pm.val)}
+                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${paymentMethod === pm.val ? "border-teal-500 bg-teal-50/40 ring-1 ring-teal-400" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${paymentMethod === pm.val ? "border-teal-600" : "border-gray-300"}`}
+                    >
+                      {paymentMethod === pm.val && (
+                        <div className="w-2 h-2 rounded-full bg-teal-600" />
+                      )}
                     </div>
                     <div className="w-8 h-8 relative shrink-0">
-                      <Image src={pm.icon} alt={pm.val} fill className="object-contain" />
+                      <Image
+                        src={pm.icon}
+                        alt={pm.val}
+                        fill
+                        className="object-contain"
+                      />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{pm.label}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {pm.label}
+                      </p>
                       <p className="text-xs text-gray-400 mt-0.5">{pm.sub}</p>
                     </div>
                   </label>
@@ -502,21 +656,38 @@ export default function CheckoutPage() {
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden lg:sticky lg:top-5">
               <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50">
                 <ShoppingBag size={14} className="text-gray-400" />
-                <h2 className="text-sm font-semibold text-gray-700">Đơn hàng ({cartItems.length} sản phẩm)</h2>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Đơn hàng ({cartItems.length} sản phẩm)
+                </h2>
               </div>
 
               <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto">
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex gap-3 px-4 py-3">
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                      <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
+                      <Image
+                        src={item.image || "/placeholder.svg"}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{item.name}</p>
-                      {item.variant && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.variant}</p>}
+                      <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">
+                        {item.name}
+                      </p>
+                      {item.variant && (
+                        <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                          {item.variant}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-[11px] text-gray-400">×{item.quantity}</span>
-                        <span className="text-xs font-semibold text-gray-800">{formatMoney(item.price * item.quantity)}</span>
+                        <span className="text-[11px] text-gray-400">
+                          ×{item.quantity}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-800">
+                          {formatMoney(item.price * item.quantity)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -531,10 +702,17 @@ export default function CheckoutPage() {
                   className="w-full flex items-center gap-2 px-3 py-2.5 border border-dashed border-gray-200 rounded-lg hover:border-teal-400 hover:bg-teal-50 transition-all group disabled:opacity-40 disabled:pointer-events-none"
                 >
                   <Ticket size={14} className="text-teal-600 shrink-0" />
-                  <span className={`text-sm flex-1 text-left ${selectedVoucher ? "text-teal-700 font-medium" : "text-gray-400"}`}>
-                    {selectedVoucher ? `${selectedVoucher.code} · -${formatMoney(voucherDiscount)}` : "Chọn mã giảm giá"}
+                  <span
+                    className={`text-sm flex-1 text-left ${selectedVoucher ? "text-teal-700 font-medium" : "text-gray-400"}`}
+                  >
+                    {selectedVoucher
+                      ? `${selectedVoucher.code} · -${formatMoney(voucherDiscount)}`
+                      : "Chọn mã giảm giá"}
                   </span>
-                  <ChevronRight size={13} className="text-gray-300 group-hover:text-teal-500 transition-colors" />
+                  <ChevronRight
+                    size={13}
+                    className="text-gray-300 group-hover:text-teal-500 transition-colors"
+                  />
                 </button>
               </div>
 
@@ -542,31 +720,60 @@ export default function CheckoutPage() {
               <div className="px-4 py-3 border-t border-gray-100 space-y-2.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Tạm tính</span>
-                  <span className="text-gray-800 font-medium">{formatMoney(subTotal)}</span>
+                  <span className="text-gray-800 font-medium">
+                    {formatMoney(subTotal)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Phí vận chuyển</span>
-                  <span className="text-gray-800 font-medium">{formatMoney(shippingFee)}</span>
+                  <span className="text-gray-800 font-medium">
+                    {formatMoney(shippingFee)}
+                  </span>
                 </div>
                 {/* ĐÂY LÀ CHỖ HIỂN THỊ TIỀN VOUCHER */}
                 {voucherDiscount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Giảm giá (Voucher)</span>
-                    <span className="text-teal-600 font-medium">-{formatMoney(voucherDiscount)}</span>
+                    <span className="text-teal-600 font-medium">
+                      -{formatMoney(voucherDiscount)}
+                    </span>
                   </div>
                 )}
               </div>
 
               <div className="hidden md:block px-4 pb-5 pt-3 border-t border-gray-200">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-semibold text-gray-700">Tổng thanh toán</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    Tổng thanh toán
+                  </span>
                   {/* TIỀN CUỐI CÙNG ĐÃ TRỪ VOUCHER */}
-                  <span className="text-xl font-bold text-gray-900">{formatMoney(finalTotal)}</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    {formatMoney(finalTotal)}
+                  </span>
                 </div>
-                <button type="submit" disabled={isSubmitting || !canCheckout} className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={15} /></>}
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !canCheckout}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <>
+                      {paymentMethod === "PAYOS"
+                        ? "Thanh toán ngay"
+                        : "Đặt hàng"}{" "}
+                      <ArrowRight size={15} />
+                    </>
+                  )}
                 </button>
-                <p className="text-center text-[11px] text-gray-400 mt-3 leading-relaxed">Nhấn đặt hàng là bạn đồng ý với <span className="text-teal-600 cursor-pointer">điều khoản sử dụng</span> của AgriShrimp</p>
+                <p className="text-center text-[11px] text-gray-400 mt-3 leading-relaxed">
+                  Nhấn đặt hàng là bạn đồng ý với{" "}
+                  <span className="text-teal-600 cursor-pointer">
+                    điều khoản sử dụng
+                  </span>{" "}
+                  của AgriShrimp
+                </p>
               </div>
             </div>
           </div>
@@ -578,21 +785,43 @@ export default function CheckoutPage() {
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="flex-1">
             <p className="text-xs text-gray-400">Tổng thanh toán</p>
-            <p className="text-base font-bold text-gray-900">{formatMoney(finalTotal)}</p>
+            <p className="text-base font-bold text-gray-900">
+              {formatMoney(finalTotal)}
+            </p>
           </div>
-          <button type="submit" form="checkout-form" disabled={isSubmitting || !canCheckout} className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <>{paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"} <ArrowRight size={14} /></>}
+          <button
+            type="submit"
+            form="checkout-form"
+            disabled={isSubmitting || !canCheckout}
+            className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <>
+                {paymentMethod === "PAYOS" ? "Thanh toán ngay" : "Đặt hàng"}{" "}
+                <ArrowRight size={14} />
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {isVoucherModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setIsVoucherModalOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setIsVoucherModalOpen(false)}
+          />
           <div className="bg-white w-full sm:max-w-md relative z-10 shadow-xl rounded-t-2xl sm:rounded-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-800">Mã giảm giá</h3>
-              <button onClick={() => setIsVoucherModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={18} /></button>
+              <button
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <div className="px-5 py-3 border-b border-gray-100">
@@ -600,7 +829,9 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   value={voucherInput}
-                  onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                  onChange={(e) =>
+                    setVoucherInput(e.target.value.toUpperCase())
+                  }
                   onKeyDown={(e) => e.key === "Enter" && applyVoucherByCode()}
                   placeholder="Nhập mã voucher..."
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm"
@@ -620,11 +851,14 @@ export default function CheckoutPage() {
                 const eligible = subTotal >= (voucher.minOrderValue || 0);
                 const isSelected = selectedVoucher?.code === voucher.code;
 
-                const actualValue = Number(voucher.value || voucher.discountValue || 0);
+                const actualValue = Number(
+                  voucher.value || voucher.discountValue || 0,
+                );
 
-                const discountString = voucher.discountType === "PERCENT"
-                  ? `${actualValue}%`
-                  : `-${formatMoney(actualValue)}`;
+                const discountString =
+                  voucher.discountType === "PERCENT"
+                    ? `${actualValue}%`
+                    : `-${formatMoney(actualValue)}`;
 
                 return (
                   <button
@@ -632,7 +866,9 @@ export default function CheckoutPage() {
                     key={voucher.code}
                     onClick={() => {
                       if (!eligible) {
-                        toast.error(`Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`);
+                        toast.error(
+                          `Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`,
+                        );
                         return;
                       }
                       setSelectedVoucher(voucher);
@@ -640,31 +876,63 @@ export default function CheckoutPage() {
                       toast.success("Áp dụng voucher thành công!");
                     }}
                     className={`w-full flex items-center gap-4 p-4 border rounded-xl text-left transition-all ${
-                      isSelected ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400" : eligible ? "border-gray-200 hover:border-gray-300" : "border-gray-200 opacity-50"
+                      isSelected
+                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
+                        : eligible
+                          ? "border-gray-200 hover:border-gray-300"
+                          : "border-gray-200 opacity-50"
                     }`}
                   >
                     <div className="shrink-0 text-center min-w-[60px]">
-                      <p className="text-base font-bold text-teal-600">{discountString}</p>
-                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">{voucher.code}</p>
+                      <p className="text-base font-bold text-teal-600">
+                        {discountString}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        {voucher.code}
+                      </p>
                     </div>
                     <div className="w-px h-10 bg-dashed bg-gray-200 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{voucher.discountType === "PERCENT" ? `Giảm ${actualValue}%` : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Đơn tối thiểu {formatMoney(voucher.minOrderValue)}</p>
-                      {!eligible && <p className="text-xs text-red-400 mt-1">Cần thêm {formatMoney((voucher.minOrderValue || 0) - subTotal)}</p>}
+                      <p className="text-sm font-medium text-gray-800">
+                        {voucher.discountType === "PERCENT"
+                          ? `Giảm ${actualValue}%`
+                          : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Đơn tối thiểu {formatMoney(voucher.minOrderValue)}
+                      </p>
+                      {!eligible && (
+                        <p className="text-xs text-red-400 mt-1">
+                          Cần thêm{" "}
+                          {formatMoney((voucher.minOrderValue || 0) - subTotal)}
+                        </p>
+                      )}
                     </div>
-                    {isSelected && <span className="text-teal-600 shrink-0"><CheckCircle2 size={16} /></span>}
+                    {isSelected && (
+                      <span className="text-teal-600 shrink-0">
+                        <CheckCircle2 size={16} />
+                      </span>
+                    )}
                   </button>
                 );
               })}
               {availableVouchers.length === 0 && (
-                <p className="text-center py-4 text-sm text-gray-400">Không có mã giảm giá nào vào lúc này.</p>
+                <p className="text-center py-4 text-sm text-gray-400">
+                  Không có mã giảm giá nào vào lúc này.
+                </p>
               )}
             </div>
 
             {selectedVoucher && (
               <div className="px-5 py-3 border-t border-gray-100">
-                <button type="button" onClick={() => { setSelectedVoucher(null); setIsVoucherModalOpen(false); }} className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVoucher(null);
+                    setIsVoucherModalOpen(false);
+                  }}
+                  className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors"
+                >
                   Bỏ chọn voucher
                 </button>
               </div>
@@ -682,7 +950,9 @@ export default function CheckoutPage() {
           />
           <div className="bg-white w-full sm:max-w-md relative z-10 shadow-xl rounded-t-2xl sm:rounded-2xl flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">Chọn chi nhánh xuất hàng</h3>
+              <h3 className="font-semibold text-gray-800">
+                Chọn chi nhánh xuất hàng
+              </h3>
               <button
                 onClick={() => setIsBranchModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -707,15 +977,22 @@ export default function CheckoutPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 mb-0.5">{branch.name}</p>
-                      <p className="text-xs text-gray-400 mb-2">{branch.addressDetail}</p>
+                      <p className="text-sm font-semibold text-gray-900 mb-0.5">
+                        {branch.name}
+                      </p>
+                      <p className="text-xs text-gray-400 mb-2">
+                        {branch.addressDetail}
+                      </p>
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">
-                        <Truck size={10} /> {getDeliveryDateText(branch.estimatedDays)}
+                        <Truck size={10} />{" "}
+                        {getDeliveryDateText(branch.estimatedDays)}
                       </span>
                     </div>
                     <div
                       className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                        selectedBranchId === branch.id ? "border-teal-600" : "border-gray-300"
+                        selectedBranchId === branch.id
+                          ? "border-teal-600"
+                          : "border-gray-300"
                       }`}
                     >
                       {selectedBranchId === branch.id && (
@@ -747,7 +1024,9 @@ export default function CheckoutPage() {
           />
           <div
             className={`bg-white w-full relative z-10 shadow-xl rounded-t-2xl sm:rounded-2xl flex flex-col transition-all ${
-              isAddingNewAddress ? "sm:max-w-2xl max-h-[95vh]" : "sm:max-w-lg max-h-[85vh]"
+              isAddingNewAddress
+                ? "sm:max-w-2xl max-h-[95vh]"
+                : "sm:max-w-lg max-h-[85vh]"
             }`}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -762,7 +1041,9 @@ export default function CheckoutPage() {
                   </button>
                 )}
                 <h3 className="font-semibold text-gray-800">
-                  {isAddingNewAddress ? "Thêm địa chỉ mới" : "Chọn địa chỉ nhận hàng"}
+                  {isAddingNewAddress
+                    ? "Thêm địa chỉ mới"
+                    : "Chọn địa chỉ nhận hàng"}
                 </h3>
               </div>
               <button
@@ -800,7 +1081,9 @@ export default function CheckoutPage() {
                               {addr.receiverName}
                             </span>
                             <span className="text-gray-300 text-xs">·</span>
-                            <span className="text-sm text-gray-600">{addr.receiverPhone}</span>
+                            <span className="text-sm text-gray-600">
+                              {addr.receiverPhone}
+                            </span>
                           </div>
                           <p className="text-xs text-gray-500 leading-relaxed pr-2">
                             {addr.addressDetail}
@@ -813,7 +1096,9 @@ export default function CheckoutPage() {
                         </div>
                         <div
                           className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                            selectedAddressId === addr.id ? "border-teal-600" : "border-gray-300"
+                            selectedAddressId === addr.id
+                              ? "border-teal-600"
+                              : "border-gray-300"
                           }`}
                         >
                           {selectedAddressId === addr.id && (
@@ -832,7 +1117,11 @@ export default function CheckoutPage() {
                   </button>
                 </div>
               ) : (
-                <AddressForm title="" onSubmit={handleAddNewAddress} isSubmitting={isSubmittingAddress} />
+                <AddressForm
+                  title=""
+                  onSubmit={handleAddNewAddress}
+                  isSubmitting={isSubmittingAddress}
+                />
               )}
             </div>
 
@@ -850,7 +1139,6 @@ export default function CheckoutPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
