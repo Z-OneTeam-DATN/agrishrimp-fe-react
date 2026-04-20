@@ -222,7 +222,14 @@ function AdminExportFormContent() {
           const branchList = Array.isArray(resB) ? resB : resB?.content || [];
           setBranches(branchList);
           if (!isEditMode) {
-            const warehouseBranches = branchList.filter((branch: any) => branch.branchCode === "MAIN_WH");
+            const warehouseBranches = branchList.filter((branch: any) => {
+              const code = String(branch.branchCode || "").toUpperCase();
+              const type = String(branch.branchType || "").toUpperCase();
+              const name = String(branch.name || "").toLowerCase();
+              if (code === "SYSTEM_DEFECT") return false;
+              if (code === "MAIN_WH") return true;
+              return type === "WAREHOUSE" && name.includes("kho tổng");
+            });
             const preferredWarehouse =
               warehouseBranches.find((branch: any) => String(branch.id) === String(currentUser?.branch?.id ?? "")) ||
               warehouseBranches[0];
@@ -818,7 +825,14 @@ function AdminExportFormContent() {
                       </SelectTrigger>
                       <SelectContent className="rounded-none">
                         {branches
-                          .filter((b: any) => b.branchCode === "MAIN_WH")
+                          .filter((b: any) => {
+                            const code = String(b.branchCode || "").toUpperCase();
+                            const type = String(b.branchType || "").toUpperCase();
+                            const name = String(b.name || "").toLowerCase();
+                            if (code === "SYSTEM_DEFECT") return false;
+                            if (code === "MAIN_WH") return true;
+                            return type === "WAREHOUSE" && name.includes("kho tổng");
+                          })
                           .map((b: any) => (
                             <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>
                           ))}
