@@ -38,6 +38,16 @@ export default function EmployeeManagementPage() {
   const [roles, setRoles] = useState<{label: string, value: string}[]>([]);
   const [branches, setBranches] = useState<{label: string, value: string}[]>([]);
 
+  useEffect(() => {
+    if (isLoadingAuth || !currentUser) return;
+
+    setFilters((prev) => {
+      const nextBranchId = isAdmin ? "all" : String(currentUser.branch?.id || "all");
+      if (prev.branchId === nextBranchId) return prev;
+      return { ...prev, branchId: nextBranchId, page: 0 };
+    });
+  }, [currentUser, isAdmin, isLoadingAuth]);
+
   const fetchInitData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -116,11 +126,13 @@ export default function EmployeeManagementPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white px-6 py-4 border-b border-slate-100">
-        <AdminPageHeader 
-          title="Quản lý nhân sự & Hệ thống" 
+      <div className="mx-6 mt-5">
+        <AdminPageHeader
+          title="Quản lý nhân sự & Hệ thống"
+          titleClassName="text-[26px] font-black tracking-[0.04em]"
+          subtitle="Theo dõi danh sách nhân sự, quyền truy cập và trạng thái làm việc theo từng chi nhánh."
           addBtnLabel="Thêm nhân viên mới"
-          addBtnHref="/admin/employees/add" 
+          addBtnHref="/admin/employees/add"
           permission={P.STAFF_CREATE}
           secondaryBtnLabel={hasPermission(P.ROLE_VIEW) ? "Quản lý quyền" : undefined}
           secondaryBtnHref="/admin/employees/roles"

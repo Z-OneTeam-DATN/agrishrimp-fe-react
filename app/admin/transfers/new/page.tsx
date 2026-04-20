@@ -117,13 +117,20 @@ export default function NewTransferPage() {
     },
   });
 
-  const transferType = watch("transferType");
   const transferBusinessType = watch("transferBusinessType");
   const importStatus = watch("importStatus");
   const currentSourceBranch = watch("sourceBranch");
   const watchedItems = watch("items");
 
   const isInternalSale = transferBusinessType === "INTERNAL_SALE";
+
+  useEffect(() => {
+    setValue(
+      "transferType",
+      isInternalSale ? "INTERNAL" : "BETWEEN_WAREHOUSES",
+      { shouldValidate: true }
+    );
+  }, [isInternalSale, setValue]);
 
   // Tính tổng thành tiền nội bộ (chỉ hiện khi INTERNAL_SALE)
   const totalTransferAmount = isInternalSale
@@ -152,10 +159,11 @@ export default function NewTransferPage() {
     setIsSubmitting(true);
     try {
       const isInternalSalePayload = formData.transferBusinessType === "INTERNAL_SALE";
+      const resolvedTransferType = isInternalSalePayload ? "INTERNAL" : "BETWEEN_WAREHOUSES";
       const payload = {
         fromBranchId: Number(formData.sourceBranch),
         toBranchId: Number(formData.destBranch),
-        transferType: formData.transferType,
+        transferType: resolvedTransferType,
         transferBusinessType: formData.transferBusinessType || "STOCK_TRANSFER",
         description: formData.description,
         transporter: formData.transporter || null,
@@ -299,34 +307,9 @@ export default function NewTransferPage() {
           <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
             Lập phiếu điều chuyển hàng hóa
           </h1>
-          <div className="flex items-center gap-3 mt-1">
-            <Controller
-              name="transferType"
-              control={control}
-              render={({ field }) => (
-                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex items-center gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="BETWEEN_WAREHOUSES" id="type-wh" />
-                    <Label
-                      htmlFor="type-wh"
-                      className={cn("text-[11px] font-bold uppercase tracking-wider cursor-pointer", field.value === "BETWEEN_WAREHOUSES" ? "text-blue-600" : "text-slate-400")}
-                    >
-                      Điều chuyển liên kho
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="INTERNAL" id="type-internal" />
-                    <Label
-                      htmlFor="type-internal"
-                      className={cn("text-[11px] font-bold uppercase tracking-wider cursor-pointer", field.value === "INTERNAL" ? "text-blue-600" : "text-slate-400")}
-                    >
-                      Nội bộ
-                    </Label>
-                  </div>
-                </RadioGroup>
-              )}
-            />
-          </div>
+          <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Chọn một loại nghiệp vụ để hệ thống tự áp đúng luồng điều chuyển
+          </p>
         </div>
       </div>
 
@@ -433,45 +416,40 @@ export default function NewTransferPage() {
                 />
               </div>
 
-              {transferType === "BETWEEN_WAREHOUSES" && (
-                <React.Fragment>
-                  <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Phương tiện vận chuyển</Label>
-                    <div className="relative">
-                      <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <Input
-                        {...register("vehicle")}
-                        className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.vehicle ? "border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                        placeholder="Biển số xe..."
-                      />
-                    </div>
-                  </div>
-                  <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Tài xế vận chuyển *</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <Input
-                        {...register("transporter")}
-                        className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.transporter ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                        placeholder="Họ tên tài xế..."
-                      />
-                    </div>
-                    {/* HIỂN THỊ LỖI */}
-                    {errors.transporter && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transporter.message as string}</p>}
-                  </div>
-                  <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                    <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Lệnh điều động số</Label>
-                    <div className="relative">
-                      <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                      <Input
-                        {...register("dispatchOrder")}
-                        className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none font-mono focus:border-blue-500 shadow-none"
-                        placeholder="Số hiệu văn bản..."
-                      />
-                    </div>
-                  </div>
-                </React.Fragment>
-              )}
+              <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
+                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Phương tiện vận chuyển</Label>
+                <div className="relative">
+                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input
+                    {...register("vehicle")}
+                    className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.vehicle ? "border-rose-500" : "border-[#ccc] focus:border-blue-500")}
+                    placeholder="Biển số xe..."
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
+                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Tài xế vận chuyển *</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input
+                    {...register("transporter")}
+                    className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.transporter ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
+                    placeholder="Họ tên tài xế..."
+                  />
+                </div>
+                {errors.transporter && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transporter.message as string}</p>}
+              </div>
+              <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
+                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Lệnh điều động số</Label>
+                <div className="relative">
+                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                  <Input
+                    {...register("dispatchOrder")}
+                    className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none font-mono focus:border-blue-500 shadow-none"
+                    placeholder="Số hiệu văn bản..."
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

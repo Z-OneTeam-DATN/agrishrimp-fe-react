@@ -79,10 +79,12 @@ function AdminReceiptFormContent() {
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const isAdmin = hasPermission(P.IMPORT_APPROVE);
-  const currentUserBranchType = (
-    currentUser?.branch as { branchType?: string } | undefined
-  )?.branchType;
-  const isWarehouseBranch = currentUserBranchType === "WAREHOUSE";
+  const currentUserBranch = currentUser?.branch as
+    | { branchType?: string; branchCode?: string }
+    | undefined;
+  const isWarehouseBranch =
+    currentUserBranch?.branchCode === "MAIN_WH" ||
+    currentUserBranch?.branchType === "WAREHOUSE";
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -614,7 +616,7 @@ function AdminReceiptFormContent() {
       const list = Array.isArray(data) ? data : data.content || [];
       setBranches(list);
       if (!isEditMode && !purchaseRequestIdParam && list.length > 0) {
-        const mainWh = list.find((b: any) => b.branchType === "WAREHOUSE");
+        const mainWh = list.find((b: any) => b.branchCode === "MAIN_WH");
         if (mainWh) setValue("branchName", mainWh.name || mainWh.branchName);
       }
     })();
@@ -877,7 +879,7 @@ function AdminReceiptFormContent() {
                     </SelectTrigger>
                     <SelectContent>
                       {branches
-                        .filter((b) => b.branchType === "WAREHOUSE")
+                        .filter((b) => b.branchCode === "MAIN_WH")
                         .map((b) => (
                           <SelectItem
                             key={b.id}

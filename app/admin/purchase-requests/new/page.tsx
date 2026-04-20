@@ -41,6 +41,9 @@ export default function NewPurchaseRequestPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const router = useRouter();
+  const currentUserBranch = currentUser?.branch as
+    | { id?: number; name?: string; branchType?: string; branchCode?: string }
+    | undefined;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [warehouseBranches, setWarehouseBranches] = useState<BranchDTO[]>([]);
@@ -53,8 +56,7 @@ export default function NewPurchaseRequestPage() {
   const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
 
   const isWarehouseUser =
-    (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
-    warehouseId === 1;
+    currentUserBranch?.branchType === "WAREHOUSE" || warehouseId === 1;
   const canAccessPurchaseRequests =
     isAdminRole(currentUser?.role) ||
     (isWarehouseUser && isManagerRole(currentUser?.role));
@@ -71,6 +73,7 @@ export default function NewPurchaseRequestPage() {
     defaultValues: {
       supplierCode: "",
       supplierName: "",
+      branchId: 0,
       branchName: "",
       expectedDeliveryDate: "",
       note: "",
@@ -85,6 +88,7 @@ export default function NewPurchaseRequestPage() {
 
   const watchedItems = watch("items");
   const selectedSupplierCode = watch("supplierCode");
+  const watchedBranchId = watch("branchId");
   const watchedBranchName = watch("branchName");
 
   useEffect(() => {
@@ -99,14 +103,23 @@ export default function NewPurchaseRequestPage() {
           ? branchData
           : (branchData?.content ?? []);
         const warehouseOnly: BranchDTO[] = allBranches.filter(
-          (branch: BranchDTO) => branch.branchType === "WAREHOUSE",
+          (branch: BranchDTO) => {
+            const code = String(branch.branchCode || "").toUpperCase();
+            const type = String(branch.branchType || "").toUpperCase();
+            const name = String(branch.name || "").toLowerCase();
+
+            if (code === "SYSTEM_DEFECT") return false;
+            if (code === "MAIN_WH") return true;
+
+            return type === "WAREHOUSE" && name.includes("kho tổng");
+          },
         );
 
         setWarehouseBranches(warehouseOnly);
 
         const defaultWarehouse =
           warehouseOnly.find(
-            (branch: BranchDTO) => branch.name === currentUser?.branch?.name,
+            (branch: BranchDTO) => branch.name === currentUserBranch?.name,
           ) ??
           warehouseOnly.find(
             (branch: BranchDTO) => branch.id === warehouseId,
@@ -114,6 +127,9 @@ export default function NewPurchaseRequestPage() {
           warehouseOnly[0];
 
         if (defaultWarehouse) {
+          setValue("branchId", defaultWarehouse.id, {
+            shouldValidate: true,
+          });
           setValue("branchName", defaultWarehouse.name, {
             shouldValidate: true,
           });
@@ -133,7 +149,7 @@ export default function NewPurchaseRequestPage() {
       }
     })();
   }, [
-    currentUser?.branch?.name,
+    currentUserBranch?.name,
     currentUser?.role,
     isWarehouseUser,
     setValue,
@@ -232,7 +248,13 @@ export default function NewPurchaseRequestPage() {
   const onSubmit = async (data: PurchaseRequestForm) => {
     setIsSubmitting(true);
     try {
-      const created = await PurchaseRequestApiService.create(data);
+      const selectedBranch = warehouseBranches.find(
+        (branch) => branch.id === Number(data.branchId),
+      );
+      const created = await PurchaseRequestApiService.create({
+        ...data,
+        branchName: selectedBranch?.name ?? data.branchName,
+      });
       toast.success(`Đã tạo phiếu yêu cầu "${created.code}"`);
       router.push(`/admin/purchase-requests/${created.id}`);
     } catch (error) {
@@ -333,23 +355,33 @@ export default function NewPurchaseRequestPage() {
                 Kho tổng nhận hàng <span className="text-red-500">*</span>
               </label>
               <select
-                {...register("branchName")}
+                {...register("branchId", {
+                  valueAsNumber: true,
+                  onChange: (event) => {
+                    const selectedBranch = warehouseBranches.find(
+                      (branch) => branch.id === Number(event.target.value),
+                    );
+                    setValue("branchName", selectedBranch?.name ?? "", {
+                      shouldValidate: true,
+                    });
+                  },
+                })}
                 className={cn(
                   "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
-                  errors.branchName ? "border-red-400" : "border-slate-200",
+                  errors.branchId ? "border-red-400" : "border-slate-200",
                 )}
-                value={watchedBranchName || ""}
+                value={watchedBranchId || ""}
               >
                 <option value="">-- Chọn kho nhập --</option>
                 {warehouseBranches.map((branch) => (
-                  <option key={branch.id} value={branch.name}>
+                  <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
                 ))}
               </select>
-              {errors.branchName && (
+              {errors.branchId && (
                 <p className="text-[11px] text-red-500 mt-1">
-                  {errors.branchName.message}
+                  {errors.branchId.message}
                 </p>
               )}
             </div>

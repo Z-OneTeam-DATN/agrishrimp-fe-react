@@ -67,6 +67,7 @@ export default function AddBranchPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [staffs, setStaffs] = useState<any[]>([]);
+  const [assignedManagerIds, setAssignedManagerIds] = useState<Set<number>>(new Set());
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isGettingGPS, setIsGettingGPS] = useState(false);
   const [hasAutoGeocoded, setHasAutoGeocoded] = useState(false);
@@ -94,6 +95,7 @@ export default function AddBranchPage() {
   const watchedProvince = watch("province");
   const watchedDistrict = watch("district");
   const watchedWard = watch("ward");
+  const watchedManagerId = watch("managerId");
   const addressDetailValue = watch("addressDetail");
   const watchedLat = watch("lat");
   const watchedLng = watch("lng");
@@ -106,15 +108,29 @@ export default function AddBranchPage() {
   useEffect(() => {
     const initData = async () => {
       try {
-        const [empRes, provResponse] = await Promise.all([
+        const [empRes, provResponse, branchRes] = await Promise.all([
           EmployeeService.getAll({ size: 500, status: 'ACTIVE' }),
           fetchWithAuth("/api/ghn/province"),
+          branchService.getAll(),
         ]);
 
         // Lọc chỉ lấy nhân viên có Role ID 1, 2, 3
         const rawStaffs = extractArray(empRes);
         const filtered = rawStaffs.filter((s: any) => [1, 2, 3].includes(s.roleId || s.role?.id));
         setStaffs(filtered);
+
+        const branches = extractArray(branchRes);
+        const managerIdSet = new Set<number>();
+        branches.forEach((branch: any) => {
+          const ids = Array.isArray(branch?.managerIds) ? branch.managerIds : [];
+          ids.forEach((id: any) => {
+            const parsed = Number(id);
+            if (!Number.isNaN(parsed) && parsed > 0) {
+              managerIdSet.add(parsed);
+            }
+          });
+        });
+        setAssignedManagerIds(managerIdSet);
 
         if (provResponse.ok) {
           const provinceRes = await provResponse.json();
@@ -522,7 +538,21 @@ export default function AddBranchPage() {
   const filteredProvinces = useMemo(() => provinces.filter(p => getProvName(p).toLowerCase().includes(searchTerm.toLowerCase())), [provinces, searchTerm]);
   const filteredDistricts = useMemo(() => districts.filter(d => getDistName(d).toLowerCase().includes(searchTerm.toLowerCase())), [districts, searchTerm]);
   const filteredWards = useMemo(() => wards.filter(w => getWardName(w).toLowerCase().includes(searchTerm.toLowerCase())), [wards, searchTerm]);
-  const filteredStaffs = useMemo(() => staffs.filter(s => (s?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase())), [staffs, searchTerm]);
+
+  const availableStaffs = useMemo(() => {
+    const selectedManagerId = Number(watchedManagerId);
+    return staffs.filter((staff) => {
+      const staffId = Number(staff?.id);
+      if (Number.isNaN(staffId) || staffId <= 0) return false;
+      if (selectedManagerId && staffId === selectedManagerId) return true;
+      return !assignedManagerIds.has(staffId);
+    });
+  }, [assignedManagerIds, staffs, watchedManagerId]);
+
+  const filteredStaffs = useMemo(
+    () => availableStaffs.filter(s => (s?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase())),
+    [availableStaffs, searchTerm]
+  );
 
   return (
     <>

@@ -34,6 +34,8 @@ export default function EditEmployeePage() {
     const userId = Number(params.id);
     const { user: currentUser, isLoadingAuth } = useAuthStore();
     const { hasAllPermissions } = usePermissions();
+    const roleSlug = typeof currentUser?.role === "object" ? currentUser.role?.slug : currentUser?.role;
+    const isAdmin = roleSlug?.toLowerCase() === "admin" || roleSlug?.toLowerCase() === "super_admin";
 
     // Data States
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +92,10 @@ export default function EditEmployeePage() {
                 });
                 setRoles(rolesList);
 
-                const branchesList = Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || [];
+                let branchesList = Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || [];
+                if (!isAdmin && currentUser?.branch?.id) {
+                    branchesList = branchesList.filter((branch: BranchType) => branch.id === currentUser.branch?.id);
+                }
                 setBranches(branchesList);
 
                 // Lưu email riêng (không nằm trong schema update)
@@ -120,7 +125,7 @@ export default function EditEmployeePage() {
             }
         }
         loadInitData();
-    }, [userId, router, reset, currentUser, hasAllPermissions, isLoadingAuth]);
+    }, [userId, router, reset, currentUser, hasAllPermissions, isLoadingAuth, isAdmin]);
 
     const onFormSubmit = async (data: EmployeeUpdateInput) => {
         try {
@@ -282,7 +287,7 @@ export default function EditEmployeePage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold uppercase text-slate-400">Chi nhánh làm việc *</Label>
-                                <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))}>
+                                <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
                                     <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
