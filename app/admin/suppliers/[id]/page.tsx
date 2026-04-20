@@ -20,13 +20,11 @@ import {
     FileText,
     Warehouse,
     Search,
-    ShieldCheck,
-    Star,
-    Gauge,
     PencilLine,
     Check,
     CalendarClock,
     ArrowUpRight,
+    ImageOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,6 +46,17 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +75,23 @@ interface SupplierMeta {
     updatedAt?: string;
 }
 
+const buildCatalogPayload = (
+    products: ProductListItem[],
+    catalogItems: SupplierProductCatalogItem[],
+) => {
+    const catalogMap = new Map(catalogItems.map((item) => [item.productId, item]));
+    return products
+        .map((product) => {
+            const current = catalogMap.get(product.id);
+            return {
+                productId: product.id,
+                status: (current?.status || "CHECKING") as SupplierProductCatalogStatus,
+                note: current?.note || "",
+            };
+        })
+        .sort((a, b) => a.productId - b.productId);
+};
+
 export default function SupplierDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -78,8 +104,16 @@ export default function SupplierDetailPage() {
     const [supplierMeta, setSupplierMeta] = useState<SupplierMeta>({});
     const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
     const [catalogItems, setCatalogItems] = useState<SupplierProductCatalogItem[]>([]);
+    const [savedCatalogItems, setSavedCatalogItems] = useState<SupplierProductCatalogItem[]>([]);
     const [catalogProducts, setCatalogProducts] = useState<ProductListItem[]>([]);
     const [catalogKeyword, setCatalogKeyword] = useState("");
+    const [selectedCatalogProductIds, setSelectedCatalogProductIds] = useState<number[]>([]);
+    const [bulkCatalogStatus, setBulkCatalogStatus] = useState<SupplierProductCatalogStatus | "none">("none");
+    const [activeTab, setActiveTab] = useState<"info" | "catalog" | "history">("info");
+    const [showCatalogDraftModal, setShowCatalogDraftModal] = useState(false);
+    const [pendingTabValue, setPendingTabValue] = useState<"info" | "catalog" | "history" | null>(null);
+    const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
+    const [pendingGoBack, setPendingGoBack] = useState(false);
 
     const [historyKeyword, setHistoryKeyword] = useState("");
     const [historyStatus, setHistoryStatus] = useState("all");
@@ -124,8 +158,11 @@ export default function SupplierDetailPage() {
                 }
 
                 setImportHistory(Array.isArray(historyData) ? historyData : []);
-                setCatalogItems(Array.isArray(catalogData) ? catalogData : []);
-                setCatalogProducts(Array.isArray(productsData) ? productsData : []);
+                const loadedCatalogItems = Array.isArray(catalogData) ? catalogData : [];
+                const loadedProducts = Array.isArray(productsData) ? productsData : [];
+                setCatalogItems(loadedCatalogItems);
+                setSavedCatalogItems(loadedCatalogItems);
+                setCatalogProducts(loadedProducts);
             } catch (error) {
                 toast.error("Không tải được dữ liệu");
                 router.push("/admin/suppliers");
@@ -202,35 +239,6 @@ export default function SupplierDetailPage() {
         [importHistory],
     );
 
-    const cancelledRate = useMemo(() => {
-        if (importHistory.length === 0) return 0;
-        const cancelledCount = importHistory.filter((item) => item.status === "CANCELLED").length;
-        return cancelledCount / importHistory.length;
-    }, [importHistory]);
-
-    const priorityBadge = useMemo(() => {
-        if (totalImportValue >= 1_000_000_000 || importHistory.length >= 20) {
-            return { label: "Ưu tiên cao", className: "bg-blue-50 text-blue-700 border-blue-200" };
-        }
-        if (totalImportValue >= 300_000_000 || importHistory.length >= 8) {
-            return { label: "Ưu tiên trung bình", className: "bg-amber-50 text-amber-700 border-amber-200" };
-        }
-        return { label: "Ưu tiên cơ bản", className: "bg-slate-100 text-slate-600 border-slate-200" };
-    }, [totalImportValue, importHistory.length]);
-
-    const reliabilityBadge = useMemo(() => {
-        if (importHistory.length === 0) {
-            return { label: "Cần theo dõi", className: "bg-slate-100 text-slate-600 border-slate-200" };
-        }
-        if (cancelledRate <= 0.1) {
-            return { label: "Độ tin cậy tốt", className: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-        }
-        if (cancelledRate <= 0.25) {
-            return { label: "Độ tin cậy ổn định", className: "bg-amber-50 text-amber-700 border-amber-200" };
-        }
-        return { label: "Độ tin cậy thấp", className: "bg-rose-50 text-rose-700 border-rose-200" };
-    }, [cancelledRate, importHistory.length]);
-
     const lastOperationalUpdate = supplierMeta.updatedAt || latestImport?.createdAt || supplierMeta.createdAt;
 
     const filteredHistory = useMemo(() => {
@@ -253,6 +261,29 @@ export default function SupplierDetailPage() {
         return new Map(catalogItems.map((item) => [item.productId, item]));
     }, [catalogItems]);
 
+    const currentCatalogSignature = useMemo(() => {
+        return JSON.stringify(buildCatalogPayload(catalogProducts, catalogItems));
+    }, [catalogProducts, catalogItems]);
+
+    const savedCatalogSignature = useMemo(() => {
+        return JSON.stringify(buildCatalogPayload(catalogProducts, savedCatalogItems));
+    }, [catalogProducts, savedCatalogItems]);
+
+    const hasCatalogDraft = currentCatalogSignature !== savedCatalogSignature;
+
+    const catalogStatusSummary = useMemo(() => {
+        return catalogProducts.reduce(
+            (acc, product) => {
+                const status = catalogByProductId.get(product.id)?.status || "CHECKING";
+                if (status === "AVAILABLE") acc.available += 1;
+                else if (status === "UNAVAILABLE") acc.unavailable += 1;
+                else acc.checking += 1;
+                return acc;
+            },
+            { available: 0, unavailable: 0, checking: 0 },
+        );
+    }, [catalogProducts, catalogByProductId]);
+
     const filteredCatalogProducts = useMemo(() => {
         const keyword = catalogKeyword.trim().toLowerCase();
         if (!keyword) return catalogProducts;
@@ -267,6 +298,63 @@ export default function SupplierDetailPage() {
             );
         });
     }, [catalogProducts, catalogKeyword]);
+
+    const filteredCatalogProductIds = useMemo(
+        () => filteredCatalogProducts.map((product) => product.id),
+        [filteredCatalogProducts],
+    );
+
+    const allFilteredSelected =
+        filteredCatalogProductIds.length > 0 &&
+        filteredCatalogProductIds.every((id) => selectedCatalogProductIds.includes(id));
+
+    const someFilteredSelected =
+        filteredCatalogProductIds.some((id) => selectedCatalogProductIds.includes(id)) && !allFilteredSelected;
+
+    useEffect(() => {
+        setSelectedCatalogProductIds((prev) =>
+            prev.filter((id) => catalogProducts.some((product) => product.id === id)),
+        );
+    }, [catalogProducts]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!hasCatalogDraft) return;
+            event.preventDefault();
+            event.returnValue = "";
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [hasCatalogDraft]);
+
+    useEffect(() => {
+        const handleDocumentLinkClick = (event: MouseEvent) => {
+            if (!hasCatalogDraft) return;
+
+            const target = event.target as HTMLElement | null;
+            const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+            if (!anchor) return;
+            if (anchor.target === "_blank") return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+            const href = anchor.getAttribute("href");
+            if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+
+            const samePageHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            const targetPath = anchor.pathname + anchor.search + anchor.hash;
+            if (targetPath === samePageHref) return;
+
+            event.preventDefault();
+            setPendingNavigationHref(anchor.href);
+            setPendingTabValue(null);
+            setPendingGoBack(false);
+            setShowCatalogDraftModal(true);
+        };
+
+        document.addEventListener("click", handleDocumentLinkClick, true);
+        return () => document.removeEventListener("click", handleDocumentLinkClick, true);
+    }, [hasCatalogDraft]);
 
     const updateCatalogItem = (productId: number, patch: Partial<{ status: SupplierProductCatalogStatus; note: string }>) => {
         setCatalogItems((prev) => {
@@ -295,27 +383,147 @@ export default function SupplierDetailPage() {
         });
     };
 
+    const toggleCatalogSelection = (productId: number, checked: boolean) => {
+        setSelectedCatalogProductIds((prev) => {
+            if (checked) {
+                if (prev.includes(productId)) return prev;
+                return [...prev, productId];
+            }
+            return prev.filter((id) => id !== productId);
+        });
+    };
+
+    const toggleSelectAllCatalog = (checked: boolean) => {
+        if (checked) {
+            setSelectedCatalogProductIds((prev) => {
+                const merged = new Set([...prev, ...filteredCatalogProductIds]);
+                return Array.from(merged);
+            });
+            return;
+        }
+
+        setSelectedCatalogProductIds((prev) =>
+            prev.filter((id) => !filteredCatalogProductIds.includes(id)),
+        );
+    };
+
+    const applyBulkCatalogStatus = () => {
+        if (bulkCatalogStatus === "none" || selectedCatalogProductIds.length === 0) {
+            toast.warning("Vui lòng chọn sản phẩm và trạng thái cần áp dụng");
+            return;
+        }
+
+        setCatalogItems((prev) => {
+            const next = [...prev];
+
+            selectedCatalogProductIds.forEach((productId) => {
+                const existingIndex = next.findIndex((item) => item.productId === productId);
+                if (existingIndex >= 0) {
+                    next[existingIndex] = { ...next[existingIndex], status: bulkCatalogStatus };
+                    return;
+                }
+
+                const product = catalogProducts.find((item) => item.id === productId);
+                next.push({
+                    id: 0,
+                    supplierId,
+                    supplierCode: supplierData.taxCode || "",
+                    productId,
+                    productName: product?.name || "",
+                    productSlug: product?.slug || "",
+                    brandName: product?.brandName,
+                    origin: product?.origin,
+                    categoryName: product?.categoryName,
+                    status: bulkCatalogStatus,
+                    note: "",
+                });
+            });
+
+            return next;
+        });
+
+        toast.success(`Đã cập nhật trạng thái cho ${selectedCatalogProductIds.length} sản phẩm`);
+    };
+
     const saveCatalog = async () => {
         setIsCatalogSaving(true);
         try {
-            const payload = catalogProducts.map((product) => {
-                const current = catalogByProductId.get(product.id);
-                return {
-                    productId: product.id,
-                    status: (current?.status || "CHECKING") as SupplierProductCatalogStatus,
-                    note: current?.note || "",
-                };
-            });
-
+            const payload = buildCatalogPayload(catalogProducts, catalogItems);
             const saved = await supplierService.saveProductCatalog(supplierId, payload);
             setCatalogItems(saved);
+            setSavedCatalogItems(saved);
             toast.success("Đã lưu catalog sản phẩm của nhà cung cấp");
+            return true;
         } catch (error) {
             const message = error instanceof Error ? error.message : "Lỗi khi lưu catalog";
             toast.error(message);
+            return false;
         } finally {
             setIsCatalogSaving(false);
         }
+    };
+
+    const discardCatalogDraftAndContinue = () => {
+        setCatalogItems(savedCatalogItems);
+        setSelectedCatalogProductIds([]);
+
+        if (pendingTabValue) {
+            setActiveTab(pendingTabValue);
+        } else if (pendingNavigationHref) {
+            window.location.href = pendingNavigationHref;
+        } else if (pendingGoBack) {
+            router.back();
+        }
+
+        setPendingTabValue(null);
+        setPendingNavigationHref(null);
+        setPendingGoBack(false);
+        setShowCatalogDraftModal(false);
+    };
+
+    const saveCatalogAndContinue = async () => {
+        const saved = await saveCatalog();
+        if (!saved) return;
+
+        if (pendingTabValue) {
+            setActiveTab(pendingTabValue);
+        } else if (pendingNavigationHref) {
+            window.location.href = pendingNavigationHref;
+        } else if (pendingGoBack) {
+            router.back();
+        }
+
+        setPendingTabValue(null);
+        setPendingNavigationHref(null);
+        setPendingGoBack(false);
+        setShowCatalogDraftModal(false);
+    };
+
+    const handleTabChange = (nextTab: string) => {
+        const target = nextTab as "info" | "catalog" | "history";
+        if (target === activeTab) return;
+
+        if (hasCatalogDraft && activeTab === "catalog") {
+            setPendingTabValue(target);
+            setPendingNavigationHref(null);
+            setPendingGoBack(false);
+            setShowCatalogDraftModal(true);
+            return;
+        }
+
+        setActiveTab(target);
+    };
+
+    const handleGoBack = () => {
+        if (hasCatalogDraft) {
+            setPendingGoBack(true);
+            setPendingTabValue(null);
+            setPendingNavigationHref(null);
+            setShowCatalogDraftModal(true);
+            return;
+        }
+
+        router.back();
     };
 
     const timelineEvents = useMemo(
@@ -358,7 +566,7 @@ export default function SupplierDetailPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => router.back()}
+                    onClick={handleGoBack}
                     className="h-8 w-8 text-slate-400 hover:text-emerald-600 transition-colors"
                 >
                     <ChevronLeft size={20} />
@@ -484,7 +692,7 @@ export default function SupplierDetailPage() {
                 </div>
 
                 <div className="lg:col-span-8">
-                    <Tabs defaultValue="info" className="w-full">
+                    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                         <TabsList className="bg-white border border-[#dcdcdc] rounded-[4px] p-1 w-full flex justify-start gap-1 h-auto shadow-sm">
                             <TabsTrigger value="info" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
                                 <Info size={14} className="mr-1.5" /> Thông tin chi tiết
@@ -517,19 +725,13 @@ export default function SupplierDetailPage() {
                             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-5">
                                 <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">Trạng thái vận hành</Label>
 
-                                <div className="flex flex-wrap gap-2 mb-4">
+                                <div className="mb-4">
                                     <span className={cn("inline-flex items-center gap-1 text-[10px] font-black uppercase border px-2 py-1 rounded", "bg-slate-50 text-slate-700 border-slate-200")}>
                                         <CalendarClock size={12} /> Cập nhật: {formatDate(lastOperationalUpdate)}
                                     </span>
-                                    <span className={cn("inline-flex items-center gap-1 text-[10px] font-black uppercase border px-2 py-1 rounded", priorityBadge.className)}>
-                                        <Star size={12} /> {priorityBadge.label}
-                                    </span>
-                                    <span className={cn("inline-flex items-center gap-1 text-[10px] font-black uppercase border px-2 py-1 rounded", reliabilityBadge.className)}>
-                                        <ShieldCheck size={12} /> {reliabilityBadge.label}
-                                    </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <Label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Trạng thái NCC</Label>
                                         <Controller
@@ -547,13 +749,6 @@ export default function SupplierDetailPage() {
                                                 </Select>
                                             )}
                                         />
-                                    </div>
-                                    <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-2">
-                                        <p className="text-[10px] uppercase text-slate-400 font-bold">Chỉ số rủi ro</p>
-                                        <p className="mt-1 text-[12px] font-black text-slate-700 flex items-center gap-1">
-                                            <Gauge size={13} className="text-emerald-600" />
-                                            {Math.round(cancelledRate * 100)}% phiếu bị hủy trên tổng giao dịch
-                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -593,41 +788,102 @@ export default function SupplierDetailPage() {
                         <TabsContent value="catalog" className="mt-4">
                             <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden">
                                 <div className="px-4 py-3 border-b border-slate-100 bg-[#fcfcfc] flex flex-col gap-3">
-                                    <div className="flex items-center justify-between gap-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
                                         <h3 className="text-[12px] font-black text-slate-700 uppercase flex items-center gap-2">
                                             <Warehouse size={14} className="text-emerald-600" /> Danh mục sản phẩm nhà cung cấp
                                         </h3>
-                                        <Button
-                                            type="button"
-                                            className="h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 uppercase"
-                                            onClick={saveCatalog}
-                                            disabled={isCatalogSaving}
-                                        >
-                                            <Save size={14} className="mr-1.5" /> {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className={cn(
+                                                    "text-[10px] font-bold uppercase px-2 py-1 rounded border",
+                                                    hasCatalogDraft
+                                                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                        : "bg-emerald-50 text-emerald-700 border-emerald-200",
+                                                )}
+                                            >
+                                                {hasCatalogDraft ? "Có nháp chưa lưu" : "Đã đồng bộ"}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                className="h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 uppercase"
+                                                onClick={saveCatalog}
+                                                disabled={isCatalogSaving}
+                                            >
+                                                <Save size={14} className="mr-1.5" /> {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
+                                            </Button>
+                                        </div>
                                     </div>
-                                    <div className="relative">
-                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <Input
-                                            value={catalogKeyword}
-                                            onChange={(e) => setCatalogKeyword(e.target.value)}
-                                            placeholder="Tìm theo tên sản phẩm, thương hiệu, xuất xứ, danh mục..."
-                                            className="h-[34px] pl-9 text-[12px]"
-                                        />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <div className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase text-emerald-700">Có cung cấp</p>
+                                            <p className="text-[16px] font-black text-emerald-700">{catalogStatusSummary.available}</p>
+                                        </div>
+                                        <div className="rounded border border-rose-100 bg-rose-50 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase text-rose-700">Không cung cấp</p>
+                                            <p className="text-[16px] font-black text-rose-700">{catalogStatusSummary.unavailable}</p>
+                                        </div>
+                                        <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase text-amber-700">Đang kiểm tra</p>
+                                            <p className="text-[16px] font-black text-amber-700">{catalogStatusSummary.checking}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                                        <div className="relative flex-1">
+                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                            <Input
+                                                value={catalogKeyword}
+                                                onChange={(e) => setCatalogKeyword(e.target.value)}
+                                                placeholder="Tìm theo tên sản phẩm, thương hiệu, xuất xứ, danh mục..."
+                                                className="h-[34px] pl-9 text-[12px]"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Select
+                                                value={bulkCatalogStatus}
+                                                onValueChange={(value) => setBulkCatalogStatus(value as SupplierProductCatalogStatus | "none")}
+                                            >
+                                                <SelectTrigger className="h-[34px] w-[180px] text-[11px] font-bold">
+                                                    <SelectValue placeholder="Chọn trạng thái" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">Chọn trạng thái</SelectItem>
+                                                    <SelectItem value="AVAILABLE">CÓ CUNG CẤP</SelectItem>
+                                                    <SelectItem value="UNAVAILABLE">KHÔNG CUNG CẤP</SelectItem>
+                                                    <SelectItem value="CHECKING">ĐANG KIỂM TRA</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="h-[34px] text-[11px] font-bold uppercase"
+                                                onClick={applyBulkCatalogStatus}
+                                            >
+                                                Áp dụng ({selectedCatalogProductIds.length})
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="p-0 overflow-x-auto">
-                                    <Table className="table-custom border-collapse table-fixed min-w-[980px]">
+                                    <Table className="table-custom border-collapse table-fixed min-w-[1140px]">
                                         <colgroup>
-                                            <col className="w-[300px]" />
+                                            <col className="w-[56px]" />
+                                            <col className="w-[340px]" />
                                             <col className="w-[220px]" />
                                             <col className="w-[200px]" />
                                             <col />
                                         </colgroup>
                                         <TableHeader>
                                             <TableRow className="bg-slate-50 border-b border-slate-100">
-                                                <TableHead className="text-[10px] font-bold uppercase py-3 pl-4">Sản phẩm</TableHead>
+                                                <TableHead className="py-3 pl-4">
+                                                    <Checkbox
+                                                        checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+                                                        onCheckedChange={(checked) => toggleSelectAllCatalog(checked === true)}
+                                                    />
+                                                </TableHead>
+                                                <TableHead className="text-[10px] font-bold uppercase py-3">Sản phẩm</TableHead>
                                                 <TableHead className="text-[10px] font-bold uppercase py-3">Thương hiệu / Xuất xứ</TableHead>
                                                 <TableHead className="text-[10px] font-bold uppercase py-3">Trạng thái NCC</TableHead>
                                                 <TableHead className="text-[10px] font-bold uppercase py-3 pr-4">Ghi chú</TableHead>
@@ -645,12 +901,39 @@ export default function SupplierDetailPage() {
                                                                 ? "bg-rose-50 text-rose-700 border-rose-200"
                                                                 : "bg-amber-50 text-amber-700 border-amber-200";
 
+                                                    const previewImage = product.imageUrls?.[0] || product.variants?.find((variant) => variant.imageUrl)?.imageUrl;
+                                                    const isSelected = selectedCatalogProductIds.includes(product.id);
+
                                                     return (
                                                         <TableRow key={product.id} className="border-b border-slate-50 hover:bg-emerald-50/20 align-top">
-                                                            <TableCell className="pl-4 py-3">
-                                                                <p className="text-[12px] font-black text-slate-800 line-clamp-2">{product.name}</p>
-                                                                <p className="text-[10px] text-slate-400 font-mono mt-1">SKU gốc: {product.baseSku || "---"}</p>
-                                                                <p className="text-[10px] text-slate-500 mt-1">{product.categoryName || "---"} · {product.variants?.length || 0} biến thể</p>
+                                                            <TableCell className="pl-4 py-4">
+                                                                <Checkbox
+                                                                    checked={isSelected}
+                                                                    onCheckedChange={(checked) => toggleCatalogSelection(product.id, checked === true)}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell className="py-3">
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="h-14 w-14 rounded border border-slate-200 bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
+                                                                        {previewImage ? (
+                                                                            <img
+                                                                                src={previewImage}
+                                                                                alt={product.name}
+                                                                                className="h-full w-full object-cover"
+                                                                                onError={(e) => {
+                                                                                    e.currentTarget.style.display = "none";
+                                                                                }}
+                                                                            />
+                                                                        ) : (
+                                                                            <ImageOff size={16} className="text-slate-400" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[12px] font-black text-slate-800 line-clamp-2">{product.name}</p>
+                                                                        <p className="text-[10px] text-slate-400 font-mono mt-1">SKU gốc: {product.baseSku || "---"}</p>
+                                                                        <p className="text-[10px] text-slate-500 mt-1">{product.categoryName || "---"} · {product.variants?.length || 0} biến thể</p>
+                                                                    </div>
+                                                                </div>
                                                             </TableCell>
                                                             <TableCell className="py-3">
                                                                 <p className="text-[11px] font-bold text-slate-700">{product.brandName || "---"}</p>
@@ -687,7 +970,7 @@ export default function SupplierDetailPage() {
                                                 })
                                             ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center py-8 text-[12px] text-slate-400 font-bold uppercase tracking-widest">
+                                                    <TableCell colSpan={5} className="text-center py-8 text-[12px] text-slate-400 font-bold uppercase tracking-widest">
                                                         Không có sản phẩm phù hợp bộ lọc
                                                     </TableCell>
                                                 </TableRow>
@@ -838,6 +1121,52 @@ export default function SupplierDetailPage() {
                     </Tabs>
                 </div>
             </div>
+
+            <AlertDialog
+                open={showCatalogDraftModal}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setShowCatalogDraftModal(false);
+                        setPendingTabValue(null);
+                        setPendingNavigationHref(null);
+                        setPendingGoBack(false);
+                    }
+                }}
+            >
+                <AlertDialogContent className="rounded-[4px] border-[#dcdcdc]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-[16px] font-black uppercase tracking-tight">
+                            Catalog chưa lưu thay đổi
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-[13px] text-slate-500 leading-relaxed">
+                            Bạn có thay đổi trạng thái hoặc ghi chú catalog sản phẩm nhưng chưa lưu. Chọn cách xử lý trước khi rời tab hoặc rời trang.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="h-9 text-[11px] font-bold uppercase">
+                            Ở lại chỉnh sửa
+                        </AlertDialogCancel>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 text-[11px] font-bold uppercase"
+                            onClick={discardCatalogDraftAndContinue}
+                        >
+                            Bỏ nháp và rời đi
+                        </Button>
+                        <AlertDialogAction
+                            onClick={(event) => {
+                                event.preventDefault();
+                                void saveCatalogAndContinue();
+                            }}
+                            className="h-9 text-[11px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700"
+                            disabled={isCatalogSaving}
+                        >
+                            {isCatalogSaving ? "Đang lưu..." : "Lưu và rời đi"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </form>
     );
 }
