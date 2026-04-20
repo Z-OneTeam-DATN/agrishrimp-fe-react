@@ -549,60 +549,74 @@ export default function NewTransferPage() {
                     const qty = Number(watch(`items.${index}.quantity`)) || 0;
                     const unitPrice = Number(watch(`items.${index}.unitTransferPrice`)) || 0;
                     const lineTotal = qty * unitPrice;
+                    const itemErrors = (errors?.items as any)?.[index];
+                    const hasRowError = Boolean(itemErrors?.quantity || itemErrors?.unitTransferPrice);
+                    const colSpan = isInternalSale ? 10 : 8;
+
                     return (
-                    <TableRow key={field.id} className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
-                      <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
-                      <TableCell className="p-1">
-                        <Input {...register(`items.${index}.productName`)} className="h-8 text-[12px] border-none bg-transparent font-bold focus:ring-0" readOnly />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input {...register(`items.${index}.unit`)} className="h-8 text-[12px] border-none bg-transparent focus:ring-0" readOnly />
-                      </TableCell>
-                      <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
-                        {(watch(`items.${index}.availableQuantity`) || 0).toLocaleString("vi-VN")}
-                      </TableCell>
-                      <TableCell className="p-1 text-right">
-                        <Input
-                          type="number"
-                          step="any"
-                          {...register(`items.${index}.quantity`)}
-                          className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", (errors?.items as any)?.[index]?.quantity ? "border-rose-500" : "border-blue-200")}
-                        />
-                        {(errors?.items as any)?.[index]?.quantity && (
-                          <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].quantity?.message as string}</p>
-                        )}
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input type="number" {...register(`items.${index}.receivedQuantity`)} readOnly className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0 cursor-not-allowed" />
-                      </TableCell>
-                      {isInternalSale && (
-                        <>
+                      <React.Fragment key={field.id}>
+                        <TableRow className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
+                          <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
+                          <TableCell className="p-1">
+                            <Input {...register(`items.${index}.productName`)} className="h-8 text-[12px] border-none bg-transparent font-bold focus:ring-0" readOnly />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input {...register(`items.${index}.unit`)} className="h-8 text-[12px] border-none bg-transparent focus:ring-0" readOnly />
+                          </TableCell>
+                          <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
+                            {(watch(`items.${index}.availableQuantity`) || 0).toLocaleString("vi-VN")}
+                          </TableCell>
                           <TableCell className="p-1 text-right">
                             <Input
                               type="number"
                               step="any"
-                              {...register(`items.${index}.unitTransferPrice`)}
-                              className={cn("h-8 text-[13px] text-right bg-amber-50/40 rounded-none font-black text-amber-700 focus:ring-0", (errors?.items as any)?.[index]?.unitTransferPrice ? "border-rose-500" : "border-amber-200")}
-                              placeholder="0"
+                              {...register(`items.${index}.quantity`)}
+                              className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", itemErrors?.quantity ? "border-rose-500" : "border-blue-200")}
                             />
-                            {(errors?.items as any)?.[index]?.unitTransferPrice && (
-                              <p className="text-rose-500 text-[9px] mt-0.5 font-medium">{(errors.items as any)[index].unitTransferPrice?.message as string}</p>
-                            )}
                           </TableCell>
-                          <TableCell className="p-1 text-right font-black text-amber-700 text-[12px] pr-3">
-                            {lineTotal > 0 ? lineTotal.toLocaleString("vi-VN") : <span className="text-slate-300">—</span>}
+                          <TableCell className="p-1">
+                            <Input type="number" {...register(`items.${index}.receivedQuantity`)} readOnly className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0 cursor-not-allowed" />
                           </TableCell>
-                        </>
-                      )}
-                      <TableCell className="p-1">
-                        <Input {...register(`items.${index}.itemNote`)} className="h-8 text-[11px] border-none italic bg-transparent focus:ring-0" placeholder="..." />
-                      </TableCell>
-                      <TableCell className="p-1 text-center">
-                        <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-rose-500 transition-colors">
-                          <Trash2 size={16} />
-                        </button>
-                      </TableCell>
-                    </TableRow>
+                          {isInternalSale && (
+                            <>
+                              <TableCell className="p-1 text-right">
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  {...register(`items.${index}.unitTransferPrice`)}
+                                  className={cn("h-8 text-[13px] text-right bg-amber-50/40 rounded-none font-black text-amber-700 focus:ring-0", itemErrors?.unitTransferPrice ? "border-rose-500" : "border-amber-200")}
+                                  placeholder="0"
+                                />
+                              </TableCell>
+                              <TableCell className="p-1 text-right font-black text-amber-700 text-[12px] pr-3">
+                                {lineTotal > 0 ? lineTotal.toLocaleString("vi-VN") : <span className="text-slate-300">—</span>}
+                              </TableCell>
+                            </>
+                          )}
+                          <TableCell className="p-1">
+                            <Input {...register(`items.${index}.itemNote`)} className="h-8 text-[11px] border-none italic bg-transparent focus:ring-0" placeholder="..." />
+                          </TableCell>
+                          <TableCell className="p-1 text-center">
+                            <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-rose-500 transition-colors">
+                              <Trash2 size={16} />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                        {hasRowError && (
+                          <TableRow className="bg-rose-50/70">
+                            <TableCell colSpan={colSpan} className="px-3 py-2 text-[10px] font-medium text-rose-600">
+                              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                {itemErrors?.quantity && (
+                                  <span>SL chuyển: {itemErrors.quantity.message as string}</span>
+                                )}
+                                {itemErrors?.unitTransferPrice && (
+                                  <span>Đơn giá NB: {itemErrors.unitTransferPrice.message as string}</span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </TableBody>
