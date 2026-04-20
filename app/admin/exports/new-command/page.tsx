@@ -130,7 +130,7 @@ function AdminExportFormContent() {
   useEffect(() => {
       if (isEditMode && exportId) {
         InventoryExportApiService.getExportCommandDetail(exportId).then(data => {
-          if (data.status === "COMPLETED") setIsReadOnly(true);
+          if (data.status && data.status !== "PENDING") setIsReadOnly(true);
           reset({
             exportType: data.exportType || "INTERNAL", noteCode: data.code, note: data.note || "",
             expectedDate: data.entryDate || new Date().toLocaleDateString('en-CA'),
