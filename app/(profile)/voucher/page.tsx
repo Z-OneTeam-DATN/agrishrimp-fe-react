@@ -1,78 +1,152 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Ticket,
-  Percent,
-  Truck,
+  BookmarkCheck,
+  BookmarkPlus,
+  ChevronRight,
   Clock,
-  Tag,
   Copy,
+  Percent,
   ShoppingCart,
-  Trash2,
+  Tag,
+  Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
+import { voucherService, Voucher } from "@/app/services/voucher.service";
 
-// --- MOCK DATA ---
-const initialVouchers = [
-  {
-    id: 1,
-    title: "Giảm 50K cho đơn từ 500K",
-    code: "AGRI50",
-    expiry: "31/12/2025",
-    description: "Áp dụng cho các sản phẩm thuốc thủy sản.",
-    type: "discount",
-    status: "ACTIVE",
-  },
-  {
-    id: 2,
-    title: "Miễn phí vận chuyển",
-    code: "FREESHIP",
-    expiry: "15/06/2025",
-    description: "Tối đa 30K. Áp dụng toàn quốc.",
-    type: "freeship",
-    status: "ACTIVE",
-  },
-  {
-    id: 3,
-    title: "Giảm 10% tối đa 100K",
-    code: "SALE10",
-    expiry: "01/01/2024",
-    description: "",
-    type: "expired",
-    status: "EXPIRED",
-  },
-];
+const SAVED_VOUCHERS_KEY = "agrishrimp.savedVoucherCodes";
+
+const formatMoney = (value: number | string | null | undefined) => {
+  const numeric = Number(value || 0);
+  return `${numeric.toLocaleString("vi-VN")}đ`;
+};
+
+const getVoucherLabel = (voucher: Voucher) => {
+  if (voucher.title?.trim()) return voucher.title;
+
+  const value = Number(voucher.value ?? voucher.discountValue ?? 0);
+  if (voucher.discountType === "PERCENT") {
+    const maxDiscount = voucher.maxDiscount
+      ? ` tối đa ${formatMoney(voucher.maxDiscount)}`
+      : "";
+    return `Giảm ${value}%${maxDiscount}`;
+  }
+
+  return `Giảm ${formatMoney(value)}`;
+};
+
+const loadSavedVoucherCodes = () => {
+  if (typeof window === "undefined") return [] as string[];
+
+  try {
+    const raw = window.localStorage.getItem(SAVED_VOUCHERS_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed
+          .map((code) => String(code).trim().toUpperCase())
+          .filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const persistSavedVoucherCodes = (codes: string[]) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(SAVED_VOUCHERS_KEY, JSON.stringify(codes));
+};
+
+const isVoucherVisible = (voucher: Voucher) => {
+  const now = Date.now();
+  return (
+    voucher.status === "ACTIVE" &&
+    new Date(voucher.startDate).getTime() <= now &&
+    new Date(voucher.endDate).getTime() >= now
+  );
+};
 
 export default function VoucherWalletPage() {
-  const [vouchers, setVouchers] = useState(initialVouchers);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [savedCodes, setSavedCodes] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const savedCodeSet = useMemo(() => new Set(savedCodes), [savedCodes]);
+
+  useEffect(() => {
+    setSavedCodes(loadSavedVoucherCodes());
+  }, []);
+
+  useEffect(() => {
+    const fetchPublicVouchers = async () => {
+      try {
+        setLoading(true);
+        const res = await voucherService.getPublicVouchers();
+        const voucherArray = res.data ? res.data : res;
+        const validVouchers = (Array.isArray(voucherArray) ? voucherArray : [])
+          .filter((voucher: Voucher) => isVoucherVisible(voucher))
+          .sort(
+            (left: Voucher, right: Voucher) => (right.id || 0) - (left.id || 0),
+          );
+
+        setVouchers(validVouchers);
+      } catch {
+        toast.error("Không thể tải danh sách voucher khả dụng");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPublicVouchers();
+  }, []);
 
   const handleCopy = (code: string) => {
-    navigator.clipboard.writeText(code);
+    void navigator.clipboard.writeText(code);
     toast.success(`Đã sao chép mã: ${code}`);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Bạn có chắc muốn xóa voucher này?")) {
-      setVouchers(vouchers.filter((v) => v.id !== id));
-      toast.success("Đã xóa voucher khỏi ví.");
+  const handleSave = (code: string) => {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return;
+
+    if (savedCodeSet.has(normalized)) {
+      toast.success("Voucher đã có trong ví");
+      return;
     }
+
+    const nextCodes = [...savedCodes, normalized];
+    setSavedCodes(nextCodes);
+    persistSavedVoucherCodes(nextCodes);
+    toast.success(`Đã lưu voucher ${normalized} vào ví`);
   };
+
+  const handleRemoveSaved = (code: string) => {
+    const normalized = code.trim().toUpperCase();
+    const nextCodes = savedCodes.filter((savedCode) => savedCode !== normalized);
+    setSavedCodes(nextCodes);
+    persistSavedVoucherCodes(nextCodes);
+    toast.success(`Đã gỡ voucher ${normalized} khỏi ví`);
+  };
+
+  const savedVouchers = vouchers.filter((voucher) =>
+    savedCodeSet.has(voucher.code.toUpperCase()),
+  );
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-      <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-b border-gray-100">
         <div>
           <h5 className="font-bold text-lg text-gray-800 m-0">
             Ví Voucher & Ưu đãi
           </h5>
           <small className="text-gray-500 text-xs">
-            Quản lý mã giảm giá của bạn
+            Danh sách voucher đang khả dụng từ hệ thống
           </small>
         </div>
 
-        {/* NÚT CHUYỂN TRANG */}
         <Link href="/voucher/create">
           <button className="bg-[#2d9f8d] hover:bg-[#248273] text-white text-sm font-bold px-4 h-12 rounded-md flex items-center gap-2 transition-colors shadow-sm">
             <Ticket size={18} /> Nhập mã Voucher
@@ -80,114 +154,144 @@ export default function VoucherWalletPage() {
         </Link>
       </div>
 
-      {/* Voucher List */}
-      <div className="p-6 space-y-6">
-        {vouchers.map((voucher) => (
-          <div key={voucher.id} className="relative group">
-            <div className="flex flex-col sm:flex-row gap-4 items-start">
-              <div
-                className={`w-16 h-16 rounded-lg flex items-center justify-center shrink-0 
-                ${
-                  voucher.type === "freeship"
-                    ? "bg-blue-50 text-blue-500"
-                    : voucher.type === "expired"
-                      ? "bg-gray-100 text-gray-400"
-                      : "bg-orange-50 text-orange-500"
-                }`}
-              >
-                {voucher.type === "freeship" ? (
-                  <Truck size={32} />
-                ) : (
-                  <Percent size={32} />
-                )}
-              </div>
-
-              <div className="flex-1 w-full">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div
-                      className={`text-base font-bold mb-1 ${voucher.status === "EXPIRED" ? "text-gray-400 line-through" : "text-gray-800"}`}
-                    >
-                      {voucher.title}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-1">
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} />{" "}
-                        {voucher.status === "EXPIRED" ? "Hết hạn:" : "HSD:"}{" "}
-                        {voucher.expiry}
-                      </span>
-                      {voucher.status !== "EXPIRED" && (
-                        <>
-                          <span className="text-gray-300">|</span>
-                          <span className="flex items-center gap-1">
-                            <Tag size={12} /> Mã:{" "}
-                            <span className="font-bold text-red-500">
-                              {voucher.code}
-                            </span>
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    {voucher.description && (
-                      <div className="text-xs text-gray-400 italic mb-2">
-                        {voucher.description}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span
-                      className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded border ${
-                        voucher.status === "EXPIRED"
-                          ? "bg-gray-100 text-gray-500 border-gray-200"
-                          : "bg-green-50 text-green-600 border-green-200"
-                      }`}
-                    >
-                      {voucher.status === "EXPIRED"
-                        ? "Đã hết hạn"
-                        : "Chưa dùng"}
-                    </span>
-
-                    <div className="flex gap-3 mt-1">
-                      {voucher.status !== "EXPIRED" ? (
-                        <>
-                          <button
-                            onClick={() => handleCopy(voucher.code)}
-                            className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
-                          >
-                            <Copy size={12} /> Sao chép
-                          </button>
-                          <Link
-                            href="/store"
-                            className="text-xs font-bold text-green-600 hover:underline flex items-center gap-1"
-                          >
-                            <ShoppingCart size={12} /> Dùng ngay
-                          </Link>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleDelete(voucher.id)}
-                          className="text-xs font-bold text-red-500 hover:underline flex items-center gap-1"
-                        >
-                          <Trash2 size={12} /> Xóa bỏ
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+      <div className="p-6 space-y-8">
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-28 rounded-2xl bg-gray-100 animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h6 className="text-sm font-bold text-gray-800">
+                  Voucher đã lưu
+                </h6>
+                <p className="text-xs text-gray-500">
+                  {savedVouchers.length} mã đang nằm trong ví của bạn
+                </p>
               </div>
             </div>
-            <div className="absolute -bottom-3 left-0 right-0 border-b border-dashed border-gray-100 last:hidden"></div>
-          </div>
-        ))}
 
-        {vouchers.length === 0 && (
-          <div className="text-center py-10 text-gray-500">
-            <Ticket size={48} className="mx-auto text-gray-300 mb-3" />
-            <p>Ví voucher của bạn đang trống.</p>
-          </div>
+            {savedVouchers.length > 0 ? (
+              <div className="space-y-4">
+                {savedVouchers.map((voucher) => {
+                  const value = Number(voucher.value ?? voucher.discountValue ?? 0);
+                  const isPercent = voucher.discountType === "PERCENT";
+                  const isSaved = savedCodeSet.has(voucher.code.toUpperCase());
+
+                  return (
+                    <div
+                      key={voucher.id ?? voucher.code}
+                      className="rounded-2xl border border-gray-200 p-4 sm:p-5 bg-gradient-to-r from-amber-50/60 to-white"
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex gap-4 min-w-0">
+                          <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-600">
+                            {isPercent ? <Percent size={28} /> : <Ticket size={28} />}
+                          </div>
+
+                          <div className="min-w-0">
+                            <h3 className="text-base font-bold text-gray-800 truncate">
+                              {getVoucherLabel(voucher)}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Clock size={12} />
+                                HSD: {new Date(voucher.endDate).toLocaleDateString("vi-VN")}
+                              </span>
+                              <span className="text-gray-300">|</span>
+                              <span className="flex items-center gap-1">
+                                <Tag size={12} /> Mã:
+                                <span className="font-bold text-red-500">
+                                  {voucher.code}
+                                </span>
+                              </span>
+                            </div>
+
+                            {voucher.description && (
+                              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                                {voucher.description}
+                              </p>
+                            )}
+
+                            <div className="mt-2 text-xs text-gray-500">
+                              Đơn tối thiểu: {formatMoney(voucher.minOrderValue)}
+                              {isPercent
+                                ? ` · Giảm ${value}%${voucher.maxDiscount ? `, tối đa ${formatMoney(voucher.maxDiscount)}` : ""}`
+                                : ` · Giảm ${formatMoney(value)}`}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
+                          <span className="text-[10px] font-extrabold uppercase px-2 py-1 rounded border bg-green-50 text-green-600 border-green-200">
+                            Đang dùng được
+                          </span>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              onClick={() => handleCopy(voucher.code)}
+                              className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              <Copy size={12} /> Sao chép
+                            </button>
+                            <Link
+                              href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
+                              className="text-xs font-bold text-green-600 hover:underline flex items-center gap-1"
+                            >
+                              <ShoppingCart size={12} /> Dùng ngay
+                            </Link>
+                            {isSaved ? (
+                              <button
+                                onClick={() => handleRemoveSaved(voucher.code)}
+                                className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1"
+                              >
+                                <BookmarkCheck size={12} /> Đã lưu
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleSave(voucher.code)}
+                                className="text-xs font-bold text-gray-600 hover:underline flex items-center gap-1"
+                              >
+                                <BookmarkPlus size={12} /> Lưu vào ví
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500 border border-dashed border-gray-200 rounded-2xl">
+                <Ticket size={48} className="mx-auto text-gray-300 mb-3" />
+                <p className="font-medium">Chưa có voucher khả dụng nào.</p>
+                <p className="text-xs mt-1">
+                  Voucher sẽ xuất hiện ở đây khi admin tạo và kích hoạt chúng.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <div>
+                <h6 className="text-sm font-bold text-gray-800">
+                  Voucher khả dụng từ admin
+                </h6>
+                <p className="text-xs text-gray-500">
+                  Danh sách này dùng chung với giỏ hàng và trang thanh toán.
+                </p>
+              </div>
+              <Link
+                href="/checkout"
+                className="text-xs font-semibold text-[#2d9f8d] hover:underline inline-flex items-center gap-1"
+              >
+                Đi tới thanh toán <ChevronRight size={12} />
+              </Link>
+            </div>
+          </>
         )}
       </div>
     </div>
