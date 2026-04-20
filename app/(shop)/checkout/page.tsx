@@ -443,7 +443,7 @@ export default function CheckoutPage() {
 
                                 {addressConfirmed && !prepareMutation.isPending && prepareOrderResponse && (
                                     <div className="space-y-3">
-                                        {!prepareOrderResponse.canFulfill && (
+                                        {!prepareOrderResponse.canFulfill && prepareOrderResponse.subOrders.length === 0 && (
                                             <OutOfStockWarning
                                                 items={prepareOrderResponse.outOfStockItems}
                                                 onOrderPartial={prepareOrderResponse.subOrders.length > 0 ? () => {} : undefined}
