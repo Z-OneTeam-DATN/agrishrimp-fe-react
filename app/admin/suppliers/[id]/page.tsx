@@ -119,6 +119,8 @@ export default function SupplierDetailPage() {
     const [historyStatus, setHistoryStatus] = useState("all");
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
+    const [catalogCurrentPage, setCatalogCurrentPage] = useState(1);
+    const CATALOG_PAGE_SIZE = 8;
 
     const {
         control,
@@ -304,6 +306,17 @@ export default function SupplierDetailPage() {
         [filteredCatalogProducts],
     );
 
+    const paginatedCatalogProducts = useMemo(() => {
+        const startIndex = (catalogCurrentPage - 1) * CATALOG_PAGE_SIZE;
+        const endIndex = startIndex + CATALOG_PAGE_SIZE;
+        return filteredCatalogProducts.slice(startIndex, endIndex);
+    }, [filteredCatalogProducts, catalogCurrentPage]);
+
+    const catalogTotalPages = useMemo(
+        () => Math.ceil(filteredCatalogProducts.length / CATALOG_PAGE_SIZE) || 1,
+        [filteredCatalogProducts.length],
+    );
+
     const allFilteredSelected =
         filteredCatalogProductIds.length > 0 &&
         filteredCatalogProductIds.every((id) => selectedCatalogProductIds.includes(id));
@@ -316,6 +329,10 @@ export default function SupplierDetailPage() {
             prev.filter((id) => catalogProducts.some((product) => product.id === id)),
         );
     }, [catalogProducts]);
+
+    useEffect(() => {
+        setCatalogCurrentPage(1);
+    }, [catalogKeyword]);
 
     useEffect(() => {
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -890,8 +907,8 @@ export default function SupplierDetailPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filteredCatalogProducts.length > 0 ? (
-                                                filteredCatalogProducts.map((product) => {
+                                            {paginatedCatalogProducts.length > 0 ? (
+                                                paginatedCatalogProducts.map((product) => {
                                                     const current = catalogByProductId.get(product.id);
                                                     const status = current?.status || "CHECKING";
                                                     const statusStyle =
@@ -978,6 +995,39 @@ export default function SupplierDetailPage() {
                                         </TableBody>
                                     </Table>
                                 </div>
+
+                                {filteredCatalogProducts.length > 0 && (
+                                    <div className="px-4 py-3 border-t border-slate-100 bg-[#fcfcfc] flex items-center justify-between">
+                                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+                                            Hiển thị {(catalogCurrentPage - 1) * CATALOG_PAGE_SIZE + 1} - {Math.min(catalogCurrentPage * CATALOG_PAGE_SIZE, filteredCatalogProducts.length)} trong {filteredCatalogProducts.length}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-[11px] font-bold uppercase"
+                                                onClick={() => setCatalogCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                                disabled={catalogCurrentPage === 1}
+                                            >
+                                                ← Trước
+                                            </Button>
+                                            <span className="text-[11px] font-bold text-slate-600 uppercase min-w-[60px] text-center">
+                                                {catalogCurrentPage} / {catalogTotalPages}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-[11px] font-bold uppercase"
+                                                onClick={() => setCatalogCurrentPage((prev) => Math.min(prev + 1, catalogTotalPages))}
+                                                disabled={catalogCurrentPage === catalogTotalPages}
+                                            >
+                                                Sau →
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
 
