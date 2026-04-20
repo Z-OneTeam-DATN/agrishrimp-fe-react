@@ -126,11 +126,13 @@ export default function EmployeeManagementPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white px-6 py-4 border-b border-slate-100">
-        <AdminPageHeader 
-          title="Quản lý nhân sự & Hệ thống" 
+      <div className="mx-6 mt-5">
+        <AdminPageHeader
+          title="Quản lý nhân sự & Hệ thống"
+          titleClassName="text-[26px] font-black tracking-[0.04em]"
+          subtitle="Theo dõi danh sách nhân sự, quyền truy cập và trạng thái làm việc theo từng chi nhánh."
           addBtnLabel="Thêm nhân viên mới"
-          addBtnHref="/admin/employees/add" 
+          addBtnHref="/admin/employees/add"
           permission={P.STAFF_CREATE}
           secondaryBtnLabel={hasPermission(P.ROLE_VIEW) ? "Quản lý quyền" : undefined}
           secondaryBtnHref="/admin/employees/roles"
