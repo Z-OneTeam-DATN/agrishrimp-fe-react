@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
   X, Plus, Trash2, FileText, ChevronLeft, Save, ShoppingBag, Warehouse, UserCheck,
-  MapPin, User, Phone, CalendarIcon, Hash, Search, BadgeCheck, Loader2, Package, AlertCircle
+  MapPin, User, Phone, CalendarIcon, Hash, Search, BadgeCheck, Loader2, Package, AlertCircle, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,7 @@ function AdminExportFormContent() {
   const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const [returnSourceLocked, setReturnSourceLocked] = useState(false);
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const generateNoteCode = (type: string) => {
@@ -491,32 +492,64 @@ function AdminExportFormContent() {
         </div>
       </div>
 
-      <div className={cn(
-          "mt-2 p-3 border flex items-center gap-3 rounded-sm shadow-sm",
-          isAdmin ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-amber-50 border-amber-200 text-amber-700"
-      )}>
-        <AlertCircle size={18} />
-        <p className="text-[12px] font-bold uppercase tracking-wide">
-          {isAdmin
-            ? "Chế độ Quản trị: Có thể duyệt nhanh phiếu xuất trả, nhưng hệ thống vẫn khóa đúng nghiệp vụ theo kho tổng và lô hàng lỗi."
-            : "Chế độ Quản lý kho tổng: Phiếu xuất trả sau khi lưu sẽ chờ admin duyệt mới có hiệu lực."}
-        </p>
-      </div>
+      <div className="mt-2 rounded-sm border border-slate-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowWorkflowGuide((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <AlertCircle size={18} className="text-blue-600" />
+            <div>
+              <p className="text-[12px] font-black uppercase tracking-wide text-slate-700">
+                Hướng dẫn nghiệp vụ xuất trả NCC
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Bấm để {showWorkflowGuide ? "ẩn" : "xem"} hướng dẫn màn hình này
+              </p>
+            </div>
+          </div>
+          {showWorkflowGuide ? (
+            <ChevronUp size={18} className="text-slate-400" />
+          ) : (
+            <ChevronDown size={18} className="text-slate-400" />
+          )}
+        </button>
 
-      <div className="mt-3 p-3 border border-slate-200 bg-white text-slate-700 rounded-sm shadow-sm">
-        <p className="text-[12px] font-bold uppercase tracking-wide">
-          Nghiệp vụ chuẩn: màn hình này chỉ phục vụ xuất trả nhà cung cấp từ kho tổng, dựa trên các lô hàng lỗi đang còn tồn.
-        </p>
-        {watchExportType === "RETURN" && (
-          <p className="mt-2 text-[12px] text-rose-700 font-medium">
-            Phiếu trả NCC chỉ cho phép chọn các lô hàng lỗi đang còn số lượng lỗi lớn hơn 0, đúng nhà cung cấp và đúng kho nhập.
-          </p>
-        )}
-        {returnSourceLocked && (
-          <p className="mt-2 text-[12px] text-blue-700 font-medium">
-            Phiếu xuất trả này được khởi tạo trực tiếp từ phiếu nhập có hàng lỗi. Nhà cung cấp và danh sách lô hàng đã được khóa theo phiếu nguồn.
-          </p>
-        )}
+        {showWorkflowGuide ? (
+          <div className="border-t border-slate-100 px-4 py-3 space-y-3">
+            <div
+              className={cn(
+                "p-3 border rounded-sm shadow-sm",
+                isAdmin
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "bg-amber-50 border-amber-200 text-amber-700",
+              )}
+            >
+              <p className="text-[12px] font-bold uppercase tracking-wide">
+                {isAdmin
+                  ? "Chế độ Quản trị: Có thể duyệt nhanh phiếu xuất trả, nhưng hệ thống vẫn khóa đúng nghiệp vụ theo kho tổng và lô hàng lỗi."
+                  : "Chế độ Quản lý kho tổng: Phiếu xuất trả sau khi lưu sẽ chờ admin duyệt mới có hiệu lực."}
+              </p>
+            </div>
+
+            <div className="border border-slate-200 bg-slate-50 text-slate-700 rounded-sm p-3">
+              <p className="text-[12px] font-bold uppercase tracking-wide">
+                Nghiệp vụ chuẩn: màn hình này chỉ phục vụ xuất trả nhà cung cấp từ kho tổng, dựa trên các lô hàng lỗi đang còn tồn.
+              </p>
+              {watchExportType === "RETURN" && (
+                <p className="mt-2 text-[12px] text-rose-700 font-medium">
+                  Phiếu trả NCC chỉ cho phép chọn các lô hàng lỗi đang còn số lượng lỗi lớn hơn 0, đúng nhà cung cấp và đúng kho nhập.
+                </p>
+              )}
+              {returnSourceLocked && (
+                <p className="mt-2 text-[12px] text-blue-700 font-medium">
+                  Phiếu xuất trả này được khởi tạo trực tiếp từ phiếu nhập có hàng lỗi. Nhà cung cấp và danh sách lô hàng đã được khóa theo phiếu nguồn.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -773,21 +806,14 @@ function AdminExportFormContent() {
              <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
              <div className="space-y-1.5 flex flex-col">
                 <Label className="text-[10px] font-bold uppercase text-slate-400">Kho tổng xuất hàng (*)</Label>
-                <Controller
-                  name="branchId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled>
-                       <SelectTrigger className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"} bg-slate-50`}><SelectValue placeholder="-- Chọn kho tổng --" /></SelectTrigger>
-                       <SelectContent className="rounded-none">
-                         {branches.filter(b => b.branchType === "WAREHOUSE").map(b => (
-                           <SelectItem key={b.id} value={b.id.toString()}>
-                             {b.name.toUpperCase()} <span className="text-slate-400 ml-1 text-[10px]">(Kho tổng)</span>
-                           </SelectItem>
-                         ))}
-                       </SelectContent>
-                    </Select>
-                  )}
+                <input type="hidden" {...register("branchId")} />
+                <Input
+                  readOnly
+                  value={
+                    branches.find((b) => b.id.toString() === watchBranchId)?.name?.toUpperCase() ||
+                    "-- KHO TỔNG --"
+                  }
+                  className={`rounded-none font-bold h-10 ${errors.branchId ? "border-rose-500" : "border-slate-200"} bg-slate-50 text-slate-700`}
                 />
                 {errors.branchId && <p className="text-rose-500 text-[10px] mt-1">{errors.branchId.message}</p>}
              </div>

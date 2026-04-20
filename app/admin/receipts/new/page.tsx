@@ -1129,135 +1129,139 @@ function AdminReceiptFormContent() {
                         )
                       : 0;
                     return (
-                      <TableRow
-                        key={field.id}
-                        className="h-12 border-b border-slate-50 hover:bg-slate-50/50"
-                      >
-                        <TableCell className="text-center text-[10px] text-slate-300 font-bold">
-                          {idx + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-[11px] font-bold text-slate-700">
-                            {item.productName}
-                          </div>
-                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">
-                            #{item.productCode}
-                          </div>
-                          {isLinkedPurchaseRequest ? (
-                            <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                              YCM {formatNumber(Number(item.requestedQuantity) || 0)} ·
-                              Đã nhận {formatNumber(Number(item.deliveredQuantity) || 0)} ·
-                              Còn thiếu {formatNumber(Number(item.remainingQuantity) || 0)}
-                            </div>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="px-1">
-                          <Input
-                            readOnly
-                            className="h-7 text-xs text-center border-slate-200 bg-slate-50 font-bold text-slate-600"
-                            {...register(`items.${idx}.lotNumber`)}
-                            disabled={isReadOnly}
-                          />
-                        </TableCell>
-                        <TableCell className="px-1">
-                          <Input
-                            type="date"
-                            className="h-7 text-xs px-1 border-slate-200"
-                            {...register(`items.${idx}.expiryDate`)}
-                            disabled={isInfoReadOnly}
-                          />
-                        </TableCell>
-                        {isLinkedPurchaseRequest ? (
-                          <TableCell className="text-right text-xs font-bold text-slate-700 pr-4">
-                            {formatNumber(Number(item.requestedQuantity) || 0)}
+                      <React.Fragment key={field.id}>
+                        <TableRow className="h-12 border-b border-slate-50 hover:bg-slate-50/50">
+                          <TableCell className="text-center text-[10px] text-slate-300 font-bold">
+                            {idx + 1}
                           </TableCell>
-                        ) : null}
-                        <TableCell className="px-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            placeholder={
-                              isLinkedPurchaseRequest ? "Nhập SL đợt này" : ""
-                            }
-                            className="h-7 text-xs text-right font-bold border-slate-200"
-                            {...register(`items.${idx}.plannedQuantity`, {
-                              valueAsNumber: true,
-                            })}
-                            disabled={isInfoReadOnly}
-                          />
-                        </TableCell>
-                        {isLinkedPurchaseRequest ? (
-                          <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
-                            {formatNumber(remainingAfterReceipt)}
-                          </TableCell>
-                        ) : null}
-                        <TableCell className="px-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-7 text-xs text-right border-emerald-200 bg-emerald-50/10 font-bold text-emerald-700"
-                            {...register(`items.${idx}.quantityAccepted`, {
-                              valueAsNumber: true,
-                            })}
-                            disabled={isInfoReadOnly}
-                          />
-                        </TableCell>
-                        <TableCell className="px-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-7 text-xs text-right border-rose-200 bg-rose-50/10 font-bold text-rose-600"
-                            {...register(`items.${idx}.quantityRejected`, {
-                              valueAsNumber: true,
-                            })}
-                            disabled={isInfoReadOnly}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-bold text-blue-600 pr-4">
-                          <span className={cn(hasQuantityMismatch && "text-rose-600")}>
-                            {formatNumber(actualReceived)}
-                          </span>
-                          {hasQuantityMismatch ? (
-                            <div className="mt-1 text-[10px] font-bold text-rose-500">
-                              Đạt + lỗi phải = giao
+                          <TableCell>
+                            <div className="text-[11px] font-bold text-slate-700">
+                              {item.productName}
                             </div>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="px-1 bg-blue-50/20">
-                          <Input
-                            type="number"
-                            readOnly
-                            className="h-7 text-xs text-right text-blue-600 font-bold border-blue-200 bg-slate-50"
-                            {...register(`items.${idx}.importPrice`, {
-                              valueAsNumber: true,
-                            })}
-                            disabled={isReadOnly}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-bold text-slate-900 pr-4">
-                          {formatNumber(
-                            (Number(item.plannedQuantity) || 0) *
-                              (Number(item.importPrice) || 0),
-                          )}
-                        </TableCell>
-                        <TableCell className="px-1 min-w-[150px]">
-                          <Input
-                            className="h-7 text-[10px] border-slate-200 bg-slate-50/30 italic"
-                            {...register(`items.${idx}.note`)}
-                            placeholder="Nguyên nhân..."
-                            disabled={isReadOnly}
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {!isInfoReadOnly && (
-                            <Trash2
-                              size={14}
-                              className="text-slate-200 hover:text-rose-500 cursor-pointer transition-colors"
-                              onClick={() => remove(idx)}
+                            <div className="text-[9px] text-slate-400 font-mono mt-0.5">
+                              #{item.productCode}
+                            </div>
+                            {isLinkedPurchaseRequest ? (
+                              <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                YCM {formatNumber(Number(item.requestedQuantity) || 0)} ·
+                                Đã nhận {formatNumber(Number(item.deliveredQuantity) || 0)} ·
+                                Còn thiếu {formatNumber(Number(item.remainingQuantity) || 0)}
+                              </div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="px-1">
+                            <Input
+                              readOnly
+                              className="h-7 text-xs text-center border-slate-200 bg-slate-50 font-bold text-slate-600"
+                              {...register(`items.${idx}.lotNumber`)}
+                              disabled={isReadOnly}
                             />
-                          )}
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                          <TableCell className="px-1">
+                            <Input
+                              type="date"
+                              className="h-7 text-xs px-1 border-slate-200"
+                              {...register(`items.${idx}.expiryDate`)}
+                              disabled={isInfoReadOnly}
+                            />
+                          </TableCell>
+                          {isLinkedPurchaseRequest ? (
+                            <TableCell className="text-right text-xs font-bold text-slate-700 pr-4">
+                              {formatNumber(Number(item.requestedQuantity) || 0)}
+                            </TableCell>
+                          ) : null}
+                          <TableCell className="px-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder={
+                                isLinkedPurchaseRequest ? "Nhập SL đợt này" : ""
+                              }
+                              className="h-7 text-xs text-right font-bold border-slate-200"
+                              {...register(`items.${idx}.plannedQuantity`, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={isInfoReadOnly}
+                            />
+                          </TableCell>
+                          {isLinkedPurchaseRequest ? (
+                            <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
+                              {formatNumber(remainingAfterReceipt)}
+                            </TableCell>
+                          ) : null}
+                          <TableCell className="px-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              className="h-7 text-xs text-right border-emerald-200 bg-emerald-50/10 font-bold text-emerald-700"
+                              {...register(`items.${idx}.quantityAccepted`, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={isInfoReadOnly}
+                            />
+                          </TableCell>
+                          <TableCell className="px-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              className="h-7 text-xs text-right border-rose-200 bg-rose-50/10 font-bold text-rose-600"
+                              {...register(`items.${idx}.quantityRejected`, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={isInfoReadOnly}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-bold text-blue-600 pr-4">
+                            <span className={cn(hasQuantityMismatch && "text-rose-600")}>
+                              {formatNumber(actualReceived)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-1 bg-blue-50/20">
+                            <Input
+                              type="number"
+                              readOnly
+                              className="h-7 text-xs text-right text-blue-600 font-bold border-blue-200 bg-slate-50"
+                              {...register(`items.${idx}.importPrice`, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={isReadOnly}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-bold text-slate-900 pr-4">
+                            {formatNumber(
+                              (Number(item.plannedQuantity) || 0) *
+                                (Number(item.importPrice) || 0),
+                            )}
+                          </TableCell>
+                          <TableCell className="px-1 min-w-[150px]">
+                            <Input
+                              className="h-7 text-[10px] border-slate-200 bg-slate-50/30 italic"
+                              {...register(`items.${idx}.note`)}
+                              placeholder="Nguyên nhân..."
+                              disabled={isReadOnly}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {!isInfoReadOnly && (
+                              <Trash2
+                                size={14}
+                                className="text-slate-200 hover:text-rose-500 cursor-pointer transition-colors"
+                                onClick={() => remove(idx)}
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {hasQuantityMismatch ? (
+                          <TableRow className="bg-rose-50/70">
+                            <TableCell className="border-t-0" />
+                            <TableCell colSpan={tableColCount - 1} className="border-t-0 px-4 py-2">
+                              <div className="text-[11px] font-bold text-rose-600">
+                                Đạt + lỗi phải đúng bằng số lượng giao của dòng này.
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </React.Fragment>
                     );
                   })
                 )}
