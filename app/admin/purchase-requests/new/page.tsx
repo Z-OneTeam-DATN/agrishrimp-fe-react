@@ -53,8 +53,7 @@ export default function NewPurchaseRequestPage() {
   const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
 
   const isWarehouseUser =
-    (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
-    warehouseId === 1;
+    currentUser?.branch?.branchType === "WAREHOUSE" || warehouseId === 1;
   const canAccessPurchaseRequests =
     isAdminRole(currentUser?.role) ||
     (isWarehouseUser && isManagerRole(currentUser?.role));
@@ -98,16 +97,18 @@ export default function NewPurchaseRequestPage() {
         const allBranches = Array.isArray(branchData)
           ? branchData
           : (branchData?.content ?? []);
-        const warehouseOnly: BranchDTO[] = allBranches.filter((branch: BranchDTO) => {
-          const code = String(branch.branchCode || "").toUpperCase();
-          const type = String(branch.branchType || "").toUpperCase();
-          const name = String(branch.name || "").toLowerCase();
+        const warehouseOnly: BranchDTO[] = allBranches.filter(
+          (branch: BranchDTO) => {
+            const code = String(branch.branchCode || "").toUpperCase();
+            const type = String(branch.branchType || "").toUpperCase();
+            const name = String(branch.name || "").toLowerCase();
 
-          if (code === "SYSTEM_DEFECT") return false;
-          if (code === "MAIN_WH") return true;
+            if (code === "SYSTEM_DEFECT") return false;
+            if (code === "MAIN_WH") return true;
 
-          return type === "WAREHOUSE" && name.includes("kho tổng");
-        });
+            return type === "WAREHOUSE" && name.includes("kho tổng");
+          },
+        );
 
         setWarehouseBranches(warehouseOnly);
 
