@@ -46,6 +46,7 @@ type VoucherFormErrors = Partial<
     | "maxDiscount"
     | "quantity"
     | "usageLimit"
+    | "startDate"
     | "endDate",
     string
   >
@@ -275,6 +276,12 @@ export default function AdminVoucherPage() {
       nextErrors.usageLimit = "Lượt dùng tối đa phải lớn hơn 0";
     }
 
+    if (!formData.startDate) {
+      nextErrors.startDate = "Vui lòng chọn ngày bắt đầu";
+    }
+    if (!formData.endDate) {
+      nextErrors.endDate = "Vui lòng chọn ngày kết thúc";
+    } else
     if (dateError) {
       nextErrors.endDate = dateError;
     }
@@ -586,7 +593,7 @@ export default function AdminVoucherPage() {
                 <X className="text-gray-500 hover:text-gray-800" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4" noValidate>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -849,12 +856,20 @@ export default function AdminVoucherPage() {
                     value={formData.startDate}
                     onChange={(e) => {
                       setFormData({ ...formData, startDate: e.target.value });
+                      if (errors.startDate) {
+                        setErrors((prev) => ({ ...prev, startDate: "" }));
+                      }
                       if (errors.endDate) {
                         setErrors((prev) => ({ ...prev, endDate: "" }));
                       }
                     }}
-                    className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                    className={`w-full border rounded-lg p-2 outline-none ${errors.startDate ? "border-red-500 focus:border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                   />
+                  {errors.startDate && (
+                    <p className="text-red-500 text-xs mt-1 font-medium">
+                      {errors.startDate}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -973,9 +988,4 @@ export default function AdminVoucherPage() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+          </div
