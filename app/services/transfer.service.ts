@@ -46,7 +46,19 @@ export const transferService = {
     return response.data;
   },
 
-  // 7. Từ chối phiếu (Đổi sang REJECTED)
+  // 7. Chi nhánh nguồn xác nhận có hàng & giá (PENDING → SOURCE_CONFIRMED, chỉ cho INTERNAL_SALE)
+  sourceConfirm: async (id: string) => {
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/source-confirm`);
+    return response.data;
+  },
+
+  // 8. Bên nhận bắt đầu kiểm đếm hàng (SHIPPING → INSPECTING)
+  startInspection: async (id: string) => {
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/start-inspection`);
+    return response.data;
+  },
+
+  // 9. Từ chối phiếu (Đổi sang REJECTED)
   reject: async (id: string) => {
     const response = await apiJava.post(`${transferService.PREFIX}/${id}/reject`);
     return response.data;
