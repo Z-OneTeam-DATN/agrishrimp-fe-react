@@ -99,7 +99,7 @@ export default function NewPurchaseRequestPage() {
           ? branchData
           : (branchData?.content ?? []);
         const warehouseOnly: BranchDTO[] = allBranches.filter(
-          (branch: BranchDTO) => branch.branchType === "WAREHOUSE",
+          (branch: BranchDTO) => branch.branchCode === "MAIN_WH",
         );
 
         setWarehouseBranches(warehouseOnly);

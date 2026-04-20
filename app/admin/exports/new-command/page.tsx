@@ -66,10 +66,12 @@ function AdminExportFormContent() {
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const isAdmin = hasPermission(P.EXPORT_APPROVE);
-  const currentUserBranchType = (
-    currentUser?.branch as { branchType?: string } | undefined
-  )?.branchType;
-  const isWarehouseBranch = currentUserBranchType === "WAREHOUSE";
+  const currentUserBranch = currentUser?.branch as
+    | { branchType?: string; branchCode?: string }
+    | undefined;
+  const isWarehouseBranch =
+    currentUserBranch?.branchCode === "MAIN_WH" ||
+    currentUserBranch?.branchType === "WAREHOUSE";
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,7 +123,7 @@ function AdminExportFormContent() {
   const watchItems = watch("items");
 
   const selectedBranchInfo = branches.find(b => b.id?.toString() === watchBranchId);
-  const isMainBranch = !selectedBranchInfo || selectedBranchInfo.branchType === "WAREHOUSE";
+  const isMainBranch = !selectedBranchInfo || selectedBranchInfo.branchCode === "MAIN_WH";
 
   const totalAmount = watchItems.reduce((acc, item) => acc + ((item.quantity || 0) * (item.price || 0)), 0);
 
@@ -220,7 +222,7 @@ function AdminExportFormContent() {
           const branchList = Array.isArray(resB) ? resB : resB?.content || [];
           setBranches(branchList);
           if (!isEditMode) {
-            const warehouseBranches = branchList.filter((branch: any) => branch.branchType === "WAREHOUSE");
+            const warehouseBranches = branchList.filter((branch: any) => branch.branchCode === "MAIN_WH");
             const preferredWarehouse =
               warehouseBranches.find((branch: any) => String(branch.id) === String(currentUser?.branch?.id ?? "")) ||
               warehouseBranches[0];

@@ -2,20 +2,53 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  AlertCircle,
+  ArrowDownToLine,
+  ArrowRightLeft,
+  Ban,
+  CheckCircle2,
+  CheckSquare,
+  ChevronLeft,
+  Edit,
+  FileText,
+  Package,
+  Plus,
+  Printer,
+  Truck,
+  X,
+} from "lucide-react";
+
 import { transferService } from "@/app/services/transfer.service";
 import { branchService } from "@/app/services/branchService";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import {
-  ChevronLeft, Printer, Truck, CheckCircle2, ArrowRightLeft, 
-  FileText, Package, Settings, HelpCircle, X, ArrowDownToLine, 
-  Plus, AlertCircle, History, Edit, Ban, CheckSquare
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
+
+type InspectItem = {
+  variantId: number;
+  productName: string;
+  quantityRequested: number;
+  quantityReal: number;
+  quantityAccepted: number;
+  quantityRejected: number;
+  note: string;
+};
+
+const DONE_STATUSES = ["COMPLETED"];
+const CANCELLABLE_STATUSES = ["PENDING", "SOURCE_CONFIRMED", "APPROVED"];
 
 export default function TransferDetailPage() {
   const { id } = useParams();
@@ -24,222 +57,402 @@ export default function TransferDetailPage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { data: currentUser } = useCurrentUser();
-
-  // Kiểm tra quyền Admin
-  const isAdmin = currentUser?.role?.id === 1 || currentUser?.role?.displayName === 'Quản trị viên';
-
-  // Quyền duyệt xuất: CHỈ DÀNH CHO ADMIN
-  const canApproveShip = isAdmin;
-
-  // Modal States
   const [showChangeBranchModal, setShowChangeBranchModal] = useState(false);
   const [newBranchId, setNewBranchId] = useState("");
   const [showInspectModal, setShowInspectModal] = useState(false);
-  const [inspectItems, setInspectItems] = useState<any[]>([]);
+  const [inspectItems, setInspectItems] = useState<InspectItem[]>([]);
+
+  const { data: currentUser } = useCurrentUser();
+  const { hasPermission } = usePermissions();
+
+  const isAdmin =
+    currentUser?.role?.id === 1 ||
+    currentUser?.role?.displayName === "Quản trị viên";
+  const canApproveTransfer = isAdmin || hasPermission(P.TRANSFER_APPROVE);
+  const canOperateTransfer = isAdmin || hasPermission(P.TRANSFER_CREATE);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [id]);
 
   const fetchData = async () => {
     try {
       const [transferData, branchData] = await Promise.all([
         transferService.getById(id as string),
-        branchService.getAll()
+        branchService.getAll(),
       ]);
       setTransfer(transferData);
       setBranches(branchData || []);
-    } catch (error) {
-      toast.error("Lỗi tải dữ liệu. Vui lòng thử lại!");
+    } catch {
+      toast.error("Lỗi tải dữ liệu. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApiCall = async (action: () => Promise<any>, successMsg: string) => {
+  const handleApiCall = async (
+    action: () => Promise<unknown>,
+    successMessage: string,
+    afterSuccess?: () => void
+  ) => {
     setIsProcessing(true);
     try {
       await action();
-      toast.success(successMsg);
-      const updated = await transferService.getById(id as string);
-      setTransfer(updated);
+      toast.success(successMessage);
+      afterSuccess?.();
+      await fetchData();
     } catch (error: any) {
-      const errData = error.response?.data;
-      let errMsg = "Lỗi xử lý hệ thống";
-      if (typeof errData === 'string') {
-          errMsg = errData;
-      } else if (errData && typeof errData === 'object') {
-          errMsg = String(errData.detail || errData.message || "Đã xảy ra lỗi hệ thống");
+      const errData = error?.response?.data;
+      if (typeof errData === "string") {
+        toast.error(errData);
+      } else {
+        toast.error(
+          String(errData?.detail || errData?.message || "Đã xảy ra lỗi hệ thống")
+        );
       }
-      toast.error(errMsg);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 1. Duyệt xuất kho
-  const handleApprove = () => {
-    handleApiCall(() => transferService.approve(id as string), "Đã xuất kho thành công!");
-  };
-
-  // 2. Hủy phiếu
-  const handleCancel = () => {
-    handleApiCall(() => transferService.cancel(id as string), "Đã hủy phiếu thành công!");
-  };
-
-  // 3. Thay đổi chi nhánh nhận
-  const handleChangeDestination = () => {
-    if (!newBranchId) return toast.error("Vui lòng chọn chi nhánh mới");
-    handleApiCall(() => transferService.changeDestination(id as string, newBranchId), "Đã đổi chi nhánh nhận thành công!");
-    setShowChangeBranchModal(false);
-  };
-
-  // 4. Nhận đủ hàng nhanh
-  const handleReceiveAll = () => {
-    const payload = (transfer?.items || []).map((i: any) => ({
-      variantId: i.variantId,
-      quantityReal: i.quantityRequested,
-      note: "Nhận đủ"
-    }));
-    handleApiCall(() => transferService.receive(id as string, payload), "Đã nhập kho nhận thành công!");
-  };
-
-  // 5. Kiểm đếm & Nhận hàng
   const openInspectModal = () => {
-    setInspectItems((transfer?.items || []).map((i: any) => ({
-      ...i,
-      quantityReal: i.quantityRequested,
-      note: ""
-    })));
+    const items = (transfer?.items || []).map((item: any) => ({
+      variantId: item.variantId,
+      productName: item.productName,
+      quantityRequested: Number(item.quantityRequested || 0),
+      quantityReal: Number(item.quantityRequested || 0),
+      quantityAccepted: Number(item.quantityRequested || 0),
+      quantityRejected: 0,
+      note: "",
+    }));
+    setInspectItems(items);
     setShowInspectModal(true);
   };
 
-  const submitInspect = () => {
-    const payload = inspectItems.map((i) => ({
-      variantId: i.variantId,
-      quantityReal: Number(i.quantityReal || 0),
-      note: i.note || ""
-    }));
+  const updateInspectItem = (
+    index: number,
+    field: "quantityAccepted" | "quantityRejected" | "note",
+    value: string
+  ) => {
+    setInspectItems((prev) => {
+      const next = [...prev];
+      const item = { ...next[index] };
 
-    handleApiCall(() => transferService.receive(id as string, payload), "Đã kiểm đếm và nhập kho thành công!");
-    setShowInspectModal(false);
+      if (field === "note") {
+        item.note = value;
+      } else {
+        const numericValue = Math.max(0, Number(value || 0));
+        item[field] = numericValue;
+        item.quantityReal =
+          Number(item.quantityAccepted || 0) + Number(item.quantityRejected || 0);
+      }
+
+      next[index] = item;
+      return next;
+    });
   };
 
-  if (loading) return <div className="p-10 text-center italic text-slate-400">Đang tải dữ liệu...</div>;
-  if (!transfer) return <div className="p-10 text-center text-rose-500 font-bold">LỖI: PHIẾU KHÔNG TỒN TẠI</div>;
+  const submitInspect = async () => {
+    for (const item of inspectItems) {
+      const requested = Number(item.quantityRequested || 0);
+      const accepted = Number(item.quantityAccepted || 0);
+      const rejected = Number(item.quantityRejected || 0);
+      const real = accepted + rejected;
+
+      if (real > requested) {
+        toast.error(`Sản phẩm ${item.productName} có số lượng kiểm nhận vượt quá số lượng điều chuyển.`);
+        return;
+      }
+      if ((rejected > 0 || real < requested) && !item.note.trim()) {
+        toast.error(`Vui lòng nhập ghi chú cho sản phẩm ${item.productName} khi có hàng lỗi hoặc thiếu.`);
+        return;
+      }
+    }
+
+    const payload = inspectItems.map((item) => ({
+      variantId: item.variantId,
+      quantityReal: Number(item.quantityAccepted || 0) + Number(item.quantityRejected || 0),
+      quantityAccepted: Number(item.quantityAccepted || 0),
+      quantityRejected: Number(item.quantityRejected || 0),
+      note: item.note.trim(),
+    }));
+
+    await handleApiCall(
+      () => transferService.receive(id as string, payload),
+      "Đã kiểm đếm và nhập kho thành công!",
+      () => setShowInspectModal(false)
+    );
+  };
+
+  if (loading) {
+    return <div className="p-10 text-center italic text-slate-400">Đang tải dữ liệu...</div>;
+  }
+  if (!transfer) {
+    return <div className="p-10 text-center font-bold text-rose-500">LỖI: PHIẾU KHÔNG TỒN TẠI</div>;
+  }
+
+  const status = String(transfer.status || "").toUpperCase();
+  const isInternalSale = String(transfer.transferBusinessType || "").toUpperCase() === "INTERNAL_SALE";
+
+  const canSourceConfirm =
+    isInternalSale && status === "PENDING" && canOperateTransfer && !canApproveTransfer;
+  const canApprove =
+    canApproveTransfer &&
+    ((!isInternalSale && status === "PENDING") ||
+      (isInternalSale && status === "SOURCE_CONFIRMED"));
+  const canShip = canApproveTransfer && status === "APPROVED";
+  const canStartInspection = canOperateTransfer && status === "SHIPPING";
+  const canReceive = canOperateTransfer && status === "INSPECTING";
+  const canCancel = (canOperateTransfer || canApproveTransfer) && CANCELLABLE_STATUSES.includes(status);
+  const canChangeDestination =
+    (canOperateTransfer || canApproveTransfer) && ["PENDING", "SOURCE_CONFIRMED", "APPROVED"].includes(status);
 
   const steps = [
-    { label: "Khởi tạo", status: "completed", icon: Plus },
-    { label: "Chờ xuất kho", status: transfer.status === "PENDING" ? "active" : "completed", icon: AlertCircle },
-    { label: "Đang vận chuyển", status: transfer.status === "PENDING" ? "upcoming" : (["SHIPPING", "TRANSIT"].includes(transfer.status) ? "active" : "completed"), icon: Truck },
-    { label: transfer.status === "CANCELLED" ? "Đã Hủy" : "Đã nhận hàng", status: transfer.status === "COMPLETED" ? "completed" : transfer.status === "CANCELLED" ? "active" : "upcoming", icon: transfer.status === "CANCELLED" ? Ban : CheckCircle2 },
+    {
+      label: "Khởi tạo",
+      status: "completed",
+      icon: Plus,
+    },
+    {
+      label: isInternalSale ? "Chờ xác nhận nguồn" : "Chờ duyệt",
+      status:
+        status === "PENDING" || status === "SOURCE_CONFIRMED"
+          ? "active"
+          : DONE_STATUSES.includes(status) || ["APPROVED", "SHIPPING", "INSPECTING"].includes(status)
+            ? "completed"
+            : "upcoming",
+      icon: AlertCircle,
+    },
+    {
+      label: "Đã duyệt",
+      status:
+        status === "APPROVED"
+          ? "active"
+          : DONE_STATUSES.includes(status) || ["SHIPPING", "INSPECTING"].includes(status)
+            ? "completed"
+            : "upcoming",
+      icon: CheckCircle2,
+    },
+    {
+      label: "Đang vận chuyển",
+      status:
+        ["SHIPPING", "INSPECTING"].includes(status)
+          ? "active"
+          : DONE_STATUSES.includes(status)
+            ? "completed"
+            : "upcoming",
+      icon: Truck,
+    },
+    {
+      label: status === "CANCELLED" ? "Đã hủy" : "Hoàn tất",
+      status: status === "COMPLETED" || status === "CANCELLED" ? "active" : "upcoming",
+      icon: status === "CANCELLED" ? Ban : ArrowDownToLine,
+    },
   ];
 
-  const auditLogs = [
-    {
-      time: new Date(transfer.createdAt || new Date()).toLocaleString('vi-VN'),
-      user: "Hệ thống",
-      action: "Khởi tạo phiếu dự thảo",
-      detail: "Hệ thống tự động cấp mã phiếu",
+  const auditLogs = (() => {
+    const logs = [
+      {
+        time: new Date(transfer.createdAt || Date.now()).toLocaleString("vi-VN"),
+        user: "Hệ thống",
+        action: "Khởi tạo phiếu",
+        detail: "Phiếu điều chuyển được tạo và chờ xử lý.",
+      },
+    ];
+
+    if (status === "SOURCE_CONFIRMED") {
+      logs.unshift({
+        time: new Date().toLocaleString("vi-VN"),
+        user: "Chi nhánh nguồn",
+        action: "Xác nhận nguồn",
+        detail: "Đã xác nhận có hàng để chờ Admin duyệt.",
+      });
     }
-  ];
-  if (transfer.status !== "PENDING" && transfer.status !== "CANCELLED") {
-    auditLogs.unshift({
-      time: transfer.transferDate ? new Date(transfer.transferDate).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN'),
-      user: "Quản trị viên",
-      action: "Xác nhận xuất kho",
-      detail: "Đã trừ tồn kho và giao cho đơn vị vận chuyển",
-    });
-  }
-  if (transfer.status === "COMPLETED") {
-    auditLogs.unshift({
-      time: new Date().toLocaleString('vi-VN'),
-      user: "Quản trị viên",
-      action: "Nhập kho chi nhánh nhận",
-      detail: "Đã hoàn tất kiểm đếm và cộng tồn kho",
-    });
-  }
-  if (transfer.status === "CANCELLED") {
-    auditLogs.unshift({
-      time: new Date().toLocaleString('vi-VN'),
-      user: "Quản trị viên",
-      action: "Hủy phiếu điều chuyển",
-      detail: "Hệ thống đã tự động hoàn trả tồn kho",
-    });
-  }
+    if (["APPROVED", "SHIPPING", "INSPECTING", "COMPLETED"].includes(status)) {
+      logs.unshift({
+        time: new Date().toLocaleString("vi-VN"),
+        user: "Admin",
+        action: "Duyệt phiếu",
+        detail: "Đã reserve hàng ở kho nguồn.",
+      });
+    }
+    if (["SHIPPING", "INSPECTING", "COMPLETED"].includes(status)) {
+      logs.unshift({
+        time: new Date().toLocaleString("vi-VN"),
+        user: "Kho nguồn",
+        action: "Xuất kho vận chuyển",
+        detail: "Hàng đã rời kho nguồn và đang trên đường giao tới kho nhận.",
+      });
+    }
+    if (status === "INSPECTING") {
+      logs.unshift({
+        time: new Date().toLocaleString("vi-VN"),
+        user: "Kho nhận",
+        action: "Bắt đầu kiểm hàng",
+        detail: "Kho nhận đang nhập số lượng đạt và số lượng lỗi/thiếu.",
+      });
+    }
+    if (status === "COMPLETED") {
+      logs.unshift({
+        time: new Date().toLocaleString("vi-VN"),
+        user: "Kho nhận",
+        action: "Hoàn tất QC",
+        detail: "Đã cộng kho nhận theo số lượng đạt và ghi nhận phần lỗi/thiếu.",
+      });
+    }
+    if (status === "CANCELLED") {
+      logs.unshift({
+        time: new Date().toLocaleString("vi-VN"),
+        user: "Hệ thống",
+        action: "Hủy phiếu",
+        detail: "Phiếu đã bị hủy trước khi hoàn tất điều chuyển.",
+      });
+    }
+
+    return logs;
+  })();
 
   return (
-    <div className="space-y-4 p-4 bg-slate-50/30 min-h-screen pb-20 relative">
-      
-      {/* HEADER */}
-      <div className="flex items-center gap-4 mb-2 px-1">
+    <div className="min-h-screen space-y-4 bg-slate-50/30 p-4 pb-20">
+      <div className="mb-2 flex items-center gap-4 px-1">
         <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
           <ChevronLeft size={20} />
         </Button>
         <div className="flex flex-col">
-          <div className="flex items-center gap-3">
-             <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
-               LẬP PHIẾU ĐIỀU CHUYỂN HÀNG HÓA
-             </h1>
-          </div>
-          <div className="flex items-center gap-6 mt-1 opacity-70 pointer-events-none">
+          <h1 className="text-[18px] font-black uppercase tracking-tight text-[#1f1f1f]">
+            Chi tiết phiếu điều chuyển
+          </h1>
+          <div className="mt-1 flex items-center gap-6 opacity-70">
             <div className="flex items-center space-x-2">
-              <div className={cn("w-3.5 h-3.5 rounded-full border-[4px]", transfer.transferType === "BETWEEN_WAREHOUSES" ? "border-emerald-500 bg-white" : "border-slate-300")} />
-              <Label className={cn("text-[11px] font-bold uppercase tracking-wider", transfer.transferType === "BETWEEN_WAREHOUSES" ? "text-blue-600" : "text-slate-400")}>Điều chuyển liên kho</Label>
+              <div
+                className={cn(
+                  "h-3.5 w-3.5 rounded-full border-[4px]",
+                  !isInternalSale ? "border-emerald-500 bg-white" : "border-slate-300"
+                )}
+              />
+              <Label className={cn("text-[11px] font-bold uppercase tracking-wider", !isInternalSale ? "text-blue-600" : "text-slate-400")}>
+                Kho tổng → chi nhánh
+              </Label>
             </div>
             <div className="flex items-center space-x-2">
-              <div className={cn("w-3.5 h-3.5 rounded-full border-[4px]", transfer.transferType !== "BETWEEN_WAREHOUSES" ? "border-emerald-500 bg-white" : "border-slate-300")} />
-              <Label className={cn("text-[11px] font-bold uppercase tracking-wider", transfer.transferType !== "BETWEEN_WAREHOUSES" ? "text-blue-600" : "text-slate-400")}>Nội bộ</Label>
+              <div
+                className={cn(
+                  "h-3.5 w-3.5 rounded-full border-[4px]",
+                  isInternalSale ? "border-emerald-500 bg-white" : "border-slate-300"
+                )}
+              />
+              <Label className={cn("text-[11px] font-bold uppercase tracking-wider", isInternalSale ? "text-blue-600" : "text-slate-400")}>
+                Chi nhánh ↔ chi nhánh
+              </Label>
             </div>
           </div>
         </div>
 
-        <div className="ms-auto flex items-center gap-3 text-gray-400">
-          <div className={cn("hidden md:flex px-3 py-1.5 border items-center gap-2 rounded-none", transfer.status === "COMPLETED" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700")}>
+        <div className="ms-auto flex items-center gap-2">
+          <Button variant="outline" className="h-8 rounded-none border-slate-300 px-3 text-[11px] font-bold text-slate-600">
+            <Printer size={14} className="mr-1.5" />
+            IN PHIẾU
+          </Button>
+          {canSourceConfirm && (
+            <Button onClick={() => void handleApiCall(() => transferService.sourceConfirm(id as string), "Đã xác nhận chi nhánh nguồn sẵn sàng điều chuyển.")} disabled={isProcessing} className="rounded-none bg-amber-600 hover:bg-amber-700">
+              XÁC NHẬN NGUỒN
+            </Button>
+          )}
+          {canApprove && (
+            <Button onClick={() => void handleApiCall(() => transferService.approve(id as string), "Đã duyệt phiếu điều chuyển.")} disabled={isProcessing} className="rounded-none bg-blue-600 hover:bg-blue-700">
+              DUYỆT PHIẾU
+            </Button>
+          )}
+          {canShip && (
+            <Button onClick={() => void handleApiCall(() => transferService.ship(id as string), "Đã xuất kho và chuyển sang trạng thái vận chuyển.")} disabled={isProcessing} className="rounded-none bg-indigo-600 hover:bg-indigo-700">
+              XUẤT KHO
+            </Button>
+          )}
+          {canStartInspection && (
+            <Button onClick={() => void handleApiCall(() => transferService.startInspection(id as string), "Đã bắt đầu kiểm hàng.")} disabled={isProcessing} className="rounded-none bg-amber-500 hover:bg-amber-600">
+              BẮT ĐẦU KIỂM HÀNG
+            </Button>
+          )}
+          {canReceive && (
+            <>
+              <Button
+                onClick={() =>
+                  void handleApiCall(
+                    () =>
+                      transferService.receive(
+                        id as string,
+                        (transfer.items || []).map((item: any) => ({
+                          variantId: item.variantId,
+                          quantityReal: Number(item.quantityRequested || 0),
+                          quantityAccepted: Number(item.quantityRequested || 0),
+                          quantityRejected: 0,
+                          note: "",
+                        }))
+                      ),
+                    "Đã hoàn tất kiểm hàng và nhập kho nhận."
+                  )
+                }
+                disabled={isProcessing}
+                className="rounded-none bg-emerald-600 hover:bg-emerald-700"
+              >
+                <CheckSquare size={14} className="mr-1.5" />
+                NHẬN ĐỦ
+              </Button>
+              <Button onClick={openInspectModal} disabled={isProcessing} className="rounded-none bg-orange-500 hover:bg-orange-600">
+                <Package size={14} className="mr-1.5" />
+                KIỂM ĐẾM CHI TIẾT
+              </Button>
+            </>
+          )}
+          {canCancel && (
+            <Button onClick={() => void handleApiCall(() => transferService.cancel(id as string), "Đã hủy phiếu thành công!")} disabled={isProcessing} variant="outline" className="rounded-none border-rose-200 text-rose-600 hover:bg-rose-50">
+              <Ban size={14} className="mr-1.5" />
+              HỦY PHIẾU
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
+            <X size={20} />
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border border-[#dcdcdc] bg-white p-3 shadow-sm">
+        <div className="flex items-center gap-2 text-[14px] font-black uppercase tracking-tighter text-slate-800">
+          Mã phiếu: <span className="text-blue-600">{transfer.transferCode || "---"}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border border-slate-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">
             <ArrowDownToLine size={14} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Nhập kho: {transfer.status === "COMPLETED" ? "Đã nhập" : "Chờ nhập"}</span>
+            Trạng thái: {status}
           </div>
-          <Settings size={18} className="cursor-pointer hover:text-blue-600 transition-colors" />
-          <HelpCircle size={18} className="cursor-pointer hover:text-blue-600 transition-colors" />
-          <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8"><X size={20} /></Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-white p-3 border border-[#dcdcdc] shadow-sm justify-between">
-         <div className="text-[14px] font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
-            MÃ PHIẾU: <span className="text-blue-600">{transfer.transferCode || "---"}</span>
-         </div>
-         <div className="flex items-center gap-2">
-            <Button variant="outline" className="h-8 text-[11px] font-bold border-slate-300 rounded-none px-3 text-slate-600"><Printer size={14} className="mr-1.5" /> IN PHIẾU</Button>
-           {transfer.status === "PENDING" && canApproveShip && (
-             <Button onClick={handleApprove} className="bg-blue-600">
-               XÁC NHẬN XUẤT KHO (BẮT ĐẦU VẬN CHUYỂN)
-             </Button>
-           )}
-            {["SHIPPING", "TRANSIT"].includes(transfer.status) && (
-              <React.Fragment>
-                  <Button onClick={handleReceiveAll} disabled={isProcessing} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-none"><CheckSquare size={14} className="mr-1.5"/> ĐÃ NHẬN ĐỦ</Button>
-                  <Button onClick={openInspectModal} disabled={isProcessing} className="h-8 bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] rounded-none"><Package size={14} className="mr-1.5"/> KIỂM ĐẾM & NHẬN</Button>
-                  <Button onClick={handleCancel} disabled={isProcessing} variant="outline" className="h-8 text-rose-600 border-rose-200 hover:bg-rose-50 font-black text-[11px] rounded-none"><Ban size={14} className="mr-1.5"/> HỦY PHIẾU</Button>
-              </React.Fragment>
-            )}
-         </div>
-      </div>
-
-      {/* STEP BAR */}
-      <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm mb-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
           {steps.map((step, idx) => (
-            <React.Fragment key={idx}>
-              <div className="flex flex-col items-center gap-2 relative z-10">
-                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300", step.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white" : step.status === "active" ? (transfer.status === 'CANCELLED' ? "bg-rose-500 border-rose-500 text-white" : "bg-blue-600 border-blue-600 text-white shadow-lg") : "bg-slate-50 border-slate-200 text-slate-300")}>
+            <React.Fragment key={step.label}>
+              <div className="relative z-10 flex flex-col items-center gap-2">
+                <div
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300",
+                    step.status === "completed"
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : step.status === "active"
+                        ? status === "CANCELLED"
+                          ? "border-rose-500 bg-rose-500 text-white"
+                          : "border-blue-600 bg-blue-600 text-white shadow-lg"
+                        : "border-slate-200 bg-slate-50 text-slate-300"
+                  )}
+                >
                   <step.icon size={20} />
                 </div>
-                <span className={cn("text-[10px] font-black uppercase tracking-tighter", step.status === "active" ? (transfer.status === 'CANCELLED' ? "text-rose-600" : "text-blue-600") : "text-slate-400")}>{step.label}</span>
+                <span className={cn("text-center text-[10px] font-black uppercase tracking-tighter", step.status === "active" ? (status === "CANCELLED" ? "text-rose-600" : "text-blue-600") : "text-slate-400")}>
+                  {step.label}
+                </span>
               </div>
               {idx < steps.length - 1 && (
-                <div className="flex-1 h-[3px] bg-slate-100 mx-2 -mt-6 relative">
+                <div className="relative mx-2 -mt-6 h-[3px] flex-1 bg-slate-100">
                   <div className={cn("absolute inset-0 transition-all duration-500", steps[idx].status === "completed" ? "bg-emerald-500" : "bg-transparent")} />
                 </div>
               )}
@@ -248,176 +461,241 @@ export default function TransferDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-9 space-y-5">
-          {/* Thông tin kho */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm grid grid-cols-2 gap-6 relative">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="space-y-5 lg:col-span-8">
+          <div className="grid grid-cols-1 gap-6 rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm md:grid-cols-2">
             <div className="space-y-4">
-               <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-black border border-blue-100">XUẤT</div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Từ kho (Nguồn)</p>
-                    <p className="text-[15px] font-black text-slate-700 uppercase">{transfer.fromBranchName || "---"}</p>
-                  </div>
-               </div>
-               <div className="flex items-center gap-4 group">
-                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center font-black border border-emerald-100">NHẬN</div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đến kho (Đích)</p>
-                    <div className="flex items-center gap-2">
-                       <p className="text-[15px] font-black text-slate-700 uppercase">{transfer.toBranchName || "---"}</p>
-                       {["SHIPPING", "TRANSIT"].includes(transfer.status) && (
-                         <button onClick={() => setShowChangeBranchModal(true)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity" title="Thay đổi chi nhánh nhận"><Edit size={14}/></button>
-                       )}
-                    </div>
-                  </div>
-               </div>
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-100 bg-blue-50 font-black text-blue-600">
+                  XUẤT
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Kho nguồn</p>
+                  <p className="text-[15px] font-black uppercase text-slate-700">{transfer.fromBranchName || "---"}</p>
+                </div>
+              </div>
+              <div className="rounded-none border border-slate-100 bg-slate-50 p-4">
+                <p className="flex justify-between border-b border-slate-100 pb-2 text-[13px]">
+                  <span className="text-slate-400">Ngày tạo:</span>
+                  <span className="font-bold">{transfer.createdAt ? new Date(transfer.createdAt).toLocaleString("vi-VN") : "---"}</span>
+                </p>
+                <p className="mt-2 flex justify-between text-[13px]">
+                  <span className="text-slate-400">Tổng số lượng:</span>
+                  <span className="font-black text-blue-600">{transfer.totalQuantity || 0}</span>
+                </p>
+              </div>
             </div>
-            <div className="border-l pl-8 border-slate-100 space-y-3 text-[13px]">
-               <div className="flex justify-between"><span className="text-slate-400 uppercase text-[10px] font-bold">Ngày khởi tạo:</span><span className="font-bold">{transfer.createdAt ? new Date(transfer.createdAt).toLocaleString('vi-VN') : '---'}</span></div>
-               <div className="flex justify-between"><span className="text-slate-400 uppercase text-[10px] font-bold">Tổng số lượng:</span><span className="font-black text-blue-600 text-lg">{transfer.totalQuantity || 0}</span></div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 font-black text-emerald-600">
+                  NHẬN
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Kho nhận</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[15px] font-black uppercase text-slate-700">{transfer.toBranchName || "---"}</p>
+                    {canChangeDestination && (
+                      <button
+                        onClick={() => setShowChangeBranchModal(true)}
+                        className="text-blue-500 transition-colors hover:text-blue-700"
+                        title="Thay đổi chi nhánh nhận"
+                      >
+                        <Edit size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-none border border-slate-100 bg-slate-50 p-4">
+                <p className="flex justify-between border-b border-slate-100 pb-2 text-[13px]">
+                  <span className="text-slate-400">Loại điều chuyển:</span>
+                  <span className="font-bold">{isInternalSale ? "Nội bộ giữa chi nhánh" : "Kho tổng cấp phát"}</span>
+                </p>
+                <p className="mt-2 flex justify-between text-[13px]">
+                  <span className="text-slate-400">Mã tham chiếu:</span>
+                  <span className="font-mono font-bold">{transfer.referenceCode || "---"}</span>
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Bảng hàng hóa */}
-          <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
-             <div className="px-5 py-3 bg-slate-50 border-b font-black text-[11px] uppercase text-slate-500 tracking-widest flex items-center gap-2"><Package size={14}/> Danh mục vật tư điều chuyển</div>
-             <table className="w-full text-[13px]">
-                <thead className="bg-white border-b text-[10px] uppercase text-slate-400">
-                   <tr>
-                      <th className="p-4 text-left">Sản phẩm / SKU</th>
-                      <th className="p-4 text-center">ĐVT</th>
-                      <th className="p-4 text-right">SL Yêu cầu</th>
-                      <th className="p-4 text-right bg-emerald-50/30 text-emerald-600">Thực nhận</th>
-                   </tr>
+          <div className="rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b pb-3 text-[11px] font-black uppercase tracking-widest text-slate-700">
+              <ArrowRightLeft size={15} />
+              Danh sách sản phẩm điều chuyển
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[12px]">
+                <thead className="border-b bg-slate-50">
+                  <tr className="text-[10px] uppercase text-slate-500">
+                    <th className="p-3">Sản phẩm</th>
+                    <th className="p-3 text-right">Yêu cầu</th>
+                    <th className="p-3 text-right">Thực nhận</th>
+                    <th className="p-3 text-right">Đạt</th>
+                    <th className="p-3 text-right">Lỗi/thiếu</th>
+                  </tr>
                 </thead>
                 <tbody>
-                   {(transfer.items || []).map((item: any, i: number) => (
-                      <tr key={i} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                         <td className="p-4"><p className="font-black text-slate-700 uppercase">{item.productName || "---"}</p><p className="text-[11px] font-mono text-blue-500 font-bold">{item.sku || "---"}</p></td>
-                         <td className="p-4 text-center text-slate-500 font-bold">{item.unit || "---"}</td>
-                         <td className="p-4 text-right font-black text-slate-700 text-base">{item.quantityRequested || 0}</td>
-                         <td className="p-4 text-right font-black text-emerald-600 text-base bg-emerald-50/20">{item.quantityReal || 0}</td>
-                      </tr>
-                   ))}
+                  {(transfer.items || []).map((item: any) => (
+                    <tr key={item.variantId} className="border-b last:border-0 hover:bg-slate-50">
+                      <td className="p-3">
+                        <div className="font-bold text-slate-700">{item.productName}</div>
+                        <div className="text-[11px] text-slate-400">{item.sku || item.variantSku || "---"}</div>
+                      </td>
+                      <td className="p-3 text-right font-black text-slate-700">{item.quantityRequested || 0}</td>
+                      <td className="p-3 text-right font-black text-blue-600">{item.quantityReal || 0}</td>
+                      <td className="p-3 text-right font-black text-emerald-600">{item.quantityAccepted || 0}</td>
+                      <td className="p-3 text-right font-black text-rose-600">{item.quantityRejected || 0}</td>
+                    </tr>
+                  ))}
                 </tbody>
-             </table>
+              </table>
+            </div>
           </div>
 
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-4 text-slate-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <History size={16} /> Nhật ký xử lý chứng từ hệ thống
+          <div className="rounded-none border border-amber-100 bg-amber-50 p-5">
+            <h3 className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase text-amber-600">
+              <FileText size={14} />
+              Diễn giải
+            </h3>
+            <p className="text-[13px] font-medium italic leading-relaxed text-amber-800">
+              "{transfer.description || "Không có ghi chú thêm cho phiếu điều chuyển này."}"
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-5 lg:col-span-4">
+          <div className="rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b pb-3 text-[11px] font-black uppercase tracking-widest text-slate-700">
+              <Package size={15} />
+              Nhật ký xử lý
             </div>
-            <div className="space-y-3">
-              {auditLogs.map((log, i) => (
-                <div key={i} className="flex gap-4 items-start text-[12px] border-l-2 border-slate-100 pl-4 ml-2 relative">
-                  <div className={cn("absolute -left-[5px] top-1.5 w-2 h-2 rounded-full ring-4 ring-white", i === 0 ? "bg-blue-500" : "bg-slate-300")} />
-                  <div className="min-w-[120px] text-slate-400 font-mono text-[11px] pt-0.5">{log.time}</div>
-                  <div className="font-black text-blue-600 pt-0.5">{log.user}</div>
-                  <div className="text-slate-600 pt-0.5">
-                    {log.action}: <span className="text-slate-400 italic">{log.detail}</span>
-                  </div>
+            <div className="space-y-4">
+              {auditLogs.map((log, idx) => (
+                <div key={`${log.action}-${idx}`} className="relative pl-6">
+                  <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-blue-500" />
+                  <p className="text-[11px] font-black uppercase text-slate-700">{log.action}</p>
+                  <p className="text-[11px] text-slate-500">{log.time}</p>
+                  <p className="text-[12px] text-slate-600">{log.detail}</p>
+                  <p className="text-[11px] italic text-slate-400">{log.user}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
-
-        <div className="lg:col-span-3 space-y-5">
-           <div className="bg-white border border-[#dcdcdc] p-5 rounded-none shadow-sm space-y-4">
-              <h3 className="font-black text-[11px] uppercase text-slate-400 border-b pb-2 flex items-center gap-2"><Truck size={14}/> Vận tải hàng hóa</h3>
-              <div className="text-[13px] space-y-3">
-                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Tài xế:</span><span className="font-bold">{transfer.transporter || 'Chưa cập nhật'}</span></p>
-                 <p className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Phương tiện:</span><span className="font-bold text-blue-600">{transfer.vehicle || 'Chưa cập nhật'}</span></p>
-                 <p className="flex flex-col gap-1"><span className="text-slate-400 text-[10px] font-bold uppercase">Lệnh điều động số:</span><span className="font-mono text-[12px] p-2 bg-slate-900 text-emerald-400 border border-slate-800">{transfer.dispatchOrder || '---'}</span></p>
-              </div>
-           </div>
-           <div className="bg-amber-50 border border-amber-100 p-5 rounded-none">
-              <h3 className="font-black text-[11px] uppercase text-amber-600 flex items-center gap-2 mb-2"><FileText size={14}/> Lý do điều chuyển</h3>
-              <p className="text-[13px] text-amber-800 leading-relaxed italic font-medium">"{transfer.description || 'Không có nội dung ghi chú diễn giải cho phiếu này.'}"</p>
-           </div>
-        </div>
       </div>
 
-      {/* MODAL 1: ĐỔI CHI NHÁNH NHẬN */}
       {showChangeBranchModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-md p-6 rounded-none shadow-2xl space-y-4">
-              <h3 className="font-black text-[14px] uppercase border-b pb-2">Thay đổi chi nhánh nhận</h3>
-              <div className="space-y-2">
-                 <Label className="text-[11px] text-slate-500 font-bold">Chọn chi nhánh mới:</Label>
-                 <Select value={newBranchId || undefined} onValueChange={setNewBranchId}>
-                    <SelectTrigger className="rounded-none border-slate-300 font-bold"><SelectValue placeholder="Chọn chi nhánh..."/></SelectTrigger>
-                    <SelectContent className="rounded-none">
-                       {branches.map(b => (
-                         <SelectItem key={b.id} value={b.id.toString()} disabled={b.name === transfer.fromBranchName}>{b.name}</SelectItem>
-                       ))}
-                    </SelectContent>
-                 </Select>
-                 <p className="text-[10px] text-amber-600 italic">Hàng đang về sẽ được chuyển hướng sang chi nhánh này.</p>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                 <Button variant="outline" onClick={() => setShowChangeBranchModal(false)} className="rounded-none text-[11px] font-bold">HỦY</Button>
-                 <Button onClick={handleChangeDestination} disabled={isProcessing} className="bg-blue-600 hover:bg-blue-700 text-white rounded-none text-[11px] font-black">XÁC NHẬN ĐỔI</Button>
-              </div>
-           </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-none bg-white p-6 shadow-2xl">
+            <h3 className="border-b pb-2 text-[14px] font-black uppercase">Thay đổi chi nhánh nhận</h3>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-500">Chọn chi nhánh mới:</Label>
+              <Select value={newBranchId || undefined} onValueChange={setNewBranchId}>
+                <SelectTrigger className="rounded-none border-slate-300 font-bold">
+                  <SelectValue placeholder="Chọn chi nhánh..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={String(branch.id)} disabled={branch.name === transfer.fromBranchName}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowChangeBranchModal(false)} className="rounded-none text-[11px] font-bold">
+                HỦY
+              </Button>
+              <Button
+                onClick={() =>
+                  void handleApiCall(
+                    () => transferService.changeDestination(id as string, newBranchId),
+                    "Đã đổi chi nhánh nhận thành công!",
+                    () => setShowChangeBranchModal(false)
+                  )
+                }
+                disabled={isProcessing || !newBranchId}
+                className="rounded-none bg-blue-600 text-[11px] font-black text-white hover:bg-blue-700"
+              >
+                XÁC NHẬN ĐỔI
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* MODAL 2: KIỂM ĐẾM & NHẬN HÀNG */}
       {showInspectModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-4xl p-6 rounded-none shadow-2xl flex flex-col max-h-[90vh]">
-              <h3 className="font-black text-[15px] uppercase border-b pb-3 mb-4 flex items-center gap-2"><Package size={18} className="text-amber-600"/> Phiếu kiểm đếm & Nhận hàng</h3>
-              <div className="overflow-y-auto flex-1 border border-slate-200">
-                 <table className="w-full text-left text-[12px]">
-                    <thead className="bg-slate-50 border-b sticky top-0">
-                       <tr className="text-[10px] uppercase text-slate-500">
-                          <th className="p-3">Sản phẩm</th>
-                          <th className="p-3 text-center">Yêu cầu</th>
-                          <th className="p-3 text-center bg-amber-50 text-amber-700">Thực nhận</th>
-                          <th className="p-3">Ghi chú (Thiếu/Hư hỏng)</th>
-                       </tr>
-                    </thead>
-                    <tbody>
-                       {inspectItems.map((item, idx) => (
-                         <tr key={idx} className="border-b last:border-0 hover:bg-slate-50">
-                            <td className="p-3 font-bold text-slate-700">{item.productName}</td>
-                            <td className="p-3 text-center font-black">{item.quantityRequested}</td>
-                            <td className="p-3 bg-amber-50/30">
-                               <Input 
-                                 type="number" 
-                                 value={item.quantityReal || 0} 
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityReal = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-8 w-24 mx-auto text-center rounded-none border-amber-300 font-black text-emerald-600"
-                               />
-                            </td>
-                            <td className="p-3">
-                               <Input 
-                                 value={item.note || ""} 
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].note = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 placeholder="Lý do chênh lệch..." 
-                                 className="h-8 rounded-none border-slate-200 text-[11px] italic"
-                               />
-                            </td>
-                         </tr>
-                       ))}
-                    </tbody>
-                 </table>
-              </div>
-              <div className="flex justify-end gap-3 pt-5 mt-auto">
-                 <Button variant="outline" onClick={() => setShowInspectModal(false)} className="rounded-none text-[12px] font-bold">HỦY BỎ</Button>
-                 <Button onClick={submitInspect} disabled={isProcessing} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-none text-[12px] font-black"><CheckSquare size={16} className="mr-2"/> LƯU KIỂM ĐẾM & NHẬP KHO</Button>
-              </div>
-           </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-none bg-white p-6 shadow-2xl">
+            <h3 className="mb-4 flex items-center gap-2 border-b pb-3 text-[15px] font-black uppercase">
+              <Package size={18} className="text-amber-600" />
+              Phiếu kiểm đếm và nhận hàng
+            </h3>
+            <div className="mb-4 rounded-none border border-blue-100 bg-blue-50 p-3 text-[12px] text-blue-800">
+              Kho nhận phải nhập riêng số lượng đạt và số lượng lỗi/thiếu. Hệ thống sẽ tự tính tổng thực nhận cho từng dòng.
+            </div>
+            <div className="flex-1 overflow-y-auto border border-slate-200">
+              <table className="w-full text-left text-[12px]">
+                <thead className="sticky top-0 border-b bg-slate-50">
+                  <tr className="text-[10px] uppercase text-slate-500">
+                    <th className="p-3">Sản phẩm</th>
+                    <th className="p-3 text-center">Yêu cầu</th>
+                    <th className="p-3 text-center bg-emerald-50 text-emerald-700">Đạt</th>
+                    <th className="p-3 text-center bg-rose-50 text-rose-700">Lỗi/thiếu</th>
+                    <th className="p-3 text-center bg-blue-50 text-blue-700">Thực nhận</th>
+                    <th className="p-3">Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspectItems.map((item, idx) => (
+                    <tr key={item.variantId} className="border-b last:border-0 hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-700">{item.productName}</td>
+                      <td className="p-3 text-center font-black">{item.quantityRequested}</td>
+                      <td className="bg-emerald-50/30 p-3">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={item.quantityAccepted}
+                          onChange={(e) => updateInspectItem(idx, "quantityAccepted", e.target.value)}
+                          className="mx-auto h-8 w-24 rounded-none border-emerald-300 text-center font-black text-emerald-600"
+                        />
+                      </td>
+                      <td className="bg-rose-50/30 p-3">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={item.quantityRejected}
+                          onChange={(e) => updateInspectItem(idx, "quantityRejected", e.target.value)}
+                          className="mx-auto h-8 w-24 rounded-none border-rose-300 text-center font-black text-rose-600"
+                        />
+                      </td>
+                      <td className="bg-blue-50/30 p-3 text-center font-black text-blue-600">{item.quantityReal}</td>
+                      <td className="p-3">
+                        <Input
+                          value={item.note}
+                          onChange={(e) => updateInspectItem(idx, "note", e.target.value)}
+                          placeholder="Lý do thiếu hoặc hư hỏng..."
+                          className="h-8 rounded-none border-slate-200 text-[11px]"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-auto flex justify-end gap-3 pt-5">
+              <Button variant="outline" onClick={() => setShowInspectModal(false)} className="rounded-none text-[12px] font-bold">
+                HỦY BỎ
+              </Button>
+              <Button onClick={() => void submitInspect()} disabled={isProcessing} className="rounded-none bg-emerald-600 text-[12px] font-black text-white hover:bg-emerald-700">
+                <CheckSquare size={16} className="mr-2" />
+                LƯU KIỂM ĐẾM VÀ NHẬP KHO
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
