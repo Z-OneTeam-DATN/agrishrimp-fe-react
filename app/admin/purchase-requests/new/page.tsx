@@ -41,6 +41,9 @@ export default function NewPurchaseRequestPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const router = useRouter();
+  const currentUserBranch = currentUser?.branch as
+    | { id?: number; name?: string; branchType?: string; branchCode?: string }
+    | undefined;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [warehouseBranches, setWarehouseBranches] = useState<BranchDTO[]>([]);
@@ -53,7 +56,7 @@ export default function NewPurchaseRequestPage() {
   const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
 
   const isWarehouseUser =
-    currentUser?.branch?.branchType === "WAREHOUSE" || warehouseId === 1;
+    currentUserBranch?.branchType === "WAREHOUSE" || warehouseId === 1;
   const canAccessPurchaseRequests =
     isAdminRole(currentUser?.role) ||
     (isWarehouseUser && isManagerRole(currentUser?.role));
@@ -114,7 +117,7 @@ export default function NewPurchaseRequestPage() {
 
         const defaultWarehouse =
           warehouseOnly.find(
-            (branch: BranchDTO) => branch.name === currentUser?.branch?.name,
+            (branch: BranchDTO) => branch.name === currentUserBranch?.name,
           ) ??
           warehouseOnly.find(
             (branch: BranchDTO) => branch.id === warehouseId,
@@ -141,7 +144,7 @@ export default function NewPurchaseRequestPage() {
       }
     })();
   }, [
-    currentUser?.branch?.name,
+    currentUserBranch?.name,
     currentUser?.role,
     isWarehouseUser,
     setValue,
