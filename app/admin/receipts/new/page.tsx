@@ -117,6 +117,16 @@ function AdminReceiptFormContent() {
     setConfirmConfig({ open: true, title, description, action, variant });
   };
 
+  const generateLotNumber = () => {
+    const now = new Date();
+    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    const timePart = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+    const randomPart = Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, "0");
+    return `LO-${datePart}-${timePart}-${randomPart}`;
+  };
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
   const [searchSupplierText, setSearchSupplierText] = useState("");
@@ -309,7 +319,7 @@ function AdminReceiptFormContent() {
                 lotNumber:
                   row["Số lô"] ||
                   row["Lot"] ||
-                  "L" + Date.now().toString().slice(-6),
+                  generateLotNumber(),
                 expiryDate: row["Hạn dùng"] || "",
                 imageUrl: match.imageUrl || "",
                 note: "",
@@ -343,7 +353,7 @@ function AdminReceiptFormContent() {
         productName: v.productName || "Sản phẩm",
         plannedQuantity: 1,
         importPrice: undefined,
-        lotNumber: "L" + Date.now().toString().slice(-6),
+        lotNumber: generateLotNumber(),
         expiryDate: "",
         imageUrl: v.imageUrl || "",
         note: "",
@@ -558,7 +568,7 @@ function AdminReceiptFormContent() {
             quantityReal: 0,
             quantityAccepted: 0,
             quantityRejected: 0,
-            lotNumber: "",
+            lotNumber: generateLotNumber(),
             expiryDate: "",
             importPrice: Number(item.unitPrice) || 0,
             newSellingPrice: 0,
@@ -891,6 +901,18 @@ function AdminReceiptFormContent() {
               className="col-span-8 h-8 text-xs bg-slate-50 border-slate-200 font-bold text-blue-600"
             />
           </div>
+          {linkedPurchaseRequestMeta ? (
+            <div className="grid grid-cols-12 items-center gap-2">
+              <Label className="col-span-4 text-[11px] font-bold text-slate-500">
+                Mã phiếu yêu cầu
+              </Label>
+              <Input
+                readOnly
+                value={linkedPurchaseRequestMeta.code}
+                className="col-span-8 h-8 text-xs bg-slate-50 border-slate-200 font-bold text-amber-700"
+              />
+            </div>
+          ) : null}
           <div className="grid grid-cols-12 items-center gap-2">
             <Label className="col-span-4 text-[11px] font-bold text-slate-500">
               Ngày nhập
@@ -1095,6 +1117,9 @@ function AdminReceiptFormContent() {
                     const actualReceived =
                       (Number(item.quantityAccepted) || 0) +
                       (Number(item.quantityRejected) || 0);
+                    const plannedQty = Number(item.plannedQuantity) || 0;
+                    const hasQuantityMismatch =
+                      plannedQty > 0 && actualReceived !== plannedQty;
                     const remainingAfterReceipt = isLinkedPurchaseRequest
                       ? Math.max(
                           (Number(item.requestedQuantity) || 0) -
@@ -1128,9 +1153,10 @@ function AdminReceiptFormContent() {
                         </TableCell>
                         <TableCell className="px-1">
                           <Input
-                            className="h-7 text-xs text-center border-slate-200"
+                            readOnly
+                            className="h-7 text-xs text-center border-slate-200 bg-slate-50 font-bold text-slate-600"
                             {...register(`items.${idx}.lotNumber`)}
-                            disabled={isInfoReadOnly}
+                            disabled={isReadOnly}
                           />
                         </TableCell>
                         <TableCell className="px-1">
@@ -1188,16 +1214,24 @@ function AdminReceiptFormContent() {
                           />
                         </TableCell>
                         <TableCell className="text-right text-xs font-bold text-blue-600 pr-4">
-                          {formatNumber(actualReceived)}
+                          <span className={cn(hasQuantityMismatch && "text-rose-600")}>
+                            {formatNumber(actualReceived)}
+                          </span>
+                          {hasQuantityMismatch ? (
+                            <div className="mt-1 text-[10px] font-bold text-rose-500">
+                              Đạt + lỗi phải = giao
+                            </div>
+                          ) : null}
                         </TableCell>
                         <TableCell className="px-1 bg-blue-50/20">
                           <Input
                             type="number"
-                            className="h-7 text-xs text-right text-blue-600 font-bold border-blue-200"
+                            readOnly
+                            className="h-7 text-xs text-right text-blue-600 font-bold border-blue-200 bg-slate-50"
                             {...register(`items.${idx}.importPrice`, {
                               valueAsNumber: true,
                             })}
-                            disabled={isInfoReadOnly}
+                            disabled={isReadOnly}
                           />
                         </TableCell>
                         <TableCell className="text-right text-xs font-bold text-slate-900 pr-4">
