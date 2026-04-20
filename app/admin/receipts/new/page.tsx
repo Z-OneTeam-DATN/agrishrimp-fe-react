@@ -228,6 +228,7 @@ function AdminReceiptFormContent() {
   const isInfoReadOnly =
     isReadOnly || (isEditMode && (watchStatus || "").toUpperCase() !== "PENDING");
   const isLinkedPurchaseRequest = Boolean(watchPurchaseRequestId);
+  const isMissingPurchaseRequestLink = !isEditMode && !isLinkedPurchaseRequest;
   const isMasterDataLocked = isInfoReadOnly || isLinkedPurchaseRequest;
   const isItemSourceLocked = isInfoReadOnly || isLinkedPurchaseRequest;
   const tableColCount = isLinkedPurchaseRequest ? 13 : 12;
@@ -692,6 +693,11 @@ function AdminReceiptFormContent() {
   };
 
   const onSubmitWithConfirm = (data: Receipt) => {
+    if (isMissingPurchaseRequestLink) {
+      toast.error("Không thể tạo phiếu nhập nếu chưa có mã phiếu yêu cầu mua.");
+      return;
+    }
+
     const title = isAdmin
       ? "Xác nhận LƯU VÀ DUYỆT PHIẾU"
       : "Xác nhận LƯU PHIẾU CHỜ DUYỆT";
@@ -768,6 +774,28 @@ function AdminReceiptFormContent() {
           Nghiệp vụ chuẩn: người lập phiếu phải nhập ngay số đạt chuẩn và số lỗi cho từng mặt hàng. Admin duyệt là thời điểm hệ thống cộng tồn kho, tách hàng lỗi và ghi nhận công nợ nhà cung cấp.
         </p>
       </div>
+
+      {isMissingPurchaseRequestLink ? (
+        <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-sm flex items-start gap-3 text-rose-700">
+          <AlertCircle size={18} className="shrink-0 mt-0.5" />
+          <div className="space-y-2">
+            <p className="text-xs font-black uppercase tracking-wide">
+              Phiếu nhập chỉ được tạo từ phiếu yêu cầu mua
+            </p>
+            <p className="text-xs font-medium leading-relaxed">
+              Vui lòng mở một phiếu yêu cầu hợp lệ rồi chọn hành động tạo phiếu nhập. Hệ thống sẽ không cho lưu phiếu nhập nếu chưa có mã phiếu yêu cầu.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 rounded-none border-rose-300 bg-white px-4 text-[11px] font-bold uppercase text-rose-700 hover:bg-rose-100"
+              onClick={() => router.push("/admin/purchase-requests")}
+            >
+              Đi tới phiếu yêu cầu
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {linkedPurchaseRequestMeta && (
         <div className="mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-sm flex items-start gap-3 text-blue-800">
@@ -1357,7 +1385,7 @@ function AdminReceiptFormContent() {
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase px-8 rounded-sm h-9 shadow-md"
               onClick={handleSubmit(onSubmitWithConfirm)}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isMissingPurchaseRequestLink}
             >
               {isSubmitting && (
                 <Loader2 size={14} className="animate-spin mr-2" />
