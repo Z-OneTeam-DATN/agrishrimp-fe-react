@@ -77,6 +77,7 @@ export default function AdminSidebar() {
   const canViewProcurementSection = hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
   const canViewSettings = hasPermission(P.SETTING_VIEW);
+  const canAccessOrderManagement = hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
 
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
@@ -331,7 +332,7 @@ export default function AdminSidebar() {
               Kinh doanh
             </p>
             <div className="space-y-0.5">
-              {hasPermission(P.ORDER_VIEW) && (
+              {canAccessOrderManagement && (
                 <SidebarGroup
                   label="Quản lý Đơn hàng"
                   icon={ShoppingCart}

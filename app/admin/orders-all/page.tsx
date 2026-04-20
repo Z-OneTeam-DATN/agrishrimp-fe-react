@@ -68,10 +68,15 @@ export default function AllOrdersPage() {
   const isAdmin = isAdminRole(user?.role);
 
   useEffect(() => {
+    if (!isLoadingAuth && !isAdmin) {
+      router.replace(getOrderListPath(user, searchParams.get("status")));
+      return;
+    }
+
     if (!isLoadingAuth && !hasPermission(P.ORDER_VIEW)) {
       router.push("/admin/forbidden");
     }
-  }, [isLoadingAuth, hasPermission, router]);
+  }, [hasPermission, isAdmin, isLoadingAuth, router, searchParams, user]);
 
   useEffect(() => {
     if (isLoadingAuth) return;

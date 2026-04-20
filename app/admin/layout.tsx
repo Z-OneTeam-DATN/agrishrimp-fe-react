@@ -10,6 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 import { normalizeRoleSlug } from "@/lib/roles";
+import { isBranchOrderUser } from "@/lib/order-routing";
 
 type RouteRule = {
   exact?: boolean;
@@ -61,6 +62,7 @@ export default function AdminLayout({
   const { isLoadingAuth, user } = useAuthStore();
   const normalizedRole = normalizeRoleSlug(user?.role);
   const isBlockedAdminRole = normalizedRole === "USER" || normalizedRole === "CUSTOMER";
+  const isBranchScopedOrderUser = isBranchOrderUser(user);
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
@@ -69,11 +71,20 @@ export default function AdminLayout({
   }, [pathname]);
 
   const isAllowed = useMemo(() => {
+    const isBranchOrderRoute =
+      pathname.startsWith("/admin/orders") &&
+      !pathname.startsWith("/admin/orders-all") &&
+      !pathname.startsWith("/admin/orders/add");
+
+    if (isBranchScopedOrderUser && isBranchOrderRoute) {
+      return true;
+    }
+
     if (!matchedRule) return true;
     if (matchedRule.permission) return hasPermission(matchedRule.permission);
     if (matchedRule.anyOf?.length) return hasAnyPermission(matchedRule.anyOf);
     return true;
-  }, [matchedRule, hasAnyPermission, hasPermission]);
+  }, [isBranchScopedOrderUser, matchedRule, hasAnyPermission, hasPermission, pathname]);
 
   if (isLoadingAuth) {
     return (

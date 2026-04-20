@@ -38,6 +38,16 @@ export default function EmployeeManagementPage() {
   const [roles, setRoles] = useState<{label: string, value: string}[]>([]);
   const [branches, setBranches] = useState<{label: string, value: string}[]>([]);
 
+  useEffect(() => {
+    if (isLoadingAuth || !currentUser) return;
+
+    setFilters((prev) => {
+      const nextBranchId = isAdmin ? "all" : String(currentUser.branch?.id || "all");
+      if (prev.branchId === nextBranchId) return prev;
+      return { ...prev, branchId: nextBranchId, page: 0 };
+    });
+  }, [currentUser, isAdmin, isLoadingAuth]);
+
   const fetchInitData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {

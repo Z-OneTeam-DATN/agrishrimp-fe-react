@@ -83,6 +83,8 @@ export default function AddEmployeePage() {
     const router = useRouter();
     const { user: currentUser, isLoadingAuth } = useAuthStore();
     const { hasPermission } = usePermissions();
+    const roleSlug = typeof currentUser?.role === "object" ? currentUser.role?.slug : currentUser?.role;
+    const isAdmin = roleSlug?.toLowerCase() === "admin" || roleSlug?.toLowerCase() === "super_admin";
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cccdFileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedInitRef = useRef(false);
@@ -163,7 +165,10 @@ export default function AddEmployeePage() {
                 setRoles(rolesList);
 
                 // ✅ Tải danh sách chi nhánh
-                const branchesList = (Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || []) as BranchType[];
+                let branchesList = (Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || []) as BranchType[];
+                if (!isAdmin && currentUser?.branch?.id) {
+                    branchesList = branchesList.filter((branch) => branch.id === currentUser.branch?.id);
+                }
                 setBranches(branchesList);
             } catch (error) {
                 toast.error("Không thể tải dữ liệu hệ thống.");
@@ -173,7 +178,7 @@ export default function AddEmployeePage() {
             }
         }
         loadInitData();
-    }, [currentUser?.role?.slug, hasPermission, isLoadingAuth]);
+    }, [currentUser, hasPermission, isAdmin, isLoadingAuth]);
 
     useEffect(() => {
         if (!currentBranchId && branches.length > 0) {
@@ -520,7 +525,7 @@ export default function AddEmployeePage() {
                                 <Select
                                     value={currentBranchId ? String(currentBranchId) : undefined}
                                     onValueChange={(val) => setValue("branchId", Number(val))}
-                                    disabled={branches.length === 0}
+                                    disabled={branches.length === 0 || !isAdmin}
                                 >
                                     <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"} /></SelectTrigger>
                                     <SelectContent>

@@ -4,6 +4,11 @@ import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, Ticket, X, Loader2, AlertCircle, EyeOff } from "lucide-react";
 import { voucherService, Voucher } from "@/app/services/voucher.service";
+import { useRouter } from "next/navigation";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 
 // Hàm hỗ trợ format số ra chuỗi có dấu phẩy (vd: 10000 -> "10,000")
 const formatNumberString = (value: number | string) => {
@@ -19,6 +24,12 @@ const parseNumberString = (value: string) => {
 };
 
 export default function AdminVoucherPage() {
+  const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const { user: currentUser, isLoadingAuth } = useAuthStore();
+  const canViewVoucher = hasPermission(P.VOUCHER_VIEW);
+  const canManageVoucher = isAdminRole(currentUser?.role);
+
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,6 +57,8 @@ export default function AdminVoucherPage() {
   });
 
   const fetchVouchers = async () => {
+    if (!canViewVoucher) return;
+
     try {
       setLoading(true);
       const res = await voucherService.getAllAdmin();
@@ -63,8 +76,15 @@ export default function AdminVoucherPage() {
   };
 
   useEffect(() => {
-    fetchVouchers();
-  }, []);
+    if (!isLoadingAuth && !canViewVoucher) {
+      router.push("/admin/forbidden");
+      return;
+    }
+
+    if (!isLoadingAuth && canViewVoucher) {
+      fetchVouchers();
+    }
+  }, [canViewVoucher, isLoadingAuth, router]);
 
   useEffect(() => {
     if (formData.startDate && formData.endDate) {
@@ -81,6 +101,11 @@ export default function AdminVoucherPage() {
   }, [formData.startDate, formData.endDate]);
 
   const handleOpenModal = (voucher?: Voucher) => {
+    if (!canManageVoucher) {
+      toast.warning("Bạn chỉ có quyền xem thông tin voucher");
+      return;
+    }
+
     setDateError("");
     if (voucher) {
       setEditingId(voucher.id!);
@@ -127,6 +152,7 @@ export default function AdminVoucherPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageVoucher) return;
     if (dateError) return;
 
     setIsSubmitting(true);
@@ -173,6 +199,7 @@ export default function AdminVoucherPage() {
   };
 
   const confirmDelete = async () => {
+    if (!canManageVoucher) return;
     if (!deleteConfirmVoucher || !deleteConfirmVoucher.id) return;
     setIsDeleting(true);
 
@@ -218,12 +245,14 @@ export default function AdminVoucherPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Tạo và quản lý các chương trình khuyến mãi</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
-        >
-          <Plus size={18} /> Thêm Voucher
-        </button>
+        {canManageVoucher && (
+          <button
+            onClick={() => handleOpenModal()}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
+          >
+            <Plus size={18} /> Thêm Voucher
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -236,14 +265,14 @@ export default function AdminVoucherPage() {
               <th className="p-4 font-semibold">Thời hạn</th>
               <th className="p-4 font-semibold">Số lượng</th>
               <th className="p-4 font-semibold">Trạng thái</th>
-              <th className="p-4 font-semibold text-right">Thao tác</th>
+              {canManageVoucher && <th className="p-4 font-semibold text-right">Thao tác</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-emerald-600" /></td></tr>
+              <tr><td colSpan={canManageVoucher ? 7 : 6} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-emerald-600" /></td></tr>
             ) : vouchers.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-10 text-gray-500">Chưa có voucher nào.</td></tr>
+              <tr><td colSpan={canManageVoucher ? 7 : 6} className="text-center py-10 text-gray-500">Chưa có voucher nào.</td></tr>
             ) : (
               vouchers.map((v) => {
                 const val = getDiscountValue(v);
@@ -279,10 +308,12 @@ export default function AdminVoucherPage() {
                         {displayStatus}
                       </span>
                     </td>
-                    <td className="p-4 text-right space-x-2">
-                      <button onClick={() => handleOpenModal(v)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={16} /></button>
-                      <button onClick={() => setDeleteConfirmVoucher(v)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                    </td>
+                    {canManageVoucher && (
+                      <td className="p-4 text-right space-x-2">
+                        <button onClick={() => handleOpenModal(v)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={16} /></button>
+                        <button onClick={() => setDeleteConfirmVoucher(v)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                      </td>
+                    )}
                   </tr>
                 );
               })
@@ -291,7 +322,7 @@ export default function AdminVoucherPage() {
         </table>
       </div>
 
-      {isModalOpen && (
+      {canManageVoucher && isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
@@ -438,7 +469,7 @@ export default function AdminVoucherPage() {
       )}
 
       {/* MODAL XÁC NHẬN XÓA / TẠM ẨN THÔNG MINH */}
-      {deleteConfirmVoucher && (
+      {canManageVoucher && deleteConfirmVoucher && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center transform transition-all">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
