@@ -98,9 +98,16 @@ export default function NewPurchaseRequestPage() {
         const allBranches = Array.isArray(branchData)
           ? branchData
           : (branchData?.content ?? []);
-        const warehouseOnly: BranchDTO[] = allBranches.filter(
-          (branch: BranchDTO) => branch.branchCode === "MAIN_WH",
-        );
+        const warehouseOnly: BranchDTO[] = allBranches.filter((branch: BranchDTO) => {
+          const code = String(branch.branchCode || "").toUpperCase();
+          const type = String(branch.branchType || "").toUpperCase();
+          const name = String(branch.name || "").toLowerCase();
+
+          if (code === "SYSTEM_DEFECT") return false;
+          if (code === "MAIN_WH") return true;
+
+          return type === "WAREHOUSE" && name.includes("kho tổng");
+        });
 
         setWarehouseBranches(warehouseOnly);
 
