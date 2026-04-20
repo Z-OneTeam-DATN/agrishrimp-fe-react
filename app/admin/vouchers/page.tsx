@@ -54,14 +54,14 @@ const toNumber = (value: number | string | undefined | null) =>
 
 const isEmptyNumeric = (value: string) => sanitizeNumericInput(value) === "";
 
-const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
+const mapVoucherToFormData = (voucher: any): VoucherFormData => ({
   code: voucher.code,
   title: voucher.title || "",
   description: voucher.description || "",
   discountType: voucher.discountType || "FIXED",
   discountValue:
-    voucher.discountValue !== undefined && voucher.discountValue !== null
-      ? String(voucher.discountValue)
+    voucher.value !== undefined && voucher.value !== null
+      ? String(voucher.value)
       : "",
   minOrderValue:
     voucher.minOrderValue !== undefined && voucher.minOrderValue !== null
@@ -78,8 +78,8 @@ const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
       ? String(voucher.quantity)
       : "",
   usageLimit:
-    voucher.usageLimit !== undefined && voucher.usageLimit !== null
-      ? String(voucher.usageLimit)
+    voucher.maxUsagePerUser !== undefined && voucher.maxUsagePerUser !== null
+      ? String(voucher.maxUsagePerUser)
       : "",
   status: voucher.status || "ACTIVE",
 });
@@ -155,6 +155,8 @@ export default function AdminVoucherPage() {
       const end = new Date(formData.endDate).getTime();
       if (end <= start) {
         setDateError("Ngày kết thúc phải lớn hơn ngày bắt đầu");
+      } else if (end <= new Date().getTime()) {
+        setDateError("Ngày kết thúc không được ở trong quá khứ");
       } else {
         setDateError("");
       }
@@ -240,7 +242,7 @@ export default function AdminVoucherPage() {
     } else {
       if (discountValue <= 1000) {
         nextErrors.discountValue = "Mức giảm tiền phải lớn hơn 1.000đ";
-      } else if (minOrderValue > 0 && discountValue > minOrderValue / 2) {
+      } else if (discountValue > minOrderValue / 2) {
         nextErrors.discountValue =
           "Mức giảm (VNĐ) không được vượt quá một nửa đơn tối thiểu";
       }
@@ -271,17 +273,29 @@ export default function AdminVoucherPage() {
 
     setIsSubmitting(true);
     try {
-      const dataToSubmit: Voucher = {
-        ...formData,
-        discountValue,
+      const dataToSubmit: any = {
+        code: formData.code,
+        title: formData.title,
+        description: formData.description,
+        discountType: formData.discountType,
+        value: discountValue, // Đã đổi thành value cho khớp BE
         minOrderValue,
-        maxDiscount: formData.maxDiscount === "" ? undefined : maxDiscount,
+        maxDiscount: formData.maxDiscount === "" ? null : maxDiscount,
+        startDate:
+          formData.startDate.length === 16
+            ? `${formData.startDate}:00`
+            : formData.startDate, // Bổ sung giây
+        endDate:
+          formData.endDate.length === 16
+            ? `${formData.endDate}:00`
+            : formData.endDate, // Bổ sung giây
         quantity,
-        usageLimit,
+        maxUsagePerUser: usageLimit, // Đã đổi thành maxUsagePerUser cho khớp BE
+        status: formData.status,
       };
 
       if (dataToSubmit.discountType === "FIXED") {
-        dataToSubmit.maxDiscount = undefined;
+        dataToSubmit.maxDiscount = null;
       }
 
       if (editingId) {
@@ -362,17 +376,19 @@ export default function AdminVoucherPage() {
         await voucherService.delete(deleteConfirmVoucher.id);
         toast.success("Đã xóa voucher vĩnh viễn");
       } else {
-        const payload: Voucher = {
+        const payload: any = {
           ...deleteConfirmVoucher,
-          discountValue: toNumber(deleteConfirmVoucher.discountValue),
+          value: toNumber((deleteConfirmVoucher as any).value),
           minOrderValue: toNumber(deleteConfirmVoucher.minOrderValue),
           maxDiscount:
             deleteConfirmVoucher.maxDiscount === undefined ||
             deleteConfirmVoucher.maxDiscount === ""
-              ? undefined
+              ? null
               : toNumber(deleteConfirmVoucher.maxDiscount),
           quantity: toNumber(deleteConfirmVoucher.quantity),
-          usageLimit: toNumber(deleteConfirmVoucher.usageLimit),
+          maxUsagePerUser: toNumber(
+            (deleteConfirmVoucher as any).maxUsagePerUser,
+          ),
           status: "INACTIVE",
         };
         await voucherService.update(deleteConfirmVoucher.id, payload);
@@ -387,7 +403,7 @@ export default function AdminVoucherPage() {
     }
   };
 
-  const getDiscountValue = (v: Voucher) => toNumber(v.discountValue);
+  const getDiscountValue = (v: any) => toNumber(v.value);
 
   const generateTitle = (type: string, val: number) => {
     if (type === "PERCENT") return `Giảm ${val}%`;
