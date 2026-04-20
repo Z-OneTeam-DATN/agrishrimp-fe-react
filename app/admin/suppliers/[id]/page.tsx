@@ -121,6 +121,10 @@ export default function SupplierDetailPage() {
     const [toDate, setToDate] = useState("");
     const [catalogCurrentPage, setCatalogCurrentPage] = useState(1);
     const CATALOG_PAGE_SIZE = 8;
+    const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+    const HISTORY_PAGE_SIZE = 4;
+    const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
+    const [pendingStatusValue, setPendingStatusValue] = useState<"active" | "inactive" | null>(null);
 
     const {
         control,
@@ -317,6 +321,17 @@ export default function SupplierDetailPage() {
         [filteredCatalogProducts.length],
     );
 
+    const paginatedHistory = useMemo(() => {
+        const startIndex = (historyCurrentPage - 1) * HISTORY_PAGE_SIZE;
+        const endIndex = startIndex + HISTORY_PAGE_SIZE;
+        return filteredHistory.slice(startIndex, endIndex);
+    }, [filteredHistory, historyCurrentPage]);
+
+    const historyTotalPages = useMemo(
+        () => Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE) || 1,
+        [filteredHistory.length],
+    );
+
     const allFilteredSelected =
         filteredCatalogProductIds.length > 0 &&
         filteredCatalogProductIds.every((id) => selectedCatalogProductIds.includes(id));
@@ -333,6 +348,10 @@ export default function SupplierDetailPage() {
     useEffect(() => {
         setCatalogCurrentPage(1);
     }, [catalogKeyword]);
+
+    useEffect(() => {
+        setHistoryCurrentPage(1);
+    }, [historyKeyword, historyStatus, fromDate, toDate]);
 
     useEffect(() => {
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -755,7 +774,17 @@ export default function SupplierDetailPage() {
                                             name="status"
                                             control={control}
                                             render={({ field }) => (
-                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                <Select
+                                                    onValueChange={(value) => {
+                                                        if (value === "inactive" && field.value === "active") {
+                                                            setPendingStatusValue(value as "inactive");
+                                                            setShowStatusConfirmModal(true);
+                                                        } else {
+                                                            field.onChange(value);
+                                                        }
+                                                    }}
+                                                    value={field.value}
+                                                >
                                                     <SelectTrigger className="h-[38px] text-[13px] border-[#ccc] font-black shadow-none focus:ring-0">
                                                         <SelectValue />
                                                     </SelectTrigger>
@@ -1099,8 +1128,8 @@ export default function SupplierDetailPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filteredHistory.length > 0 ? (
-                                                filteredHistory.map((item) => {
+                                            {paginatedHistory.length > 0 ? (
+                                                paginatedHistory.map((item) => {
                                                     const statusInfo = getNoteStatus(item.status);
                                                     return (
                                                         <TableRow
@@ -1166,11 +1195,82 @@ export default function SupplierDetailPage() {
                                         </TableBody>
                                     </Table>
                                 </div>
+
+                                {filteredHistory.length > 0 && (
+                                    <div className="px-4 py-3 border-t border-slate-100 bg-[#fcfcfc] flex items-center justify-between">
+                                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+                                            Hiển thị {(historyCurrentPage - 1) * HISTORY_PAGE_SIZE + 1} - {Math.min(historyCurrentPage * HISTORY_PAGE_SIZE, filteredHistory.length)} trong {filteredHistory.length}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-[11px] font-bold uppercase"
+                                                onClick={() => setHistoryCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                                disabled={historyCurrentPage === 1}
+                                            >
+                                                ← Trước
+                                            </Button>
+                                            <span className="text-[11px] font-bold text-slate-600 uppercase min-w-[60px] text-center">
+                                                {historyCurrentPage} / {historyTotalPages}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-[11px] font-bold uppercase"
+                                                onClick={() => setHistoryCurrentPage((prev) => Math.min(prev + 1, historyTotalPages))}
+                                                disabled={historyCurrentPage === historyTotalPages}
+                                            >
+                                                Sau →
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
                     </Tabs>
                 </div>
             </div>
+
+            <AlertDialog
+                open={showStatusConfirmModal}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setShowStatusConfirmModal(false);
+                        setPendingStatusValue(null);
+                    }
+                }}
+            >
+                <AlertDialogContent className="rounded-[4px] border-[#dcdcdc]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-[16px] font-black uppercase tracking-tight">
+                            Xác nhận ngừng giao dịch
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-[13px] text-slate-500 leading-relaxed">
+                            Bạn có chắc muốn thay đổi trạng thái NCC thành "Tạm ngừng"? Lúc này nhà cung cấp sẽ không thể tiếp nhận yêu cầu mua hàng mới.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="h-9 text-[11px] font-bold uppercase">
+                            Hủy
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (pendingStatusValue) {
+                                    reset({ ...supplierData, status: pendingStatusValue as "active" | "inactive" });
+                                }
+                                setShowStatusConfirmModal(false);
+                                setPendingStatusValue(null);
+                            }}
+                            className="h-9 text-[11px] font-bold uppercase bg-rose-600 hover:bg-rose-700"
+                        >
+                            Xác nhận ngừng
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog
                 open={showCatalogDraftModal}

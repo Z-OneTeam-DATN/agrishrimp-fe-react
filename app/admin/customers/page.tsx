@@ -22,7 +22,7 @@ export default function CustomerManagementPage() {
     const [keyword, setKeyword] = useState("");
     const [status, setStatus] = useState("all");
     const [page, setPage] = useState(0);
-    const [pageSize] = useState(5);
+    const [pageSize] = useState(10);
     const [totalElements, setTotalElements] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
 
