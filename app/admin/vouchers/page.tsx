@@ -24,32 +24,35 @@ type VoucherFormData = {
   title: string;
   description: string;
   discountType: Voucher["discountType"];
-  discountValue: number | "";
-  minOrderValue: number | "";
-  maxDiscount: number | "";
+  discountValue: string;
+  minOrderValue: string;
+  maxDiscount: string;
   startDate: string;
   endDate: string;
-  quantity: number | "";
-  usageLimit: number | "";
+  quantity: string;
+  usageLimit: string;
   status: Voucher["status"];
 };
 
-// Hàm hỗ trợ format số ra chuỗi có dấu phẩy (vd: 10000 -> "10,000")
-const formatNumberString = (value: number | string | undefined | null) => {
-  if (value === "" || value === null || value === undefined) return "";
-  const numericValue = String(value).replace(/\D/g, "");
-  if (!numericValue) return "";
-  return Number(numericValue).toLocaleString("en-US");
-};
+type VoucherFormErrors = Partial<
+  Record<
+    | "title"
+    | "discountValue"
+    | "minOrderValue"
+    | "maxDiscount"
+    | "quantity"
+    | "usageLimit"
+    | "endDate",
+    string
+  >
+>;
 
-// Hàm loại bỏ dấu phẩy để lấy số thực về cập nhật state (vd: "10,000" -> 10000)
-const parseNumberString = (value: string) => {
-  const numericValue = value.replace(/\D/g, "");
-  return numericValue ? Number(numericValue) : 0;
-};
+const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number" ? value : Number(value || 0);
+
+const isEmptyNumeric = (value: string) => sanitizeNumericInput(value) === "";
 
 const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
   code: voucher.code,
@@ -58,25 +61,25 @@ const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
   discountType: voucher.discountType || "FIXED",
   discountValue:
     voucher.discountValue !== undefined && voucher.discountValue !== null
-      ? toNumber(voucher.discountValue)
+      ? String(voucher.discountValue)
       : "",
   minOrderValue:
     voucher.minOrderValue !== undefined && voucher.minOrderValue !== null
-      ? toNumber(voucher.minOrderValue)
+      ? String(voucher.minOrderValue)
       : "",
   maxDiscount:
     voucher.maxDiscount !== undefined && voucher.maxDiscount !== null
-      ? toNumber(voucher.maxDiscount)
+      ? String(voucher.maxDiscount)
       : "",
   startDate: voucher.startDate ? voucher.startDate.substring(0, 16) : "",
   endDate: voucher.endDate ? voucher.endDate.substring(0, 16) : "",
   quantity:
     voucher.quantity !== undefined && voucher.quantity !== null
-      ? toNumber(voucher.quantity)
+      ? String(voucher.quantity)
       : "",
   usageLimit:
     voucher.usageLimit !== undefined && voucher.usageLimit !== null
-      ? toNumber(voucher.usageLimit)
+      ? String(voucher.usageLimit)
       : "",
   status: voucher.status || "ACTIVE",
 });
@@ -99,6 +102,7 @@ export default function AdminVoucherPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [dateError, setDateError] = useState<string>("");
+  const [errors, setErrors] = useState<VoucherFormErrors>({});
 
   const [formData, setFormData] = useState<VoucherFormData>({
     code: "",
@@ -165,6 +169,7 @@ export default function AdminVoucherPage() {
       return;
     }
 
+    setErrors({});
     setDateError("");
     if (voucher) {
       setEditingId(voucher.id!);
@@ -202,42 +207,77 @@ export default function AdminVoucherPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageVoucher) return;
-    if (dateError) return;
+
+    const nextErrors: VoucherFormErrors = {};
+    const discountValue = toNumber(formData.discountValue);
+    const minOrderValue = toNumber(formData.minOrderValue);
+    const maxDiscount =
+      formData.maxDiscount === "" ? 0 : toNumber(formData.maxDiscount);
+    const quantity = toNumber(formData.quantity);
+    const usageLimit = toNumber(formData.usageLimit);
 
     if (!formData.title || !formData.title.trim()) {
-      toast.error("Vui lòng nhập tên chương trình (tên voucher)");
-      return;
+      nextErrors.title = "Vui lòng nhập tên chương trình voucher";
     }
 
-    if (
-      formData.discountType === "PERCENT" &&
-      Number(formData.discountValue) > 50
-    ) {
-      toast.error("Mức giá tối đa giảm ở dạng % không được vượt quá 50%");
-      return;
-    }
+    if (isEmptyNumeric(formData.discountValue)) {
+      nextErrors.discountValue =
+        formData.discountType === "PERCENT"
+          ? "Vui lòng nhập mức giảm phần trăm"
+          : "Vui lòng nhập mức giảm tiền";
+    } else if (formData.discountType === "PERCENT") {
+      if (discountValue <= 0) {
+        nextErrors.discountValue = "Mức giảm phần trăm phải lớn hơn 0%";
+      } else if (discountValue > 50) {
+        nextErrors.discountValue = "Mức giảm phần trăm không được vượt quá 50%";
+      }
 
-    if (formData.discountType === "FIXED") {
-      const minVal = Number(formData.minOrderValue) || 0;
-      const val = Number(formData.discountValue) || 0;
-      if (val > minVal / 2) {
-        toast.error("Mức giảm (VNĐ) không được vượt quá một nửa Đơn tối thiểu");
-        return;
+      if (isEmptyNumeric(formData.maxDiscount)) {
+        nextErrors.maxDiscount = "Vui lòng nhập mức giảm tối đa";
+      } else if (maxDiscount <= 0) {
+        nextErrors.maxDiscount = "Mức giảm tối đa phải lớn hơn 0đ";
+      }
+    } else {
+      if (discountValue <= 1000) {
+        nextErrors.discountValue = "Mức giảm tiền phải lớn hơn 1.000đ";
+      } else if (minOrderValue > 0 && discountValue > minOrderValue / 2) {
+        nextErrors.discountValue =
+          "Mức giảm (VNĐ) không được vượt quá một nửa đơn tối thiểu";
       }
     }
+
+    if (isEmptyNumeric(formData.quantity)) {
+      nextErrors.quantity = "Vui lòng nhập tổng số lượng phát hành";
+    } else if (quantity <= 0) {
+      nextErrors.quantity = "Số lượng phải lớn hơn 0";
+    }
+
+    if (isEmptyNumeric(formData.usageLimit)) {
+      nextErrors.usageLimit = "Vui lòng nhập lượt dùng tối đa mỗi người";
+    } else if (usageLimit <= 0) {
+      nextErrors.usageLimit = "Lượt dùng tối đa phải lớn hơn 0";
+    }
+
+    if (dateError) {
+      nextErrors.endDate = dateError;
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setErrors({});
 
     setIsSubmitting(true);
     try {
       const dataToSubmit: Voucher = {
         ...formData,
-        discountValue: toNumber(formData.discountValue),
-        minOrderValue: toNumber(formData.minOrderValue),
-        maxDiscount:
-          formData.maxDiscount === ""
-            ? undefined
-            : toNumber(formData.maxDiscount),
-        quantity: toNumber(formData.quantity),
-        usageLimit: toNumber(formData.usageLimit),
+        discountValue,
+        minOrderValue,
+        maxDiscount: formData.maxDiscount === "" ? undefined : maxDiscount,
+        quantity,
+        usageLimit,
       };
 
       if (dataToSubmit.discountType === "FIXED") {
@@ -281,6 +321,28 @@ export default function AdminVoucherPage() {
               ?.data?.message
           : undefined;
       toast.error(message || "Có lỗi xảy ra");
+      if (message) {
+        const lowerMessage = message.toLowerCase();
+        if (lowerMessage.includes("ngày kết thúc")) {
+          setErrors((prev) => ({ ...prev, endDate: message }));
+        } else if (lowerMessage.includes("mức giảm tối đa")) {
+          setErrors((prev) => ({ ...prev, maxDiscount: message }));
+        } else if (
+          lowerMessage.includes("mức giảm") ||
+          lowerMessage.includes("giá trị giảm")
+        ) {
+          setErrors((prev) => ({ ...prev, discountValue: message }));
+        } else if (lowerMessage.includes("số lượng")) {
+          setErrors((prev) => ({ ...prev, quantity: message }));
+        } else if (
+          lowerMessage.includes("lượt sử dụng") ||
+          lowerMessage.includes("lượt dùng")
+        ) {
+          setErrors((prev) => ({ ...prev, usageLimit: message }));
+        } else if (lowerMessage.includes("tên chương trình")) {
+          setErrors((prev) => ({ ...prev, title: message }));
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -504,12 +566,19 @@ export default function AdminVoucherPage() {
                   type="text"
                   required
                   value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  className="w-full border border-gray-200 rounded-lg p-2 text-gray-800 font-medium outline-none focus:border-emerald-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (errors.title)
+                      setErrors((prev) => ({ ...prev, title: "" }));
+                  }}
+                  className={`w-full border rounded-lg p-2 text-gray-800 font-medium outline-none ${errors.title ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
                   placeholder="VD: Khuyến mãi mùa hè 2026..."
                 />
+                {errors.title && (
+                  <p className="text-red-500 text-xs mt-1 font-medium">
+                    {errors.title}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -519,13 +588,20 @@ export default function AdminVoucherPage() {
                   </label>
                   <select
                     value={formData.discountType}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         discountType: e.target
                           .value as VoucherFormData["discountType"],
-                      })
-                    }
+                        discountValue: "",
+                        maxDiscount: "",
+                      });
+                      setErrors((prev) => ({
+                        ...prev,
+                        discountValue: "",
+                        maxDiscount: "",
+                      }));
+                    }}
                     className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
                   >
                     <option value="FIXED">Giảm số tiền cố định (VNĐ)</option>
@@ -541,34 +617,44 @@ export default function AdminVoucherPage() {
                   {formData.discountType === "FIXED" ? (
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       required
-                      value={formatNumberString(formData.discountValue)}
-                      onChange={(e) =>
+                      value={formData.discountValue}
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
-                          discountValue: parseNumberString(e.target.value),
-                        })
-                      }
-                      className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                          discountValue: sanitizeNumericInput(e.target.value),
+                        });
+                        if (errors.discountValue)
+                          setErrors((prev) => ({ ...prev, discountValue: "" }));
+                      }}
+                      placeholder="VD: 50000"
+                      className={`w-full border rounded-lg p-2 outline-none ${errors.discountValue ? "border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                     />
                   ) : (
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       required
-                      min="0"
-                      max="50"
                       value={formData.discountValue}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
-                          discountValue: Math.max(
-                            0,
-                            Math.min(50, Number(e.target.value)),
-                          ),
-                        })
-                      }
-                      className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                          discountValue: sanitizeNumericInput(e.target.value),
+                        });
+                        if (errors.discountValue)
+                          setErrors((prev) => ({ ...prev, discountValue: "" }));
+                      }}
+                      placeholder="VD: 10"
+                      className={`w-full border rounded-lg p-2 outline-none ${errors.discountValue ? "border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                     />
+                  )}
+                  {errors.discountValue && (
+                    <p className="text-red-500 text-xs mt-1 font-medium">
+                      {errors.discountValue}
+                    </p>
                   )}
                 </div>
               </div>
@@ -580,16 +666,26 @@ export default function AdminVoucherPage() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    value={formatNumberString(formData.minOrderValue)}
-                    onChange={(e) =>
+                    value={formData.minOrderValue}
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
-                        minOrderValue: parseNumberString(e.target.value),
-                      })
-                    }
-                    className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                        minOrderValue: sanitizeNumericInput(e.target.value),
+                      });
+                      if (errors.minOrderValue)
+                        setErrors((prev) => ({ ...prev, minOrderValue: "" }));
+                    }}
+                    placeholder="VD: 100000"
+                    className={`w-full border rounded-lg p-2 outline-none ${errors.minOrderValue ? "border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                   />
+                  {errors.minOrderValue && (
+                    <p className="text-red-500 text-xs mt-1 font-medium">
+                      {errors.minOrderValue}
+                    </p>
+                  )}
                 </div>
                 {formData.discountType === "PERCENT" ? (
                   <div>
@@ -598,16 +694,26 @@ export default function AdminVoucherPage() {
                     </label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       required
-                      value={formatNumberString(formData.maxDiscount)}
-                      onChange={(e) =>
+                      value={formData.maxDiscount}
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
-                          maxDiscount: parseNumberString(e.target.value),
-                        })
-                      }
-                      className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                          maxDiscount: sanitizeNumericInput(e.target.value),
+                        });
+                        if (errors.maxDiscount)
+                          setErrors((prev) => ({ ...prev, maxDiscount: "" }));
+                      }}
+                      placeholder="VD: 30000"
+                      className={`w-full border rounded-lg p-2 outline-none ${errors.maxDiscount ? "border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                     />
+                    {errors.maxDiscount && (
+                      <p className="text-red-500 text-xs mt-1 font-medium">
+                        {errors.maxDiscount}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div />
@@ -621,16 +727,26 @@ export default function AdminVoucherPage() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    value={formatNumberString(formData.quantity)}
-                    onChange={(e) =>
+                    value={formData.quantity}
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
-                        quantity: parseNumberString(e.target.value),
-                      })
-                    }
-                    className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                        quantity: sanitizeNumericInput(e.target.value),
+                      });
+                      if (errors.quantity)
+                        setErrors((prev) => ({ ...prev, quantity: "" }));
+                    }}
+                    placeholder="VD: 100"
+                    className={`w-full border rounded-lg p-2 outline-none ${errors.quantity ? "border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                   />
+                  {errors.quantity && (
+                    <p className="text-red-500 text-xs mt-1 font-medium">
+                      {errors.quantity}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -638,19 +754,26 @@ export default function AdminVoucherPage() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
-                    value={formatNumberString(formData.usageLimit)}
-                    onChange={(e) =>
+                    value={formData.usageLimit}
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
-                        usageLimit: Math.max(
-                          1,
-                          parseNumberString(e.target.value),
-                        ),
-                      })
-                    }
-                    className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+                        usageLimit: sanitizeNumericInput(e.target.value),
+                      });
+                      if (errors.usageLimit)
+                        setErrors((prev) => ({ ...prev, usageLimit: "" }));
+                    }}
+                    placeholder="VD: 1"
+                    className={`w-full border rounded-lg p-2 outline-none ${errors.usageLimit ? "border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                   />
+                  {errors.usageLimit && (
+                    <p className="text-red-500 text-xs mt-1 font-medium">
+                      {errors.usageLimit}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -663,9 +786,12 @@ export default function AdminVoucherPage() {
                     type="datetime-local"
                     required
                     value={formData.startDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, startDate: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, startDate: e.target.value });
+                      if (errors.endDate) {
+                        setErrors((prev) => ({ ...prev, endDate: "" }));
+                      }
+                    }}
                     className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -677,14 +803,17 @@ export default function AdminVoucherPage() {
                     type="datetime-local"
                     required
                     value={formData.endDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, endDate: e.target.value })
-                    }
-                    className={`w-full border rounded-lg p-2 outline-none ${dateError ? "border-red-500 focus:border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
+                    onChange={(e) => {
+                      setFormData({ ...formData, endDate: e.target.value });
+                      if (errors.endDate) {
+                        setErrors((prev) => ({ ...prev, endDate: "" }));
+                      }
+                    }}
+                    className={`w-full border rounded-lg p-2 outline-none ${errors.endDate || dateError ? "border-red-500 focus:border-red-500 bg-red-50" : "focus:border-emerald-500"}`}
                   />
-                  {dateError && (
+                  {(errors.endDate || dateError) && (
                     <p className="text-red-500 text-xs mt-1 font-medium">
-                      {dateError}
+                      {errors.endDate || dateError}
                     </p>
                   )}
                 </div>
@@ -700,7 +829,7 @@ export default function AdminVoucherPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !!dateError}
+                  disabled={isSubmitting}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
