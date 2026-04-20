@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminTransferTable } from "@/components/admin/AdminTransferTable";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { apiJava } from "@/lib/axios";
-import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, RefreshCcw, ArrowLeftRight } from "lucide-react";
+import {
+  Loader2,
+  AlertCircle,
+  RefreshCcw,
+  ArrowLeftRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -21,20 +25,37 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+type TransferRow = {
+  id: string;
+  code?: string;
+  transferCode?: string;
+  status?: string;
+  fromBranchName?: string;
+  sourceBranchName?: string;
+  toBranchName?: string;
+  destBranchName?: string;
+};
+
+type WarehouseOption = {
+  label: string;
+  value: string;
+};
+
 export default function AdminTransferListPage() {
-  const [activeTab, setActiveTab] = useState("all"); 
-  const [transfers, setTransfers] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("all");
+  const [transfers, setTransfers] = useState<TransferRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [deleteTransfer, setDeleteTransfer] = useState<{ id: string; code: string } | null>(null);
+  const [deleteTransfer, setDeleteTransfer] = useState<{
+    id: string;
+    code: string;
+  } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
-  const [warehouseOptions, setWarehouseOptions] = useState<any[]>([{ label: "Tất cả kho", value: "all" }]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
-  // 1. Hàm gọi API lấy danh sách điều chuyển
   const fetchTransfers = async () => {
     setIsLoading(true);
     try {
@@ -42,13 +63,12 @@ export default function AdminTransferListPage() {
         params: {
           keyword: searchQuery || undefined,
           status: "all",
-          size: 1000 
-        }
+          size: 1000,
+        },
       });
 
-      const rawData = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      const rawData = Array.isArray(res.data) ? res.data : res.data?.content || [];
       setTransfers(rawData);
-
     } catch (error: any) {
       toast.error("Không thể tải danh sách phiếu điều chuyển");
     } finally {
@@ -58,21 +78,28 @@ export default function AdminTransferListPage() {
 
   useEffect(() => {
     fetchTransfers();
-    // Load danh sách kho để filter
-    (async () => {
-      try {
-        const data = await branchService.getAll();
-        const list = Array.isArray(data) ? data : (data.content || []);
-        const options = list.map((b: any) => ({
-          label: b.name || b.branchName,
-          value: b.name || b.branchName
-        }));
-        setWarehouseOptions([{ label: "Tất cả kho", value: "all" }, ...options]);
-      } catch (e) { console.error("Lỗi tải danh sách kho:", e); }
-    })();
   }, []);
 
-  // 2. Hàm xóa phiếu (Chỉ cho phép xóa PENDING)
+  const warehouseOptions = useMemo<WarehouseOption[]>(() => {
+    const branchNames = new Set<string>();
+
+    transfers.forEach((item) => {
+      const from = item.fromBranchName || item.sourceBranchName;
+      const to = item.toBranchName || item.destBranchName;
+
+      if (typeof from === "string" && from.trim()) branchNames.add(from.trim());
+      if (typeof to === "string" && to.trim()) branchNames.add(to.trim());
+    });
+
+    return [
+      { label: "Tất cả kho", value: "all" },
+      ...Array.from(branchNames).map((name) => ({
+        label: name,
+        value: name,
+      })),
+    ];
+  }, [transfers]);
+
   const confirmDelete = async () => {
     if (!deleteTransfer) return;
     try {
@@ -86,28 +113,28 @@ export default function AdminTransferListPage() {
     }
   };
 
-  // 3. Logic lọc dữ liệu theo Tab & Warehouse & Search
   const filteredData = useMemo(() => {
     return transfers.filter((item) => {
-      // Lọc theo Tab
       let matchTab = true;
       const status = (item.status || "").toUpperCase();
+
       if (activeTab === "pending") matchTab = status === "PENDING";
       else if (activeTab === "approved") matchTab = status === "APPROVED";
-      else if (activeTab === "shipping") matchTab = status === "SHIPPING" || status === "TRANSIT";
-      else if (activeTab === "completed") matchTab = status === "COMPLETED";
-      else if (activeTab === "cancelled") matchTab = status === "CANCELLED" || status === "REJECTED";
-      
+      else if (activeTab === "shipping") {
+        matchTab = status === "SHIPPING" || status === "TRANSIT";
+      } else if (activeTab === "completed") matchTab = status === "COMPLETED";
+      else if (activeTab === "cancelled") {
+        matchTab = status === "CANCELLED" || status === "REJECTED";
+      }
+
       if (!matchTab) return false;
 
-      // Lọc theo Kho (Kiểm tra cả kho gửi và kho nhận)
       if (selectedWarehouse !== "all") {
         const from = item.fromBranchName || item.sourceBranchName || "";
         const to = item.toBranchName || item.destBranchName || "";
         if (from !== selectedWarehouse && to !== selectedWarehouse) return false;
       }
 
-      // Lọc theo Search Query
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const code = (item.transferCode || item.code || "").toLowerCase();
@@ -120,9 +147,22 @@ export default function AdminTransferListPage() {
     });
   }, [transfers, activeTab, searchQuery, selectedWarehouse]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, selectedWarehouse, transfers.length]);
+
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / pageSize);
-  const displayData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const displayData = filteredData.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const hasActiveFilters =
+    activeTab !== "all" || selectedWarehouse !== "all" || !!searchQuery.trim();
+  const emptyMessage =
+    transfers.length === 0 && !hasActiveFilters
+      ? "Chưa có lệnh điều chuyển nào"
+      : "Không có dữ liệu phù hợp";
 
   const tabs = [
     { id: "all", label: "TẤT CẢ" },
@@ -137,33 +177,42 @@ export default function AdminTransferListPage() {
     const s = (status: string) => (status || "").toUpperCase();
     return {
       all: transfers.length,
-      pending: transfers.filter(t => s(t.status) === "PENDING").length,
-      approved: transfers.filter(t => s(t.status) === "APPROVED").length,
-      shipping: transfers.filter(t => s(t.status) === "SHIPPING" || s(t.status) === "TRANSIT").length,
-      completed: transfers.filter(t => s(t.status) === "COMPLETED").length,
-      cancelled: transfers.filter(t => s(t.status) === "CANCELLED" || s(t.status) === "REJECTED").length,
+      pending: transfers.filter((t) => s(t.status || "") === "PENDING").length,
+      approved: transfers.filter((t) => s(t.status || "") === "APPROVED").length,
+      shipping: transfers.filter((t) => {
+        const currentStatus = s(t.status || "");
+        return currentStatus === "SHIPPING" || currentStatus === "TRANSIT";
+      }).length,
+      completed: transfers.filter((t) => s(t.status || "") === "COMPLETED").length,
+      cancelled: transfers.filter((t) => {
+        const currentStatus = s(t.status || "");
+        return currentStatus === "CANCELLED" || currentStatus === "REJECTED";
+      }).length,
     };
   }, [transfers]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] -m-4 md:-m-5 bg-[#f8f9fa] overflow-hidden">
-      {/* Header Section */}
       <div className="bg-white border-b shrink-0">
         <div className="px-6 pt-5 pb-3 flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <h1 className="text-[16px] font-black uppercase tracking-tight text-slate-700 flex items-center gap-2">
-              <ArrowLeftRight className="text-slate-400" size={18}/>
+              <ArrowLeftRight className="text-slate-400" size={18} />
               Danh sách điều chuyển hàng hóa
             </h1>
           </div>
           <div className="flex items-center gap-3">
-             <AdminPageHeader title="" addBtnLabel="Lập lệnh điều chuyển" addBtnHref="/admin/transfers/new" />
+            <AdminPageHeader
+              title=""
+              addBtnLabel="Lập lệnh điều chuyển"
+              addBtnHref="/admin/transfers/new"
+            />
           </div>
         </div>
 
         <div className="px-6 flex items-center h-[48px] gap-8">
           {tabs.map((tab) => {
-            const hasItems = (counts as any)[tab.id] > 0;
+            const hasItems = (counts as Record<string, number>)[tab.id] > 0;
             const showRedDot = (tab.id === "pending" || tab.id === "approved") && hasItems;
 
             return (
@@ -172,24 +221,26 @@ export default function AdminTransferListPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   "h-full text-[12px] font-black border-b-2 px-1 tracking-wider transition-all relative",
-                  activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-600"
+                  activeTab === tab.id
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-400 hover:text-slate-600",
                 )}
               >
                 {tab.label}
                 {showRedDot && (
-                  <span className="absolute top-2 -right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span className="absolute top-2 -right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 )}
-                {activeTab === tab.id && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600"></span>}
+                {activeTab === tab.id && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600" />
+                )}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 p-6 flex flex-col min-h-0">
         <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col h-full overflow-hidden">
-          {/* Toolbar */}
           <div className="flex items-center justify-between pr-4 bg-slate-50/50 border-b shrink-0">
             <div className="flex-1">
               <AdminSearchFilter
@@ -208,17 +259,22 @@ export default function AdminTransferListPage() {
             </Button>
           </div>
 
-          {/* Table Container */}
           <div className="flex-1 min-h-0 bg-white relative">
             {isLoading ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
                 <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 text-center px-10">Đang truy xuất dữ liệu vận chuyển...</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 text-center px-10">
+                  Đang truy xuất dữ liệu vận chuyển...
+                </p>
               </div>
             ) : filteredData.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <div className="bg-slate-50 p-4 rounded-full mb-3"><ArrowLeftRight className="opacity-20" size={40} /></div>
-                <p className="text-xs font-bold uppercase tracking-tight">Không có dữ liệu phù hợp</p>
+                <div className="bg-slate-50 p-4 rounded-full mb-3">
+                  <ArrowLeftRight className="opacity-20" size={40} />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-tight">
+                  {emptyMessage}
+                </p>
               </div>
             ) : (
               <AdminTransferTable
@@ -230,8 +286,11 @@ export default function AdminTransferListPage() {
                 selectedIds={[]}
                 onSelectionChange={() => {}}
                 onDelete={(id) => {
-                  const item = transfers.find(t => t.id === id);
-                  setDeleteTransfer({ id, code: item?.transferCode || item?.code || "N/A" });
+                  const item = transfers.find((t) => t.id === id);
+                  setDeleteTransfer({
+                    id,
+                    code: item?.transferCode || item?.code || "N/A",
+                  });
                 }}
               />
             )}
@@ -246,12 +305,18 @@ export default function AdminTransferListPage() {
               <AlertCircle size={20} /> Xác nhận xóa lệnh điều chuyển
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-600 text-[13px]">
-              Bạn có chắc chắn muốn xóa lệnh <span className="font-bold text-slate-900">"{deleteTransfer?.code}"</span>? <br />
-              <span className="text-[11px] text-rose-500 font-medium italic">*Hành động này không thể hoàn tác.</span>
+              Bạn có chắc chắn muốn xóa lệnh{" "}
+              <span className="font-bold text-slate-900">"{deleteTransfer?.code}"</span>?
+              <br />
+              <span className="text-[11px] text-rose-500 font-medium italic">
+                *Hành động này không thể hoàn tác.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300 rounded-[3px]">HỦY BỎ</AlertDialogCancel>
+            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300 rounded-[3px]">
+              HỦY BỎ
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold rounded-[3px]"
