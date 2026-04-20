@@ -62,7 +62,9 @@ const mapVoucherToFormData = (voucher: any): VoucherFormData => ({
   discountValue:
     voucher.value !== undefined && voucher.value !== null
       ? String(voucher.value)
-      : "",
+      : voucher.discountValue !== undefined && voucher.discountValue !== null
+        ? String(voucher.discountValue)
+        : "",
   minOrderValue:
     voucher.minOrderValue !== undefined && voucher.minOrderValue !== null
       ? String(voucher.minOrderValue)
@@ -80,7 +82,9 @@ const mapVoucherToFormData = (voucher: any): VoucherFormData => ({
   usageLimit:
     voucher.maxUsagePerUser !== undefined && voucher.maxUsagePerUser !== null
       ? String(voucher.maxUsagePerUser)
-      : "",
+      : voucher.usageLimit !== undefined && voucher.usageLimit !== null
+        ? String(voucher.usageLimit)
+        : "",
   status: voucher.status || "ACTIVE",
 });
 
@@ -242,10 +246,17 @@ export default function AdminVoucherPage() {
     } else {
       if (discountValue <= 1000) {
         nextErrors.discountValue = "Mức giảm tiền phải lớn hơn 1.000đ";
-      } else if (discountValue > minOrderValue / 2) {
+      } else if (
+        !isEmptyNumeric(formData.minOrderValue) &&
+        discountValue > minOrderValue / 2
+      ) {
         nextErrors.discountValue =
           "Mức giảm (VNĐ) không được vượt quá một nửa đơn tối thiểu";
       }
+    }
+
+    if (isEmptyNumeric(formData.minOrderValue)) {
+      nextErrors.minOrderValue = "Vui lòng nhập đơn tối thiểu";
     }
 
     if (isEmptyNumeric(formData.quantity)) {
@@ -279,6 +290,7 @@ export default function AdminVoucherPage() {
         description: formData.description,
         discountType: formData.discountType,
         value: discountValue, // Đã đổi thành value cho khớp BE
+        discountValue: discountValue, // Backup dự phòng BE hoặc Service chưa cập nhật
         minOrderValue,
         maxDiscount: formData.maxDiscount === "" ? null : maxDiscount,
         startDate:
@@ -291,6 +303,7 @@ export default function AdminVoucherPage() {
             : formData.endDate, // Bổ sung giây
         quantity,
         maxUsagePerUser: usageLimit, // Đã đổi thành maxUsagePerUser cho khớp BE
+        usageLimit: usageLimit, // Backup dự phòng
         status: formData.status,
       };
 
@@ -346,6 +359,8 @@ export default function AdminVoucherPage() {
           lowerMessage.includes("giá trị giảm")
         ) {
           setErrors((prev) => ({ ...prev, discountValue: message }));
+        } else if (lowerMessage.includes("đơn tối thiểu")) {
+          setErrors((prev) => ({ ...prev, minOrderValue: message }));
         } else if (lowerMessage.includes("số lượng")) {
           setErrors((prev) => ({ ...prev, quantity: message }));
         } else if (
@@ -379,6 +394,10 @@ export default function AdminVoucherPage() {
         const payload: any = {
           ...deleteConfirmVoucher,
           value: toNumber((deleteConfirmVoucher as any).value),
+          discountValue: toNumber(
+            (deleteConfirmVoucher as any).value ||
+              (deleteConfirmVoucher as any).discountValue,
+          ),
           minOrderValue: toNumber(deleteConfirmVoucher.minOrderValue),
           maxDiscount:
             deleteConfirmVoucher.maxDiscount === undefined ||
@@ -388,6 +407,10 @@ export default function AdminVoucherPage() {
           quantity: toNumber(deleteConfirmVoucher.quantity),
           maxUsagePerUser: toNumber(
             (deleteConfirmVoucher as any).maxUsagePerUser,
+          ),
+          usageLimit: toNumber(
+            (deleteConfirmVoucher as any).maxUsagePerUser ||
+              (deleteConfirmVoucher as any).usageLimit,
           ),
           status: "INACTIVE",
         };
@@ -403,7 +426,7 @@ export default function AdminVoucherPage() {
     }
   };
 
-  const getDiscountValue = (v: any) => toNumber(v.value);
+  const getDiscountValue = (v: any) => toNumber(v.value ?? v.discountValue);
 
   const generateTitle = (type: string, val: number) => {
     if (type === "PERCENT") return `Giảm ${val}%`;
