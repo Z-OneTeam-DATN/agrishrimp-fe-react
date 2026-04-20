@@ -35,14 +35,15 @@ import { isAdminRole } from "@/lib/roles";
 import { formatDate } from "@/lib/dateUtils";
 
 const TABS = [
-  { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
   { id: "all", label: "Tất cả" },
+  { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
+  { id: "CONFIRMED", label: "Đã xác nhận" },
   { id: "SHIPPING", label: "Đang giao hàng" },
+  { id: "RECEIVED", label: "Đã nhận hàng" },
   { id: "COMPLETED", label: "Hoàn thành" },
   { id: "CANCELLED", label: "Đã hủy" },
   { id: "RETURNED", label: "Trả hàng" },
   { id: "AWAITING_PAYMENT", label: "Chờ thanh toán" },
-  { id: "CONFIRMED", label: "Đã xác nhận" },
 ];
 
 const formatCurrency = (amount: number) =>
@@ -599,6 +600,10 @@ const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   SHIPPING: {
     label: "Đang giao",
     styles: "bg-[#f9f0ff] text-[#722ed1] border-[#d3adf7]",
+  },
+  RECEIVED: {
+    label: "Đã nhận hàng",
+    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   COMPLETED: {
     label: "Hoàn thành",

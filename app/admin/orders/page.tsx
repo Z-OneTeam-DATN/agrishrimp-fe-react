@@ -36,12 +36,14 @@ import { isAdminRole } from "@/lib/roles";
 
 // ── Tab config ──────────────────────────────────────────────────
 const TABS = [
-  { id: "AWAITING_REPLENISHMENT", label: "Chờ nhập thêm" },
   { id: "all", label: "Tất cả" },
+  { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
   { id: "PENDING", label: "Chờ xác nhận" },
+  { id: "CONFIRMED", label: "Đã xác nhận" },
+  { id: "PROCESSING", label: "Đang đóng gói" },
   { id: "READY_FOR_PICKUP", label: "Chờ lấy hàng" },
-  { id: "PROCESSING", label: "Đang xử lý" },
   { id: "SHIPPING", label: "Đang giao" },
+  { id: "RECEIVED", label: "Đã nhận hàng" },
   { id: "COMPLETED", label: "Hoàn thành" },
   { id: "CANCELLED", label: "Đã hủy" },
   { id: "RETURNED", label: "Trả hàng" },
@@ -49,36 +51,44 @@ const TABS = [
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   AWAITING_REPLENISHMENT: {
-    label: "Chờ nhập thêm",
-    styles: "bg-rose-50 text-rose-600 border-rose-200",
+    label: "Chờ điều chuyển",
+    styles: "bg-rose-50 text-rose-700 border-rose-200",
   },
   PENDING: {
     label: "Chờ xác nhận",
-    styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]",
+    styles: "bg-amber-50 text-amber-700 border-amber-200",
+  },
+  CONFIRMED: {
+    label: "Đã xác nhận",
+    styles: "bg-sky-50 text-sky-700 border-sky-200",
+  },
+  PROCESSING: {
+    label: "Đang đóng gói",
+    styles: "bg-yellow-50 text-yellow-700 border-yellow-200",
   },
   READY_FOR_PICKUP: {
     label: "Chờ lấy hàng",
     styles: "bg-teal-50 text-teal-700 border-teal-200",
   },
-  PROCESSING: {
-    label: "Đang đóng gói",
-    styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]",
-  },
   SHIPPING: {
-    label: "Chờ giao hàng",
+    label: "Đang giao",
     styles: "bg-cyan-50 text-cyan-700 border-cyan-200",
   },
+  RECEIVED: {
+    label: "Đã nhận hàng",
+    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
   COMPLETED: {
-    label: "Đã giao",
-    styles: "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]",
+    label: "Hoàn thành",
+    styles: "bg-green-50 text-green-700 border-green-200",
   },
   CANCELLED: {
     label: "Đã hủy",
-    styles: "bg-[#fff1f0] text-[#f5222d] border-[#ffa39e]",
+    styles: "bg-red-50 text-red-700 border-red-200",
   },
   RETURNED: {
     label: "Trả hàng",
-    styles: "bg-slate-100 text-slate-600 border-slate-200",
+    styles: "bg-slate-100 text-slate-700 border-slate-200",
   },
 };
 
@@ -124,12 +134,14 @@ const ActionButton = ({
   status,
   orderId,
   orderCode,
+  canMarkReceived,
   onAction,
   onRequestReplenishment,
 }: {
   status: string;
   orderId: number;
   orderCode: string;
+  canMarkReceived?: boolean;
   onAction: (
     e: React.MouseEvent,
     orderId: number,
@@ -162,9 +174,19 @@ const ActionButton = ({
         <Button
           size="sm"
           className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
-          onClick={(e) => onAction(e, orderId, orderCode, "READY_FOR_PICKUP")}
+          onClick={(e) => onAction(e, orderId, orderCode, "CONFIRMED")}
         >
           <CheckCircle size={13} className="mr-1.5" /> Xác nhận đơn
+        </Button>
+      );
+    case "CONFIRMED":
+      return (
+        <Button
+          size="sm"
+          className="h-[28px] bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-bold"
+          onClick={(e) => onAction(e, orderId, orderCode, "PROCESSING")}
+        >
+          <Package size={13} className="mr-1.5" /> Bắt đầu đóng gói
         </Button>
       );
     case "READY_FOR_PICKUP":
@@ -182,9 +204,30 @@ const ActionButton = ({
         <Button
           size="sm"
           className="h-[28px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold"
-          onClick={(e) => onAction(e, orderId, orderCode, "SHIPPING")}
+          onClick={(e) => onAction(e, orderId, orderCode, "READY_FOR_PICKUP")}
         >
-          <Truck size={13} className="mr-1.5" /> Bàn giao vận chuyển
+          <Package size={13} className="mr-1.5" /> Hoàn tất đóng gói
+        </Button>
+      );
+    case "SHIPPING":
+      if (!canMarkReceived) return null;
+      return (
+        <Button
+          size="sm"
+          className="h-[28px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold"
+          onClick={(e) => onAction(e, orderId, orderCode, "RECEIVED")}
+        >
+          <CheckCircle size={13} className="mr-1.5" /> Xác nhận đã nhận
+        </Button>
+      );
+    case "RECEIVED":
+      return (
+        <Button
+          size="sm"
+          className="h-[28px] bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] font-bold"
+          onClick={(e) => onAction(e, orderId, orderCode, "COMPLETED")}
+        >
+          <CheckCircle size={13} className="mr-1.5" /> Hoàn tất đơn
         </Button>
       );
     default:
@@ -295,7 +338,12 @@ export default function OrderListPage() {
         setOrders((prev) =>
           prev.map((o) =>
             o.orderId === orderId
-              ? { ...o, subOrderStatus: newStatus as OrderStatus }
+              ? {
+                  ...o,
+                  subOrderStatus: newStatus as OrderStatus,
+                  shippingOverdue: false,
+                  canMarkReceived: false,
+                }
               : o,
           ),
         );
@@ -581,12 +629,22 @@ export default function OrderListPage() {
                                     status={order.subOrderStatus}
                                     orderId={order.orderId}
                                     orderCode={order.orderCode}
+                                    canMarkReceived={order.canMarkReceived}
                                     onAction={handleStatusChange}
                                     onRequestReplenishment={
                                       handleRequestReplenishment
                                     }
                                   />
                                 </div>
+                                {order.shippingOverdue && (
+                                  <div className="mb-3 rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                                    Đơn đang giao quá 7 ngày.
+                                    {typeof order.overdueShippingDays === "number" && order.overdueShippingDays > 0
+                                      ? ` Hiện đã ${order.overdueShippingDays} ngày kể từ lần cập nhật gần nhất.`
+                                      : ""}
+                                    {" "}Bạn có thể xác nhận "Đã nhận hàng" thủ công.
+                                  </div>
+                                )}
 
                                 <div className="border border-slate-200 rounded-[3px] overflow-hidden bg-white">
                                   <table className="w-full text-left">

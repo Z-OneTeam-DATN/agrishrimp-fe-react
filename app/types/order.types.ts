@@ -128,6 +128,7 @@ export type OrderStatus =
   | "PROCESSING"
   | "READY_FOR_PICKUP"
   | "SHIPPING"
+  | "RECEIVED"
   | "COMPLETED"
   | "CANCELLED"
   | "RETURNED";
@@ -220,5 +221,9 @@ export interface BranchOrder {
   shippingFee: number;
   estimatedDays: string | null;
   carrier: string | null;
+  statusUpdatedAt?: string | null;
+  shippingOverdue?: boolean;
+  canMarkReceived?: boolean;
+  overdueShippingDays?: number;
   items: BranchOrderItem[];
 }

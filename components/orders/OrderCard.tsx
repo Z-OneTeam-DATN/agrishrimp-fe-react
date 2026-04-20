@@ -65,6 +65,12 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
           className: "text-[#2d9f8d]",
           icon: <Truck size={14} className="mr-1" />,
         };
+      case "RECEIVED":
+        return {
+          label: "Đã nhận hàng",
+          className: "text-[#2d9f8d]",
+          icon: <CheckCircle2 size={14} className="mr-1" />,
+        };
       case "COMPLETED":
         return {
           label: "Đã giao",
