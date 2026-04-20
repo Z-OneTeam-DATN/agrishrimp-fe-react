@@ -38,6 +38,8 @@ import { FinancialService, ProfitLossData } from "@/app/services/financial.servi
 import { apiJava } from "@/lib/axios"; // Dùng để gọi API danh sách chi nhánh
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 
 // Helper tính khoảng thời gian kỳ trước
 const getPrevPeriod = (start: string, end: string) => {
@@ -66,6 +68,9 @@ const formatDateVN = (dateStr: string) => {
 
 export default function ProfitLossReportPage() {
     const router = useRouter();
+    const { user, warehouseId } = useAuthStore();
+    const isAdmin = isAdminRole(user?.role);
+    const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
     // 👉 STATES BỘ LỌC
     const today = new Date();
@@ -73,7 +78,7 @@ export default function ProfitLossReportPage() {
 
     const [startDate, setStartDate] = useState(firstDayOfMonth.toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(today.toISOString().split("T")[0]);
-    const [branchId, setBranchId] = useState("all");
+    const [branchId, setBranchId] = useState(isAdmin ? "all" : ownBranchId || "all");
     const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
 
     // 👉 STATES DỮ LIỆU
@@ -87,13 +92,24 @@ export default function ProfitLossReportPage() {
         const fetchBranches = async () => {
             try {
                 const res = await apiJava.get("/branches"); // Sửa lại endpoint nếu dự án của bạn dùng link khác
-                setBranches(res.data?.content || res.data || []);
+                const list = res.data?.content || res.data || [];
+                if (!isAdmin && ownBranchId) {
+                    setBranches(list.filter((b: { id: number }) => String(b.id) === ownBranchId));
+                } else {
+                    setBranches(list);
+                }
             } catch (error) {
                 console.error("Lỗi lấy danh sách chi nhánh", error);
             }
         };
         fetchBranches();
-    }, []);
+    }, [isAdmin, ownBranchId]);
+
+    useEffect(() => {
+        if (!isAdmin && ownBranchId) {
+            setBranchId(ownBranchId);
+        }
+    }, [isAdmin, ownBranchId]);
 
     // Gọi API Báo cáo mỗi khi bộ lọc thay đổi
     useEffect(() => {
@@ -230,11 +246,11 @@ export default function ProfitLossReportPage() {
                 <div className="flex items-center gap-2 border-l pl-5 border-slate-200">
                     <span className="text-[11px] font-bold text-slate-500 uppercase">Chi nhánh</span>
                     <Select value={branchId} onValueChange={setBranchId}>
-                        <SelectTrigger className="h-8 w-[180px] text-[12px] border-slate-300 rounded-none shadow-none bg-white font-medium focus:ring-0">
+                        <SelectTrigger className="h-8 w-[180px] text-[12px] border-slate-300 rounded-none shadow-none bg-white font-medium focus:ring-0" disabled={!isAdmin}>
                             <SelectValue placeholder="Tất cả chi nhánh" />
                         </SelectTrigger>
                         <SelectContent className="rounded-none">
-                            <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                            {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                             {branches.map(b => (
                                 <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
                             ))}

@@ -53,6 +53,8 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -125,10 +127,13 @@ const formatCellValue = (value: unknown, key: string) => {
 
 export default function SalesReportPage() {
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
+  const { user, warehouseId } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
+  const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(isAdmin ? "all" : ownBranchId || "all");
   const [startDate, setStartDate] = useState(toIso(defaultStart));
   const [endDate, setEndDate] = useState(toIso(today));
   const [summary, setSummary] = useState<SalesReportSummary | null>(null);
@@ -141,7 +146,12 @@ export default function SalesReportPage() {
     const fetchBranches = async () => {
       try {
         const branchRes = await branchService.getAll();
-        setBranches(Array.isArray(branchRes) ? branchRes : branchRes?.data || branchRes?.content || []);
+        const list = Array.isArray(branchRes) ? branchRes : branchRes?.data || branchRes?.content || [];
+        if (!isAdmin && ownBranchId) {
+          setBranches(list.filter((item: BranchOption) => item.id.toString() === ownBranchId));
+        } else {
+          setBranches(list);
+        }
       } catch (error) {
         console.error("Không thể tải danh sách chi nhánh", error);
         toast.error("Không thể tải danh sách chi nhánh");
@@ -149,7 +159,13 @@ export default function SalesReportPage() {
     };
 
     fetchBranches();
-  }, []);
+  }, [isAdmin, ownBranchId]);
+
+  useEffect(() => {
+    if (!isAdmin && ownBranchId) {
+      setSelectedBranchId(ownBranchId);
+    }
+  }, [isAdmin, ownBranchId]);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -402,11 +418,11 @@ export default function SalesReportPage() {
             <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Chi nhánh</p>
             <div className="flex items-center gap-0 rounded-[4px] border border-[#dcdcdc] bg-white">
               <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                <SelectTrigger className="h-[38px] w-full rounded-none border-none bg-transparent text-[12px] shadow-none">
+                <SelectTrigger className="h-[38px] w-full rounded-none border-none bg-transparent text-[12px] shadow-none" disabled={!isAdmin}>
                   <SelectValue placeholder="Tất cả chi nhánh" />
                 </SelectTrigger>
                 <SelectContent className="rounded-none">
-                  <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id.toString()}>
                       {branch.name}

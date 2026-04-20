@@ -57,6 +57,7 @@ export default function AdminSidebar() {
   const isAdmin = isAdminRole(user?.role);
   const isManager = role === "MANAGER";
   const isBranchScopedOrderUser = isBranchOrderUser(user);
+  const isBranchAccount = !isAdmin && Boolean(user?.branch?.id || warehouseId);
   const isWarehouseUser =
     (user?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
@@ -414,6 +415,7 @@ export default function AdminSidebar() {
                 />
               )}
               {hasPermission(P.SUPPLIER_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/suppliers"
                   icon={Truck}
@@ -422,6 +424,7 @@ export default function AdminSidebar() {
                   badge={supplierCount}
                   color="text-orange-400"
                 />
+                )
               )}
             </div>
           </section>
@@ -446,6 +449,7 @@ export default function AdminSidebar() {
                 />
               )}
               {hasPermission(P.CATEGORY_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/categories"
                   icon={Tags}
@@ -453,8 +457,10 @@ export default function AdminSidebar() {
                   active={isActive("/admin/categories")}
                   badge={categoryCount}
                 />
+                )
               )}
               {hasPermission(P.ATTRIBUTE_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/variants"
                   icon={Layers}
@@ -462,6 +468,7 @@ export default function AdminSidebar() {
                   active={isActive("/admin/variants")}
                   badge={attributeCount}
                 />
+                )
               )}
             </div>
           </section>
@@ -475,7 +482,9 @@ export default function AdminSidebar() {
             </p>
             <div className="space-y-0.5">
               {hasPermission(P.EXPORT_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất kho & Trả NCC" active={isActive("/admin/exports")} badge={exportPendingCount} />
+                )
               )}
               {hasPermission(P.TRANSFER_VIEW) && (
                 <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển kho" active={isActive("/admin/transfers")} badge={transferPendingCount} />
@@ -501,13 +510,15 @@ export default function AdminSidebar() {
                 active={pathname === "/admin/financial"}
                 color="text-emerald-500"
               />
-              <SidebarLink
-                href="/admin/financial/supplier-debt"
-                icon={Truck}
-                label="Công nợ NCC"
-                active={isActive("/admin/financial/supplier-debt")}
-                color="text-orange-400"
-              />
+              {!isBranchAccount && (
+                <SidebarLink
+                  href="/admin/financial/supplier-debt"
+                  icon={Truck}
+                  label="Công nợ NCC"
+                  active={isActive("/admin/financial/supplier-debt")}
+                  color="text-orange-400"
+                />
+              )}
               <SidebarLink
                 href="/admin/financial/cashbook"
                 icon={Archive}
@@ -552,6 +563,7 @@ export default function AdminSidebar() {
                 />
               )}
               {hasPermission(P.REPORT_FINANCE_VIEW) && (
+                !isBranchAccount && (
                 <SidebarLink
                   href="/admin/financial/profit-loss"
                   icon={FileBarChart}
@@ -559,6 +571,7 @@ export default function AdminSidebar() {
                   active={isActive("/admin/financial/profit-loss")}
                   color="text-emerald-500"
                 />
+                )
               )}
             </div>
           </section>
