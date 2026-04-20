@@ -17,6 +17,7 @@ export const OrderStatusEnum = z.enum([
   "PENDING",
   "READY_FOR_PICKUP",
   "SHIPPING",
+  "RECEIVED",
   "COMPLETED",
   "RETURNED",
   "CANCELLED",

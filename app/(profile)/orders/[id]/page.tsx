@@ -76,6 +76,12 @@ const statusConfig: Record<
     bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Truck size={28} />,
   },
+  RECEIVED: {
+    label: "Đã nhận hàng",
+    subLabel: "Đơn hàng đã được xác nhận là khách đã nhận.",
+    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    icon: <CheckCircle2 size={28} />,
+  },
   COMPLETED: {
     label: "Đã giao",
     subLabel: "Đơn hàng đã được giao thành công.",
@@ -195,6 +201,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (order.status === "AWAITING_PAYMENT") return 0;
     if (order.status === "AWAITING_REPLENISHMENT") return 1;
     if (order.status === "CONFIRMED" || order.status === "PROCESSING") return 1;
+    if (order.status === "RECEIVED") return 3;
     const idx = steps.findIndex((step) => step.status === order.status);
     return idx === -1 ? 0 : idx;
   })();

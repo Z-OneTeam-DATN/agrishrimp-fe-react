@@ -38,7 +38,7 @@ export function getUserOrderStage(status: OrderStatus): UserOrderStage {
     return "SHIPPING";
   }
 
-  if (status === "COMPLETED") {
+  if (status === "RECEIVED" || status === "COMPLETED") {
     return "COMPLETED";
   }
 
@@ -79,7 +79,7 @@ export function normalizeUserOrderFilter(value?: string | null): UserOrderFilter
     return "SHIPPING";
   }
 
-  if (value === "COMPLETED") {
+  if (value === "RECEIVED" || value === "COMPLETED") {
     return "COMPLETED";
   }
 
