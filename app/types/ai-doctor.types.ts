@@ -49,6 +49,13 @@ export interface AiDoctorHistoryItem {
   disease?: AiDoctorDiseaseInfo;
 }
 
+export interface AiDoctorChatResponse {
+  success: boolean;
+  conversationId?: string;
+  reply: string;
+  suggestedActions?: string[];
+}
+
 export interface AiDoctorHistoryListResponse {
   items: AiDoctorHistoryItem[];
   total: number;

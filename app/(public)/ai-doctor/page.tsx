@@ -130,6 +130,18 @@ export default function AiDoctorChatPage() {
     };
   }, []);
 
+  const chatMutation = useMutation({
+    mutationFn: (message: string) => aiDoctorService.chat(message),
+    onSuccess: (data) => {
+      setAssistantMessage(data.reply);
+    },
+    onError: () => {
+      setAssistantMessage(
+        "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc gửi ảnh tôm để được hỗ trợ nhanh hơn nhé.",
+      );
+    },
+  });
+
   const diagnoseMutation = useMutation({
     mutationFn: ({ image, userSymptoms }: DiagnosePayload) =>
       aiDoctorService.diagnose(image, userSymptoms),
@@ -196,16 +208,11 @@ export default function AiDoctorChatPage() {
         if (current?.previewUrl?.startsWith("blob:")) {
           URL.revokeObjectURL(current.previewUrl);
         }
-
-        return {
-          previewUrl: null,
-          symptoms: currentSymptoms,
-        };
+        return { previewUrl: null, symptoms: currentSymptoms };
       });
-      setAssistantMessage(
-        "Bác sĩ đã ghi nhận các dấu hiệu bà con mô tả. Tuy nhiên để xác định bệnh chính xác hơn và chỉ rõ vùng tổn thương trên tôm, bà con vui lòng gửi thêm một ảnh chụp rõ con tôm. Có ảnh thì bác sĩ sẽ chẩn đoán chuẩn hơn nhiều.",
-      );
+      setAssistantMessage(null);
       setSymptoms("");
+      chatMutation.mutate(currentSymptoms);
       return;
     }
 
@@ -365,6 +372,20 @@ export default function AiDoctorChatPage() {
                   {submittedMessage.symptoms}
                 </div>
               )}
+            </div>
+          )}
+
+          {chatMutation.isPending && (
+            <div className="flex max-w-full justify-start gap-2.5 pr-12">
+              <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+              </div>
+              <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm text-gray-700 shadow-sm">
+                <div className="flex items-center gap-2 font-semibold text-[#376E60]">
+                  <Loader2 size={16} className="animate-spin" />
+                  Bác sĩ đang phân tích...
+                </div>
+              </div>
             </div>
           )}
 
