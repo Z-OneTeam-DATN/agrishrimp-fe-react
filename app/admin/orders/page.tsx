@@ -404,7 +404,7 @@ export default function OrderListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-[18px] font-bold text-slate-800">
-          Don hang chi nhanh{" "}
+          Đơn hàng chi nhánh{" "}
           <span className="font-normal text-slate-500 text-[15px]">
             ({orders.length} đơn)
           </span>
