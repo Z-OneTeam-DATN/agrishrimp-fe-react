@@ -29,11 +29,14 @@ type TransferRow = {
   id: string;
   code?: string;
   transferCode?: string;
+  transferType?: string;
   status?: string;
   fromBranchName?: string;
   sourceBranchName?: string;
   toBranchName?: string;
   destBranchName?: string;
+  referenceCode?: string;
+  description?: string;
 };
 
 type WarehouseOption = {

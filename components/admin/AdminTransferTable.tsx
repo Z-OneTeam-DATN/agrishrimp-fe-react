@@ -154,10 +154,22 @@ export function AdminTransferTable({
                     </TableCell>
 
                     <TableCell className="p-3">
-                      <span className="text-slate-700 font-bold text-[11px] tracking-tight uppercase flex items-center gap-1.5 whitespace-nowrap">
-                        <FileText size={12} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
-                        {item.transferCode || item.code}
-                      </span>
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="text-slate-700 font-bold text-[11px] tracking-tight uppercase flex items-center gap-1.5 whitespace-nowrap">
+                          <FileText size={12} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+                          {item.transferCode || item.code}
+                        </span>
+                        {item.transferType === "ORDER_REPLENISHMENT" ? (
+                          <>
+                            <span className="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">
+                              Tá»± Ä‘á»™ng tá»« Ä‘Æ¡n thiáº¿u hÃ ng
+                            </span>
+                            <span className="max-w-[220px] truncate text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                              {item.referenceCode || item.description || "Phiáº¿u bá»• sung chá» duyá»‡t"}
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
                     </TableCell>
 
                     <TableCell className="p-3">
