@@ -239,6 +239,57 @@ export default function CheckoutPage() {
         cartItems.map((item) => [item.productVariantId, item.imageUrl as string | undefined])
     ) as Record<number, string | undefined>
 
+    const prepareOrderDisplayResponse = useMemo(() => {
+        if (!prepareOrderResponse) return null
+
+        const cartPriceByVariantId = Object.fromEntries(
+            cartItems.map((item) => [item.productVariantId, Number(item.unitPrice) || 0])
+        ) as Record<number, number>
+
+        const subOrders = prepareOrderResponse.subOrders.map((subOrder) => {
+            const items = subOrder.items.map((item) => {
+                const unitPrice =
+                    item.unitPrice > 0
+                        ? item.unitPrice
+                        : (cartPriceByVariantId[item.productVariantId] ?? 0)
+                const subtotal =
+                    item.subtotal > 0
+                        ? item.subtotal
+                        : unitPrice * item.quantity
+
+                return {
+                    ...item,
+                    unitPrice,
+                    subtotal,
+                }
+            })
+
+            const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
+
+            return {
+                ...subOrder,
+                items,
+                subtotal: subOrder.subtotal > 0 ? subOrder.subtotal : subtotal,
+            }
+        })
+
+        const totalSubtotal = subOrders.reduce((sum, subOrder) => sum + subOrder.subtotal, 0)
+        const finalSubtotal =
+            prepareOrderResponse.totalSubtotal > 0 ? prepareOrderResponse.totalSubtotal : totalSubtotal
+        const finalTotalAmount = Math.max(
+            finalSubtotal + prepareOrderResponse.totalShippingFee - prepareOrderResponse.discountAmount,
+            0
+        )
+
+        return {
+            ...prepareOrderResponse,
+            subOrders,
+            totalSubtotal: finalSubtotal,
+            totalAmount:
+                prepareOrderResponse.totalAmount > 0 ? prepareOrderResponse.totalAmount : finalTotalAmount,
+        }
+    }, [cartItems, prepareOrderResponse])
+
     const handleConfirm = () => {
         if (rateLimitCooldown > 0) {
             return // Chỉ disable button, không show toast
@@ -441,16 +492,16 @@ export default function CheckoutPage() {
                                     </div>
                                 )}
 
-                                {addressConfirmed && !prepareMutation.isPending && prepareOrderResponse && (
+                                {addressConfirmed && !prepareMutation.isPending && prepareOrderDisplayResponse && (
                                     <div className="space-y-3">
-                                        {!prepareOrderResponse.canFulfill && prepareOrderResponse.subOrders.length === 0 && (
+                                        {!prepareOrderDisplayResponse.canFulfill && prepareOrderDisplayResponse.subOrders.length === 0 && (
                                             <OutOfStockWarning
-                                                items={prepareOrderResponse.outOfStockItems}
-                                                onOrderPartial={prepareOrderResponse.subOrders.length > 0 ? () => {} : undefined}
+                                                items={prepareOrderDisplayResponse.outOfStockItems}
+                                                onOrderPartial={prepareOrderDisplayResponse.subOrders.length > 0 ? () => {} : undefined}
                                             />
                                         )}
                                         <PrepareOrderSummary
-                                            prepareResponse={prepareOrderResponse}
+                                            prepareResponse={prepareOrderDisplayResponse}
                                             imageByVariantId={imageByVariantId}
                                         />
                                     </div>
@@ -532,30 +583,30 @@ export default function CheckoutPage() {
                             </div>
 
                             <div className="p-5">
-                                {prepareOrderResponse ? (
+                                {prepareOrderDisplayResponse ? (
                                     <div className="space-y-3 text-sm">
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-500">Tiền hàng</span>
-                                            <span className="text-gray-800 font-medium">{formatMoney(prepareOrderResponse.totalSubtotal)}</span>
+                                            <span className="text-gray-800 font-medium">{formatMoney(prepareOrderDisplayResponse.totalSubtotal)}</span>
                                         </div>
-                                        {prepareOrderResponse.discountAmount > 0 && (
+                                        {prepareOrderDisplayResponse.discountAmount > 0 && (
                                             <div className="flex justify-between items-center">
                                                 <span className="text-gray-500">
                                                     Giáº£m giĂ¡
-                                                    {prepareOrderResponse.voucherCode ? ` (${prepareOrderResponse.voucherCode})` : ""}
+                                                    {prepareOrderDisplayResponse.voucherCode ? ` (${prepareOrderDisplayResponse.voucherCode})` : ""}
                                                 </span>
-                                                <span className="font-medium text-emerald-600">-{formatMoney(prepareOrderResponse.discountAmount)}</span>
+                                                <span className="font-medium text-emerald-600">-{formatMoney(prepareOrderDisplayResponse.discountAmount)}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-500">Phí vận chuyển</span>
-                                            <span className="text-gray-800 font-medium">{formatMoney(prepareOrderResponse.totalShippingFee)}</span>
+                                            <span className="text-gray-800 font-medium">{formatMoney(prepareOrderDisplayResponse.totalShippingFee)}</span>
                                         </div>
                                         <div className="border-t border-dashed border-gray-200 pt-3">
                                             <div className="flex justify-between items-center">
                                                 <span className="font-semibold text-gray-800">Tổng thanh toán</span>
                                                 <span className="text-xl font-extrabold text-teal-600">
-                          {formatMoney(prepareOrderResponse.totalAmount)}
+                          {formatMoney(prepareOrderDisplayResponse.totalAmount)}
                         </span>
                                             </div>
                                             <p className="text-[10px] text-gray-400 text-right mt-1">Đã bao gồm VAT (nếu có)</p>
@@ -600,13 +651,13 @@ export default function CheckoutPage() {
             </div>
 
             {/* ── MOBILE BOTTOM BAR ── */}
-            {canPlaceOrder && prepareOrderResponse && (
+            {canPlaceOrder && prepareOrderDisplayResponse && (
                 <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
                     <div className="flex items-center gap-3 px-4 py-3">
                         <div className="flex-1">
                             <p className="text-[10px] text-gray-400">Tổng thanh toán</p>
                             <p className="text-base font-bold text-teal-600">
-                                {formatMoney(prepareOrderResponse.totalAmount)}
+                                {formatMoney(prepareOrderDisplayResponse.totalAmount)}
                             </p>
                         </div>
                         <button
