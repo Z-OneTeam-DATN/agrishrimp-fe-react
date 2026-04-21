@@ -584,6 +584,10 @@ export default function InventoryUpsert({
         checkId = saved?.id;
         setCurrentCheckId(saved?.id ?? null);
       }
+      if (checkId == null) {
+        toast.error("Không thể xác định phiếu kiểm kê để gửi duyệt");
+        return;
+      }
       const response = await InventoryCheckApiService.submitForApproval(checkId);
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
