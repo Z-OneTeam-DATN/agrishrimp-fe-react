@@ -452,8 +452,8 @@ function AdminExportFormContent() {
         productVariantId: it.productVariantId,
         requestedQuantity: it.quantity,
         batchNumber: it.lotNumber || null,
-        defectiveQuantity: data.exportType === "RETURN" ? it.stock : 0,
-        plannedQuantity: data.exportType === "RETURN" ? it.stock : null,
+        defectiveQuantity: data.exportType === "RETURN" ? it.quantity : 0,
+        plannedQuantity: data.exportType === "RETURN" ? it.quantity : null,
         price: it.price,
         note: data.exportType === "RETURN" ? it.returnReason : ""
       }))
