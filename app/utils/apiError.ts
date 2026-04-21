@@ -5,8 +5,17 @@ export function parseApiError(error: unknown): { code: string; message: string; 
   if (axios.isAxiosError(error)) {
     const httpStatus = error.response?.status
     const data = error.response?.data
+    const fieldErrors =
+      Array.isArray(data?.fieldErrors) && data.fieldErrors.length > 0
+        ? data.fieldErrors.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+        : []
     const message: string =
-      data?.message || data?.detail || data?.error_description || "Lỗi không xác định"
+      data?.message ||
+      data?.detail ||
+      data?.error_description ||
+      (fieldErrors.length > 0 ? fieldErrors.join(". ") : undefined) ||
+      data?.title ||
+      "Lỗi không xác định"
     const backendCode = typeof data?.code === "string" ? data.code : undefined
     const backendRetryAfter =
       typeof data?.retryAfterSeconds === "number"
@@ -63,7 +72,13 @@ export const ERROR_MESSAGES: Record<string, string> = {
 export function getFriendlyError(error: unknown): string {
   const { code, message } = parseApiError(error)
   // Ưu tiên message từ BE (tiếng Việt), fallback sang map
-  return message !== "Lỗi không xác định" ? message : (ERROR_MESSAGES[code] ?? message)
+  if (message !== "Lỗi không xác định") {
+    return message
+  }
+  if (code === "UNKNOWN") {
+    return "Máy chủ gặp lỗi khi xử lý đơn hàng. Vui lòng thử lại sau."
+  }
+  return ERROR_MESSAGES[code] ?? message
 }
 
 /** Kiểm tra nhanh lỗi 409 Conflict (race condition tồn kho) */
