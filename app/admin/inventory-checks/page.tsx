@@ -60,7 +60,29 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-type InventoryCheckStatus = "ALL" | "PENDING" | "COMPLETED";
+type InventoryCheckStatus =
+  | "ALL"
+  | "COUNTING"
+  | "WAITING_FOR_ADJUSTMENT_APPROVAL"
+  | "COUNTING_COMPLETED";
+
+const getWorkflowStatus = (item: any) => {
+  const normalized = String(item?.checkWorkflowStatus || item?.status || "")
+    .toUpperCase()
+    .trim();
+
+  if (
+    normalized === "COUNTING_INIT" ||
+    normalized === "COUNTING_IN_PROGRESS" ||
+    normalized === "WAITING_FOR_ADJUSTMENT_APPROVAL" ||
+    normalized === "COUNTING_COMPLETED"
+  ) {
+    return normalized;
+  }
+
+  if (normalized === "COMPLETED") return "COUNTING_COMPLETED";
+  return "COUNTING_INIT";
+};
 
 const normalizeText = (value: string | number | null | undefined) =>
   String(value ?? "")
@@ -128,15 +150,19 @@ export default function InventoryCheckListPage() {
 
   const filteredData = useMemo(() => {
     return inventoryChecks.filter((item: any) => {
-      const status = String(item.status || "").toUpperCase();
+      const status = getWorkflowStatus(item);
       const branchId = String(item.branchId || "");
       const branchName = normalizeText(item.branchName || "Kho tổng");
       const q = normalizeText(searchTerm);
 
       const matchTab =
         activeTab === "ALL" ||
-        (activeTab === "PENDING" && status === "PENDING") ||
-        (activeTab === "COMPLETED" && status === "COMPLETED");
+        ((activeTab === "COUNTING" || activeTab === ("PENDING" as InventoryCheckStatus)) &&
+          (status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS")) ||
+        (activeTab === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
+          status === "WAITING_FOR_ADJUSTMENT_APPROVAL") ||
+        ((activeTab === "COUNTING_COMPLETED" || activeTab === ("COMPLETED" as InventoryCheckStatus)) &&
+          status === "COUNTING_COMPLETED");
 
       if (!matchTab) return false;
       if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
@@ -153,11 +179,16 @@ export default function InventoryCheckListPage() {
   }, [inventoryChecks, activeTab, selectedBranchId, searchTerm]);
 
   const stats = useMemo(() => {
-    const pending = inventoryChecks.filter(
-      (item: any) => String(item.status || "").toUpperCase() === "PENDING"
+    const pending = inventoryChecks.filter((item: any) => {
+      const status = getWorkflowStatus(item);
+      return status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS";
+    }).length;
+    const waitingApproval = inventoryChecks.filter(
+      (item: any) =>
+        getWorkflowStatus(item) === "WAITING_FOR_ADJUSTMENT_APPROVAL"
     ).length;
     const completed = inventoryChecks.filter(
-      (item: any) => String(item.status || "").toUpperCase() === "COMPLETED"
+      (item: any) => getWorkflowStatus(item) === "COUNTING_COMPLETED"
     ).length;
 
     const damagedUnits = inventoryChecks.reduce((sum: number, item: any) => {
@@ -188,18 +219,48 @@ export default function InventoryCheckListPage() {
       );
     }, 0);
 
-    return { pending, completed, damagedUnits, needRestockCount };
+    return { pending, waitingApproval, completed, damagedUnits, needRestockCount };
   }, [inventoryChecks]);
 
   const getStatusBadge = (status: string) => {
+    const normalized = String(status || "").toUpperCase();
+    if (normalized === "COUNTING_COMPLETED") {
+      return (
+        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase">
+          Đã cân bằng
+        </Badge>
+      );
+    }
+    if (normalized === "WAITING_FOR_ADJUSTMENT_APPROVAL") {
+      return (
+        <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase">
+          Chờ duyệt cân bằng
+        </Badge>
+      );
+    }
+    if (normalized === "COUNTING_IN_PROGRESS") {
+      return (
+        <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase">
+          Đang đếm thực tế
+        </Badge>
+      );
+    }
+    if (normalized === "COUNTING_INIT") {
+      return (
+        <Badge className="bg-violet-50 text-violet-700 border border-violet-100 text-[10px] font-black uppercase">
+          Mới khởi tạo
+        </Badge>
+      );
+    }
+
     switch (String(status || "").toUpperCase()) {
-      case "COMPLETED":
+      case "COUNTING_COMPLETED":
         return (
           <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase">
             Đã chốt kho
           </Badge>
         );
-      case "PENDING":
+      case "WAITING_FOR_ADJUSTMENT_APPROVAL":
         return (
           <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase">
             Chờ xử lý
@@ -387,7 +448,7 @@ export default function InventoryCheckListPage() {
                 <p className="text-[11px] font-black uppercase text-slate-500">
                   Phiếu đã chốt
                 </p>
-                <p className="text-2xl font-black text-slate-800 mt-1">{stats.completed}</p>
+                <p className="text-2xl font-black text-slate-800 mt-1">{stats.waitingApproval}</p>
               </div>
               <Boxes className="text-emerald-500" size={20} />
             </div>
@@ -561,7 +622,7 @@ export default function InventoryCheckListPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">{getStatusBadge(item.status)}</TableCell>
+                        <TableCell className="text-center">{getStatusBadge(getWorkflowStatus(item))}</TableCell>
                         <TableCell className="text-center">
                           <Badge className="bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-black">
                             {damaged}
@@ -585,7 +646,7 @@ export default function InventoryCheckListPage() {
                             >
                               <Eye size={16} />
                             </Button>
-                            {String(item.status || "").toUpperCase() === "PENDING" && hasPermission(P.CHECK_UPDATE) && (
+                            {["COUNTING_INIT", "COUNTING_IN_PROGRESS"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_UPDATE) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -598,7 +659,7 @@ export default function InventoryCheckListPage() {
                                 <Pencil size={16} />
                               </Button>
                             )}
-                            {String(item.status || "").toUpperCase() === "PENDING" && hasPermission(P.CHECK_DELETE) && (
+                            {["COUNTING_INIT", "COUNTING_IN_PROGRESS"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_DELETE) && (
                               <Button
                                 variant="ghost"
                                 size="icon"

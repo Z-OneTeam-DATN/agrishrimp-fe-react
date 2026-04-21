@@ -148,6 +148,16 @@ export const InventoryCheckApiService = {
     return response.data;
   },
 
+  submitForApproval: async (id: number | string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/submit-for-approval`);
+    return response.data;
+  },
+
+  approveAdjustment: async (id: number | string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/approve-adjustment`);
+    return response.data;
+  },
+
   // F. Xóa phiếu kiểm kê (PENDING)
   deleteCheck: async (id: number | string) => {
     const response = await apiJava.delete(`/inventory-checks/${id}`);

@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/table";
 import { branchService } from "@/app/services/branchService";
 import { InventoryCheckApiService } from "@/app/services/inventory.service";
-import { ProductService } from "@/app/services/product.service";
 import { EmployeeService } from "@/app/services/employee.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -72,6 +71,24 @@ type CheckItem = {
   reason: string;
   batchNumber?: string;
   importPrice?: number;
+};
+
+type CheckWorkflowStatus =
+  | "COUNTING_INIT"
+  | "COUNTING_IN_PROGRESS"
+  | "WAITING_FOR_ADJUSTMENT_APPROVAL"
+  | "COUNTING_COMPLETED";
+
+const getWorkflowStatus = (value: any): CheckWorkflowStatus => {
+  const normalized = String(value || "").toUpperCase();
+  if (
+    normalized === "COUNTING_IN_PROGRESS" ||
+    normalized === "WAITING_FOR_ADJUSTMENT_APPROVAL" ||
+    normalized === "COUNTING_COMPLETED"
+  ) {
+    return normalized as CheckWorkflowStatus;
+  }
+  return "COUNTING_INIT";
 };
 
 const generatePKKCode = () => {
@@ -157,7 +174,9 @@ export default function InventoryUpsert({
   const [currentCheckId, setCurrentCheckId] = useState<number | string | null>(
     initialData?.id ?? null,
   );
-  const [status, setStatus] = useState(initialData?.status || "PENDING");
+  const [workflowStatus, setWorkflowStatus] = useState<CheckWorkflowStatus>(
+    getWorkflowStatus(initialData?.checkWorkflowStatus || initialData?.status),
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -236,7 +255,7 @@ export default function InventoryUpsert({
         note: res.note || "",
       });
       setItems((res.details || []).map(mapItem));
-      setStatus(res.status || "PENDING");
+      setWorkflowStatus(getWorkflowStatus(res.checkWorkflowStatus || res.status));
     } catch (error) {
       console.error("Error fetching detail:", error);
       toast.error("Không thể tải chi tiết phiếu");
@@ -244,6 +263,31 @@ export default function InventoryUpsert({
       setLoading(false);
     }
   };
+
+  const loadBranchSnapshot = async (branchId: string) => {
+    if (!branchId || mode !== "create") return;
+    try {
+      setIsSearching(true);
+      const data = await InventoryCheckApiService.searchProducts("", branchId);
+      const productList = Array.isArray(data) ? data : data?.content || [];
+      setItems(productList.map(mapItem));
+      setSelectedProductIds([]);
+      setSearchResults([]);
+      setWorkflowStatus(
+        productList.length > 0 ? "COUNTING_INIT" : "COUNTING_IN_PROGRESS",
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Không thể tạo snapshot tồn kho cho chi nhánh này");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode !== "create" || !formData.branchId) return;
+    void loadBranchSnapshot(formData.branchId);
+  }, [formData.branchId, mode]);
 
   const handleSearchProduct = async (term: string) => {
     if (!term.trim()) {
@@ -256,7 +300,10 @@ export default function InventoryUpsert({
     }
     setIsSearching(true);
     try {
-      const data = await ProductService.searchVariants(term, formData.branchId);
+      const data = await InventoryCheckApiService.searchProducts(
+        term,
+        formData.branchId,
+      );
       const productList = Array.isArray(data) ? data : data?.content || [];
       setSearchResults(productList);
     } catch (error) {
@@ -504,7 +551,54 @@ export default function InventoryUpsert({
     }
   };
 
-  const handleComplete = async () => {
+  const handleSubmitForApproval = async () => {
+    try {
+      setIsSubmitting(true);
+      let checkId = currentCheckId;
+      if (!checkId) {
+        if (!formData.branchId) {
+          toast.error("Vui lòng chọn kho kiểm kê");
+          return;
+        }
+        if (items.length === 0) {
+          toast.error("Không có dữ liệu snapshot để gửi duyệt");
+          return;
+        }
+        const payload: any = {
+          branchId: Number(formData.branchId),
+          type: formData.type,
+          checkDate: new Date(formData.checkDate).toISOString(),
+          checkedBy: formData.checkedBy,
+          note: formData.note,
+          details: items.map((item) => ({
+            productVariantId: item.productVariantId,
+            batchNumber: item.batchNumber || "N/A",
+            importPrice: item.importPrice || 0,
+            systemQuantity: toNumber(item.systemQuantity),
+            quantityReal: toNumber(item.quantityReal),
+            quantityRejected: toNumber(item.quantityRejected),
+            note: item.reason,
+          })),
+        };
+        const saved = await InventoryCheckApiService.saveCheck(payload);
+        checkId = saved?.id;
+        setCurrentCheckId(saved?.id ?? null);
+      }
+      const response = await InventoryCheckApiService.submitForApproval(checkId);
+      setWorkflowStatus(
+        getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
+      );
+      toast.success("Đã gửi phiếu kiểm kê sang bước chờ admin duyệt cân bằng");
+      router.push("/admin/inventory-checks");
+    } catch (error) {
+      console.error(error);
+      toast.error("Không thể gửi duyệt phiếu kiểm kê");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleApproveAdjustment = async () => {
     try {
       setIsSubmitting(true);
       let checkId = currentCheckId;
@@ -513,18 +607,25 @@ export default function InventoryUpsert({
         checkId = detail?.id;
       }
       if (!checkId) {
-        toast.error("Không tìm thấy phiếu để chốt");
+        toast.error("Không tìm thấy phiếu để duyệt cân bằng");
         return;
       }
-      await InventoryCheckApiService.completeCheck(checkId);
-      toast.success("Đã chốt phiếu và cập nhật tồn kho thành công");
+      const response = await InventoryCheckApiService.approveAdjustment(checkId);
+      setWorkflowStatus(
+        getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
+      );
+      toast.success("Đã duyệt cân bằng và ép tồn hệ thống về đúng số thực tế");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
-      toast.error("Lỗi khi chốt phiếu kiểm kê");
+      toast.error("Không thể duyệt cân bằng phiếu kiểm kê");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleComplete = async () => {
+    await handleApproveAdjustment();
   };
 
   if (loading) {
@@ -570,7 +671,10 @@ export default function InventoryUpsert({
               Xuất Excel
             </Button>
 
-            {mode === "view" && status === "PENDING" && hasPermission(P.CHECK_UPDATE) && (
+            {mode === "view" &&
+              (workflowStatus === "COUNTING_INIT" ||
+                workflowStatus === "COUNTING_IN_PROGRESS") &&
+              hasPermission(P.CHECK_UPDATE) && (
               <Button
                 variant="outline"
                 className="h-8 rounded-md border-amber-200 px-3 text-[12px] font-medium text-amber-700"
@@ -581,18 +685,28 @@ export default function InventoryUpsert({
               </Button>
             )}
 
-            {mode === "view" && status === "PENDING" && hasPermission(P.CHECK_APPROVE) && (
+            {mode === "view" &&
+              workflowStatus === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
+              hasPermission(P.CHECK_APPROVE) && (
               <Button className="h-8 rounded-md bg-emerald-600 px-3 text-[12px] font-medium text-white hover:bg-emerald-700" disabled={isSubmitting} onClick={handleComplete}>
                 {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <CheckCircle2 size={14} className="mr-2" />}
-                Chốt phiếu
+                Duyệt cân bằng
               </Button>
             )}
 
             {mode !== "view" && (
-              <Button className="h-8 rounded-md bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800" disabled={isSubmitting} onClick={handleSubmit}>
-                {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
-                Lưu phiếu
-              </Button>
+              <>
+                <Button variant="outline" className="h-8 rounded-md border-slate-200 px-3 text-[12px] font-medium" disabled={isSubmitting} onClick={handleSubmit}>
+                  {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
+                  Lưu phiếu
+                </Button>
+                {hasPermission(P.CHECK_UPDATE) && (
+                  <Button className="h-8 rounded-md bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800" disabled={isSubmitting} onClick={handleSubmitForApproval}>
+                    {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <CheckCircle2 size={14} className="mr-2" />}
+                    Gửi duyệt cân bằng
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
