@@ -210,6 +210,13 @@ export default function TreatmentResultPage() {
   const overallTotal = stageTotals.reduce((sum, total) => sum + total, 0);
   const overallProducts = treatmentStages.flatMap((stage) => stage.products ?? []);
 
+  useEffect(() => {
+    if (diagnosis && !hasPrescription && prescriptionState === "idle" && diagnosisId) {
+      handleGetPrescription();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagnosis?.diagnosisId, hasPrescription]);
+
   const handleGetPrescription = async () => {
     if (!diagnosisId || prescriptionState === "loading") return;
     setPrescriptionState("loading");
@@ -545,35 +552,32 @@ export default function TreatmentResultPage() {
                 ))
               ) : (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-center text-gray-400">
-                  <FlaskConical size={40} className="mb-3 text-slate-300" />
-                  <p className="mb-2 text-sm font-medium text-slate-600">
-                    Bác sĩ chưa lập phác đồ điều trị.
-                  </p>
-                  <p className="mb-6 text-xs text-slate-400">
-                    Nhấn nút bên dưới để bác sĩ AI phân tích và đưa ra phác đồ thuốc phù hợp.
-                  </p>
-                  {prescriptionState === "error" && (
-                    <p className="mb-3 text-xs text-red-500">
-                      Có lỗi xảy ra. Bà con thử lại nhé.
-                    </p>
-                  )}
-                  <button
-                    onClick={handleGetPrescription}
-                    disabled={prescriptionState === "loading"}
-                    className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#2f5c50] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {prescriptionState === "loading" ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Đang lập phác đồ...
-                      </>
-                    ) : (
-                      <>
+                  {prescriptionState === "error" ? (
+                    <>
+                      <FlaskConical size={40} className="mb-3 text-slate-300" />
+                      <p className="mb-2 text-sm font-medium text-slate-600">
+                        Không thể lập phác đồ lúc này.
+                      </p>
+                      <p className="mb-6 text-xs text-red-400">Có lỗi xảy ra. Bà con thử lại nhé.</p>
+                      <button
+                        onClick={handleGetPrescription}
+                        className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#2f5c50]"
+                      >
                         <FlaskConical size={16} />
-                        Xem phác đồ điều trị
-                      </>
-                    )}
-                  </button>
+                        Thử lại
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 size={36} className="mb-3 animate-spin text-[#376E60]" />
+                      <p className="text-sm font-medium text-slate-600">
+                        Bác sĩ đang lập phác đồ điều trị...
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Quá trình này mất khoảng 10–30 giây, bà con đợi xíu nhé.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
