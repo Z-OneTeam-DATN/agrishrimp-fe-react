@@ -60,11 +60,9 @@ const persistSavedVoucherCodes = (codes: string[]) => {
 
 const isVoucherVisible = (voucher: Voucher) => {
   const now = Date.now();
-  return (
-    voucher.status === "ACTIVE" &&
-    new Date(voucher.startDate).getTime() <= now &&
-    new Date(voucher.endDate).getTime() >= now
-  );
+  const startOk = !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
+  const endOk = !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
+  return voucher.status === "ACTIVE" && startOk && endOk;
 };
 
 export default function VoucherWalletPage() {

@@ -201,7 +201,7 @@ export default function CartPage() {
       let arr = Array.isArray(res) ? res : [];
 
       const now = new Date().getTime();
-      arr = arr.filter((v: Voucher) => new Date(v.endDate).getTime() >= now);
+      arr = arr.filter((v: Voucher) => !v.endDate || new Date(v.endDate).getTime() >= now);
 
       setAvailableVouchers(arr);
     } catch (error: unknown) {
