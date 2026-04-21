@@ -280,13 +280,14 @@ export default function CheckoutPage() {
             finalSubtotal + prepareOrderResponse.totalShippingFee - prepareOrderResponse.discountAmount,
             0
         )
+        const shouldUseRecomputedTotals = finalSubtotal !== prepareOrderResponse.totalSubtotal
 
         return {
             ...prepareOrderResponse,
             subOrders,
             totalSubtotal: finalSubtotal,
             totalAmount:
-                prepareOrderResponse.totalAmount > 0 ? prepareOrderResponse.totalAmount : finalTotalAmount,
+                shouldUseRecomputedTotals ? finalTotalAmount : prepareOrderResponse.totalAmount,
         }
     }, [cartItems, prepareOrderResponse])
 
