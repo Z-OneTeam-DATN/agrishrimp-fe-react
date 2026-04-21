@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cartService } from "@/app/services/cart.service";
-import { voucherService } from "@/app/services/voucher.service";
+import { voucherService, type Voucher } from "@/app/services/voucher.service";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/stores/useCartStore";
 import {
@@ -37,21 +37,6 @@ interface CartItem {
   productForm?: string;
 }
 
-interface Voucher {
-  id?: number;
-  code: string;
-  title: string;
-  description?: string;
-  discountType: "FIXED" | "PERCENT";
-  discountValue?: number;
-  value?: number;
-  minOrderValue: number;
-  maxDiscount?: number;
-  startDate: string;
-  endDate: string;
-  usageLimit: number;
-  status: string;
-}
 
 const formatMoney = (amount: number | undefined | null) => {
   if (amount === undefined || amount === null) return "0₫";

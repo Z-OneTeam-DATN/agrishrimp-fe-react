@@ -34,7 +34,6 @@ export default function ImageSearchModal({ onClose }: Props) {
   const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -43,12 +42,37 @@ export default function ImageSearchModal({ onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Revoke blob URL on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  const doSearch = async (file: File) => {
+    setIsSearching(true);
+    setSearchError(null);
+    setResults(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await apiJava.post<ImageSearchResultItem[]>(
+        "/products/search-by-image",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      const data = res.data;
+      const list: ImageSearchResultItem[] = Array.isArray(data)
+        ? data
+        : (data as any)?.data ?? [];
+      setResults(list);
+    } catch (err: any) {
+      setSearchError(
+        err.response?.data?.message || "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại."
+      );
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const validateAndSet = (file: File) => {
     setValidationError(null);
@@ -67,6 +91,7 @@ export default function ImageSearchModal({ onClose }: Props) {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    doSearch(file);
   };
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -80,34 +105,6 @@ export default function ImageSearchModal({ onClose }: Props) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) validateAndSet(file);
-  };
-
-  const handleSearch = async () => {
-    if (!selectedFile) return;
-    setIsSearching(true);
-    setSearchError(null);
-    setResults(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-      const res = await apiJava.post<ImageSearchResultItem[]>(
-        "/products/search-by-image",
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-      const data = res.data;
-      const list: ImageSearchResultItem[] = Array.isArray(data)
-        ? data
-        : (data as any)?.data ?? [];
-      setResults(list);
-    } catch (err: any) {
-      setSearchError(
-        err.response?.data?.message || "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại."
-      );
-    } finally {
-      setIsSearching(false);
-    }
   };
 
   const handleReset = () => {
@@ -134,10 +131,10 @@ export default function ImageSearchModal({ onClose }: Props) {
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-800 leading-tight">
-                Tìm kiếm bằng hình ảnh
+                Tìm sản phẩm bằng ảnh
               </h2>
               <p className="text-[11px] text-gray-400">
-                AI dùng CLIP để so khớp ảnh bạn tải lên với ảnh sản phẩm đã được index
+                Tải ảnh lên — hệ thống tự động tìm sản phẩm giống nhất cho bạn
               </p>
             </div>
           </div>
@@ -154,29 +151,18 @@ export default function ImageSearchModal({ onClose }: Props) {
           {/* Upload zone */}
           {!previewUrl ? (
             <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
               className={`cursor-pointer border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 py-14 transition-all select-none
-                ${
-                  dragOver
-                    ? "border-[#2d6a4f] bg-emerald-50"
-                    : "border-gray-200 bg-gray-50 hover:border-[#2d6a4f] hover:bg-emerald-50/40"
+                ${dragOver
+                  ? "border-[#2d6a4f] bg-emerald-50"
+                  : "border-gray-200 bg-gray-50 hover:border-[#2d6a4f] hover:bg-emerald-50/40"
                 }`}
             >
-              <div
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
-                  dragOver ? "bg-[#2d6a4f]/15" : "bg-white shadow-sm"
-                }`}
-              >
-                <ImageIcon
-                  size={30}
-                  className={dragOver ? "text-[#2d6a4f]" : "text-gray-300"}
-                />
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-[#2d6a4f]/15" : "bg-white shadow-sm"}`}>
+                <ImageIcon size={30} className={dragOver ? "text-[#2d6a4f]" : "text-gray-300"} />
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-700">
@@ -191,11 +177,6 @@ export default function ImageSearchModal({ onClose }: Props) {
                 <p className="text-[11px] text-gray-300 mt-2">
                   JPG · PNG · WebP &nbsp;·&nbsp; Tối đa {MAX_SIZE_MB}MB
                 </p>
-                <p className="mt-2 max-w-md text-[11px] leading-relaxed text-gray-400">
-                  Sau khi bạn tải ảnh lên, AI sẽ mã hóa ảnh thành vector đặc trưng,
-                  so sánh với vector ảnh sản phẩm trong kho và trả về những sản phẩm
-                  có độ giống cao nhất.
-                </p>
               </div>
               <input
                 ref={inputRef}
@@ -206,26 +187,43 @@ export default function ImageSearchModal({ onClose }: Props) {
               />
             </div>
           ) : (
-            /* Preview */
-            <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-[200px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt="Ảnh đã chọn"
-                className="max-h-64 w-auto object-contain"
-              />
+            /* Preview + trạng thái tìm kiếm */
+            <div className="space-y-4">
+              <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-[180px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Ảnh đã chọn"
+                  className="max-h-56 w-auto object-contain"
+                />
+                <button
+                  onClick={handleReset}
+                  className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  title="Chọn ảnh khác"
+                >
+                  <X size={14} />
+                </button>
+                {isSearching && (
+                  <div className="absolute inset-0 bg-white/70 flex flex-col items-center justify-center gap-2">
+                    <Loader2 size={28} className="animate-spin text-[#2d6a4f]" />
+                    <p className="text-sm font-medium text-gray-600">Đang tìm sản phẩm...</p>
+                  </div>
+                )}
+              </div>
+
               <button
-                onClick={handleReset}
-                className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center shadow text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors"
-                title="Chọn ảnh khác"
+                onClick={() => inputRef.current?.click()}
+                className="w-full text-xs text-gray-400 hover:text-[#2d6a4f] transition-colors underline underline-offset-2"
               >
-                <X size={14} />
+                Chọn ảnh khác
               </button>
-              {selectedFile && (
-                <span className="absolute bottom-2.5 left-2.5 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full truncate max-w-[200px]">
-                  {selectedFile.name}
-                </span>
-              )}
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleFileChange}
+              />
             </div>
           )}
 
@@ -237,25 +235,6 @@ export default function ImageSearchModal({ onClose }: Props) {
             </div>
           )}
 
-          {/* Search button */}
-          <button
-            onClick={handleSearch}
-            disabled={!selectedFile || isSearching}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-full bg-[#f4a261] hover:bg-[#e8894a] active:bg-[#da7a38] text-white font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-orange-200"
-          >
-            {isSearching ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Đang mã hóa ảnh và so khớp với kho sản phẩm...
-              </>
-            ) : (
-              <>
-                <Camera size={16} />
-                Tìm kiếm bằng ảnh này
-              </>
-            )}
-          </button>
-
           {/* Search error */}
           {searchError && (
             <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-sm">
@@ -265,10 +244,10 @@ export default function ImageSearchModal({ onClose }: Props) {
           )}
 
           {/* Results */}
-          {results !== null && (
+          {results !== null && !isSearching && (
             <div className="mt-6">
               <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-sm font-bold text-gray-700">Kết quả tìm kiếm</h3>
+                <h3 className="text-sm font-bold text-gray-700">Sản phẩm tương tự</h3>
                 {results.length > 0 && (
                   <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                     {results.length} sản phẩm
@@ -282,9 +261,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                   <p className="text-sm font-semibold text-gray-500">
                     Không tìm thấy sản phẩm phù hợp
                   </p>
-                  <p className="text-xs text-gray-400">
-                    Thử tải lên ảnh khác rõ nét hơn
-                  </p>
+                  <p className="text-xs text-gray-400">Thử tải lên ảnh khác rõ nét hơn</p>
                   <button
                     onClick={handleReset}
                     className="mt-2 text-xs text-[#2d6a4f] underline underline-offset-2 hover:opacity-70"
@@ -298,7 +275,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                     <div key={product.id} className="relative">
                       {product.similarity !== undefined && product.similarity > 0 && (
                         <span className="absolute top-2 left-2 z-20 bg-[#2d6a4f] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
-                          {Math.round(product.similarity * 100)}% khớp
+                          {Math.round(product.similarity * 100)}% phù hợp
                         </span>
                       )}
                       <ProductCard product={product} />
