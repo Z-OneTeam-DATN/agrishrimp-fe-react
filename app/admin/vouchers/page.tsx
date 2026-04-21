@@ -75,15 +75,14 @@ const normalizeNumericValue = (value: number | string | undefined | null) => {
   return normalizeDigitString(normalized);
 };
 
-const formatMoneyInput = (value: string) => {
-  const normalized = normalizeDigitString(value);
-  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-};
-
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number"
     ? value
-    : Number(typeof value === "string" ? value.replace(/,/g, "").trim() || 0 : value || 0);
+    : Number(
+        typeof value === "string"
+          ? value.replace(/,/g, "").trim() || 0
+          : value || 0,
+      );
 
 const isEmptyNumeric = (value: string) => sanitizeNumericInput(value) === "";
 
@@ -93,9 +92,7 @@ const normalizeErrorText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-const getFieldErrorsFromApiMessage = (
-  message: string,
-): VoucherFormErrors => {
+const getFieldErrorsFromApiMessage = (message: string): VoucherFormErrors => {
   const normalizedMessage = normalizeErrorText(message);
 
   if (normalizedMessage.includes("ma voucher")) {
@@ -723,7 +720,9 @@ export default function AdminVoucherPage() {
                     readOnly
                     value={formData.code}
                     className={`w-full border rounded-lg p-2 bg-gray-100 text-emerald-700 font-bold cursor-not-allowed outline-none focus:ring-0 uppercase ${
-                      errors.code ? "border-red-500 bg-red-50" : "border-gray-200"
+                      errors.code
+                        ? "border-red-500 bg-red-50"
+                        : "border-gray-200"
                     }`}
                   />
                   {errors.code && (
@@ -812,13 +811,13 @@ export default function AdminVoucherPage() {
                     <input
                       type="text"
                       inputMode="numeric"
-                      pattern="[0-9,]*"
+                      pattern="[0-9]*"
                       required
-                      value={formatMoneyInput(formData.discountValue)}
+                      value={formData.discountValue}
                       onChange={(e) =>
                         updateNumericField("discountValue", e.target.value)
                       }
-                      placeholder="VD: 50,000"
+                      placeholder="VD: 50000"
                       className={`w-full border rounded-lg p-2 outline-none ${errors.discountValue ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
                     />
                   ) : (
@@ -851,13 +850,13 @@ export default function AdminVoucherPage() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    pattern="[0-9,]*"
+                    pattern="[0-9]*"
                     required
-                    value={formatMoneyInput(formData.minOrderValue)}
+                    value={formData.minOrderValue}
                     onChange={(e) =>
                       updateNumericField("minOrderValue", e.target.value)
                     }
-                    placeholder="VD: 100,000"
+                    placeholder="VD: 100000"
                     className={`w-full border rounded-lg p-2 outline-none ${errors.minOrderValue ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
                   />
                   {errors.minOrderValue && (
@@ -874,13 +873,13 @@ export default function AdminVoucherPage() {
                     <input
                       type="text"
                       inputMode="numeric"
-                      pattern="[0-9,]*"
+                      pattern="[0-9]*"
                       required
-                      value={formatMoneyInput(formData.maxDiscount)}
+                      value={formData.maxDiscount}
                       onChange={(e) =>
                         updateNumericField("maxDiscount", e.target.value)
                       }
-                      placeholder="VD: 30,000"
+                      placeholder="VD: 30000"
                       className={`w-full border rounded-lg p-2 outline-none ${errors.maxDiscount ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
                     />
                     {errors.maxDiscount && (

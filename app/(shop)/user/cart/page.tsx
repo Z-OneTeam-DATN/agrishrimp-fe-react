@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -15,7 +21,6 @@ import {
   Minus,
   Plus,
   Trash2,
-  Ticket,
   ChevronRight,
   ShoppingBag,
   Tag,
@@ -164,13 +169,22 @@ export default function CartPage() {
   const router = useRouter();
   const { fetchCartCount } = useCartStore();
 
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await cartService.getMyCart();
-      setItems(data.map((item: any) => ({ ...item, checked: true })));
-    } catch (error: any) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      const data = (await cartService.getMyCart()) as Array<
+        Omit<CartItem, "checked">
+      >;
+      setItems(data.map((item) => ({ ...item, checked: true })));
+    } catch (error: unknown) {
+      const apiError = error as {
+        response?: { status?: number; data?: { message?: string } };
+      };
+
+      if (
+        apiError.response?.status === 401 ||
+        apiError.response?.status === 403
+      ) {
         toast.error("Vui lòng đăng nhập để xem giỏ hàng!");
         router.push("/login");
         return;
@@ -179,9 +193,9 @@ export default function CartPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
-  const fetchPublicVouchers = async () => {
+  const fetchPublicVouchers = useCallback(async () => {
     try {
       const res = await voucherService.getPublicVouchers();
       let arr = Array.isArray(res) ? res : [];
@@ -190,15 +204,15 @@ export default function CartPage() {
       arr = arr.filter((v: Voucher) => new Date(v.endDate).getTime() >= now);
 
       setAvailableVouchers(arr);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Lỗi tải voucher", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCart();
     fetchPublicVouchers();
-  }, []);
+  }, [fetchCart, fetchPublicVouchers]);
 
   const updateQuantity = async (
     variantId: number,
@@ -216,8 +230,12 @@ export default function CartPage() {
         ),
       );
       fetchCartCount();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi cập nhật số lượng");
+    } catch (error: unknown) {
+      const apiError = error as {
+        response?: { data?: { message?: string } };
+      };
+
+      toast.error(apiError.response?.data?.message || "Lỗi cập nhật số lượng");
     } finally {
       setUpdatingItems((p) => ({ ...p, [variantId]: false }));
     }
