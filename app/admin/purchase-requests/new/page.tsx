@@ -12,12 +12,14 @@ import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
-import { getErrorMessage, apiJava } from "@/lib/axios";
+import { getErrorMessage } from "@/lib/axios";
 import { branchService } from "@/app/services/branchService";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
+import { ProductService } from "@/app/services/product.service";
 import { supplierService } from "@/app/services/supplier.service";
 import type { BranchDTO } from "@/app/types/branch.type";
-import type { Supplier } from "@/app/types/supplier.type";
+import type { ProductListItem } from "@/app/types/product.schema";
+import type { Supplier, SupplierProductCatalogItem } from "@/app/types/supplier.type";
 import {
   PurchaseRequestSchema,
   type PurchaseRequestForm,
@@ -26,12 +28,53 @@ import { cn } from "@/lib/utils";
 
 type SupplierCatalogVariant = {
   id: number;
+  productId: number;
   sku: string;
   productName: string;
   imageUrl?: string;
   quantity?: number;
   customSpecs?: string;
 };
+
+const AVAILABLE_CATALOG_STATUS = "AVAILABLE";
+
+function buildSupplierCatalogVariants(
+  products: ProductListItem[],
+  catalogItems: SupplierProductCatalogItem[],
+): SupplierCatalogVariant[] {
+  const availableProductIds = new Set(
+    catalogItems
+      .filter((item) => item.status === AVAILABLE_CATALOG_STATUS)
+      .map((item) => item.productId),
+  );
+
+  return products
+    .filter((product) => availableProductIds.has(product.id))
+    .flatMap((product) =>
+      (product.variants || [])
+        .filter((variant) => String(variant.status || "").toUpperCase() === "ACTIVE")
+        .map((variant) => ({
+          id: Number(variant.id ?? 0),
+          productId: product.id,
+          sku: variant.sku || "",
+          productName: product.name || "",
+          imageUrl: variant.imageUrl || product.imageUrls?.[0],
+          quantity: variant.quantity,
+          customSpecs:
+            variant.attributeValues?.length
+              ? variant.attributeValues
+                  .map((attribute) => `${attribute.attributeName}: ${attribute.value}`)
+                  .join(" • ")
+              : undefined,
+        })),
+    )
+    .filter((variant) => Boolean(variant.id) && Boolean(variant.sku))
+    .sort(
+      (a, b) =>
+        a.productName.localeCompare(b.productName) ||
+        a.sku.localeCompare(b.sku),
+    );
+}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
@@ -48,6 +91,7 @@ export default function NewPurchaseRequestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [warehouseBranches, setWarehouseBranches] = useState<BranchDTO[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [allProducts, setAllProducts] = useState<ProductListItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [supplierProducts, setSupplierProducts] = useState<
@@ -89,7 +133,6 @@ export default function NewPurchaseRequestPage() {
   const watchedItems = watch("items");
   const selectedSupplierCode = watch("supplierCode");
   const watchedBranchId = watch("branchId");
-  const watchedBranchName = watch("branchName");
 
   useEffect(() => {
     if (!isWarehouseUser && !isAdminRole(currentUser?.role)) {
@@ -135,15 +178,14 @@ export default function NewPurchaseRequestPage() {
           });
         }
 
-        const suppData = await supplierService.getAll(
-          undefined,
-          "ACTIVE",
-          0,
-          200,
-        );
+        const [suppData, productData] = await Promise.all([
+          supplierService.getAll(undefined, "ACTIVE", 0, 200),
+          ProductService.getAll({ status: "ACTIVE" }),
+        ]);
         setSuppliers(
           Array.isArray(suppData) ? suppData : (suppData?.content ?? []),
         );
+        setAllProducts(Array.isArray(productData) ? productData : []);
       } catch (error) {
         console.error("Failed to load purchase request dependencies", error);
       }
@@ -163,20 +205,21 @@ export default function NewPurchaseRequestPage() {
   }, 0);
 
   const openSupplierCatalog = async (supplierCode: string) => {
-    if (!supplierCode) {
+    const selectedSupplier = suppliers.find(
+      (supplier) => supplier.code === supplierCode,
+    );
+
+    if (!supplierCode || !selectedSupplier?.id) {
       toast.error("Vui lòng chọn nhà cung cấp trước");
       return;
     }
 
     setCatalogLoading(true);
     try {
-      const response = await apiJava.get("/product-variants/search", {
-        params: {
-          supplierCode,
-        },
-      });
-
-      const variants = Array.isArray(response.data) ? response.data : [];
+      const catalogItems = await supplierService.getProductCatalog(
+        selectedSupplier.id,
+      );
+      const variants = buildSupplierCatalogVariants(allProducts, catalogItems);
       setSupplierProducts(variants);
       setSelectedProductSkus(
         watchedItems
