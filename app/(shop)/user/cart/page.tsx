@@ -41,7 +41,7 @@ interface Voucher {
   id?: number;
   code: string;
   title: string;
-  description: string;
+  description?: string;
   discountType: "FIXED" | "PERCENT";
   discountValue?: number;
   value?: number;
