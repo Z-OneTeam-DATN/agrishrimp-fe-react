@@ -23,7 +23,6 @@ import {
   ClipboardList,
   ChevronRight,
   ShoppingCart,
-  Box,
   List,
   Archive,
   RotateCcw,
@@ -38,7 +37,11 @@ import { getCategories } from "@/app/services/CategoryService";
 import { branchService } from "@/app/services/branchService";
 import { EmployeeService } from "@/app/services/employee.service";
 import { voucherService } from "@/app/services/voucher.service";
-import { InventoryApiService, InventoryCheckApiService, InventoryExportApiService } from "@/app/services/inventory.service";
+import {
+  InventoryApiService,
+  InventoryCheckApiService,
+  InventoryExportApiService,
+} from "@/app/services/inventory.service";
 import { transferService } from "@/app/services/transfer.service";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -64,21 +67,47 @@ export default function AdminSidebar() {
   const canAccessPurchaseRequests =
     isAdmin ||
     (isWarehouseUser &&
-      (hasPermission(P.PURCHASE_REQUEST_VIEW) || isManager || isManagerRole(user?.role)));
+      (hasPermission(P.PURCHASE_REQUEST_VIEW) ||
+        isManager ||
+        isManagerRole(user?.role)));
   const orderListHref = getOrderListPath(user);
   const isOrderListActive =
     pathname === "/admin/orders" ||
     pathname === "/admin/orders-all" ||
     (pathname.startsWith("/admin/orders/") && !pathname.includes("return"));
-  const canViewSystemSection = hasAnyPermission([P.DASHBOARD_VIEW, P.WORKSPACE_VIEW]);
-  const canViewAdminSection = hasAnyPermission([P.STAFF_VIEW, P.BRANCH_VIEW, P.ROLE_VIEW, P.SUPPLIER_VIEW]);
-  const canViewBusinessSection = hasAnyPermission([P.ORDER_VIEW, P.VOUCHER_VIEW, P.CUSTOMER_VIEW]);
-  const canViewCatalogSection = hasAnyPermission([P.PRODUCT_VIEW, P.CATEGORY_VIEW, P.ATTRIBUTE_VIEW]);
-  const canViewInventorySection = hasAnyPermission([P.IMPORT_VIEW, P.EXPORT_VIEW, P.TRANSFER_VIEW, P.CHECK_VIEW]);
-  const canViewProcurementSection = !isBranchAccount && hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
+  const canViewSystemSection = hasAnyPermission([
+    P.DASHBOARD_VIEW,
+    P.WORKSPACE_VIEW,
+  ]);
+  const canViewAdminSection = hasAnyPermission([
+    P.STAFF_VIEW,
+    P.BRANCH_VIEW,
+    P.ROLE_VIEW,
+    P.SUPPLIER_VIEW,
+  ]);
+  const canViewBusinessSection = hasAnyPermission([
+    P.ORDER_VIEW,
+    P.VOUCHER_VIEW,
+    P.CUSTOMER_VIEW,
+  ]);
+  const canViewCatalogSection = hasAnyPermission([
+    P.PRODUCT_VIEW,
+    P.CATEGORY_VIEW,
+    P.ATTRIBUTE_VIEW,
+  ]);
+  const canViewInventorySection = hasAnyPermission([
+    P.IMPORT_VIEW,
+    P.EXPORT_VIEW,
+    P.TRANSFER_VIEW,
+    P.CHECK_VIEW,
+  ]);
+  const canViewProcurementSection =
+    !isBranchAccount &&
+    hasAnyPermission([P.PURCHASE_REQUEST_VIEW, P.IMPORT_VIEW, P.SUPPLIER_VIEW]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
   const canViewSettings = hasPermission(P.SETTING_VIEW);
-  const canAccessOrderManagement = hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
+  const canAccessOrderManagement =
+    hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
 
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
@@ -88,7 +117,8 @@ export default function AdminSidebar() {
   const [employeeCount, setEmployeeCount] = useState(0);
   const [branchCount, setBranchCount] = useState(0);
   const [voucherCount, setVoucherCount] = useState(0);
-  const [purchaseRequestPendingCount, setPurchaseRequestPendingCount] = useState(0);
+  const [purchaseRequestPendingCount, setPurchaseRequestPendingCount] =
+    useState(0);
   const [receiptPendingCount, setReceiptPendingCount] = useState(0);
   const [exportPendingCount, setExportPendingCount] = useState(0);
   const [transferPendingCount, setTransferPendingCount] = useState(0);
@@ -100,7 +130,9 @@ export default function AdminSidebar() {
   // Tự động mở nhóm menu nếu đang truy cập trang con bên trong
   useEffect(() => {
     if (pathname.startsWith("/admin/orders")) {
-      setOpenGroups(prev => prev.includes("orders") ? prev : [...prev, "orders"]);
+      setOpenGroups((prev) =>
+        prev.includes("orders") ? prev : [...prev, "orders"],
+      );
     }
   }, [pathname]);
 
@@ -165,42 +197,50 @@ export default function AdminSidebar() {
       ] = results;
 
       const supplierValue =
-        supplierResult.status === "fulfilled" ? (supplierResult.value as any) : null;
+        supplierResult.status === "fulfilled"
+          ? (supplierResult.value as any)
+          : null;
       const customerValue =
-        customerResult.status === "fulfilled" ? (customerResult.value as any) : null;
+        customerResult.status === "fulfilled"
+          ? (customerResult.value as any)
+          : null;
       const productValue =
-        productResult.status === "fulfilled" ? (productResult.value as any) : null;
+        productResult.status === "fulfilled"
+          ? (productResult.value as any)
+          : null;
       const categoryValue =
-        categoryResult.status === "fulfilled" ? (categoryResult.value as any) : null;
+        categoryResult.status === "fulfilled"
+          ? (categoryResult.value as any)
+          : null;
       const attributeValue =
-        attributeResult.status === "fulfilled" ? (attributeResult.value as any) : null;
+        attributeResult.status === "fulfilled"
+          ? (attributeResult.value as any)
+          : null;
       const employeeValue =
-        employeeResult.status === "fulfilled" ? (employeeResult.value as any) : null;
+        employeeResult.status === "fulfilled"
+          ? (employeeResult.value as any)
+          : null;
       const branchValue =
-        branchResult.status === "fulfilled" ? (branchResult.value as any) : null;
+        branchResult.status === "fulfilled"
+          ? (branchResult.value as any)
+          : null;
       const voucherValue =
-        voucherResult.status === "fulfilled" ? (voucherResult.value as any) : null;
+        voucherResult.status === "fulfilled"
+          ? (voucherResult.value as any)
+          : null;
 
-      setSupplierCount(
-        supplierValue?.totalElements || 0,
-      );
-      setCustomerCount(
-        customerValue?.totalElements || 0,
-      );
+      setSupplierCount(supplierValue?.totalElements || 0);
+      setCustomerCount(customerValue?.totalElements || 0);
       setProductCount(
         Array.isArray(productValue)
           ? productValue.length
           : productValue?.totalProducts || 0,
       );
-      setCategoryCount(
-        Array.isArray(categoryValue) ? categoryValue.length : 0,
-      );
+      setCategoryCount(Array.isArray(categoryValue) ? categoryValue.length : 0);
       setAttributeCount(
         Array.isArray(attributeValue) ? attributeValue.length : 0,
       );
-      setEmployeeCount(
-        employeeValue?.totalElements || 0,
-      );
+      setEmployeeCount(employeeValue?.totalElements || 0);
       setBranchCount(
         Array.isArray(branchValue)
           ? branchValue.length
@@ -218,8 +258,9 @@ export default function AdminSidebar() {
             : []
           : [];
       setPurchaseRequestPendingCount(
-        purchaseRequests.filter((item: any) => item.status === "PENDING_APPROVAL")
-          .length,
+        purchaseRequests.filter(
+          (item: any) => item.status === "PENDING_APPROVAL",
+        ).length,
       );
 
       const receipts =
@@ -229,8 +270,9 @@ export default function AdminSidebar() {
             : receiptResult.value?.data || receiptResult.value?.content || []
           : [];
       setReceiptPendingCount(
-        receipts.filter((item: any) => item.status === "PENDING" || item.status === "PO")
-          .length,
+        receipts.filter(
+          (item: any) => item.status === "PENDING" || item.status === "PO",
+        ).length,
       );
 
       const exportsList =
@@ -240,8 +282,9 @@ export default function AdminSidebar() {
             : exportResult.value?.data || exportResult.value?.content || []
           : [];
       setExportPendingCount(
-        exportsList.filter((item: any) => item.status === "PENDING" || item.status === "DRAFT")
-          .length,
+        exportsList.filter(
+          (item: any) => item.status === "PENDING" || item.status === "DRAFT",
+        ).length,
       );
 
       setTransferPendingCount(
@@ -284,8 +327,10 @@ export default function AdminSidebar() {
   };
 
   const toggleGroup = (groupKey: string) => {
-    setOpenGroups(prev =>
-      prev.includes(groupKey) ? prev.filter(k => k !== groupKey) : [...prev, groupKey]
+    setOpenGroups((prev) =>
+      prev.includes(groupKey)
+        ? prev.filter((k) => k !== groupKey)
+        : [...prev, groupKey],
     );
   };
 
@@ -315,10 +360,22 @@ export default function AdminSidebar() {
             </p>
             <div className="space-y-0.5">
               {hasPermission(P.DASHBOARD_VIEW) && (
-                <SidebarLink href="/admin" icon={LayoutDashboard} label="Tổng quan" active={pathname === "/admin"} color="text-emerald-500" />
+                <SidebarLink
+                  href="/admin"
+                  icon={LayoutDashboard}
+                  label="Tổng quan"
+                  active={pathname === "/admin"}
+                  color="text-emerald-500"
+                />
               )}
               {hasPermission(P.WORKSPACE_VIEW) && (
-                <SidebarLink href="/admin/inventory-dashboard" icon={ClipboardList} label="Bàn làm việc kho" active={isActive("/admin/inventory-dashboard")} color="text-amber-400" />
+                <SidebarLink
+                  href="/admin/inventory-dashboard"
+                  icon={ClipboardList}
+                  label="Bàn làm việc kho"
+                  active={isActive("/admin/inventory-dashboard")}
+                  color="text-amber-400"
+                />
               )}
             </div>
           </section>
@@ -348,12 +405,6 @@ export default function AdminSidebar() {
                     active={isOrderListActive}
                     isChild
                   />
-                  {isBranchScopedOrderUser && (
-                    <SidebarLink href="/admin/orders-processing" icon={Box} label="Điều hành & Gom đơn" active={pathname === "/admin/orders-processing"} isChild />
-                  )}
-                  {isBranchScopedOrderUser && (
-                    <SidebarLink href="/admin/orders-handover" icon={Archive} label="Bàn giao kiện" active={pathname === "/admin/orders-handover"} isChild />
-                  )}
                   <SidebarLink
                     href="/admin/orders/return"
                     icon={RotateCcw}
@@ -414,8 +465,7 @@ export default function AdminSidebar() {
                   color="text-emerald-400"
                 />
               )}
-              {hasPermission(P.SUPPLIER_VIEW) && (
-                !isBranchAccount && (
+              {hasPermission(P.SUPPLIER_VIEW) && !isBranchAccount && (
                 <SidebarLink
                   href="/admin/suppliers"
                   icon={Truck}
@@ -424,7 +474,6 @@ export default function AdminSidebar() {
                   badge={supplierCount}
                   color="text-orange-400"
                 />
-                )
               )}
             </div>
           </section>
@@ -448,8 +497,7 @@ export default function AdminSidebar() {
                   badge={productCount}
                 />
               )}
-              {hasPermission(P.CATEGORY_VIEW) && (
-                !isBranchAccount && (
+              {hasPermission(P.CATEGORY_VIEW) && !isBranchAccount && (
                 <SidebarLink
                   href="/admin/categories"
                   icon={Tags}
@@ -457,10 +505,8 @@ export default function AdminSidebar() {
                   active={isActive("/admin/categories")}
                   badge={categoryCount}
                 />
-                )
               )}
-              {hasPermission(P.ATTRIBUTE_VIEW) && (
-                !isBranchAccount && (
+              {hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount && (
                 <SidebarLink
                   href="/admin/variants"
                   icon={Layers}
@@ -468,7 +514,6 @@ export default function AdminSidebar() {
                   active={isActive("/admin/variants")}
                   badge={attributeCount}
                 />
-                )
               )}
             </div>
           </section>
@@ -481,16 +526,32 @@ export default function AdminSidebar() {
               Kho vận
             </p>
             <div className="space-y-0.5">
-              {hasPermission(P.EXPORT_VIEW) && (
-                !isBranchAccount && (
-                <SidebarLink href="/admin/exports" icon={ArrowUpFromLine} label="Xuất kho & Trả NCC" active={isActive("/admin/exports")} badge={exportPendingCount} />
-                )
+              {hasPermission(P.EXPORT_VIEW) && !isBranchAccount && (
+                <SidebarLink
+                  href="/admin/exports"
+                  icon={ArrowUpFromLine}
+                  label="Xuất kho & Trả NCC"
+                  active={isActive("/admin/exports")}
+                  badge={exportPendingCount}
+                />
               )}
               {hasPermission(P.TRANSFER_VIEW) && (
-                <SidebarLink href="/admin/transfers" icon={ArrowRightLeft} label="Điều chuyển kho" active={isActive("/admin/transfers")} badge={transferPendingCount} />
+                <SidebarLink
+                  href="/admin/transfers"
+                  icon={ArrowRightLeft}
+                  label="Điều chuyển kho"
+                  active={isActive("/admin/transfers")}
+                  badge={transferPendingCount}
+                />
               )}
               {hasPermission(P.CHECK_VIEW) && (
-                <SidebarLink href="/admin/inventory-checks" icon={ShieldCheck} label="Kiểm kê kho" active={isActive("/admin/inventory-checks")} badge={checkPendingCount} />
+                <SidebarLink
+                  href="/admin/inventory-checks"
+                  icon={ShieldCheck}
+                  label="Kiểm kê kho"
+                  active={isActive("/admin/inventory-checks")}
+                  badge={checkPendingCount}
+                />
               )}
             </div>
           </section>
@@ -538,7 +599,11 @@ export default function AdminSidebar() {
         )}
 
         {/* SECTION: BÁO CÁO */}
-        {hasAnyPermission([P.REPORT_REVENUE_VIEW, P.REPORT_INVENTORY_VIEW, P.REPORT_FINANCE_VIEW]) && (
+        {hasAnyPermission([
+          P.REPORT_REVENUE_VIEW,
+          P.REPORT_INVENTORY_VIEW,
+          P.REPORT_FINANCE_VIEW,
+        ]) && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
               Báo cáo
@@ -562,8 +627,7 @@ export default function AdminSidebar() {
                   color="text-amber-500"
                 />
               )}
-              {hasPermission(P.REPORT_FINANCE_VIEW) && (
-                !isBranchAccount && (
+              {hasPermission(P.REPORT_FINANCE_VIEW) && !isBranchAccount && (
                 <SidebarLink
                   href="/admin/financial/profit-loss"
                   icon={FileBarChart}
@@ -571,7 +635,6 @@ export default function AdminSidebar() {
                   active={isActive("/admin/financial/profit-loss")}
                   color="text-emerald-500"
                 />
-                )
               )}
             </div>
           </section>
@@ -585,13 +648,31 @@ export default function AdminSidebar() {
             </p>
             <div className="space-y-0.5">
               {hasPermission(P.STAFF_VIEW) && (
-                <SidebarLink href="/admin/employees" icon={UserCircle} label="Nhân viên" active={isActive("/admin/employees")} badge={employeeCount} />
+                <SidebarLink
+                  href="/admin/employees"
+                  icon={UserCircle}
+                  label="Nhân viên"
+                  active={isActive("/admin/employees")}
+                  badge={employeeCount}
+                />
               )}
               {hasPermission(P.BRANCH_VIEW) && (
-                <SidebarLink href="/admin/branches" icon={Building2} label="Chi nhánh & Kho" active={isActive("/admin/branches")} badge={branchCount} />
+                <SidebarLink
+                  href="/admin/branches"
+                  icon={Building2}
+                  label="Chi nhánh & Kho"
+                  active={isActive("/admin/branches")}
+                  badge={branchCount}
+                />
               )}
               {hasPermission(P.ROLE_VIEW) && (
-                <SidebarLink href="/admin/employees/roles" icon={ShieldCheck} label="Vai trò & Quyền" active={isActive("/admin/employees/roles")} color="text-violet-400" />
+                <SidebarLink
+                  href="/admin/employees/roles"
+                  icon={ShieldCheck}
+                  label="Vai trò & Quyền"
+                  active={isActive("/admin/employees/roles")}
+                  color="text-violet-400"
+                />
               )}
             </div>
           </section>
@@ -600,7 +681,12 @@ export default function AdminSidebar() {
 
       <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50">
         {canViewSettings && (
-          <SidebarLink href="/admin/settings" icon={Settings} label="Cài đặt" active={isActive("/admin/settings")} />
+          <SidebarLink
+            href="/admin/settings"
+            icon={Settings}
+            label="Cài đặt"
+            active={isActive("/admin/settings")}
+          />
         )}
         <SidebarLink href="#" icon={HelpCircle} label="Hỗ trợ" active={false} />
       </div>
@@ -608,25 +694,60 @@ export default function AdminSidebar() {
   );
 }
 
-function SidebarLink({ href, icon: Icon, label, active, badge, color, badgeColor, isChild }: any) {
+function SidebarLink({
+  href,
+  icon: Icon,
+  label,
+  active,
+  badge,
+  color,
+  badgeColor,
+  isChild,
+}: any) {
   return (
-    <Link href={href} className={cn(
-      "flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative",
-      active ? "bg-slate-800/60 text-white shadow-sm" : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200",
-      isChild && "pl-3 py-1.5 text-[12px]"
-    )}>
-      {active && !isChild && <div className="absolute left-0 w-1 h-4 bg-emerald-500 rounded-r-full" />}
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative",
+        active
+          ? "bg-slate-800/60 text-white shadow-sm"
+          : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200",
+        isChild && "pl-3 py-1.5 text-[12px]",
+      )}
+    >
+      {active && !isChild && (
+        <div className="absolute left-0 w-1 h-4 bg-emerald-500 rounded-r-full" />
+      )}
       <div className="flex items-center gap-3">
-        <div className={cn("rounded-md transition-colors",
-          isChild ? "p-0 bg-transparent" : "p-1",
-          active && !isChild ? "bg-slate-700" : "bg-transparent group-hover:bg-slate-800"
-        )}>
-          <Icon size={isChild ? 14 : 16} className={cn(active ? (color || "text-emerald-400") : "text-slate-500 group-hover:text-slate-400")} />
+        <div
+          className={cn(
+            "rounded-md transition-colors",
+            isChild ? "p-0 bg-transparent" : "p-1",
+            active && !isChild
+              ? "bg-slate-700"
+              : "bg-transparent group-hover:bg-slate-800",
+          )}
+        >
+          <Icon
+            size={isChild ? 14 : 16}
+            className={cn(
+              active
+                ? color || "text-emerald-400"
+                : "text-slate-500 group-hover:text-slate-400",
+            )}
+          />
         </div>
         <span className="truncate">{label}</span>
       </div>
       {badge !== undefined && badge > 0 && (
-        <Badge className={cn("border-none text-[10px] h-4.5 px-1.5 font-black", active ? "bg-white text-emerald-600" : "bg-emerald-500/10 text-emerald-400")}>
+        <Badge
+          className={cn(
+            "border-none text-[10px] h-4.5 px-1.5 font-black",
+            active
+              ? "bg-white text-emerald-600"
+              : "bg-emerald-500/10 text-emerald-400",
+          )}
+        >
           {badge}
         </Badge>
       )}
@@ -634,25 +755,59 @@ function SidebarLink({ href, icon: Icon, label, active, badge, color, badgeColor
   );
 }
 
-function SidebarGroup({ icon: Icon, label, children, isOpen, onToggle, active }: any) {
+function SidebarGroup({
+  icon: Icon,
+  label,
+  children,
+  isOpen,
+  onToggle,
+  active,
+}: any) {
   return (
     <div className="space-y-0.5">
       <button
         onClick={onToggle}
         className={cn(
           "w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative select-none",
-          active ? "text-emerald-400 bg-slate-800/20" : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200"
+          active
+            ? "text-emerald-400 bg-slate-800/20"
+            : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200",
         )}
       >
         <div className="flex items-center gap-3">
-          <div className={cn("p-1 rounded-md transition-colors", active ? "bg-slate-800/50" : "bg-transparent group-hover:bg-slate-800")}>
-            <Icon size={16} className={cn(active ? "text-emerald-400" : "text-slate-500 group-hover:text-slate-400")} />
+          <div
+            className={cn(
+              "p-1 rounded-md transition-colors",
+              active
+                ? "bg-slate-800/50"
+                : "bg-transparent group-hover:bg-slate-800",
+            )}
+          >
+            <Icon
+              size={16}
+              className={cn(
+                active
+                  ? "text-emerald-400"
+                  : "text-slate-500 group-hover:text-slate-400",
+              )}
+            />
           </div>
           <span className="truncate">{label}</span>
         </div>
-        <ChevronRight size={14} className={cn("transition-transform duration-200 text-slate-600", isOpen && "rotate-90")} />
+        <ChevronRight
+          size={14}
+          className={cn(
+            "transition-transform duration-200 text-slate-600",
+            isOpen && "rotate-90",
+          )}
+        />
       </button>
-      <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+      <div
+        className={cn(
+          "grid transition-all duration-300 ease-in-out",
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}
+      >
         <div className="overflow-hidden">
           <div className="pl-2 space-y-0.5 border-l border-slate-800/60 ml-5 mt-1 mb-2">
             {children}
