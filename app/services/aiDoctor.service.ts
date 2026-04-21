@@ -1,5 +1,6 @@
 import { apiJava } from "@/lib/axios";
 import type {
+  AiDoctorChatResponse,
   AiDoctorDiagnosisResponse,
   AiDoctorHistoryListResponse,
 } from "@/app/types/ai-doctor.types";
@@ -112,6 +113,16 @@ export const aiDoctorService = {
     );
     window.sessionStorage.setItem(LAST_DIAGNOSIS_ID_KEY, normalizedDiagnosisId);
     return mergedDiagnosis;
+  },
+
+  async chat(message: string, diagnosisContext?: { diseaseCode?: string; diseaseName?: string }) {
+    const response = await apiJava.post<AiDoctorChatResponse>("/miniapp/chat", {
+      message,
+      diagnosis_context: diagnosisContext
+        ? { disease_code: diagnosisContext.diseaseCode, disease_name: diagnosisContext.diseaseName }
+        : undefined,
+    });
+    return response.data;
   },
 
   getCachedDiagnosis,
