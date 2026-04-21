@@ -132,6 +132,10 @@ export default function VoucherWalletPage() {
     savedCodeSet.has(voucher.code.toUpperCase()),
   );
 
+  const availableToSave = vouchers.filter(
+    (voucher) => !savedCodeSet.has(voucher.code.toUpperCase()),
+  );
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-b border-gray-100">
@@ -163,142 +167,209 @@ export default function VoucherWalletPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h6 className="text-sm font-bold text-gray-800">
-                  Voucher đã lưu
-                </h6>
-                <p className="text-xs text-gray-500">
-                  {savedVouchers.length} mã đang nằm trong ví của bạn
-                </p>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h6 className="text-sm font-bold text-gray-800">
+                    Voucher đã lưu
+                  </h6>
+                  <p className="text-xs text-gray-500">
+                    {savedVouchers.length} mã đang nằm trong ví của bạn
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {savedVouchers.length > 0 ? (
-              <div className="space-y-4">
-                {savedVouchers.map((voucher) => {
-                  const value = Number(
-                    voucher.value ?? voucher.discountValue ?? 0,
-                  );
-                  const isPercent = voucher.discountType === "PERCENT";
-                  const isSaved = savedCodeSet.has(voucher.code.toUpperCase());
+              {savedVouchers.length > 0 ? (
+                <div className="space-y-4">
+                  {savedVouchers.map((voucher) => {
+                    const value = Number(
+                      voucher.value ?? voucher.discountValue ?? 0,
+                    );
+                    const isPercent = voucher.discountType === "PERCENT";
+                    const isSaved = true;
 
-                  return (
-                    <div
-                      key={voucher.id ?? voucher.code}
-                      className="rounded-2xl border border-gray-200 p-4 sm:p-5 bg-gradient-to-r from-amber-50/60 to-white"
-                    >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex gap-4 min-w-0">
-                          <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-600">
-                            {isPercent ? (
-                              <Percent size={28} />
-                            ) : (
-                              <Ticket size={28} />
-                            )}
-                          </div>
+                    return (
+                      <div
+                        key={voucher.id ?? voucher.code}
+                        className="rounded-2xl border border-gray-200 p-4 sm:p-5 bg-gradient-to-r from-amber-50/60 to-white"
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex gap-4 min-w-0">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-600">
+                              {isPercent ? (
+                                <Percent size={28} />
+                              ) : (
+                                <Ticket size={28} />
+                              )}
+                            </div>
 
-                          <div className="min-w-0">
-                            <h3 className="text-base font-bold text-gray-800 truncate">
-                              {getVoucherLabel(voucher)}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Clock size={12} />
-                                HSD:{" "}
-                                {new Date(voucher.endDate).toLocaleDateString(
-                                  "vi-VN",
-                                )}
-                              </span>
-                              <span className="text-gray-300">|</span>
-                              <span className="flex items-center gap-1">
-                                <Tag size={12} /> Mã:
-                                <span className="font-bold text-red-500">
-                                  {voucher.code}
+                            <div className="min-w-0">
+                              <h3 className="text-base font-bold text-gray-800 truncate">
+                                {getVoucherLabel(voucher)}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock size={12} />
+                                  HSD:{" "}
+                                  {new Date(voucher.endDate).toLocaleDateString(
+                                    "vi-VN",
+                                  )}
                                 </span>
-                              </span>
-                            </div>
+                                <span className="text-gray-300">|</span>
+                                <span className="flex items-center gap-1">
+                                  <Tag size={12} /> Mã:
+                                  <span className="font-bold text-red-500">
+                                    {voucher.code}
+                                  </span>
+                                </span>
+                              </div>
 
-                            {voucher.description && (
-                              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                                {voucher.description}
-                              </p>
-                            )}
+                              {voucher.description && (
+                                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                                  {voucher.description}
+                                </p>
+                              )}
 
-                            <div className="mt-2 text-xs text-gray-500">
-                              Đơn tối thiểu:{" "}
-                              {formatMoney(voucher.minOrderValue)}
-                              {isPercent
-                                ? ` · Giảm ${value}%${voucher.maxDiscount ? `, tối đa ${formatMoney(voucher.maxDiscount)}` : ""}`
-                                : ` · Giảm ${formatMoney(value)}`}
+                              <div className="mt-2 text-xs text-gray-500">
+                                Đơn tối thiểu:{" "}
+                                {formatMoney(voucher.minOrderValue)}
+                                {isPercent
+                                  ? ` · Giảm ${value}%${voucher.maxDiscount ? `, tối đa ${formatMoney(voucher.maxDiscount)}` : ""}`
+                                  : ` · Giảm ${formatMoney(value)}`}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
-                          <span className="text-[10px] font-extrabold uppercase px-2 py-1 rounded border bg-green-50 text-green-600 border-green-200">
-                            Đang dùng được
-                          </span>
+                          <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-1 rounded border bg-green-50 text-green-600 border-green-200">
+                              Đang dùng được
+                            </span>
 
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              onClick={() => handleCopy(voucher.code)}
-                              className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
-                            >
-                              <Copy size={12} /> Sao chép
-                            </button>
-                            <Link
-                              href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
-                              className="text-xs font-bold text-green-600 hover:underline flex items-center gap-1"
-                            >
-                              <ShoppingCart size={12} /> Dùng ngay
-                            </Link>
-                            {isSaved ? (
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                onClick={() => handleCopy(voucher.code)}
+                                className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                              >
+                                <Copy size={12} /> Sao chép
+                              </button>
+                              <Link
+                                href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
+                                className="text-xs font-bold text-green-600 hover:underline flex items-center gap-1"
+                              >
+                                <ShoppingCart size={12} /> Dùng ngay
+                              </Link>
                               <button
                                 onClick={() => handleRemoveSaved(voucher.code)}
                                 className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1"
                               >
                                 <BookmarkCheck size={12} /> Đã lưu
                               </button>
-                            ) : (
-                              <button
-                                onClick={() => handleSave(voucher.code)}
-                                className="text-xs font-bold text-gray-600 hover:underline flex items-center gap-1"
-                              >
-                                <BookmarkPlus size={12} /> Lưu vào ví
-                              </button>
-                            )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500 border border-dashed border-gray-200 rounded-2xl">
-                <Ticket size={48} className="mx-auto text-gray-300 mb-3" />
-                <p className="font-medium">Chưa có voucher khả dụng nào.</p>
-                <p className="text-xs mt-1">
-                  Voucher sẽ xuất hiện ở đây khi admin tạo và kích hoạt chúng.
-                </p>
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-500 border border-dashed border-gray-200 rounded-2xl bg-gray-50/30">
+                  <Ticket size={40} className="mx-auto text-gray-300 mb-3" />
+                  <p className="text-sm font-medium">Chưa có mã nào trong ví</p>
+                  <p className="text-[11px] mt-1">
+                    Hãy lưu các mã bên dưới để sử dụng nhanh khi thanh toán.
+                  </p>
+                </div>
+              )}
+            </div>
 
-            <div className="flex items-center justify-between gap-3 pt-2">
-              <div>
-                <h6 className="text-sm font-bold text-gray-800">
-                  Voucher khả dụng từ admin
-                </h6>
-                <p className="text-xs text-gray-500">
-                  Danh sách này dùng chung với giỏ hàng và trang thanh toán.
-                </p>
+            <div className="space-y-6 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h6 className="text-sm font-bold text-gray-800">
+                    Voucher khả dụng từ hệ thống
+                  </h6>
+                  <p className="text-xs text-gray-500">
+                    {availableToSave.length} mã mới có thể lưu vào ví
+                  </p>
+                </div>
               </div>
+
+              {availableToSave.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availableToSave.map((voucher) => {
+                    const value = Number(
+                      voucher.value ?? voucher.discountValue ?? 0,
+                    );
+                    const isPercent = voucher.discountType === "PERCENT";
+
+                    return (
+                      <div
+                        key={voucher.id ?? voucher.code}
+                        className="rounded-xl border border-gray-100 p-4 bg-gray-50/50 hover:bg-white hover:border-emerald-200 transition-all group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-white border border-gray-200 text-emerald-600 shadow-sm group-hover:bg-emerald-50 group-hover:border-emerald-100 transition-colors">
+                            {isPercent ? (
+                              <Percent size={20} />
+                            ) : (
+                              <Ticket size={20} />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-sm font-bold text-gray-800 truncate">
+                                {getVoucherLabel(voucher)}
+                              </h3>
+                              <button
+                                onClick={() => handleSave(voucher.code)}
+                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap px-2 py-1 bg-emerald-50 rounded-md transition-colors"
+                              >
+                                <BookmarkPlus
+                                  size={12}
+                                  className="inline mr-1"
+                                />{" "}
+                                Lưu mã
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-bold text-red-500 px-1.5 py-0.5 bg-red-50 rounded border border-red-100">
+                                {voucher.code}
+                              </span>
+                              <span className="text-[10px] text-gray-400">
+                                HSD:{" "}
+                                {new Date(voucher.endDate).toLocaleDateString(
+                                  "vi-VN",
+                                )}
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-gray-500 mt-2 line-clamp-1">
+                              Đơn tối thiểu {formatMoney(voucher.minOrderValue)}
+                              {isPercent && voucher.maxDiscount
+                                ? ` · Giảm tối đa ${formatMoney(voucher.maxDiscount)}`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-400 bg-gray-50/30 rounded-2xl border border-gray-100">
+                  <p className="text-sm">Hiện chưa có thêm mã giảm giá mới.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center pt-4">
               <Link
                 href="/checkout"
-                className="text-xs font-semibold text-[#2d9f8d] hover:underline inline-flex items-center gap-1"
+                className="text-xs font-semibold text-[#2d9f8d] hover:underline inline-flex items-center gap-1 py-2 px-4 rounded-full bg-emerald-50 border border-emerald-100 transition-all hover:bg-emerald-100"
               >
-                Đi tới thanh toán <ChevronRight size={12} />
+                Đi tới trang thanh toán để áp dụng mã <ChevronRight size={12} />
               </Link>
             </div>
           </>
@@ -306,4 +377,5 @@ export default function VoucherWalletPage() {
       </div>
     </div>
   );
+}
 }
