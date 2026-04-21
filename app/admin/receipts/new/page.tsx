@@ -70,6 +70,8 @@ function AdminReceiptFormContent() {
   const searchParams = useSearchParams();
   const receiptId = searchParams.get("id");
   const purchaseRequestIdParam = searchParams.get("purchaseRequestId");
+  const supplierCodeParam = searchParams.get("supplierCode");
+  const branchNameParam = searchParams.get("branchName");
   const isEditMode = Boolean(receiptId);
   const isCreateFromPurchaseRequest =
     !isEditMode && Boolean(purchaseRequestIdParam);
@@ -233,12 +235,58 @@ function AdminReceiptFormContent() {
   const isItemSourceLocked = isInfoReadOnly || isLinkedPurchaseRequest;
   const tableColCount = isLinkedPurchaseRequest ? 13 : 12;
 
+  const normalizeBranchValue = (value?: string | null) =>
+    (value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
   const selectedDestBranch = useMemo(() => {
     return branches.find(
-      (b) =>
-        (b.name || b.branchName || b.id.toString()) === currentTargetBranch,
+      (b) => {
+        const branchDisplayName = b.name || b.branchName || b.id.toString();
+        return (
+          branchDisplayName === currentTargetBranch ||
+          normalizeBranchValue(branchDisplayName) ===
+            normalizeBranchValue(currentTargetBranch)
+        );
+      },
     );
   }, [branches, currentTargetBranch]);
+
+  const branchSelectOptions = useMemo(() => {
+    const mainWarehouseBranches = branches.filter(
+      (b) => b.branchCode === "MAIN_WH",
+    );
+
+    if (!isCreateFromPurchaseRequest) {
+      return mainWarehouseBranches;
+    }
+
+    const linkedBranchName = currentTargetBranch || branchNameParam || "";
+    const normalizedLinkedBranchName = normalizeBranchValue(linkedBranchName);
+
+    const matchedBranches = branches.filter((b) => {
+      const branchDisplayName = b.name || b.branchName || "";
+      return (
+        normalizeBranchValue(branchDisplayName) === normalizedLinkedBranchName ||
+        normalizeBranchValue(b.branchCode) === normalizedLinkedBranchName
+      );
+    });
+
+    if (matchedBranches.length > 0) {
+      return matchedBranches;
+    }
+
+    if (mainWarehouseBranches.length > 0) {
+      return mainWarehouseBranches;
+    }
+
+    return linkedBranchName
+      ? [{ id: linkedBranchName, name: linkedBranchName, branchName: linkedBranchName }]
+      : [];
+  }, [branches, branchNameParam, currentTargetBranch, isCreateFromPurchaseRequest]);
 
   const targetBranchId = selectedDestBranch?.id?.toString() || "";
 
@@ -286,7 +334,7 @@ function AdminReceiptFormContent() {
         const wb = XLSX.read(bstr, { type: "binary" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-        let headerIndex = rows.findIndex((r) =>
+        const headerIndex = rows.findIndex((r) =>
           JSON.stringify(r).toUpperCase().includes("SKU"),
         );
         if (headerIndex === -1) {
@@ -570,9 +618,9 @@ function AdminReceiptFormContent() {
           ...currentValues,
           purchaseRequestId: purchaseRequest.id,
           purchaseRequestCode: purchaseRequest.code,
-          supplierCode: purchaseRequest.supplierCode,
+          supplierCode: purchaseRequest.supplierCode || supplierCodeParam,
           supplierName: purchaseRequest.supplierName,
-          branchName: purchaseRequest.branchName,
+          branchName: purchaseRequest.branchName || branchNameParam || "",
           items: remainingItems.map((item) => ({
             productCode: item.productCode,
             productName: item.productName,
@@ -610,11 +658,13 @@ function AdminReceiptFormContent() {
       }
     })();
   }, [
+    branchNameParam,
     getValues,
     isEditMode,
     purchaseRequestIdParam,
     reset,
     router,
+    supplierCodeParam,
   ]);
 
   useEffect(() => {
@@ -906,23 +956,21 @@ function AdminReceiptFormContent() {
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={isMasterDataLocked}
+                    disabled={isInfoReadOnly}
                   >
                     <SelectTrigger className="h-8 text-xs border-slate-200 shadow-none font-bold text-blue-600">
                       <SelectValue placeholder="-- Chọn chi nhánh nhập --" />
                     </SelectTrigger>
                     <SelectContent>
-                      {branches
-                        .filter((b) => b.branchCode === "MAIN_WH")
-                        .map((b) => (
-                          <SelectItem
-                            key={b.id}
-                            value={b.name || b.branchName}
-                            className="text-xs font-bold uppercase"
-                          >
-                            {b.name || b.branchName}
-                          </SelectItem>
-                        ))}
+                      {branchSelectOptions.map((b) => (
+                        <SelectItem
+                          key={b.id}
+                          value={b.name || b.branchName}
+                          className="text-xs font-bold uppercase"
+                        >
+                          {b.name || b.branchName}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
