@@ -10,7 +10,10 @@ import { cartService } from "@/app/services/cart.service";
 import { orderService } from "@/app/services/order.service";
 import { addressService } from "@/app/services/address.service";
 import { branchService } from "@/app/services/branchService";
-import { voucherService } from "@/app/services/voucher.service";
+import {
+  voucherService,
+  Voucher as VoucherApi,
+} from "@/app/services/voucher.service";
 import AddressForm from "@/components/profile/AddressForm";
 import {
   MapPin,
@@ -33,21 +36,7 @@ const SHIPPING_METHODS = [
   { id: "express", name: "Hỏa tốc 2H", price: 35000 },
 ];
 
-interface Voucher {
-  id?: number;
-  code: string;
-  title: string;
-  description: string;
-  discountType: "FIXED" | "PERCENT";
-  discountValue?: number;
-  value?: number;
-  minOrderValue: number;
-  maxDiscount?: number;
-  startDate: string;
-  endDate: string;
-  usageLimit: number;
-  status: string;
-}
+type Voucher = VoucherApi;
 
 interface Branch {
   id: number;
@@ -61,6 +50,9 @@ const formatMoney = (amount: number | undefined | null) => {
   if (amount === undefined || amount === null) return "0₫";
   return Number(amount).toLocaleString("vi-VN") + " ₫";
 };
+
+const toVoucherAmount = (value: string | number | null | undefined) =>
+  Number(value ?? 0);
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -125,9 +117,7 @@ export default function CheckoutPage() {
   const fetchPublicVouchers = async () => {
     try {
       const res = await voucherService.getPublicVouchers();
-      const voucherArray = res.data ? res.data : res;
-      const validVouchers = Array.isArray(voucherArray) ? voucherArray : [];
-      setAvailableVouchers(validVouchers);
+      setAvailableVouchers(Array.isArray(res) ? res : []);
     } catch (error) {
       console.error("Lỗi tải voucher", error);
     }
@@ -148,7 +138,7 @@ export default function CheckoutPage() {
     const codeFromUrl = searchParams.get("voucher");
     if (codeFromUrl && availableVouchers.length > 0 && subTotal > 0) {
       const found = availableVouchers.find((v) => v.code === codeFromUrl);
-      if (found && subTotal >= (found.minOrderValue || 0)) {
+      if (found && subTotal >= toVoucherAmount(found.minOrderValue)) {
         setSelectedVoucher(found);
       }
     }
@@ -231,7 +221,7 @@ export default function CheckoutPage() {
   // ==========================================
   let voucherDiscount = 0;
   if (selectedVoucher) {
-    if (subTotal >= (selectedVoucher.minOrderValue || 0)) {
+    if (subTotal >= toVoucherAmount(selectedVoucher.minOrderValue)) {
       // Đọc giá trị voucher từ thuộc tính `value` hoặc `discountValue`
       const actualValue = Number(
         selectedVoucher.value || selectedVoucher.discountValue || 0,
@@ -277,8 +267,9 @@ export default function CheckoutPage() {
       toast.error("Mã voucher không hợp lệ hoặc đã hết hạn");
       return;
     }
-    if (subTotal < (found.minOrderValue || 0)) {
-      toast.error(`Đơn chưa đạt ${formatMoney(found.minOrderValue)}`);
+    const minOrderValue = toVoucherAmount(found.minOrderValue);
+    if (subTotal < minOrderValue) {
+      toast.error(`Đơn chưa đạt ${formatMoney(minOrderValue)}`);
       return;
     }
     setSelectedVoucher(found);
@@ -848,7 +839,8 @@ export default function CheckoutPage() {
 
             <div className="overflow-y-auto flex-1 p-4 space-y-2">
               {availableVouchers.map((voucher) => {
-                const eligible = subTotal >= (voucher.minOrderValue || 0);
+                const minOrderValue = toVoucherAmount(voucher.minOrderValue);
+                const eligible = subTotal >= minOrderValue;
                 const isSelected = selectedVoucher?.code === voucher.code;
 
                 const actualValue = Number(
@@ -867,7 +859,7 @@ export default function CheckoutPage() {
                     onClick={() => {
                       if (!eligible) {
                         toast.error(
-                          `Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`,
+                          `Đơn chưa đạt ${formatMoney(minOrderValue)}`,
                         );
                         return;
                       }
@@ -899,12 +891,12 @@ export default function CheckoutPage() {
                           : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        Đơn tối thiểu {formatMoney(voucher.minOrderValue)}
+                        Đơn tối thiểu {formatMoney(minOrderValue)}
                       </p>
                       {!eligible && (
                         <p className="text-xs text-red-400 mt-1">
                           Cần thêm{" "}
-                          {formatMoney((voucher.minOrderValue || 0) - subTotal)}
+                          {formatMoney(Math.max(0, minOrderValue - subTotal))}
                         </p>
                       )}
                     </div>

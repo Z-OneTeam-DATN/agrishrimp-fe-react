@@ -49,6 +49,37 @@ const buildVoucherPayload = (data: VoucherUpsertPayload) => ({
   status: data.status,
 });
 
+const normalizeVoucherList = (responseData: unknown): Voucher[] => {
+  if (Array.isArray(responseData)) {
+    return responseData as Voucher[];
+  }
+
+  if (
+    responseData &&
+    typeof responseData === "object" &&
+    "data" in responseData
+  ) {
+    const data = (responseData as { data?: unknown }).data;
+    if (Array.isArray(data)) return data as Voucher[];
+
+    if (data && typeof data === "object" && "content" in data) {
+      const content = (data as { content?: unknown }).content;
+      if (Array.isArray(content)) return content as Voucher[];
+    }
+  }
+
+  if (
+    responseData &&
+    typeof responseData === "object" &&
+    "content" in responseData
+  ) {
+    const content = (responseData as { content?: unknown }).content;
+    if (Array.isArray(content)) return content as Voucher[];
+  }
+
+  return [];
+};
+
 type VoucherListParams = Record<
   string,
   string | number | boolean | null | undefined
@@ -57,7 +88,7 @@ type VoucherListParams = Record<
 export const voucherService = {
   getAllAdmin: async (params?: VoucherListParams) => {
     const response = await apiJava.get("/vouchers", { params });
-    return response.data;
+    return normalizeVoucherList(response.data);
   },
 
   create: async (data: VoucherUpsertPayload) => {
@@ -80,7 +111,7 @@ export const voucherService = {
 
   getPublicVouchers: async () => {
     const response = await apiJava.get("/vouchers/public");
-    return response.data;
+    return normalizeVoucherList(response.data);
   },
 
   getByCode: async (code: string) => {

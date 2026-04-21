@@ -68,7 +68,10 @@ function CartSkeleton() {
             <div className="bg-white rounded-2xl p-4 animate-pulse">
               <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex gap-4 py-4 border-t border-slate-100">
+                <div
+                  key={i}
+                  className="flex gap-4 py-4 border-t border-slate-100"
+                >
                   <div className="w-4 h-4 bg-slate-200 rounded mt-1" />
                   <div className="w-20 h-20 bg-slate-200 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2">
@@ -123,7 +126,9 @@ function QtyInput({
   };
 
   return (
-    <div className={`inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white ${disabled ? "opacity-50" : ""}`}>
+    <div
+      className={`inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white ${disabled ? "opacity-50" : ""}`}
+    >
       <button
         onClick={() => !disabled && onUpdate(-1)}
         disabled={disabled || value <= 1}
@@ -155,7 +160,9 @@ function QtyInput({
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingItems, setUpdatingItems] = useState<Record<number, boolean>>({});
+  const [updatingItems, setUpdatingItems] = useState<Record<number, boolean>>(
+    {},
+  );
 
   const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
@@ -185,9 +192,7 @@ export default function CartPage() {
   const fetchPublicVouchers = async () => {
     try {
       const res = await voucherService.getPublicVouchers();
-      const voucherArray = res.data ? res.data : res;
-
-      let arr = Array.isArray(voucherArray) ? voucherArray : [];
+      let arr = Array.isArray(res) ? res : [];
 
       const now = new Date().getTime();
       arr = arr.filter((v: Voucher) => new Date(v.endDate).getTime() >= now);
@@ -203,7 +208,11 @@ export default function CartPage() {
     fetchPublicVouchers();
   }, []);
 
-  const updateQuantity = async (variantId: number, currentQty: number, delta: number) => {
+  const updateQuantity = async (
+    variantId: number,
+    currentQty: number,
+    delta: number,
+  ) => {
     const newQty = currentQty + delta;
     if (newQty < 1) return;
     setUpdatingItems((p) => ({ ...p, [variantId]: true }));
@@ -211,8 +220,8 @@ export default function CartPage() {
       await cartService.updateQuantity(variantId, delta);
       setItems((prev) =>
         prev.map((item) =>
-          item.variantId === variantId ? { ...item, quantity: newQty } : item
-        )
+          item.variantId === variantId ? { ...item, quantity: newQty } : item,
+        ),
       );
       fetchCartCount();
     } catch (error: any) {
@@ -238,7 +247,11 @@ export default function CartPage() {
   };
 
   const toggleCheck = (id: number) =>
-    setItems((prev) => prev.map((item) => item.id === id ? { ...item, checked: !item.checked } : item));
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, checked: !item.checked } : item,
+      ),
+    );
 
   const toggleCheckAll = (checked: boolean) =>
     setItems((prev) => prev.map((item) => ({ ...item, checked })));
@@ -250,7 +263,9 @@ export default function CartPage() {
 
   let discountValue = 0;
   if (selectedVoucher && subTotal >= (selectedVoucher.minOrderValue || 0)) {
-    const actualValue = Number(selectedVoucher.value || selectedVoucher.discountValue || 0);
+    const actualValue = Number(
+      selectedVoucher.value || selectedVoucher.discountValue || 0,
+    );
 
     if (selectedVoucher.discountType === "PERCENT") {
       const calculatedDiscount = (subTotal * actualValue) / 100;
@@ -260,15 +275,23 @@ export default function CartPage() {
     } else {
       discountValue = actualValue;
     }
-  } else if (selectedVoucher && subTotal < (selectedVoucher.minOrderValue || 0)) {
+  } else if (
+    selectedVoucher &&
+    subTotal < (selectedVoucher.minOrderValue || 0)
+  ) {
     setSelectedVoucher(null);
   }
 
   const finalTotal = Math.max(0, subTotal - discountValue);
 
   const applyVoucherByCode = () => {
-    const found = availableVouchers.find((v) => v.code === voucherInput.trim().toUpperCase());
-    if (!found) { toast.error("Mã voucher không hợp lệ hoặc đã hết hạn"); return; }
+    const found = availableVouchers.find(
+      (v) => v.code === voucherInput.trim().toUpperCase(),
+    );
+    if (!found) {
+      toast.error("Mã voucher không hợp lệ hoặc đã hết hạn");
+      return;
+    }
     if (subTotal < (found.minOrderValue || 0)) {
       toast.error(`Đơn chưa đạt ${formatMoney(found.minOrderValue)}`);
       return;
@@ -303,9 +326,16 @@ export default function CartPage() {
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ShoppingBag size={28} className="text-gray-400" />
           </div>
-          <p className="text-base font-semibold text-gray-700 mb-1">Giỏ hàng trống</p>
-          <p className="text-sm text-gray-400 mb-6">Hãy thêm sản phẩm vào giỏ để tiếp tục</p>
-          <Link href="/san-pham" className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors">
+          <p className="text-base font-semibold text-gray-700 mb-1">
+            Giỏ hàng trống
+          </p>
+          <p className="text-sm text-gray-400 mb-6">
+            Hãy thêm sản phẩm vào giỏ để tiếp tục
+          </p>
+          <Link
+            href="/san-pham"
+            className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+          >
             Mua sắm ngay <ArrowRight size={15} />
           </Link>
         </div>
@@ -318,9 +348,13 @@ export default function CartPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 max-w-5xl">
           <nav className="flex items-center gap-1.5 py-4 text-sm text-gray-500">
-            <Link href="/" className="hover:text-teal-600 transition-colors">Trang chủ</Link>
+            <Link href="/" className="hover:text-teal-600 transition-colors">
+              Trang chủ
+            </Link>
             <ChevronRight size={13} className="text-gray-300" />
-            <span className="text-gray-800 font-medium">Giỏ hàng ({items.length})</span>
+            <span className="text-gray-800 font-medium">
+              Giỏ hàng ({items.length})
+            </span>
           </nav>
         </div>
       </div>
@@ -329,64 +363,194 @@ export default function CartPage() {
         <div className="space-y-3">
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-              <input type="checkbox" id="check-all" className="w-4 h-4 accent-teal-600 cursor-pointer" checked={isAllChecked} onChange={(e) => toggleCheckAll(e.target.checked)} />
-              <label htmlFor="check-all" className="text-sm text-gray-600 cursor-pointer select-none">Chọn tất cả</label>
-              <span className="text-xs text-gray-400 ml-auto">{checkedItems.length}/{items.length} sản phẩm được chọn</span>
+              <input
+                type="checkbox"
+                id="check-all"
+                className="w-4 h-4 accent-teal-600 cursor-pointer"
+                checked={isAllChecked}
+                onChange={(e) => toggleCheckAll(e.target.checked)}
+              />
+              <label
+                htmlFor="check-all"
+                className="text-sm text-gray-600 cursor-pointer select-none"
+              >
+                Chọn tất cả
+              </label>
+              <span className="text-xs text-gray-400 ml-auto">
+                {checkedItems.length}/{items.length} sản phẩm được chọn
+              </span>
             </div>
 
-            <div className="hidden md:grid px-5 py-2 border-b border-gray-100" style={{ gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem" }}>
-              {["", "Sản phẩm", "Đơn giá", "Số lượng", "Thành tiền", ""].map((h, i) => (
-                <span key={i} className={`text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${i >= 2 && i <= 4 ? "text-center" : ""} ${i === 4 ? "text-right" : ""}`}>{h}</span>
-              ))}
+            <div
+              className="hidden md:grid px-5 py-2 border-b border-gray-100"
+              style={{
+                gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem",
+              }}
+            >
+              {["", "Sản phẩm", "Đơn giá", "Số lượng", "Thành tiền", ""].map(
+                (h, i) => (
+                  <span
+                    key={i}
+                    className={`text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${i >= 2 && i <= 4 ? "text-center" : ""} ${i === 4 ? "text-right" : ""}`}
+                  >
+                    {h}
+                  </span>
+                ),
+              )}
             </div>
 
             <div className="divide-y divide-gray-100">
               {items.map((item) => {
                 const isUpdating = updatingItems[item.variantId];
-                const meta = [item.categoryName, item.brandName, item.productForm].filter(Boolean).join(" · ");
+                const meta = [
+                  item.categoryName,
+                  item.brandName,
+                  item.productForm,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 const variantMeta = item.variant || "";
 
                 return (
-                  <div key={item.id} className={`px-5 py-4 transition-colors hover:bg-gray-50 ${isUpdating ? "opacity-50 pointer-events-none" : ""}`}>
-                    <div className="hidden md:grid items-center gap-3" style={{ gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem" }}>
-                      <input type="checkbox" className="w-4 h-4 accent-teal-600 cursor-pointer" checked={item.checked} onChange={() => toggleCheck(item.id)} />
+                  <div
+                    key={item.id}
+                    className={`px-5 py-4 transition-colors hover:bg-gray-50 ${isUpdating ? "opacity-50 pointer-events-none" : ""}`}
+                  >
+                    <div
+                      className="hidden md:grid items-center gap-3"
+                      style={{
+                        gridTemplateColumns:
+                          "1.5rem 1fr 120px 140px 110px 2rem",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-teal-600 cursor-pointer"
+                        checked={item.checked}
+                        onChange={() => toggleCheck(item.id)}
+                      />
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                          <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
+                          <Image
+                            src={item.image || "/placeholder.svg"}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug mb-0.5">{item.name}</p>
-                          {meta && <p className="text-xs text-gray-400 truncate">{meta}</p>}
-                          {variantMeta && <p className="text-xs text-gray-400 truncate">{variantMeta}</p>}
+                          <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug mb-0.5">
+                            {item.name}
+                          </p>
+                          {meta && (
+                            <p className="text-xs text-gray-400 truncate">
+                              {meta}
+                            </p>
+                          )}
+                          {variantMeta && (
+                            <p className="text-xs text-gray-400 truncate">
+                              {variantMeta}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="text-center text-sm font-medium text-gray-700">{formatMoney(item.price)}</div>
-                      <div className="flex justify-center">
-                        {isUpdating ? <Loader2 size={16} className="animate-spin text-teal-600" /> : <QtyInput value={item.quantity} disabled={isUpdating} onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)} />}
+                      <div className="text-center text-sm font-medium text-gray-700">
+                        {formatMoney(item.price)}
                       </div>
-                      <div className="text-right text-sm font-bold text-gray-900">{formatMoney(item.price * item.quantity)}</div>
-                      <button onClick={() => removeItem(item.id, item.variantId)} className="flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors"><Trash2 size={15} /></button>
+                      <div className="flex justify-center">
+                        {isUpdating ? (
+                          <Loader2
+                            size={16}
+                            className="animate-spin text-teal-600"
+                          />
+                        ) : (
+                          <QtyInput
+                            value={item.quantity}
+                            disabled={isUpdating}
+                            onUpdate={(delta) =>
+                              updateQuantity(
+                                item.variantId,
+                                item.quantity,
+                                delta,
+                              )
+                            }
+                          />
+                        )}
+                      </div>
+                      <div className="text-right text-sm font-bold text-gray-900">
+                        {formatMoney(item.price * item.quantity)}
+                      </div>
+                      <button
+                        onClick={() => removeItem(item.id, item.variantId)}
+                        className="flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
 
                     <div className="flex md:hidden gap-3">
-                      <input type="checkbox" className="w-4 h-4 accent-teal-600 cursor-pointer mt-0.5 shrink-0" checked={item.checked} onChange={() => toggleCheck(item.id)} />
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-teal-600 cursor-pointer mt-0.5 shrink-0"
+                        checked={item.checked}
+                        onChange={() => toggleCheck(item.id)}
+                      />
                       <div className="relative w-[68px] h-[68px] rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                        <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
+                        <Image
+                          src={item.image || "/placeholder.svg"}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between gap-2 mb-0.5">
-                          <p className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">{item.name}</p>
-                          <button onClick={() => removeItem(item.id, item.variantId)} className="text-gray-300 hover:text-red-400 shrink-0 mt-0.5">
-                            {isUpdating ? <Loader2 size={14} className="animate-spin text-teal-600" /> : <X size={15} />}
+                          <p className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">
+                            {item.name}
+                          </p>
+                          <button
+                            onClick={() => removeItem(item.id, item.variantId)}
+                            className="text-gray-300 hover:text-red-400 shrink-0 mt-0.5"
+                          >
+                            {isUpdating ? (
+                              <Loader2
+                                size={14}
+                                className="animate-spin text-teal-600"
+                              />
+                            ) : (
+                              <X size={15} />
+                            )}
                           </button>
                         </div>
-                        {meta && <p className="text-xs text-gray-400 truncate">{meta}</p>}
-                        {variantMeta && <p className="text-xs text-gray-400 mb-2 truncate">{variantMeta}</p>}
+                        {meta && (
+                          <p className="text-xs text-gray-400 truncate">
+                            {meta}
+                          </p>
+                        )}
+                        {variantMeta && (
+                          <p className="text-xs text-gray-400 mb-2 truncate">
+                            {variantMeta}
+                          </p>
+                        )}
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">{formatMoney(item.price)}</span>
-                          <QtyInput value={item.quantity} disabled={isUpdating} onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)} />
+                          <span className="text-sm font-medium text-gray-700">
+                            {formatMoney(item.price)}
+                          </span>
+                          <QtyInput
+                            value={item.quantity}
+                            disabled={isUpdating}
+                            onUpdate={(delta) =>
+                              updateQuantity(
+                                item.variantId,
+                                item.quantity,
+                                delta,
+                              )
+                            }
+                          />
                         </div>
-                        <p className="text-right text-sm font-bold text-gray-900 mt-1">{formatMoney(item.price * item.quantity)}</p>
+                        <p className="text-right text-sm font-bold text-gray-900 mt-1">
+                          {formatMoney(item.price * item.quantity)}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -395,7 +559,10 @@ export default function CartPage() {
             </div>
 
             <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-              <Link href="/san-pham" className="text-sm text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1.5 transition-colors">
+              <Link
+                href="/san-pham"
+                className="text-sm text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1.5 transition-colors"
+              >
                 <ShoppingBag size={14} /> Tiếp tục mua sắm
               </Link>
             </div>
@@ -407,22 +574,49 @@ export default function CartPage() {
               className="flex items-center gap-2 text-sm text-gray-600 hover:text-teal-600 transition-colors border border-gray-200 rounded-lg px-3 py-2 hover:border-teal-400"
             >
               <Tag size={14} />
-              {selectedVoucher
-                ? <span className="font-medium">{selectedVoucher.code} · <span className="text-teal-600">-{formatMoney(discountValue)}</span></span>
-                : "Mã giảm giá"}
+              {selectedVoucher ? (
+                <span className="font-medium">
+                  {selectedVoucher.code} ·{" "}
+                  <span className="text-teal-600">
+                    -{formatMoney(discountValue)}
+                  </span>
+                </span>
+              ) : (
+                "Mã giảm giá"
+              )}
               <ChevronRight size={13} className="text-gray-400" />
             </button>
 
             <div className="flex-1" />
 
             <div className="flex items-center gap-6 text-sm text-gray-600">
-              <span>Tạm tính ({totalCount} sp): <span className="font-medium text-gray-900">{formatMoney(subTotal)}</span></span>
-              {discountValue > 0 && <span className="text-gray-500">Giảm: <span className="font-medium text-gray-700">-{formatMoney(discountValue)}</span></span>}
-              <span className="text-gray-700">Tổng: <span className="text-lg font-bold text-gray-900">{formatMoney(finalTotal)}</span></span>
+              <span>
+                Tạm tính ({totalCount} sp):{" "}
+                <span className="font-medium text-gray-900">
+                  {formatMoney(subTotal)}
+                </span>
+              </span>
+              {discountValue > 0 && (
+                <span className="text-gray-500">
+                  Giảm:{" "}
+                  <span className="font-medium text-gray-700">
+                    -{formatMoney(discountValue)}
+                  </span>
+                </span>
+              )}
+              <span className="text-gray-700">
+                Tổng:{" "}
+                <span className="text-lg font-bold text-gray-900">
+                  {formatMoney(finalTotal)}
+                </span>
+              </span>
             </div>
 
             {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
-            <Link href={checkoutUrl} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
+            <Link
+              href={checkoutUrl}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}
+            >
               Thanh toán <ArrowRight size={15} />
             </Link>
           </div>
@@ -433,10 +627,15 @@ export default function CartPage() {
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="flex-1">
             <p className="text-xs text-gray-400">Tổng thanh toán</p>
-            <p className="text-base font-bold text-gray-900">{formatMoney(finalTotal)}</p>
+            <p className="text-base font-bold text-gray-900">
+              {formatMoney(finalTotal)}
+            </p>
           </div>
           {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
-          <Link href={checkoutUrl} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}>
+          <Link
+            href={checkoutUrl}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}
+          >
             Thanh toán ({totalCount}) <ArrowRight size={14} />
           </Link>
         </div>
@@ -444,11 +643,19 @@ export default function CartPage() {
 
       {isVoucherModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setIsVoucherModalOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setIsVoucherModalOpen(false)}
+          />
           <div className="relative z-10 bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <span className="font-semibold text-gray-800">Mã giảm giá</span>
-              <button onClick={() => setIsVoucherModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={18} /></button>
+              <button
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <div className="px-5 py-3 border-b border-gray-100">
@@ -456,12 +663,17 @@ export default function CartPage() {
                 <input
                   type="text"
                   value={voucherInput}
-                  onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                  onChange={(e) =>
+                    setVoucherInput(e.target.value.toUpperCase())
+                  }
                   onKeyDown={(e) => e.key === "Enter" && applyVoucherByCode()}
                   placeholder="Nhập mã voucher..."
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm"
                 />
-                <button onClick={applyVoucherByCode} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                <button
+                  onClick={applyVoucherByCode}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
                   Áp dụng
                 </button>
               </div>
@@ -472,47 +684,87 @@ export default function CartPage() {
                 const eligible = subTotal >= (voucher.minOrderValue || 0);
                 const isSelected = selectedVoucher?.code === voucher.code;
 
-                const actualValue = Number(voucher.value || voucher.discountValue || 0);
+                const actualValue = Number(
+                  voucher.value || voucher.discountValue || 0,
+                );
 
-                const discountString = voucher.discountType === "PERCENT"
-                  ? `${actualValue}%`
-                  : `-${formatMoney(actualValue)}`;
+                const discountString =
+                  voucher.discountType === "PERCENT"
+                    ? `${actualValue}%`
+                    : `-${formatMoney(actualValue)}`;
 
                 return (
                   <button
                     key={voucher.code}
                     onClick={() => {
-                      if (!eligible) { toast.error(`Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`); return; }
+                      if (!eligible) {
+                        toast.error(
+                          `Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`,
+                        );
+                        return;
+                      }
                       setSelectedVoucher(voucher);
                       setIsVoucherModalOpen(false);
                       toast.success("Áp dụng voucher thành công!");
                     }}
                     className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
-                      isSelected ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400" : eligible ? "border-gray-200 hover:border-gray-300" : "border-gray-200 opacity-50"
+                      isSelected
+                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
+                        : eligible
+                          ? "border-gray-200 hover:border-gray-300"
+                          : "border-gray-200 opacity-50"
                     }`}
                   >
                     <div className="shrink-0 text-center min-w-[60px]">
-                      <p className="text-base font-bold text-teal-600">{discountString}</p>
-                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">{voucher.code}</p>
+                      <p className="text-base font-bold text-teal-600">
+                        {discountString}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        {voucher.code}
+                      </p>
                     </div>
                     <div className="w-px h-10 bg-gray-200 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{voucher.discountType === "PERCENT" ? `Giảm ${actualValue}%` : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Đơn tối thiểu {formatMoney(voucher.minOrderValue)}</p>
-                      {!eligible && <p className="text-xs text-red-400 mt-1">Cần thêm {formatMoney((voucher.minOrderValue || 0) - subTotal)}</p>}
+                      <p className="text-sm font-medium text-gray-800">
+                        {voucher.discountType === "PERCENT"
+                          ? `Giảm ${actualValue}%`
+                          : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Đơn tối thiểu {formatMoney(voucher.minOrderValue)}
+                      </p>
+                      {!eligible && (
+                        <p className="text-xs text-red-400 mt-1">
+                          Cần thêm{" "}
+                          {formatMoney((voucher.minOrderValue || 0) - subTotal)}
+                        </p>
+                      )}
                     </div>
-                    {isSelected && <CheckCircle2 size={16} className="text-teal-600 shrink-0" />}
+                    {isSelected && (
+                      <CheckCircle2
+                        size={16}
+                        className="text-teal-600 shrink-0"
+                      />
+                    )}
                   </button>
                 );
               })}
               {availableVouchers.length === 0 && (
-                <p className="text-center py-4 text-sm text-gray-400">Không có mã giảm giá nào vào lúc này.</p>
+                <p className="text-center py-4 text-sm text-gray-400">
+                  Không có mã giảm giá nào vào lúc này.
+                </p>
               )}
             </div>
 
             {selectedVoucher && (
               <div className="px-5 py-3 border-t border-gray-100">
-                <button onClick={() => { setSelectedVoucher(null); setIsVoucherModalOpen(false); }} className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors">
+                <button
+                  onClick={() => {
+                    setSelectedVoucher(null);
+                    setIsVoucherModalOpen(false);
+                  }}
+                  className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors"
+                >
                   Bỏ chọn voucher
                 </button>
               </div>

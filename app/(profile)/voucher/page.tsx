@@ -83,8 +83,7 @@ export default function VoucherWalletPage() {
       try {
         setLoading(true);
         const res = await voucherService.getPublicVouchers();
-        const voucherArray = res.data ? res.data : res;
-        const validVouchers = (Array.isArray(voucherArray) ? voucherArray : [])
+        const validVouchers = (Array.isArray(res) ? res : [])
           .filter((voucher: Voucher) => isVoucherVisible(voucher))
           .sort(
             (left: Voucher, right: Voucher) => (right.id || 0) - (left.id || 0),

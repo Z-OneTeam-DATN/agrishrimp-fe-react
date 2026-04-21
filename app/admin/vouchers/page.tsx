@@ -145,9 +145,7 @@ export default function AdminVoucherPage() {
     try {
       setLoading(true);
       const res = await voucherService.getAllAdmin();
-      const voucherArray = res.data ? res.data : res;
-
-      let arr = Array.isArray(voucherArray) ? voucherArray : [];
+      let arr = Array.isArray(res) ? res : [];
       arr = arr.sort((a, b) => (b.id || 0) - (a.id || 0));
 
       setVouchers(arr);

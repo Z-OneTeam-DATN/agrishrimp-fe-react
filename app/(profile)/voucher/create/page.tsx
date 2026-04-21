@@ -40,8 +40,7 @@ export default function CreateVoucherPage() {
     setIsSubmitting(true);
     try {
       const res = await voucherService.getPublicVouchers();
-      const voucherArray = res.data ? res.data : res;
-      const vouchers = Array.isArray(voucherArray) ? voucherArray : [];
+      const vouchers = Array.isArray(res) ? res : [];
 
       const matchedVoucher = vouchers.find(
         (voucher: Voucher) => voucher.code?.toUpperCase() === normalized,
