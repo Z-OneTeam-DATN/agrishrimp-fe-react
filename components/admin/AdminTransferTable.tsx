@@ -2,14 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import {
-  Trash2,
-  Pencil,
-  Clock,
-  ArrowRight,
-  Truck,
-  FileText,
-} from "lucide-react";
+import { Trash2, Pencil, ArrowRight, Truck, FileText } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -19,13 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { cn, formatNumber } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface AdminTransferTableProps {
   data: any[];
@@ -72,23 +60,24 @@ export function AdminTransferTable({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "PENDING": return "CHỜ DUYỆT";
-      case "APPROVED": return "ĐÃ DUYỆT";
+      case "PENDING":
+        return "CHO DUYET";
+      case "APPROVED":
+        return "DA DUYET";
       case "TRANSIT":
-      case "SHIPPING": return "ĐANG CHUYỂN";
-      case "COMPLETED": return "HOÀN THÀNH";
-      case "OVERDUE": return "QUÁ HẠN";
-      case "CANCELLED": return "ĐÃ HỦY";
-      case "REJECTED": return "TỪ CHỐI";
-      default: return status;
+      case "SHIPPING":
+        return "DANG CHUYEN";
+      case "COMPLETED":
+        return "HOAN THANH";
+      case "OVERDUE":
+        return "QUA HAN";
+      case "CANCELLED":
+        return "DA HUY";
+      case "REJECTED":
+        return "TU CHOI";
+      default:
+        return status;
     }
-  };
-
-  const toggleSelect = (id: string) => {
-    const newSelected = selectedIds.includes(id)
-      ? selectedIds.filter((i) => i !== id)
-      : [...selectedIds, id];
-    onSelectionChange(newSelected);
   };
 
   const toggleSelectAll = () => {
@@ -98,6 +87,8 @@ export function AdminTransferTable({
       onSelectionChange(data.map((item) => item.id));
     }
   };
+
+  void toggleSelectAll;
 
   const handleViewDetail = (id: any) => {
     router.push(`/admin/transfers/${id}`);
@@ -114,25 +105,25 @@ export function AdminTransferTable({
                   ID
                 </TableHead>
                 <TableHead className="w-[120px] font-bold text-slate-400 text-[10px] uppercase p-3">
-                  Mã phiếu
+                  Ma phieu
                 </TableHead>
                 <TableHead className="w-[130px] font-bold text-slate-400 text-[10px] uppercase p-3">
-                  Ngày lập
+                  Ngay lap
                 </TableHead>
                 <TableHead className="w-[280px] font-bold text-slate-400 text-[10px] uppercase p-3">
-                  Lộ trình (Gửi → Nhận)
+                  Lo trinh (Gui -&gt; Nhan)
                 </TableHead>
                 <TableHead className="w-[150px] font-bold text-slate-400 text-[10px] uppercase p-3">
-                  Người giao
+                  Nguoi giao
                 </TableHead>
                 <TableHead className="w-[100px] text-right font-bold text-slate-400 text-[10px] uppercase p-3">
-                  Số lượng
+                  So luong
                 </TableHead>
                 <TableHead className="w-[110px] font-bold text-slate-400 text-[10px] uppercase p-3 text-center">
-                  Trạng thái
+                  Trang thai
                 </TableHead>
                 <TableHead className="w-[100px] text-right font-bold text-slate-400 text-[10px] uppercase p-3 pr-5">
-                  Thao tác
+                  Thao tac
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -154,15 +145,27 @@ export function AdminTransferTable({
                     </TableCell>
 
                     <TableCell className="p-3">
-                      <span className="text-slate-700 font-bold text-[11px] tracking-tight uppercase flex items-center gap-1.5 whitespace-nowrap">
-                        <FileText size={12} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
-                        {item.transferCode || item.code}
-                      </span>
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="text-slate-700 font-bold text-[11px] tracking-tight uppercase flex items-center gap-1.5 whitespace-nowrap">
+                          <FileText size={12} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+                          {item.transferCode || item.code}
+                        </span>
+                        {item.transferType === "ORDER_REPLENISHMENT" ? (
+                          <>
+                            <span className="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">
+                              TU DONG TU DON THIEU HANG
+                            </span>
+                            <span className="max-w-[220px] truncate text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                              {item.referenceCode || item.description || "PHIEU BO SUNG CHO DUYET"}
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
                     </TableCell>
 
                     <TableCell className="p-3">
                       <span className="text-[10px] text-slate-500 font-medium uppercase whitespace-nowrap">
-                        {item.date || new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                        {item.date || new Date(item.createdAt).toLocaleDateString("vi-VN")}
                       </span>
                     </TableCell>
 
@@ -182,7 +185,7 @@ export function AdminTransferTable({
                       <div className="flex items-center gap-1.5 max-w-[130px]">
                         <Truck size={11} className="text-slate-300 shrink-0" />
                         <span className="text-[10px] font-bold text-slate-500 uppercase leading-tight truncate">
-                          {item.transporter || 'N/A'}
+                          {item.transporter || "N/A"}
                         </span>
                       </div>
                     </TableCell>
@@ -216,7 +219,7 @@ export function AdminTransferTable({
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => handleViewDetail(item.id)}
-                          title="Sửa / Chi tiết"
+                          title="Xem chi tiet"
                         >
                           <Pencil size={13} className="text-slate-400 hover:text-blue-500" />
                         </Button>
@@ -233,7 +236,7 @@ export function AdminTransferTable({
                             if (canDelete) onDelete(item.id);
                           }}
                           disabled={!canDelete}
-                          title={canDelete ? "Xóa phiếu" : "Không thể xóa phiếu đã xử lý"}
+                          title={canDelete ? "Xoa phieu" : "Khong the xoa phieu da xu ly"}
                         >
                           <Trash2 size={13} className="text-slate-400 hover:text-rose-500" />
                         </Button>
@@ -248,7 +251,7 @@ export function AdminTransferTable({
 
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-white min-w-full shrink-0">
           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
-            Tổng số: {totalCount} bản ghi
+            Tong so: {totalCount} ban ghi
           </p>
           <div className="flex items-center gap-1">
             <Button
@@ -258,7 +261,7 @@ export function AdminTransferTable({
               onClick={() => onPageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
             >
-              Trước
+              Truoc
             </Button>
             <div className="flex items-center justify-center h-7 w-auto px-3 text-[10px] font-black bg-slate-100 text-slate-600 rounded-full min-w-[28px]">
               {currentPage} / {totalPages || 1}

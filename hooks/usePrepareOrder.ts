@@ -23,7 +23,7 @@ export function usePrepareOrder(options: UsePrepareOrderOptions = {}) {
       // prepareToken nằm trực tiếp trong response body
       setPrepareResponse(data, data.prepareToken)
 
-      if (!data.canFulfill && data.outOfStockItems?.length) {
+      if (!data.canFulfill && !data.subOrders?.length && data.outOfStockItems?.length) {
         const names = data.outOfStockItems
           .map((i) => `${i.variantSku ?? i.variantName} (yêu cầu ${i.requestedQty}, còn ${i.availableQty})`)
           .join("; ")
