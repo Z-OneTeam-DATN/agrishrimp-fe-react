@@ -1,64 +1,64 @@
+"use client";
+
 import Link from "next/link";
-import { Phone, MapPin } from "lucide-react";
-import { MAIN_NAV } from "@/lib/Constant";
+import { usePathname } from "next/navigation";
+import { Home, User, ShoppingCart, MapPin, BookOpen } from "lucide-react";
 import HeaderCategoryDropdown from "./HeaderCategoryDropdown";
 import HeaderBrandDropdown from "./HeaderBrandDropdown";
 
 export default function Navbar() {
-  return (
-    <nav className="border-b border-primary-light bg-[#f5fffd] h-[46px] text-sm font-semibold text-gray-700 sticky top-[64px] z-40">
-      <div className="container mx-auto px-4 h-full flex items-center justify-between">
-        <div className="flex items-center h-full">
-          {MAIN_NAV.filter(item => item.label === "Trang chủ").map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={index}
-                href={item.href}
-                className={`
-                  flex items-center gap-1.5 whitespace-nowrap h-full uppercase border-b-2 border-transparent transition-all
-                  font-bold text-orange-600 hover:text-orange-700 hover:border-orange-600 text-sm px-4
-                `}
-              >
-                {Icon && <Icon size={16} className="text-orange-500" />}
-                {item.label}
-              </Link>
-            );
-          })}
-          <div className="w-px h-6 bg-gray-200 mx-2 hidden lg:block"></div>
-          <HeaderCategoryDropdown />
-          <div className="w-px h-6 bg-gray-200 mx-2 hidden lg:block"></div>
-          <HeaderBrandDropdown />
-        </div>
+  const pathname = usePathname();
 
-        <div className="flex-1 flex items-center gap-6 px-6 overflow-x-auto h-full scrollbar-hide">
-          {MAIN_NAV.filter(item => item.label !== "Thương hiệu" && item.label !== "Trang chủ").map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={index}
-                href={item.href}
-                className={`
-                  flex items-center gap-1.5 whitespace-nowrap h-full uppercase border-b-2 border-transparent transition-all
-                  font-bold text-orange-600 hover:text-orange-700 hover:border-orange-600 text-sm
-                `}
-              >
-                {Icon && <Icon size={16} className="text-orange-500" />}
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-        <div className="hidden lg:flex items-center gap-4 text-[13px] text-gray-500">
-          <div className="flex items-center gap-1.5 hover:text-primary cursor-pointer transition-colors">
-            <Phone size={14} className="text-primary" />
-            <span>Tải ứng dụng</span>
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const linkClass = (href: string) =>
+    `flex items-center gap-1.5 px-3 h-8 rounded text-[13px] font-semibold whitespace-nowrap shrink-0 transition-colors ${
+      isActive(href)
+        ? "bg-primary/10 text-primary"
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+    }`;
+
+  return (
+    <nav className="bg-white border-b border-gray-200 sticky top-[60px] z-40">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center h-11 gap-0.5 overflow-x-auto scrollbar-hide">
+
+          <Link href="/" className={linkClass("/")}>
+            <Home size={15} />
+            <span>Trang chủ</span>
+          </Link>
+
+          <Link href="/profile" className={linkClass("/profile")}>
+            <User size={15} />
+            <span>Tài khoản</span>
+          </Link>
+
+          <Link href="/orders/list" className={linkClass("/orders")}>
+            <ShoppingCart size={15} />
+            <span>Đặt hàng</span>
+          </Link>
+
+          {/* Mua sắm — Category dropdown */}
+          <div className="shrink-0">
+            <HeaderCategoryDropdown />
           </div>
-          <div className="w-px h-3 bg-gray-300"></div>
-          <div className="flex items-center gap-1.5 hover:text-primary cursor-pointer transition-colors">
-            <MapPin size={14} className="text-primary" />
-            <span>Chọn khu vực</span>
+
+          {/* Thương hiệu — Brand dropdown */}
+          <div className="shrink-0">
+            <HeaderBrandDropdown />
           </div>
+
+          <Link href="/store-locator" className={linkClass("/store-locator")}>
+            <MapPin size={15} />
+            <span>Hệ thống cửa hàng</span>
+          </Link>
+
+          <Link href="/blog" className={linkClass("/blog")}>
+            <BookOpen size={15} />
+            <span>Blog</span>
+          </Link>
+
         </div>
       </div>
     </nav>

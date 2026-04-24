@@ -2,28 +2,27 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   ShoppingCart,
   User,
-  Bot,
-  LogIn,
-  Store,
-  UserPlus,
   LogOut,
   ChevronDown,
   Mic,
   MicOff,
   Camera,
+  Phone,
+  MapPin,
+  Bell,
 } from "lucide-react";
 import ImageSearchModal from "@/components/site/ImageSearchModal";
 import { useRouter } from "next/navigation";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
 import { useCartStore } from "@/stores/useCartStore";
+import { SITE_CONFIG } from "@/lib/Constant";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,14 +40,13 @@ export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   const { transcript, listening, browserSupportsSpeechRecognition, resetTranscript } =
     useSpeechRecognition();
 
   useEffect(() => {
-    if (transcript) {
-      handleSearch(transcript);
-    }
+    if (transcript) handleSearch(transcript);
   }, [transcript]);
 
   const handleVoiceSearch = () => {
@@ -62,49 +60,36 @@ export default function Header() {
 
   const handleSearch = (keyword: string) => {
     setSearchKeyword(keyword);
-    const trimmedKeyword = keyword.trim();
-    if (!trimmedKeyword) {
-      router.push("/");
-      return;
-    }
-    const params = new URLSearchParams();
-    params.set("keyword", trimmedKeyword);
-    router.replace(`/san-pham?${params.toString()}`, { scroll: false });
+    const trimmed = keyword.trim();
+    if (!trimmed) { router.push("/"); return; }
+    router.replace(`/san-pham?keyword=${encodeURIComponent(trimmed)}`, { scroll: false });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      if (searchKeyword.trim()) {
-        router.push(`/san-pham?keyword=${encodeURIComponent(searchKeyword.trim())}`);
-      }
-    }
+    if (e.key === "Enter") handleSearch(searchKeyword);
   };
 
   const { itemCount, fetchCartCount } = useCartStore();
   const isLoggedIn = isAuthenticated && !!user;
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchCartCount();
-    }
+    if (isLoggedIn) fetchCartCount();
   }, [isLoggedIn, fetchCartCount]);
 
-  // ✅ Cập nhật hàm lấy tên hiển thị: Ưu tiên fullName từ Backend
-  const getUserDisplayName = () => {
-    if (!user) return "";
-    return (
-      user.fullName || user.displayName || user.phoneNumber || user.email || "Người dùng"
-    );
-  };
+  const getUserDisplayName = () =>
+    user?.fullName || user?.displayName || user?.phoneNumber || user?.email || "Người dùng";
+
+  const getUserRole = () =>
+    (user as any)?.role === "ADMIN" ? "Quản trị viên" : "Khách hàng";
 
   const renderAuthSection = () => {
     if (isLoading) {
       return (
-        <div className="flex items-center gap-2 min-w-[100px] justify-end animate-pulse">
-          <div className="w-8 h-8 rounded-full bg-white/20" />
-          <div className="hidden xl:flex flex-col gap-1.5 w-16">
-            <div className="h-2 bg-white/20 rounded-full w-full" />
-            <div className="h-2 bg-white/20 rounded-full w-2/3" />
+        <div className="hidden md:flex items-center gap-2 px-2 py-1 animate-pulse min-w-[130px]">
+          <div className="h-8 w-8 rounded-full bg-gray-200 shrink-0" />
+          <div className="flex flex-col gap-1.5 flex-1">
+            <div className="h-2 bg-gray-200 rounded w-full" />
+            <div className="h-2 bg-gray-200 rounded w-2/3" />
           </div>
         </div>
       );
@@ -112,183 +97,225 @@ export default function Header() {
 
     if (!isLoggedIn) {
       return (
-        <div className="hidden lg:flex items-center mx-1">
-          <Link href="/signup" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
-            <UserPlus size={22} className="mb-0.5" />
-            <span>Đăng ký</span>
+        <>
+          <Link
+            href="/login"
+            className="hidden md:flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+          >
+            <User size={20} className="text-gray-500 shrink-0" />
+            <div className="leading-none">
+              <p className="text-[11px] text-gray-400">Tài khoản</p>
+              <p className="text-[13px] font-semibold text-gray-800 mt-0.5">Đăng nhập</p>
+            </div>
           </Link>
-          <div className="h-6 w-[1px] bg-white/30 mx-1"></div>
-          <Link href="/login" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors min-w-[60px]">
-            <LogIn size={22} className="mb-0.5" />
-            <span>Đăng nhập</span>
+          <Link
+            href="/login"
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded hover:bg-gray-100 transition-colors text-gray-600"
+          >
+            <User size={19} />
           </Link>
-        </div>
+        </>
       );
     }
 
     return (
-      <div className="relative flex items-center">
-        <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors outline-none">
-              <Avatar className="h-9 w-9 border-2 border-white/30 shadow-md ring-1 ring-black/5">
-                {/* ✅ SỬA TẠI ĐÂY: Dùng trực tiếp avatarUrl từ API trả về */}
-                <AvatarImage
-                  src={user?.avatar?.imageUrl ?? ""}
-                  alt={getUserDisplayName()}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-emerald-500 text-white font-black">
-                  {getUserDisplayName()?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden xl:flex flex-col items-start leading-none gap-1">
-                <span className="text-[10px] opacity-80 font-medium">
-                  Xin chào,
-                </span>
-                <div className="flex items-center gap-1">
-                  <span className="truncate max-w-[110px] font-bold">
-                    {getUserDisplayName()}
-                  </span>
-                  <ChevronDown
-                    size={12}
-                    className={`transition-transform duration-200 ${
-                      isDropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </div>
-              </div>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 mt-2 p-1.5 bg-white border-none shadow-2xl rounded-xl z-[100]">
-            <DropdownMenuLabel className="p-3 font-normal border-b border-gray-100 mb-1">
-              <div className="flex flex-col space-y-1.5">
-                <p className="text-sm font-bold leading-none text-gray-900">
-                  {getUserDisplayName()}
-                </p>
-                <p className="text-xs leading-none text-gray-500 truncate italic">
-                  {user?.email || user?.phoneNumber}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuItem asChild className="p-0">
-              <Link href="/profile" className="flex items-center w-full px-3 py-2.5 cursor-pointer hover:bg-gray-50 rounded-lg transition-all group">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center mr-3 group-hover:bg-blue-100 transition-colors">
-                  <User size={16} className="text-blue-600" />
-                </div>
-                <span className="font-bold text-gray-700">Hồ sơ cá nhân</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="p-0">
-              <Link href="/orders/list" className="flex items-center w-full px-3 py-2.5 cursor-pointer hover:bg-gray-50 rounded-lg transition-all group">
-                <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center mr-3 group-hover:bg-orange-100 transition-colors">
-                  <ShoppingCart size={16} className="text-orange-600" />
-                </div>
-                <span className="font-bold text-gray-700">Đơn hàng của tôi</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-gray-100 my-1" />
-            <DropdownMenuItem
-              className="flex items-center px-3 py-2.5 cursor-pointer hover:bg-red-50 text-red-600 rounded-lg transition-all group"
-              onClick={() => logout()}
-              disabled={isLoggingOut}
-            >
-              <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center mr-3 group-hover:bg-red-100 transition-colors">
-                <LogOut size={16} className="text-red-600" />
-              </div>
-              <span className="font-black uppercase text-xs tracking-tighter">
-                {isLoggingOut ? "Đang xử lý..." : "Đăng xuất"}
+      <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 transition-colors outline-none cursor-pointer">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={getUserDisplayName()} className="object-cover" />
+              <AvatarFallback className="bg-primary text-white text-sm font-bold">
+                {getUserDisplayName().charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="hidden md:flex flex-col items-start leading-none">
+              <span className="text-[13px] font-semibold text-gray-800 truncate max-w-[110px]">
+                {getUserDisplayName()}
               </span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              <span className="text-[11px] text-gray-400 mt-0.5">{getUserRole()}</span>
+            </div>
+            <ChevronDown
+              size={14}
+              className={`hidden md:block text-gray-400 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="mt-2 w-60 rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl z-[100]"
+        >
+          <DropdownMenuLabel className="px-3 py-2.5 font-normal border-b border-gray-100 mb-1">
+            <p className="text-sm font-bold text-gray-900">{getUserDisplayName()}</p>
+            <p className="text-xs text-gray-400 truncate mt-0.5">{user?.email || user?.phoneNumber}</p>
+          </DropdownMenuLabel>
+          <DropdownMenuItem asChild className="p-0 rounded-lg">
+            <Link href="/profile" className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+              <User size={15} className="text-gray-500" />
+              <span className="text-sm text-gray-700">Hồ sơ cá nhân</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild className="p-0 rounded-lg">
+            <Link href="/orders/list" className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+              <ShoppingCart size={15} className="text-gray-500" />
+              <span className="text-sm text-gray-700">Đơn hàng của tôi</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="bg-gray-100 my-1" />
+          <DropdownMenuItem
+            className="flex items-center gap-3 px-3 py-2.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+            onClick={() => logout()}
+            disabled={isLoggingOut}
+          >
+            <LogOut size={15} />
+            <span className="text-sm">{isLoggingOut ? "Đang xử lý..." : "Đăng xuất"}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
   return (
     <>
-    <header className="bg-brand-gradient text-white py-2 sticky top-0 z-50 shadow-lg">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between gap-2 md:gap-4">
-          <Link href="/" className="flex items-center gap-3 group shrink-0">
-            <div className="w-[42px] h-[42px] bg-white rounded-full p-0.5 shadow-md overflow-hidden relative">
-              <Image src="/images/logo_arishrimp.jpg" alt="Logo" fill className="object-cover rounded-full" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <div className="text-xl tracking-wide">
-                <span className="font-semibold">Agri</span>
-                <span className="font-extrabold">Shrimp</span>
-              </div>
-              <span className="text-[10px] uppercase tracking-widest opacity-85 font-light">Smart Aqua Solution</span>
-            </div>
-          </Link>
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-4">
 
-          <div className="hidden md:flex flex-1 max-w-2xl items-center gap-3 px-4">
-            <div className="flex-1 bg-white/10 backdrop-blur-md rounded-full p-[3px] flex items-center border border-white/20">
-              <div className="flex-1 relative h-[34px]">
+          {/* ── Main row: [Logo] [Search flex-1] [Right section] ── */}
+          <div className="flex items-center h-[60px] gap-3">
+
+            {/* 1. Logo — cố định bên trái */}
+            <Link href="/" className="flex items-center gap-2.5 shrink-0">
+              <div className="relative w-9 h-9 overflow-hidden rounded-lg shrink-0">
+                <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
+              </div>
+              <div className="hidden sm:block leading-[1.1]">
+                <p className="text-[15px] font-extrabold tracking-tight text-gray-900">
+                  AGRI<span className="text-primary">SHRIMP</span>
+                </p>
+                <p className="text-[9px] tracking-[0.2em] text-gray-400 font-medium">& STORE</p>
+              </div>
+            </Link>
+
+            {/* 2. Search — mở rộng hết không gian còn lại */}
+            <div className="hidden md:flex flex-1">
+              <div className="w-full flex items-center h-9 border border-gray-300 rounded-full bg-white focus-within:border-primary/60 transition-colors overflow-hidden">
                 <input
                   type="text"
-                  placeholder={listening ? "Đang nghe..." : "Tìm sản phẩm, bệnh..."}
+                  placeholder={listening ? "Đang nghe..." : "What are you looking for...?"}
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="w-full h-full pl-4 pr-4 rounded-l-full bg-white text-gray-800 text-sm focus:outline-none"
+                  className="flex-1 h-full pl-4 pr-1 text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
                 />
-              </div>
-              {browserSupportsSpeechRecognition && (
-                <button onClick={handleVoiceSearch} className={`h-[34px] w-9 flex items-center justify-center transition-colors bg-white ${listening ? "text-red-500 animate-pulse" : "text-gray-400"}`}>
-                  {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                {browserSupportsSpeechRecognition && (
+                  <button type="button" onClick={handleVoiceSearch}
+                    className={`h-full w-8 flex items-center justify-center shrink-0 transition-colors ${listening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-primary"}`}>
+                    {listening ? <MicOff size={14} /> : <Mic size={14} />}
+                  </button>
+                )}
+                <button type="button" onClick={() => setIsImageSearchOpen(true)}
+                  className="h-full w-8 flex items-center justify-center text-gray-400 hover:text-primary transition-colors shrink-0">
+                  <Camera size={14} />
                 </button>
-              )}
-              <button
-                onClick={() => setIsImageSearchOpen(true)}
-                title="Tìm kiếm bằng hình ảnh"
-                className="h-[34px] w-9 flex items-center justify-center transition-colors bg-white text-gray-400 hover:text-[#2d6a4f]"
-              >
-                <Camera size={16} />
-              </button>
-              <button onClick={() => searchKeyword && router.push(`/san-pham?keyword=${searchKeyword}`)} className="h-[34px] px-5 bg-orange-500 hover:bg-orange-600 rounded-r-full text-white transition-colors">
-                <Search size={16} strokeWidth={3} />
-              </button>
+                <button type="button" aria-label="Tìm kiếm" onClick={() => handleSearch(searchKeyword)}
+                  className="h-full px-4 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-r-full transition-colors shrink-0">
+                  <Search size={14} />
+                </button>
+              </div>
             </div>
 
-            <Link href="/ai-doctor" className="hidden xl:flex items-center bg-gradient-to-br from-yellow-100 to-yellow-300 text-amber-900 pr-4 pl-1 py-1 rounded-full shadow-md hover:-translate-y-0.5 transition-transform">
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-amber-500 mr-2 relative">
-                <Bot size={20} className="relative z-10" />
-                <span className="absolute inset-0 rounded-full bg-amber-400 opacity-20 animate-ping"></span>
+            {/* 3. Right section — cố định bên phải */}
+            <div className="flex items-center gap-0 ml-auto shrink-0">
+
+              {/* Delivery address */}
+              <div className="hidden lg:flex items-center gap-2 px-4 border-l border-gray-200">
+                <MapPin size={15} className="text-primary shrink-0" />
+                <div className="leading-[1.2]">
+                  <p className="text-[10px] text-gray-400">Địa chỉ giao hàng</p>
+                  <p className="text-[12px] font-semibold text-gray-700 whitespace-nowrap max-w-[140px] truncate">
+                    {SITE_CONFIG.address}
+                  </p>
+                </div>
               </div>
-              <span className="font-black text-sm uppercase tracking-tighter">Bác sĩ AI</span>
-            </Link>
+
+              {/* Cart */}
+              <div className="pl-3 pr-1">
+                <Link href="/user/cart" id="cart-icon-target"
+                  className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors text-gray-600 hover:text-primary">
+                  <ShoppingCart size={21} />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[9px] h-[17px] min-w-[17px] px-1 flex items-center justify-center rounded-full border-2 border-white font-bold">
+                      {itemCount > 99 ? "99+" : itemCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
+
+              {/* Hotline pill */}
+              <div className="hidden xl:flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-3 py-1.5 cursor-pointer mx-2 shrink-0">
+                <div className="w-6 h-6 bg-primary/15 rounded-full flex items-center justify-center shrink-0">
+                  <Phone size={13} className="text-primary" />
+                </div>
+                <div className="leading-[1.2]">
+                  <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Hotline</p>
+                  <p className="text-[12px] font-bold text-gray-800">{SITE_CONFIG.phone}</p>
+                </div>
+              </div>
+
+              {/* Bell */}
+              <button type="button" aria-label="Thông báo"
+                className="hidden md:flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors text-gray-500 relative">
+                <Bell size={19} />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+              </button>
+
+              {/* Divider */}
+              <div className="h-7 w-px bg-gray-200 mx-2 hidden md:block" />
+
+              {/* Mobile: search toggle */}
+              <button type="button" aria-label="Tìm kiếm" onClick={() => setShowMobileSearch((v) => !v)}
+                className="md:hidden flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors text-gray-600">
+                <Search size={19} />
+              </button>
+
+              {/* Auth */}
+              {renderAuthSection()}
+            </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 text-[13px] font-semibold">
-            <Link href="/store" className="hidden lg:flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-              <Store size={22} className="mb-0.5" />
-              <span>Cửa hàng</span>
-            </Link>
-
-            <Link href="/user/cart" className="flex flex-col items-center justify-center px-2 py-1 rounded-lg hover:bg-white/10 relative min-w-[60px]">
-              <div className="relative">
-                <ShoppingCart size={22} className="mb-0.5" />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full border border-white font-bold shadow-sm">
-                    {itemCount > 99 ? '99+' : itemCount}
-                  </span>
-                )}
+          {/* Mobile search bar */}
+          {showMobileSearch && (
+            <div className="md:hidden pb-2">
+              <div className="flex items-center h-9 border border-gray-300 rounded-full bg-white focus-within:border-primary/60 transition-colors overflow-hidden pl-1">
+                <input
+                  type="text"
+                  placeholder={listening ? "Đang nghe..." : "Tìm sản phẩm..."}
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchKeyword.trim()) {
+                      handleSearch(searchKeyword);
+                      setShowMobileSearch(false);
+                    }
+                  }}
+                  autoFocus
+                  className="flex-1 h-full px-3 text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
+                />
+                <button
+                  type="button"
+                  aria-label="Tìm kiếm"
+                  onClick={() => { handleSearch(searchKeyword); setShowMobileSearch(false); }}
+                  className="h-full w-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors"
+                >
+                  <Search size={15} />
+                </button>
               </div>
-              <span className="hidden xl:inline">Giỏ hàng</span>
-            </Link>
+            </div>
+          )}
 
-            {renderAuthSection()}
-          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    {isImageSearchOpen && (
-      <ImageSearchModal onClose={() => setIsImageSearchOpen(false)} />
-    )}
-  </>
+      {isImageSearchOpen && <ImageSearchModal onClose={() => setIsImageSearchOpen(false)} />}
+    </>
   );
 }

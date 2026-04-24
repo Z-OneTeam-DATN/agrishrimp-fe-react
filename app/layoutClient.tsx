@@ -21,6 +21,12 @@ const Navbar = dynamic(() => import("@/components/site/SiteNavbar"), {
 const Footer = dynamic(() => import("@/components/site/SiteFooter"), {
   ssr: false,
 });
+const MobileBottomNav = dynamic(() => import("@/components/site/MobileBottomNav"), {
+  ssr: false,
+});
+const AIChatButton = dynamic(() => import("@/components/site/AIChatButton"), {
+  ssr: false,
+});
 const GoogleAuthProvider = dynamic(
   () => import("@/components/providers/GoogleOAuthProvider"),
   { ssr: false },
@@ -270,8 +276,10 @@ export default function LayoutClient({
               <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
                 <Header />
                 <Navbar />
-                <main className="flex-1">{children}</main>
+                <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
+                <MobileBottomNav />
+                <AIChatButton />
               </div>
             )}
             <Toaster position="top-right" richColors closeButton />

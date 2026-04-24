@@ -1,322 +1,151 @@
 import Link from "next/link";
-import {
-  Facebook,
-  Youtube,
-  Instagram,
-  Music2, // Dùng làm icon Tiktok
-  Phone,
-  Mail,
-  MapPin,
-  Truck,
-  ShieldCheck,
-  RefreshCw,
-  HandCoins,
-  CreditCard,
-} from "lucide-react";
+import Image from "next/image";
+import { Facebook, Youtube, Instagram, MapPin, Phone, Mail } from "lucide-react";
+import { SITE_CONFIG } from "@/lib/Constant";
+
+const SUPPORT_LINKS = [
+  { label: "Hướng dẫn mua hàng",   href: "/ordering" },
+  { label: "Chính sách thanh toán", href: "/terms-of-use" },
+  { label: "Chính sách giao hàng",  href: "/shipping-fee" },
+  { label: "Chính sách đổi trả",    href: "/return" },
+  { label: "Chính sách bảo mật",    href: "/privacy-policy" },
+];
+
+const ABOUT_LINKS = [
+  { label: "Giới thiệu công ty", href: "/about" },
+  { label: "Tin tức & Blog",     href: "/blog" },
+  { label: "Hệ thống đại lý",   href: "/store-locator" },
+  { label: "Tuyển dụng",         href: "/careers" },
+  { label: "Liên hệ",           href: "/contact" },
+];
 
 export default function SiteFooter() {
   return (
-    <footer className="flex flex-col w-full">
-      {/* 1. BENEFITS SECTION (Phần Lợi ích - Màu trắng ở trên) */}
-      <div className="bg-white border-b border-gray-100 py-8">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Item 1 */}
-            <div className="flex items-center gap-4 p-2">
-              <div className="w-12 h-12 rounded-full border-2 border-teal-600 flex items-center justify-center text-teal-600 shrink-0">
-                <HandCoins size={24} />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-800 text-sm uppercase">
-                  Thanh toán khi nhận hàng
-                </h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  (COD) - Kiểm tra hàng trước
-                </p>
-              </div>
-            </div>
+    <footer className="bg-white border-t border-gray-200 text-sm text-gray-600 hidden md:block">
+      {/* Main grid */}
+      <div className="container mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
 
-            {/* Item 2 */}
-            <div className="flex items-center gap-4 p-2">
-              <div className="w-12 h-12 rounded-full border-2 border-teal-600 flex items-center justify-center text-teal-600 shrink-0">
-                <Truck size={24} />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-800 text-sm uppercase">
-                  Giao hàng thần tốc 2H
-                </h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  Miễn phí đơn từ 299K
-                </p>
-              </div>
-            </div>
-
-            {/* Item 3 */}
-            <div className="flex items-center gap-4 p-2">
-              <div className="w-12 h-12 rounded-full border-2 border-teal-600 flex items-center justify-center text-teal-600 shrink-0">
-                <RefreshCw size={24} />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-800 text-sm uppercase">
-                  14 ngày đổi trả miễn phí
-                </h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  Thủ tục đơn giản, nhanh chóng
-                </p>
-              </div>
-            </div>
-
-            {/* Item 4 */}
-            <div className="flex items-center gap-4 p-2">
-              <div className="w-12 h-12 rounded-full border-2 border-teal-600 flex items-center justify-center text-teal-600 shrink-0">
-                <ShieldCheck size={24} />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-800 text-sm uppercase">
-                  Thương hiệu uy tín
-                </h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  Sản phẩm chính hãng 100%
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. MAIN FOOTER (Phần chính - Màu xanh đậm) */}
-      <div className="bg-[#003d2e] text-gray-200 text-sm pt-14 pb-6">
-        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-          {/* Cột 1: Hỗ trợ */}
+          {/* Col 1 — Brand + contact */}
           <div>
-            <h3 className="text-white font-bold uppercase mb-5 flex items-center gap-2">
-              <Phone size={18} /> Hỗ trợ khách hàng
-            </h3>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="relative w-8 h-8 rounded-lg overflow-hidden shrink-0">
+                <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
+              </div>
+              <div className="leading-[1.1]">
+                <p className="text-[15px] font-extrabold tracking-tight text-gray-900">
+                  AGRI<span className="text-primary">SHRIMP</span>
+                </p>
+                <p className="text-[9px] tracking-[0.18em] text-gray-400 font-medium">& STORE</p>
+              </div>
+            </div>
 
-            <p className="text-gray-400 mb-1 text-xs">Hotline miễn phí:</p>
-            <p className="text-2xl font-extrabold text-[#ffb74d] mb-1 tracking-wide">
-              1800 6324
-            </p>
-            <p className="text-xs text-gray-400 mb-5">
-              (08h - 22h, kể cả T7, CN)
+            <p className="text-[13px] text-gray-500 leading-relaxed mb-5">
+              Hệ thống phân phối vật tư nuôi tôm hàng đầu, mang đến giải pháp toàn diện cho bà con nuôi trồng thủy sản.
             </p>
 
-            <ul className="space-y-2.5 text-gray-300 text-[13px]">
-              <li>
-                <Link href="/faq" className="hover:text-white hover:underline">
-                  Các câu hỏi thường gặp
-                </Link>
+            <ul className="space-y-2 text-[13px]">
+              <li className="flex items-start gap-2">
+                <MapPin size={14} className="text-primary mt-0.5 shrink-0" />
+                <span>{SITE_CONFIG.address}</span>
               </li>
-              <li>
-                <Link
-                  href="/support"
-                  className="hover:text-white hover:underline"
-                >
-                  Gửi yêu cầu hỗ trợ
-                </Link>
+              <li className="flex items-center gap-2">
+                <Phone size={14} className="text-primary shrink-0" />
+                <span className="font-semibold text-gray-800">{SITE_CONFIG.phone}</span>
               </li>
-              <li>
-                <Link
-                  href="/ordering"
-                  className="hover:text-white hover:underline"
-                >
-                  Hướng dẫn đặt hàng
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/shipping-fee"
-                  className="hover:text-white hover:underline"
-                >
-                  Phương thức vận chuyển
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/return"
-                  className="hover:text-white hover:underline"
-                >
-                  Chính sách đổi trả
-                </Link>
+              <li className="flex items-center gap-2">
+                <Mail size={14} className="text-primary shrink-0" />
+                <span>support@agrishrimp.vn</span>
               </li>
             </ul>
           </div>
 
-          {/* Cột 2: Về AgriShrimp */}
+          {/* Col 2 — Hỗ trợ khách hàng */}
           <div>
-            <h3 className="text-white font-bold uppercase mb-5 flex items-center gap-2">
-              <ShieldCheck size={18} /> Về AgriShrimp
-            </h3>
-            <ul className="space-y-2.5 text-gray-300 text-[13px]">
-              <li>
-                <Link
-                  href="/about"
-                  className="hover:text-white hover:underline"
-                >
-                  Giới thiệu công ty
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/careers"
-                  className="hover:text-white hover:underline"
-                >
-                  Tuyển dụng
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/privacy-policy"
-                  className="hover:text-white hover:underline"
-                >
-                  Chính sách bảo mật
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/terms-of-use"
-                  className="hover:text-white hover:underline"
-                >
-                  Điều khoản sử dụng
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/contact"
-                  className="hover:text-white hover:underline"
-                >
-                  Liên hệ hợp tác
-                </Link>
-              </li>
+            <h4 className="text-[12px] font-bold uppercase tracking-wider text-gray-900 mb-4">
+              Hỗ trợ khách hàng
+            </h4>
+            <ul className="space-y-2.5">
+              {SUPPORT_LINKS.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className="text-[13px] text-gray-500 hover:text-primary transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Cột 3: Hợp tác & Thanh toán */}
+          {/* Col 3 — Về AgriShrimp */}
           <div>
-            <h3 className="text-white font-bold uppercase mb-5 flex items-center gap-2">
-              <Truck size={18} /> Hợp tác & Liên kết
-            </h3>
-            <ul className="space-y-2.5 text-gray-300 mb-8 text-[13px]">
-              <li>
-                <Link href="#" className="hover:text-white hover:underline">
-                  AgriShrimp Clinic (Chẩn đoán)
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="hover:text-white hover:underline">
-                  AgriShrimp Farm (Mô hình)
-                </Link>
-              </li>
+            <h4 className="text-[12px] font-bold uppercase tracking-wider text-gray-900 mb-4">
+              Về AgriShrimp
+            </h4>
+            <ul className="space-y-2.5">
+              {ABOUT_LINKS.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className="text-[13px] text-gray-500 hover:text-primary transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
-
-            <h3 className="text-white font-bold uppercase mb-3 flex items-center gap-2 text-xs">
-              <CreditCard size={16} /> Thanh toán
-            </h3>
-            <div className="bg-white rounded p-2 w-fit flex gap-3 items-center shadow-sm">
-              {/* Sử dụng text thay thế hình ảnh để tránh lỗi load ảnh */}
-              <span className="text-blue-900 font-extrabold italic text-lg tracking-tighter">
-                Visa
-              </span>
-              <div className="h-4 w-px bg-gray-300"></div>
-              <span className="text-red-600 font-extrabold text-sm">
-                MasterCard
-              </span>
-              <div className="h-4 w-px bg-gray-300"></div>
-              <span className="text-green-600 font-bold text-xs">
-                ATM/Banking
-              </span>
-            </div>
           </div>
 
-          {/* Cột 4: Newsletter & Social & App */}
+          {/* Col 4 — Newsletter + Social */}
           <div>
-            <h3 className="text-white font-bold uppercase mb-5 flex items-center gap-2">
-              <Mail size={18} /> Nhận tin khuyến mãi
-            </h3>
-            <div className="flex mb-8">
+            <h4 className="text-[12px] font-bold uppercase tracking-wider text-gray-900 mb-2">
+              Đăng ký nhận tin
+            </h4>
+            <p className="text-[13px] text-gray-500 mb-4 leading-relaxed">
+              Nhận ngay thông tin sản phẩm mới và các ưu đãi đặc biệt dành riêng cho bạn.
+            </p>
+
+            <div className="flex mb-6">
               <input
                 type="email"
-                placeholder="Nhập email của bạn..."
-                className="flex-1 px-4 py-2 rounded-l-md text-gray-900 text-sm outline-none focus:ring-1 focus:ring-orange-400"
-                suppressHydrationWarning={true}
+                placeholder="Email của bạn..."
+                className="flex-1 min-w-0 px-3 py-2 text-[13px] border border-gray-300 border-r-0 rounded-l outline-none focus:border-primary transition-colors"
               />
               <button
-                className="bg-[#f4a742] hover:bg-orange-600 text-white px-4 rounded-r-md font-bold text-sm transition-colors"
-                suppressHydrationWarning={true}
+                type="button"
+                className="px-4 py-2 bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold rounded-r transition-colors shrink-0"
               >
-                ĐĂNG KÝ
+                Gửi
               </button>
             </div>
 
-            <h3 className="text-white font-bold uppercase mb-4 text-xs">
-              KẾT NỐI MẠNG XÃ HỘI
-            </h3>
-            <div className="flex gap-4 mb-8">
-              <Link
-                href="#"
-                className="bg-white/10 p-2 rounded-full hover:bg-[#1877F2] transition-colors"
-              >
-                <Facebook size={20} />
+            <h4 className="text-[12px] font-bold uppercase tracking-wider text-gray-900 mb-3">
+              Kết nối với chúng tôi
+            </h4>
+            <div className="flex gap-3">
+              <Link href="#" className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                <Facebook size={16} />
               </Link>
-              <Link
-                href="#"
-                className="bg-white/10 p-2 rounded-full hover:bg-[#FF0000] transition-colors"
-              >
-                <Youtube size={20} />
+              <Link href="#" className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                <Instagram size={16} />
               </Link>
-              <Link
-                href="#"
-                className="bg-white/10 p-2 rounded-full hover:bg-gradient-to-br hover:from-purple-500 hover:to-pink-500 transition-colors"
-              >
-                <Instagram size={20} />
+              <Link href="#" className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                <Youtube size={16} />
               </Link>
-              <Link
-                href="#"
-                className="bg-white/10 p-2 rounded-full hover:bg-black transition-colors"
-              >
-                <Music2 size={20} />
-              </Link>
-            </div>
-
-            <h3 className="text-white font-bold uppercase mb-3 text-xs">
-              TẢI ỨNG DỤNG NGAY
-            </h3>
-            <div className="flex gap-3 items-center">
-              {/* QR Code giả lập */}
-              <div className="w-20 h-20 bg-white rounded p-1">
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg"
-                  alt="QR"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Link
-                  href="#"
-                  className="bg-black border border-gray-600 hover:border-white text-white text-[10px] px-3 py-1.5 rounded flex items-center gap-1 w-32 justify-center transition-colors"
-                >
-                  <span className="font-bold text-base">App Store</span>
-                </Link>
-                <Link
-                  href="#"
-                  className="bg-black border border-gray-600 hover:border-white text-white text-[10px] px-3 py-1.5 rounded flex items-center gap-1 w-32 justify-center transition-colors"
-                >
-                  <span className="font-bold text-base">Google Play</span>
-                </Link>
-              </div>
             </div>
           </div>
-        </div>
 
-        {/* Copyright */}
-        <div className="border-t border-white/10 mt-10 pt-6 text-center text-gray-400 text-xs leading-relaxed">
-          <p className="font-medium">
-            © 2026 Công ty Cổ Phần AgriShrimp Việt Nam. All rights reserved.
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="border-t border-gray-200">
+        <div className="container mx-auto px-4 h-12 flex items-center justify-between">
+          <p className="text-[12px] text-gray-400">
+            © 2026 AgriShrimp. Tất cả các quyền được bảo lưu.
           </p>
-          <p className="flex items-center justify-center gap-1 mt-1">
-            <MapPin size={12} /> Địa chỉ: Khu Công Nghệ Cao, TP. Thủ Đức, TP. Hồ
-            Chí Minh.
-          </p>
+          {/* Payment icons (text placeholder) */}
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-1 border border-gray-200 rounded text-[10px] font-bold text-blue-900 italic tracking-tighter">VISA</span>
+            <span className="px-2 py-1 border border-gray-200 rounded text-[10px] font-bold text-red-600">MC</span>
+            <span className="px-2 py-1 border border-gray-200 rounded text-[10px] font-bold text-blue-500">PayPal</span>
+          </div>
         </div>
       </div>
     </footer>

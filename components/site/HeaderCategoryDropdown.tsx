@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { LayoutGrid, Loader2, AlertCircle, ChevronDown, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { LayoutGrid, Loader2, ChevronDown, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { CategoryDTO } from "@/app/types/category.type";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const BACKEND_ORIGIN = process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 
 export default function HeaderCategoryDropdown() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,7 @@ export default function HeaderCategoryDropdown() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [activeParentId, setActiveParentId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isActive = pathname.startsWith("/category") || pathname.startsWith("/san-pham");
 
   const fetchCategories = async () => {
     if (hasLoaded) return;
@@ -30,7 +33,7 @@ export default function HeaderCategoryDropdown() {
         if (parents.length > 0) setActiveParentId(parents[0].id);
       }
       setHasLoaded(true);
-    } catch (err) {
+    } catch {
       setError("Không thể tải danh mục");
     } finally {
       setLoading(false);
@@ -52,77 +55,127 @@ export default function HeaderCategoryDropdown() {
   };
 
   const parentCategories = categories.filter((c) => !c.parentId || c.parentId === 0);
-  const getChildren = (parentId: number) => categories.filter((c) => c.parentId === parentId && c.parentId !== 0);
+  const getChildren = (parentId: number) =>
+    categories.filter((c) => c.parentId === parentId && c.parentId !== 0);
 
   const activeParent = parentCategories.find((c) => c.id === activeParentId);
   const activeChildren = activeParentId ? getChildren(activeParentId) : [];
 
   return (
-    <div className="static h-full flex items-center" ref={dropdownRef} onMouseLeave={() => setIsOpen(false)}>
+    <div
+      className="static flex h-full items-center"
+      ref={dropdownRef}
+      onMouseLeave={() => setIsOpen(false)}
+    >
       <button
-        onMouseEnter={() => { fetchCategories(); setIsOpen(true); }}
-        onClick={() => { fetchCategories(); setIsOpen(!isOpen); }}
-        className={`flex items-center gap-1.5 px-5 h-full cursor-pointer transition-all duration-200 uppercase font-bold text-sm ${
-          isOpen ? "text-orange-700 bg-white" : "text-orange-600 hover:text-orange-700"
+        onMouseEnter={() => {
+          fetchCategories();
+          setIsOpen(true);
+        }}
+        onClick={() => {
+          fetchCategories();
+          setIsOpen(!isOpen);
+        }}
+        className={`group flex h-12 items-center gap-2 rounded-2xl px-4 text-[15px] font-semibold transition ${
+          isOpen || isActive
+            ? "bg-[#f3f5f7] text-slate-900 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)]"
+            : "text-slate-700 hover:bg-[#f3f5f7] hover:text-slate-900"
         }`}
       >
-        <LayoutGrid size={16} className="text-orange-500" />
-        <span className="hidden lg:block tracking-wider">Danh mục</span>
-        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        <LayoutGrid
+          size={18}
+          className={isOpen || isActive ? "text-primary" : "text-slate-400 group-hover:text-primary"}
+        />
+        <span>Danh mục</span>
+        <ChevronDown
+          size={16}
+          className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            className="absolute top-full left-0 right-0 w-full bg-white shadow-2xl border-t border-gray-100 z-[100] overflow-hidden"
+            exit={{ opacity: 0, y: 6 }}
+            className="absolute left-0 right-0 top-full z-[100] mt-3 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]"
           >
-            <div className="max-w-screen-xl mx-auto flex min-h-[360px]">
+            <div className="mx-auto flex min-h-[360px] max-w-screen-xl">
               {!loading && !error && categories.length > 0 ? (
                 <>
-                  <div className="w-[240px] bg-gray-50/50 border-r border-gray-100 py-1 shrink-0">
+                  <div className="w-[260px] shrink-0 border-r border-slate-200 bg-slate-50/90 py-3">
                     {parentCategories.map((parent) => (
                       <div
                         key={parent.id}
                         onMouseEnter={() => setActiveParentId(parent.id)}
-                        className={`px-5 py-2.5 cursor-pointer transition-all flex items-center justify-between group ${
-                          activeParentId === parent.id ? "bg-white text-orange-600 font-bold shadow-sm" : "text-gray-600 hover:text-orange-500"
+                        className={`mx-3 flex items-center justify-between rounded-2xl px-4 py-3 transition ${
+                          activeParentId === parent.id
+                            ? "bg-white text-primary shadow-sm"
+                            : "text-slate-600 hover:bg-white hover:text-slate-900"
                         }`}
                       >
-                        <Link href={`/category/${parent.id}`} className="text-[13px] uppercase truncate" onClick={() => setIsOpen(false)}>
+                        <Link
+                          href={`/category/${parent.id}`}
+                          className="truncate text-sm font-medium"
+                          onClick={() => setIsOpen(false)}
+                        >
                           {parent.name}
                         </Link>
-                        <ChevronRight size={12} className={activeParentId === parent.id ? "opacity-100" : "opacity-0 group-hover:opacity-40"} />
+                        <ChevronRight
+                          size={14}
+                          className={activeParentId === parent.id ? "opacity-100" : "opacity-40"}
+                        />
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex-1 p-6 bg-white">
+                  <div className="flex-1 bg-white p-6">
                     {activeParent && (
-                      <motion.div key={activeParentId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col">
-                        <div className="flex items-center justify-between mb-6 pb-2 border-b border-gray-50">
-                          <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">{activeParent.name}</h3>
-                          <Link href={`/category/${activeParent.id}`} className="text-[11px] font-bold text-orange-600 hover:underline" onClick={() => setIsOpen(false)}>XEM TẤT CẢ</Link>
+                      <motion.div
+                        key={activeParentId}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="h-full"
+                      >
+                        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-3">
+                          <div>
+                            <h3 className="text-xl font-semibold text-slate-900">{activeParent.name}</h3>
+                            <p className="mt-1 text-sm text-slate-500">
+                              Chọn nhanh nhóm sản phẩm phù hợp cho trang này.
+                            </p>
+                          </div>
+                          <Link
+                            href={`/category/${activeParent.id}`}
+                            className="text-sm font-semibold text-primary hover:underline"
+                            onClick={() => setIsOpen(false)}
+                          >
+                            Xem tất cả
+                          </Link>
                         </div>
-                        
-                        <div className="grid grid-cols-3 lg:grid-cols-4 gap-6">
+
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                           {activeChildren.map((child) => (
                             <Link
                               key={child.id}
                               href={`/category/${child.id}`}
-                              className="group flex flex-col items-center text-center gap-2 p-2 rounded-xl hover:bg-orange-50/30 transition-all border border-transparent hover:border-orange-100"
+                              className="group rounded-3xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-primary/20 hover:bg-primary/5"
                               onClick={() => setIsOpen(false)}
                             >
-                              <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 group-hover:border-orange-200 transition-colors">
+                              <div className="mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
                                 {child.imageUrl ? (
-                                  <img src={getImageUrl(child.imageUrl)!} alt={child.name} className="w-full h-full object-cover" />
+                                  <img
+                                    src={getImageUrl(child.imageUrl) ?? ""}
+                                    alt={child.name}
+                                    className="h-full w-full object-cover"
+                                  />
                                 ) : (
-                                  <ImageIcon size={24} className="text-gray-300" />
+                                  <ImageIcon size={22} className="text-slate-300" />
                                 )}
                               </div>
-                              <span className="text-[12px] font-bold text-gray-700 group-hover:text-orange-700 transition-colors line-clamp-2">{child.name}</span>
+                              <span className="line-clamp-2 text-sm font-semibold text-slate-700 transition group-hover:text-slate-900">
+                                {child.name}
+                              </span>
                             </Link>
                           ))}
                         </div>
@@ -131,8 +184,15 @@ export default function HeaderCategoryDropdown() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center py-20 text-gray-400">
-                  {loading ? <Loader2 className="animate-spin text-orange-500" size={24} /> : <span>{error || "Không có dữ liệu"}</span>}
+                <div className="flex flex-1 items-center justify-center py-20 text-slate-400">
+                  {loading ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="animate-spin text-primary" size={24} />
+                      <span className="text-sm font-medium">Đang tải danh mục...</span>
+                    </div>
+                  ) : (
+                    <span>{error || "Không có dữ liệu"}</span>
+                  )}
                 </div>
               )}
             </div>
