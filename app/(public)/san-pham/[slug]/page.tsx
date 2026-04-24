@@ -117,24 +117,27 @@ export default function ProductDetailPage({
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
     const [activeImage, setActiveImage] = useState<string>("/placeholder.svg");
     const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState<"desc" | "specs" | "reviews">("desc");
     const [isAdding, setIsAdding] = useState(false);
     const [reviewCount, setReviewCount] = useState<number | null>(null);
     const [reviewAverage, setReviewAverage] = useState<number | null>(null);
     const [selectedReviewFilter, setSelectedReviewFilter] = useState<ReviewFilterValue>("all");
     const [pendingReviewScroll, setPendingReviewScroll] = useState(false);
+    const [pendingSpecsScroll, setPendingSpecsScroll] = useState(false);
     const [canScrollThumbnailsLeft, setCanScrollThumbnailsLeft] = useState(false);
     const [canScrollThumbnailsRight, setCanScrollThumbnailsRight] = useState(false);
     const [hasThumbnailOverflow, setHasThumbnailOverflow] = useState(false);
     const thumbnailStripRef = React.useRef<HTMLDivElement | null>(null);
     const reviewSectionRef = React.useRef<HTMLDivElement | null>(null);
+    const specsSectionRef = React.useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         const tab = searchParams.get("tab");
         if (tab === "reviews") {
             setPendingReviewScroll(true);
         }
-        else if (tab === "specs") setActiveTab("specs");
+        else if (tab === "specs") {
+            setPendingSpecsScroll(true);
+        }
     }, [searchParams]);
 
     useEffect(() => {
@@ -283,6 +286,20 @@ export default function ProductDetailPage({
     }, [pendingReviewScroll, selectedReviewFilter]);
 
     useEffect(() => {
+        if (!pendingSpecsScroll) return;
+
+        const timeoutId = window.setTimeout(() => {
+            specsSectionRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+            setPendingSpecsScroll(false);
+        }, 120);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [pendingSpecsScroll]);
+
+    useEffect(() => {
         setSelectedReviewFilter("all");
     }, [product?.id]);
 
@@ -307,6 +324,10 @@ export default function ProductDetailPage({
     const openReviewsSection = (filter: ReviewFilterValue = "all") => {
         setSelectedReviewFilter(filter);
         setPendingReviewScroll(true);
+    };
+
+    const openSpecsSection = () => {
+        setPendingSpecsScroll(true);
     };
 
     const handleAddToCart = async (e: React.MouseEvent, buyNow: boolean) => {
@@ -385,7 +406,12 @@ export default function ProductDetailPage({
     const totalReviewCount = reviewCount ?? product.reviewCount ?? 0;
     const displayAverageRating = Number(reviewAverage ?? product.ratingAverage ?? 0);
     const soldCount = Number(product.soldCount ?? 0);
-    const reviewTabLabel = totalReviewCount > 0 ? `(${totalReviewCount})` : "";
+    const hasSpecsContent = Boolean(
+        product.brandName || product.category?.name || currentVariant || product.origin
+    );
+    const relatedCategories = categories.filter((c) => c.parentId !== null);
+    const visibleCategories = relatedCategories.slice(0, 7);
+    const hasMoreCategories = relatedCategories.length > visibleCategories.length;
 
     return (
         <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
@@ -427,473 +453,477 @@ export default function ProductDetailPage({
             </div>
 
             <div className="container mx-auto px-4 mt-6">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    {/* LEFT COLUMN */}
-                    <div className="lg:col-span-9 space-y-6">
-                        {/* Main card */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                                {/* Gallery */}
-                                <div className="md:col-span-6 space-y-4">
-                                    <div className="relative aspect-square rounded-2xl overflow-hidden bg-white border border-slate-100 group cursor-zoom-in">
-                                        {isCompletelyOutOfStock && (
-                                            <div className="absolute top-4 left-4 z-10 bg-gray-900/80 text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                                                Hết hàng
-                                            </div>
-                                        )}
-                                        <Image
-                                            src={activeImage}
-                                            alt={product.name}
-                                            fill
-                                            priority
-                                            className={`object-contain p-3 sm:p-4 transition-all duration-700 ease-out scale-[1.08] group-hover:scale-[1.14] ${
-                                                isCompletelyOutOfStock ? "opacity-40 grayscale" : ""
-                                            }`}
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).src = "/placeholder.svg";
-                                            }}
-                                        />
-                                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                <div className="border-b border-slate-200 pb-10">
+                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:gap-12">
+                        <div className="space-y-6">
+                            <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#f4f7f5]">
+                                {isCompletelyOutOfStock && (
+                                    <div className="absolute left-5 top-5 z-10 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white">
+                                        Hết hàng
                                     </div>
-
-                                    {productGalleryImages.length > 1 && (
-                                        <div className="relative px-10">
-                                            {hasThumbnailOverflow && (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => scrollThumbnailStrip("left")}
-                                                        disabled={!canScrollThumbnailsLeft}
-                                                        className="absolute left-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
-                                                    >
-                                                        <ChevronLeft size={16} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => scrollThumbnailStrip("right")}
-                                                        disabled={!canScrollThumbnailsRight}
-                                                        className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
-                                                    >
-                                                        <ChevronRight size={16} />
-                                                    </button>
-                                                </>
-                                            )}
-
-                                            <div
-                                                ref={thumbnailStripRef}
-                                                className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-2 px-0.5"
-                                            >
-                                                {productGalleryImages.map((img, idx) => (
-                                                    <button
-                                                        key={`${img}-${idx}`}
-                                                        onMouseEnter={() => setActiveImage(img)}
-                                                        onClick={() => setActiveImage(img)}
-                                                        className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-300 shadow-sm ${
-                                                            activeImage === img
-                                                                ? "border-teal-500 ring-2 ring-teal-500/20 scale-95"
-                                                                : "border-transparent hover:border-slate-300 grayscale-[0.5] hover:grayscale-0"
-                                                        }`}
-                                                    >
-                                                        <Image
-                                                            src={img}
-                                                            alt={`ảnh ${idx + 1}`}
-                                                            fill
-                                                            className="object-cover"
-                                                        />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Info */}
-                                <div className="md:col-span-6 flex flex-col pt-2">
-                                    {/* Brand + SKU */}
-                                    <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                        {currentVariant?.sku && (
-                                            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                        SKU:{" "}
-                                                <span className="text-teal-600 font-mono">
-                          {currentVariant.sku}
-                        </span>
-                      </span>
-                                        )}
-                                    </div>
-
-                                    <h1 className="text-xl font-bold text-slate-800 mb-1 leading-tight">
-                                        {product.name}
-                                    </h1>
-
-                                    {/* Thương hiệu */}
-                                    {product.brandName && (
-                                        <div className="flex items-center gap-1.5 mb-1">
-                                            <span className="text-xs text-slate-500">Thương hiệu:</span>
-                                            <span className="text-xs font-bold text-teal-600 hover:underline cursor-pointer">
-                        {product.brandName}
-                      </span>
-                                        </div>
-                                    )}
-
-                                    {/* Danh mục */}
-                                    {product.category?.name && (
-                                        <div className="flex items-center gap-1.5 mb-3">
-                                            <span className="text-xs text-slate-500">Danh mục:</span>
-                                            <Link
-                                                href={`/category/${product.category.id}`}
-                                                className="text-xs font-bold text-teal-600 hover:underline transition-colors"
-                                            >
-                                                {product.category.name}
-                                            </Link>
-                                        </div>
-                                    )}
-
-                                    {product.shortDesc && (
-                                        <p className="text-sm text-slate-500 mb-4 font-medium leading-relaxed">
-                                            {product.shortDesc}
-                                        </p>
-                                    )}
-
-                                    {(totalReviewCount > 0 || soldCount > 0) && (
-                                        <div className="mb-5 flex flex-wrap items-center gap-3">
-                                            {totalReviewCount > 0 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openReviewsSection("all")}
-                                                    className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-orange-300 hover:bg-orange-100"
-                                                >
-                                                    <div className="flex items-center gap-0.5 text-orange-400">
-                                                        {[1, 2, 3, 4, 5].map((star) => (
-                                                            <Star
-                                                                key={star}
-                                                                size={14}
-                                                                className={
-                                                                    star <= Math.round(displayAverageRating)
-                                                                        ? "fill-current"
-                                                                        : "fill-slate-100 text-slate-200"
-                                                                }
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                    <span>
-                                                        {displayAverageRating > 0
-                                                            ? displayAverageRating.toFixed(1)
-                                                            : "0.0"}{" "}
-                                                        ({formatNumber(totalReviewCount)} đánh giá)
-                                                    </span>
-                                                </button>
-                                            )}
-
-                                            {soldCount > 0 && (
-                                                <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700">
-                                                    Đã mua {formatNumber(soldCount)}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Price block */}
-                                    <div className="bg-slate-50/80 p-4 rounded-xl mb-5">
-                                        {currentVariant?.price > 0 ? (
-                                            <div className="space-y-1">
-                                                <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            Giá bán
-                          </span>
-                                                    <div className="text-2xl font-extrabold text-red-600 tracking-tight">
-                                                        {formatNumber(currentVariant.price)} ₫
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <span className="text-lg font-semibold text-slate-400">
-                        {isCompletelyOutOfStock ? "Tạm hết hàng" : "Liên hệ"}
-                      </span>
-                                        )}
-                                    </div>
-
-                                    {/* Variant selector - Chỉ map qua mảng availableVariants */}
-                                    {availableVariants.length > 0 && (
-                                        <div className="mb-6 space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                    Chọn phân loại
-                                                </label>
-                                                <span className="text-[10px] font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded">
-                                                    {availableVariants.length} tùy chọn
-                                                </span>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2.5">
-                                                {availableVariants.map((v, idx) => {
-                                                    const isSelected = selectedVariantIndex === idx;
-                                                    return (
-                                                        <button
-                                                            key={v.id}
-                                                            onClick={() => handleSelectVariant(idx)}
-                                                            className={`group relative flex items-center px-4 py-2.5 border rounded-xl text-xs transition-all duration-300 ${
-                                                                isSelected
-                                                                    ? "border-teal-500 bg-teal-50 text-teal-700 shadow-sm ring-1 ring-teal-500 ring-offset-0"
-                                                                    : "border-slate-200 bg-white hover:border-teal-400 text-slate-600 hover:shadow-sm"
-                                                            }`}
-                                                        >
-                              <span className={`font-bold ${isSelected ? "text-teal-700" : "text-slate-700 group-hover:text-teal-600"}`}>
-                                {getVariantLabel(v)}
-                              </span>
-                                                            {isSelected && (
-                                                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-teal-500 rounded-full flex items-center justify-center shadow-sm">
-                                                                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                                                                </div>
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Quantity selector */}
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                                            <button
-                                                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                                                disabled={isCompletelyOutOfStock}
-                                                className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <Minus size={14} />
-                                            </button>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                value={quantity}
-                                                disabled={isCompletelyOutOfStock}
-                                                onChange={(e) => {
-                                                    const val = parseInt(e.target.value);
-                                                    if (!isNaN(val) && val >= 1) setQuantity(val);
-                                                }}
-                                                onBlur={(e) => {
-                                                    const val = parseInt(e.target.value);
-                                                    if (isNaN(val) || val < 1) setQuantity(1);
-                                                }}
-                                                className="w-12 text-center font-bold text-sm border-x border-slate-200 focus:outline-none bg-white disabled:bg-slate-50 disabled:text-slate-400"
-                                            />
-                                            <button
-                                                onClick={() => setQuantity((q) => q + 1)}
-                                                disabled={isCompletelyOutOfStock}
-                                                className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <Plus size={14} />
-                                            </button>
-                                        </div>
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase italic">
-                      Giao hàng toàn quốc
-                    </span>
-                                    </div>
-
-                                    {/* CTA buttons */}
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={(e) => handleAddToCart(e, true)}
-                                            disabled={isAdding || isCompletelyOutOfStock}
-                                            className="flex-[2] bg-teal-600 hover:bg-teal-700 text-white py-3 px-6 rounded-xl font-bold text-xs uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-teal-100 flex items-center justify-center disabled:bg-slate-300 disabled:shadow-none disabled:active:scale-100 disabled:cursor-not-allowed"
-                                        >
-                                            {isAdding ? (
-                                                <Loader2 className="animate-spin" size={16} />
-                                            ) : (
-                                                "Mua ngay"
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleAddToCart(e, false)}
-                                            disabled={isAdding || isCompletelyOutOfStock}
-                                            className="flex-1 border border-teal-600 text-teal-700 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-teal-50 transition-all flex items-center justify-center gap-2 disabled:border-slate-300 disabled:text-slate-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                        >
-                                            {isAdding ? (
-                                                <Loader2 className="animate-spin" size={16} />
-                                            ) : (
-                                                <>
-                                                    <ShoppingCart size={15} /> Giỏ hàng
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Description + Specs tabs */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                            <div className="flex border-b border-slate-100">
-                                <button
-                                    onClick={() => setActiveTab("desc")}
-                                    className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                        activeTab === "desc"
-                                            ? "text-teal-600 border-b-2 border-teal-600"
-                                            : "text-slate-400 hover:text-slate-600"
+                                )}
+                                <Image
+                                    src={activeImage}
+                                    alt={product.name}
+                                    fill
+                                    priority
+                                    className={`object-contain p-6 transition-all duration-500 ${
+                                        isCompletelyOutOfStock ? "opacity-45 grayscale" : ""
                                     }`}
-                                >
-                                    Mô tả
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("specs")}
-                                    className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                        activeTab === "specs"
-                                            ? "text-teal-600 border-b-2 border-teal-600"
-                                            : "text-slate-400 hover:text-slate-600"
-                                    }`}
-                                >
-                                    Thông số
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("reviews")}
-                                    className={`flex-1 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                        activeTab === "reviews"
-                                            ? "text-teal-600 border-b-2 border-teal-600"
-                                            : "text-slate-400 hover:text-slate-600"
-                                    }`}
-                                >
-                                    Đánh giá {reviewTabLabel}
-                                </button>
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                                    }}
+                                />
                             </div>
 
-                            <div className="p-6 text-slate-600 text-sm leading-relaxed">
-                                {activeTab === "desc" && (
+                            {productGalleryImages.length > 1 && (
+                                <div className="relative px-10">
+                                    {hasThumbnailOverflow && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => scrollThumbnailStrip("left")}
+                                                disabled={!canScrollThumbnailsLeft}
+                                                className="absolute left-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                                <ChevronLeft size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => scrollThumbnailStrip("right")}
+                                                disabled={!canScrollThumbnailsRight}
+                                                className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
+                                                <ChevronRight size={16} />
+                                            </button>
+                                        </>
+                                    )}
+
                                     <div
-                                        className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden whitespace-pre-wrap prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
-                                        dangerouslySetInnerHTML={{
-                                            __html: product.description || "<p class='text-slate-400 italic'>Đang cập nhật mô tả...</p>"
-                                        }}
-                                    />
-                                )}
-                                {activeTab === "specs" && (
-                                    <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
-                                        {product.brandName && (
-                                            <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <Tag size={12} /> Thương hiệu
-                        </span>
-                                                <span className="font-bold">{product.brandName}</span>
-                                            </div>
-                                        )}
-                                        {product.category?.name && (
-                                            <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <Layers size={12} /> Danh mục
-                        </span>
-                                                <span className="font-bold">{product.category.name}</span>
-                                            </div>
-                                        )}
-                                        {currentVariant && (
-                                            <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <ShoppingCart size={12} /> Quy cách
-                        </span>
-                                                <span className="font-bold">{getVariantLabel(currentVariant)}</span>
-                                            </div>
-                                        )}
-                                        {product.origin && (
-                                            <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <Globe size={12} /> Xuất xứ
-                        </span>
-                                                <span className="font-bold">{product.origin}</span>
-                                            </div>
-                                        )}
-                                        {currentVariant?.sku && (
-                                            <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                                                <span className="text-slate-400">Mã SKU</span>
-                                                <span className="font-mono font-bold text-teal-600">
-                          {currentVariant.sku}
-                        </span>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="text-slate-400">Trạng thái</span>
-                                            {isCompletelyOutOfStock ? (
-                                                <span className="text-red-500 font-bold">Hết hàng</span>
-                                            ) : (
-                                                <span className="text-emerald-600 font-bold">
-                          Còn hàng
-                        </span>
-                                            )}
+                                        ref={thumbnailStripRef}
+                                        className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-2"
+                                    >
+                                        {productGalleryImages.map((img, idx) => (
+                                            <button
+                                                key={`${img}-${idx}`}
+                                                onMouseEnter={() => setActiveImage(img)}
+                                                onClick={() => setActiveImage(img)}
+                                                className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border transition-all ${
+                                                    activeImage === img
+                                                        ? "border-teal-500 bg-white"
+                                                        : "border-slate-200 bg-white hover:border-slate-300"
+                                                }`}
+                                            >
+                                                <Image
+                                                    src={img}
+                                                    alt={`ảnh ${idx + 1}`}
+                                                    fill
+                                                    className="object-cover"
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid gap-4 border-t border-slate-200 pt-6 sm:grid-cols-3">
+                                {product.brandName && (
+                                    <div className="space-y-2">
+                                        <span className="text-sm font-semibold text-slate-900">Thương hiệu</span>
+                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                            <Tag size={16} className="text-orange-500" />
+                                            <span>{product.brandName}</span>
                                         </div>
                                     </div>
                                 )}
-
-                            </div>
-                        </div>
-
-                        {/* Reviews Section - Standalone below tabs */}
-                        <div ref={reviewSectionRef} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                            <ProductReviews
-                                productId={product.id}
-                                slug={slug}
-                                activeFilter={selectedReviewFilter}
-                                onFilterChange={setSelectedReviewFilter}
-                            />
-                        </div>
-                    </div>
-
-                    {/* RIGHT COLUMN */}
-                    <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-6">
-                        {/* Contact CTA */}
-                        <div className="bg-teal-600 rounded-2xl p-6 text-white shadow-md text-center">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-white/30">
-                                <Phone size={24} />
-                            </div>
-                            <h6 className="font-bold text-sm mb-1 uppercase tracking-wide">
-                                Tư vấn miễn phí
-                            </h6>
-                            <p className="text-[10px] text-teal-50/80 font-medium mb-4">
-                                Hỗ trợ kỹ thuật 24/7
-                            </p>
-                            <a
-                                href="tel:18001234"
-                                className="block w-full py-2.5 bg-white text-teal-600 rounded-lg font-bold text-xs uppercase tracking-widest transition-transform active:scale-95"
-                            >
-                                1800 1234
-                            </a>
-                        </div>
-
-                        {/* Related products */}
-                        {related.length > 0 && (
-                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-                                <h6 className="font-bold text-slate-800 mb-4 text-[10px] uppercase tracking-widest border-b border-slate-50 pb-2">
-                                    Gợi ý cho bạn
-                                </h6>
-                                <div className="space-y-4">
-                                    {related.map((p) => (
-                                        <RelatedProductCard key={p.id} product={p} />
-                                    ))}
+                                {product.origin && (
+                                    <div className="space-y-2">
+                                        <span className="text-sm font-semibold text-slate-900">Xuất xứ</span>
+                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                            <Globe size={16} className="text-orange-500" />
+                                            <span>{product.origin}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="space-y-2">
+                                    <span className="text-sm font-semibold text-slate-900">Tình trạng</span>
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <Layers size={16} className="text-orange-500" />
+                                        <span className={isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}>
+                                            {isCompletelyOutOfStock ? "Tạm hết hàng" : "Còn hàng"}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        )}
-
-                        {/* Danh mục hấp dẫn */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-                            <h6 className="font-bold text-slate-800 mb-4 text-[10px] uppercase tracking-widest border-b border-slate-50 pb-2">
-                                Danh mục hấp dẫn
-                            </h6>
-                            <div className="flex flex-wrap gap-2">
-                                {categories.filter(c => c.parentId !== null).slice(0, 10).map(cat => (
-                                    <Link
-                                        key={cat.id}
-                                        href={`/category/${cat.id}`}
-                                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-[10px] font-medium text-slate-600 hover:border-teal-500 hover:text-teal-600 transition-all shadow-sm"
-                                    >
-                                        {cat.name}
-                                    </Link>
-                                ))}
-                            </div>
                         </div>
 
-                        {/* Navigate back */}
-                        <Link
-                            href="/san-pham"
-                            className="block text-center text-xs font-semibold text-teal-600 hover:underline"
-                        >
-                            ← Xem tất cả sản phẩm
-                        </Link>
+                        <div className="space-y-6 lg:sticky lg:top-6">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span
+                                    className={`inline-flex rounded-lg px-4 py-1.5 text-sm font-semibold ${
+                                        isCompletelyOutOfStock
+                                            ? "bg-slate-200 text-slate-700"
+                                            : "bg-orange-100 text-orange-700"
+                                    }`}
+                                >
+                                    {isCompletelyOutOfStock ? "Tạm hết hàng" : "Đang mở bán"}
+                                </span>
+                                {currentVariant?.sku && (
+                                    <span className="text-sm text-slate-500">
+                                        Mã SP: <span className="font-medium text-slate-800">{currentVariant.sku}</span>
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="space-y-3">
+                                <h1 className="text-3xl font-bold leading-tight text-slate-950">
+                                    {product.name}
+                                </h1>
+
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+                                    {product.brandName && <span>{product.brandName}</span>}
+                                    {product.category?.name && (
+                                        <Link
+                                            href={`/category/${product.category.id}`}
+                                            className="text-teal-700 transition-colors hover:text-teal-800"
+                                        >
+                                            {product.category.name}
+                                        </Link>
+                                    )}
+                                </div>
+
+                                {product.shortDesc && (
+                                    <p className="max-w-xl text-base leading-7 text-slate-600">
+                                        {product.shortDesc}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+                                {totalReviewCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openReviewsSection("all")}
+                                        className="inline-flex items-center gap-2 text-slate-700 transition-colors hover:text-orange-600"
+                                    >
+                                        <div className="flex items-center gap-0.5 text-orange-400">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <Star
+                                                    key={star}
+                                                    size={14}
+                                                    className={
+                                                        star <= Math.round(displayAverageRating)
+                                                            ? "fill-current"
+                                                            : "fill-slate-100 text-slate-200"
+                                                    }
+                                                />
+                                            ))}
+                                        </div>
+                                        <span>
+                                            {displayAverageRating > 0 ? displayAverageRating.toFixed(1) : "0.0"} ·{" "}
+                                            {formatNumber(totalReviewCount)} đánh giá
+                                        </span>
+                                    </button>
+                                )}
+                                {soldCount > 0 && (
+                                    <span className="text-slate-500">
+                                        Đã mua <span className="font-semibold text-slate-900">{formatNumber(soldCount)}</span>
+                                    </span>
+                                )}
+                                {hasSpecsContent && (
+                                    <button
+                                        type="button"
+                                        onClick={openSpecsSection}
+                                        className="font-medium text-blue-600 transition-colors hover:text-blue-700"
+                                    >
+                                        Thông số sản phẩm
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="rounded-xl border border-orange-100 bg-[#fffaf1] p-6">
+                                {currentVariant?.price > 0 ? (
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-slate-500">Giá bán</p>
+                                        <div className="text-4xl font-bold tracking-tight text-slate-950">
+                                            {formatNumber(currentVariant.price)} ₫
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-2xl font-semibold text-slate-400">
+                                        {isCompletelyOutOfStock ? "Tạm hết hàng" : "Liên hệ"}
+                                    </div>
+                                )}
+
+                                <div className="mt-4 rounded-lg border border-orange-200/70 bg-white px-4 py-3 text-sm text-slate-600">
+                                    Giao hàng toàn quốc, hỗ trợ tư vấn miễn phí trong giờ làm việc.
+                                </div>
+                            </div>
+
+                            {availableVariants.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-semibold text-slate-900">
+                                            Phân loại
+                                        </label>
+                                        <span className="text-sm text-slate-500">
+                                            {availableVariants.length} lựa chọn
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-3">
+                                        {availableVariants.map((v, idx) => {
+                                            const isSelected = selectedVariantIndex === idx;
+                                            return (
+                                                <button
+                                                    key={v.id}
+                                                    onClick={() => handleSelectVariant(idx)}
+                                                    className={`rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
+                                                        isSelected
+                                                            ? "border-red-300 bg-red-50 text-red-700"
+                                                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                                                    }`}
+                                                >
+                                                    {getVariantLabel(v)}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                    <button
+                                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                                        disabled={isCompletelyOutOfStock}
+                                        className="flex h-12 w-12 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <Minus size={16} />
+                                    </button>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={quantity}
+                                        disabled={isCompletelyOutOfStock}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (!isNaN(val) && val >= 1) setQuantity(val);
+                                        }}
+                                        onBlur={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (isNaN(val) || val < 1) setQuantity(1);
+                                        }}
+                                        className="h-12 w-16 border-x border-slate-200 bg-white text-center text-base font-semibold focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                                    />
+                                    <button
+                                        onClick={() => setQuantity((q) => q + 1)}
+                                        disabled={isCompletelyOutOfStock}
+                                        className="flex h-12 w-12 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <Plus size={16} />
+                                    </button>
+                                </div>
+
+                                <div className="text-sm text-slate-500">
+                                    {isCompletelyOutOfStock ? "Hiện chưa thể đặt mua" : "Có thể chọn số lượng phù hợp nhu cầu"}
+                                </div>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)_minmax(0,1fr)]">
+                                <button
+                                    onClick={(e) => handleAddToCart(e, false)}
+                                    disabled={isAdding || isCompletelyOutOfStock}
+                                    className="flex h-14 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition-all hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                                >
+                                    {isAdding ? <Loader2 className="animate-spin" size={18} /> : <ShoppingCart size={18} />}
+                                </button>
+                                <button
+                                    onClick={(e) => handleAddToCart(e, true)}
+                                    disabled={isAdding || isCompletelyOutOfStock}
+                                    className="flex h-14 items-center justify-center rounded-lg bg-[#d24335] px-6 text-base font-semibold text-white transition-all hover:bg-[#b93c2f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                                >
+                                    {isAdding ? <Loader2 className="animate-spin" size={18} /> : "Mua ngay"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => window.open("tel:18001234", "_self")}
+                                    className="flex h-14 items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-base font-semibold text-white transition-all hover:bg-slate-800"
+                                >
+                                    <Phone size={18} />
+                                    Tư vấn
+                                </button>
+                            </div>
+
+                            <div className="grid gap-3 border-t border-slate-200 pt-5 text-sm text-slate-600 sm:grid-cols-2">
+                                <div className="flex items-center gap-2">
+                                    <Phone size={16} className="text-teal-600" />
+                                    <span>Hỗ trợ kỹ thuật trong giờ làm việc</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <ShoppingCart size={16} className="text-teal-600" />
+                                    <span>Đặt hàng trực tuyến nhanh gọn</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                <div className="mt-10 space-y-12">
+                    <section className="space-y-5">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-3xl font-bold text-slate-950">Mô tả sản phẩm</h2>
+                                <p className="mt-2 text-sm text-slate-500">
+                                    Thông tin chi tiết và nội dung giới thiệu cho sản phẩm hiện tại.
+                                </p>
+                            </div>
+                            {hasSpecsContent && (
+                                <button
+                                    type="button"
+                                    onClick={openSpecsSection}
+                                    className="rounded-lg border border-red-200 px-5 py-2 text-sm font-medium text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                                >
+                                    Xem tất cả thông số
+                                </button>
+                            )}
+                        </div>
+
+                        <div
+                            className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden whitespace-pre-wrap prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
+                            dangerouslySetInnerHTML={{
+                                __html:
+                                    product.description ||
+                                    "<p class='text-slate-400 italic'>Đang cập nhật mô tả...</p>",
+                            }}
+                        />
+                    </section>
+
+                    {hasSpecsContent && (
+                        <section ref={specsSectionRef} className="space-y-5 border-t border-slate-200 pt-10">
+                            <div>
+                                <h2 className="text-3xl font-bold text-slate-950">Thông số sản phẩm</h2>
+                                <p className="mt-2 text-sm text-slate-500">
+                                    Các thông tin cơ bản đang có sẵn trong hệ thống.
+                                </p>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                {product.brandName && (
+                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
+                                        <span className="flex items-center gap-2 text-slate-500">
+                                            <Tag size={16} className="text-orange-500" />
+                                            Thương hiệu
+                                        </span>
+                                        <span className="text-right font-semibold text-slate-900">{product.brandName}</span>
+                                    </div>
+                                )}
+                                {product.category?.name && (
+                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
+                                        <span className="flex items-center gap-2 text-slate-500">
+                                            <Layers size={16} className="text-orange-500" />
+                                            Danh mục
+                                        </span>
+                                        <span className="text-right font-semibold text-slate-900">{product.category.name}</span>
+                                    </div>
+                                )}
+                                {currentVariant && (
+                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
+                                        <span className="flex items-center gap-2 text-slate-500">
+                                            <ShoppingCart size={16} className="text-orange-500" />
+                                            Quy cách
+                                        </span>
+                                        <span className="text-right font-semibold text-slate-900">{getVariantLabel(currentVariant)}</span>
+                                    </div>
+                                )}
+                                {product.origin && (
+                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
+                                        <span className="flex items-center gap-2 text-slate-500">
+                                            <Globe size={16} className="text-orange-500" />
+                                            Xuất xứ
+                                        </span>
+                                        <span className="text-right font-semibold text-slate-900">{product.origin}</span>
+                                    </div>
+                                )}
+                                {currentVariant?.sku && (
+                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
+                                        <span className="text-slate-500">Mã SKU</span>
+                                        <span className="text-right font-semibold text-slate-900">{currentVariant.sku}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
+                                    <span className="text-slate-500">Tình trạng</span>
+                                    <span className={`text-right font-semibold ${isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}`}>
+                                        {isCompletelyOutOfStock ? "Hết hàng" : "Còn hàng"}
+                                    </span>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <section ref={reviewSectionRef} className="border-t border-slate-200 pt-10">
+                        <ProductReviews
+                            productId={product.id}
+                            slug={slug}
+                            activeFilter={selectedReviewFilter}
+                            onFilterChange={setSelectedReviewFilter}
+                        />
+                    </section>
+
+                    {(related.length > 0 || relatedCategories.length > 0) && (
+                        <section className="grid gap-10 border-t border-slate-200 pt-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+                            {related.length > 0 && (
+                                <div className="space-y-5">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-950">Gợi ý cho bạn</h2>
+                                        <p className="mt-2 text-sm text-slate-500">
+                                            Một số sản phẩm liên quan để bạn tham khảo thêm.
+                                        </p>
+                                    </div>
+                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        {related.map((p) => (
+                                            <RelatedProductCard key={p.id} product={p} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {visibleCategories.length > 0 && (
+                                <div className="space-y-5">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-950">Danh mục liên quan</h2>
+                                        <p className="mt-2 text-sm text-slate-500">
+                                            Chọn nhanh nhóm sản phẩm gần với nhu cầu của bạn.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2.5">
+                                        {visibleCategories.map((cat) => (
+                                            <Link
+                                                key={cat.id}
+                                                href={`/category/${cat.id}`}
+                                                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 transition-colors hover:border-teal-500 hover:text-teal-700"
+                                            >
+                                                {cat.name}
+                                            </Link>
+                                        ))}
+                                        {hasMoreCategories && (
+                                            <span
+                                                className="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500"
+                                                title="Còn thêm danh mục"
+                                            >
+                                                {"<>"}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <Link
+                                        href="/san-pham"
+                                        className="inline-flex text-sm font-semibold text-teal-700 hover:text-teal-800"
+                                    >
+                                        Xem tất cả sản phẩm
+                                    </Link>
+                                </div>
+                            )}
+                        </section>
+                    )}
                 </div>
             </div>
         </div>
