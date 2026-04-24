@@ -35,10 +35,10 @@ export default function Navbar() {
 
           <Link href="/orders/list" className={linkClass("/orders")}>
             <ShoppingCart size={15} />
-            <span>Đặt hàng</span>
+            <span>Giỏ hàng</span>
           </Link>
 
-          {/* Mega menu — sau Đặt hàng */}
+          {/* Mega menu — sau Giỏ hàng */}
           <div className="shrink-0">
             <MegaMenuDropdown />
           </div>
