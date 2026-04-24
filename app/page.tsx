@@ -7,9 +7,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import Banner from "@/components/site/SiteBanner";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
-import { HomeService } from "@/app/services/home.service";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
+import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
 
 const SAMPLE_NEWS = [
@@ -31,11 +31,12 @@ const CAT_TAGLINES = [
 ];
 
 export default function Home() {
-  const { data: bestSellers = [], isLoading: loadingBest } = useQuery({
+  const { data: bestSellersPage, isLoading: loadingBest } = useQuery({
     queryKey: ["home", "best-sellers"],
-    queryFn: () => HomeService.getBestSellers(12),
+    queryFn: () => PublicProductService.getList({ page: 0, size: 12 }),
     staleTime: 5 * 60 * 1000,
   });
+  const bestSellers = bestSellersPage?.content ?? [];
 
   const { data: allCategories = [], isLoading: loadingCats } = useQuery({
     queryKey: ["home", "categories"],
