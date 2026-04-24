@@ -46,7 +46,7 @@ export default function Home() {
   useEffect(() => {
     if (firstPage) {
       setAllProducts(firstPage.content ?? []);
-      setHasMore(!firstPage.last);
+      setHasMore((firstPage as any).last === false || (productPage + 1) < firstPage.totalPages);
     }
   }, [firstPage]);
 
@@ -56,7 +56,7 @@ export default function Home() {
       const next = productPage + 1;
       const data = await PublicProductService.getList({ page: next, size: 18 });
       setAllProducts((prev) => [...prev, ...(data.content ?? [])]);
-      setHasMore(!data.last);
+      setHasMore((next + 1) < data.totalPages);
       setProductPage(next);
     } finally {
       setLoadingMore(false);
