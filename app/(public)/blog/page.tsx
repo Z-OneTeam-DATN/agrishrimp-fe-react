@@ -115,7 +115,7 @@ function BlogContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f7f2]">
+    <div className="min-h-screen bg-[#fcfcfc]">
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-[1440px] items-center gap-1.5 px-4 py-3 text-[13px] text-slate-500 sm:px-6 lg:px-8">
           <Link href="/" className="transition-colors hover:text-emerald-700">
@@ -132,11 +132,11 @@ function BlogContent() {
             <div className="mb-8 flex items-center gap-3">
               <span className="inline-block h-8 w-2 rounded-full bg-emerald-700" />
               <div>
-                <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 md:text-3xl">
-                  Blog & Chia sẻ kinh nghiệm
+                <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
+                  Bài viết và kinh nghiệm nuôi trồng thủy sản
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  Kiến thức nuôi tôm, kỹ thuật thủy sản và các cập nhật mới từ AgriShrimp.
+                  Tổng hợp kiến thức thực tế, kỹ thuật chăm sóc và những chia sẻ mới nhất từ AgriShrimp.
                 </p>
               </div>
             </div>
@@ -172,7 +172,7 @@ function BlogContent() {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-100 bg-white md:h-52 md:flex-row"
+                    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-100 bg-white md:h-44 md:flex-row"
                   >
                     <div className="h-48 bg-slate-100 md:h-full md:w-2/5" />
                     <div className="flex flex-1 flex-col justify-between p-5 md:p-6">
@@ -193,7 +193,7 @@ function BlogContent() {
                   {posts.map((post, index) => (
                     <article
                       key={post.id}
-                      className="group flex h-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md md:h-52 md:flex-row"
+                      className="group flex h-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md md:h-44 md:flex-row"
                     >
                       <Link
                         href={`/blog/${post.slug}`}
@@ -229,7 +229,7 @@ function BlogContent() {
                           >
                             <span className="line-clamp-2">{post.title}</span>
                           </Link>
-                          <p className="line-clamp-3 text-sm leading-relaxed text-slate-500">
+                          <p className="line-clamp-2 text-sm leading-relaxed text-slate-500">
                             {post.excerpt || "Nội dung đang được cập nhật."}
                           </p>
                         </div>
