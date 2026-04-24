@@ -106,10 +106,12 @@ export default function MegaMenuDropdown() {
                   </div>
                 ) : (
                   parents.map((cat) => (
-                    <div
+                    <Link
                       key={cat.id}
+                      href={`/san-pham?categoryId=${cat.id}`}
                       onMouseEnter={() => setActiveParentId(cat.id)}
-                      className={`flex items-center gap-2.5 px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-colors ${
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 mx-2 rounded-lg transition-colors ${
                         activeParentId === cat.id
                           ? "bg-white text-primary shadow-sm"
                           : "text-gray-700 hover:bg-white hover:text-gray-900"
@@ -124,15 +126,9 @@ export default function MegaMenuDropdown() {
                       ) : (
                         <ImageIcon size={16} className="text-gray-300 shrink-0" />
                       )}
-                      <Link
-                        href={`/san-pham?categoryId=${cat.id}`}
-                        className="flex-1 text-[13px] font-semibold truncate"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        {cat.name}
-                      </Link>
+                      <span className="flex-1 text-[13px] font-semibold truncate">{cat.name}</span>
                       <ChevronRight size={12} className={activeParentId === cat.id ? "text-primary" : "text-gray-300"} />
-                    </div>
+                    </Link>
                   ))
                 )}
               </div>
