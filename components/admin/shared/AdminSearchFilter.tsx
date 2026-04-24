@@ -22,6 +22,7 @@ interface AdminSearchFilterProps {
     placeholder?: string;
     onSearch?: (val: string) => void;
     onRefresh?: () => void;
+    hideSettingsButton?: boolean;
 
     // Tùy chọn ẩn hiện bộ lọc
     hideFilter1?: boolean;
@@ -52,6 +53,7 @@ export function AdminSearchFilter({
                                       placeholder = "Tìm kiếm...",
                                       onSearch,
                                       onRefresh,
+                                      hideSettingsButton = false,
                                       hideFilter1 = false,
                                       hideFilter2 = false, // ✅ KHAI BÁO MẶC ĐỊNH
                                       hideSort = false,
@@ -155,13 +157,15 @@ export function AdminSearchFilter({
                 >
                     <RotateCw size={18} />
                 </Button>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-[38px] w-[38px] border-slate-200 bg-white rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 shadow-none transition-colors"
-                >
-                    <Settings size={18} />
-                </Button>
+                {!hideSettingsButton && (
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-[38px] w-[38px] border-slate-200 bg-white rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 shadow-none transition-colors"
+                    >
+                        <Settings size={18} />
+                    </Button>
+                )}
             </div>
         </div>
     );
