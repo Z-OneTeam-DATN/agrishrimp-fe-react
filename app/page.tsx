@@ -186,13 +186,8 @@ export default function Home() {
           ) : (
             <div className="flex items-center justify-evenly h-10 px-4">
               {parentCats.map((cat, i) => (
-                <span key={cat.id} className="flex items-center">
-                  <span className="text-[11px] font-semibold text-white/90 whitespace-nowrap uppercase tracking-wide">
-                    {CAT_TAGLINES[i] ?? cat.name}
-                  </span>
-                  {i < parentCats.length - 1 && (
-                    <span className="text-white/30 text-[10px] ml-4">|</span>
-                  )}
+                <span key={cat.id} className="text-[11px] font-semibold text-white/90 whitespace-nowrap uppercase tracking-wide">
+                  {CAT_TAGLINES[i] ?? cat.name}
                 </span>
               ))}
             </div>
