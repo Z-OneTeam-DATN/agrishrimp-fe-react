@@ -242,20 +242,19 @@ export default function Home() {
       <div className="container mx-auto px-4 mt-4">
 
         {/* Section header */}
-        <div className="bg-primary rounded-t">
-          <div className="flex items-center h-11 px-4">
-            <span className="text-[12px] font-bold uppercase tracking-widest text-white">
-              Danh sách sản phẩm
+        <div className="bg-white border border-gray-200 rounded-t flex items-center justify-between px-4 h-12">
+          <div className="flex items-center gap-3">
+            <span className="w-1 h-5 bg-primary rounded-full shrink-0" />
+            <span className="text-[15px] font-black uppercase tracking-wide text-gray-900">
+              Sản phẩm nổi bật
             </span>
-            <div className="ml-auto">
-              <Link
-                href="/san-pham"
-                className="flex items-center gap-1 text-[11px] text-white/70 hover:text-white transition-colors"
-              >
-                Xem tất cả <ChevronRight size={12} />
-              </Link>
-            </div>
           </div>
+          <Link
+            href="/san-pham"
+            className="flex items-center gap-1 text-[13px] font-semibold text-gray-600 hover:text-primary transition-colors"
+          >
+            Xem tất cả <ChevronRight size={13} />
+          </Link>
         </div>
 
         {/* Product grid */}
