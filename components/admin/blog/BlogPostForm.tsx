@@ -44,6 +44,8 @@ interface Props {
   initialData?: BlogPostDTO;
 }
 
+const EMPTY_CATEGORY_VALUE = "__none__";
+
 export default function BlogPostForm({ categories, initialData }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -234,12 +236,17 @@ export default function BlogPostForm({ categories, initialData }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-slate-700">Danh mục</Label>
-          <Select value={categoryId} onValueChange={setCategoryId}>
+          <Select
+            value={categoryId || EMPTY_CATEGORY_VALUE}
+            onValueChange={(value) =>
+              setCategoryId(value === EMPTY_CATEGORY_VALUE ? "" : value)
+            }
+          >
             <SelectTrigger className="h-10 bg-white text-sm">
               <SelectValue placeholder="Chọn danh mục..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Không có danh mục</SelectItem>
+              <SelectItem value={EMPTY_CATEGORY_VALUE}>Không có danh mục</SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
               ))}
