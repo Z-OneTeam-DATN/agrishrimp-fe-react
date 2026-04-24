@@ -107,11 +107,8 @@ export default function Home() {
 
           {/* ── News Sidebar ── */}
           <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="bg-primary px-4 py-2.5 flex items-center justify-between">
+            <div className="bg-primary px-4 py-2.5">
               <h3 className="text-[12px] font-bold text-white uppercase tracking-widest">Tin tức</h3>
-              <button type="button" className="text-[11px] text-white/70 hover:text-white transition-colors">
-                Khuyến mãi
-              </button>
             </div>
             <ul className="divide-y divide-gray-100">
               {SAMPLE_NEWS.map((news) => (
@@ -187,14 +184,14 @@ export default function Home() {
           {loadingCats ? (
             <div className="h-10 animate-pulse bg-primary/80" />
           ) : (
-            <div className="flex items-center h-10 px-4 gap-0 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center justify-evenly h-10 px-4">
               {parentCats.map((cat, i) => (
-                <span key={cat.id} className="flex items-center shrink-0">
-                  <span className="text-[11px] font-semibold text-white/90 whitespace-nowrap px-3 uppercase tracking-wide">
+                <span key={cat.id} className="flex items-center">
+                  <span className="text-[11px] font-semibold text-white/90 whitespace-nowrap uppercase tracking-wide">
                     {CAT_TAGLINES[i] ?? cat.name}
                   </span>
                   {i < parentCats.length - 1 && (
-                    <span className="text-white/30 text-[10px]">|</span>
+                    <span className="text-white/30 text-[10px] ml-4">|</span>
                   )}
                 </span>
               ))}
@@ -221,17 +218,19 @@ export default function Home() {
                   href={`/san-pham?categoryId=${cat.id}`}
                   className="flex flex-col items-center gap-2 group"
                 >
-                  <div className="w-full aspect-square bg-gray-50 border border-gray-100 rounded-xl overflow-hidden flex items-center justify-center group-hover:border-primary/40 group-hover:bg-primary/5 transition-colors">
+                  <div className="w-full aspect-[4/3] rounded-xl overflow-hidden shadow-sm border border-gray-100 group-hover:border-primary/30 transition-colors">
                     {cat.imageUrl ? (
                       <Image
                         src={cat.imageUrl}
                         alt={cat.name}
-                        width={80}
-                        height={80}
-                        className="object-contain w-3/4 h-3/4"
+                        width={160}
+                        height={120}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
-                      <Tag size={28} className="text-primary/40" />
+                      <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                        <Tag size={28} className="text-primary/40" />
+                      </div>
                     )}
                   </div>
                   <span className="text-[11px] font-semibold text-gray-700 text-center leading-snug line-clamp-2 group-hover:text-primary transition-colors">
@@ -251,7 +250,7 @@ export default function Home() {
         <div className="bg-primary rounded-t">
           <div className="flex items-center h-11 px-4">
             <span className="text-[12px] font-bold uppercase tracking-widest text-white">
-              Khuyến Mãi
+              Danh sách sản phẩm
             </span>
             <div className="ml-auto">
               <Link

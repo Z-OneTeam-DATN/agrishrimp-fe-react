@@ -19,6 +19,7 @@ export default function HeaderCategoryDropdown() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [activeParentId, setActiveParentId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActive = pathname.startsWith("/category") || pathname.startsWith("/san-pham");
 
   const fetchCategories = async () => {
@@ -40,12 +41,25 @@ export default function HeaderCategoryDropdown() {
     }
   };
 
+  const openDropdown = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    fetchCategories();
+    setIsOpen(true);
+  };
+
+  const scheduleClose = () => {
+    closeTimer.current = setTimeout(() => setIsOpen(false), 200);
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
   }, []);
 
   const getImageUrl = (imagePath?: string) => {
@@ -65,104 +79,94 @@ export default function HeaderCategoryDropdown() {
     <div
       className="static flex h-full items-center"
       ref={dropdownRef}
-      onMouseLeave={() => setIsOpen(false)}
+      onMouseLeave={scheduleClose}
     >
       <button
-        onMouseEnter={() => {
-          fetchCategories();
-          setIsOpen(true);
-        }}
-        onClick={() => {
-          fetchCategories();
-          setIsOpen(!isOpen);
-        }}
-        className={`group flex h-12 items-center gap-2 rounded-2xl px-4 text-[15px] font-semibold transition ${
+        type="button"
+        onMouseEnter={openDropdown}
+        onClick={() => { fetchCategories(); setIsOpen((v) => !v); }}
+        className={`flex items-center gap-1.5 px-3 h-8 rounded text-[13px] font-semibold whitespace-nowrap shrink-0 transition-colors ${
           isOpen || isActive
-            ? "bg-[#f3f5f7] text-slate-900 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)]"
-            : "text-slate-700 hover:bg-[#f3f5f7] hover:text-slate-900"
+            ? "bg-primary/10 text-primary"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
         }`}
       >
-        <LayoutGrid
-          size={18}
-          className={isOpen || isActive ? "text-primary" : "text-slate-400 group-hover:text-primary"}
-        />
+        <LayoutGrid size={15} />
         <span>Danh mục</span>
         <ChevronDown
-          size={16}
-          className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          size={13}
+          className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="absolute left-0 right-0 top-full z-[100] mt-3 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]"
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15 }}
+            onMouseEnter={() => { if (closeTimer.current) clearTimeout(closeTimer.current); }}
+            onMouseLeave={scheduleClose}
+            className="absolute left-0 right-0 top-full z-[100] mt-1 overflow-hidden rounded-b-2xl border border-slate-200 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.12)]"
           >
-            <div className="mx-auto flex min-h-[360px] max-w-screen-xl">
+            <div className="mx-auto flex min-h-[320px] max-w-screen-xl">
               {!loading && !error && categories.length > 0 ? (
                 <>
-                  <div className="w-[260px] shrink-0 border-r border-slate-200 bg-slate-50/90 py-3">
+                  <div className="w-[220px] shrink-0 border-r border-slate-100 bg-slate-50/80 py-2">
                     {parentCategories.map((parent) => (
                       <div
                         key={parent.id}
                         onMouseEnter={() => setActiveParentId(parent.id)}
-                        className={`mx-3 flex items-center justify-between rounded-2xl px-4 py-3 transition ${
+                        className={`mx-2 flex items-center justify-between rounded-lg px-3 py-2.5 cursor-pointer transition-colors ${
                           activeParentId === parent.id
                             ? "bg-white text-primary shadow-sm"
-                            : "text-slate-600 hover:bg-white hover:text-slate-900"
+                            : "text-gray-600 hover:bg-white hover:text-gray-900"
                         }`}
                       >
                         <Link
-                          href={`/category/${parent.id}`}
-                          className="truncate text-sm font-medium"
+                          href={`/san-pham?categoryId=${parent.id}`}
+                          className="truncate text-[13px] font-medium flex-1"
                           onClick={() => setIsOpen(false)}
                         >
                           {parent.name}
                         </Link>
                         <ChevronRight
-                          size={14}
-                          className={activeParentId === parent.id ? "opacity-100" : "opacity-40"}
+                          size={13}
+                          className={activeParentId === parent.id ? "text-primary" : "text-gray-300"}
                         />
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex-1 bg-white p-6">
+                  <div className="flex-1 bg-white p-5">
                     {activeParent && (
                       <motion.div
                         key={activeParentId}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="h-full"
+                        transition={{ duration: 0.1 }}
                       >
-                        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-3">
-                          <div>
-                            <h3 className="text-xl font-semibold text-slate-900">{activeParent.name}</h3>
-                            <p className="mt-1 text-sm text-slate-500">
-                              Chọn nhanh nhóm sản phẩm phù hợp cho trang này.
-                            </p>
-                          </div>
+                        <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
+                          <h3 className="text-[14px] font-bold text-gray-900">{activeParent.name}</h3>
                           <Link
-                            href={`/category/${activeParent.id}`}
-                            className="text-sm font-semibold text-primary hover:underline"
+                            href={`/san-pham?categoryId=${activeParent.id}`}
+                            className="text-[12px] font-semibold text-primary hover:underline"
                             onClick={() => setIsOpen(false)}
                           >
                             Xem tất cả
                           </Link>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5">
                           {activeChildren.map((child) => (
                             <Link
                               key={child.id}
-                              href={`/category/${child.id}`}
-                              className="group rounded-3xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-primary/20 hover:bg-primary/5"
+                              href={`/san-pham?categoryId=${child.id}`}
+                              className="group rounded-xl border border-gray-100 bg-gray-50/60 p-3 transition-colors hover:border-primary/20 hover:bg-primary/5"
                               onClick={() => setIsOpen(false)}
                             >
-                              <div className="mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                              <div className="mb-2 flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white">
                                 {child.imageUrl ? (
                                   <img
                                     src={getImageUrl(child.imageUrl) ?? ""}
@@ -170,10 +174,10 @@ export default function HeaderCategoryDropdown() {
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (
-                                  <ImageIcon size={22} className="text-slate-300" />
+                                  <ImageIcon size={18} className="text-gray-300" />
                                 )}
                               </div>
-                              <span className="line-clamp-2 text-sm font-semibold text-slate-700 transition group-hover:text-slate-900">
+                              <span className="line-clamp-2 text-[12px] font-semibold text-gray-700 group-hover:text-primary transition-colors">
                                 {child.name}
                               </span>
                             </Link>
@@ -184,14 +188,14 @@ export default function HeaderCategoryDropdown() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-1 items-center justify-center py-20 text-slate-400">
+                <div className="flex flex-1 items-center justify-center py-16 text-gray-400">
                   {loading ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="animate-spin text-primary" size={24} />
-                      <span className="text-sm font-medium">Đang tải danh mục...</span>
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="animate-spin text-primary" size={20} />
+                      <span className="text-[13px]">Đang tải danh mục...</span>
                     </div>
                   ) : (
-                    <span>{error || "Không có dữ liệu"}</span>
+                    <span className="text-[13px]">{error || "Không có dữ liệu"}</span>
                   )}
                 </div>
               )}
