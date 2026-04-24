@@ -51,6 +51,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/inventory-checks", permission: P.CHECK_VIEW },
   { path: "/admin/settings", permission: P.SETTING_VIEW },
   { path: "/admin/banners" },
+  { path: "/admin/blog" },
 ];
 
 export default function AdminLayout({

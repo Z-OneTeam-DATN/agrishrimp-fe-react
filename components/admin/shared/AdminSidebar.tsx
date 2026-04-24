@@ -28,6 +28,7 @@ import {
   RotateCcw,
   Ticket,
   Image as ImageIcon,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -524,6 +525,31 @@ export default function AdminSidebar() {
                   active={isActive("/admin/banners")}
                 />
               )}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: BLOG */}
+        {isAdmin && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              Blog
+            </p>
+            <div className="space-y-0.5">
+              <SidebarLink
+                href="/admin/blog/posts"
+                icon={BookOpen}
+                label="Bài viết"
+                active={isActive("/admin/blog/posts")}
+                color="text-violet-400"
+              />
+              <SidebarLink
+                href="/admin/blog/categories"
+                icon={Tags}
+                label="Danh mục blog"
+                active={isActive("/admin/blog/categories")}
+                color="text-violet-400"
+              />
             </div>
           </section>
         )}
