@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, User, ShoppingCart, MapPin, BookOpen } from "lucide-react";
-import HeaderCategoryDropdown from "./HeaderCategoryDropdown";
-import HeaderBrandDropdown from "./HeaderBrandDropdown";
+import MegaMenuDropdown from "./MegaMenuDropdown";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -22,7 +21,12 @@ export default function Navbar() {
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-[68px] z-40">
       <div className="container mx-auto px-4">
-        <div className="flex items-center h-11 gap-0.5 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center h-11 gap-1 overflow-x-auto scrollbar-hide">
+
+          {/* Mega menu — danh mục + thương hiệu gộp */}
+          <div className="shrink-0">
+            <MegaMenuDropdown />
+          </div>
 
           <Link href="/" className={linkClass("/")}>
             <Home size={15} />
@@ -38,16 +42,6 @@ export default function Navbar() {
             <ShoppingCart size={15} />
             <span>Đặt hàng</span>
           </Link>
-
-          {/* Mua sắm — Category dropdown */}
-          <div className="shrink-0">
-            <HeaderCategoryDropdown />
-          </div>
-
-          {/* Thương hiệu — Brand dropdown */}
-          <div className="shrink-0">
-            <HeaderBrandDropdown />
-          </div>
 
           <Link href="/store-locator" className={linkClass("/store-locator")}>
             <MapPin size={15} />
