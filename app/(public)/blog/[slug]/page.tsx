@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowUpRight,
   CalendarDays,
   Check,
   ChevronRight,
@@ -31,7 +30,7 @@ import {
 } from "@/app/services/blog.service";
 import { PublicProductDetail, PublicProductVariant } from "@/app/types/product.schema";
 import { useCartStore } from "@/stores/useCartStore";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const RELATED_POST_LIMIT = 2;
 const SIDEBAR_POST_LIMIT = 8;
@@ -52,6 +51,37 @@ const getInitials = (name?: string | null) =>
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join("") || "AG";
+
+const normalizeDisplayTitle = (title: string) => {
+  const trimmed = title.trim();
+  if (!trimmed) return title;
+
+  const letters = Array.from(trimmed).filter((char) => /\p{L}/u.test(char));
+  const uppercaseLetters = letters.filter((char) => char === char.toLocaleUpperCase("vi-VN"));
+  const lowercaseLetters = letters.filter((char) => char === char.toLocaleLowerCase("vi-VN"));
+  const mostlyUppercase =
+    letters.length > 0 &&
+    uppercaseLetters.length / letters.length > 0.7 &&
+    lowercaseLetters.length / letters.length < 0.15;
+
+  if (!mostlyUppercase) return title;
+
+  const normalized = trimmed
+    .split(/\s+/)
+    .map((word) => {
+      const match = word.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}]+)([^\p{L}\p{N}]*)$/u);
+      if (!match) return word;
+
+      const [, prefix, core, suffix] = match;
+      const shouldPreserveUppercase =
+        /\d/.test(core) || (core.length <= 3 && core === core.toLocaleUpperCase("vi-VN"));
+
+      return `${prefix}${shouldPreserveUppercase ? core : core.toLocaleLowerCase("vi-VN")}${suffix}`;
+    })
+    .join(" ");
+
+  return normalized.charAt(0).toLocaleUpperCase("vi-VN") + normalized.slice(1);
+};
 
 const stripHtml = (html?: string | null) =>
   (html ?? "").replace(/<[^>]*>?/gm, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
@@ -179,6 +209,9 @@ const normalizeBlogContentHtml = (content?: string | null) => {
       element.setAttribute("target", "_blank");
       element.setAttribute("rel", "noreferrer noopener");
     }
+
+    // Reset text-transform from CMS content so text doesn't render as all-caps.
+    element.style.textTransform = "none";
 
     if (tag === "IFRAME") {
       element.removeAttribute("width");
@@ -578,7 +611,7 @@ export default function BlogDetailPage() {
             Tin tức & Blog
           </Link>
           <ChevronRight size={12} className="text-slate-300" />
-          <span className="max-w-[220px] truncate font-medium text-emerald-700 md:max-w-none">{post.title}</span>
+          <span className="max-w-[220px] truncate font-medium text-emerald-700 md:max-w-none">{normalizeDisplayTitle(post.title)}</span>
         </div>
       </div>
 
@@ -590,14 +623,14 @@ export default function BlogDetailPage() {
                 {post.category && (
                   <Link
                     href={`/blog?categoryId=${post.category.id}`}
-                    className="mb-4 inline-block rounded bg-emerald-700 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white transition-colors hover:bg-emerald-800"
+                    className="mb-4 inline-block rounded bg-emerald-700 px-3 py-1 text-[11px] font-bold tracking-[0.02em] text-white transition-colors hover:bg-emerald-800"
                   >
-                    {post.category.name}
+                    {normalizeDisplayTitle(post.category.name)}
                   </Link>
                 )}
 
-                <h1 className="max-w-[980px] break-words text-[28px] font-black leading-[1.06] tracking-[-0.03em] text-slate-900 [text-wrap:balance] md:text-[34px] lg:text-[38px]">
-                  {post.title}
+                <h1 className="max-w-[980px] break-words text-[22px] font-bold leading-[1.22] tracking-[-0.015em] text-slate-900 [text-wrap:balance] md:text-[28px] lg:text-[32px]">
+                  {normalizeDisplayTitle(post.title)}
                 </h1>
 
                 <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 pb-4 text-[13px] text-slate-500">
@@ -625,7 +658,7 @@ export default function BlogDetailPage() {
               )}
 
               {post.excerpt && (
-                <p className="mb-8 rounded-xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-[15px] font-medium leading-7 text-slate-700 md:text-base">
+                <p className="mb-8 rounded-xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-[14px] font-medium leading-7 text-slate-700 md:text-[15px]">
                   {post.excerpt}
                 </p>
               )}
@@ -633,15 +666,17 @@ export default function BlogDetailPage() {
               <div
                 className={cn(
                   "prose prose-sm prose-slate max-w-none break-words text-slate-700 sm:prose-base",
-                  "prose-headings:mt-8 prose-headings:mb-4 prose-headings:font-bold prose-headings:leading-tight prose-headings:text-slate-900",
-                  "prose-p:my-4 prose-p:text-[15px] prose-p:leading-7 prose-p:text-slate-700",
-                  "prose-h1:text-[1.85rem] prose-h2:text-[1.55rem] prose-h3:text-[1.25rem]",
+                  "prose-headings:mt-6 prose-headings:mb-3 prose-headings:font-bold prose-headings:leading-[1.3] prose-headings:text-slate-900",
+                  "prose-p:my-3 prose-p:text-[13.5px] prose-p:leading-[1.85] prose-p:text-slate-700 md:prose-p:text-[14.5px]",
+                  "prose-h1:text-[1.32rem] md:prose-h1:text-[1.55rem] prose-h2:text-[1.18rem] md:prose-h2:text-[1.32rem] prose-h3:text-[1.02rem] md:prose-h3:text-[1.12rem]",
                   "prose-a:font-semibold prose-a:text-emerald-700 prose-a:break-all",
-                  "prose-strong:text-slate-900",
+                  "prose-strong:font-semibold prose-strong:text-slate-900",
                   "prose-img:mx-auto prose-img:h-auto prose-img:w-full prose-img:rounded-xl prose-img:object-contain prose-img:shadow-sm",
-                  "prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1 prose-li:leading-7 prose-li:text-slate-700",
+                  "prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1 prose-li:text-[13.5px] prose-li:leading-[1.85] prose-li:text-slate-700 md:prose-li:text-[14.5px]",
                   "prose-blockquote:rounded-r-xl prose-blockquote:border-l-4 prose-blockquote:border-emerald-700 prose-blockquote:bg-emerald-50 prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:text-slate-700 prose-blockquote:not-italic",
-                  "[overflow-wrap:anywhere] [&_*]:max-w-full [&_h1]:[text-wrap:balance] [&_h2]:[text-wrap:balance] [&_h3]:[text-wrap:balance]",
+                  "[overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:normal-case [&_h1]:[text-wrap:balance] [&_h2]:[text-wrap:balance] [&_h3]:[text-wrap:balance]",
+                  "[&_b]:font-semibold [&_strong]:font-semibold [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold",
+                  "[&_span]:text-inherit [&_p]:normal-case [&_h1]:normal-case [&_h2]:normal-case [&_h3]:normal-case",
                   "[&_figure]:mx-0 [&_figcaption]:text-center [&_figcaption]:text-xs [&_figcaption]:text-slate-500",
                   "[&_iframe]:w-full [&_.blog-video-embed]:my-6 [&_.blog-video-embed]:overflow-hidden [&_.blog-video-embed]:rounded-xl [&_.blog-video-embed]:bg-slate-950 [&_.blog-video-embed_iframe]:aspect-video [&_.blog-video-embed_iframe]:border-0",
                   "[&_.blog-table-wrap]:my-6 [&_.blog-table-wrap]:overflow-x-auto [&_table]:min-w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3",
@@ -667,12 +702,6 @@ export default function BlogDetailPage() {
                         detail?.variants?.[0]?.imageUrl ??
                         product.imageUrl ??
                         "/placeholder.svg";
-                      const displayPrice = variant?.price ?? product.basePrice ?? null;
-                      const displayUnit = variant?.unit;
-                      const shortDescription =
-                        stripHtml(detail?.shortDesc) ||
-                        "Thêm nhanh sản phẩm này vào giỏ hàng ngay trong lúc đọc bài viết.";
-
                       return (
                         <article
                           key={product.id}
@@ -698,32 +727,9 @@ export default function BlogDetailPage() {
                           <div className="flex flex-1 flex-col p-4">
                             <Link href={`/san-pham/${product.slug}`} className="group">
                               <h3 className="line-clamp-2 min-h-[44px] text-[15px] font-bold leading-[1.45] text-slate-800 transition-colors group-hover:text-emerald-700">
-                                {product.name}
+                                {detail?.name ?? product.name}
                               </h3>
                             </Link>
-
-                            <p className="mt-2 line-clamp-2 min-h-[40px] text-[13px] leading-5 text-slate-500">
-                              {shortDescription}
-                            </p>
-
-                            <div className="mt-4 flex items-end justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-lg font-black text-emerald-700">
-                                  {displayPrice != null ? `${formatNumber(displayPrice)}₫` : "Liên hệ"}
-                                </p>
-                                <p className="mt-1 text-[11px] text-slate-400">
-                                  {displayUnit ? `Đơn vị: ${displayUnit}` : "Xem chi tiết sản phẩm"}
-                                </p>
-                              </div>
-
-                              <Link
-                                href={`/san-pham/${product.slug}`}
-                                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 transition-colors hover:text-emerald-800"
-                              >
-                                Xem
-                                <ArrowUpRight size={13} />
-                              </Link>
-                            </div>
 
                             <button
                               type="button"

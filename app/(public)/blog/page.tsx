@@ -22,6 +22,37 @@ import {
   getPublicBlogPosts, getPublicBlogCategories,
 } from "@/app/services/blog.service";
 
+function normalizeDisplayTitle(title: string) {
+  const trimmed = title.trim();
+  if (!trimmed) return title;
+
+  const letters = Array.from(trimmed).filter((char) => /\p{L}/u.test(char));
+  const uppercaseLetters = letters.filter((char) => char === char.toLocaleUpperCase("vi-VN"));
+  const lowercaseLetters = letters.filter((char) => char === char.toLocaleLowerCase("vi-VN"));
+  const mostlyUppercase =
+    letters.length > 0 &&
+    uppercaseLetters.length / letters.length > 0.7 &&
+    lowercaseLetters.length / letters.length < 0.15;
+
+  if (!mostlyUppercase) return title;
+
+  const normalized = trimmed
+    .split(/\s+/)
+    .map((word) => {
+      const match = word.match(/^([^\\p{L}\\p{N}]*)([\\p{L}\\p{N}]+)([^\\p{L}\\p{N}]*)$/u);
+      if (!match) return word;
+
+      const [, prefix, core, suffix] = match;
+      const shouldPreserveUppercase =
+        /\d/.test(core) || (core.length <= 3 && core === core.toLocaleUpperCase("vi-VN"));
+
+      return `${prefix}${shouldPreserveUppercase ? core : core.toLocaleLowerCase("vi-VN")}${suffix}`;
+    })
+    .join(" ");
+
+  return normalized.charAt(0).toLocaleUpperCase("vi-VN") + normalized.slice(1);
+}
+
 function BlogContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -132,7 +163,7 @@ function BlogContent() {
             <div className="mb-8 flex items-center gap-3">
               <span className="inline-block h-8 w-2 rounded-full bg-emerald-700" />
               <div>
-                <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
+                <h1 className="text-[21px] font-bold tracking-tight text-slate-900 md:text-[26px]">
                   Bài viết và kinh nghiệm nuôi trồng thủy sản
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
@@ -172,7 +203,7 @@ function BlogContent() {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-100 bg-white md:h-44 md:flex-row"
+                    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-100 bg-white md:min-h-[176px] md:flex-row"
                   >
                     <div className="h-48 bg-slate-100 md:h-full md:w-2/5" />
                     <div className="flex flex-1 flex-col justify-between p-5 md:p-6">
@@ -193,7 +224,7 @@ function BlogContent() {
                   {posts.map((post, index) => (
                     <article
                       key={post.id}
-                      className="group flex h-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md md:h-44 md:flex-row"
+                      className="group flex h-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md md:min-h-[176px] md:flex-row"
                     >
                       <Link
                         href={`/blog/${post.slug}`}
@@ -225,16 +256,16 @@ function BlogContent() {
                         <div>
                           <Link
                             href={`/blog/${post.slug}`}
-                            className="mb-2 block text-lg font-bold leading-snug text-slate-800 transition-colors group-hover:text-emerald-700 md:text-xl"
+                            className="mb-2 block text-[16px] font-bold leading-[1.38] text-slate-800 transition-colors group-hover:text-emerald-700 md:text-[18px]"
                           >
-                            <span className="line-clamp-2">{post.title}</span>
+                            <span className="line-clamp-2">{normalizeDisplayTitle(post.title)}</span>
                           </Link>
-                          <p className="line-clamp-2 text-sm leading-relaxed text-slate-500">
+                          <p className="line-clamp-2 text-[13px] leading-6 text-slate-500 md:text-sm">
                             {post.excerpt || "Nội dung đang được cập nhật."}
                           </p>
                         </div>
 
-                        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-slate-400">
                             <span className="flex items-center gap-1.5">
                               <CalendarDays size={12} />
