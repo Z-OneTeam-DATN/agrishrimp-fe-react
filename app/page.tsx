@@ -51,33 +51,33 @@ export default function Home() {
 
   const parentCats: CategoryDTO[] = allCategories
     .filter((c: CategoryDTO) => !c.parentId || c.parentId === 0)
-    .slice(0, 7);
+    .slice(0, 5);
 
   return (
     <div className="bg-[#f5f5f5] pb-10">
 
       {/* ══ SECTION 1: Hero ══ */}
       <div className="container mx-auto px-4 pt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_240px] gap-3 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_240px] gap-3">
 
           {/* ── Category Sidebar ── */}
-          <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="bg-white px-4 py-2.5 border-b border-gray-200">
+          <aside className="hidden lg:flex flex-col bg-white border border-gray-200 rounded overflow-hidden">
+            <div className="bg-white px-4 py-2.5 border-b border-gray-200 shrink-0">
               <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Danh Mục</h3>
             </div>
-            <ul>
+            <ul className="flex flex-col flex-1">
               {loadingCats
-                ? Array.from({ length: 7 }).map((_, i) => (
-                    <li key={i} className="flex items-center gap-2.5 px-4 py-2.5 animate-pulse border-b border-gray-100">
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <li key={i} className="flex items-center gap-2.5 px-4 animate-pulse border-b border-gray-100 flex-1">
                       <div className="w-4 h-4 bg-gray-100 rounded shrink-0" />
                       <div className="h-3 bg-gray-100 rounded flex-1" />
                     </li>
                   ))
-                : parentCats.map((cat) => (
-                    <li key={cat.id} className="border-b border-gray-100 last:border-0">
+                : parentCats.slice(0, 5).map((cat) => (
+                    <li key={cat.id} className="border-b border-gray-100 flex-1 flex items-center">
                       <Link
                         href={`/san-pham?categoryId=${cat.id}`}
-                        className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 hover:text-primary transition-colors group text-[13px] text-gray-700"
+                        className="flex items-center gap-2.5 px-4 py-3 w-full hover:bg-gray-50 hover:text-primary transition-colors group text-[13px] text-gray-700"
                       >
                         {cat.imageUrl ? (
                           <Image src={cat.imageUrl} alt={cat.name} width={18} height={18} className="object-contain shrink-0" />
@@ -89,10 +89,10 @@ export default function Home() {
                       </Link>
                     </li>
                   ))}
-              <li>
+              <li className="mt-auto border-t border-gray-100">
                 <Link
                   href="/san-pham"
-                  className="flex items-center justify-center gap-1 px-4 py-2.5 text-[12px] text-primary font-semibold hover:bg-primary/5 transition-colors"
+                  className="flex items-center justify-center gap-1 px-4 py-3 text-[12px] text-primary font-semibold hover:bg-primary/5 transition-colors"
                 >
                   Xem thêm <ChevronRight size={12} />
                 </Link>
@@ -106,15 +106,15 @@ export default function Home() {
           </div>
 
           {/* ── News Sidebar ── */}
-          <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="bg-white px-4 py-2.5 border-b border-gray-200">
+          <aside className="hidden lg:flex flex-col bg-white border border-gray-200 rounded overflow-hidden">
+            <div className="bg-white px-4 py-2.5 border-b border-gray-200 shrink-0">
               <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Tin tức</h3>
             </div>
-            <ul className="divide-y divide-gray-100">
+            <ul className="flex flex-col flex-1 divide-y divide-gray-100">
               {SAMPLE_NEWS.map((news) => (
-                <li key={news.id} className="p-3 hover:bg-gray-50 transition-colors cursor-pointer">
-                  <div className="flex gap-2.5">
-                    <div className="w-[60px] h-[50px] bg-gray-100 rounded flex items-center justify-center shrink-0 text-[9px] text-gray-400 font-medium">
+                <li key={news.id} className="flex-1 flex items-center hover:bg-gray-50 transition-colors cursor-pointer">
+                  <div className="flex gap-2.5 px-3 py-2 w-full">
+                    <div className="w-[60px] h-[52px] bg-gray-100 rounded flex items-center justify-center shrink-0 text-[9px] text-gray-400 font-medium">
                       [Tin]
                     </div>
                     <div className="flex-1 min-w-0">
