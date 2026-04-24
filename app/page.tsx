@@ -10,15 +10,9 @@ import Banner from "@/components/site/SiteBanner";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
+import { getPublicBlogPosts } from "@/app/services/blog.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
-
-const SAMPLE_NEWS = [
-  { id: 1, title: "Kỹ thuật nuôi tôm thẻ chân trắng đạt năng suất cao", date: "17/04/2026" },
-  { id: 2, title: "Phòng bệnh đốm trắng trên tôm vào mùa mưa", date: "15/04/2026" },
-  { id: 3, title: "Cách xử lý ao nuôi sau mỗi vụ thu hoạch", date: "14/04/2026" },
-  { id: 4, title: "Tìm hiểu về chế phẩm vi sinh trong nuôi tôm", date: "08/04/2026" },
-];
 
 /* Short taglines for category bar — indexed by position */
 const CAT_TAGLINES = [
@@ -75,9 +69,26 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: newsPage, isLoading: loadingNews } = useQuery({
+    queryKey: ["home", "blog-news"],
+    queryFn: () => getPublicBlogPosts({ page: 0, size: 4 }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const newsPosts = newsPage?.content ?? [];
+
   const parentCats: CategoryDTO[] = allCategories
     .filter((c: CategoryDTO) => !c.parentId || c.parentId === 0)
     .slice(0, 5);
+
+  const formatNewsDate = (value?: string | null) =>
+    value
+      ? new Intl.DateTimeFormat("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(new Date(value))
+      : "";
 
   return (
     <div className="bg-[#f5f5f5] pb-10">
@@ -137,22 +148,57 @@ export default function Home() {
               <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Tin tức</h3>
             </div>
             <ul className="flex flex-col flex-1 divide-y divide-gray-100">
-              {SAMPLE_NEWS.map((news) => (
-                <li key={news.id} className="flex-1 flex items-center hover:bg-gray-50 transition-colors cursor-pointer">
-                  <div className="flex gap-2.5 px-3 py-2 w-full">
-                    <div className="w-[60px] h-[52px] bg-gray-100 rounded flex items-center justify-center shrink-0 text-[9px] text-gray-400 font-medium">
-                      [Tin]
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug">{news.title}</p>
-                      <div className="flex items-center gap-1 mt-1.5">
-                        <Clock size={10} className="text-gray-400 shrink-0" />
-                        <span className="text-[10px] text-gray-400">{news.date}</span>
+              {loadingNews ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <li key={i} className="flex-1">
+                    <div className="flex gap-2.5 px-3 py-3 animate-pulse">
+                      <div className="w-[60px] h-[52px] rounded bg-gray-100 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 rounded bg-gray-100 w-full" />
+                        <div className="h-3 rounded bg-gray-100 w-4/5" />
+                        <div className="h-2.5 rounded bg-gray-100 w-1/3" />
                       </div>
                     </div>
-                  </div>
+                  </li>
+                ))
+              ) : newsPosts.length > 0 ? (
+                newsPosts.map((news) => (
+                  <li key={news.id} className="flex-1">
+                    <Link
+                      href={`/blog/${news.slug}`}
+                      className="flex gap-2.5 px-3 py-3 w-full hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="w-[60px] h-[52px] bg-gray-100 rounded overflow-hidden flex items-center justify-center shrink-0 text-[9px] text-gray-400 font-medium">
+                        {news.thumbnailUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={news.thumbnailUrl}
+                            alt={news.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          "[Tin]"
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug">
+                          {news.title}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <Clock size={10} className="text-gray-400 shrink-0" />
+                          <span className="text-[10px] text-gray-400">
+                            {formatNewsDate(news.publishedAt ?? news.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-6 text-center text-[12px] text-gray-400">
+                  Chưa có bài viết mới.
                 </li>
-              ))}
+              )}
             </ul>
           </aside>
         </div>
