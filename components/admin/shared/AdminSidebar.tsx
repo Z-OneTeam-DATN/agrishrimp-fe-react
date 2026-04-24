@@ -26,7 +26,8 @@ import {
   List,
   Archive,
   RotateCcw,
-  Ticket, // Đã bổ sung icon Ticket ở đây
+  Ticket,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -513,6 +514,14 @@ export default function AdminSidebar() {
                   label="Thuộc tính"
                   active={isActive("/admin/variants")}
                   badge={attributeCount}
+                />
+              )}
+              {!isBranchAccount && (
+                <SidebarLink
+                  href="/admin/banners"
+                  icon={ImageIcon}
+                  label="Banner"
+                  active={isActive("/admin/banners")}
                 />
               )}
             </div>
