@@ -29,7 +29,7 @@ export default function SiteFooter() {
           {/* Col 1 — Brand + contact */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="relative w-8 h-8 rounded-lg overflow-hidden shrink-0">
+              <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0">
                 <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
               </div>
               <div className="leading-[1.1]">

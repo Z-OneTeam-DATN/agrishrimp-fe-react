@@ -184,7 +184,7 @@ export default function Header() {
 
             {/* 1. Logo — to, nổi bật */}
             <Link href="/" className="flex items-center gap-3 shrink-0">
-              <div className="relative w-12 h-12 overflow-hidden rounded-xl shrink-0 shadow-sm ring-2 ring-primary/20">
+              <div className="relative w-12 h-12 overflow-hidden rounded-full shrink-0 shadow-sm ring-2 ring-primary/20">
                 <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
               </div>
               <div className="hidden sm:block leading-[1.15]">
