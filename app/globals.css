@@ -22,8 +22,8 @@ input[type="number"] {
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 171 56% 40%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 142 65% 27%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 36 100% 50%;
     --secondary-foreground: 210 40% 98%;
@@ -116,5 +116,19 @@ input[type="number"] {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Brand marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 28s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 

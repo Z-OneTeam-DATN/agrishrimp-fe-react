@@ -180,27 +180,27 @@ export default function Header() {
         <div className="container mx-auto px-4">
 
           {/* ── Main row: [Logo] [Search flex-1] [Right section] ── */}
-          <div className="flex items-center h-[60px] gap-3">
+          <div className="flex items-center h-[68px] gap-4">
 
-            {/* 1. Logo — cố định bên trái */}
-            <Link href="/" className="flex items-center gap-2.5 shrink-0">
-              <div className="relative w-9 h-9 overflow-hidden rounded-lg shrink-0">
+            {/* 1. Logo — to, nổi bật */}
+            <Link href="/" className="flex items-center gap-3 shrink-0">
+              <div className="relative w-12 h-12 overflow-hidden rounded-xl shrink-0 shadow-sm ring-2 ring-primary/20">
                 <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
               </div>
-              <div className="hidden sm:block leading-[1.1]">
-                <p className="text-[15px] font-extrabold tracking-tight text-gray-900">
+              <div className="hidden sm:block leading-[1.15]">
+                <p className="text-[20px] font-black tracking-tight text-gray-900">
                   AGRI<span className="text-primary">SHRIMP</span>
                 </p>
-                <p className="text-[9px] tracking-[0.2em] text-gray-400 font-medium">& STORE</p>
+                <p className="text-[10px] tracking-[0.22em] text-primary/60 font-semibold">& STORE</p>
               </div>
             </Link>
 
-            {/* 2. Search — mở rộng hết không gian còn lại */}
-            <div className="hidden md:flex flex-1">
-              <div className="w-full flex items-center h-9 border border-gray-300 rounded-full bg-white focus-within:border-primary/60 transition-colors overflow-hidden">
+            {/* 2. Search — tiếng Việt, nút xanh lá */}
+            <div className="hidden md:flex flex-1 max-w-sm">
+              <div className="w-full flex items-center h-10 border-2 border-gray-200 rounded-full bg-white focus-within:border-primary transition-colors overflow-hidden">
                 <input
                   type="text"
-                  placeholder={listening ? "Đang nghe..." : "What are you looking for...?"}
+                  placeholder={listening ? "Đang nghe..." : "Bạn cần tìm gì?"}
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -217,8 +217,8 @@ export default function Header() {
                   <Camera size={14} />
                 </button>
                 <button type="button" aria-label="Tìm kiếm" onClick={() => handleSearch(searchKeyword)}
-                  className="h-full px-4 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white rounded-r-full transition-colors shrink-0">
-                  <Search size={14} />
+                  className="h-full px-5 flex items-center justify-center bg-primary hover:bg-primary/90 text-white rounded-r-full transition-colors shrink-0">
+                  <Search size={15} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
@@ -304,7 +304,7 @@ export default function Header() {
                   type="button"
                   aria-label="Tìm kiếm"
                   onClick={() => { handleSearch(searchKeyword); setShowMobileSearch(false); }}
-                  className="h-full w-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors"
+                  className="h-full px-4 flex items-center justify-center bg-primary hover:bg-primary/90 text-white rounded-r-full transition-colors"
                 >
                   <Search size={15} />
                 </button>

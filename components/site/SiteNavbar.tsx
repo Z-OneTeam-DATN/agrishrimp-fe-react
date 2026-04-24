@@ -20,7 +20,7 @@ export default function Navbar() {
     }`;
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-[60px] z-40">
+    <nav className="bg-white border-b border-gray-200 sticky top-[68px] z-40">
       <div className="container mx-auto px-4">
         <div className="flex items-center h-11 gap-0.5 overflow-x-auto scrollbar-hide">
 

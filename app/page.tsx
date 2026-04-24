@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Clock, Tag } from "lucide-react";
@@ -11,10 +10,8 @@ import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import { HomeService } from "@/app/services/home.service";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
-import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
 
-/* ── Sample news (chức năng blog làm sau) ── */
 const SAMPLE_NEWS = [
   { id: 1, title: "Kỹ thuật nuôi tôm thẻ chân trắng đạt năng suất cao", date: "17/04/2026" },
   { id: 2, title: "Phòng bệnh đốm trắng trên tôm vào mùa mưa", date: "15/04/2026" },
@@ -22,9 +19,18 @@ const SAMPLE_NEWS = [
   { id: 4, title: "Tìm hiểu về chế phẩm vi sinh trong nuôi tôm", date: "08/04/2026" },
 ];
 
-export default function Home() {
-  const [activeCatId, setActiveCatId] = useState<number | null>(null);
+/* Short taglines for category bar — indexed by position */
+const CAT_TAGLINES = [
+  "Dinh dưỡng tối ưu",
+  "Phòng bệnh hiệu quả",
+  "Môi trường sạch",
+  "Thiết bị hiện đại",
+  "Giống chất lượng cao",
+  "Phụ kiện đầy đủ",
+  "Giải pháp toàn diện",
+];
 
+export default function Home() {
   const { data: bestSellers = [], isLoading: loadingBest } = useQuery({
     queryKey: ["home", "best-sellers"],
     queryFn: () => HomeService.getBestSellers(12),
@@ -43,29 +49,20 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: catPage, isLoading: loadingCatProds } = useQuery({
-    queryKey: ["home", "cat-products", activeCatId],
-    queryFn: () => PublicProductService.getList({ categoryId: activeCatId!, page: 0, size: 12 }),
-    enabled: activeCatId !== null,
-    staleTime: 5 * 60 * 1000,
-  });
-
   const parentCats: CategoryDTO[] = allCategories
     .filter((c: CategoryDTO) => !c.parentId || c.parentId === 0)
     .slice(0, 7);
-
-  const tabProducts = catPage?.content ?? [];
 
   return (
     <div className="bg-[#f5f5f5] pb-10">
 
       {/* ══ SECTION 1: Hero ══ */}
       <div className="container mx-auto px-4 pt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[210px_1fr_260px] gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_240px] gap-3 items-start">
 
           {/* ── Category Sidebar ── */}
           <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="bg-gray-800 px-4 py-2.5">
+            <div className="bg-primary px-4 py-2.5">
               <h3 className="text-[12px] font-bold text-white uppercase tracking-widest">Danh Mục</h3>
             </div>
             <ul>
@@ -110,11 +107,9 @@ export default function Home() {
 
           {/* ── News Sidebar ── */}
           <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="flex border-b border-gray-200">
-              <button type="button" className="flex-1 py-2.5 text-[13px] font-bold text-primary border-b-2 border-primary bg-primary/5">
-                Tin tức
-              </button>
-              <button type="button" className="flex-1 py-2.5 text-[13px] text-gray-500 hover:bg-gray-50 transition-colors">
+            <div className="bg-primary px-4 py-2.5 flex items-center justify-between">
+              <h3 className="text-[12px] font-bold text-white uppercase tracking-widest">Tin tức</h3>
+              <button type="button" className="text-[11px] text-white/70 hover:text-white transition-colors">
                 Khuyến mãi
               </button>
             </div>
@@ -140,23 +135,27 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ══ SECTION 2: Brand Partners ══ */}
+      {/* ══ SECTION 2: Brand Partners — 1-row marquee ══ */}
       {(loadingBrands || brands.length > 0) && (
         <div className="container mx-auto px-4 mt-4">
-          <div className="bg-white border border-gray-200 rounded px-6 py-4">
+          <div className="bg-white border border-gray-200 rounded px-6 py-4 overflow-hidden">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 text-center mb-4">
               Đơn vị đồng hành cùng chúng tôi
             </p>
-            <div className="flex items-center justify-center gap-8 flex-wrap overflow-x-auto scrollbar-hide">
-              {loadingBrands
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="w-20 h-7 bg-gray-100 rounded animate-pulse" />
-                  ))
-                : brands.map((brand) => (
+            {loadingBrands ? (
+              <div className="flex items-center justify-center gap-8">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="w-20 h-7 bg-gray-100 rounded animate-pulse shrink-0" />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-hidden">
+                <div className="animate-marquee">
+                  {[...brands, ...brands].map((brand, idx) => (
                     <Link
-                      key={brand.id}
+                      key={`${brand.id}-${idx}`}
                       href={`/san-pham?brandId=${brand.id}`}
-                      className="flex items-center justify-center hover:opacity-60 transition-opacity shrink-0"
+                      className="flex items-center justify-center px-8 hover:opacity-60 transition-opacity shrink-0"
                     >
                       {brand.logoUrl ? (
                         <Image
@@ -167,89 +166,117 @@ export default function Home() {
                           className="object-contain max-h-9"
                         />
                       ) : (
-                        <span className="text-[13px] font-extrabold text-gray-700 uppercase tracking-tight">
+                        <span className="text-[13px] font-extrabold text-gray-700 uppercase tracking-tight whitespace-nowrap">
                           {brand.name}
                         </span>
                       )}
                     </Link>
                   ))}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ══ SECTION 3: Category Tabs + Products ══ */}
+      {/* ══ SECTION 3: Category Showcase ══ */}
       <div className="container mx-auto px-4 mt-4">
 
-        {/* Tab bar */}
-        <div className="bg-gray-800 rounded-t overflow-x-auto scrollbar-hide">
-          <div className="flex items-center h-11 px-2 gap-1 min-w-max">
-            <button
-              type="button"
-              onClick={() => setActiveCatId(null)}
-              className={`px-4 h-7 rounded text-[11px] font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${
-                activeCatId === null
-                  ? "bg-primary text-white"
-                  : "text-gray-300 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              Bán chạy nhất
-            </button>
-            {parentCats.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setActiveCatId(cat.id)}
-                className={`px-4 h-7 rounded text-[11px] font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${
-                  activeCatId === cat.id
-                    ? "bg-primary text-white"
-                    : "text-gray-300 hover:text-white hover:bg-white/10"
-                }`}
+        {/* Dark green tagline bar */}
+        <div className="bg-primary rounded-t overflow-hidden">
+          {loadingCats ? (
+            <div className="h-10 animate-pulse bg-primary/80" />
+          ) : (
+            <div className="flex items-center h-10 px-4 gap-0 overflow-x-auto scrollbar-hide">
+              {parentCats.map((cat, i) => (
+                <span key={cat.id} className="flex items-center shrink-0">
+                  <span className="text-[11px] font-semibold text-white/90 whitespace-nowrap px-3 uppercase tracking-wide">
+                    {CAT_TAGLINES[i] ?? cat.name}
+                  </span>
+                  {i < parentCats.length - 1 && (
+                    <span className="text-white/30 text-[10px]">|</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Category card grid */}
+        <div className="bg-white border border-t-0 border-gray-200 rounded-b p-4">
+          {loadingCats ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
+                  <div className="w-full aspect-square bg-gray-100 rounded-lg" />
+                  <div className="h-3 bg-gray-100 rounded w-3/4" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
+              {parentCats.map((cat) => (
+                <Link
+                  key={cat.id}
+                  href={`/san-pham?categoryId=${cat.id}`}
+                  className="flex flex-col items-center gap-2 group"
+                >
+                  <div className="w-full aspect-square bg-gray-50 border border-gray-100 rounded-xl overflow-hidden flex items-center justify-center group-hover:border-primary/40 group-hover:bg-primary/5 transition-colors">
+                    {cat.imageUrl ? (
+                      <Image
+                        src={cat.imageUrl}
+                        alt={cat.name}
+                        width={80}
+                        height={80}
+                        className="object-contain w-3/4 h-3/4"
+                      />
+                    ) : (
+                      <Tag size={28} className="text-primary/40" />
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-gray-700 text-center leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                    {cat.name}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ══ SECTION 4: Khuyến Mãi / Best Sellers ══ */}
+      <div className="container mx-auto px-4 mt-4">
+
+        {/* Section header */}
+        <div className="bg-primary rounded-t">
+          <div className="flex items-center h-11 px-4">
+            <span className="text-[12px] font-bold uppercase tracking-widest text-white">
+              Khuyến Mãi
+            </span>
+            <div className="ml-auto">
+              <Link
+                href="/san-pham"
+                className="flex items-center gap-1 text-[11px] text-white/70 hover:text-white transition-colors"
               >
-                {cat.name}
-              </button>
-            ))}
+                Xem tất cả <ChevronRight size={12} />
+              </Link>
+            </div>
           </div>
         </div>
 
         {/* Product grid */}
         <div className="bg-white border border-t-0 border-gray-200 rounded-b p-4">
-          {activeCatId === null ? (
-            /* Best sellers */
-            loadingBest ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)}
-              </div>
-            ) : bestSellers.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {bestSellers.map((p) => <ProductCard key={p.id} product={p} />)}
-              </div>
-            ) : (
-              <p className="text-center py-10 text-sm text-gray-400">Chưa có sản phẩm bán chạy</p>
-            )
+          {loadingBest ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+            </div>
+          ) : bestSellers.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {bestSellers.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
           ) : (
-            /* Category products */
-            loadingCatProds ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)}
-              </div>
-            ) : tabProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {tabProducts.map((p) => <ProductCard key={p.id} product={p} />)}
-              </div>
-            ) : (
-              <p className="text-center py-10 text-sm text-gray-400">Chưa có sản phẩm trong danh mục này</p>
-            )
+            <p className="text-center py-10 text-sm text-gray-400">Chưa có sản phẩm</p>
           )}
-
-          <div className="text-center mt-5 pt-4 border-t border-gray-100">
-            <Link
-              href={activeCatId ? `/san-pham?categoryId=${activeCatId}` : "/san-pham"}
-              className="inline-flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline"
-            >
-              Xem tất cả sản phẩm <ChevronRight size={14} />
-            </Link>
-          </div>
         </div>
       </div>
 
