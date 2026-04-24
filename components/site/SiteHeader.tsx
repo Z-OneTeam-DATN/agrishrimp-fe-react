@@ -23,6 +23,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
 import { useCartStore } from "@/stores/useCartStore";
 import { SITE_CONFIG } from "@/lib/Constant";
+import { addressService } from "@/app/services/address.service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,10 +72,21 @@ export default function Header() {
 
   const { itemCount, fetchCartCount } = useCartStore();
   const isLoggedIn = isAuthenticated && !!user;
+  const [defaultAddress, setDefaultAddress] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoggedIn) fetchCartCount();
   }, [isLoggedIn, fetchCartCount]);
+
+  useEffect(() => {
+    if (!isLoggedIn) { setDefaultAddress(null); return; }
+    addressService.getAll()
+      .then((list: any[]) => {
+        const def = list.find((a) => a.isDefault) ?? list[0];
+        setDefaultAddress(def?.addressDetail ?? null);
+      })
+      .catch(() => setDefaultAddress(null));
+  }, [isLoggedIn]);
 
   const getUserDisplayName = () =>
     user?.fullName || user?.displayName || user?.phoneNumber || user?.email || "Người dùng";
@@ -196,7 +208,7 @@ export default function Header() {
             </Link>
 
             {/* 2. Search — tiếng Việt, nút xanh lá */}
-            <div className="hidden md:flex flex-1 max-w-sm">
+            <div className="hidden md:flex flex-1">
               <div className="w-full flex items-center h-10 border-2 border-gray-200 rounded-full bg-white focus-within:border-primary transition-colors overflow-hidden">
                 <input
                   type="text"
@@ -231,9 +243,21 @@ export default function Header() {
                 <MapPin size={15} className="text-primary shrink-0" />
                 <div className="leading-[1.2]">
                   <p className="text-[10px] text-gray-400">Địa chỉ giao hàng</p>
-                  <p className="text-[12px] font-semibold text-gray-700 whitespace-nowrap max-w-[140px] truncate">
-                    {SITE_CONFIG.address}
-                  </p>
+                  {isLoggedIn ? (
+                    defaultAddress ? (
+                      <p className="text-[12px] font-semibold text-gray-700 whitespace-nowrap max-w-[140px] truncate">
+                        {defaultAddress}
+                      </p>
+                    ) : (
+                      <Link href="/address" className="text-[12px] font-semibold text-primary hover:underline whitespace-nowrap">
+                        Cập nhật ngay
+                      </Link>
+                    )
+                  ) : (
+                    <p className="text-[12px] font-semibold text-gray-700 whitespace-nowrap max-w-[140px] truncate">
+                      {SITE_CONFIG.address}
+                    </p>
+                  )}
                 </div>
               </div>
 

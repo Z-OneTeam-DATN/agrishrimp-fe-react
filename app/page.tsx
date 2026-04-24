@@ -62,8 +62,8 @@ export default function Home() {
 
           {/* ── Category Sidebar ── */}
           <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="bg-primary px-4 py-2.5">
-              <h3 className="text-[12px] font-bold text-white uppercase tracking-widest">Danh Mục</h3>
+            <div className="bg-white px-4 py-2.5 border-b border-gray-200">
+              <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Danh Mục</h3>
             </div>
             <ul>
               {loadingCats
@@ -107,8 +107,8 @@ export default function Home() {
 
           {/* ── News Sidebar ── */}
           <aside className="hidden lg:block bg-white border border-gray-200 rounded overflow-hidden self-start">
-            <div className="bg-primary px-4 py-2.5">
-              <h3 className="text-[12px] font-bold text-white uppercase tracking-widest">Tin tức</h3>
+            <div className="bg-white px-4 py-2.5 border-b border-gray-200">
+              <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Tin tức</h3>
             </div>
             <ul className="divide-y divide-gray-100">
               {SAMPLE_NEWS.map((news) => (
