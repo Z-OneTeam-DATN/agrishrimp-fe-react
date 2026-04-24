@@ -23,11 +23,6 @@ export default function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center h-11 gap-1 overflow-x-auto scrollbar-hide">
 
-          {/* Mega menu — danh mục + thương hiệu gộp */}
-          <div className="shrink-0">
-            <MegaMenuDropdown />
-          </div>
-
           <Link href="/" className={linkClass("/")}>
             <Home size={15} />
             <span>Trang chủ</span>
@@ -42,6 +37,11 @@ export default function Navbar() {
             <ShoppingCart size={15} />
             <span>Đặt hàng</span>
           </Link>
+
+          {/* Mega menu — sau Đặt hàng */}
+          <div className="shrink-0">
+            <MegaMenuDropdown />
+          </div>
 
           <Link href="/store-locator" className={linkClass("/store-locator")}>
             <MapPin size={15} />

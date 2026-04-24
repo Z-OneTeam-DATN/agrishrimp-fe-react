@@ -69,19 +69,19 @@ export default function MegaMenuDropdown() {
   const activeChildren = activeParentId ? getChildren(activeParentId) : [];
 
   return (
-    <div ref={wrapperRef} className="static flex h-full items-center" onMouseLeave={scheduleClose}>
-      {/* Trigger button — styled dark like FPT */}
+    <div ref={wrapperRef} className="relative flex h-full items-center" onMouseLeave={scheduleClose}>
+      {/* Trigger — same style as other nav links */}
       <button
         type="button"
         onMouseEnter={open}
         onClick={() => { fetchData(); setIsOpen((v) => !v); }}
-        className={`flex items-center gap-2 px-3 h-8 rounded text-[13px] font-semibold whitespace-nowrap shrink-0 transition-colors ${
+        className={`flex items-center gap-1.5 px-3 h-8 rounded text-[13px] font-semibold whitespace-nowrap shrink-0 transition-colors ${
           isOpen
-            ? "bg-primary text-white"
-            : "bg-gray-800 text-white hover:bg-gray-700"
+            ? "bg-primary/10 text-primary"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
         }`}
       >
-        <LayoutGrid size={14} />
+        <LayoutGrid size={15} />
         <span>Danh mục</span>
       </button>
 
@@ -94,10 +94,9 @@ export default function MegaMenuDropdown() {
             transition={{ duration: 0.15 }}
             onMouseEnter={() => { if (closeTimer.current) clearTimeout(closeTimer.current); }}
             onMouseLeave={scheduleClose}
-            className="absolute left-0 right-0 top-full z-[100] mt-0 border-t-2 border-primary bg-white shadow-[0_16px_48px_rgba(0,0,0,0.15)]"
-            style={{ maxHeight: "520px" }}
+            className="absolute top-full left-0 z-[100] mt-1 w-[860px] rounded-xl border border-gray-200 bg-white shadow-[0_16px_48px_rgba(0,0,0,0.14)] overflow-hidden"
           >
-            <div className="mx-auto flex max-w-screen-xl" style={{ height: "480px" }}>
+            <div className="flex" style={{ height: "440px" }}>
 
               {/* ── LEFT: Parent Categories ── */}
               <div className="w-[220px] shrink-0 border-r border-gray-100 bg-gray-50 overflow-y-auto py-2">
