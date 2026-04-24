@@ -7,6 +7,7 @@ import MegaMenuDropdown from "./MegaMenuDropdown";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const cartHref = "https://agrishrimp.io.vn/user/cart";
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -21,7 +22,7 @@ export default function Navbar() {
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-[68px] z-40">
       <div className="container mx-auto px-4">
-        <div className="flex items-center h-11 gap-1 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center h-11 gap-1 overflow-x-auto overflow-y-visible scrollbar-hide lg:overflow-visible">
 
           <Link href="/" className={linkClass("/")}>
             <Home size={15} />
@@ -33,7 +34,7 @@ export default function Navbar() {
             <span>Tài khoản</span>
           </Link>
 
-          <Link href="/orders/list" className={linkClass("/orders")}>
+          <Link href={cartHref} className={linkClass("/user/cart")}>
             <ShoppingCart size={15} />
             <span>Giỏ hàng</span>
           </Link>
