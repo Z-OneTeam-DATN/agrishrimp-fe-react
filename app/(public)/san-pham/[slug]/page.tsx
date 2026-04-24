@@ -41,6 +41,34 @@ function getVariantLabel(variant: PublicProductVariant): string {
     return variant.unit || variant.sku;
 }
 
+function normalizeDescriptionHtml(description?: string): string {
+    if (!description?.trim()) {
+        return "<p class='text-slate-400 italic'>Đang cập nhật mô tả...</p>";
+    }
+
+    let normalized = description.trim();
+
+    if (!/<[a-z][\s\S]*>/i.test(normalized) && /&lt;[a-z!/]/i.test(normalized)) {
+        normalized = normalized
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, " ")
+            .replace(/&amp;/g, "&");
+    }
+
+    if (!/<[a-z][\s\S]*>/i.test(normalized)) {
+        return normalized
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br />");
+    }
+
+    return normalized;
+}
+
 function animateFlyToCart(e: React.MouseEvent) {
     const cartTarget = document.getElementById("cart-icon-target");
     if (!cartTarget) return;
@@ -412,6 +440,7 @@ export default function ProductDetailPage({
     const relatedCategories = categories.filter((c) => c.parentId !== null);
     const visibleCategories = relatedCategories.slice(0, 7);
     const hasMoreCategories = relatedCategories.length > visibleCategories.length;
+    const descriptionHtml = normalizeDescriptionHtml(product.description);
 
     return (
         <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
@@ -456,7 +485,7 @@ export default function ProductDetailPage({
                 <div className="border-b border-slate-200 pb-10">
                     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:gap-12">
                         <div className="space-y-6">
-                            <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#f4f7f5]">
+                            <div className="relative aspect-[5/4] overflow-hidden rounded-2xl bg-[#f4f7f5] md:aspect-[4/3]">
                                 {isCompletelyOutOfStock && (
                                     <div className="absolute left-5 top-5 z-10 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white">
                                         Hết hàng
@@ -467,7 +496,7 @@ export default function ProductDetailPage({
                                     alt={product.name}
                                     fill
                                     priority
-                                    className={`object-contain p-6 transition-all duration-500 ${
+                                    className={`object-contain p-8 md:p-10 lg:p-12 xl:p-16 transition-all duration-500 ${
                                         isCompletelyOutOfStock ? "opacity-45 grayscale" : ""
                                     }`}
                                     onError={(e) => {
@@ -526,35 +555,74 @@ export default function ProductDetailPage({
                                 </div>
                             )}
 
-                            <div className="grid gap-4 border-t border-slate-200 pt-6 sm:grid-cols-3">
-                                {product.brandName && (
-                                    <div className="space-y-2">
-                                        <span className="text-sm font-semibold text-slate-900">Thương hiệu</span>
-                                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                                            <Tag size={16} className="text-orange-500" />
-                                            <span>{product.brandName}</span>
+                            {hasSpecsContent && (
+                                <section ref={specsSectionRef} className="space-y-4 border-t border-slate-200 pt-5">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-950">Thông số sản phẩm</h2>
+                                            <p className="mt-1 text-sm text-slate-500">
+                                                Các thông tin ngắn gọn để xem nhanh ngay tại khu vực ảnh.
+                                            </p>
                                         </div>
                                     </div>
-                                )}
-                                {product.origin && (
-                                    <div className="space-y-2">
-                                        <span className="text-sm font-semibold text-slate-900">Xuất xứ</span>
-                                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                                            <Globe size={16} className="text-orange-500" />
-                                            <span>{product.origin}</span>
+
+                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        {product.brandName && (
+                                            <div className="min-w-0 border-b border-slate-200 pb-4">
+                                                <span className="text-sm font-semibold text-slate-900">Thương hiệu</span>
+                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                                                    <Tag size={16} className="shrink-0 text-orange-500" />
+                                                    <span className="font-medium text-slate-700">{product.brandName}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {product.origin && (
+                                            <div className="min-w-0 border-b border-slate-200 pb-4">
+                                                <span className="text-sm font-semibold text-slate-900">Xuất xứ</span>
+                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                                                    <Globe size={16} className="shrink-0 text-orange-500" />
+                                                    <span className="font-medium text-slate-700">{product.origin}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {product.category?.name && (
+                                            <div className="min-w-0 border-b border-slate-200 pb-4">
+                                                <span className="text-sm font-semibold text-slate-900">Danh mục</span>
+                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                                                    <Layers size={16} className="shrink-0 text-orange-500" />
+                                                    <span className="font-medium text-slate-700">{product.category.name}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {currentVariant && (
+                                            <div className="min-w-0 border-b border-slate-200 pb-4">
+                                                <span className="text-sm font-semibold text-slate-900">Quy cách</span>
+                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                                                    <ShoppingCart size={16} className="shrink-0 text-orange-500" />
+                                                    <span className="font-medium text-slate-700">{getVariantLabel(currentVariant)}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {currentVariant?.sku && (
+                                            <div className="min-w-0 border-b border-slate-200 pb-4">
+                                                <span className="text-sm font-semibold text-slate-900">Mã SKU</span>
+                                                <div className="mt-2 text-sm font-medium text-slate-700">
+                                                    {currentVariant.sku}
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="min-w-0 border-b border-slate-200 pb-4">
+                                            <span className="text-sm font-semibold text-slate-900">Tình trạng</span>
+                                            <div className="mt-2 flex items-center gap-2 text-sm">
+                                                <Layers size={16} className="shrink-0 text-orange-500" />
+                                                <span className={`font-medium ${isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}`}>
+                                                    {isCompletelyOutOfStock ? "Tạm hết hàng" : "Còn hàng"}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                )}
-                                <div className="space-y-2">
-                                    <span className="text-sm font-semibold text-slate-900">Tình trạng</span>
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <Layers size={16} className="text-orange-500" />
-                                        <span className={isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}>
-                                            {isCompletelyOutOfStock ? "Tạm hết hàng" : "Còn hàng"}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                                </section>
+                            )}
                         </div>
 
                         <div className="space-y-6 lg:sticky lg:top-6">
@@ -729,37 +797,46 @@ export default function ProductDetailPage({
                                 </div>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)_minmax(0,1fr)]">
-                                <button
-                                    onClick={(e) => handleAddToCart(e, false)}
-                                    disabled={isAdding || isCompletelyOutOfStock}
-                                    className="flex h-14 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 transition-all hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-                                >
-                                    {isAdding ? <Loader2 className="animate-spin" size={18} /> : <ShoppingCart size={18} />}
-                                </button>
-                                <button
-                                    onClick={(e) => handleAddToCart(e, true)}
-                                    disabled={isAdding || isCompletelyOutOfStock}
-                                    className="flex h-14 items-center justify-center rounded-lg bg-[#d24335] px-6 text-base font-semibold text-white transition-all hover:bg-[#b93c2f] disabled:cursor-not-allowed disabled:bg-slate-300"
-                                >
-                                    {isAdding ? <Loader2 className="animate-spin" size={18} /> : "Mua ngay"}
-                                </button>
+                            <div className="space-y-3">
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <button
+                                        onClick={(e) => handleAddToCart(e, false)}
+                                        disabled={isAdding || isCompletelyOutOfStock}
+                                        className="flex h-14 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-5 text-sm font-semibold text-red-600 transition-all hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                                    >
+                                        {isAdding ? (
+                                            <Loader2 className="animate-spin" size={18} />
+                                        ) : (
+                                            <>
+                                                <ShoppingCart size={18} />
+                                                Thêm vào giỏ
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleAddToCart(e, true)}
+                                        disabled={isAdding || isCompletelyOutOfStock}
+                                        className="flex h-14 items-center justify-center whitespace-nowrap rounded-lg bg-[#d24335] px-6 text-sm font-semibold text-white transition-all hover:bg-[#b93c2f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                                    >
+                                        {isAdding ? <Loader2 className="animate-spin" size={18} /> : "Mua ngay"}
+                                    </button>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => window.open("tel:18001234", "_self")}
-                                    className="flex h-14 items-center justify-center gap-2 rounded-lg bg-slate-950 px-6 text-base font-semibold text-white transition-all hover:bg-slate-800"
+                                    className="flex h-14 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-slate-950 px-6 text-sm font-semibold text-white transition-all hover:bg-slate-800"
                                 >
                                     <Phone size={18} />
-                                    Tư vấn
+                                    Tư vấn ngay
                                 </button>
                             </div>
 
-                            <div className="grid gap-3 border-t border-slate-200 pt-5 text-sm text-slate-600 sm:grid-cols-2">
-                                <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap gap-3 border-t border-slate-200 pt-5 text-[13px] text-slate-600">
+                                <div className="flex min-w-[190px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 whitespace-nowrap">
                                     <Phone size={16} className="text-teal-600" />
                                     <span>Hỗ trợ kỹ thuật trong giờ làm việc</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex min-w-[190px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 whitespace-nowrap">
                                     <ShoppingCart size={16} className="text-teal-600" />
                                     <span>Đặt hàng trực tuyến nhanh gọn</span>
                                 </div>
@@ -777,88 +854,15 @@ export default function ProductDetailPage({
                                     Thông tin chi tiết và nội dung giới thiệu cho sản phẩm hiện tại.
                                 </p>
                             </div>
-                            {hasSpecsContent && (
-                                <button
-                                    type="button"
-                                    onClick={openSpecsSection}
-                                    className="rounded-lg border border-red-200 px-5 py-2 text-sm font-medium text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
-                                >
-                                    Xem tất cả thông số
-                                </button>
-                            )}
                         </div>
 
                         <div
-                            className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden whitespace-pre-wrap prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
+                            className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
                             dangerouslySetInnerHTML={{
-                                __html:
-                                    product.description ||
-                                    "<p class='text-slate-400 italic'>Đang cập nhật mô tả...</p>",
+                                __html: descriptionHtml,
                             }}
                         />
                     </section>
-
-                    {hasSpecsContent && (
-                        <section ref={specsSectionRef} className="space-y-5 border-t border-slate-200 pt-10">
-                            <div>
-                                <h2 className="text-3xl font-bold text-slate-950">Thông số sản phẩm</h2>
-                                <p className="mt-2 text-sm text-slate-500">
-                                    Các thông tin cơ bản đang có sẵn trong hệ thống.
-                                </p>
-                            </div>
-
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {product.brandName && (
-                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
-                                        <span className="flex items-center gap-2 text-slate-500">
-                                            <Tag size={16} className="text-orange-500" />
-                                            Thương hiệu
-                                        </span>
-                                        <span className="text-right font-semibold text-slate-900">{product.brandName}</span>
-                                    </div>
-                                )}
-                                {product.category?.name && (
-                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
-                                        <span className="flex items-center gap-2 text-slate-500">
-                                            <Layers size={16} className="text-orange-500" />
-                                            Danh mục
-                                        </span>
-                                        <span className="text-right font-semibold text-slate-900">{product.category.name}</span>
-                                    </div>
-                                )}
-                                {currentVariant && (
-                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
-                                        <span className="flex items-center gap-2 text-slate-500">
-                                            <ShoppingCart size={16} className="text-orange-500" />
-                                            Quy cách
-                                        </span>
-                                        <span className="text-right font-semibold text-slate-900">{getVariantLabel(currentVariant)}</span>
-                                    </div>
-                                )}
-                                {product.origin && (
-                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
-                                        <span className="flex items-center gap-2 text-slate-500">
-                                            <Globe size={16} className="text-orange-500" />
-                                            Xuất xứ
-                                        </span>
-                                        <span className="text-right font-semibold text-slate-900">{product.origin}</span>
-                                    </div>
-                                )}
-                                {currentVariant?.sku && (
-                                    <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
-                                        <span className="text-slate-500">Mã SKU</span>
-                                        <span className="text-right font-semibold text-slate-900">{currentVariant.sku}</span>
-                                    </div>
-                                )}
-                                <div className="flex items-start justify-between gap-6 border-b border-slate-200 py-4 text-sm">
-                                    <span className="text-slate-500">Tình trạng</span>
-                                    <span className={`text-right font-semibold ${isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}`}>
-                                        {isCompletelyOutOfStock ? "Hết hàng" : "Còn hàng"}
-                                    </span>
-                                </div>
-                            </div>
-                        </section>
-                    )}
 
                     <section ref={reviewSectionRef} className="border-t border-slate-200 pt-10">
                         <ProductReviews
