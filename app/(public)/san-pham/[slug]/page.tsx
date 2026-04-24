@@ -111,7 +111,7 @@ function RelatedProductCard({ product }: { product: PublicProductListItem }) {
                 <Image src={img} alt={product.name} fill className="object-cover" />
             </div>
             <div className="flex flex-col min-w-0">
-        <span className="text-[10px] font-bold text-slate-700 line-clamp-2 mb-0.5 group-hover:text-teal-600 transition-colors leading-normal">
+        <span className="text-[10px] font-bold text-slate-700 line-clamp-2 mb-0.5 group-hover:text-emerald-600 transition-colors leading-normal">
           {product.name}
         </span>
                 {product.variants?.[0]?.price ? (
@@ -399,7 +399,7 @@ export default function ProductDetailPage({
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center bg-white">
-                <Loader2 className="animate-spin text-teal-600" size={32} />
+                <Loader2 className="animate-spin text-emerald-600" size={32} />
             </div>
         );
     }
@@ -413,7 +413,7 @@ export default function ProductDetailPage({
                 </h2>
                 <Link
                     href="/san-pham"
-                    className="text-teal-600 font-semibold hover:underline text-sm"
+                    className="text-emerald-600 font-semibold hover:underline text-sm"
                 >
                     ← Quay lại danh sách
                 </Link>
@@ -445,19 +445,16 @@ export default function ProductDetailPage({
     return (
         <div className="bg-[#fcfcfc] min-h-screen pb-20 font-sans text-slate-900">
             {/* Breadcrumb */}
-            <div className="bg-white border-b border-slate-50">
+            <div className="bg-white border-b border-slate-100">
                 <div className="container mx-auto px-4 py-2.5">
                     <nav className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider flex-wrap">
-                        <Link href="/" className="hover:text-teal-600 transition-colors">
+                        <Link href="/" className="hover:text-emerald-600 transition-colors">
                             Trang chủ
                         </Link>
                         {parentCategory && (
                             <>
                                 <ChevronRight size={10} />
-                                <Link
-                                    href={`/category/${parentCategory.id}`}
-                                    className="hover:text-teal-600 transition-colors"
-                                >
+                                <Link href={`/category/${parentCategory.id}`} className="hover:text-emerald-600 transition-colors">
                                     {parentCategory.name}
                                 </Link>
                             </>
@@ -465,29 +462,28 @@ export default function ProductDetailPage({
                         {product.category?.name && (
                             <>
                                 <ChevronRight size={10} />
-                                <Link
-                                    href={`/category/${product.category.id}`}
-                                    className="hover:text-teal-600 transition-colors"
-                                >
+                                <Link href={`/category/${product.category.id}`} className="hover:text-emerald-600 transition-colors">
                                     {product.category.name}
                                 </Link>
                             </>
                         )}
                         <ChevronRight size={10} />
-                        <span className="text-slate-600 line-clamp-1 max-w-[200px]">
-              {product.name}
-            </span>
+                        <span className="text-slate-600 line-clamp-1 max-w-[200px]">{product.name}</span>
                     </nav>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 mt-6">
                 <div className="border-b border-slate-200 pb-10">
-                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:gap-12">
-                        <div className="space-y-6">
-                            <div className="relative aspect-[5/4] overflow-hidden rounded-2xl bg-[#f4f7f5] md:aspect-[4/3]">
+                    {/* Main grid: left = image+thumbs+specs, right = info */}
+                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:gap-10">
+
+                        {/* ── LEFT COLUMN ── */}
+                        <div className="space-y-4">
+                            {/* Main image */}
+                            <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#f5f8f6]">
                                 {isCompletelyOutOfStock && (
-                                    <div className="absolute left-5 top-5 z-10 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white">
+                                    <div className="absolute left-4 top-4 z-10 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
                                         Hết hàng
                                     </div>
                                 )}
@@ -496,126 +492,111 @@ export default function ProductDetailPage({
                                     alt={product.name}
                                     fill
                                     priority
-                                    className={`object-contain p-8 md:p-10 lg:p-12 xl:p-16 transition-all duration-500 ${
-                                        isCompletelyOutOfStock ? "opacity-45 grayscale" : ""
-                                    }`}
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).src = "/placeholder.svg";
-                                    }}
+                                    className={`object-contain p-6 transition-all duration-500 ${isCompletelyOutOfStock ? "opacity-45 grayscale" : ""}`}
+                                    onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
                                 />
                             </div>
 
+                            {/* Thumbnail strip — centered under main image */}
                             {productGalleryImages.length > 1 && (
-                                <div className="relative px-10">
+                                <div className="relative">
                                     {hasThumbnailOverflow && (
                                         <>
                                             <button
                                                 type="button"
                                                 onClick={() => scrollThumbnailStrip("left")}
                                                 disabled={!canScrollThumbnailsLeft}
-                                                className="absolute left-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
                                             >
-                                                <ChevronLeft size={16} />
+                                                <ChevronLeft size={14} />
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => scrollThumbnailStrip("right")}
                                                 disabled={!canScrollThumbnailsRight}
-                                                className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                className="absolute right-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
                                             >
-                                                <ChevronRight size={16} />
+                                                <ChevronRight size={14} />
                                             </button>
                                         </>
                                     )}
-
                                     <div
                                         ref={thumbnailStripRef}
-                                        className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-2"
+                                        className={`flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth pb-1 ${hasThumbnailOverflow ? "px-10" : "justify-center"}`}
                                     >
                                         {productGalleryImages.map((img, idx) => (
                                             <button
                                                 key={`${img}-${idx}`}
                                                 onMouseEnter={() => setActiveImage(img)}
                                                 onClick={() => setActiveImage(img)}
-                                                className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border transition-all ${
+                                                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
                                                     activeImage === img
-                                                        ? "border-teal-500 bg-white"
-                                                        : "border-slate-200 bg-white hover:border-slate-300"
+                                                        ? "border-emerald-500 shadow-sm shadow-emerald-100"
+                                                        : "border-slate-200 bg-white hover:border-emerald-300"
                                                 }`}
                                             >
-                                                <Image
-                                                    src={img}
-                                                    alt={`ảnh ${idx + 1}`}
-                                                    fill
-                                                    className="object-cover"
-                                                />
+                                                <Image src={img} alt={`ảnh ${idx + 1}`} fill className="object-cover" />
                                             </button>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
+                            {/* Specs section — below thumbnails */}
                             {hasSpecsContent && (
-                                <section ref={specsSectionRef} className="space-y-4 border-t border-slate-200 pt-5">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div>
-                                            <h2 className="text-xl font-bold text-slate-950">Thông số sản phẩm</h2>
-                                            <p className="mt-1 text-sm text-slate-500">
-                                                Các thông tin ngắn gọn để xem nhanh ngay tại khu vực ảnh.
-                                            </p>
-                                        </div>
+                                <section ref={specsSectionRef} className="rounded-2xl border border-slate-100 bg-white p-5 space-y-4">
+                                    <div>
+                                        <h2 className="text-base font-bold text-slate-900">Thông số sản phẩm</h2>
+                                        <p className="mt-0.5 text-xs text-slate-400">Các thông tin ngắn gọn để xem nhanh ngay tại khu vực ảnh.</p>
                                     </div>
-
-                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                    <div className="grid gap-x-6 gap-y-4 grid-cols-2 sm:grid-cols-3">
                                         {product.brandName && (
-                                            <div className="min-w-0 border-b border-slate-200 pb-4">
-                                                <span className="text-sm font-semibold text-slate-900">Thương hiệu</span>
-                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                                                    <Tag size={16} className="shrink-0 text-orange-500" />
-                                                    <span className="font-medium text-slate-700">{product.brandName}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Thương hiệu</p>
+                                                <div className="flex items-center gap-1.5 text-sm">
+                                                    <Tag size={14} className="shrink-0 text-emerald-500" />
+                                                    <span className="font-semibold text-slate-800">{product.brandName}</span>
                                                 </div>
                                             </div>
                                         )}
                                         {product.origin && (
-                                            <div className="min-w-0 border-b border-slate-200 pb-4">
-                                                <span className="text-sm font-semibold text-slate-900">Xuất xứ</span>
-                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                                                    <Globe size={16} className="shrink-0 text-orange-500" />
-                                                    <span className="font-medium text-slate-700">{product.origin}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Xuất xứ</p>
+                                                <div className="flex items-center gap-1.5 text-sm">
+                                                    <Globe size={14} className="shrink-0 text-emerald-500" />
+                                                    <span className="font-semibold text-slate-800">{product.origin}</span>
                                                 </div>
                                             </div>
                                         )}
                                         {product.category?.name && (
-                                            <div className="min-w-0 border-b border-slate-200 pb-4">
-                                                <span className="text-sm font-semibold text-slate-900">Danh mục</span>
-                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                                                    <Layers size={16} className="shrink-0 text-orange-500" />
-                                                    <span className="font-medium text-slate-700">{product.category.name}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Danh mục</p>
+                                                <div className="flex items-center gap-1.5 text-sm">
+                                                    <Layers size={14} className="shrink-0 text-emerald-500" />
+                                                    <span className="font-semibold text-slate-800">{product.category.name}</span>
                                                 </div>
                                             </div>
                                         )}
                                         {currentVariant && (
-                                            <div className="min-w-0 border-b border-slate-200 pb-4">
-                                                <span className="text-sm font-semibold text-slate-900">Quy cách</span>
-                                                <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                                                    <ShoppingCart size={16} className="shrink-0 text-orange-500" />
-                                                    <span className="font-medium text-slate-700">{getVariantLabel(currentVariant)}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Quy cách</p>
+                                                <div className="flex items-center gap-1.5 text-sm">
+                                                    <ShoppingCart size={14} className="shrink-0 text-emerald-500" />
+                                                    <span className="font-semibold text-slate-800">{getVariantLabel(currentVariant)}</span>
                                                 </div>
                                             </div>
                                         )}
                                         {currentVariant?.sku && (
-                                            <div className="min-w-0 border-b border-slate-200 pb-4">
-                                                <span className="text-sm font-semibold text-slate-900">Mã SKU</span>
-                                                <div className="mt-2 text-sm font-medium text-slate-700">
-                                                    {currentVariant.sku}
-                                                </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Mã SKU</p>
+                                                <span className="text-sm font-semibold text-slate-800">{currentVariant.sku}</span>
                                             </div>
                                         )}
-                                        <div className="min-w-0 border-b border-slate-200 pb-4">
-                                            <span className="text-sm font-semibold text-slate-900">Tình trạng</span>
-                                            <div className="mt-2 flex items-center gap-2 text-sm">
-                                                <Layers size={16} className="shrink-0 text-orange-500" />
-                                                <span className={`font-medium ${isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}`}>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Tình trạng</p>
+                                            <div className="flex items-center gap-1.5 text-sm">
+                                                <Layers size={14} className="shrink-0 text-emerald-500" />
+                                                <span className={`font-semibold ${isCompletelyOutOfStock ? "text-red-500" : "text-emerald-600"}`}>
                                                     {isCompletelyOutOfStock ? "Tạm hết hàng" : "Còn hàng"}
                                                 </span>
                                             </div>
@@ -625,132 +606,102 @@ export default function ProductDetailPage({
                             )}
                         </div>
 
-                        <div className="space-y-6 lg:sticky lg:top-6">
+                        {/* ── RIGHT COLUMN ── */}
+                        <div className="space-y-5 lg:sticky lg:top-6">
+                            {/* Status + SKU */}
                             <div className="flex flex-wrap items-center gap-3">
-                                <span
-                                    className={`inline-flex rounded-lg px-4 py-1.5 text-sm font-semibold ${
-                                        isCompletelyOutOfStock
-                                            ? "bg-slate-200 text-slate-700"
-                                            : "bg-orange-100 text-orange-700"
-                                    }`}
-                                >
+                                <span className={`inline-flex rounded-lg px-3 py-1 text-xs font-bold tracking-wide ${
+                                    isCompletelyOutOfStock ? "bg-slate-100 text-slate-600" : "bg-emerald-100 text-emerald-700"
+                                }`}>
                                     {isCompletelyOutOfStock ? "Tạm hết hàng" : "Đang mở bán"}
                                 </span>
                                 {currentVariant?.sku && (
-                                    <span className="text-sm text-slate-500">
-                                        Mã SP: <span className="font-medium text-slate-800">{currentVariant.sku}</span>
+                                    <span className="text-sm text-slate-400">
+                                        Mã SP: <span className="font-semibold text-slate-700">{currentVariant.sku}</span>
                                     </span>
                                 )}
                             </div>
 
-                            <div className="space-y-3">
-                                <h1 className="text-3xl font-bold leading-tight text-slate-950">
-                                    {product.name}
-                                </h1>
-
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-                                    {product.brandName && <span>{product.brandName}</span>}
+                            {/* Product name + brand/category */}
+                            <div className="space-y-2">
+                                <h1 className="text-2xl font-bold leading-snug text-slate-950">{product.name}</h1>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+                                    {product.brandName && <span className="font-medium">{product.brandName}</span>}
                                     {product.category?.name && (
-                                        <Link
-                                            href={`/category/${product.category.id}`}
-                                            className="text-teal-700 transition-colors hover:text-teal-800"
-                                        >
+                                        <Link href={`/category/${product.category.id}`}
+                                            className="text-emerald-600 font-medium transition-colors hover:text-emerald-700">
                                             {product.category.name}
                                         </Link>
                                     )}
                                 </div>
-
                                 {product.shortDesc && (
-                                    <p className="max-w-xl text-base leading-7 text-slate-600">
-                                        {product.shortDesc}
-                                    </p>
+                                    <p className="text-sm leading-6 text-slate-500">{product.shortDesc}</p>
                                 )}
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+                            {/* Reviews + sold + specs link */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                                 {totalReviewCount > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => openReviewsSection("all")}
-                                        className="inline-flex items-center gap-2 text-slate-700 transition-colors hover:text-orange-600"
-                                    >
-                                        <div className="flex items-center gap-0.5 text-orange-400">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <Star
-                                                    key={star}
-                                                    size={14}
-                                                    className={
-                                                        star <= Math.round(displayAverageRating)
-                                                            ? "fill-current"
-                                                            : "fill-slate-100 text-slate-200"
-                                                    }
-                                                />
+                                    <button type="button" onClick={() => openReviewsSection("all")}
+                                        className="inline-flex items-center gap-1.5 text-slate-600 transition-colors hover:text-emerald-600">
+                                        <div className="flex items-center gap-0.5 text-amber-400">
+                                            {[1,2,3,4,5].map((s) => (
+                                                <Star key={s} size={13}
+                                                    className={s <= Math.round(displayAverageRating) ? "fill-current" : "fill-slate-100 text-slate-200"} />
                                             ))}
                                         </div>
-                                        <span>
-                                            {displayAverageRating > 0 ? displayAverageRating.toFixed(1) : "0.0"} ·{" "}
-                                            {formatNumber(totalReviewCount)} đánh giá
-                                        </span>
+                                        <span>{displayAverageRating > 0 ? displayAverageRating.toFixed(1) : "0.0"} · {formatNumber(totalReviewCount)} đánh giá</span>
                                     </button>
                                 )}
                                 {soldCount > 0 && (
-                                    <span className="text-slate-500">
-                                        Đã mua <span className="font-semibold text-slate-900">{formatNumber(soldCount)}</span>
+                                    <span className="text-slate-400">
+                                        Đã mua <span className="font-semibold text-slate-700">{formatNumber(soldCount)}</span>
                                     </span>
                                 )}
                                 {hasSpecsContent && (
-                                    <button
-                                        type="button"
-                                        onClick={openSpecsSection}
-                                        className="font-medium text-blue-600 transition-colors hover:text-blue-700"
-                                    >
+                                    <button type="button" onClick={openSpecsSection}
+                                        className="font-semibold text-emerald-600 transition-colors hover:text-emerald-700">
                                         Thông số sản phẩm
                                     </button>
                                 )}
                             </div>
 
-                            <div className="rounded-xl border border-orange-100 bg-[#fffaf1] p-6">
+                            {/* Price box */}
+                            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
                                 {currentVariant?.price > 0 ? (
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-slate-500">Giá bán</p>
-                                        <div className="text-4xl font-bold tracking-tight text-slate-950">
-                                            {formatNumber(currentVariant.price)} ₫
+                                    <div className="space-y-0.5">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Giá bán</p>
+                                        <div className="text-4xl font-black tracking-tight text-slate-950">
+                                            {formatNumber(currentVariant.price)}<span className="text-2xl ml-1">₫</span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="text-2xl font-semibold text-slate-400">
+                                    <div className="text-xl font-semibold text-slate-400">
                                         {isCompletelyOutOfStock ? "Tạm hết hàng" : "Liên hệ"}
                                     </div>
                                 )}
-
-                                <div className="mt-4 rounded-lg border border-orange-200/70 bg-white px-4 py-3 text-sm text-slate-600">
+                                <div className="mt-3 rounded-xl border border-emerald-200/60 bg-white px-4 py-2.5 text-sm text-slate-500">
                                     Giao hàng toàn quốc, hỗ trợ tư vấn miễn phí trong giờ làm việc.
                                 </div>
                             </div>
 
+                            {/* Variant picker */}
                             {availableVariants.length > 0 && (
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-sm font-semibold text-slate-900">
-                                            Phân loại
-                                        </label>
-                                        <span className="text-sm text-slate-500">
-                                            {availableVariants.length} lựa chọn
-                                        </span>
+                                        <label className="text-sm font-semibold text-slate-800">Phân loại</label>
+                                        <span className="text-xs text-slate-400">{availableVariants.length} lựa chọn</span>
                                     </div>
-                                    <div className="flex flex-wrap gap-3">
+                                    <div className="flex flex-wrap gap-2.5">
                                         {availableVariants.map((v, idx) => {
                                             const isSelected = selectedVariantIndex === idx;
                                             return (
-                                                <button
-                                                    key={v.id}
-                                                    onClick={() => handleSelectVariant(idx)}
-                                                    className={`rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
+                                                <button key={v.id} onClick={() => handleSelectVariant(idx)}
+                                                    className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${
                                                         isSelected
-                                                            ? "border-red-300 bg-red-50 text-red-700"
-                                                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                                                    }`}
-                                                >
+                                                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100"
+                                                            : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-600"
+                                                    }`}>
                                                     {getVariantLabel(v)}
                                                 </button>
                                             );
@@ -759,85 +710,58 @@ export default function ProductDetailPage({
                                 </div>
                             )}
 
+                            {/* Quantity */}
                             <div className="flex flex-wrap items-center gap-4">
-                                <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white">
-                                    <button
-                                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                                <div className="flex items-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                    <button onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                                         disabled={isCompletelyOutOfStock}
-                                        className="flex h-12 w-12 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        <Minus size={16} />
+                                        className="flex h-11 w-11 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+                                        <Minus size={15} />
                                     </button>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={quantity}
-                                        disabled={isCompletelyOutOfStock}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            if (!isNaN(val) && val >= 1) setQuantity(val);
-                                        }}
-                                        onBlur={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            if (isNaN(val) || val < 1) setQuantity(1);
-                                        }}
-                                        className="h-12 w-16 border-x border-slate-200 bg-white text-center text-base font-semibold focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                                    <input type="number" min={1} value={quantity} disabled={isCompletelyOutOfStock}
+                                        onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) setQuantity(v); }}
+                                        onBlur={(e) => { const v = parseInt(e.target.value); if (isNaN(v) || v < 1) setQuantity(1); }}
+                                        className="h-11 w-14 border-x border-slate-200 bg-white text-center text-sm font-bold focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
                                     />
-                                    <button
-                                        onClick={() => setQuantity((q) => q + 1)}
+                                    <button onClick={() => setQuantity((q) => q + 1)}
                                         disabled={isCompletelyOutOfStock}
-                                        className="flex h-12 w-12 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        <Plus size={16} />
+                                        className="flex h-11 w-11 items-center justify-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+                                        <Plus size={15} />
                                     </button>
                                 </div>
-
-                                <div className="text-sm text-slate-500">
+                                <p className="text-sm text-slate-400">
                                     {isCompletelyOutOfStock ? "Hiện chưa thể đặt mua" : "Có thể chọn số lượng phù hợp nhu cầu"}
-                                </div>
+                                </p>
                             </div>
 
-                            <div className="space-y-3">
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <button
-                                        onClick={(e) => handleAddToCart(e, false)}
+                            {/* Action buttons */}
+                            <div className="space-y-2.5">
+                                <div className="grid gap-2.5 sm:grid-cols-2">
+                                    <button onClick={(e) => handleAddToCart(e, false)}
                                         disabled={isAdding || isCompletelyOutOfStock}
-                                        className="flex h-14 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-5 text-sm font-semibold text-red-600 transition-all hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-                                    >
-                                        {isAdding ? (
-                                            <Loader2 className="animate-spin" size={18} />
-                                        ) : (
-                                            <>
-                                                <ShoppingCart size={18} />
-                                                Thêm vào giỏ
-                                            </>
-                                        )}
+                                        className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-xl border-2 border-emerald-500 bg-white px-5 text-sm font-bold text-emerald-600 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300">
+                                        {isAdding ? <Loader2 className="animate-spin" size={17} /> : <><ShoppingCart size={17} /> Thêm vào giỏ</>}
                                     </button>
-                                    <button
-                                        onClick={(e) => handleAddToCart(e, true)}
+                                    <button onClick={(e) => handleAddToCart(e, true)}
                                         disabled={isAdding || isCompletelyOutOfStock}
-                                        className="flex h-14 items-center justify-center whitespace-nowrap rounded-lg bg-[#d24335] px-6 text-sm font-semibold text-white transition-all hover:bg-[#b93c2f] disabled:cursor-not-allowed disabled:bg-slate-300"
-                                    >
-                                        {isAdding ? <Loader2 className="animate-spin" size={18} /> : "Mua ngay"}
+                                        className="flex h-12 items-center justify-center whitespace-nowrap rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                                        {isAdding ? <Loader2 className="animate-spin" size={17} /> : "Mua ngay"}
                                     </button>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => window.open("tel:18001234", "_self")}
-                                    className="flex h-14 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-slate-950 px-6 text-sm font-semibold text-white transition-all hover:bg-slate-800"
-                                >
-                                    <Phone size={18} />
-                                    Tư vấn ngay
+                                <button type="button" onClick={() => window.open("tel:18001234", "_self")}
+                                    className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-900 px-6 text-sm font-bold text-white transition-all hover:bg-slate-800">
+                                    <Phone size={17} /> Tư vấn ngay
                                 </button>
                             </div>
 
-                            <div className="flex flex-wrap gap-3 border-t border-slate-200 pt-5 text-[13px] text-slate-600">
-                                <div className="flex min-w-[190px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 whitespace-nowrap">
-                                    <Phone size={16} className="text-teal-600" />
+                            {/* Trust badges */}
+                            <div className="flex flex-wrap gap-2.5 border-t border-slate-100 pt-4 text-[13px] text-slate-500">
+                                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 whitespace-nowrap">
+                                    <Phone size={14} className="text-emerald-600 shrink-0" />
                                     <span>Hỗ trợ kỹ thuật trong giờ làm việc</span>
                                 </div>
-                                <div className="flex min-w-[190px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 whitespace-nowrap">
-                                    <ShoppingCart size={16} className="text-teal-600" />
+                                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 whitespace-nowrap">
+                                    <ShoppingCart size={14} className="text-emerald-600 shrink-0" />
                                     <span>Đặt hàng trực tuyến nhanh gọn</span>
                                 </div>
                             </div>
@@ -904,7 +828,7 @@ export default function ProductDetailPage({
                                             <Link
                                                 key={cat.id}
                                                 href={`/category/${cat.id}`}
-                                                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 transition-colors hover:border-teal-500 hover:text-teal-700"
+                                                className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700 transition-colors hover:border-emerald-400 hover:text-emerald-700"
                                             >
                                                 {cat.name}
                                             </Link>
@@ -920,7 +844,7 @@ export default function ProductDetailPage({
                                     </div>
                                     <Link
                                         href="/san-pham"
-                                        className="inline-flex text-sm font-semibold text-teal-700 hover:text-teal-800"
+                                        className="inline-flex text-sm font-semibold text-emerald-600 hover:text-emerald-700"
                                     >
                                         Xem tất cả sản phẩm
                                     </Link>
