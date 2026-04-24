@@ -22,8 +22,6 @@ export default function ProfileLayout({
     if (path.includes("/address/create")) return "Thêm địa chỉ mới";
     if (path.includes("/address")) return "Sổ địa chỉ";
     if (path.includes("/orders/list")) return "Đơn hàng của tôi";
-    if (path.includes("/ponds/create")) return "Thêm ao nuôi mới";
-    if (path.includes("/ponds")) return "Quản lý ao nuôi";
     if (path.includes("/voucher/create")) return "Nhập mã Voucher";
     if (path.includes("/voucher")) return "Kho Voucher";
     if (path.includes("/orders/")) return "Chi tiết đơn hàng";
@@ -38,6 +36,7 @@ export default function ProfileLayout({
       {/* Mobile Header (visible on small screens, hidden on large) */}
       <div className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
         <button
+          type="button"
           onClick={() => setIsSidebarOpen(true)}
           className="text-gray-600 hover:text-gray-800 p-1 -ml-1"
         >
@@ -49,6 +48,7 @@ export default function ProfileLayout({
           {getBreadcrumbName(pathname)}
         </h1>
         <button
+          type="button"
           onClick={() => router.back()}
           className="text-gray-600 hover:text-gray-800 p-1 -mr-1"
         >

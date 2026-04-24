@@ -9,7 +9,6 @@ import {
   MapPin,
   ClipboardList,
   Bot,
-  Waves,
   Ticket,
   LogOut,
 } from "lucide-react";
@@ -101,9 +100,6 @@ export default function ProfileSidebar({
       <nav className="flex flex-col">
         <Link href="/ai-doctor" onClick={handleLinkClick} className={itemClass("/ai-doctor")}>
           <Bot size={18} className="mr-2.5" /> Chẩn đoán AI
-        </Link>
-        <Link href="/ponds" onClick={handleLinkClick} className={itemClass("/ponds")}>
-          <Waves size={18} className="mr-2.5" /> Quản lý ao nuôi
         </Link>
         <Link href="/voucher" onClick={handleLinkClick} className={itemClass("/voucher")}>
           <Ticket size={18} className="mr-2.5" /> Kho Voucher

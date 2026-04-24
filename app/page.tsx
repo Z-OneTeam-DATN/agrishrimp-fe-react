@@ -31,12 +31,36 @@ const CAT_TAGLINES = [
 ];
 
 export default function Home() {
-  const { data: bestSellersPage, isLoading: loadingBest } = useQuery({
-    queryKey: ["home", "best-sellers"],
-    queryFn: () => PublicProductService.getList({ page: 0, size: 12 }),
+  const [productPage, setProductPage] = useState(0);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const { data: firstPage, isLoading: loadingBest } = useQuery({
+    queryKey: ["home", "products", 0],
+    queryFn: () => PublicProductService.getList({ page: 0, size: 18 }),
     staleTime: 5 * 60 * 1000,
   });
-  const bestSellers = bestSellersPage?.content ?? [];
+
+  useEffect(() => {
+    if (firstPage) {
+      setAllProducts(firstPage.content ?? []);
+      setHasMore(!firstPage.last);
+    }
+  }, [firstPage]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = productPage + 1;
+      const data = await PublicProductService.getList({ page: next, size: 18 });
+      setAllProducts((prev) => [...prev, ...(data.content ?? [])]);
+      setHasMore(!data.last);
+      setProductPage(next);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const { data: allCategories = [], isLoading: loadingCats } = useQuery({
     queryKey: ["home", "categories"],
@@ -243,35 +267,42 @@ export default function Home() {
       <div className="container mx-auto px-4 mt-4">
 
         {/* Section header */}
-        <div className="bg-white border border-gray-200 rounded-t flex items-center justify-between px-4 h-12">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <span className="w-1 h-5 bg-primary rounded-full shrink-0" />
             <span className="text-[15px] font-black uppercase tracking-wide text-gray-900">
               Sản phẩm nổi bật
             </span>
           </div>
-          <Link
-            href="/san-pham"
-            className="flex items-center gap-1 text-[13px] font-semibold text-gray-600 hover:text-primary transition-colors"
-          >
-            Xem tất cả <ChevronRight size={13} />
-          </Link>
         </div>
 
         {/* Product grid */}
-        <div className="bg-white border border-t-0 border-gray-200 rounded-b p-4">
-          {loadingBest ? (
+        {loadingBest ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {Array.from({ length: 18 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+          </div>
+        ) : allProducts.length > 0 ? (
+          <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+              {allProducts.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
-          ) : bestSellers.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {bestSellers.map((p) => <ProductCard key={p.id} product={p} />)}
-            </div>
-          ) : (
-            <p className="text-center py-10 text-sm text-gray-400">Chưa có sản phẩm</p>
-          )}
-        </div>
+            {hasMore && (
+              <div className="text-center mt-5">
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="inline-flex items-center gap-2 px-8 py-2.5 border border-primary text-primary text-[13px] font-semibold rounded-full hover:bg-primary hover:text-white transition-colors disabled:opacity-60"
+                >
+                  {loadingMore ? "Đang tải..." : "Xem thêm sản phẩm"}
+                  {!loadingMore && <ChevronRight size={14} />}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-center py-10 text-sm text-gray-400">Chưa có sản phẩm</p>
+        )}
       </div>
 
     </div>

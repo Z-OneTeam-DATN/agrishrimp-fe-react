@@ -49,7 +49,6 @@ const PROTECTED_PATHS = [
   "/edit-profile",
   "/address",
   "/orders",
-  "/ponds",
   "/voucher",
   "/ai-doctor",
   "/checkout",
