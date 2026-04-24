@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -68,8 +67,9 @@ export default function BlogPostForm({ categories, initialData }: Props) {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      imageUrl: p.imageUrl,
-      basePrice: p.basePrice,
+      imageUrls: p.imageUrl ? [p.imageUrl] : [],
+      isOutOfStock: false,
+      variants: [],
     } as unknown as PublicProductListItem))
   );
 
@@ -319,8 +319,8 @@ export default function BlogPostForm({ categories, initialData }: Props) {
                       )}
                     >
                       <div className="w-9 h-9 rounded-md border border-slate-100 bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
-                        {p.imageUrl ? (
-                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                        {p.imageUrls?.[0] ? (
+                          <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
                         ) : (
                           <Package size={14} className="text-slate-300" />
                         )}
