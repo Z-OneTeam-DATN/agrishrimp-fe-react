@@ -69,32 +69,24 @@ export default function Banner() {
           {visibleBanners.map((banner) => (
             <CarouselItem key={banner.id}>
               <div className="relative h-[220px] w-full overflow-hidden bg-slate-100 md:h-[300px] lg:h-[380px]">
-                <img
-                  src={banner.imageUrl ?? ""}
-                  alt={banner.title ?? ""}
-                  aria-hidden="true"
-                  className="absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-2xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-transparent to-black/10" />
-
                 {banner.linkUrl ? (
                   <a
                     href={banner.linkUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative z-10 flex h-full w-full items-center justify-center"
+                    className="block h-full w-full"
                   >
                     <img
                       src={banner.imageUrl ?? ""}
                       alt={banner.title ?? ""}
-                      className="h-full w-full object-contain"
+                      className="h-full w-full object-cover"
                     />
                   </a>
                 ) : (
                   <img
                     src={banner.imageUrl ?? ""}
                     alt={banner.title ?? ""}
-                    className="relative z-10 h-full w-full object-contain"
+                    className="h-full w-full object-cover"
                   />
                 )}
               </div>
