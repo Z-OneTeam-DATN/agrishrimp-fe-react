@@ -776,32 +776,31 @@ export default function ProductDetailPage({
                     </div>
                 </div>
 
-                <div className="mt-10 space-y-12">
-                    <section className="space-y-5">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <h2 className="text-3xl font-bold text-slate-950">Mô tả sản phẩm</h2>
-                                <p className="mt-2 text-sm text-slate-500">
-                                    Thông tin chi tiết và nội dung giới thiệu cho sản phẩm hiện tại.
-                                </p>
-                            </div>
+                <div className="mt-10 space-y-6">
+                    {/* Mô tả sản phẩm — card bo góc */}
+                    <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                            <h2 className="text-lg font-bold text-slate-900">Mô tả sản phẩm</h2>
+                            <p className="mt-0.5 text-xs text-slate-400">Thông tin chi tiết và nội dung giới thiệu cho sản phẩm hiện tại.</p>
                         </div>
-
-                        <div
-                            className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
-                            dangerouslySetInnerHTML={{
-                                __html: descriptionHtml,
-                            }}
-                        />
+                        <div className="p-6">
+                            <div
+                                className="prose prose-sm sm:prose-base max-w-none w-full break-words overflow-hidden prose-emerald prose-img:rounded-xl prose-img:shadow-sm [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-3 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3"
+                                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                            />
+                        </div>
                     </section>
 
-                    <section ref={reviewSectionRef} className="border-t border-slate-200 pt-10">
-                        <ProductReviews
-                            productId={product.id}
-                            slug={slug}
-                            activeFilter={selectedReviewFilter}
-                            onFilterChange={setSelectedReviewFilter}
-                        />
+                    {/* Đánh giá — card không bo góc */}
+                    <section ref={reviewSectionRef} className="bg-white border border-slate-200">
+                        <div className="px-6 py-5">
+                            <ProductReviews
+                                productId={product.id}
+                                slug={slug}
+                                activeFilter={selectedReviewFilter}
+                                onFilterChange={setSelectedReviewFilter}
+                            />
+                        </div>
                     </section>
 
                     {(related.length > 0 || relatedCategories.length > 0) && (
