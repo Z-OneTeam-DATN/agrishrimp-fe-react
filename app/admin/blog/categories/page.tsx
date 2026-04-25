@@ -22,8 +22,8 @@ import {
   adminDeleteBlogCategory,
 } from "@/app/services/blog.service";
 
-interface FormState { name: string; slug: string; description: string; }
-const EMPTY_FORM: FormState = { name: "", slug: "", description: "" };
+interface FormState { name: string; description: string; }
+const EMPTY_FORM: FormState = { name: "", description: "" };
 
 export default function BlogCategoriesPage() {
   const [categories, setCategories] = useState<BlogCategoryDTO[]>([]);
@@ -56,7 +56,7 @@ export default function BlogCategoriesPage() {
 
   const openEdit = (c: BlogCategoryDTO) => {
     setEditingId(c.id);
-    setForm({ name: c.name, slug: c.slug, description: c.description ?? "" });
+    setForm({ name: c.name, description: c.description ?? "" });
     setIsOpen(true);
   };
 
@@ -67,7 +67,6 @@ export default function BlogCategoriesPage() {
     try {
       const payload = {
         name: form.name.trim(),
-        slug: form.slug.trim() || undefined,
         description: form.description.trim() || undefined,
       };
       if (editingId) {
@@ -198,15 +197,6 @@ export default function BlogCategoriesPage() {
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Ví dụ: Kỹ thuật nuôi tôm"
                 className="h-10 bg-white text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Slug</Label>
-              <Input
-                value={form.slug}
-                onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                placeholder="ky-thuat-nuoi-tom (bỏ trống để tự tạo)"
-                className="h-10 bg-white text-sm font-mono"
               />
             </div>
             <div className="space-y-2">

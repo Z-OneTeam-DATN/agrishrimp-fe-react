@@ -79,7 +79,7 @@ export default function Home() {
 
   const parentCats: CategoryDTO[] = allCategories
     .filter((c: CategoryDTO) => !c.parentId || c.parentId === 0)
-    .slice(0, 5);
+    .slice(0, 7);
 
   const formatNewsDate = (value?: string | null) =>
     value

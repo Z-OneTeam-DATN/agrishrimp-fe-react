@@ -203,7 +203,7 @@ function BlogContent() {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-100 bg-white md:min-h-[176px] md:flex-row"
+                    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-100 bg-white md:h-[210px] md:flex-row"
                   >
                     <div className="h-48 bg-slate-100 md:h-full md:w-2/5" />
                     <div className="flex flex-1 flex-col justify-between p-5 md:p-6">
@@ -224,7 +224,7 @@ function BlogContent() {
                   {posts.map((post, index) => (
                     <article
                       key={post.id}
-                      className="group flex h-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md md:min-h-[176px] md:flex-row"
+                      className="group flex flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md md:h-[210px] md:flex-row"
                     >
                       <Link
                         href={`/blog/${post.slug}`}

@@ -4,9 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Loader2, Save, ImageIcon, X, Search, Package, ChevronDown, ChevronUp,
-} from "lucide-react";
+import { Loader2, Save, X, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +49,6 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState(initialData?.title ?? "");
-  const [slug, setSlug] = useState(initialData?.slug ?? "");
   const [excerpt, setExcerpt] = useState(initialData?.excerpt ?? "");
   const [content, setContent] = useState(initialData?.content ?? "");
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">(initialData?.status ?? "DRAFT");
@@ -78,7 +75,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   const [productSearch, setProductSearch] = useState("");
   const [productResults, setProductResults] = useState<PublicProductListItem[]>([]);
   const [searchingProducts, setSearchingProducts] = useState(false);
-  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [productFocused, setProductFocused] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const isEdit = !!initialData;
@@ -100,7 +97,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
     if (!kw.trim()) { setProductResults([]); return; }
     setSearchingProducts(true);
     try {
-      const res = await PublicProductService.getList({ keyword: kw, size: 10 });
+      const res = await PublicProductService.getList({ keyword: kw, size: 8 });
       setProductResults(res.content ?? []);
     } catch {
       setProductResults([]);
@@ -120,6 +117,9 @@ export default function BlogPostForm({ categories, initialData }: Props) {
       if (exists) return prev.filter((p) => p.id !== product.id);
       return [...prev, product];
     });
+    setProductSearch("");
+    setProductResults([]);
+    setProductFocused(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,7 +133,6 @@ export default function BlogPostForm({ categories, initialData }: Props) {
     try {
       const payload = {
         title: title.trim(),
-        slug: slug.trim() || undefined,
         excerpt: excerpt.trim() || undefined,
         content,
         status,
@@ -165,225 +164,254 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-[900px]">
-      {/* Title */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">
-          Tiêu đề bài viết <span className="text-rose-500">*</span>
-        </Label>
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Nhập tiêu đề bài viết..."
-          className="h-11 text-base font-medium bg-white"
-        />
-      </div>
-
-      {/* Slug */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">Slug (URL)</Label>
-        <Input
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          placeholder="tu-dong-tao-tu-tieu-de (bỏ trống để tự tạo)"
-          className="h-10 text-sm bg-white font-mono"
-        />
-      </div>
-
-      {/* Excerpt */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">Mô tả ngắn</Label>
-        <Textarea
-          value={excerpt}
-          onChange={(e) => setExcerpt(e.target.value)}
-          placeholder="Tóm tắt nội dung bài viết, hiển thị ngoài trang danh sách..."
-          className="resize-none bg-white text-sm"
-          rows={3}
-        />
-      </div>
-
-      {/* Thumbnail */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">Ảnh thumbnail</Label>
-        <div className="flex items-start gap-4">
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "w-48 h-28 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden cursor-pointer transition-colors",
-              thumbnailPreview ? "border-slate-200" : "border-slate-300 hover:border-emerald-400 hover:bg-emerald-50/30"
-            )}
-          >
-            {thumbnailPreview ? (
-              <img src={thumbnailPreview} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center text-slate-400 gap-1">
-                <ImageIcon size={24} />
-                <span className="text-xs font-medium">Tải ảnh lên</span>
-              </div>
-            )}
-          </div>
-          {thumbnailPreview && (
-            <Button type="button" variant="outline" size="sm" onClick={removeThumbnail}
-              className="text-rose-600 border-rose-200 hover:bg-rose-50 h-8">
-              <X size={14} className="mr-1" /> Xóa ảnh
-            </Button>
-          )}
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailChange} />
-      </div>
-
-      {/* Category + Status */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold text-slate-700">Danh mục</Label>
-          <Select
-            value={categoryId || EMPTY_CATEGORY_VALUE}
-            onValueChange={(value) =>
-              setCategoryId(value === EMPTY_CATEGORY_VALUE ? "" : value)
-            }
-          >
-            <SelectTrigger className="h-10 bg-white text-sm">
-              <SelectValue placeholder="Chọn danh mục..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EMPTY_CATEGORY_VALUE}>Không có danh mục</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold text-slate-700">Trạng thái</Label>
-          <Select value={status} onValueChange={(v) => setStatus(v as "DRAFT" | "PUBLISHED")}>
-            <SelectTrigger className="h-10 bg-white text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="DRAFT">Bản nháp</SelectItem>
-              <SelectItem value="PUBLISHED">Xuất bản</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Content editor */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-700">
-          Nội dung bài viết <span className="text-rose-500">*</span>
-        </Label>
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-          <ReactQuill
-            theme="snow"
-            value={content}
-            onChange={setContent}
-            modules={QUILL_MODULES}
-            placeholder="Viết nội dung bài viết tại đây..."
-            className="min-h-[400px]"
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
+      {/* ── LEFT: nội dung chính ── */}
+      <div className="space-y-5">
+        {/* Tiêu đề */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
+          <Label className="text-[13px] font-semibold text-slate-600 uppercase tracking-wide">
+            Tiêu đề <span className="text-rose-500 normal-case">*</span>
+          </Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Nhập tiêu đề bài viết..."
+            className="h-11 text-[15px] font-medium bg-slate-50 border-slate-200 focus:bg-white"
           />
         </div>
+
+        {/* Mô tả ngắn */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
+          <div>
+            <Label className="text-[13px] font-semibold text-slate-600 uppercase tracking-wide">
+              Mô tả ngắn
+            </Label>
+            <p className="text-[12px] text-slate-400 mt-0.5">Hiển thị ngoài trang danh sách và kết quả tìm kiếm</p>
+          </div>
+          <Textarea
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            placeholder="Tóm tắt nội dung bài viết..."
+            className="resize-none bg-slate-50 border-slate-200 focus:bg-white text-sm"
+            rows={3}
+          />
+        </div>
+
+        {/* Nội dung */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
+          <Label className="text-[13px] font-semibold text-slate-600 uppercase tracking-wide">
+            Nội dung bài viết <span className="text-rose-500 normal-case">*</span>
+          </Label>
+          <div className="rounded-lg border border-slate-200 overflow-hidden">
+            <ReactQuill
+              theme="snow"
+              value={content}
+              onChange={setContent}
+              modules={QUILL_MODULES}
+              placeholder="Viết nội dung bài viết tại đây..."
+              className="min-h-[420px]"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Related Products */}
-      <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-        <button
-          type="button"
-          onClick={() => setShowProductSearch((v) => !v)}
-          className="flex items-center gap-2 text-sm font-semibold text-slate-700 w-full"
-        >
-          <Package size={16} className="text-emerald-600" />
-          Sản phẩm liên quan ({selectedProducts.length})
-          {showProductSearch ? <ChevronUp size={14} className="ml-auto text-slate-400" /> : <ChevronDown size={14} className="ml-auto text-slate-400" />}
-        </button>
+      {/* ── RIGHT: sidebar ── */}
+      <div className="space-y-4 xl:sticky xl:top-6">
+        {/* Xuất bản */}
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+            <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Xuất bản</h3>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-slate-500">Trạng thái</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as "DRAFT" | "PUBLISHED")}>
+                <SelectTrigger className="h-9 bg-slate-50 border-slate-200 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DRAFT">Bản nháp</SelectItem>
+                  <SelectItem value="PUBLISHED">Xuất bản ngay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                className="flex-1 h-9 text-sm font-medium"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold"
+              >
+                {saving ? <Loader2 className="animate-spin mr-1.5" size={14} /> : <Save size={14} className="mr-1.5" />}
+                {isEdit ? "Lưu thay đổi" : "Lưu bài viết"}
+              </Button>
+            </div>
+          </div>
+        </div>
 
-        {showProductSearch && (
-          <div className="space-y-3">
+        {/* Ảnh bìa */}
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+            <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Ảnh bìa</h3>
+          </div>
+          <div className="p-4 space-y-3">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailChange} aria-label="Tải ảnh bìa lên" />
+            {thumbnailPreview ? (
+              <div className="space-y-2">
+                <div className="relative w-full aspect-video rounded-md overflow-hidden border border-slate-200 bg-slate-100">
+                  <img src={thumbnailPreview} alt="" className="w-full h-full object-cover" />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={removeThumbnail}
+                  className="w-full h-8 text-xs text-slate-500 border-slate-200"
+                >
+                  <X size={12} className="mr-1.5" /> Xóa ảnh bìa
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full aspect-video rounded-md border-2 border-dashed border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:text-emerald-600"
+              >
+                <Upload size={20} />
+                <span className="text-[12px] font-medium">Tải ảnh lên</span>
+                <span className="text-[11px] text-slate-300">JPG, PNG, WEBP</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Danh mục */}
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+            <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Danh mục</h3>
+          </div>
+          <div className="p-4">
+            <Select
+              value={categoryId || EMPTY_CATEGORY_VALUE}
+              onValueChange={(value) => setCategoryId(value === EMPTY_CATEGORY_VALUE ? "" : value)}
+            >
+              <SelectTrigger className="h-9 bg-slate-50 border-slate-200 text-sm">
+                <SelectValue placeholder="Chọn danh mục..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={EMPTY_CATEGORY_VALUE}>Không có danh mục</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Sản phẩm liên quan */}
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Sản phẩm liên quan</h3>
+              {selectedProducts.length > 0 && (
+                <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {selectedProducts.length}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="p-4 space-y-3">
+            <p className="text-[12px] text-slate-400">Gắn sản phẩm vào bài viết để người đọc tham khảo mua hàng</p>
+
+            {/* Search box */}
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Tìm sản phẩm để thêm vào bài viết..."
-                className="pl-8 h-9 text-sm bg-white"
+                onFocus={() => setProductFocused(true)}
+                onBlur={() => setTimeout(() => setProductFocused(false), 200)}
+                placeholder="Tìm tên sản phẩm..."
+                className="pl-8 h-9 text-sm bg-slate-50 border-slate-200 focus:bg-white"
               />
               {searchingProducts && (
-                <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
+                <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
+              )}
+
+              {/* Dropdown kết quả */}
+              {productFocused && productResults.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-lg divide-y divide-slate-50">
+                  {productResults.map((p) => {
+                    const selected = selectedProducts.some((s) => s.id === p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={() => toggleProduct(p)}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                          selected ? "bg-emerald-50 text-emerald-700" : "hover:bg-slate-50 text-slate-700"
+                        )}
+                      >
+                        <div className="w-8 h-8 rounded border border-slate-100 bg-slate-100 overflow-hidden shrink-0">
+                          {p.imageUrls?.[0] ? (
+                            <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-slate-200" />
+                          )}
+                        </div>
+                        <span className="flex-1 font-medium truncate text-[13px]">{p.name}</span>
+                        {selected && (
+                          <span className="text-[10px] font-semibold text-emerald-600 shrink-0">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
-            {productResults.length > 0 && (
-              <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-lg bg-white divide-y divide-slate-100">
-                {productResults.map((p) => {
-                  const selected = selectedProducts.some((s) => s.id === p.id);
-                  return (
+            {/* Sản phẩm đã chọn */}
+            {selectedProducts.length > 0 && (
+              <div className="space-y-1.5">
+                {selectedProducts.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5"
+                  >
+                    <div className="w-7 h-7 rounded border border-slate-200 bg-white overflow-hidden shrink-0">
+                      {p.imageUrls?.[0] ? (
+                        <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-200" />
+                      )}
+                    </div>
+                    <span className="flex-1 text-[12px] font-medium text-slate-700 truncate">{p.name}</span>
                     <button
-                      key={p.id}
                       type="button"
-                      onClick={() => toggleProduct(p)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 transition-colors text-sm",
-                        selected && "bg-emerald-50"
-                      )}
+                      aria-label={`Xóa sản phẩm ${p.name}`}
+                      onClick={() => setSelectedProducts((prev) => prev.filter((s) => s.id !== p.id))}
+                      className="text-slate-300 hover:text-rose-500 transition-colors shrink-0"
                     >
-                      <div className="w-9 h-9 rounded-md border border-slate-100 bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
-                        {p.imageUrls?.[0] ? (
-                          <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <Package size={14} className="text-slate-300" />
-                        )}
-                      </div>
-                      <span className={cn("flex-1 font-medium truncate", selected ? "text-emerald-700" : "text-slate-700")}>
-                        {p.name}
-                      </span>
-                      {selected && (
-                        <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
-                          Đã chọn
-                        </span>
-                      )}
+                      <X size={13} />
                     </button>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
-          </div>
-        )}
 
-        {selectedProducts.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {selectedProducts.map((p) => (
-              <div key={p.id} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3 py-1 text-sm font-medium text-slate-700">
-                <span className="truncate max-w-[180px]">{p.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedProducts((prev) => prev.filter((s) => s.id !== p.id))}
-                  className="text-slate-400 hover:text-rose-500 transition-colors"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            ))}
+            {selectedProducts.length === 0 && !productFocused && (
+              <p className="text-center text-[12px] text-slate-300 py-2">Chưa có sản phẩm nào được gắn</p>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-          className="h-10 px-6 font-medium"
-        >
-          Hủy
-        </Button>
-        <Button
-          type="submit"
-          disabled={saving}
-          className="h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-100"
-        >
-          {saving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-          {isEdit ? "Lưu thay đổi" : "Tạo bài viết"}
-        </Button>
+        </div>
       </div>
     </form>
   );
