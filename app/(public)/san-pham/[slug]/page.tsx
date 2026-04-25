@@ -480,67 +480,74 @@ export default function ProductDetailPage({
 
                         {/* ── LEFT COLUMN ── */}
                         <div className="space-y-4">
-                            {/* Main image */}
-                            <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#f5f8f6]">
-                                {isCompletelyOutOfStock && (
-                                    <div className="absolute left-4 top-4 z-10 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
-                                        Hết hàng
+                            {/* Image + thumbnail — constrained width, centered */}
+                            <div className="max-w-[420px] mx-auto space-y-3">
+                                {/* Main image */}
+                                <div className="relative aspect-square overflow-hidden rounded-2xl bg-[#f5f8f6]">
+                                    {isCompletelyOutOfStock && (
+                                        <div className="absolute left-4 top-4 z-10 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
+                                            Hết hàng
+                                        </div>
+                                    )}
+                                    <Image
+                                        src={activeImage}
+                                        alt={product.name}
+                                        fill
+                                        priority
+                                        className={`object-contain p-6 transition-all duration-500 ${isCompletelyOutOfStock ? "opacity-45 grayscale" : ""}`}
+                                        onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
+                                    />
+                                </div>
+
+                                {/* Thumbnail strip — centered under main image */}
+                                {productGalleryImages.length > 1 && (
+                                    <div className="relative">
+                                        {hasThumbnailOverflow && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Cuộn ảnh sang trái"
+                                                    onClick={() => scrollThumbnailStrip("left")}
+                                                    disabled={!canScrollThumbnailsLeft}
+                                                    className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                >
+                                                    <ChevronLeft size={14} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Cuộn ảnh sang phải"
+                                                    onClick={() => scrollThumbnailStrip("right")}
+                                                    disabled={!canScrollThumbnailsRight}
+                                                    className="absolute right-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                >
+                                                    <ChevronRight size={14} />
+                                                </button>
+                                            </>
+                                        )}
+                                        <div
+                                            ref={thumbnailStripRef}
+                                            className={`flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth pb-1 ${hasThumbnailOverflow ? "px-10" : "justify-center"}`}
+                                        >
+                                            {productGalleryImages.map((img, idx) => (
+                                                <button
+                                                    key={`${img}-${idx}`}
+                                                    type="button"
+                                                    aria-label={`Xem ảnh ${idx + 1}`}
+                                                    onMouseEnter={() => setActiveImage(img)}
+                                                    onClick={() => setActiveImage(img)}
+                                                    className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                                                        activeImage === img
+                                                            ? "border-emerald-500 shadow-sm shadow-emerald-100"
+                                                            : "border-slate-200 bg-white hover:border-emerald-300"
+                                                    }`}
+                                                >
+                                                    <Image src={img} alt={`ảnh ${idx + 1}`} fill className="object-cover" />
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
-                                <Image
-                                    src={activeImage}
-                                    alt={product.name}
-                                    fill
-                                    priority
-                                    className={`object-contain p-6 transition-all duration-500 ${isCompletelyOutOfStock ? "opacity-45 grayscale" : ""}`}
-                                    onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
-                                />
                             </div>
-
-                            {/* Thumbnail strip — centered under main image */}
-                            {productGalleryImages.length > 1 && (
-                                <div className="relative">
-                                    {hasThumbnailOverflow && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={() => scrollThumbnailStrip("left")}
-                                                disabled={!canScrollThumbnailsLeft}
-                                                className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
-                                            >
-                                                <ChevronLeft size={14} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => scrollThumbnailStrip("right")}
-                                                disabled={!canScrollThumbnailsRight}
-                                                className="absolute right-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
-                                            >
-                                                <ChevronRight size={14} />
-                                            </button>
-                                        </>
-                                    )}
-                                    <div
-                                        ref={thumbnailStripRef}
-                                        className={`flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth pb-1 ${hasThumbnailOverflow ? "px-10" : "justify-center"}`}
-                                    >
-                                        {productGalleryImages.map((img, idx) => (
-                                            <button
-                                                key={`${img}-${idx}`}
-                                                onMouseEnter={() => setActiveImage(img)}
-                                                onClick={() => setActiveImage(img)}
-                                                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                                                    activeImage === img
-                                                        ? "border-emerald-500 shadow-sm shadow-emerald-100"
-                                                        : "border-slate-200 bg-white hover:border-emerald-300"
-                                                }`}
-                                            >
-                                                <Image src={img} alt={`ảnh ${idx + 1}`} fill className="object-cover" />
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Specs section — below thumbnails */}
                             {hasSpecsContent && (
