@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/shared/AdminSidebar";
@@ -60,21 +60,17 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { hasPermission, hasAnyPermission } = usePermissions();
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
   const normalizedRole = normalizeRoleSlug(user?.role);
-  const isBlockedAdminRole =
-    normalizedRole === "USER" || normalizedRole === "CUSTOMER";
+  const isBlockedAdminRole = normalizedRole === "USER" || normalizedRole === "CUSTOMER";
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
 
-  const matchedRule = useMemo(
-    () =>
-      ADMIN_ROUTE_RULES.find((rule) =>
-        rule.exact ? pathname === rule.path : pathname.startsWith(rule.path),
-      ),
-    [pathname],
-  );
+  const matchedRule = useMemo(() => {
+    return ADMIN_ROUTE_RULES.find((rule) =>
+      rule.exact ? pathname === rule.path : pathname.startsWith(rule.path)
+    );
+  }, [pathname]);
 
   const isAllowed = useMemo(() => {
     const isBranchOrderRoute =
@@ -86,27 +82,15 @@ export default function AdminLayout({
       return true;
     }
 
-    if (!matchedRule) {
-      return true;
-    }
-    if (matchedRule.permission) {
-      return hasPermission(matchedRule.permission);
-    }
-    if (matchedRule.anyOf?.length) {
-      return hasAnyPermission(matchedRule.anyOf);
-    }
+    if (!matchedRule) return true;
+    if (matchedRule.permission) return hasPermission(matchedRule.permission);
+    if (matchedRule.anyOf?.length) return hasAnyPermission(matchedRule.anyOf);
     return true;
-  }, [
-    hasAnyPermission,
-    hasPermission,
-    isBranchScopedOrderUser,
-    matchedRule,
-    pathname,
-  ]);
+  }, [isBranchScopedOrderUser, matchedRule, hasAnyPermission, hasPermission, pathname]);
 
   if (isLoadingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+      <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
@@ -122,26 +106,19 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),transparent_24%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)]">
-      <div className="flex min-h-screen">
-        <AdminSidebar
-          mobileOpen={mobileSidebarOpen}
-          onMobileOpenChange={setMobileSidebarOpen}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <AdminTopHeader onOpenSidebar={() => setMobileSidebarOpen(true)} />
-          <main className="flex-1 px-4 py-5 lg:px-6 lg:py-6">
-            <div className="mx-auto max-w-[1680px]">
-              {isAllowed ? (
-                children
-              ) : (
-                <div className="rounded-[28px] border border-white/80 bg-white/75 p-4 shadow-[0_22px_50px_rgba(15,23,42,0.08)] backdrop-blur">
-                  <AdminAccessDenied compact />
-                </div>
-              )}
-            </div>
-          </main>
-        </div>
+    <div className="flex min-h-screen bg-[#f1f5f9]">
+      <AdminSidebar />
+      <div className="flex flex-col flex-1 min-w-0">
+        <AdminTopHeader />
+        <main className="flex-1 overflow-y-auto p-[15px] pt-[20px]">
+          <div className="max-w-[1600px] mx-auto">
+            {isAllowed ? (
+              children
+            ) : (
+              <AdminAccessDenied compact />
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );

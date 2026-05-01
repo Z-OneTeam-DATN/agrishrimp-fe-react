@@ -1,18 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
-  Clock3,
-  LogOut,
-  MapPin,
-  Menu,
-  Settings as SettingsIcon,
-  ShieldCheck,
+  Bell,
+  CircleHelp,
   User,
+  LogOut,
+  Settings as SettingsIcon,
+  MapPin,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,19 +20,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { branchService } from "@/app/services/branchService";
+import Link from "next/link";
 import { useLogout } from "@/hooks/use-logout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
-import { P } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/useAuthStore";
-
-type AdminTopHeaderProps = {
-  onOpenSidebar?: () => void;
-};
+import { useQuery } from "@tanstack/react-query";
+import { branchService } from "@/app/services/branchService";
+import { isAdminRole } from "@/lib/roles";
+import { P } from "@/lib/permissions";
 
 type BranchSummary = {
   id: number;
@@ -43,93 +38,7 @@ type BranchSummary = {
 
 type BranchResponse = BranchSummary[] | { content?: BranchSummary[] };
 
-const PAGE_META = [
-  {
-    path: "/admin/orders/return",
-    title: "Quản lý trả hàng",
-    description: "Xử lý hoàn trả và theo dõi trạng thái trả hàng.",
-  },
-  {
-    path: "/admin/orders",
-    title: "Quản lý đơn hàng",
-    description: "Theo dõi đơn mới, thanh toán, đóng gói và giao hàng.",
-  },
-  {
-    path: "/admin/receipts",
-    title: "Phiếu nhập hàng",
-    description: "Kiểm tra, đối chiếu và hoàn tất tiếp nhận hàng hóa.",
-  },
-  {
-    path: "/admin/exports",
-    title: "Xuất kho",
-    description: "Điều phối xuất hàng và hoàn trả nhà cung cấp đúng tiến độ.",
-  },
-  {
-    path: "/admin/transfers",
-    title: "Điều chuyển kho",
-    description: "Cân bằng tồn kho giữa các chi nhánh và kho tổng.",
-  },
-  {
-    path: "/admin/inventory-checks",
-    title: "Kiểm kê kho",
-    description: "Đối chiếu tồn thực tế và xử lý chênh lệch kiểm kê.",
-  },
-  {
-    path: "/admin/products",
-    title: "Sản phẩm",
-    description: "Quản lý danh mục hàng hóa đang kinh doanh.",
-  },
-  {
-    path: "/admin/customers",
-    title: "Khách hàng",
-    description: "Tra cứu hồ sơ mua hàng và thông tin chăm sóc khách hàng.",
-  },
-  {
-    path: "/admin/suppliers",
-    title: "Nhà cung cấp",
-    description: "Theo dõi đối tác cung ứng và công nợ liên quan.",
-  },
-  {
-    path: "/admin/employees/roles",
-    title: "Vai trò và quyền",
-    description: "Phân quyền để thao tác đúng vai trò và đúng phạm vi.",
-  },
-  {
-    path: "/admin/employees",
-    title: "Nhân viên",
-    description: "Quản lý hồ sơ nhân sự và phân công vận hành.",
-  },
-  {
-    path: "/admin/financial",
-    title: "Tài chính",
-    description: "Theo dõi doanh thu, chi phí, công nợ và lợi nhuận.",
-  },
-  {
-    path: "/admin/reports",
-    title: "Báo cáo",
-    description: "Phân tích doanh thu, tồn kho và hiệu quả vận hành.",
-  },
-  {
-    path: "/admin/blog",
-    title: "Nội dung blog",
-    description: "Điều phối bài viết và chuyên mục nội dung marketing.",
-  },
-  {
-    path: "/admin/banners",
-    title: "Banner hiển thị",
-    description: "Quản lý nội dung trực quan trên kênh public.",
-  },
-  {
-    path: "/admin",
-    title: "Tổng quan vận hành",
-    description: "Nhìn nhanh toàn cảnh kinh doanh, kho vận và việc cần xử lý.",
-  },
-];
-
-export default function AdminTopHeader({
-  onOpenSidebar,
-}: AdminTopHeaderProps) {
-  const pathname = usePathname();
+export default function AdminTopHeader() {
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
@@ -150,14 +59,21 @@ export default function AdminTopHeader({
     return () => clearInterval(timer);
   }, []);
 
-  const pageMeta = useMemo(
-    () => PAGE_META.find((item) => pathname.startsWith(item.path)) ?? PAGE_META.at(-1)!,
-    [pathname],
-  );
+  const getUserDisplayName = () => {
+    if (isUserLoading) return "Đang tải...";
+    if (!user) return "Admin";
+    return (
+      user.fullName ||
+      user.displayName ||
+      user.phoneNumber ||
+      user.email ||
+      "Admin"
+    );
+  };
 
   const formattedDate = mounted
     ? time.toLocaleDateString("vi-VN", {
-        weekday: "long",
+        weekday: "short",
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -168,21 +84,9 @@ export default function AdminTopHeader({
     ? time.toLocaleTimeString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
+        second: "2-digit",
       })
-    : "--:--";
-
-  const getUserDisplayName = () => {
-    if (isUserLoading) {
-      return "Đang tải...";
-    }
-    return (
-      user?.fullName ||
-      user?.displayName ||
-      user?.phoneNumber ||
-      user?.email ||
-      "Quản trị viên"
-    );
-  };
+    : "--:--:--";
 
   const getUserRoleName = () => {
     if (typeof user?.role === "object" && user.role !== null) {
@@ -192,13 +96,9 @@ export default function AdminTopHeader({
   };
 
   const getUserBranchName = () => {
-    if (isUserLoading || isBranchesLoading) {
-      return "Đang tải chi nhánh...";
-    }
+    if (isUserLoading || isBranchesLoading) return "Đang tải...";
 
-    if (user?.branch?.name) {
-      return user.branch.name;
-    }
+    if (user?.branch?.name) return user.branch.name;
 
     if (warehouseId && branches) {
       const branchData = branches as BranchResponse;
@@ -206,146 +106,150 @@ export default function AdminTopHeader({
         ? branchData
         : branchData.content ?? [];
       const currentBranch = branchList.find((branch) => branch.id === warehouseId);
-      if (currentBranch) {
-        return currentBranch.name;
-      }
+      if (currentBranch) return currentBranch.name;
     }
 
-    if (warehouseId === 1 || isAdminRole(user?.role)) {
-      return "Kho tổng Cần Thơ";
+    if (warehouseId === 1) return "Kho Tổng Cần Thơ";
+
+    if (isAdminRole(user?.role)) {
+      return "Kho Tổng Cần Thơ";
     }
 
-    return warehouseId
-      ? `Chi nhánh #${warehouseId}`
-      : "Đang xác định chi nhánh...";
+    return warehouseId ? `Chi Nhánh (ID: ${warehouseId})` : "Đang xác định chi nhánh...";
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-4 px-4 py-3 lg:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={onOpenSidebar}
-            className="h-10 w-10 rounded-2xl border-slate-200 lg:hidden"
-          >
-            <Menu size={18} />
-          </Button>
-
-          <div className="hidden h-11 w-11 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm lg:block">
+    <header className="h-[64px] border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
+      <div className="flex items-center gap-6 flex-1">
+        <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
+          <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 shadow-sm ring-4 ring-slate-50">
             <img
               src="/images/logo_arishrimp.jpg"
               alt="AgriShrimp Logo"
               className="h-full w-full object-cover"
             />
           </div>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700">
-                Admin
-              </Badge>
-              <span className="hidden text-xs font-medium text-slate-400 md:inline">
-                Điều hướng theo luồng nghiệp vụ
-              </span>
-            </div>
-            <h1 className="mt-2 truncate text-lg font-black tracking-tight text-slate-900 lg:text-[26px]">
-              {pageMeta.title}
-            </h1>
-            <p className="hidden truncate text-sm text-slate-500 lg:block">
-              {pageMeta.description}
-            </p>
+          <div className="flex flex-col">
+            <span className="text-[13px] font-black text-slate-900 leading-none tracking-tight uppercase">
+              AGRISHRIMP CO.
+            </span>
+            <span className="text-[10px] font-bold text-emerald-600 uppercase mt-0.5 tracking-wider">
+              System Admin
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 lg:gap-3">
-          <div className="hidden items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 xl:flex">
-            <Clock3 size={16} className="text-slate-400" />
-            <div>
-              <p className="text-xs font-semibold text-slate-700">{formattedTime}</p>
-              <p className="text-[11px] text-slate-500">{formattedDate}</p>
-            </div>
+        <div className="hidden xl:flex items-center gap-4 text-slate-500 ml-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100/50">
+            <Clock size={14} className="text-slate-400" />
+            <span className="text-[13px] font-bold text-slate-700 font-mono tracking-wider">
+              {formattedTime}
+            </span>
+            <div className="w-[1px] h-3 bg-slate-200 mx-1" />
+            <span className="text-[12px] font-medium text-slate-500">
+              {formattedDate}
+            </span>
           </div>
+        </div>
+      </div>
 
-          <div className="hidden items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 lg:flex">
-            <MapPin size={16} className="text-emerald-600" />
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                Đang thao tác tại
-              </p>
-              <p className="max-w-[220px] truncate text-sm font-semibold text-emerald-900">
-                {getUserBranchName()}
-              </p>
-            </div>
-          </div>
+      <div className="flex items-center gap-4">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full">
+          <MapPin size={14} className="text-emerald-600" />
+          <span className="text-[12px] font-bold text-emerald-700">
+            {getUserBranchName()}
+          </span>
+          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></div>
+        </div>
 
-          {hasPermission(P.ROLE_VIEW) && (
-            <Link href="/admin/employees/roles" className="hidden xl:block">
-              <Button
-                variant="outline"
-                className="h-10 rounded-2xl border-violet-200 bg-violet-50 px-4 text-sm font-semibold text-violet-700 hover:bg-violet-100"
-              >
-                <ShieldCheck size={16} className="mr-2 text-violet-500" />
-                Vai trò & Quyền
-              </Button>
-            </Link>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
-                <div className="hidden text-right sm:block">
-                  <p className="text-sm font-bold text-slate-800">
-                    {getUserDisplayName()}
-                  </p>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                    {getUserRoleName()}
-                  </p>
-                </div>
-                <Avatar className="h-10 w-10 border border-white shadow-sm ring-2 ring-slate-100">
-                  <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
-                  <AvatarFallback className="bg-slate-900 text-sm font-bold text-white">
-                    {getUserDisplayName().charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="mt-3 w-72 rounded-2xl border-slate-200 p-2 shadow-2xl"
+        {hasPermission(P.ROLE_VIEW) && (
+          <Link href="/admin/employees/roles">
+            <Button
+              variant="outline"
+              className="hidden md:flex h-8 items-center gap-1.5 px-3 text-[12px] font-semibold text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100 hover:border-violet-300 rounded-full transition-colors"
             >
-              <DropdownMenuLabel className="px-3 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                  Phiên làm việc
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {user?.email || user?.phoneNumber || "Đang tải thông tin"}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">{getUserBranchName()}</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer rounded-xl px-3 py-2.5 text-slate-700 focus:bg-slate-100">
-                <User className="mr-3 h-4 w-4 text-slate-400" />
-                Hồ sơ cá nhân
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer rounded-xl px-3 py-2.5 text-slate-700 focus:bg-slate-100">
-                <SettingsIcon className="mr-3 h-4 w-4 text-slate-400" />
-                Cài đặt hệ thống
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => logout()}
-                disabled={isLoggingOut}
-                className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold text-rose-600 focus:bg-rose-50 focus:text-rose-700"
-              >
-                <LogOut className="mr-3 h-4 w-4 text-rose-400" />
-                {isLoggingOut ? "Đang xử lý..." : "Đăng xuất"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <ShieldCheck size={14} className="text-violet-500" />
+              Quản lý vai trò
+            </Button>
+          </Link>
+        )}
+
+        <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+          >
+            <Bell size={20} />
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+          >
+            <CircleHelp size={20} />
+          </Button>
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-3 cursor-pointer pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ml-2 group">
+              <div className="text-right hidden sm:block">
+                <p className="text-[13px] font-black text-slate-800 leading-none group-hover:text-emerald-600 transition-colors">
+                  {getUserDisplayName()}
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">
+                  {getUserRoleName()}
+                </p>
+              </div>
+              <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
+                <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
+                <AvatarFallback className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white text-[11px] font-bold">
+                  {getUserDisplayName().charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-64 mt-3 shadow-2xl border-slate-100 rounded-xl p-2"
+          >
+            <DropdownMenuLabel className="px-3 py-3">
+              <div className="flex flex-col">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  {isAdminRole(user?.role)
+                    ? "Quyền hạn cao nhất"
+                    : "Thông tin tài khoản"}
+                </span>
+                <span className="text-[13px] font-bold text-slate-800 mt-0.5">
+                  {user?.email || user?.phoneNumber || "Đang tải..."}
+                </span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-slate-50 mx-2" />
+            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-emerald-50 focus:bg-emerald-50 group">
+              <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
+              <span className="text-[13px] font-medium">Hồ sơ cá nhân</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-emerald-50 focus:bg-emerald-50 group">
+              <SettingsIcon className="mr-3 h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
+              <span className="text-[13px] font-medium">Cài đặt hệ thống</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-50 mx-2" />
+            <DropdownMenuItem
+              onClick={() => logout()}
+              disabled={isLoggingOut}
+              className="text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600 font-bold py-2.5 px-3 rounded-lg group"
+            >
+              <LogOut className="mr-3 h-4 w-4 text-rose-400 group-hover:text-rose-600" />
+              <span className="text-[13px]">
+                {isLoggingOut ? "Đang xử lý..." : "Đăng xuất"}
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
