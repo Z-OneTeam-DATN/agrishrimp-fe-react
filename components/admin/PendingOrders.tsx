@@ -1,30 +1,24 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  FileSearch,
-  CreditCard,
-  Package,
-  Truck,
-  Share2,
-  Ban,
   AlertTriangle,
+  Ban,
+  CreditCard,
+  FileSearch,
+  Package,
+  Share2,
+  Truck,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { orderService } from "@/app/services/order.service";
 import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
 import { getOrderListPath } from "@/lib/order-routing";
+import { cn } from "@/lib/utils";
 
 interface PendingOrdersProps {
   branchId?: string;
@@ -57,132 +51,135 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       label: "Thiếu hàng",
       count: backorderCount,
       icon: AlertTriangle,
-      color: "text-rose-600",
       href: getOrderListPath(user, "AWAITING_REPLENISHMENT"),
+      accent: "bg-rose-50 text-rose-700 border-rose-100",
     },
     {
       label: "Chờ duyệt",
       count: data?.pendingApproval ?? 0,
       icon: FileSearch,
-      color: "text-blue-500",
       href: getOrderListPath(user, "PENDING"),
+      accent: "bg-sky-50 text-sky-700 border-sky-100",
     },
     {
       label: "Chờ thanh toán",
       count: data?.pendingPayment ?? 0,
       icon: CreditCard,
-      color: "text-amber-500",
       href: getOrderListPath(user, "AWAITING_PAYMENT"),
+      accent: "bg-amber-50 text-amber-700 border-amber-100",
     },
     {
       label: "Chờ đóng gói",
       count: data?.pendingPacking ?? 0,
       icon: Package,
-      color: "text-indigo-500",
       href: getOrderListPath(user, "PROCESSING"),
+      accent: "bg-violet-50 text-violet-700 border-violet-100",
     },
     {
       label: "Chờ lấy hàng",
       count: data?.pendingPickup ?? 0,
       icon: Truck,
-      color: "text-emerald-500",
       href: getOrderListPath(user, "READY_FOR_PICKUP"),
+      accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
     },
     {
-      label: "Đang giao hàng",
+      label: "Đang giao",
       count: data?.shipping ?? 0,
       icon: Share2,
-      color: "text-cyan-500",
       href: getOrderListPath(user, "SHIPPING"),
+      accent: "bg-cyan-50 text-cyan-700 border-cyan-100",
     },
     {
-      label: "Hủy giao - Chờ nhận",
+      label: "Hủy giao chờ nhận",
       count: data?.cancelPending ?? 0,
       icon: Ban,
-      color: "text-red-500",
       href: getOrderListPath(user, "CANCELLED"),
+      accent: "bg-slate-100 text-slate-700 border-slate-200",
     },
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-sm shadow-sm mt-4">
-      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase">
-          Đơn hàng chờ xử lý
-        </h2>
-        <div className="w-32">
-          <Select defaultValue="7days">
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="7 ngày qua" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7days">7 ngày qua</SelectItem>
-              <SelectItem value="30days">30 ngày qua</SelectItem>
-            </SelectContent>
-          </Select>
+    <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">
+            Luồng xử lý đơn hàng
+          </p>
+          <h2 className="mt-1 text-lg font-black text-slate-900">
+            Điểm nghẽn cần xử lý trước
+          </h2>
         </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+          Theo trạng thái
+        </span>
       </div>
+
       {isAdmin && !isBackordersLoading && backorderCount > 0 && (
-        <div className="mx-4 mt-4 rounded-sm border border-rose-200 bg-rose-50 px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="mt-0.5 rounded-sm bg-white p-2 text-rose-600 border border-rose-200">
-              <AlertTriangle size={16} />
+        <div className="mx-5 mt-5 rounded-[24px] border border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffffff_100%)] px-4 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-white p-2.5 text-rose-600 shadow-sm">
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-rose-700">
+                  Có đơn đang thiếu sản phẩm để tiếp tục xử lý
+                </p>
+                <p className="mt-1 text-sm leading-6 text-rose-600">
+                  Đang thiếu tổng cộng {backorderCount} sản phẩm ở{" "}
+                  {backorders?.length ?? 0} dòng hàng. Nên ưu tiên điều chuyển
+                  hoặc bổ sung tồn kho trước.
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-rose-700">
-                Có đơn đang thiếu sản phẩm
-              </p>
-              <p className="text-xs text-rose-600">
-                Đang thiếu tổng cộng {backorderCount} sản phẩm ở{" "}
-                {backorders?.length ?? 0} dòng hàng. Cần tạo điều chuyển bổ
-                sung.
-              </p>
-            </div>
+            <Link
+              href={getOrderListPath(user, "AWAITING_REPLENISHMENT")}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 transition hover:bg-rose-50"
+            >
+              Xem đơn thiếu hàng
+            </Link>
           </div>
-          <Link
-            href={getOrderListPath(user, "AWAITING_REPLENISHMENT")}
-            className="shrink-0 rounded-sm border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
-          >
-            Xem ngay
-          </Link>
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 divide-x divide-gray-100">
+
+      <div className="grid gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-4">
         {isLoading
           ? [...Array(7)].map((_, index) => (
               <div
                 key={index}
-                className="p-6 flex flex-col items-center justify-center gap-2"
+                className="rounded-[24px] border border-slate-100 bg-slate-50 p-4"
               >
-                <Skeleton className="w-10 h-10 rounded-md" />
-                <div className="space-y-1 text-center">
-                  <Skeleton className="h-2 w-16" />
-                  <Skeleton className="h-6 w-8 mx-auto" />
-                </div>
+                <Skeleton className="h-10 w-10 rounded-2xl" />
+                <Skeleton className="mt-4 h-4 w-28" />
+                <Skeleton className="mt-3 h-8 w-16" />
               </div>
             ))
-          : items.map((item, index) => (
+          : items.map((item) => (
               <Link
-                key={index}
+                key={item.label}
                 href={item.href}
-                className="p-6 flex flex-col items-center justify-center gap-2 hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                className="group rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 transition hover:-translate-y-0.5 hover:border-slate-200 hover:bg-white hover:shadow-md"
               >
                 <div
-                  className={`p-2 rounded-md bg-gray-50 group-hover:bg-white group-hover:shadow-sm transition-all`}
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-2xl border",
+                    item.accent,
+                  )}
                 >
-                  <item.icon size={20} className={item.color} />
+                  <item.icon size={18} />
                 </div>
-                <div className="text-center">
-                  <p className="text-[11px] text-gray-500 font-medium whitespace-nowrap">
-                    {item.label}
-                  </p>
-                  <p className="text-lg font-bold text-gray-800">
-                    {item.count}
-                  </p>
-                </div>
+                <p className="mt-4 text-sm font-semibold text-slate-700">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-3xl font-black tracking-tight text-slate-900">
+                  {item.count}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Chạm để mở danh sách tương ứng.
+                </p>
               </Link>
             ))}
       </div>
-    </div>
+    </section>
   );
 }
