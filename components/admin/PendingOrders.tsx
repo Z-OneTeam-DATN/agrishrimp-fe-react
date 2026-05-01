@@ -42,7 +42,12 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
 
   const backorderCount =
     backorders?.reduce(
-      (sum, item) => sum + (item.totalMissingQuantity || 0),
+      (
+        sum: number,
+        item: {
+          totalMissingQuantity?: number;
+        },
+      ) => sum + (item.totalMissingQuantity || 0),
       0,
     ) ?? 0;
 
@@ -99,30 +104,30 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
             Luồng xử lý đơn hàng
           </p>
-          <h2 className="mt-1 text-lg font-black text-slate-900">
+          <h2 className="mt-1 text-lg font-bold text-slate-900">
             Điểm nghẽn cần xử lý trước
           </h2>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
           Theo trạng thái
         </span>
       </div>
 
       {isAdmin && !isBackordersLoading && backorderCount > 0 && (
-        <div className="mx-5 mt-5 rounded-[24px] border border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffffff_100%)] px-4 py-4">
+        <div className="mx-5 mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-white p-2.5 text-rose-600 shadow-sm">
+              <div className="rounded-xl bg-white p-2.5 text-rose-600 shadow-sm">
                 <AlertTriangle size={18} />
               </div>
               <div>
-                <p className="text-sm font-bold text-rose-700">
+                <p className="text-sm font-semibold text-rose-700">
                   Có đơn đang thiếu sản phẩm để tiếp tục xử lý
                 </p>
                 <p className="mt-1 text-sm leading-6 text-rose-600">
@@ -134,7 +139,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
             </div>
             <Link
               href={getOrderListPath(user, "AWAITING_REPLENISHMENT")}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 transition hover:bg-rose-50"
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
             >
               Xem đơn thiếu hàng
             </Link>
@@ -147,9 +152,9 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
           ? [...Array(7)].map((_, index) => (
               <div
                 key={index}
-                className="rounded-[24px] border border-slate-100 bg-slate-50 p-4"
+                className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
               >
-                <Skeleton className="h-10 w-10 rounded-2xl" />
+                <Skeleton className="h-10 w-10 rounded-xl" />
                 <Skeleton className="mt-4 h-4 w-28" />
                 <Skeleton className="mt-3 h-8 w-16" />
               </div>
@@ -158,11 +163,11 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
               <Link
                 key={item.label}
                 href={item.href}
-                className="group rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 transition hover:-translate-y-0.5 hover:border-slate-200 hover:bg-white hover:shadow-md"
+                className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-white"
               >
                 <div
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl border",
+                    "flex h-11 w-11 items-center justify-center rounded-xl border",
                     item.accent,
                   )}
                 >
@@ -175,7 +180,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
                   {item.count}
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
-                  Chạm để mở danh sách tương ứng.
+                  Mở danh sách tương ứng để xử lý nhanh.
                 </p>
               </Link>
             ))}

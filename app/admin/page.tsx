@@ -27,7 +27,13 @@ import TopProducts from "@/components/admin/TopProducts";
 import InventoryInfo from "@/components/admin/InventoryInfo";
 import DashboardStats from "@/components/admin/DashboardStats";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { dashboardService } from "@/app/services/dashboard.service";
@@ -46,33 +52,29 @@ const quickActionConfigs = [
     href: "/admin/exports",
     icon: ArrowUpFromLine,
     label: "Xuất kho",
-    description: "Tạo và theo dõi các phiếu xuất đang chờ hoàn tất.",
+    description: "Xử lý phiếu xuất và theo dõi tiến độ bàn giao.",
     permission: P.EXPORT_VIEW,
-    tone: "from-sky-500 to-blue-600",
   },
   {
     href: "/admin/receipts",
     icon: Package,
     label: "Nhập hàng",
-    description: "Tiếp nhận hàng hóa từ NCC và xác nhận đúng chứng từ.",
+    description: "Tiếp nhận hàng từ NCC và xác nhận chứng từ.",
     permission: P.IMPORT_VIEW,
-    tone: "from-emerald-500 to-teal-600",
   },
   {
     href: "/admin/transfers",
     icon: ArrowRightLeft,
     label: "Điều chuyển",
-    description: "Điều phối hàng giữa các điểm để tránh thiếu tồn.",
+    description: "Cân bằng tồn kho giữa các chi nhánh và kho tổng.",
     permission: P.TRANSFER_VIEW,
-    tone: "from-amber-400 to-orange-500",
   },
   {
     href: "/admin/inventory-checks",
     icon: CheckCircle2,
     label: "Kiểm kê",
-    description: "Khởi tạo phiên kiểm kê và xử lý chênh lệch nhanh.",
+    description: "Mở phiên kiểm kê và xử lý chênh lệch tồn kho.",
     permission: P.CHECK_VIEW,
-    tone: "from-violet-500 to-indigo-600",
   },
 ];
 
@@ -81,10 +83,24 @@ type BranchOption = {
   name: string;
 };
 
+type HighlightItem = {
+  description: string;
+  href: string;
+  icon: typeof ShoppingCart;
+  isCurrency?: boolean;
+  label: string;
+  tone: string;
+  value: number;
+};
+
 export default function AdminDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: user, isLoading: isUserLoading, error: userError } = useCurrentUser();
+  const {
+    data: user,
+    isLoading: isUserLoading,
+    error: userError,
+  } = useCurrentUser();
   const { hasPermission, isLoadingAuth } = usePermissions();
   const [selectedBranchId, setSelectedBranchId] = useState<string | undefined>(
     undefined,
@@ -170,7 +186,7 @@ export default function AdminDashboard() {
     hasPermission(action.permission),
   );
 
-  const workflowHighlights = useMemo(() => {
+  const workflowHighlights = useMemo<HighlightItem[]>(() => {
     const backorderCount =
       backorders?.reduce(
         (sum: number, item: { totalMissingQuantity?: number }) =>
@@ -182,44 +198,49 @@ export default function AdminDashboard() {
       {
         label: "Đơn chờ duyệt",
         value: pendingSummary?.pendingApproval ?? 0,
-        description: "Ưu tiên xác nhận trước khi luồng bán hàng bị chậm.",
+        description: "Cần xác nhận để không chậm luồng bán hàng.",
         href: "/admin/orders",
         icon: ShoppingCart,
-        tone: "border-sky-200 bg-sky-50 text-sky-700",
+        tone: "text-sky-700 bg-sky-50 border-sky-100",
       },
       {
         label: "Đơn thiếu hàng",
         value: backorderCount,
-        description: "Cần điều phối bổ sung hoặc xử lý thiếu tồn.",
+        description: "Ưu tiên điều phối hoặc bổ sung tồn kho.",
         href: "/admin/transfers",
         icon: AlertTriangle,
-        tone: "border-rose-200 bg-rose-50 text-rose-700",
+        tone: "text-rose-700 bg-rose-50 border-rose-100",
       },
       {
         label: "Khách hàng đang phục vụ",
         value: stats?.totalCustomers ?? 0,
-        description: "Theo dõi quy mô tệp khách hàng đang vận hành.",
+        description: "Quy mô tệp khách hàng trong phạm vi hiện tại.",
         href: "/admin/customers",
         icon: Users,
-        tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        tone: "text-emerald-700 bg-emerald-50 border-emerald-100",
       },
       {
         label: "Doanh thu hôm nay",
         value: dailyResults?.todayRevenue ?? 0,
-        description: "Kiểm tra tốc độ hoàn thành doanh thu trong ngày.",
+        description: "Theo dõi nhịp hoàn thành doanh thu trong ngày.",
         href: "/admin/reports/sales",
         icon: Wallet,
-        tone: "border-amber-200 bg-amber-50 text-amber-700",
+        tone: "text-amber-700 bg-amber-50 border-amber-100",
         isCurrency: true,
       },
     ];
-  }, [backorders, dailyResults?.todayRevenue, pendingSummary?.pendingApproval, stats?.totalCustomers]);
+  }, [
+    backorders,
+    dailyResults?.todayRevenue,
+    pendingSummary?.pendingApproval,
+    stats?.totalCustomers,
+  ]);
 
   const branchLabel = isAdmin
-      ? selectedBranchId
-        ? branches.find((branch) => branch.id.toString() === selectedBranchId)
-            ?.name || "Chi nhánh đã chọn"
-        : "Tất cả chi nhánh"
+    ? selectedBranchId
+      ? branches.find((branch) => branch.id.toString() === selectedBranchId)
+          ?.name || "Chi nhánh đã chọn"
+      : "Tất cả chi nhánh"
     : user?.branch?.name || "Chi nhánh của bạn";
 
   const getActivityConfig = (type: string) => {
@@ -257,7 +278,7 @@ export default function AdminDashboard() {
 
   if (isUserLoading || isLoadingAuth) {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 rounded-[28px] border border-white/70 bg-white/80">
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 rounded-3xl border border-slate-200 bg-white">
         <RefreshCw className="animate-spin text-emerald-600" size={32} />
         <p className="text-sm font-medium text-slate-600">
           Đang tải thông tin tổng quan hệ thống...
@@ -268,7 +289,7 @@ export default function AdminDashboard() {
 
   if (userError) {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center rounded-[28px] border border-rose-100 bg-white p-6 text-center shadow-sm">
+      <div className="flex min-h-[70vh] flex-col items-center justify-center rounded-3xl border border-rose-100 bg-white p-6 text-center shadow-sm">
         <AlertCircle className="mb-3 text-rose-500" size={48} />
         <h2 className="text-xl font-bold text-slate-900">
           Không thể tải dữ liệu người dùng
@@ -287,7 +308,7 @@ export default function AdminDashboard() {
   if (!canViewDashboard) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="space-y-2 rounded-[28px] border border-white/70 bg-white/80 p-10 text-center shadow-sm">
+        <div className="space-y-2 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
           <AlertTriangle className="mx-auto text-amber-500" size={42} />
           <h2 className="text-xl font-bold text-slate-800">
             Bạn không có quyền truy cập
@@ -302,26 +323,26 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 pb-10">
-      <section className="overflow-hidden rounded-[32px] border border-white/90 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_30%),linear-gradient(135deg,#ffffff_0%,#f8fafc_55%,#ecfeff_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
-        <div className="grid gap-6 px-5 py-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)] lg:px-8 lg:py-8">
+      <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1.5fr)_360px] lg:p-6">
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-700">
-                Dashboard điều hành
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-600">
+                Tổng quan điều hành
               </span>
-              <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500">
                 Phạm vi: {branchLabel}
               </span>
             </div>
 
-            <div className="max-w-3xl">
-              <h2 className="text-2xl font-black tracking-tight text-slate-950 lg:text-[34px]">
-                Giao diện tổng quan được sắp theo đúng thứ tự vận hành mỗi ngày.
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600 lg:text-base">
-                Bắt đầu từ cảnh báo cần xử lý, chuyển sang thao tác nhanh, rồi
-                mới đến số liệu và phân tích sâu. Cách này giúp đội vận hành
-                biết việc gì cần làm ngay mà không phải quét cả màn hình.
+            <div className="space-y-3">
+              <h1 className="max-w-3xl text-2xl font-black tracking-tight text-slate-900 lg:text-[32px]">
+                Theo dõi vận hành hằng ngày theo đúng thứ tự ưu tiên xử lý.
+              </h1>
+              <p className="max-w-3xl text-sm leading-7 text-slate-600">
+                Cảnh báo cần xử lý được đưa lên trước, thao tác nhanh ở ngay bên
+                cạnh, sau đó mới đến số liệu tổng hợp và phân tích sâu. Cách bố
+                cục này giúp dashboard bớt rối và dễ quét hơn.
               </p>
             </div>
 
@@ -331,23 +352,25 @@ export default function AdminDashboard() {
                   key={item.label}
                   href={item.href}
                   className={cn(
-                    "rounded-[24px] border px-4 py-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                    "rounded-2xl border p-4 transition hover:border-slate-300 hover:bg-slate-50",
                     item.tone,
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="rounded-2xl bg-white/70 p-2.5 shadow-sm">
+                    <div className="rounded-xl bg-white p-2 shadow-sm">
                       <item.icon size={18} />
                     </div>
-                    <ChevronRight size={18} />
+                    <ChevronRight size={16} className="text-slate-300" />
                   </div>
-                  <p className="mt-4 text-sm font-semibold">{item.label}</p>
-                  <p className="mt-1 text-2xl font-black tracking-tight">
+                  <p className="mt-4 text-sm font-semibold text-slate-800">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                     {item.isCurrency
                       ? formatCurrency(item.value)
                       : item.value.toLocaleString()}
                   </p>
-                  <p className="mt-2 text-xs leading-5 opacity-80">
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
                     {item.description}
                   </p>
                 </Link>
@@ -355,22 +378,22 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-sm">
+          <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                  Bộ lọc điều hành
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                  Bộ lọc làm việc
                 </p>
-                <h3 className="mt-1 text-lg font-black text-slate-900">
-                  Ngữ cảnh đang xem
-                </h3>
+                <h2 className="mt-1 text-lg font-bold text-slate-900">
+                  Ngữ cảnh hiện tại
+                </h2>
               </div>
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="rounded-2xl border-slate-200"
+                className="rounded-xl border-slate-200 bg-white"
               >
                 <RefreshCw
                   size={16}
@@ -380,81 +403,79 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-white p-2.5 text-emerald-600 shadow-sm">
-                    <Building2 size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Chi nhánh hiển thị
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
+                  <Building2 size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Chi nhánh hiển thị
+                  </p>
+                  {isAdmin ? (
+                    <div className="mt-3">
+                      <Select
+                        value={selectedBranchId || "all"}
+                        onValueChange={(value) =>
+                          setSelectedBranchId(value === "all" ? undefined : value)
+                        }
+                      >
+                        <SelectTrigger className="h-11 rounded-xl border-slate-200 text-sm font-medium">
+                          <SelectValue placeholder="Tất cả chi nhánh" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                          {branches.map((branch) => (
+                            <SelectItem
+                              key={branch.id}
+                              value={branch.id.toString()}
+                            >
+                              {branch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <p className="mt-2 truncate text-sm font-semibold text-slate-900">
+                      {branchLabel}
                     </p>
-                    {isAdmin ? (
-                      <div className="mt-2">
-                        <Select
-                          value={selectedBranchId || "all"}
-                          onValueChange={(value) =>
-                            setSelectedBranchId(value === "all" ? undefined : value)
-                          }
-                        >
-                          <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-white text-sm font-semibold">
-                            <SelectValue placeholder="Tất cả chi nhánh" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                            {branches.map((branch) => (
-                              <SelectItem
-                                key={branch.id}
-                                value={branch.id.toString()}
-                              >
-                                {branch.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : (
-                      <p className="mt-2 truncate text-sm font-bold text-slate-900">
-                        {branchLabel}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Hướng dẫn sử dụng
-                </p>
-                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                  <li>Ưu tiên xử lý các khối cảnh báo màu đỏ và vàng trước.</li>
-                  <li>Luôn xác nhận đúng chi nhánh trước khi tạo phiếu.</li>
-                  <li>Dùng thao tác nhanh để vào đúng màn hình nghiệp vụ.</li>
-                </ul>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Cách dùng nhanh
+              </p>
+              <div className="mt-3 space-y-3 text-sm text-slate-600">
+                <p>Ưu tiên xử lý khối đỏ và vàng trước khi xem báo cáo.</p>
+                <p>Luôn kiểm tra đúng chi nhánh trước khi tạo phiếu nghiệp vụ.</p>
+                <p>Dùng tác vụ nhanh để đi thẳng vào màn hình đang cần thao tác.</p>
               </div>
             </div>
 
             {quickActions.length > 0 && (
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Tác vụ nhanh
                 </p>
-                <div className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                   {quickActions.map((action) => (
                     <button
                       key={action.href}
                       type="button"
                       onClick={() => router.push(action.href)}
-                      className="group rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                      className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className={cn("rounded-2xl bg-gradient-to-br p-2.5 text-white shadow-sm", action.tone)}>
+                        <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700">
                           <action.icon size={18} />
                         </div>
-                        <ChevronRight className="text-slate-300 group-hover:text-slate-600" size={18} />
+                        <ChevronRight size={16} className="text-slate-300" />
                       </div>
-                      <p className="mt-4 text-sm font-bold text-slate-900">
+                      <p className="mt-4 text-sm font-semibold text-slate-900">
                         {action.label}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-slate-500">
@@ -471,7 +492,7 @@ export default function AdminDashboard() {
 
       <DashboardStats branchId={selectedBranchId} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.9fr)_minmax(320px,0.95fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.85fr)_360px]">
         <div className="space-y-6">
           <DailyBusinessResults branchId={selectedBranchId} />
           <PendingOrders branchId={selectedBranchId} />
@@ -483,24 +504,24 @@ export default function AdminDashboard() {
         </div>
 
         <div className="space-y-6">
-          <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.07)]">
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
                   Nhật ký hoạt động
                 </p>
-                <h3 className="mt-1 text-lg font-black text-slate-900">
+                <h3 className="mt-1 text-lg font-bold text-slate-900">
                   Cập nhật gần đây
                 </h3>
               </div>
               <Bell size={18} className="text-slate-400" />
             </div>
 
-            <div className="max-h-[560px] space-y-5 overflow-y-auto px-5 py-5">
+            <div className="max-h-[560px] space-y-4 overflow-y-auto px-5 py-5">
               {isRecentLoading ? (
                 [...Array(5)].map((_, index) => (
                   <div key={index} className="flex gap-3">
-                    <Skeleton className="h-10 w-10 rounded-2xl" />
+                    <Skeleton className="h-10 w-10 rounded-xl" />
                     <div className="flex-1 space-y-2">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-1/2" />
@@ -522,7 +543,7 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               ) : recentActivities.length === 0 ? (
-                <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
                   <p className="text-sm text-slate-500">
                     Chưa có hoạt động nào trong phạm vi đang xem.
                   </p>
@@ -533,26 +554,26 @@ export default function AdminDashboard() {
                   return (
                     <div key={activity.id} className="relative flex gap-3">
                       {index !== recentActivities.length - 1 && (
-                        <div className="absolute left-5 top-11 bottom-[-22px] w-px bg-slate-100" />
+                        <div className="absolute left-5 top-11 bottom-[-18px] w-px bg-slate-100" />
                       )}
                       <div
                         className={cn(
-                          "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
+                          "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                           config.bgColor,
                           config.iconColor,
                         )}
                       >
                         <config.icon size={18} />
                       </div>
-                      <div className="min-w-0 flex-1 rounded-[22px] border border-slate-100 bg-slate-50/70 px-4 py-3">
+                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-slate-900">
+                            <p className="truncate text-sm font-semibold text-slate-900">
                               {activity.title}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
                               {config.label} bởi{" "}
-                              <span className="font-semibold text-slate-700">
+                              <span className="font-medium text-slate-700">
                                 {activity.user}
                               </span>
                             </p>
@@ -573,17 +594,17 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-[28px] border border-emerald-200 bg-[linear-gradient(135deg,#065f46_0%,#047857_45%,#0f766e_100%)] p-5 text-white shadow-[0_20px_60px_rgba(6,95,70,0.28)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-100/90">
+          <section className="rounded-3xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
               Quy tắc vận hành
             </p>
-            <h3 className="mt-2 text-xl font-black">
-              Mọi thao tác nên đi theo một chuỗi rõ ràng
+            <h3 className="mt-2 text-xl font-bold">
+              Luôn thao tác theo một chuỗi rõ ràng
             </h3>
-            <div className="mt-4 grid gap-3 text-sm leading-6 text-emerald-50/95">
-              <p>1. Xác định đúng chi nhánh hoặc kho trước khi tạo chứng từ.</p>
+            <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+              <p>1. Kiểm tra đúng chi nhánh hoặc kho trước khi tạo chứng từ.</p>
               <p>2. Xử lý đơn thiếu hàng bằng điều chuyển hoặc bổ sung tồn.</p>
-              <p>3. Chỉ chốt phiếu khi trạng thái thanh toán và chứng từ đã khớp.</p>
+              <p>3. Chỉ chốt phiếu khi thanh toán và chứng từ đã khớp.</p>
             </div>
           </section>
         </div>

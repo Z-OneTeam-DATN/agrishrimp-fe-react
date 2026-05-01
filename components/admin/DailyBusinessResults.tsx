@@ -1,12 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Activity,
-  DollarSign,
-  FileText,
-  TrendingUp,
-} from "lucide-react";
+import { Activity, DollarSign, FileText, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -68,26 +63,27 @@ export default function DailyBusinessResults({
   ];
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
             Kết quả trong ngày
           </p>
-          <h2 className="mt-1 text-lg font-black text-slate-900">
+          <h2 className="mt-1 text-lg font-bold text-slate-900">
             Chỉ số vận hành hôm nay
           </h2>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
           Cập nhật liên tục
         </span>
       </div>
+
       <div className="grid gap-px bg-slate-100 lg:grid-cols-4">
         {isLoading
           ? [...Array(4)].map((_, index) => (
               <div key={index} className="bg-white p-5">
                 <div className="flex items-center justify-between">
-                  <Skeleton className="h-11 w-11 rounded-2xl" />
+                  <Skeleton className="h-11 w-11 rounded-xl" />
                   <Skeleton className="h-4 w-12" />
                 </div>
                 <Skeleton className="mt-6 h-4 w-28" />
@@ -99,7 +95,7 @@ export default function DailyBusinessResults({
                 <div className="flex items-center justify-between gap-3">
                   <div
                     className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-2xl border",
+                      "flex h-11 w-11 items-center justify-center rounded-xl border",
                       stat.accent,
                     )}
                   >
@@ -107,7 +103,7 @@ export default function DailyBusinessResults({
                   </div>
                   <span
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-bold",
+                      "rounded-full px-2.5 py-1 text-[11px] font-semibold",
                       stat.isPositive
                         ? "bg-emerald-50 text-emerald-600"
                         : "bg-rose-50 text-rose-600",
@@ -116,7 +112,7 @@ export default function DailyBusinessResults({
                     {stat.change}
                   </span>
                 </div>
-                <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                <p className="mt-6 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
                   {stat.label}
                 </p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">
