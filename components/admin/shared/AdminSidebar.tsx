@@ -29,6 +29,7 @@ import {
   UserCircle,
   Users,
   Warehouse,
+  type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -88,6 +89,24 @@ type CountResult = {
 type StatusItem = {
   status?: string;
 };
+
+function getTotalElements(value: CountResult | unknown[] | null) {
+  if (!value || Array.isArray(value)) {
+    return 0;
+  }
+  return value.totalElements || 0;
+}
+
+function getCollectionLength(value: unknown[] | null) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function getProductCount(value: CountResult | unknown[] | null) {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+  return value?.totalProducts || 0;
+}
 
 const EMPTY_COUNTS: SidebarCounts = {
   attributeCount: 0,
@@ -311,34 +330,32 @@ export default function AdminSidebar({
             : [];
 
         setCounts({
-          attributeCount: Array.isArray(attributeValue) ? attributeValue.length : 0,
+          attributeCount: getCollectionLength(attributeValue),
           branchCount: Array.isArray(branchValue)
             ? branchValue.length
-            : branchValue?.totalElements || 0,
-          categoryCount: Array.isArray(categoryValue) ? categoryValue.length : 0,
+            : getTotalElements(branchValue),
+          categoryCount: getCollectionLength(categoryValue),
           checkPendingCount: checks.filter((item) => item.status === "PENDING").length,
-          customerCount: customerValue?.totalElements || 0,
-          employeeCount: employeeValue?.totalElements || 0,
+          customerCount: getTotalElements(customerValue),
+          employeeCount: getTotalElements(employeeValue),
           exportPendingCount: exportsList.filter(
             (item) => item.status === "PENDING" || item.status === "DRAFT",
           ).length,
-          productCount: Array.isArray(productValue)
-            ? productValue.length
-            : productValue?.totalProducts || 0,
+          productCount: getProductCount(productValue),
           purchaseRequestPendingCount: purchaseRequests.filter(
             (item) => item.status === "PENDING_APPROVAL",
           ).length,
           receiptPendingCount: receipts.filter(
             (item) => item.status === "PENDING" || item.status === "PO",
           ).length,
-          supplierCount: supplierValue?.totalElements || 0,
+          supplierCount: getTotalElements(supplierValue),
           transferPendingCount:
             transferResult.status === "fulfilled"
               ? transferResult.value?.totalElements || 0
               : 0,
-          voucherCount:
-            voucherValue?.totalElements ||
-            (Array.isArray(voucherValue) ? voucherValue.length : 0),
+          voucherCount: Array.isArray(voucherValue)
+            ? voucherValue.length
+            : getTotalElements(voucherValue),
         });
       } catch {
         console.warn("Sidebar counts sync failed");
@@ -1042,7 +1059,7 @@ function SidebarLink({
   color?: string;
   description?: string;
   href: string;
-  icon: React.ComponentType<{ className?: string; size?: number }>;
+  icon: LucideIcon;
   isChild?: boolean;
   label: string;
   onClick?: () => void;
@@ -1121,7 +1138,7 @@ function SidebarGroup({
   active: boolean;
   children: React.ReactNode;
   description?: string;
-  icon: React.ComponentType<{ className?: string; size?: number }>;
+  icon: LucideIcon;
   isOpen: boolean;
   label: string;
   onToggle: () => void;
