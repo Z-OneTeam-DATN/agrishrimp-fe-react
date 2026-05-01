@@ -128,12 +128,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-rose-700">
-                  Có đơn đang thiếu sản phẩm để tiếp tục xử lý
-                </p>
-                <p className="mt-1 text-sm leading-6 text-rose-600">
-                  Đang thiếu tổng cộng {backorderCount} sản phẩm ở{" "}
-                  {backorders?.length ?? 0} dòng hàng. Nên ưu tiên điều chuyển
-                  hoặc bổ sung tồn kho trước.
+                  Thiếu {backorderCount} sản phẩm ở {backorders?.length ?? 0} dòng hàng.
                 </p>
               </div>
             </div>
@@ -163,7 +158,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
               <Link
                 key={item.label}
                 href={item.href}
-                className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-white"
+                className="group flex min-h-[148px] flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-white"
               >
                 <div
                   className={cn(
@@ -178,9 +173,6 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
                 </p>
                 <p className="mt-1 text-3xl font-black tracking-tight text-slate-900">
                   {item.count}
-                </p>
-                <p className="mt-2 text-xs text-slate-500">
-                  Mở danh sách tương ứng để xử lý nhanh.
                 </p>
               </Link>
             ))}

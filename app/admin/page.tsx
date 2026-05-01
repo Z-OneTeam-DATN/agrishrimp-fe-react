@@ -84,7 +84,6 @@ type BranchOption = {
 };
 
 type HighlightItem = {
-  description: string;
   href: string;
   icon: typeof ShoppingCart;
   isCurrency?: boolean;
@@ -198,7 +197,6 @@ export default function AdminDashboard() {
       {
         label: "Đơn chờ duyệt",
         value: pendingSummary?.pendingApproval ?? 0,
-        description: "Cần xác nhận để không chậm luồng bán hàng.",
         href: "/admin/orders",
         icon: ShoppingCart,
         tone: "text-sky-700 bg-sky-50 border-sky-100",
@@ -206,7 +204,6 @@ export default function AdminDashboard() {
       {
         label: "Đơn thiếu hàng",
         value: backorderCount,
-        description: "Ưu tiên điều phối hoặc bổ sung tồn kho.",
         href: "/admin/transfers",
         icon: AlertTriangle,
         tone: "text-rose-700 bg-rose-50 border-rose-100",
@@ -214,7 +211,6 @@ export default function AdminDashboard() {
       {
         label: "Khách hàng đang phục vụ",
         value: stats?.totalCustomers ?? 0,
-        description: "Quy mô tệp khách hàng trong phạm vi hiện tại.",
         href: "/admin/customers",
         icon: Users,
         tone: "text-emerald-700 bg-emerald-50 border-emerald-100",
@@ -222,7 +218,6 @@ export default function AdminDashboard() {
       {
         label: "Doanh thu hôm nay",
         value: dailyResults?.todayRevenue ?? 0,
-        description: "Theo dõi nhịp hoàn thành doanh thu trong ngày.",
         href: "/admin/reports/sales",
         icon: Wallet,
         tone: "text-amber-700 bg-amber-50 border-amber-100",
@@ -335,15 +330,10 @@ export default function AdminDashboard() {
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <h1 className="max-w-3xl text-2xl font-black tracking-tight text-slate-900 lg:text-[32px]">
                 Theo dõi vận hành hằng ngày theo đúng thứ tự ưu tiên xử lý.
               </h1>
-              <p className="max-w-3xl text-sm leading-7 text-slate-600">
-                Cảnh báo cần xử lý được đưa lên trước, thao tác nhanh ở ngay bên
-                cạnh, sau đó mới đến số liệu tổng hợp và phân tích sâu. Cách bố
-                cục này giúp dashboard bớt rối và dễ quét hơn.
-              </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -352,7 +342,7 @@ export default function AdminDashboard() {
                   key={item.label}
                   href={item.href}
                   className={cn(
-                    "rounded-2xl border p-4 transition hover:border-slate-300 hover:bg-slate-50",
+                    "flex min-h-[148px] flex-col rounded-2xl border p-4 transition hover:border-slate-300 hover:bg-slate-50",
                     item.tone,
                   )}
                 >
@@ -365,13 +355,10 @@ export default function AdminDashboard() {
                   <p className="mt-4 text-sm font-semibold text-slate-800">
                     {item.label}
                   </p>
-                  <p className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                  <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
                     {item.isCurrency
                       ? formatCurrency(item.value)
                       : item.value.toLocaleString()}
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
-                    {item.description}
                   </p>
                 </Link>
               ))}
@@ -445,17 +432,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Cách dùng nhanh
-              </p>
-              <div className="mt-3 space-y-3 text-sm text-slate-600">
-                <p>Ưu tiên xử lý khối đỏ và vàng trước khi xem báo cáo.</p>
-                <p>Luôn kiểm tra đúng chi nhánh trước khi tạo phiếu nghiệp vụ.</p>
-                <p>Dùng tác vụ nhanh để đi thẳng vào màn hình đang cần thao tác.</p>
-              </div>
-            </div>
-
             {quickActions.length > 0 && (
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -467,7 +443,7 @@ export default function AdminDashboard() {
                       key={action.href}
                       type="button"
                       onClick={() => router.push(action.href)}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                      className="flex min-h-[124px] flex-col rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700">
@@ -477,9 +453,6 @@ export default function AdminDashboard() {
                       </div>
                       <p className="mt-4 text-sm font-semibold text-slate-900">
                         {action.label}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        {action.description}
                       </p>
                     </button>
                   ))}
@@ -596,16 +569,12 @@ export default function AdminDashboard() {
 
           <section className="rounded-3xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              Quy tắc vận hành
+              Lưu ý
             </p>
-            <h3 className="mt-2 text-xl font-bold">
-              Luôn thao tác theo một chuỗi rõ ràng
-            </h3>
-            <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-              <p>1. Kiểm tra đúng chi nhánh hoặc kho trước khi tạo chứng từ.</p>
-              <p>2. Xử lý đơn thiếu hàng bằng điều chuyển hoặc bổ sung tồn.</p>
-              <p>3. Chỉ chốt phiếu khi thanh toán và chứng từ đã khớp.</p>
-            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Kiểm tra đúng chi nhánh, xử lý đơn thiếu hàng trước và chỉ chốt
+              phiếu khi chứng từ đã khớp.
+            </p>
           </section>
         </div>
       </div>

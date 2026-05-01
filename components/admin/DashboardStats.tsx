@@ -17,28 +17,24 @@ const statsConfig = [
     key: "customers",
     icon: Users,
     accent: "bg-sky-50 text-sky-700 border-sky-100",
-    helper: "Tệp khách hàng đang được phục vụ",
   },
   {
     label: "Sản phẩm kinh doanh",
     key: "products",
     icon: Package,
     accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    helper: "Danh mục hàng hóa đang hoạt động",
   },
   {
     label: "Tổng doanh thu",
     key: "revenue",
     icon: TrendingUp,
     accent: "bg-amber-50 text-amber-700 border-amber-100",
-    helper: "Doanh thu lũy kế trong phạm vi đang xem",
   },
   {
     label: "Tổng đơn hàng",
     key: "orders",
     icon: ShoppingBag,
     accent: "bg-violet-50 text-violet-700 border-violet-100",
-    helper: "Khối lượng giao dịch đã ghi nhận",
   },
 ];
 
@@ -113,7 +109,7 @@ export default function DashboardStats({ branchId }: DashboardStatsProps) {
       {displayStats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          className="flex min-h-[168px] flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
         >
           <div className="flex items-center justify-between gap-3">
             <div
@@ -134,7 +130,6 @@ export default function DashboardStats({ branchId }: DashboardStatsProps) {
           <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
             {stat.value}
           </h3>
-          <p className="mt-2 text-sm text-slate-500">{stat.helper}</p>
         </div>
       ))}
     </div>
