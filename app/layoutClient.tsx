@@ -27,6 +27,12 @@ const MobileBottomNav = dynamic(() => import("@/components/site/MobileBottomNav"
 const AIChatButton = dynamic(() => import("@/components/site/AIChatButton"), {
   ssr: false,
 });
+const ChatWidget = dynamic(() => import("@/components/chat/ChatWidget"), {
+  ssr: false,
+});
+const WebSocketProvider = dynamic(() => import("@/components/providers/WebSocketProvider"), {
+  ssr: false,
+});
 const GoogleAuthProvider = dynamic(
   () => import("@/components/providers/GoogleOAuthProvider"),
   { ssr: false },
@@ -274,12 +280,14 @@ export default function LayoutClient({
               <>{children}</>
             ) : (
               <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+                <WebSocketProvider />
                 <Header />
                 <Navbar />
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
                 <MobileBottomNav />
                 <AIChatButton />
+                <ChatWidget />
               </div>
             )}
             <Toaster position="top-right" richColors closeButton />

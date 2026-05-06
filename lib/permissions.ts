@@ -118,6 +118,10 @@ export const P = {
   // ── SETTING ──────────────────────────────────────
   SETTING_VIEW:   "SETTING_VIEW",
   SETTING_UPDATE: "SETTING_UPDATE",
+
+  // ── COMMUNICATION ────────────────────────────────
+  CHAT_VIEW:   "CHAT_VIEW",
+  CHAT_MANAGE: "CHAT_MANAGE",
 } as const;
 
 export type PermissionCode = (typeof P)[keyof typeof P];

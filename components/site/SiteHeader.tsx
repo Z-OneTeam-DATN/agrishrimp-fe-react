@@ -17,6 +17,7 @@ import {
   Bell,
 } from "lucide-react";
 import ImageSearchModal from "@/components/site/ImageSearchModal";
+import NotificationBell from "@/components/site/NotificationBell";
 import { useRouter } from "next/navigation";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -285,12 +286,12 @@ export default function Header() {
                 </div>
               </div>
 
-              {/* Bell */}
-              <button type="button" aria-label="Thông báo"
-                className="hidden md:flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors text-gray-500 relative">
-                <Bell size={19} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
-              </button>
+              {/* Bell - Notification */}
+              {isLoggedIn && (
+                <div className="hidden md:flex">
+                  <NotificationBell />
+                </div>
+              )}
 
               {/* Divider */}
               <div className="h-7 w-px bg-gray-200 mx-2 hidden md:block" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/shared/AdminSidebar";
@@ -11,6 +12,11 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 import { normalizeRoleSlug } from "@/lib/roles";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
+
+const WebSocketProvider = dynamic(
+  () => import("@/components/providers/WebSocketProvider"),
+  { ssr: false }
+);
 
 type RouteRule = {
   exact?: boolean;
@@ -52,6 +58,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/settings", permission: P.SETTING_VIEW },
   { path: "/admin/banners" },
   { path: "/admin/blog" },
+  { path: "/admin/chat", permission: P.CHAT_VIEW },
 ];
 
 export default function AdminLayout({
@@ -107,6 +114,7 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-[#f1f5f9]">
+      <WebSocketProvider />
       <AdminSidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <AdminTopHeader />

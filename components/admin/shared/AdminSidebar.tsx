@@ -29,6 +29,7 @@ import {
   Ticket,
   Image as ImageIcon,
   BookOpen,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -425,6 +426,15 @@ export default function AdminSidebar() {
                   active={isActive("/admin/customers")}
                   badge={customerCount}
                   color="text-blue-400"
+                />
+              )}
+              {hasPermission(P.CHAT_VIEW) && (
+                <SidebarLink
+                  href="/admin/chat"
+                  icon={MessageCircle}
+                  label="Chat khách hàng"
+                  active={isActive("/admin/chat")}
+                  color="text-teal-400"
                 />
               )}
             </div>
