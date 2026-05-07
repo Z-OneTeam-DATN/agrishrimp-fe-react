@@ -104,37 +104,38 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
             Luồng xử lý đơn hàng
           </p>
-          <h2 className="mt-1 text-lg font-bold text-slate-900">
+          <h2 className="mt-1 text-base font-semibold text-slate-900">
             Điểm nghẽn cần xử lý trước
           </h2>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
           Theo trạng thái
         </span>
       </div>
 
       {isAdmin && !isBackordersLoading && backorderCount > 0 && (
-        <div className="mx-5 mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-4 mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3.5 py-3.5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-white p-2.5 text-rose-600 shadow-sm">
-                <AlertTriangle size={18} />
+              <div className="rounded-lg bg-white p-2 text-rose-600 shadow-sm">
+                <AlertTriangle size={16} />
               </div>
               <div>
                 <p className="text-sm font-semibold text-rose-700">
-                  Thiếu {backorderCount} sản phẩm ở {backorders?.length ?? 0} dòng hàng.
+                  Thiếu {backorderCount} sản phẩm ở {backorders?.length ?? 0}{" "}
+                  dòng hàng.
                 </p>
               </div>
             </div>
             <Link
               href={getOrderListPath(user, "AWAITING_REPLENISHMENT")}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
             >
               Xem đơn thiếu hàng
             </Link>
@@ -142,36 +143,36 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
         </div>
       )}
 
-      <div className="grid gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 px-4 py-4 md:grid-cols-2 xl:grid-cols-4">
         {isLoading
           ? [...Array(7)].map((_, index) => (
               <div
                 key={index}
-                className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5"
               >
-                <Skeleton className="h-10 w-10 rounded-xl" />
-                <Skeleton className="mt-4 h-4 w-28" />
-                <Skeleton className="mt-3 h-8 w-16" />
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="mt-3 h-4 w-28" />
+                <Skeleton className="mt-2.5 h-7 w-16" />
               </div>
             ))
           : items.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="group flex min-h-[148px] flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-white"
+                className="group flex min-h-[122px] flex-col rounded-2xl border border-slate-200 bg-slate-50 p-3.5 transition hover:border-slate-300 hover:bg-white"
               >
                 <div
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-xl border",
+                    "flex h-9 w-9 items-center justify-center rounded-lg border",
                     item.accent,
                   )}
                 >
-                  <item.icon size={18} />
+                  <item.icon size={16} />
                 </div>
-                <p className="mt-4 text-sm font-semibold text-slate-700">
+                <p className="mt-3 text-sm font-semibold text-slate-700">
                   {item.label}
                 </p>
-                <p className="mt-1 text-3xl font-black tracking-tight text-slate-900">
+                <p className="mt-1 text-[24px] font-semibold tracking-tight text-slate-900">
                   {item.count}
                 </p>
               </Link>

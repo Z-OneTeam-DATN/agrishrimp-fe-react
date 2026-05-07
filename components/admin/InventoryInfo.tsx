@@ -1,7 +1,14 @@
 "use client";
 
 import React from "react";
-import { ChevronRight, AlertCircle, Package, AlertTriangle, Boxes, Wallet } from "lucide-react";
+import {
+  ChevronRight,
+  AlertCircle,
+  Package,
+  AlertTriangle,
+  Boxes,
+  Wallet,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +27,10 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
 
   // Format tiền tệ VNĐ
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(value);
   };
 
   const inventoryStats = [
@@ -31,7 +41,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       icon: Package,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
-      href: "/admin/products"
+      href: "/admin/products",
     },
     {
       label: "Hết hàng",
@@ -41,7 +51,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       color: "text-red-600",
       bgColor: "bg-red-50",
       alert: (data?.outOfStockCount ?? 0) > 0,
-      href: "/admin/products?stock=out"
+      href: "/admin/products?stock=out",
     },
     {
       label: "Sắp hết hàng",
@@ -51,7 +61,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       color: "text-amber-600",
       bgColor: "bg-amber-50",
       alert: (data?.lowStockCount ?? 0) > 0,
-      href: "/admin/products?stock=low"
+      href: "/admin/products?stock=low",
     },
     {
       label: "Tổng giá trị kho",
@@ -60,40 +70,48 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       icon: Wallet,
       color: "text-emerald-600",
       bgColor: "bg-emerald-50",
-      href: "/admin/inventory-dashboard"
+      href: "/admin/inventory-dashboard",
     },
   ];
 
   if (isError) {
     return (
-      <div className="bg-white border border-gray-200 rounded-sm shadow-sm h-full p-6 flex flex-col items-center justify-center text-center">
+      <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
         <AlertCircle className="text-red-500 mb-2" size={32} />
         <p className="text-sm font-bold text-gray-700">Lỗi tải thông tin kho</p>
-        <p className="text-xs text-gray-500 mt-1">Không thể kết nối với dữ liệu kho hàng</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Không thể kết nối với dữ liệu kho hàng
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-sm shadow-sm h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/40 px-4 py-3">
         <div className="flex items-center gap-2">
-          <Boxes size={16} className="text-gray-500" />
-          <h2 className="text-sm font-semibold text-gray-700 uppercase">
+          <Boxes size={15} className="text-slate-500" />
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-700">
             Thông tin kho hàng
           </h2>
         </div>
-        <Link href="/admin/inventory-dashboard" className="text-[10px] font-bold text-blue-600 hover:underline">
+        <Link
+          href="/admin/inventory-dashboard"
+          className="text-[11px] font-semibold text-blue-600 hover:underline"
+        >
           Chi tiết kho
         </Link>
       </div>
-      
-      <div className="flex-1 flex flex-col divide-y divide-gray-100">
+
+      <div className="flex flex-1 flex-col divide-y divide-slate-100">
         {isLoading
           ? [...Array(4)].map((_, index) => (
-              <div key={index} className="p-4 flex items-center justify-between">
+              <div
+                key={index}
+                className="flex items-center justify-between p-4"
+              >
                 <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 rounded-sm" />
+                  <Skeleton className="h-9 w-9 rounded-lg" />
                   <div className="space-y-2">
                     <Skeleton className="h-3 w-32" />
                     <Skeleton className="h-5 w-20" />
@@ -106,32 +124,46 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
               <Link
                 key={index}
                 href={item.href}
-                className="p-4 hover:bg-slate-50 transition-all group flex items-center justify-between"
+                className="group flex items-center justify-between p-4 transition-all hover:bg-slate-50"
               >
                 <div className="flex items-center gap-4">
-                  <div className={cn("p-2.5 rounded-sm transition-transform group-hover:scale-110", item.bgColor, item.color)}>
-                    <item.icon size={20} />
+                  <div
+                    className={cn(
+                      "rounded-lg p-2 transition-transform group-hover:scale-105",
+                      item.bgColor,
+                      item.color,
+                    )}
+                  >
+                    <item.icon size={18} />
                   </div>
                   <div className="space-y-0.5">
-                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                       {item.label}
                     </p>
                     <div className="flex items-center gap-2">
-                      <p className={cn("text-lg font-black tracking-tight", item.color)}>
+                      <p
+                        className={cn(
+                          "text-base font-semibold tracking-tight",
+                          item.color,
+                        )}
+                      >
                         {item.value}
                       </p>
                       {item.alert && (
-                        <span className={cn("animate-pulse h-2 w-2 rounded-full", item.color.replace('text', 'bg'))} />
+                        <span
+                          className={cn(
+                            "animate-pulse h-2 w-2 rounded-full",
+                            item.color.replace("text", "bg"),
+                          )}
+                        />
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-400 italic">
-                      {item.subtext}
-                    </p>
+                    <p className="text-[11px] text-slate-400">{item.subtext}</p>
                   </div>
                 </div>
                 <ChevronRight
-                  size={16}
-                  className="text-gray-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all"
+                  size={15}
+                  className="text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-blue-500"
                 />
               </Link>
             ))}

@@ -293,7 +293,10 @@ export default function AdminDashboard() {
           Hệ thống chưa kết nối được tới máy chủ. Vui lòng kiểm tra lại phiên
           đăng nhập hoặc tải lại trang.
         </p>
-        <Button onClick={() => window.location.reload()} className="mt-6 rounded-2xl">
+        <Button
+          onClick={() => window.location.reload()}
+          className="mt-6 rounded-2xl"
+        >
           Thử lại
         </Button>
       </div>
@@ -317,23 +320,27 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6 pb-10">
-      <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1.5fr)_360px] lg:p-6">
-          <div className="space-y-5">
+    <div className="space-y-4 pb-8">
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1.7fr)_320px]">
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-600">
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
                 Tổng quan điều hành
               </span>
-              <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500">
+              <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-500">
                 Phạm vi: {branchLabel}
               </span>
             </div>
 
-            <div className="space-y-2">
-              <h1 className="max-w-3xl text-2xl font-black tracking-tight text-slate-900 lg:text-[32px]">
+            <div className="space-y-1.5">
+              <h1 className="max-w-3xl text-[24px] font-semibold tracking-tight text-slate-900 xl:text-[28px]">
                 Theo dõi vận hành hằng ngày theo đúng thứ tự ưu tiên xử lý.
               </h1>
+              <p className="max-w-2xl text-sm text-slate-500">
+                Tập trung vào đơn chờ xử lý, thiếu hàng và hiệu suất trong ngày
+                theo ngữ cảnh đang chọn.
+              </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -342,20 +349,20 @@ export default function AdminDashboard() {
                   key={item.label}
                   href={item.href}
                   className={cn(
-                    "flex min-h-[148px] flex-col rounded-2xl border p-4 transition hover:border-slate-300 hover:bg-slate-50",
+                    "flex min-h-[112px] flex-col rounded-2xl border p-3.5 transition hover:border-slate-300 hover:bg-slate-50",
                     item.tone,
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="rounded-xl bg-white p-2 shadow-sm">
-                      <item.icon size={18} />
+                    <div className="rounded-lg bg-white p-2 shadow-sm">
+                      <item.icon size={16} />
                     </div>
-                    <ChevronRight size={16} className="text-slate-300" />
+                    <ChevronRight size={14} className="text-slate-300" />
                   </div>
-                  <p className="mt-4 text-sm font-semibold text-slate-800">
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
                     {item.label}
                   </p>
-                  <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                  <p className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950">
                     {item.isCurrency
                       ? formatCurrency(item.value)
                       : item.value.toLocaleString()}
@@ -365,13 +372,13 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Bộ lọc làm việc
                 </p>
-                <h2 className="mt-1 text-lg font-bold text-slate-900">
+                <h2 className="mt-1 text-base font-semibold text-slate-900">
                   Ngữ cảnh hiện tại
                 </h2>
               </div>
@@ -380,34 +387,36 @@ export default function AdminDashboard() {
                 variant="outline"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="rounded-xl border-slate-200 bg-white"
+                className="h-9 rounded-lg border-slate-200 bg-white px-3 text-xs font-medium shadow-sm"
               >
                 <RefreshCw
-                  size={16}
+                  size={14}
                   className={cn(isRefreshing && "animate-spin")}
                 />
                 <span className="ml-2 hidden sm:inline">Làm mới</span>
               </Button>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
-                  <Building2 size={18} />
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
+                  <Building2 size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                     Chi nhánh hiển thị
                   </p>
                   {isAdmin ? (
-                    <div className="mt-3">
+                    <div className="mt-2.5">
                       <Select
                         value={selectedBranchId || "all"}
                         onValueChange={(value) =>
-                          setSelectedBranchId(value === "all" ? undefined : value)
+                          setSelectedBranchId(
+                            value === "all" ? undefined : value,
+                          )
                         }
                       >
-                        <SelectTrigger className="h-11 rounded-xl border-slate-200 text-sm font-medium">
+                        <SelectTrigger className="h-9 rounded-lg border-slate-200 text-sm font-medium">
                           <SelectValue placeholder="Tất cả chi nhánh" />
                         </SelectTrigger>
                         <SelectContent>
@@ -433,26 +442,29 @@ export default function AdminDashboard() {
             </div>
 
             {quickActions.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                   Tác vụ nhanh
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
                   {quickActions.map((action) => (
                     <button
                       key={action.href}
                       type="button"
                       onClick={() => router.push(action.href)}
-                      className="flex min-h-[124px] flex-col rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                      className="flex min-h-[92px] flex-col rounded-2xl border border-slate-200 bg-white p-3.5 text-left transition hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700">
-                          <action.icon size={18} />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="rounded-lg bg-slate-100 p-2 text-slate-700">
+                          <action.icon size={15} />
                         </div>
-                        <ChevronRight size={16} className="text-slate-300" />
+                        <ChevronRight size={14} className="text-slate-300" />
                       </div>
-                      <p className="mt-4 text-sm font-semibold text-slate-900">
+                      <p className="mt-3 text-sm font-semibold text-slate-900">
                         {action.label}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                        {action.description}
                       </p>
                     </button>
                   ))}
@@ -465,36 +477,36 @@ export default function AdminDashboard() {
 
       <DashboardStats branchId={selectedBranchId} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.85fr)_360px]">
-        <div className="space-y-6">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_320px]">
+        <div className="space-y-4">
           <DailyBusinessResults branchId={selectedBranchId} />
           <PendingOrders branchId={selectedBranchId} />
           <SalesPerformance branchId={selectedBranchId} />
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <TopProducts branchId={selectedBranchId} />
             <InventoryInfo branchId={selectedBranchId} />
           </div>
         </div>
 
-        <div className="space-y-6">
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div className="space-y-4">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Nhật ký hoạt động
                 </p>
-                <h3 className="mt-1 text-lg font-bold text-slate-900">
+                <h3 className="mt-1 text-base font-semibold text-slate-900">
                   Cập nhật gần đây
                 </h3>
               </div>
-              <Bell size={18} className="text-slate-400" />
+              <Bell size={16} className="text-slate-400" />
             </div>
 
-            <div className="max-h-[560px] space-y-4 overflow-y-auto px-5 py-5">
+            <div className="max-h-[520px] space-y-3 overflow-y-auto px-4 py-4">
               {isRecentLoading ? (
                 [...Array(5)].map((_, index) => (
                   <div key={index} className="flex gap-3">
-                    <Skeleton className="h-10 w-10 rounded-xl" />
+                    <Skeleton className="h-9 w-9 rounded-lg" />
                     <div className="flex-1 space-y-2">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-1/2" />
@@ -516,7 +528,7 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               ) : recentActivities.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-7 text-center">
                   <p className="text-sm text-slate-500">
                     Chưa có hoạt động nào trong phạm vi đang xem.
                   </p>
@@ -527,18 +539,18 @@ export default function AdminDashboard() {
                   return (
                     <div key={activity.id} className="relative flex gap-3">
                       {index !== recentActivities.length - 1 && (
-                        <div className="absolute left-5 top-11 bottom-[-18px] w-px bg-slate-100" />
+                        <div className="absolute bottom-[-14px] left-4.5 top-9 w-px bg-slate-100" />
                       )}
                       <div
                         className={cn(
-                          "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                          "relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                           config.bgColor,
                           config.iconColor,
                         )}
                       >
-                        <config.icon size={18} />
+                        <config.icon size={16} />
                       </div>
-                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                      <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-slate-50 px-3.5 py-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-slate-900">
@@ -551,11 +563,11 @@ export default function AdminDashboard() {
                               </span>
                             </p>
                           </div>
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                             {activity.status}
                           </span>
                         </div>
-                        <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                        <div className="mt-2.5 flex items-center gap-2 text-[11px] text-slate-400">
                           <Clock size={12} />
                           {formatDate(activity.timestamp, "HH:mm, dd/MM")}
                         </div>
@@ -567,8 +579,8 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-slate-900 p-5 text-white shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+          <section className="rounded-2xl border border-slate-200 bg-slate-900 p-4 text-white shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
               Lưu ý
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300">

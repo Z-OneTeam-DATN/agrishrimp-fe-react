@@ -39,7 +39,11 @@ const statsConfig = [
 ];
 
 export default function DashboardStats({ branchId }: DashboardStatsProps) {
-  const { data: stats, isLoading, isError } = useQuery({
+  const {
+    data: stats,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["dashboard-stats", branchId],
     queryFn: () => dashboardService.getStats(branchId),
   });
@@ -65,18 +69,18 @@ export default function DashboardStats({ branchId }: DashboardStatsProps) {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[...Array(4)].map((_, index) => (
           <div
             key={index}
-            className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <Skeleton className="h-11 w-11 rounded-xl" />
+              <Skeleton className="h-9 w-9 rounded-lg" />
               <Skeleton className="h-4 w-16" />
             </div>
-            <Skeleton className="mt-6 h-4 w-28" />
-            <Skeleton className="mt-3 h-8 w-36" />
+            <Skeleton className="mt-5 h-4 w-28" />
+            <Skeleton className="mt-2.5 h-7 w-32" />
             <Skeleton className="mt-2 h-3 w-32" />
           </div>
         ))}
@@ -86,13 +90,13 @@ export default function DashboardStats({ branchId }: DashboardStatsProps) {
 
   if (isError) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[...Array(4)].map((_, index) => (
           <div
             key={index}
-            className="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm"
+            className="rounded-2xl border border-rose-100 bg-white p-4 shadow-sm"
           >
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-rose-500">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-500">
               Lỗi dữ liệu
             </p>
             <p className="mt-3 text-sm text-slate-500">
@@ -105,29 +109,29 @@ export default function DashboardStats({ branchId }: DashboardStatsProps) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {displayStats.map((stat) => (
         <div
           key={stat.label}
-          className="flex min-h-[168px] flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          className="flex min-h-[132px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
         >
           <div className="flex items-center justify-between gap-3">
             <div
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-xl border",
+                "flex h-9 w-9 items-center justify-center rounded-lg border",
                 stat.accent,
               )}
             >
-              <stat.icon size={18} />
+              <stat.icon size={16} />
             </div>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
               Tổng hợp
             </span>
           </div>
-          <p className="mt-6 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
             {stat.label}
           </p>
-          <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+          <h3 className="mt-1.5 text-[24px] font-semibold tracking-tight text-slate-900">
             {stat.value}
           </h3>
         </div>
