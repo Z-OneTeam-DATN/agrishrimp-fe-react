@@ -31,24 +31,47 @@ export default function ChatWindow() {
 
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
 
-  // Init conversation and load messages
+  // Keep a ref so the effect can read the latest value without triggering re-runs
+  const convIdRef = useRef<number | null>(activeConversationId);
+  useEffect(() => { convIdRef.current = activeConversationId; }, [activeConversationId]);
+
+  // Stale-while-revalidate: show cached messages instantly, refresh silently in background
   useEffect(() => {
     if (!isOpen || !user?.id) return;
+    let cancelled = false;
 
     const init = async () => {
-      setIsLoadingConv(true);
+      let convId = convIdRef.current;
+
+      // Resolve conversation if not yet known
+      if (!convId) {
+        try {
+          const conv = await ChatService.getMyConversation();
+          if (cancelled) return;
+          setActiveConversation(conv.id);
+          convId = conv.id;
+        } catch {
+          if (!cancelled) toast.error("Không thể kết nối tới chat");
+          return;
+        }
+      }
+
+      // Only show spinner when there is no cached data at all
+      const hasCached = (useChatStore.getState().messages[convId]?.length ?? 0) > 0;
+      if (!hasCached) setIsLoadingConv(true);
+
       try {
-        const conv = await ChatService.getMyConversation();
-        setActiveConversation(conv.id);
-        const msgs = await ChatService.getMessages(conv.id);
-        setMessages(conv.id, msgs);
+        const msgs = await ChatService.getMessages(convId);
+        if (!cancelled) setMessages(convId, msgs);
       } catch {
-        toast.error("Không thể kết nối tới chat");
+        if (!hasCached && !cancelled) toast.error("Không thể tải tin nhắn");
       } finally {
-        setIsLoadingConv(false);
+        if (!cancelled) setIsLoadingConv(false);
       }
     };
+
     init();
+    return () => { cancelled = true; };
   }, [isOpen, user?.id, setActiveConversation, setMessages]);
 
   // Auto scroll to bottom on new messages

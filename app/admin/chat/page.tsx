@@ -62,14 +62,20 @@ export default function AdminChatPage() {
     load();
   }, [setConversations]);
 
-  // Load messages when active conversation changes
+  // Load messages when active conversation changes — stale-while-revalidate
   useEffect(() => {
     if (!activeConversationId) return;
-    setIsLoadingMsgs(true);
+    let cancelled = false;
+
+    const hasCached = (useChatStore.getState().messages[activeConversationId]?.length ?? 0) > 0;
+    if (!hasCached) setIsLoadingMsgs(true);
+
     ChatService.getMessages(activeConversationId)
-      .then((msgs) => setMessages(activeConversationId, msgs))
-      .catch(() => toast.error("Không thể tải tin nhắn"))
-      .finally(() => setIsLoadingMsgs(false));
+      .then((msgs) => { if (!cancelled) setMessages(activeConversationId, msgs); })
+      .catch(() => { if (!hasCached && !cancelled) toast.error("Không thể tải tin nhắn"); })
+      .finally(() => { if (!cancelled) setIsLoadingMsgs(false); });
+
+    return () => { cancelled = true; };
   }, [activeConversationId, setMessages]);
 
   // Auto-scroll
