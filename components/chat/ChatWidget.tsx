@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePathname } from "next/navigation";
 
 const ChatWindow = dynamic(() => import("./ChatWindow"), { ssr: false });
+const ChatUnreadBanner = dynamic(() => import("./ChatUnreadBanner"), { ssr: false });
 
 export default function ChatWidget() {
   const pathname = usePathname();
@@ -28,6 +29,7 @@ export default function ChatWidget() {
 
   return (
     <>
+      <ChatUnreadBanner />
       <ChatWindow />
 
       {/* FAB button */}
