@@ -52,7 +52,7 @@ export function useWebSocket() {
       onConnect: () => {
         attemptsRef.current = 0;
         const msgSub = client.subscribe(
-          `/user/${user.id}/queue/messages`,
+          `/user/queue/messages`,
           (frame) => {
             try {
               const msg: ChatMessage = JSON.parse(frame.body);
@@ -63,7 +63,7 @@ export function useWebSocket() {
         );
 
         const notifSub = client.subscribe(
-          `/user/${user.id}/queue/notifications`,
+          `/user/queue/notifications`,
           (frame) => {
             try {
               const notif: Notification = JSON.parse(frame.body);
@@ -74,7 +74,7 @@ export function useWebSocket() {
 
         // Typing: customer receives staff typing events
         const typingSub = client.subscribe(
-          `/user/${user.id}/queue/typing`,
+          `/user/queue/typing`,
           (frame) => {
             try {
               const { conversationId } = JSON.parse(frame.body);

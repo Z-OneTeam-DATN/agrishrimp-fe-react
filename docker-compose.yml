@@ -31,8 +31,11 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
     networks:
-      - agrishrimp-network
+      - agrishrimp-net
+      - agrishrimp-be-spring-webapp_default
 
 networks:
-  agrishrimp-network:
-    driver: bridge
+  agrishrimp-net:
+    external: true
+  agrishrimp-be-spring-webapp_default:
+    external: true
