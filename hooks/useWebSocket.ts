@@ -8,12 +8,15 @@ import { useNotificationStore } from "@/stores/useNotificationStore";
 import { useTypingStore } from "@/stores/useTypingStore";
 import { ChatMessage, Notification } from "@/app/types/chat.types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8004";
+// Use SOCKET_URL (no /api suffix) to build the correct ws-native endpoint
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8004";
 
-function buildWsUrl(apiUrl: string) {
-  const base = apiUrl.replace(/^http/, "ws").replace(/^https/, "wss");
+function buildWsUrl(socketUrl: string) {
+  const base = socketUrl.replace(/\/$/, "").replace(/^http:/, "ws:").replace(/^https:/, "wss:");
   return `${base}/ws-native`;
 }
+
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
@@ -34,15 +37,20 @@ export function useWebSocket() {
     clientRef.current = null;
   }, []);
 
+  const attemptsRef = useRef(0);
+
   const connect = useCallback(() => {
     if (!isAuthenticated || !user?.id || !accessToken) return;
     if (clientRef.current?.connected) return;
 
+    attemptsRef.current = 0;
+
     const client = new Client({
-      brokerURL: buildWsUrl(API_URL),
+      brokerURL: buildWsUrl(SOCKET_URL),
       connectHeaders: { Authorization: `Bearer ${accessToken}` },
-      reconnectDelay: 5000,
+      reconnectDelay: 10000,
       onConnect: () => {
+        attemptsRef.current = 0;
         const msgSub = client.subscribe(
           `/user/${user.id}/queue/messages`,
           (frame) => {
@@ -100,7 +108,17 @@ export function useWebSocket() {
       onDisconnect: () => {
         subscriptionsRef.current = [];
       },
+      onWebSocketError: () => {
+        attemptsRef.current += 1;
+        if (attemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          client.deactivate();
+        }
+      },
       onStompError: (frame) => {
+        attemptsRef.current += 1;
+        if (attemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          client.deactivate();
+        }
         console.warn("STOMP error", frame.headers?.message);
       },
     });

@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
-import StompProvider from "@/components/providers/StompProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
@@ -271,7 +270,6 @@ export default function LayoutClient({
         </div>
       ) : (
         <QueryClientProvider client={queryClientRef.current}>
-          <StompProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -294,7 +292,6 @@ export default function LayoutClient({
             )}
             <Toaster position="top-right" richColors closeButton />
           </ThemeProvider>
-          </StompProvider>
         </QueryClientProvider>
       )}
     </GoogleAuthProvider>
