@@ -32,16 +32,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  FinancialService,
+  FinancialOverviewService,
+} from "@/app/services/financial-overview.service";
+import type {
   ProfitLossData,
   SupplierDebtData,
-} from "@/app/services/financial.service";
+} from "@/app/services/financial-report.types";
 import { branchService } from "@/app/services/branchService";
 import { cn, formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
 
-type BranchOption = { id: number; name: string; branchCode?: string };
+type BranchOption = { id: number; name: string };
 
 const reportCards = [
   {
@@ -123,15 +125,12 @@ export default function FinancialReportListPage() {
     try {
       setLoading(true);
       const branchId = selectedBranchId === "all" ? "all" : selectedBranchId;
-      const [profitLossRes, supplierDebtRes] = await Promise.all([
-        FinancialService.getProfitLoss(startDate, endDate, branchId),
-        FinancialService.getSupplierDebts({
+      const { profitLoss: profitLossRes, supplierDebts: supplierDebtRes } =
+        await FinancialOverviewService.getReport({
           startDate,
           endDate,
           branchId,
-          debtFilter: "not_zero",
-        }),
-      ]);
+        });
 
       setProfitLoss(profitLossRes);
       setSupplierDebts(Array.isArray(supplierDebtRes) ? supplierDebtRes : []);

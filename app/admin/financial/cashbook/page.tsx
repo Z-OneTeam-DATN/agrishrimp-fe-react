@@ -54,7 +54,7 @@ import autoTable from "jspdf-autotable";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
 
-type BranchOption = { id: number; name: string; branchCode?: string };
+type BranchOption = { id: number; name: string };
 type ChartMode = "day" | "month";
 type EntryTypeFilter = "all" | "IN" | "OUT";
 
@@ -280,9 +280,6 @@ export default function CashbookPage() {
     toast.success("Đã xuất PDF sổ quỹ");
   };
 
-  const refresh = async () => {
-    await fetchCashbook();
-  };
 
   const chartWindow = useMemo(() => chartData.slice(-12), [chartData]);
   const chartMax = useMemo(() => {
@@ -374,7 +371,7 @@ export default function CashbookPage() {
           <Button
             variant="outline"
             className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
-            onClick={refresh}
+            onClick={() => void fetchCashbook()}
             disabled={loading}
           >
             <RefreshCw

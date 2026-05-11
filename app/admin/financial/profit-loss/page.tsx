@@ -28,8 +28,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn, formatNumber } from "@/lib/utils";
-import { FinancialService, ProfitLossData } from "@/app/services/financial.service";
-import { apiJava } from "@/lib/axios";
+import {
+  ProfitLossService,
+  type ProfitLossData,
+} from "@/app/services/profit-loss.service";
+import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -83,8 +86,10 @@ export default function ProfitLossReportPage() {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const res = await apiJava.get("/branches");
-        const list = res.data?.content || res.data || [];
+        const res = await branchService.getAll();
+        const list = Array.isArray(res)
+          ? res
+          : res?.data || res?.content || [];
         if (!isAdmin && ownBranchId) {
           setBranches(
             list.filter((b: { id: number }) => String(b.id) === ownBranchId)
@@ -111,8 +116,8 @@ export default function ProfitLossReportPage() {
       try {
         const { prevStart, prevEnd } = getPrevPeriod(startDate, endDate);
         const [currRes, prevRes] = await Promise.all([
-          FinancialService.getProfitLoss(startDate, endDate, branchId),
-          FinancialService.getProfitLoss(prevStart, prevEnd, branchId),
+          ProfitLossService.getReport(startDate, endDate, branchId),
+          ProfitLossService.getReport(prevStart, prevEnd, branchId),
         ]);
 
         setCurrentData(currRes);
@@ -135,7 +140,6 @@ export default function ProfitLossReportPage() {
       return {
         grossRevenue: 0,
         returnedGoods: 0,
-        vat: 0,
         shippingFeeCollected: 0,
         shippingFeeReturned: 0,
         discount: 0,
@@ -161,7 +165,6 @@ export default function ProfitLossReportPage() {
     return {
       grossRevenue: d.grossRevenue,
       returnedGoods: d.returnedGoods,
-      vat: d.vat,
       shippingFeeCollected: d.shippingFeeCollected,
       shippingFeeReturned: d.shippingFeeReturned,
       discount: d.discount,
@@ -226,16 +229,8 @@ export default function ProfitLossReportPage() {
       isItalic: true,
     },
     {
-      id: "2",
-      label: "2. VAT",
-      prev: prev.vat,
-      current: curr.vat,
-      change: calcPercent(curr.vat, prev.vat),
-      padding: "pl-8",
-    },
-    {
       id: "3",
-      label: "3. Phí giao hàng thu của khách",
+      label: "2. Phí giao hàng thu của khách",
       prev: prev.shippingFeeCollected,
       current: curr.shippingFeeCollected,
       change: calcPercent(
@@ -246,7 +241,7 @@ export default function ProfitLossReportPage() {
     },
     {
       id: "3b",
-      label: "3b. Phí ship hoàn do trả hàng",
+      label: "2b. Phí ship hoàn do trả hàng",
       prev: prev.shippingFeeReturned,
       current: curr.shippingFeeReturned,
       change: calcPercent(curr.shippingFeeReturned, prev.shippingFeeReturned),
@@ -255,7 +250,7 @@ export default function ProfitLossReportPage() {
     },
     {
       id: "4",
-      label: "4. Chiết khấu bán hàng",
+      label: "3. Chiết khấu bán hàng",
       prev: prev.discount,
       current: curr.discount,
       change: calcPercent(curr.discount, prev.discount),
@@ -263,7 +258,7 @@ export default function ProfitLossReportPage() {
     },
     {
       id: "4b",
-      label: "4b. Chiết khấu của đơn trả hàng được hoàn lại",
+      label: "3b. Chiết khấu của đơn trả hàng được hoàn lại",
       prev: prev.discountReturned,
       current: curr.discountReturned,
       change: calcPercent(curr.discountReturned, prev.discountReturned),
@@ -277,7 +272,6 @@ export default function ProfitLossReportPage() {
       current: curr.cost,
       change: calcPercent(curr.cost, prev.cost),
       isBold: true,
-      spaceTop: true,
     },
     {
       id: "II-1",
@@ -310,7 +304,6 @@ export default function ProfitLossReportPage() {
       current: curr.grossProfit,
       change: calcPercent(curr.grossProfit, prev.grossProfit),
       isBold: true,
-      spaceTop: true,
     },
     {
       id: "III",
@@ -319,7 +312,6 @@ export default function ProfitLossReportPage() {
       current: curr.totalInc,
       change: calcPercent(curr.totalInc, prev.totalInc),
       isBold: true,
-      spaceTop: true,
     },
     {
       id: "III-1",
@@ -344,7 +336,6 @@ export default function ProfitLossReportPage() {
       current: curr.otherExpenses,
       change: calcPercent(curr.otherExpenses, prev.otherExpenses),
       isBold: true,
-      spaceTop: true,
     },
     {
       id: "RESULT",
@@ -354,7 +345,6 @@ export default function ProfitLossReportPage() {
       change: calcPercent(curr.netProfit, prev.netProfit),
       isBold: true,
       isResult: true,
-      spaceTop: true,
     },
   ];
 
@@ -575,7 +565,7 @@ export default function ProfitLossReportPage() {
               <span className="font-bold text-slate-800">
                 Doanh thu thuần:
               </span>{" "}
-              = tiền hàng thuần + VAT + ship thu khách - ship hoàn do trả hàng -
+              = tiền hàng thuần + ship thu khách - ship hoàn do trả hàng -
               chiết khấu + chiết khấu hoàn lại. Frontend chỉ hiển thị số backend
               đã chuẩn hóa, không cộng trừ lần hai.
             </p>
@@ -587,7 +577,7 @@ export default function ProfitLossReportPage() {
             </p>
             <p>
               <span className="font-bold text-slate-800">Các mục khác:</span>{" "}
-              VAT, thanh toán điểm, phí ship trả đối tác, thu nhập khác và chi phí
+              Thanh toán điểm, phí ship trả đối tác, thu nhập khác và chi phí
               khác chỉ phản ánh nguồn dữ liệu thật đang có trong hệ thống; nếu
               chưa có nguồn riêng thì đang bằng 0.
             </p>

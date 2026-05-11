@@ -1,11 +1,8 @@
-import {
+import { apiJava } from "@/lib/axios";
+import type {
   CashbookEntryData,
   CashbookReportData,
-  FinancialService,
-} from "@/app/services/financial.service";
-
-export type CashbookDirection = "IN" | "OUT";
-export type CashbookSource = "SUPPLIER_PAYMENT";
+} from "@/app/services/financial-report.types";
 
 export interface CashbookEntry extends Omit<CashbookEntryData, "branchId"> {
   branchId?: string;
@@ -44,16 +41,21 @@ const normalizeEntry = (entry: CashbookEntryData): CashbookEntry => ({
   branchId: entry.branchId != null ? String(entry.branchId) : undefined,
   amount: toNumber(entry.amount),
   debtAmount: toNumber(entry.debtAmount),
-  paymentAmount: toNumber(entry.paymentAmount),
 });
 
 export const CashbookService = {
   async getReport(filters: CashbookFilters = {}): Promise<CashbookReport> {
-    const report = await FinancialService.getCashbook({
-      branchId: filters.branchId ?? undefined,
-      startDate: filters.startDate,
-      endDate: filters.endDate,
+    const response = await apiJava.get("/financial/cashbook", {
+      params: {
+        branchId:
+          !filters.branchId || filters.branchId === "all"
+            ? null
+            : filters.branchId,
+        startDate: filters.startDate || null,
+        endDate: filters.endDate || null,
+      },
     });
+    const report = response.data;
 
     const normalized: CashbookReportData = report || { summary: { openingBalance: 0, totalIncome: 0, totalExpense: 0, closingBalance: 0 }, entries: [] };
 
@@ -73,7 +75,7 @@ export const CashbookService = {
   groupByPeriod(entries: CashbookEntry[], mode: "day" | "month") {
     const map = new Map<
       string,
-      { key: string; income: number; expense: number; net: number; count: number }
+      { key: string; income: number; expense: number; net: number }
     >();
 
     entries.forEach((entry) => {
@@ -83,12 +85,10 @@ export const CashbookService = {
         income: 0,
         expense: 0,
         net: 0,
-        count: 0,
       };
       if (entry.direction === "IN") current.income += entry.amount;
       else current.expense += entry.amount;
       current.net = current.income - current.expense;
-      current.count += 1;
       map.set(key, current);
     });
 

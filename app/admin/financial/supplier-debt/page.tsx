@@ -41,9 +41,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  FinancialService,
-  SupplierDebtData,
-} from "@/app/services/financial.service";
+  SupplierDebtService,
+  type SupplierDebtData,
+} from "@/app/services/supplier-debt.service";
 import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -145,7 +145,7 @@ export default function SupplierDebtReportPage() {
     const delayDebounceFn = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await FinancialService.getSupplierDebts({
+        const res = await SupplierDebtService.getReport({
           search: searchTerm,
           startDate,
           endDate,
