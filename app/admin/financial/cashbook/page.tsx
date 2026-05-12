@@ -44,6 +44,7 @@ import { cn, formatNumber } from "@/lib/utils";
 import { branchService } from "@/app/services/branchService";
 import {
   CashbookEntry,
+  CashbookReport,
   CashbookService,
 } from "@/app/services/cashbook.service";
 import { toast } from "sonner";
@@ -53,7 +54,7 @@ import autoTable from "jspdf-autotable";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
 
-type BranchOption = { id: number; name: string; branchCode?: string };
+type BranchOption = { id: number; name: string };
 type ChartMode = "day" | "month";
 type EntryTypeFilter = "all" | "IN" | "OUT";
 
@@ -74,6 +75,19 @@ const compactCurrency = (value: number) =>
     maximumFractionDigits: value >= 1_000_000 ? 1 : 0,
   }).format(value || 0);
 
+const formatPaymentMethod = (value?: string) => {
+  switch (value) {
+    case "CASH":
+      return "Tiền mặt";
+    case "TRANSFER":
+      return "Chuyển khoản";
+    case "OTHER":
+      return "Khác";
+    default:
+      return value || "N/A";
+  }
+};
+
 export default function CashbookPage() {
   const router = useRouter();
   const { user, warehouseId } = useAuthStore();
@@ -81,13 +95,21 @@ export default function CashbookPage() {
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>(isAdmin ? "all" : ownBranchId || "all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(
+    isAdmin ? "all" : ownBranchId || "all",
+  );
   const [startDate, setStartDate] = useState(toIso(defaultStart));
   const [endDate, setEndDate] = useState(toIso(today));
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>("all");
   const [chartMode, setChartMode] = useState<ChartMode>("day");
   const [entries, setEntries] = useState<CashbookEntry[]>([]);
+  const [summary, setSummary] = useState<CashbookReport["summary"]>({
+    openingBalance: 0,
+    totalIncome: 0,
+    totalExpense: 0,
+    closingBalance: 0,
+  });
   const [isExplainOpen, setIsExplainOpen] = useState(false);
 
   useEffect(() => {
@@ -98,7 +120,11 @@ export default function CashbookPage() {
           ? branchRes
           : branchRes?.data || branchRes?.content || [];
         if (!isAdmin && ownBranchId) {
-          setBranches(list.filter((item: BranchOption) => item.id.toString() === ownBranchId));
+          setBranches(
+            list.filter(
+              (item: BranchOption) => item.id.toString() === ownBranchId,
+            ),
+          );
         } else {
           setBranches(list);
         }
@@ -119,35 +145,30 @@ export default function CashbookPage() {
     }
   }, [isAdmin, ownBranchId]);
 
-  useEffect(() => {
-    const fetchCashbook = async () => {
-      try {
-        setLoading(true);
-        const cashbookRes = await CashbookService.getEntries({
-          branchId: selectedBranchId,
-          startDate,
-          endDate,
-        });
-        setEntries(cashbookRes);
-      } catch (error) {
-        console.error("Không tải được dữ liệu sổ quỹ", error);
-        toast.error("Không thể tải dữ liệu sổ quỹ");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchCashbook = async () => {
+    try {
+      setLoading(true);
+      const cashbookRes = await CashbookService.getReport({
+        branchId: selectedBranchId,
+        startDate,
+        endDate,
+      });
+      setEntries(cashbookRes.entries);
+      setSummary(cashbookRes.summary);
+    } catch (error) {
+      console.error("Không tải được dữ liệu sổ quỹ", error);
+      toast.error("Không thể tải dữ liệu sổ quỹ");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchCashbook();
+  useEffect(() => {
+    void fetchCashbook();
   }, [selectedBranchId, startDate, endDate]);
 
   const filteredEntries = useMemo(() => {
-    const rangedEntries = entries.filter((entry) => {
-      if (startDate && entry.date < startDate) return false;
-      if (endDate && entry.date > endDate) return false;
-      return true;
-    });
-
-    return rangedEntries.filter((entry) => {
+    return entries.filter((entry) => {
       const keyword = searchTerm.trim().toLowerCase();
       const matchesKeyword =
         !keyword ||
@@ -157,17 +178,29 @@ export default function CashbookPage() {
           entry.description,
           entry.branchName,
           entry.creatorName,
+          entry.partnerName,
         ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(keyword));
       const matchesType = typeFilter === "all" || entry.direction === typeFilter;
       return matchesKeyword && matchesType;
     });
-  }, [entries, startDate, endDate, searchTerm, typeFilter]);
+  }, [entries, searchTerm, typeFilter]);
 
-  const summary = useMemo(
-    () => CashbookService.buildSummary(entries, startDate, endDate),
-    [entries, startDate, endDate],
+  const filteredTotals = useMemo(
+    () =>
+      filteredEntries.reduce(
+        (acc, entry) => {
+          if (entry.direction === "IN") {
+            acc.income += entry.amount;
+          } else {
+            acc.expense += entry.amount;
+          }
+          return acc;
+        },
+        { income: 0, expense: 0 },
+      ),
+    [filteredEntries],
   );
 
   const chartData = useMemo(() => {
@@ -198,8 +231,8 @@ export default function CashbookPage() {
       "Chi nhánh": entry.branchName,
       "Người tạo": entry.creatorName,
       "Số tiền": entry.amount,
-      "Công nợ": entry.debtAmount,
-      "Trạng thái": entry.status,
+      "Công nợ còn lại": entry.debtAmount,
+      "Phương thức thanh toán": formatPaymentMethod(entry.paymentMethod),
     }));
 
     const workbook = XLSX.utils.book_new();
@@ -216,10 +249,19 @@ export default function CashbookPage() {
     doc.setFontSize(10);
     doc.text(`Chi nhanh: ${branchLabel}`, 14, 20);
     doc.text(`Ky bao cao: ${formatDateVN(startDate)} - ${formatDateVN(endDate)}`, 14, 25);
- 
+
     autoTable(doc, {
       startY: 30,
-      head: [["Ngay", "Ma phieu", "Loai", "Nguon", "Dien giai", "So tien", "Cong no"]],
+      head: [[
+        "Ngay",
+        "Ma phieu",
+        "Loai",
+        "Nguon",
+        "Dien giai",
+        "So tien",
+        "Cong no",
+        "Phuong thuc",
+      ]],
       body: filteredEntries.map((entry) => [
         formatDateVN(entry.date),
         entry.code,
@@ -228,6 +270,7 @@ export default function CashbookPage() {
         entry.description,
         formatNumber(entry.amount),
         formatNumber(entry.debtAmount),
+        formatPaymentMethod(entry.paymentMethod),
       ]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [59, 130, 246] },
@@ -237,19 +280,6 @@ export default function CashbookPage() {
     toast.success("Đã xuất PDF sổ quỹ");
   };
 
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const cashbookRes = await CashbookService.getEntries({
-        branchId: selectedBranchId,
-        startDate,
-        endDate,
-      });
-      setEntries(cashbookRes);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const chartWindow = useMemo(() => chartData.slice(-12), [chartData]);
   const chartMax = useMemo(() => {
@@ -293,14 +323,20 @@ export default function CashbookPage() {
               Sổ quỹ
             </h1>
             <p className="text-[11px] font-medium text-slate-500">
-              Theo dõi thu chi và số dư quỹ theo kỳ báo cáo
+              Theo dõi dòng tiền đã ghi nhận thực tế theo kỳ báo cáo
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-0 border border-slate-300 bg-white">
-          <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-            <SelectTrigger className="h-8 w-[190px] rounded-none border-none text-[12px] font-medium shadow-none focus:ring-0" disabled={!isAdmin}>
+          <Select
+            value={selectedBranchId}
+            onValueChange={setSelectedBranchId}
+          >
+            <SelectTrigger
+              className="h-8 w-[190px] rounded-none border-none text-[12px] font-medium shadow-none focus:ring-0"
+              disabled={!isAdmin}
+            >
               <SelectValue placeholder="Tất cả chi nhánh" />
             </SelectTrigger>
             <SelectContent className="rounded-none">
@@ -335,7 +371,7 @@ export default function CashbookPage() {
           <Button
             variant="outline"
             className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
-            onClick={refresh}
+            onClick={() => void fetchCashbook()}
             disabled={loading}
           >
             <RefreshCw
@@ -692,7 +728,7 @@ export default function CashbookPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <Table className="min-w-[1200px]">
+            <Table className="min-w-[1220px]">
               <TableHeader>
                 <TableRow className="bg-[#f8f9fa] hover:bg-[#f8f9fa]">
                   <TableHead className="w-[120px]">Ngày</TableHead>
@@ -703,7 +739,7 @@ export default function CashbookPage() {
                   <TableHead className="w-[170px]">Người tạo</TableHead>
                   <TableHead className="w-[130px] text-right">Số tiền</TableHead>
                   <TableHead className="w-[130px] text-right">Công nợ</TableHead>
-                  <TableHead className="w-[130px] text-center">Trạng thái</TableHead>
+                  <TableHead className="w-[150px] text-center">Phương thức</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -757,18 +793,8 @@ export default function CashbookPage() {
                       {formatNumber(entry.debtAmount)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <span
-                        className={cn(
-                          "rounded border px-2 py-0.5 text-[10px] font-black uppercase",
-                          entry.status === "COMPLETED" ||
-                            entry.status === "IMPORTED"
-                            ? "border-emerald-100 bg-emerald-50 text-emerald-600"
-                            : entry.status === "PENDING" || entry.status === "PO"
-                              ? "border-amber-100 bg-amber-50 text-amber-600"
-                              : "border-slate-100 bg-slate-50 text-slate-500",
-                        )}
-                      >
-                        {entry.status || "N/A"}
+                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase text-slate-600">
+                        {formatPaymentMethod(entry.paymentMethod)}
                       </span>
                     </TableCell>
                   </TableRow>
@@ -783,10 +809,10 @@ export default function CashbookPage() {
                 Hiển thị {ledgerRows.length} / {filteredEntries.length} giao dịch
               </span>
               <span className="text-emerald-600">
-                Thu: {formatNumber(summary.totalIncome)}
+                Thu hiển thị: {formatNumber(filteredTotals.income)}
               </span>
               <span className="text-rose-600">
-                Chi: {formatNumber(summary.totalExpense)}
+                Chi hiển thị: {formatNumber(filteredTotals.expense)}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -818,15 +844,35 @@ export default function CashbookPage() {
           <DialogHeader>
             <DialogTitle className="uppercase">Trợ giúp sổ quỹ</DialogTitle>
             <DialogDescription>
-              Sổ quỹ tổng hợp dữ liệu thật từ phiếu nhập, phiếu xuất và giao dịch kho theo kỳ đang chọn.
+              Sổ quỹ này chỉ ghi nhận các giao dịch thực sự ảnh hưởng tiền đã được
+              ghi sổ, hiện tại là phiếu thanh toán nhà cung cấp.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-sm text-slate-600">
-            <p><span className="font-bold text-slate-800">Số dư đầu kỳ:</span> số tiền còn lại trước ngày bắt đầu lọc.</p>
-            <p><span className="font-bold text-slate-800">Tổng thu / Tổng chi:</span> tổng tiền vào và ra trong khoảng thời gian hiện tại.</p>
-            <p><span className="font-bold text-slate-800">Biểu đồ:</span> cho thấy xu hướng thu chi theo ngày hoặc theo tháng để nhìn biến động nhanh.</p>
-            <p><span className="font-bold text-slate-800">Danh sách giao dịch:</span> chi tiết từng phiếu theo chi nhánh, người tạo, số tiền và công nợ.</p>
+            <p>
+              <span className="font-bold text-slate-800">Số dư đầu kỳ:</span>{" "}
+              bằng tổng dòng tiền đã ghi nhận trước ngày bắt đầu. Hệ thống hiện
+              mới có dòng chi thanh toán NCC nên số dư đầu kỳ phản ánh số đã chi
+              lũy kế trước kỳ.
+            </p>
+            <p>
+              <span className="font-bold text-slate-800">Tổng thu / tổng chi:</span>{" "}
+              chỉ tính giao dịch tiền thực tế trong kỳ đang chọn. Chứng từ kho,
+              phiếu dự thảo hoặc trạng thái chưa phát sinh tiền không được đưa vào
+              sổ quỹ.
+            </p>
+            <p>
+              <span className="font-bold text-slate-800">Số dư cuối kỳ:</span>{" "}
+              bằng số dư đầu kỳ + tổng thu - tổng chi, dùng cùng một nguồn dữ liệu
+              backend với bảng, biểu đồ và file xuất.
+            </p>
+            <p>
+              <span className="font-bold text-slate-800">Phạm vi dữ liệu:</span>{" "}
+              hiện màn này chỉ phản ánh các phiếu thanh toán nhà cung cấp đã ghi
+              nhận. Phiếu nhập/xuất kho không có bút toán tiền riêng sẽ không xuất
+              hiện ở đây.
+            </p>
           </div>
         </DialogContent>
       </Dialog>

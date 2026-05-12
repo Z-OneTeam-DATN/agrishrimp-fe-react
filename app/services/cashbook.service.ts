@@ -1,25 +1,11 @@
-import { InventoryExportApiService } from "@/app/services/inventory.service";
-import { FinancialService } from "@/app/services/financial.service";
+import { apiJava } from "@/lib/axios";
+import type {
+  CashbookEntryData,
+  CashbookReportData,
+} from "@/app/services/financial-report.types";
 
-export type CashbookDirection = "IN" | "OUT";
-export type CashbookSource = "SUPPLIER_PAYMENT" | "EXPORT_COMMAND" | "EXPORT_RECEIPT";
-
-export interface CashbookEntry {
-  id: string;
-  date: string;
+export interface CashbookEntry extends Omit<CashbookEntryData, "branchId"> {
   branchId?: string;
-  direction: CashbookDirection;
-  source: CashbookSource;
-  code: string;
-  title: string;
-  description: string;
-  branchName: string;
-  partnerName: string;
-  creatorName: string;
-  status: string;
-  amount: number;
-  debtAmount: number;
-  paymentAmount: number;
 }
 
 export interface CashbookSummary {
@@ -27,6 +13,11 @@ export interface CashbookSummary {
   totalIncome: number;
   totalExpense: number;
   closingBalance: number;
+}
+
+export interface CashbookReport {
+  summary: CashbookSummary;
+  entries: CashbookEntry[];
 }
 
 export interface CashbookFilters {
@@ -37,133 +28,67 @@ export interface CashbookFilters {
 
 const toNumber = (value: unknown) => Number(value ?? 0) || 0;
 
-const normalizeDate = (value: any) => {
+const normalizeDate = (value: unknown) => {
   if (!value) return "";
   if (typeof value === "string") return value.slice(0, 10);
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  if (typeof value === "object" && "date" in value) return String((value as any).date).slice(0, 10);
   return String(value).slice(0, 10);
 };
 
-const inDateRange = (date: string, startDate?: string, endDate?: string) => {
-  if (!date) return false;
-  if (startDate && date < startDate) return false;
-  if (endDate && date > endDate) return false;
-  return true;
-};
-
-const branchMatches = (item: any, branchId?: string | number | null) => {
-  if (!branchId || branchId === "all") return true;
-  const value = String(branchId);
-  return String(item?.branchId ?? item?.branch?.id ?? "") === value;
-};
-
-const extractAmount = (item: any, fallback = 0) => {
-  const paymentAmount = toNumber(item?.paymentAmount);
-  const totalAmount = toNumber(item?.totalAmount);
-  const debtAmount = toNumber(item?.debtAmount);
-  return paymentAmount > 0 ? paymentAmount : totalAmount > 0 ? totalAmount - debtAmount : fallback;
-};
-
-const extractDate = (item: any) => normalizeDate(item?.createdAt || item?.entryDate || item?.checkDate || item?.date);
-
-const mapSupplierPayment = (item: any): CashbookEntry | null => {
-  const date = normalizeDate(item?.paymentDate || item?.createdAt);
-  if (!date) return null;
-  return {
-    id: `supplier-payment-${item.id ?? item.receiptCode ?? date}`,
-    date,
-    branchId: item?.branchId != null ? String(item.branchId) : undefined,
-    direction: "OUT",
-    source: "SUPPLIER_PAYMENT",
-    code: item.receiptCode || `PAY-${item.id}`,
-    title: "Thanh toán NCC",
-    description: item.referenceCode || item.note || item.supplierName || "Thanh toán phiếu nhập",
-    branchName: item.branchName || "",
-    partnerName: item.supplierName || "",
-    creatorName: item.createdByName || "",
-    status: item.paymentMethod || "",
-    amount: toNumber(item.amount),
-    debtAmount: toNumber(item.remainingDebtAfter),
-    paymentAmount: toNumber(item.amount),
-  };
-};
-
-const mapExport = (item: any, source: CashbookSource): CashbookEntry | null => {
-  const date = extractDate(item);
-  if (!date) return null;
-  const hasSupplier = Boolean(item?.supplierId || item?.supplierName);
-  const direction: CashbookDirection = hasSupplier ? "OUT" : "IN";
-  const amount = extractAmount(item);
-  return {
-    id: `${source.toLowerCase()}-${item.id ?? item.code ?? date}`,
-    date,
-    branchId: item?.branchId != null ? String(item.branchId) : undefined,
-    direction,
-    source,
-    code: item.code || `EX-${item.id}`,
-    title: hasSupplier ? "Phiếu xuất trả NCC" : item.partnerBranchId ? "Điều chuyển nội bộ" : "Phiếu xuất kho",
-    description: item.supplierName || item.partnerBranchName || item.branchName || "Đối tác / chi nhánh",
-    branchName: item.branchName || "",
-    partnerName: item.supplierName || item.partnerBranchName || "",
-    creatorName: item.creatorName || item.createdByName || "",
-    status: item.status || "",
-    amount,
-    debtAmount: toNumber(item.debtAmount),
-    paymentAmount: toNumber(item.paymentAmount),
-  };
-};
+const normalizeEntry = (entry: CashbookEntryData): CashbookEntry => ({
+  ...entry,
+  date: normalizeDate(entry.date),
+  branchId: entry.branchId != null ? String(entry.branchId) : undefined,
+  amount: toNumber(entry.amount),
+  debtAmount: toNumber(entry.debtAmount),
+});
 
 export const CashbookService = {
-  async getEntries(filters: CashbookFilters = {}): Promise<CashbookEntry[]> {
-    const [supplierPaymentsRes, exportCommandsRes, exportReceiptsRes] = await Promise.all([
-      FinancialService.getSupplierPayments({
-        branchId: filters.branchId ?? undefined,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-      }),
-      InventoryExportApiService.getAllExportCommands(),
-      InventoryExportApiService.getAllExportReceipts(),
-    ]);
+  async getReport(filters: CashbookFilters = {}): Promise<CashbookReport> {
+    const response = await apiJava.get("/financial/cashbook", {
+      params: {
+        branchId:
+          !filters.branchId || filters.branchId === "all"
+            ? null
+            : filters.branchId,
+        startDate: filters.startDate || null,
+        endDate: filters.endDate || null,
+      },
+    });
+    const report = response.data;
 
-    const supplierPayments = Array.isArray(supplierPaymentsRes) ? supplierPaymentsRes : [];
-    const exportCommands = Array.isArray(exportCommandsRes) ? exportCommandsRes : (exportCommandsRes?.data || exportCommandsRes?.content || []);
-    const exportReceipts = Array.isArray(exportReceiptsRes) ? exportReceiptsRes : (exportReceiptsRes?.data || exportReceiptsRes?.content || []);
+    const normalized: CashbookReportData = report || { summary: { openingBalance: 0, totalIncome: 0, totalExpense: 0, closingBalance: 0 }, entries: [] };
 
-    const entries = [
-      ...supplierPayments.map(mapSupplierPayment).filter(Boolean),
-      ...exportCommands.map((item: any) => mapExport(item, "EXPORT_COMMAND")).filter(Boolean),
-      ...exportReceipts.map((item: any) => mapExport(item, "EXPORT_RECEIPT")).filter(Boolean),
-    ] as CashbookEntry[];
-
-    return entries
-      .filter((item) => branchMatches(item, filters.branchId))
-      .filter((item) => inDateRange(item.date, filters.startDate, filters.endDate))
-      .sort((a, b) => b.date.localeCompare(a.date) || a.code.localeCompare(b.code));
-  },
-
-  buildSummary(entries: CashbookEntry[], startDate?: string, endDate?: string): CashbookSummary {
-    const inRange = entries.filter((item) => inDateRange(item.date, startDate, endDate));
-    const beforeRange = entries.filter((item) => startDate ? item.date < startDate : false);
-
-    const totalIncome = inRange.filter((item) => item.direction === "IN").reduce((sum, item) => sum + item.amount, 0);
-    const totalExpense = inRange.filter((item) => item.direction === "OUT").reduce((sum, item) => sum + item.amount, 0);
-    const openingBalance = beforeRange.reduce((sum, item) => sum + (item.direction === "IN" ? item.amount : -item.amount), 0);
-    const closingBalance = openingBalance + totalIncome - totalExpense;
-
-    return { openingBalance, totalIncome, totalExpense, closingBalance };
+    return {
+      summary: {
+        openingBalance: toNumber(normalized.summary?.openingBalance),
+        totalIncome: toNumber(normalized.summary?.totalIncome),
+        totalExpense: toNumber(normalized.summary?.totalExpense),
+        closingBalance: toNumber(normalized.summary?.closingBalance),
+      },
+      entries: Array.isArray(normalized.entries)
+        ? normalized.entries.map(normalizeEntry)
+        : [],
+    };
   },
 
   groupByPeriod(entries: CashbookEntry[], mode: "day" | "month") {
-    const map = new Map<string, { key: string; income: number; expense: number; net: number; count: number }>();
+    const map = new Map<
+      string,
+      { key: string; income: number; expense: number; net: number }
+    >();
 
     entries.forEach((entry) => {
       const key = mode === "day" ? entry.date : entry.date.slice(0, 7);
-      const current = map.get(key) || { key, income: 0, expense: 0, net: 0, count: 0 };
+      const current = map.get(key) || {
+        key,
+        income: 0,
+        expense: 0,
+        net: 0,
+      };
       if (entry.direction === "IN") current.income += entry.amount;
       else current.expense += entry.amount;
       current.net = current.income - current.expense;
-      current.count += 1;
       map.set(key, current);
     });
 
