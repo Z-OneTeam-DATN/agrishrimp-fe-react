@@ -4,13 +4,19 @@ export interface Category {
   code?: string;
 }
 
+export interface SupplierWarning {
+  code: string;
+  severity: "WARNING" | "INFO" | string;
+  message: string;
+}
+
 export interface Supplier {
   id: number;
   code: string;
   name: string;
   taxCode: string;
 
-  category: any;
+  category: unknown;
 
   contactName: string;
   phone: string;
@@ -28,6 +34,16 @@ export interface Supplier {
 
   note?: string;
   createdAt: string;
+  updatedAt?: string;
+  createdByUserId?: number;
+  updatedByUserId?: number;
+  createdByName?: string;
+  updatedByName?: string;
+  catalogProductCount?: number;
+  availableProductCount?: number;
+  unavailableProductCount?: number;
+  checkingProductCount?: number;
+  warnings?: SupplierWarning[];
 }
 
 export type SupplierProductCatalogStatus = "AVAILABLE" | "UNAVAILABLE" | "CHECKING";
@@ -46,6 +62,12 @@ export interface SupplierProductCatalogItem {
   note?: string;
   createdAt?: string;
   updatedAt?: string;
+  createdByUserId?: number;
+  updatedByUserId?: number;
+  createdByName?: string;
+  updatedByName?: string;
+  checkingAgeDays?: number;
+  checkingTooLong?: boolean;
 }
 
 export interface PageResponse<T> {
