@@ -184,6 +184,8 @@ const buildCatalogFallbackProduct = (item: SupplierProductCatalogItem) =>
         id: item.productId,
         name: item.productName || `Sản phẩm #${item.productId}`,
         slug: item.productSlug || "",
+        description: "",
+        status: "ACTIVE",
         brandName: item.brandName || "",
         origin: item.origin || "",
         categoryName: item.categoryName || "",
