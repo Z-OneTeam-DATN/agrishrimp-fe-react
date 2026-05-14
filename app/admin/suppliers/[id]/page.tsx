@@ -179,6 +179,19 @@ const buildWarningMap = (warnings: SupplierWarning[]) => {
     return Array.from(map.values());
 };
 
+const buildCatalogFallbackProduct = (item: SupplierProductCatalogItem) =>
+    ({
+        id: item.productId,
+        name: item.productName || `Sản phẩm #${item.productId}`,
+        slug: item.productSlug || "",
+        brandName: item.brandName || "",
+        origin: item.origin || "",
+        categoryName: item.categoryName || "",
+        baseSku: "",
+        imageUrls: [],
+        variants: [],
+    } as ProductListItem);
+
 export default function SupplierDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -210,6 +223,9 @@ export default function SupplierDetailPage() {
     const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
     const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
     const [pendingStatusValue, setPendingStatusValue] = useState<"active" | "inactive" | null>(null);
+    const [historyLoadError, setHistoryLoadError] = useState<string | null>(null);
+    const [catalogLoadError, setCatalogLoadError] = useState<string | null>(null);
+    const [productLoadError, setProductLoadError] = useState<string | null>(null);
 
     const {
         control,
@@ -228,24 +244,54 @@ export default function SupplierDetailPage() {
         if (!supplierId) return;
 
         try {
-            const [supplierInfo, historyData, catalogData, productsData] = await Promise.all([
-                supplierService.getById(supplierId),
-                supplierService.getImportHistory(supplierId),
-                supplierService.getProductCatalog(supplierId),
-                ProductService.getAll({ status: "ACTIVE" }),
-            ]);
+            setHistoryLoadError(null);
+            setCatalogLoadError(null);
+            setProductLoadError(null);
+
+            const supplierInfo = await supplierService.getById(supplierId);
 
             setSupplierRecord(supplierInfo);
             reset({
                 ...supplierInfo,
                 status: supplierInfo.status?.toLowerCase() as SupplierFormValues["status"],
             });
-            setImportHistory(Array.isArray(historyData) ? historyData : []);
-            setCatalogItems(Array.isArray(catalogData) ? catalogData : []);
-            setSavedCatalogItems(Array.isArray(catalogData) ? catalogData : []);
-            setCatalogProducts(Array.isArray(productsData) ? productsData : []);
-        } catch {
-            toast.error("Không tải được dữ liệu supplier");
+
+            const [historyResult, catalogResult, productsResult] = await Promise.allSettled([
+                supplierService.getImportHistory(supplierId),
+                supplierService.getProductCatalog(supplierId),
+                ProductService.getAll({ status: "ACTIVE" }),
+            ]);
+
+            let nextCatalogItems: SupplierProductCatalogItem[] = [];
+
+            if (historyResult.status === "fulfilled") {
+                setImportHistory(Array.isArray(historyResult.value) ? historyResult.value : []);
+            } else {
+                setImportHistory([]);
+                setHistoryLoadError("Không tải được lịch sử nhập của nhà cung cấp.");
+                toast.warning("Không tải được lịch sử nhập của nhà cung cấp");
+            }
+
+            if (catalogResult.status === "fulfilled") {
+                nextCatalogItems = Array.isArray(catalogResult.value) ? catalogResult.value : [];
+                setCatalogItems(nextCatalogItems);
+                setSavedCatalogItems(nextCatalogItems);
+            } else {
+                setCatalogItems([]);
+                setSavedCatalogItems([]);
+                setCatalogLoadError("Không tải được catalog hiện tại của nhà cung cấp.");
+                toast.warning("Không tải được catalog hiện tại của nhà cung cấp");
+            }
+
+            if (productsResult.status === "fulfilled") {
+                setCatalogProducts(Array.isArray(productsResult.value) ? productsResult.value : []);
+            } else {
+                setCatalogProducts(nextCatalogItems.map(buildCatalogFallbackProduct));
+                setProductLoadError("Không tải được danh mục sản phẩm tổng. Tab catalog chỉ hiển thị các sản phẩm đã có trong catalog hiện tại.");
+                toast.warning("Không tải được danh mục sản phẩm tổng cho tab catalog");
+            }
+        } catch (error) {
+            toast.error(getErrorMessage(error as AxiosError));
             router.push("/admin/suppliers");
         } finally {
             setIsLoading(false);
@@ -258,6 +304,12 @@ export default function SupplierDetailPage() {
 
     const catalogPayload = useMemo(() => buildCatalogPayload(catalogItems), [catalogItems]);
     const savedCatalogPayload = useMemo(() => buildCatalogPayload(savedCatalogItems), [savedCatalogItems]);
+    const catalogSourceProducts = useMemo(() => {
+        if (catalogProducts.length > 0) {
+            return catalogProducts;
+        }
+        return catalogItems.map(buildCatalogFallbackProduct);
+    }, [catalogItems, catalogProducts]);
 
     const catalogByProductId = useMemo(() => {
         const map = new Map<number, SupplierProductCatalogItem>();
@@ -339,7 +391,7 @@ export default function SupplierDetailPage() {
     const filteredCatalogProducts = useMemo(() => {
         const normalizedKeyword = catalogKeyword.trim().toLowerCase();
 
-        return catalogProducts.filter((product) => {
+        return catalogSourceProducts.filter((product) => {
             const current = catalogByProductId.get(product.id);
             const isTracked = Boolean(current);
             const currentStatus = current?.status || "CHECKING";
@@ -363,7 +415,7 @@ export default function SupplierDetailPage() {
 
             return keywordOk && filterOk;
         });
-    }, [catalogProducts, catalogByProductId, catalogKeyword, catalogFilter]);
+    }, [catalogSourceProducts, catalogByProductId, catalogKeyword, catalogFilter]);
 
     const paginatedCatalogProducts = useMemo(() => {
         const startIndex = (catalogCurrentPage - 1) * CATALOG_PAGE_SIZE;
@@ -416,9 +468,9 @@ export default function SupplierDetailPage() {
 
     useEffect(() => {
         setSelectedCatalogProductIds((prev) =>
-            prev.filter((id) => catalogProducts.some((product) => product.id === id)),
+            prev.filter((id) => catalogSourceProducts.some((product) => product.id === id)),
         );
-    }, [catalogProducts]);
+    }, [catalogSourceProducts]);
 
     useEffect(() => {
         setCatalogCurrentPage(1);
@@ -496,7 +548,7 @@ export default function SupplierDetailPage() {
                 );
             }
 
-            const product = catalogProducts.find((item) => item.id === productId);
+            const product = catalogSourceProducts.find((item) => item.id === productId);
             return [
                 ...prev,
                 {
@@ -549,7 +601,7 @@ export default function SupplierDetailPage() {
                     return;
                 }
 
-                const product = catalogProducts.find((item) => item.id === productId);
+                const product = catalogSourceProducts.find((item) => item.id === productId);
                 next.push({
                     id: 0,
                     supplierId,
@@ -1014,7 +1066,7 @@ export default function SupplierDetailPage() {
                                                 type="button"
                                                 className="h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 uppercase"
                                                 onClick={() => void saveCatalog()}
-                                                disabled={isCatalogSaving}
+                                                disabled={isCatalogSaving || Boolean(catalogLoadError)}
                                             >
                                                 <Save size={14} className="mr-1.5" />
                                                 {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
@@ -1044,6 +1096,18 @@ export default function SupplierDetailPage() {
                                     {checkingTooLongItems.length > 0 && (
                                         <div className="rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900">
                                             {checkingTooLongItems.length} sản phẩm ở trạng thái CHECKING đã quá {STALE_CHECKING_DAYS} ngày. Nên rà soát lại nguồn cung hoặc cập nhật ghi chú kiểm tra.
+                                        </div>
+                                    )}
+
+                                    {catalogLoadError && (
+                                        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-3 text-[12px] text-rose-800">
+                                            {catalogLoadError} Tạm thời khóa chỉnh sửa catalog để tránh ghi đè sai dữ liệu.
+                                        </div>
+                                    )}
+
+                                    {productLoadError && !catalogLoadError && (
+                                        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900">
+                                            {productLoadError}
                                         </div>
                                     )}
 
@@ -1090,6 +1154,7 @@ export default function SupplierDetailPage() {
                                                 variant="outline"
                                                 className="h-[34px] text-[11px] font-bold uppercase"
                                                 onClick={applyBulkCatalogStatus}
+                                                disabled={Boolean(catalogLoadError)}
                                             >
                                                 Áp dụng ({selectedCatalogProductIds.length})
                                             </Button>
@@ -1112,6 +1177,7 @@ export default function SupplierDetailPage() {
                                                     <Checkbox
                                                         checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
                                                         onCheckedChange={(checked) => toggleSelectAllCatalog(checked === true)}
+                                                        disabled={Boolean(catalogLoadError)}
                                                     />
                                                 </TableHead>
                                                 <TableHead className="text-[10px] font-bold uppercase py-3">Sản phẩm</TableHead>
@@ -1136,6 +1202,7 @@ export default function SupplierDetailPage() {
                                                                 <Checkbox
                                                                     checked={isSelected}
                                                                     onCheckedChange={(checked) => toggleCatalogSelection(product.id, checked === true)}
+                                                                    disabled={Boolean(catalogLoadError)}
                                                                 />
                                                             </TableCell>
                                                             <TableCell className="py-3">
@@ -1175,6 +1242,7 @@ export default function SupplierDetailPage() {
                                                                 <Select
                                                                     value={status}
                                                                     onValueChange={(value) => updateCatalogItem(product.id, { status: value as SupplierProductCatalogStatus })}
+                                                                    disabled={Boolean(catalogLoadError)}
                                                                 >
                                                                     <SelectTrigger className="h-8 text-[11px] font-bold">
                                                                         <SelectValue />
@@ -1201,6 +1269,7 @@ export default function SupplierDetailPage() {
                                                                     placeholder="Ghi chú ngắn: điều kiện giao, đang xác minh, ưu tiên thương hiệu..."
                                                                     className="min-h-[72px] text-[11px]"
                                                                     maxLength={255}
+                                                                    disabled={Boolean(catalogLoadError)}
                                                                 />
                                                                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-400">
                                                                     <span>{(current?.note || "").length}/255 ký tự</span>
@@ -1219,8 +1288,14 @@ export default function SupplierDetailPage() {
                                                         <div className="flex flex-col items-center gap-3 text-slate-400">
                                                             <PackageSearch size={28} />
                                                             <div>
-                                                                <p className="text-[12px] font-black uppercase tracking-widest">Không có sản phẩm phù hợp bộ lọc</p>
-                                                                <p className="mt-1 text-[11px]">Thử đổi bộ lọc catalog hoặc tìm theo tên sản phẩm / thương hiệu.</p>
+                                                                <p className="text-[12px] font-black uppercase tracking-widest">
+                                                                    {catalogLoadError ? "Không tải được catalog supplier" : "Không có sản phẩm phù hợp bộ lọc"}
+                                                                </p>
+                                                                <p className="mt-1 text-[11px]">
+                                                                    {catalogLoadError
+                                                                        ? "Tải lại trang hoặc kiểm tra API catalog trước khi chỉnh sửa."
+                                                                        : "Thử đổi bộ lọc catalog hoặc tìm theo tên sản phẩm / thương hiệu."}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     </TableCell>
@@ -1271,6 +1346,11 @@ export default function SupplierDetailPage() {
                                     <h3 className="text-[12px] font-black text-slate-700 uppercase flex items-center gap-2 mb-3">
                                         <History size={14} className="text-emerald-600" /> Lịch sử phiếu nhập
                                     </h3>
+                                    {historyLoadError && (
+                                        <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900">
+                                            {historyLoadError}
+                                        </div>
+                                    )}
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                                         <div className="relative md:col-span-2">
                                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
