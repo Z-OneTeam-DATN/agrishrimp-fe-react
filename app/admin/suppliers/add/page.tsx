@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -100,7 +100,7 @@ export default function AddSupplierPage() {
     const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
     const normalizeTaxCode = (value: string) => value.trim().replace(/\s+/g, "");
 
-    const checkDuplicateSuppliers = async (nameValue: string, taxCodeValue: string) => {
+    const checkDuplicateSuppliers = useCallback(async (nameValue: string, taxCodeValue: string) => {
         const normalizedName = normalizeName(nameValue || "");
         const normalizedTax = normalizeTaxCode(taxCodeValue || "");
 
@@ -129,7 +129,7 @@ export default function AddSupplierPage() {
             setDuplicateName(null);
             setDuplicateTaxCode(null);
         }
-    };
+    }, []);
 
     useEffect(() => {
         const savedDraftRaw = localStorage.getItem(DRAFT_KEY);
@@ -173,7 +173,7 @@ export default function AddSupplierPage() {
         }, 450);
 
         return () => clearTimeout(timer);
-    }, [watchedValues.name, watchedValues.taxCode]);
+    }, [checkDuplicateSuppliers, watchedValues.name, watchedValues.taxCode]);
 
     const qualityChecks = useMemo(() => {
         const checks = [
@@ -229,7 +229,10 @@ export default function AddSupplierPage() {
                 addressDetail: buildAddressDetail(addressParts),
             };
 
-            await supplierService.create(payload);
+            const createdSupplier = await supplierService.create(payload);
+            if (createdSupplier.warnings?.length) {
+                toast.warning(createdSupplier.warnings[0].message);
+            }
             localStorage.removeItem(DRAFT_KEY);
             toast.success("Đã lưu thông tin nhà cung cấp thành công!");
             window.dispatchEvent(new Event("supplierUpdated"));
@@ -242,14 +245,14 @@ export default function AddSupplierPage() {
         }
     };
 
-    const onError = (errors: any) => {
+    const onError = () => {
         toast.error("Vui lòng điền đầy đủ và đúng định dạng các trường bắt buộc!");
     };
 
     const handleOpenConfirm = async () => {
         const isValid = await trigger();
         if (!isValid) {
-            onError(errors);
+            onError();
             return;
         }
 
