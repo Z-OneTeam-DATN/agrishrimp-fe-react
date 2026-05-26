@@ -122,7 +122,7 @@ export default function ReceiptDetailPage() {
   const canCreateSupplierReturn =
     canCreateReturn &&
     hasRejectedItems &&
-    ["APPROVED", "COMPLETED"].includes(receipt?.status || "");
+    receipt?.status === "COMPLETED";
 
   const openPaymentModal = (payFull = false) => {
     setPaymentForm({
@@ -168,9 +168,9 @@ export default function ReceiptDetailPage() {
   // GIAI ĐOẠN 2: Duyệt phiếu (POST)
   const handleApprove = () => {
     showConfirm(
-      "Xác nhận DUYỆT phiếu",
-      "Admin duyệt phiếu này sẽ ghi nhận ngay tồn kho hàng đạt, tách hàng lỗi sang kho chờ trả và cộng công nợ nhà cung cấp.",
-      () => handleApiCall(() => InventoryApiService.approveReceipt(id as string), "Đã duyệt phiếu thành công!")
+      "Xac nhan duyet phieu",
+      "Phieu se chuyen sang trang thai Da duyet de thu kho thuc hien QC. Ton kho va cong no chi duoc ghi nhan khi hoan tat nhap kho.",
+      () => handleApiCall(() => InventoryApiService.approveReceipt(id as string), "Da duyet phieu thanh cong!")
     );
   };
 
@@ -201,6 +201,82 @@ export default function ReceiptDetailPage() {
     router.push(`/admin/exports/new-command?${query.toString()}`);
   };
 
+
+  const handlePrintLabels = () => {
+    if (!receipt) return;
+
+    const escapeHtml = (value: any) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const labels = (receipt.items || [])
+      .filter((item: any) => Number(item.quantityAccepted || 0) > 0)
+      .map((item: any) => {
+        const acceptedQty = Number(item.quantityAccepted || 0);
+        const barcodeValue = `${receipt.code || receipt.receiptCode || id}-${item.productCode}-${item.lotNumber || "DEFAULT"}`;
+
+        return `
+          <section class="label">
+            <div class="label__top">
+              <strong>${escapeHtml(item.productName)}</strong>
+              <span>${acceptedQty} ${escapeHtml(item.unit || "cai")}</span>
+            </div>
+            <div class="label__meta">
+              <span>SKU: ${escapeHtml(item.productCode)}</span>
+              <span>Lo: ${escapeHtml(item.lotNumber || "DEFAULT")}</span>
+              <span>HSD: ${escapeHtml(item.expiryDate || "---")}</span>
+            </div>
+            <div class="barcode">${escapeHtml(barcodeValue)}</div>
+            <div class="receipt">PN: ${escapeHtml(receipt.code || receipt.receiptCode || id)}</div>
+          </section>
+        `;
+      })
+      .join("");
+
+    if (!labels) {
+      toast.error("Khong co hang dat QC de in nhan.");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      toast.error("Trinh duyet dang chan cua so in nhan.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>In nhan ${escapeHtml(receipt.code || receipt.receiptCode || id)}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 16px; font-family: Arial, sans-serif; color: #111827; }
+            .sheet { display: grid; grid-template-columns: repeat(2, 88mm); gap: 8mm; align-items: start; }
+            .label { width: 88mm; min-height: 52mm; border: 1px solid #111827; padding: 8px; break-inside: avoid; page-break-inside: avoid; }
+            .label__top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; text-transform: uppercase; }
+            .label__top strong { max-width: 62mm; line-height: 1.25; }
+            .label__top span { white-space: nowrap; font-weight: 700; }
+            .label__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 8px; font-size: 10px; }
+            .barcode { margin-top: 10px; padding: 8px 6px; border: 1px solid #d1d5db; font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 1px; text-align: center; overflow-wrap: anywhere; }
+            .receipt { margin-top: 6px; font-size: 10px; font-weight: 700; text-align: right; }
+            @media print {
+              body { padding: 0; }
+              .sheet { gap: 4mm; }
+              .label { margin: 0; }
+            }
+          </style>
+        </head>
+        <body><main class="sheet">${labels}</main></body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
   // GIAI ĐOẠN 3: Kiểm đếm QC & Nhập kho
   const openInspectModal = () => {
     setInspectItems((receipt?.items || []).map((i: any) => ({
@@ -390,6 +466,17 @@ export default function ReceiptDetailPage() {
               </div>
             )}
 
+            {receipt.status === "COMPLETED" && (
+              <Button onClick={handlePrintLabels} variant="outline" className="h-8 text-[11px] font-bold border-blue-200 rounded-none px-3 text-blue-700 hover:bg-blue-50">
+                <Printer size={14} className="mr-1.5" /> IN NHAN
+              </Button>
+            )}
+
+            {receipt.status === "APPROVED" && canApprove && (
+              <Button onClick={openInspectModal} disabled={isProcessing} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-none px-6">
+                <CheckSquare size={14} className="mr-1.5"/> QC & NHAP KHO
+              </Button>
+            )}
             {canCreateSupplierReturn && (
               <Button onClick={handleCreateSupplierReturn} disabled={isProcessing} className="h-8 bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] rounded-none px-6 shadow-lg shadow-rose-100">
                 <Package size={14} className="mr-1.5"/> TẠO PHIẾU XUẤT TRẢ NCC
@@ -498,7 +585,7 @@ export default function ReceiptDetailPage() {
                          
                          <td className="p-4 text-right font-bold text-slate-600">{formatNumber(item.importPrice || 0)} ₫</td>
                          <td className="p-4 text-right font-black text-emerald-600">{formatNumber(item.newSellingPrice || 0)} ₫</td>
-                         <td className="p-4 text-right font-black text-slate-900">{formatNumber((isQCMode ? delivered : planned) * (item.importPrice || 0))} ₫</td>
+                         <td className="p-4 text-right font-black text-slate-900">{formatNumber((isQCMode ? accepted : planned) * (item.importPrice || 0))} ₫</td>
                       </tr>
                    )})}
                 </tbody>
