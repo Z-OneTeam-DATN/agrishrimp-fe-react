@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, CheckCircle, FileText, Calendar, Warehouse, ArrowRight, User, AlertCircle } from "lucide-react";
+import { Pencil, Trash2, CheckCircle, FileText, Calendar, Warehouse, User, AlertCircle } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
@@ -158,7 +158,6 @@ export function InventoryExportTable({
           <TableBody>
             {exports.map((item: any) => {
               const status = (item.status || "").toUpperCase();
-              const isInternal = item.exportType === "INTERNAL";
               let displayPartner = item.displayPartnerName || item.supplierName || item.partnerBranchName || "N/A";
 
               return (
@@ -186,10 +185,9 @@ export function InventoryExportTable({
 
                   <TableCell className="p-3">
                     <span className={cn(
-                      "text-[12px] font-bold leading-tight flex items-center gap-1 truncate max-w-[300px]",
-                      isInternal ? "text-blue-500" : "text-slate-600"
+                      "text-[12px] font-bold leading-tight flex items-center gap-1 truncate max-w-[300px] text-slate-600"
                     )} title={displayPartner}>
-                      {isInternal ? <ArrowRight size={12} className="text-blue-400"/> : <User size={12} className="text-slate-300"/>}
+                      <User size={12} className="text-slate-300"/>
                       {displayPartner}
                     </span>
                   </TableCell>

@@ -115,10 +115,10 @@ export default function AdminExportListPage() {
           <div className="flex flex-col gap-1">
             <h1 className="text-[16px] font-black uppercase tracking-tight text-slate-700 flex items-center gap-2">
               <FileText className="text-slate-400" size={18}/>
-              Danh sách lệnh xuất kho
+              Danh sách phiếu xuất trả NCC
             </h1>
           </div>
-          <AdminPageHeader title="" addBtnLabel="Tạo lệnh xuất" addBtnHref="/admin/exports/new-command" />
+          <AdminPageHeader title="" addBtnLabel="Tạo phiếu xuất trả NCC" addBtnHref="/admin/exports/new-command" />
         </div>
 
         <div className="px-6 flex items-center h-[48px] gap-8">
