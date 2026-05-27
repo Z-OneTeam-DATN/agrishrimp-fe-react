@@ -23,7 +23,6 @@ import { getErrorMessage } from "@/lib/axios";
 import { branchService } from "@/app/services/branchService";
 import { supplierService } from "@/app/services/supplier.service";
 import { InventoryApiService, InventoryExportApiService } from "@/app/services/inventory.service";
-import { ProductService } from "@/app/services/product.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -88,8 +87,8 @@ function AdminExportFormContent() {
   const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const generateNoteCode = (type: string) => {
-    const prefix = type === "INTERNAL" ? "LXN" : "LXT";
+  const generateNoteCode = () => {
+    const prefix = "LXT";
     const dateString = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `${prefix}-${dateString}-${randomSuffix}`;
@@ -102,7 +101,7 @@ function AdminExportFormContent() {
     mode: "onTouched",
     defaultValues: {
       exportType: "RETURN",
-      noteCode: generateNoteCode("RETURN"),
+      noteCode: generateNoteCode(),
       note: "",
       expectedDate: new Date().toLocaleDateString('en-CA'),
       branchId: "",
@@ -132,9 +131,9 @@ function AdminExportFormContent() {
         InventoryExportApiService.getExportCommandDetail(exportId).then(data => {
           if (data.status && data.status !== "PENDING") setIsReadOnly(true);
           reset({
-            exportType: data.exportType || "INTERNAL", noteCode: data.code, note: data.note || "",
+            exportType: "RETURN", noteCode: data.code, note: data.note || "",
             expectedDate: data.entryDate || new Date().toLocaleDateString('en-CA'),
-            branchId: data.branchId?.toString() || "", targetId: (data.exportType === "INTERNAL" ? data.partnerBranchId : data.supplierId)?.toString() || "",
+            branchId: data.branchId?.toString() || "", targetId: data.supplierId?.toString() || "",
             specificReceiver: data.deliverer || "", shippingAddress: data.shippingAddress || "",
             referenceCode: data.referenceCode || "", creatorName: data.creatorName || "",
             items: (data.details || []).map((item: any) => ({
@@ -164,45 +163,34 @@ function AdminExportFormContent() {
       }
       setIsLoadingSearch(true);
       try {
-        if (watchExportType === "RETURN") {
-          if (!watchTargetId) {
-            toast.warning("Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi");
-            setShowDropdown(false);
-            return;
-          }
-          const results = await InventoryExportApiService.getDefectiveItems(
-            Number(watchTargetId),
-            Number(watchBranchId),
-          );
-          const keyword = searchTerm.trim().toLowerCase();
-          const defectiveBatches = (results || [])
-            .filter((item: any) => Number(item.defectiveQuantity || 0) > 0)
-            .filter((item: any) => {
-              if (!keyword) return true;
-              return [
-                item.sku,
-                item.productName,
-                item.batchNumber,
-                item.supplierName,
-              ]
-                .filter(Boolean)
-                .some((value) =>
-                  String(value).toLowerCase().includes(keyword),
-                );
-            });
-          setAllProducts(defectiveBatches);
+        if (!watchTargetId) {
+          toast.warning("Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi");
+          setShowDropdown(false);
           return;
         }
-
-        const data = await ProductService.searchVariants(searchTerm, watchBranchId);
-        const productList = Array.isArray(data) ? data : (data?.data || data?.content || []);
-        setAllProducts(productList);
-      } catch (error) {
-        toast.error(
-          watchExportType === "RETURN"
-            ? "Không thể tải danh sách lô hàng lỗi"
-            : "Không thể tải danh sách sản phẩm",
+        const results = await InventoryExportApiService.getDefectiveItems(
+          Number(watchTargetId),
+          Number(watchBranchId),
         );
+        const keyword = searchTerm.trim().toLowerCase();
+        const defectiveBatches = (results || [])
+          .filter((item: any) => Number(item.defectiveQuantity || 0) > 0)
+          .filter((item: any) => {
+            if (!keyword) return true;
+            return [
+              item.sku,
+              item.productName,
+              item.batchNumber,
+              item.supplierName,
+            ]
+              .filter(Boolean)
+              .some((value) =>
+                String(value).toLowerCase().includes(keyword),
+              );
+          });
+        setAllProducts(defectiveBatches);
+      } catch (error) {
+        toast.error("Không thể tải danh sách lô hàng lỗi");
       } finally {
         setIsLoadingSearch(false);
       }
@@ -254,7 +242,7 @@ function AdminExportFormContent() {
     if (!isEditMode) {
       setValue("exportType", "RETURN");
       setValue("targetId", "");
-      setValue("noteCode", generateNoteCode("RETURN"));
+      setValue("noteCode", generateNoteCode());
     }
   }, [isEditMode, setValue]);
 
@@ -340,16 +328,9 @@ function AdminExportFormContent() {
 
   let targetInfo = { name: "", phone: "", address: "" };
   if (watchTargetId) {
-    if (watchExportType === "INTERNAL") {
-      const branch = branches.find(b => b.id?.toString() === watchTargetId);
-      if (branch) {
-        targetInfo = { name: branch.managerNames?.[0] || "Quản lý", phone: branch.phone || "", address: branch.addressDetail || "" };
-      }
-    } else {
-      const supplier = suppliers.find(s => s.id?.toString() === watchTargetId);
-      if (supplier) {
-        targetInfo = { name: supplier.contactName || "Người đại diện", phone: supplier.phone || "", address: supplier.addressDetail || "" };
-      }
+    const supplier = suppliers.find(s => s.id?.toString() === watchTargetId);
+    if (supplier) {
+      targetInfo = { name: supplier.contactName || "Người đại diện", phone: supplier.phone || "", address: supplier.addressDetail || "" };
     }
   }
 
@@ -365,33 +346,22 @@ function AdminExportFormContent() {
     const variantId = Number(variant.variantId ?? variant.id);
     const lotNumber = variant.batchNumber || "";
     const isDuplicate = watchItems.some((item) =>
-      watchExportType === "RETURN"
-        ? item.productVariantId === variantId && (item.lotNumber || "") === lotNumber
-        : item.productVariantId === variantId,
+      item.productVariantId === variantId && (item.lotNumber || "") === lotNumber,
     );
     if (isDuplicate) {
-      toast.warning(
-        watchExportType === "RETURN"
-          ? "Lô hàng lỗi này đã có trong danh sách"
-          : "Sản phẩm đã có trong danh sách",
-      );
+      toast.warning("Lô hàng lỗi này đã có trong danh sách");
       return;
     }
     append({
       productVariantId: variantId,
       sku: variant.sku,
       name:
-        watchExportType === "RETURN"
-          ? `${variant.productName || productName} ${lotNumber ? `- Lô ${lotNumber}` : ""}`
-          : `${productName} ${variant.packaging ? `- ${variant.packaging}` : ''}`,
+        `${variant.productName || productName} ${lotNumber ? `- Lô ${lotNumber}` : ""}`,
       unit: variant.unit || "Cái",
-      stock:
-        watchExportType === "RETURN"
-          ? Number(variant.defectiveQuantity || 0)
-          : Number(variant.quantity || 0),
+      stock: Number(variant.defectiveQuantity || 0),
       quantity: 1,
       price: variant.importPrice || variant.price || 0,
-      returnReason: watchExportType === "RETURN" ? variant.reason || "" : "",
+      returnReason: variant.reason || "",
       lotNumber,
     });
   };
@@ -405,9 +375,7 @@ function AdminExportFormContent() {
   };
 
   const getSelectableProductKey = (variant: any) =>
-    watchExportType === "RETURN"
-      ? `${variant.variantId ?? variant.id}::${variant.batchNumber ?? ""}`
-      : String(variant.variantId ?? variant.id);
+    `${variant.variantId ?? variant.id}::${variant.batchNumber ?? ""}`;
 
   const addSelectedVariantsToTable = () => {
     const selectedVariants = allProducts.filter((variant) =>
@@ -444,7 +412,7 @@ function AdminExportFormContent() {
       expectedDate: data.expectedDate,
       branchId: parseInt(data.branchId),
       supplierId: data.exportType === "RETURN" ? parseInt(data.targetId) : null,
-      targetBranchId: data.exportType === "INTERNAL" ? parseInt(data.targetId) : null,
+      targetBranchId: null,
       specificReceiver: data.specificReceiver,
       shippingAddress: data.shippingAddress,
       createdById: currentUserId,
@@ -613,7 +581,7 @@ function AdminExportFormContent() {
                             ? "Danh sách hàng lỗi đã được nạp từ phiếu nhập"
                           : watchExportType === "RETURN"
                             ? "Tìm theo mã lô lỗi, SKU, tên sản phẩm..."
-                            : "Tìm theo tên, SKU, danh mục..."
+                            : "Tìm theo mã lô lỗi, SKU, tên sản phẩm..."
                       }
                       className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly || returnSourceLocked ? 'bg-slate-50' : ''}`}
                       value={searchTerm}
@@ -689,9 +657,7 @@ function AdminExportFormContent() {
                                       ? "text-blue-600 bg-blue-50 border-blue-100"
                                       : "text-rose-600 bg-rose-50 border-rose-100"
                                 )}>
-                                   {watchExportType === "RETURN"
-                                     ? `SL lỗi: ${variant.defectiveQuantity || 0}`
-                                     : `Tồn kho xuất: ${variant.quantity || 0}`}
+                                   SL lỗi: {variant.defectiveQuantity || 0}
                                 </p>
                               </div>
                             </div>
@@ -748,9 +714,7 @@ function AdminExportFormContent() {
                               <TableCell className="font-bold text-[13px] text-slate-700">
                                 {currentItem?.name}
                                 <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
-                                  {watchExportType === "RETURN"
-                                    ? `SL lỗi hiện có: ${currentItem?.stock || 0}`
-                                    : `Tồn kho xuất: ${currentItem?.stock || 0}`}
+                                  SL lỗi hiện có: {currentItem?.stock || 0}
                                 </div>
                               </TableCell>
 
@@ -859,10 +823,7 @@ function AdminExportFormContent() {
                     <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
                        <SelectTrigger className={`rounded-none h-10 font-bold ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn đối tượng --" /></SelectTrigger>
                        <SelectContent className="rounded-none">
-                          {watchExportType === "INTERNAL"
-                            ? branches.filter(b => b.id?.toString() !== watchBranchId).map(b => <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>)
-                            : suppliers.map(s => <SelectItem key={s.id} value={s?.id?.toString() || ""}>{s.name?.toUpperCase()}</SelectItem>)
-                          }
+                          {suppliers.map(s => <SelectItem key={s.id} value={s?.id?.toString() || ""}>{s.name?.toUpperCase()}</SelectItem>)}
                        </SelectContent>
                     </Select>
                   )}
