@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ChevronLeft, Loader2, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,7 @@ export default function EditRolePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isSystemRole, setIsSystemRole] = useState(false);
+  const [errors, setErrors] = useState<{ roleName?: string; permissions?: string }>({});
 
   useEffect(() => {
     if (!isLoadingAuth && !hasPermission(P.ROLE_UPDATE)) {
@@ -91,6 +92,7 @@ export default function EditRolePage() {
 
   const toggleModule = (id: string, checked: boolean) => {
     if (isSystemRole) return;
+    setErrors((prev) => ({ ...prev, permissions: undefined }));
 
     if (checked) {
       setEnabledScreens((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -104,6 +106,7 @@ export default function EditRolePage() {
 
   const toggleAction = (id: string, checked: boolean, parentId: string) => {
     if (isSystemRole) return;
+    setErrors((prev) => ({ ...prev, permissions: undefined }));
 
     if (checked) {
       setEnabledScreens((prev) => (prev.includes(parentId) ? prev : [...prev, parentId]));
@@ -116,6 +119,14 @@ export default function EditRolePage() {
 
   const handleEnableAll = () => {
     if (isSystemRole) return;
+    setErrors((prev) => ({ ...prev, permissions: undefined }));
+
+    if (enabledScreens.length === ALL_ROLE_MODULE_IDS.length) {
+      setEnabledScreens([]);
+      setAdvancedPerms([]);
+      return;
+    }
+
     setEnabledScreens(ALL_ROLE_MODULE_IDS);
     setAdvancedPerms(ALL_ROLE_ACTION_IDS);
   };
@@ -123,17 +134,24 @@ export default function EditRolePage() {
   const handleSave = async () => {
     const cleanRoleName = roleName.trim();
     const cleanDescription = description.trim();
+    const nextErrors: { roleName?: string; permissions?: string } = {};
 
     if (!cleanRoleName) {
-      return toast.error("Vui lòng nhập tên vai trò.");
+      nextErrors.roleName = "Vui lòng nhập tên vai trò.";
     }
 
     if (enabledScreens.length === 0) {
-      return toast.error("Vui lòng chọn ít nhất 1 quyền truy cập.");
+      nextErrors.permissions = "Vui lòng chọn ít nhất 1 quyền truy cập.";
+    }
+
+    if (nextErrors.roleName || nextErrors.permissions) {
+      setErrors(nextErrors);
+      return;
     }
 
     try {
       setSaving(true);
+      setErrors({});
       await RoleService.update(roleId, {
         roleName: cleanRoleName,
         description: cleanDescription,
@@ -151,8 +169,6 @@ export default function EditRolePage() {
     }
   };
 
-  const coverage = Math.round((enabledScreens.length / ALL_ROLE_MODULE_IDS.length) * 100) || 0;
-
   if (loading || isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -162,46 +178,45 @@ export default function EditRolePage() {
   }
 
   return (
-    <div className="space-y-4 pb-[100px] bg-slate-50 min-h-screen text-slate-800">
-      <div className="bg-white border-b px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ChevronLeft size={20} />
-          </Button>
-          <h1 className="text-[16px] font-bold uppercase tracking-tight">
-            Chỉnh sửa vai trò: {roleName}
-          </h1>
-        </div>
-        {isSystemRole && (
-          <div className="bg-amber-50 text-amber-700 px-3 py-1 rounded border border-amber-200 text-[11px] font-bold uppercase">
-            <Lock size={12} className="inline mr-1" /> Vai trò hệ thống
+    <div className="space-y-3 text-slate-800">
+      <div className={cn("mt-2 mb-8 space-y-4", isSystemRole && "opacity-80")}>
+          <div className="flex items-center justify-between">
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+              Chỉnh sửa vai trò
+            </h1>
+            {isSystemRole && (
+              <div className="rounded border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium uppercase text-amber-700">
+                <Lock size={12} className="mr-1 inline" /> Vai trò hệ thống
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="max-w-[1200px] mx-auto p-4 grid grid-cols-12 gap-6">
-        <div className={cn("col-span-9 space-y-4", isSystemRole && "opacity-80")}>
           <div className="bg-white border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6 border-b pb-3 text-blue-600">
-              <ShieldCheck size={16} />
-              <span className="text-[11px] font-black uppercase">1. Thông tin cơ bản</span>
+            <div className="border-b border-slate-200 pb-3 text-blue-600">
+              <span className="text-[11px] font-bold text-slate-800">1. Thông tin cơ bản</span>
             </div>
 
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-4 space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">
+            <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
+              <div className="space-y-1.5 xl:col-span-4">
+                <Label className="text-[10px] font-medium text-slate-400">
                   Tên vai trò *
                 </Label>
                 <Input
                   value={roleName}
-                  onChange={(e) => setRoleName(e.target.value)}
+                  onChange={(e) => {
+                    setRoleName(e.target.value);
+                    setErrors((prev) => ({ ...prev, roleName: undefined }));
+                  }}
                   disabled={isSystemRole}
-                  className="h-9 font-bold"
+                  className={cn("h-9", errors.roleName && "border-rose-500 focus-visible:ring-rose-500")}
                 />
+                {errors.roleName && (
+                  <p className="text-[11px] text-rose-500">{errors.roleName}</p>
+                )}
               </div>
 
-              <div className="col-span-8 space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">
+              <div className="space-y-1.5 xl:col-span-5">
+                <Label className="text-[10px] font-medium text-slate-400">
                   Mô tả chức năng
                 </Label>
                 <Input
@@ -211,12 +226,28 @@ export default function EditRolePage() {
                   className="h-9"
                 />
               </div>
+
+              <div className="space-y-1.5 xl:col-span-3">
+                <Label className="text-[10px] font-medium text-slate-400">
+                  Trạng thái
+                </Label>
+                <Select value={status} onValueChange={setStatus} disabled={isSystemRole}>
+                  <SelectTrigger className="h-9 text-[12px] font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Đang hoạt động</SelectItem>
+                    <SelectItem value="inactive">Ngừng sử dụng</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
           </div>
 
           <div className="bg-white border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-3 border-b bg-slate-50/50 flex items-center justify-between">
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-800">
+              <span className="text-[11px] font-bold text-slate-800">
                 2. Phân quyền sử dụng module
               </span>
               {!isSystemRole && (
@@ -224,19 +255,23 @@ export default function EditRolePage() {
                   variant="outline"
                   size="sm"
                   onClick={handleEnableAll}
-                  className="h-7 text-[10px] font-black border-blue-200 text-blue-600 hover:bg-blue-50 uppercase"
+                  className="h-7 text-[10px] font-medium border-blue-200 text-blue-600 hover:bg-blue-50"
                 >
-                  Bật tất cả
+                  {enabledScreens.length === ALL_ROLE_MODULE_IDS.length ? "Tắt tất cả" : "Bật tất cả"}
                 </Button>
               )}
             </div>
+            {errors.permissions && (
+              <div className="px-6 pt-3">
+                <p className="text-[11px] text-rose-500">{errors.permissions}</p>
+              </div>
+            )}
 
             <div className="p-6 space-y-1">
               {ROLE_PERMISSION_STRUCTURE.map((group) => (
                 <div key={group.group} className="space-y-1">
-                  <div className="flex items-center gap-2 bg-slate-100/50 px-4 py-2 border-y border-slate-200 mt-4 first:mt-0">
-                    <group.icon size={14} className="text-slate-500" />
-                    <span className="text-[12px] font-black uppercase text-slate-800">
+                  <div className="bg-slate-100/50 px-4 py-2 border-y border-slate-200 mt-4 first:mt-0">
+                    <span className="text-[12px] font-medium text-slate-800">
                       {group.group}
                     </span>
                   </div>
@@ -266,7 +301,7 @@ export default function EditRolePage() {
                               />
                               <span
                                 className={cn(
-                                  "text-[14px] font-bold uppercase",
+                                  "text-[14px] font-medium",
                                   isEnabled ? "text-blue-700" : "text-slate-600"
                                 )}
                               >
@@ -280,11 +315,11 @@ export default function EditRolePage() {
                             >
                               <span
                                 className={cn(
-                                  "text-[10px] font-black w-16 text-right transition-colors",
+                                  "text-[10px] font-medium w-16 text-right transition-colors",
                                   isEnabled ? "text-blue-600" : "text-slate-300"
                                 )}
                               >
-                                {isEnabled ? "ĐANG BẬT" : "ĐANG TẮT"}
+                                {isEnabled ? "Đang bật" : "Đang tắt"}
                               </span>
                               <div
                                 className={cn(
@@ -342,49 +377,13 @@ export default function EditRolePage() {
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="col-span-3 space-y-4">
-          <div className="bg-white border p-5 shadow-sm space-y-4">
-            <Label className="text-[10px] font-bold uppercase text-slate-400 block border-b pb-2">
-              Trạng thái
-            </Label>
-            <Select value={status} onValueChange={setStatus} disabled={isSystemRole}>
-              <SelectTrigger className="h-8 text-[12px] font-bold">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">ĐANG HOẠT ĐỘNG</SelectItem>
-                <SelectItem value="inactive">NGỪNG SỬ DỤNG</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="bg-white border p-5 shadow-sm space-y-5">
-            <Label className="text-[10px] font-bold uppercase text-slate-400 block border-b pb-2">
-              Thống kê
-            </Label>
-            <div className="flex justify-between items-end mb-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase">
-                Độ phủ
-              </span>
-              <span className="text-[14px] font-black text-blue-600">{coverage}%</span>
-            </div>
-            <div className="w-full h-1 bg-slate-100">
-              <div
-                className="h-full bg-blue-600 transition-all duration-700"
-                style={{ width: `${coverage}%` }}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t p-3 flex justify-end gap-3 z-[999] shadow-inner">
         <Button
           variant="ghost"
           onClick={() => router.back()}
-          className="font-bold uppercase text-[11px] text-slate-400"
+        className="font-medium text-[11px] text-slate-400"
         >
           Hủy bỏ
         </Button>
@@ -392,7 +391,7 @@ export default function EditRolePage() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="h-9 px-10 text-[11px] font-black bg-slate-900 text-white uppercase shadow-xl"
+            className="h-9 px-10 text-[11px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl"
           >
             {saving ? <Loader2 className="animate-spin mr-2" /> : null}
             Cập nhật vai trò

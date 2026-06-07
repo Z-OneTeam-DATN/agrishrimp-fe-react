@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  ChevronDown,
-  ChevronLeft,
   Download,
   FileText,
   HelpCircle,
@@ -31,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -89,7 +85,6 @@ const formatPaymentMethod = (value?: string) => {
 };
 
 export default function CashbookPage() {
-  const router = useRouter();
   const { user, warehouseId } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
@@ -145,7 +140,7 @@ export default function CashbookPage() {
     }
   }, [isAdmin, ownBranchId]);
 
-  const fetchCashbook = async () => {
+  const fetchCashbook = useCallback(async () => {
     try {
       setLoading(true);
       const cashbookRes = await CashbookService.getReport({
@@ -161,11 +156,11 @@ export default function CashbookPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [endDate, selectedBranchId, startDate]);
 
   useEffect(() => {
     void fetchCashbook();
-  }, [selectedBranchId, startDate, endDate]);
+  }, [fetchCashbook]);
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
@@ -307,165 +302,173 @@ export default function CashbookPage() {
   const expenseRatio = 100 - incomeRatio;
 
   return (
-    <div className="min-h-screen space-y-0 bg-[#f0f2f5] pb-10">
-      <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
-        <div className="flex items-center gap-3 border-r border-slate-200 pr-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/admin/financial")}
-            className="h-8 w-8 rounded-none border border-slate-200 text-slate-500 transition-colors hover:text-blue-600"
-          >
-            <ChevronLeft size={20} />
-          </Button>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h1 className="whitespace-nowrap text-[19px] font-black uppercase tracking-tight text-slate-800">
-              Sổ quỹ
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+              Sổ quỹ / Tiền chi
             </h1>
-            <p className="text-[11px] font-medium text-slate-500">
-              Theo dõi dòng tiền đã ghi nhận thực tế theo kỳ báo cáo
-            </p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-0 border border-slate-300 bg-white">
-          <Select
-            value={selectedBranchId}
-            onValueChange={setSelectedBranchId}
-          >
-            <SelectTrigger
-              className="h-8 w-[190px] rounded-none border-none text-[12px] font-medium shadow-none focus:ring-0"
-              disabled={!isAdmin}
-            >
-              <SelectValue placeholder="Tất cả chi nhánh" />
-            </SelectTrigger>
-            <SelectContent className="rounded-none">
-              {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
-              {branches.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id.toString()}>
-                  {branch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex h-8 items-center gap-2 border border-slate-300 bg-white px-3">
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-            className="h-7 w-[140px] border-none p-0 text-[12px] shadow-none"
-          />
-          <span className="text-[12px] font-medium text-slate-400">-</span>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-            className="h-7 w-[140px] border-none p-0 text-[12px] shadow-none"
-          />
-          <ChevronDown size={14} className="ml-1 text-slate-400" />
-        </div>
-
-        <div className="ms-auto flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
-            className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
-            onClick={() => void fetchCashbook()}
-            disabled={loading}
-          >
-            <RefreshCw
-              size={14}
-              className={cn("mr-2", loading && "animate-spin")}
-            />
-            Làm mới
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
-            onClick={exportExcel}
-          >
-            <Download size={14} className="mr-2" />
-            Excel
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 rounded-none border-slate-200 text-[12px] font-medium text-slate-500 hover:bg-slate-50"
-            onClick={exportPdf}
-          >
-            <FileText size={14} className="mr-2" />
-            PDF
-          </Button>
-          <Button
-            variant="ghost"
-            className="h-8 rounded-none text-[12px] font-medium text-slate-500"
+            className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
             onClick={() => setIsExplainOpen(true)}
           >
-            <HelpCircle size={14} className="mr-2" />
+            <HelpCircle size={16} className="mr-2" />
             Trợ giúp
           </Button>
         </div>
-      </div>
 
-      <div className="border-b border-slate-200 bg-white px-6 py-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <div className="group cursor-pointer rounded-[4px] border border-slate-100 bg-slate-50/30 p-4 text-center">
-            <p className="mb-1 text-[12px] font-medium text-slate-500 transition-colors group-hover:text-blue-600">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Chi nhánh
+              </p>
+              <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                <SelectTrigger
+                  className="h-[38px] w-full min-w-[220px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0 lg:w-[260px]"
+                  disabled={!isAdmin}
+                >
+                  <SelectValue placeholder="Tất cả chi nhánh" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Từ ngày
+              </p>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Đến ngày
+              </p>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+              onClick={() => void fetchCashbook()}
+              disabled={loading}
+            >
+              <RefreshCw size={14} className={cn("mr-2", loading && "animate-spin")} />
+              Làm mới
+            </Button>
+            <Button
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
+              onClick={exportExcel}
+            >
+              <Download size={14} className="mr-2" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
+              onClick={exportPdf}
+            >
+              <FileText size={14} className="mr-2" />
+              PDF
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Số dư đầu kỳ
             </p>
-            <p className="text-[18px] font-bold text-slate-800">
+            <p className="mt-2 text-[28px] font-semibold tracking-tight text-slate-800">
               {formatNumber(summary.openingBalance)}
             </p>
           </div>
-          <div className="group cursor-pointer rounded-[4px] border border-emerald-100 bg-emerald-50/30 p-4 text-center">
-            <p className="mb-1 text-[12px] font-medium uppercase text-slate-500 transition-colors group-hover:text-emerald-600">
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Tổng thu
             </p>
-            <p className="text-[18px] font-bold text-emerald-600">
+            <p className="mt-2 text-[28px] font-semibold tracking-tight text-emerald-600">
               {formatNumber(summary.totalIncome)}
             </p>
           </div>
-          <div className="group cursor-pointer rounded-[4px] border border-rose-100 bg-rose-50/30 p-4 text-center">
-            <p className="mb-1 text-[12px] font-medium uppercase text-slate-500 transition-colors group-hover:text-rose-600">
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Tổng chi
             </p>
-            <p className="text-[18px] font-bold text-rose-600">
+            <p className="mt-2 text-[28px] font-semibold tracking-tight text-rose-600">
               {formatNumber(summary.totalExpense)}
             </p>
           </div>
-          <div className="group cursor-pointer rounded-[4px] border border-blue-100 bg-blue-50/30 p-4 text-center">
-            <p className="mb-1 text-[12px] font-medium uppercase text-slate-500 transition-colors group-hover:text-blue-600">
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Tồn cuối kỳ
             </p>
-            <p className="text-[18px] font-black text-blue-600">
+            <p className="mt-2 text-[28px] font-semibold tracking-tight text-blue-600">
               {formatNumber(summary.closingBalance)}
             </p>
           </div>
         </div>
-      </div>
 
-      <div className="space-y-4 p-4">
-        <Card className="rounded-none border border-[#dcdcdc] bg-white p-4 shadow-sm">
+        <div className="space-y-4">
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Biểu đồ sổ quỹ
+            </p>
+          </div>
+          <div className="p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
-                Biểu đồ sổ quỹ
-              </p>
-              <h2 className="text-[17px] font-bold text-slate-800">
+              <h2 className="text-[17px] font-semibold text-slate-800">
                 Thu - chi theo {chartMode === "day" ? "ngày" : "tháng"}
               </h2>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant={chartMode === "day" ? "default" : "outline"}
-                className="h-8 rounded-none"
+                className={cn(
+                  "h-[38px] px-4 text-[13px] font-medium shadow-none",
+                  chartMode === "day"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                )}
                 onClick={() => setChartMode("day")}
               >
                 Theo ngày
               </Button>
               <Button
                 variant={chartMode === "month" ? "default" : "outline"}
-                className="h-8 rounded-none"
+                className={cn(
+                  "h-[38px] px-4 text-[13px] font-medium shadow-none",
+                  chartMode === "month"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+                )}
                 onClick={() => setChartMode("month")}
               >
                 Theo tháng
@@ -689,12 +692,13 @@ export default function CashbookPage() {
               </div>
             )}
           </div>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="overflow-hidden rounded-none border border-[#dcdcdc] bg-white p-0 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-[#fcfcfc] px-6 py-4">
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Danh sách giao dịch
               </p>
             </div>
@@ -708,17 +712,17 @@ export default function CashbookPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Tìm mã phiếu, diễn giải, chi nhánh..."
-                  className="h-[36px] rounded-none border-slate-200 pl-10 text-[13px] shadow-none focus:border-blue-500"
+                  className="h-[38px] rounded-md border-slate-200 pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
                 />
               </div>
               <Select
                 value={typeFilter}
                 onValueChange={(v) => setTypeFilter(v as EntryTypeFilter)}
               >
-                <SelectTrigger className="h-[36px] w-[160px] rounded-none border-slate-200 text-[12px] shadow-none">
+                <SelectTrigger className="h-[38px] w-[160px] rounded-md border-slate-200 text-[13px] shadow-none">
                   <SelectValue placeholder="Loại giao dịch" />
                 </SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>
                   <SelectItem value="IN">Phiếu thu</SelectItem>
                   <SelectItem value="OUT">Phiếu chi</SelectItem>
@@ -730,31 +734,31 @@ export default function CashbookPage() {
           <div className="overflow-x-auto">
             <Table className="min-w-[1220px]">
               <TableHeader>
-                <TableRow className="bg-[#f8f9fa] hover:bg-[#f8f9fa]">
-                  <TableHead className="w-[120px]">Ngày</TableHead>
-                  <TableHead className="w-[130px]">Mã phiếu</TableHead>
-                  <TableHead className="w-[90px]">Loại</TableHead>
-                  <TableHead className="min-w-[260px]">Diễn giải</TableHead>
-                  <TableHead className="w-[160px]">Chi nhánh</TableHead>
-                  <TableHead className="w-[170px]">Người tạo</TableHead>
-                  <TableHead className="w-[130px] text-right">Số tiền</TableHead>
-                  <TableHead className="w-[130px] text-right">Công nợ</TableHead>
-                  <TableHead className="w-[150px] text-center">Phương thức</TableHead>
+                <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+                  <TableHead className="w-[120px] p-3 text-[12px] font-semibold text-[#1f1f1f]">Ngày</TableHead>
+                  <TableHead className="w-[130px] p-3 text-[12px] font-semibold text-[#1f1f1f]">Mã phiếu</TableHead>
+                  <TableHead className="w-[90px] p-3 text-[12px] font-semibold text-[#1f1f1f]">Loại</TableHead>
+                  <TableHead className="min-w-[260px] p-3 text-[12px] font-semibold text-[#1f1f1f]">Diễn giải</TableHead>
+                  <TableHead className="w-[160px] p-3 text-[12px] font-semibold text-[#1f1f1f]">Chi nhánh</TableHead>
+                  <TableHead className="w-[170px] p-3 text-[12px] font-semibold text-[#1f1f1f]">Người tạo</TableHead>
+                  <TableHead className="w-[130px] p-3 text-right text-[12px] font-semibold text-[#1f1f1f]">Số tiền</TableHead>
+                  <TableHead className="w-[130px] p-3 text-right text-[12px] font-semibold text-[#1f1f1f]">Công nợ</TableHead>
+                  <TableHead className="w-[150px] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">Phương thức</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ledgerRows.map((entry) => (
-                  <TableRow key={entry.id} className="hover:bg-blue-50/20">
-                    <TableCell className="whitespace-nowrap text-[12px] font-medium text-slate-600">
+                  <TableRow key={entry.id} className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]">
+                    <TableCell className="whitespace-nowrap p-3 text-[12px] font-medium text-slate-600">
                       {formatDateVN(entry.date)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-[12px] font-black uppercase text-slate-800">
+                    <TableCell className="whitespace-nowrap p-3 text-[12px] font-semibold uppercase text-slate-800">
                       {entry.code}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="p-3">
                       <Badge
                         className={cn(
-                          "rounded-none border-none text-[10px] font-black",
+                          "border-none text-[10px] font-semibold",
                           entry.direction === "IN"
                             ? "bg-emerald-50 text-emerald-600"
                             : "bg-rose-50 text-rose-600",
@@ -763,9 +767,9 @@ export default function CashbookPage() {
                         {entry.direction === "IN" ? "THU" : "CHI"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="p-3">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[13px] font-bold text-slate-800">
+                        <span className="text-[13px] font-semibold text-slate-800">
                           {entry.title}
                         </span>
                         <span className="text-[11px] text-slate-500">
@@ -773,15 +777,15 @@ export default function CashbookPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-[12px] text-slate-600">
+                    <TableCell className="p-3 text-[12px] text-slate-600">
                       {entry.branchName || branchLabel}
                     </TableCell>
-                    <TableCell className="text-[12px] text-slate-600">
+                    <TableCell className="p-3 text-[12px] text-slate-600">
                       {entry.creatorName || "Hệ thống"}
                     </TableCell>
                     <TableCell
                       className={cn(
-                        "whitespace-nowrap text-right font-black",
+                        "whitespace-nowrap p-3 text-right font-semibold",
                         entry.direction === "IN"
                           ? "text-emerald-600"
                           : "text-rose-600",
@@ -789,11 +793,11 @@ export default function CashbookPage() {
                     >
                       {formatNumber(entry.amount)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right text-slate-600">
+                    <TableCell className="whitespace-nowrap p-3 text-right text-slate-600">
                       {formatNumber(entry.debtAmount)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase text-slate-600">
+                    <TableCell className="p-3 text-center">
+                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
                         {formatPaymentMethod(entry.paymentMethod)}
                       </span>
                     </TableCell>
@@ -803,7 +807,7 @@ export default function CashbookPage() {
             </Table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-[#fcfcfc] px-6 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-[#f8f9fa] px-6 py-3">
             <div className="flex items-center gap-6 whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <span>
                 Hiển thị {ledgerRows.length} / {filteredEntries.length} giao dịch
@@ -819,7 +823,7 @@ export default function CashbookPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 rounded-none border-slate-200 text-[11px]"
+                className="h-7 border-slate-200 bg-white text-[11px] shadow-none"
                 onClick={exportExcel}
               >
                 <Download size={14} className="mr-1.5" />
@@ -828,7 +832,7 @@ export default function CashbookPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 rounded-none border-slate-200 text-[11px]"
+                className="h-7 border-slate-200 bg-white text-[11px] shadow-none"
                 onClick={exportPdf}
               >
                 <FileText size={14} className="mr-1.5" />
@@ -836,11 +840,12 @@ export default function CashbookPage() {
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
+        </div>
       </div>
 
       <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
-        <DialogContent className="max-w-2xl rounded-none">
+        <DialogContent className="max-w-2xl border border-slate-200 bg-white shadow-xl">
           <DialogHeader>
             <DialogTitle className="uppercase">Trợ giúp sổ quỹ</DialogTitle>
             <DialogDescription>

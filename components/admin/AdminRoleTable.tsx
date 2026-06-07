@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Pencil, Trash2, Shield } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { 
   Table, 
@@ -12,8 +12,8 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/axios";
 
 import { RoleType } from "@/app/types/role.schema";
 
@@ -50,6 +50,14 @@ export function AdminRoleTable({
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
+  const formatRoleName = (value?: string) => {
+    const source = (value || "").trim();
+    if (!source) return "Không có tên";
+
+    const normalized = source.toLowerCase();
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     
@@ -60,15 +68,17 @@ export function AdminRoleTable({
       onRefresh?.();
     } catch (error: any) {
       const status = error.response?.status;
+      const message = getErrorMessage(error);
+
       if (status === 403) {
-        toast.error("Không được phép xóa vai trò mặc định của hệ thống.");
+        toast.error(message || "Bạn không có quyền xóa vai trò này.");
       } else if (status === 404) {
-        toast.error("Vai trò này đã bị xóa hoặc không tồn tại.");
+        toast.error(message || "Vai trò này đã bị xóa hoặc không tồn tại.");
         onRefresh?.();
       } else if (status === 409) {
-        toast.error("Không thể xóa vai trò đang có nhân viên đảm nhiệm. Vui lòng chuyển đổi vai trò cho nhân viên trước.");
+        toast.error(message || "Không thể xóa vai trò đang có nhân viên đảm nhiệm. Vui lòng chuyển đổi vai trò cho nhân viên trước.");
       } else {
-        toast.error("Có lỗi xảy ra, vui lòng thử lại sau");
+        toast.error(message || "Có lỗi xảy ra, vui lòng thử lại sau");
       }
     } finally {
       setIsDeleting(false);
@@ -79,53 +89,39 @@ export function AdminRoleTable({
   const totalPages = Math.ceil(totalElements / pageSize);
 
   return (
-    <div className="w-full">
-      <Table className="table-custom border-collapse min-w-[1000px]">
+    <div className="w-full overflow-hidden border border-[#dcdcdc] bg-white shadow-sm">
+      <Table className="table-custom border-collapse min-w-[860px]">
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-            <TableHead className="w-[40px] text-center p-2"><Checkbox className="h-3.5 w-3.5" /></TableHead>
-            <TableHead className="w-[100px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4">ID</TableHead>
-            <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Tên vai trò & Mô tả</TableHead>
-            <TableHead className="w-[180px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
-            <TableHead className="w-[180px] font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Loại</TableHead>
-            <TableHead className="w-[100px] text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Thao tác</TableHead>
+            <TableHead className="w-[100px] font-semibold text-[#1f1f1f] text-[12px] p-2 pl-4">Stt</TableHead>
+            <TableHead className="w-[360px] font-semibold text-[#1f1f1f] text-[12px] p-2">Tên vai trò</TableHead>
+            <TableHead className="font-semibold text-[#1f1f1f] text-[12px] p-2">Mô tả</TableHead>
+            <TableHead className="w-[180px] font-semibold text-[#1f1f1f] text-[12px] p-2 text-center">Số lượng thành viên</TableHead>
+            <TableHead className="w-[180px] font-semibold text-[#1f1f1f] text-[12px] p-2 text-center">Trạng thái</TableHead>
+            <TableHead className="w-[100px] text-right font-semibold text-[#1f1f1f] text-[12px] p-2 pr-4">Thao tác</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {(roles || []).map((role) => (
+          {(roles || []).map((role, index) => (
             <TableRow key={role.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors">
-              <TableCell className="text-center p-2"><Checkbox className="h-3.5 w-3.5" /></TableCell>
-              <TableCell className="text-[12px] font-bold text-slate-500 pl-4">#{role.id}</TableCell>
-              <TableCell className="p-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 text-[10px] font-bold border border-slate-200 uppercase">
-                    {(role.displayName || role.slug || "??").substring(0, 2)}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-bold text-slate-800 uppercase tracking-tighter">{role.displayName || role.slug}</span>
-                    <span className="text-[10px] text-slate-400 flex items-center gap-1 font-medium italic">
-                      {role.slug} • {role.description || "Không có mô tả"}
-                    </span>
-                  </div>
-                </div>
+              <TableCell className="text-[12px] font-semibold text-slate-500 pl-4">
+                {currentPage * pageSize + index + 1}
               </TableCell>
-              <TableCell className="p-2 text-center">
-                <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tight",
-                  role.isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
-                )}>
-                  {role.isActive ? "Đang hoạt động" : "Tạm ngưng"}
+              <TableCell className="p-2">
+                <span className="text-[14px] text-slate-800">
+                  {formatRoleName(role.displayName || role.slug)}
                 </span>
               </TableCell>
-              <TableCell className="p-2 text-center">
-                <div className="flex flex-col">
-                  <span className={cn(
-                    "text-[11px] font-bold",
-                    role.isSystem ? "text-amber-600" : "text-blue-600"
-                  )}>
-                    {role.isSystem ? "HỆ THỐNG" : "TÙY CHỈNH"}
-                  </span>
-                </div>
+              <TableCell className="p-2">
+                <span className="text-[13px] text-slate-500">
+                  {role.description?.trim() || "Chưa có mô tả"}
+                </span>
+              </TableCell>
+              <TableCell className="p-2 text-center text-[13px] font-medium text-slate-600">
+                {role.memberCount ?? 0}
+              </TableCell>
+              <TableCell className="p-2 text-center text-[13px] font-medium text-slate-600">
+                {role.isActive ? "đang hoạt động" : "tạm ngưng"}
               </TableCell>
               <TableCell className="p-2 text-right pr-4">
                 <div className="flex justify-end gap-1">
@@ -186,7 +182,7 @@ export function AdminRoleTable({
       </AlertDialog>
 
       <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
-        <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+        <p className="text-[11px] text-gray-400 font-bold">
           Tìm thấy {totalElements} vai trò hệ thống
         </p>
         <div className="flex items-center gap-1">

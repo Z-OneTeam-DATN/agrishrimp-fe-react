@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ShoppingCart, Plus, Trash2, Loader2, ChevronLeft } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -321,71 +321,43 @@ export default function NewPurchaseRequestPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4">
-      <div className="flex items-center gap-3 mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.back()}
-          className="h-8 px-2"
-        >
-          <ChevronLeft size={16} />
-        </Button>
-        <div>
-          <h1 className="text-[18px] font-black uppercase tracking-tight text-slate-700 flex items-center gap-2">
-            <ShoppingCart size={18} className="text-blue-600" />
-            Lập phiếu yêu cầu mua hàng NCC
-          </h1>
-          <p className="text-[12px] text-slate-400 mt-0.5">
-            Chỉ kho tổng được tạo phiếu yêu cầu nhập NCC. Hàng hóa được chọn từ
-            danh mục đang bán của nhà cung cấp.
-          </p>
-        </div>
+    <div className="min-h-screen space-y-5 px-1 pb-[104px] text-slate-900">
+      <div className="pt-2">
+        <h1 className="text-[20px] font-semibold uppercase text-slate-900">
+          Thêm phiếu yêu cầu
+        </h1>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
-          <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600 mb-4 border-b pb-2">
-            Thông tin chung
-          </h2>
+        <div className="border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 border-b border-slate-200 pb-4">
+            <h2 className="text-[12px] font-semibold text-slate-900">
+              1. Thông tin chính
+            </h2>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+              <label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
                 Nhà cung cấp <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-2">
-                <select
-                  {...register("supplierCode")}
-                  onChange={(event) =>
-                    void handleSupplierChange(event.target.value)
-                  }
-                  className={cn(
-                    "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
-                    errors.supplierCode ? "border-red-400" : "border-slate-200",
-                  )}
-                >
-                  <option value="">-- Chọn nhà cung cấp --</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.code}>
-                      {supplier.name} ({supplier.code})
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void openSupplierCatalog(selectedSupplierCode)}
-                  disabled={!selectedSupplierCode || catalogLoading}
-                >
-                  {catalogLoading ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    "Chọn hàng NCC"
-                  )}
-                </Button>
-              </div>
+              <select
+                {...register("supplierCode")}
+                onChange={(event) =>
+                  void handleSupplierChange(event.target.value)
+                }
+                className={cn(
+                  "h-10 w-full border px-3 text-[13px] shadow-none outline-none focus:border-emerald-300",
+                  errors.supplierCode ? "border-red-400" : "border-slate-200",
+                )}
+              >
+                <option value="">-- Chọn nhà cung cấp --</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.code}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
               {errors.supplierCode && (
                 <p className="text-[11px] text-red-500 mt-1">
                   {errors.supplierCode.message}
@@ -394,7 +366,7 @@ export default function NewPurchaseRequestPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+              <label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
                 Kho tổng nhận hàng <span className="text-red-500">*</span>
               </label>
               <select
@@ -410,7 +382,7 @@ export default function NewPurchaseRequestPage() {
                   },
                 })}
                 className={cn(
-                  "w-full h-9 border rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white",
+                  "h-10 w-full border px-3 text-[13px] shadow-none outline-none focus:border-emerald-300",
                   errors.branchId ? "border-red-400" : "border-slate-200",
                 )}
                 value={watchedBranchId || ""}
@@ -430,46 +402,45 @@ export default function NewPurchaseRequestPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+              <label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
                 Ngày tạo phiếu
               </label>
               <input
                 type="text"
                 value={new Date().toLocaleDateString("vi-VN")}
                 disabled
-                className="w-full h-9 border border-slate-200 rounded-[3px] px-3 text-[13px] bg-slate-100 text-slate-600"
+                className="h-10 w-full border border-slate-200 bg-slate-50 px-3 text-[13px] text-slate-500"
               />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+            <div className="xl:col-span-3">
+              <label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
                 Ghi chú
               </label>
               <input
                 type="text"
                 {...register("note")}
                 placeholder="Ghi chú nội bộ..."
-                className="w-full h-9 border border-slate-200 rounded-[3px] px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="h-10 w-full border border-slate-200 px-3 text-[13px] shadow-none outline-none focus:border-emerald-300"
               />
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4 border-b pb-2">
-            <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600">
-              Danh sách hàng hóa ({fields.length} mặt hàng)
+        <div className="border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
+            <h2 className="text-[12px] font-semibold text-slate-900">
+              2. Hàng hóa yêu cầu ({fields.length} mặt hàng)
             </h2>
             <Button
               type="button"
-              size="sm"
               variant="outline"
-              className="h-7 text-[11px] font-bold border-blue-300 text-blue-600 hover:bg-blue-50"
+              className="h-9 rounded-[4px] border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
               onClick={() => void openSupplierCatalog(selectedSupplierCode)}
               disabled={!selectedSupplierCode || catalogLoading}
             >
               <Plus size={12} className="mr-1" />
-              Chọn từ NCC
+              Chọn sản phẩm
             </Button>
           </div>
 
@@ -481,7 +452,6 @@ export default function NewPurchaseRequestPage() {
 
           {fields.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
-              <ShoppingCart size={32} className="mx-auto opacity-20 mb-2" />
               <p className="text-[12px]">
                 Chọn nhà cung cấp để mở popup danh sách hàng hóa đang bán và
                 tick các món cần nhập.
@@ -489,25 +459,25 @@ export default function NewPurchaseRequestPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
+              <table className="w-full min-w-[900px] table-fixed text-[12px]">
                 <thead>
                   <tr className="bg-slate-50 border-b">
-                    <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider w-8">
+                    <th className="w-8 px-3 py-3 text-left text-[11px] font-medium text-slate-500">
                       #
                     </th>
-                    <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider min-w-[220px]">
+                    <th className="w-[34%] px-3 py-3 text-left text-[11px] font-medium text-slate-500">
                       Sản phẩm
                     </th>
-                    <th className="px-3 py-2 text-center font-black text-slate-500 uppercase tracking-wider w-[110px]">
+                    <th className="w-[13%] px-3 py-3 text-center text-[11px] font-medium text-slate-500">
                       SL yêu cầu
                     </th>
-                    <th className="px-3 py-2 text-right font-black text-slate-500 uppercase tracking-wider w-[130px]">
+                    <th className="w-[15%] px-3 py-3 text-right text-[11px] font-medium text-slate-500">
                       Đơn giá
                     </th>
-                    <th className="px-3 py-2 text-right font-black text-slate-500 uppercase tracking-wider w-[130px]">
+                    <th className="w-[15%] px-3 py-3 text-right text-[11px] font-medium text-slate-500">
                       Thành tiền
                     </th>
-                    <th className="px-3 py-2 text-left font-black text-slate-500 uppercase tracking-wider min-w-[120px]">
+                    <th className="w-[18%] px-3 py-3 text-left text-[11px] font-medium text-slate-500">
                       Ghi chú
                     </th>
                     <th className="w-8" />
@@ -523,7 +493,7 @@ export default function NewPurchaseRequestPage() {
                     return (
                       <tr
                         key={field.id}
-                        className="border-b hover:bg-slate-50/50"
+                        className="border-b border-slate-100 hover:bg-slate-50"
                       >
                         <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
                         <td className="px-3 py-2">
@@ -536,10 +506,10 @@ export default function NewPurchaseRequestPage() {
                               />
                             )}
                             <div>
-                              <div className="font-medium text-slate-700">
+                              <div className="text-[12.5px] font-semibold text-slate-800">
                                 {item?.productName}
                               </div>
-                              <div className="text-[10px] text-slate-400">
+                              <div className="text-[10.5px] text-slate-400">
                                 {item?.productCode}
                               </div>
                             </div>
@@ -556,7 +526,7 @@ export default function NewPurchaseRequestPage() {
                             min={1}
                             {...register(`items.${idx}.requestedQty`)}
                             className={cn(
-                              "w-full h-7 border rounded-[3px] px-2 text-[12px] text-center focus:outline-none focus:ring-1 focus:ring-blue-500",
+                              "h-9 w-full border px-2 text-center text-[12px] shadow-none outline-none focus:border-emerald-300",
                               errors.items?.[idx]?.requestedQty
                                 ? "border-red-400"
                                 : "border-slate-200",
@@ -568,7 +538,7 @@ export default function NewPurchaseRequestPage() {
                             type="number"
                             min={0}
                             {...register(`items.${idx}.unitPrice`)}
-                            className="w-full h-7 border border-slate-200 rounded-[3px] px-2 text-[12px] text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="h-9 w-full border border-slate-200 px-2 text-right text-[12px] shadow-none outline-none focus:border-emerald-300"
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-slate-700">
@@ -579,7 +549,7 @@ export default function NewPurchaseRequestPage() {
                             type="text"
                             {...register(`items.${idx}.note`)}
                             placeholder="Ghi chú..."
-                            className="w-full h-7 border border-slate-200 rounded-[3px] px-2 text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="h-9 w-full border border-slate-200 px-2 text-[12px] shadow-none outline-none focus:border-emerald-300"
                           />
                         </td>
                         <td className="px-3 py-2 text-center">
@@ -596,14 +566,14 @@ export default function NewPurchaseRequestPage() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t bg-slate-50">
+                  <tr className="border-t border-slate-200 bg-slate-50">
                     <td
                       colSpan={4}
-                      className="px-3 py-2 text-right font-black text-slate-700 uppercase text-[11px] tracking-wider"
+                      className="px-3 py-3 text-right text-[11px] font-medium text-slate-500"
                     >
-                      Tổng giá trị yêu cầu:
+                      Tổng giá trị yêu cầu
                     </td>
-                    <td className="px-3 py-2 text-right font-black text-blue-700 text-[13px]">
+                    <td className="px-3 py-3 text-right text-[13px] font-semibold text-slate-900">
                       {formatCurrency(totalAmount)}
                     </td>
                     <td colSpan={2} />
@@ -614,19 +584,20 @@ export default function NewPurchaseRequestPage() {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3">
+        <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] backdrop-blur lg:left-[260px]">
+          <div className="flex justify-end gap-3">
           <Button
             type="button"
             variant="outline"
             onClick={() => router.back()}
-            className="h-9 text-[12px] font-bold rounded-[3px]"
+            className="h-10 min-w-[120px] rounded-[4px] border-slate-200 text-[13px] font-medium"
           >
-            Hủy bỏ
+            Hủy
           </Button>
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold rounded-[3px] min-w-[140px]"
+            className="h-10 min-w-[160px] rounded-[4px] bg-emerald-600 text-[13px] font-medium text-white hover:bg-emerald-700"
           >
             {isSubmitting ? (
               <>
@@ -637,24 +608,22 @@ export default function NewPurchaseRequestPage() {
               "Lưu phiếu yêu cầu"
             )}
           </Button>
+          </div>
         </div>
       </form>
 
       <Dialog open={showProductModal} onOpenChange={setShowProductModal}>
-        <DialogContent className="max-w-3xl p-0">
-          <div className="p-5 border-b">
-            <h3 className="text-[16px] font-black text-slate-800 uppercase tracking-tight">
+        <DialogContent className="max-w-3xl rounded-[6px] border border-slate-200 p-0">
+          <div className="border-b border-slate-200 p-5">
+            <h3 className="text-[16px] font-semibold text-slate-900">
               Danh sách hàng hóa nhà cung cấp đang bán
             </h3>
-            <p className="text-[12px] text-slate-500 mt-1">
-              Tick từng món hàng để thêm vào phiếu yêu cầu nhập.
-            </p>
           </div>
 
           <div className="max-h-[60vh] overflow-y-auto p-5">
             {catalogLoading ? (
               <div className="py-12 flex items-center justify-center text-slate-400">
-                <Loader2 size={18} className="animate-spin mr-2" />
+                <Loader2 size={18} className="animate-spin mr-2 text-emerald-600" />
                 Đang tải danh mục hàng hóa...
               </div>
             ) : supplierProducts.length === 0 ? (
@@ -669,10 +638,10 @@ export default function NewPurchaseRequestPage() {
                     <label
                       key={product.sku}
                       className={cn(
-                        "flex items-center gap-3 rounded-[6px] border px-3 py-3 cursor-pointer transition-colors",
+                        "flex cursor-pointer items-center gap-3 rounded-[4px] border px-3 py-3 transition-colors",
                         checked
-                          ? "border-blue-300 bg-blue-50"
-                          : "border-slate-200 hover:border-blue-200 hover:bg-slate-50",
+                          ? "border-emerald-200 bg-emerald-50"
+                          : "border-slate-200 hover:bg-slate-50",
                       )}
                     >
                       <input
@@ -696,10 +665,10 @@ export default function NewPurchaseRequestPage() {
                         <div className="w-12 h-12 rounded border border-slate-200 bg-slate-100" />
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-700 truncate">
+                        <div className="truncate text-[12.5px] font-semibold text-slate-800">
                           {product.productName}
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">
+                        <div className="truncate text-[10.5px] text-slate-500">
                           SKU: {product.sku}
                           {product.customSpecs
                             ? ` • ${product.customSpecs}`
@@ -713,7 +682,7 @@ export default function NewPurchaseRequestPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t p-5">
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-5">
             <span className="text-[12px] text-slate-500">
               Đã chọn {selectedProductSkus.length} mặt hàng
             </span>
@@ -725,7 +694,11 @@ export default function NewPurchaseRequestPage() {
               >
                 Đóng
               </Button>
-              <Button type="button" onClick={applySelectedProducts}>
+              <Button
+                type="button"
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={applySelectedProducts}
+              >
                 Áp dụng
               </Button>
             </div>

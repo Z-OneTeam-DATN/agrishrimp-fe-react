@@ -6,26 +6,13 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useParams, useRouter } from "next/navigation";
 import {
-    AlertTriangle,
     ArrowUpRight,
-    CalendarClock,
-    Check,
-    ChevronLeft,
     Copy,
-    FileText,
-    History,
     ImageOff,
-    Info,
-    Mail,
-    MapPin,
     PackageSearch,
-    PencilLine,
-    Phone,
     RefreshCcw,
     Save,
     Search,
-    ShieldCheck,
-    Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
@@ -35,7 +22,6 @@ import {
     Supplier,
     SupplierProductCatalogItem,
     SupplierProductCatalogStatus,
-    SupplierWarning,
 } from "@/app/types/supplier.type";
 import { ProductListItem } from "@/app/types/product.schema";
 import { supplierService } from "@/app/services/supplier.service";
@@ -71,6 +57,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ImportHistoryItem {
     id: number;
@@ -82,24 +69,18 @@ interface ImportHistoryItem {
     totalQuantity?: number;
 }
 
+interface Province {
+    id: string;
+    name: string;
+    full_name: string;
+}
+
 type TabValue = "info" | "catalog" | "history";
 type CatalogFilterValue = "ALL" | "TRACKED" | "NOT_IN_CATALOG" | SupplierProductCatalogStatus;
 
-const CATALOG_PAGE_SIZE = 8;
-const HISTORY_PAGE_SIZE = 4;
+const CATALOG_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 20;
 const STALE_CHECKING_DAYS = 14;
-
-const catalogStatusLabels: Record<SupplierProductCatalogStatus, string> = {
-    AVAILABLE: "Có cung cấp",
-    UNAVAILABLE: "Không cung cấp",
-    CHECKING: "Đang kiểm tra",
-};
-
-const catalogStatusStyles: Record<SupplierProductCatalogStatus, string> = {
-    AVAILABLE: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    UNAVAILABLE: "bg-rose-50 text-rose-700 border-rose-200",
-    CHECKING: "bg-amber-50 text-amber-700 border-amber-200",
-};
 
 const shouldPersistCatalogItem = (item: Pick<SupplierProductCatalogItem, "id" | "productId" | "status" | "note">) => {
     const normalizedNote = item.note?.trim() || "";
@@ -135,25 +116,18 @@ const formatDate = (dateString?: string) => {
     return `${date.toLocaleDateString("vi-VN")} ${date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
-const getSupplierStatusMeta = (status?: Supplier["status"]) => {
-    if (status === "ACTIVE") {
-        return { label: "Đang giao dịch", className: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-    }
-    return { label: "Tạm dừng", className: "bg-slate-100 text-slate-600 border-slate-200" };
-};
-
-const getHistoryStatusMeta = (status: string) => {
+const getHistoryStatusLabel = (status: string) => {
     switch (status) {
         case "COMPLETED":
-            return { label: "Đã hoàn thành", className: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+            return "Đã hoàn thành";
         case "APPROVED":
-            return { label: "Đã duyệt", className: "bg-blue-50 text-blue-700 border-blue-200" };
+            return "Đã duyệt";
         case "PENDING":
-            return { label: "Đang xử lý", className: "bg-orange-50 text-orange-700 border-orange-200" };
+            return "Đang xử lý";
         case "CANCELLED":
-            return { label: "Đã hủy", className: "bg-rose-50 text-rose-700 border-rose-200" };
+            return "Đã hủy";
         default:
-            return { label: status || "Không xác định", className: "bg-slate-50 text-slate-600 border-slate-200" };
+            return status || "Không xác định";
     }
 };
 
@@ -169,14 +143,6 @@ const getCheckingAgeDays = (item: SupplierProductCatalogItem) => {
     }
     const diff = Date.now() - new Date(item.updatedAt).getTime();
     return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-};
-
-const buildWarningMap = (warnings: SupplierWarning[]) => {
-    const map = new Map<string, SupplierWarning>();
-    warnings.forEach((warning) => {
-        map.set(warning.code, warning);
-    });
-    return Array.from(map.values());
 };
 
 const buildCatalogFallbackProduct = (item: SupplierProductCatalogItem) =>
@@ -202,7 +168,6 @@ export default function SupplierDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isCatalogSaving, setIsCatalogSaving] = useState(false);
-    const [isContactEdit, setIsContactEdit] = useState(false);
     const [supplierRecord, setSupplierRecord] = useState<Supplier | null>(null);
     const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
     const [catalogItems, setCatalogItems] = useState<SupplierProductCatalogItem[]>([]);
@@ -228,6 +193,7 @@ export default function SupplierDetailPage() {
     const [historyLoadError, setHistoryLoadError] = useState<string | null>(null);
     const [catalogLoadError, setCatalogLoadError] = useState<string | null>(null);
     const [productLoadError, setProductLoadError] = useState<string | null>(null);
+    const [provinces, setProvinces] = useState<Province[]>([]);
 
     const {
         control,
@@ -241,6 +207,22 @@ export default function SupplierDetailPage() {
     });
 
     const supplierData = watch();
+
+    useEffect(() => {
+        const loadProvinces = async () => {
+            try {
+                const response = await fetch("https://esgoo.net/api-tinhthanh/1/0.htm");
+                const data = await response.json();
+                if (data.error === 0 && Array.isArray(data.data)) {
+                    setProvinces(data.data);
+                }
+            } catch {
+                toast.error("Không thể tải danh sách tỉnh/thành phố");
+            }
+        };
+
+        void loadProvinces();
+    }, []);
 
     const loadSupplierData = useCallback(async () => {
         if (!supplierId) return;
@@ -328,13 +310,6 @@ export default function SupplierDetailPage() {
 
     const hasCatalogDraft = JSON.stringify(catalogPayload) !== JSON.stringify(savedCatalogPayload);
 
-    const latestImport = useMemo(() => {
-        if (importHistory.length === 0) return null;
-        return [...importHistory].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    }, [importHistory]);
-
-    const supplierStatusMeta = getSupplierStatusMeta(supplierRecord?.status);
-
     const catalogSummary = useMemo(() => {
         return catalogPayload.reduce(
             (acc, item) => {
@@ -355,28 +330,6 @@ export default function SupplierDetailPage() {
         });
     }, [catalogByProductId]);
 
-    const supplierWarnings = useMemo(() => {
-        const mergedWarnings: SupplierWarning[] = [...(supplierRecord?.warnings ?? [])];
-
-        if (supplierData.status === "active" && catalogSummary.total === 0) {
-            mergedWarnings.push({
-                code: "ACTIVE_WITHOUT_CATALOG_LOCAL",
-                severity: "WARNING",
-                message: "Supplier đang ở trạng thái hoạt động nhưng chưa có catalog sản phẩm nào được lưu.",
-            });
-        }
-
-        if (checkingTooLongItems.length > 0) {
-            mergedWarnings.push({
-                code: "CHECKING_TOO_LONG_LOCAL",
-                severity: "WARNING",
-                message: `${checkingTooLongItems.length} sản phẩm đang ở trạng thái CHECKING quá ${STALE_CHECKING_DAYS} ngày.`,
-            });
-        }
-
-        return buildWarningMap(mergedWarnings);
-    }, [supplierRecord?.warnings, supplierData.status, catalogSummary.total, checkingTooLongItems.length]);
-
     const filteredHistory = useMemo(() => {
         return importHistory.filter((item) => {
             const keywordOk = item.code?.toLowerCase().includes(historyKeyword.toLowerCase().trim());
@@ -389,6 +342,29 @@ export default function SupplierDetailPage() {
             return keywordOk && statusOk && fromOk && toOk;
         });
     }, [importHistory, historyKeyword, historyStatus, fromDate, toDate]);
+
+    const historySummary = useMemo(() => {
+        return importHistory.reduce(
+            (summary, item) => {
+                const isCancelled = item.status === "CANCELLED";
+                summary.totalReceipts += 1;
+                if (!isCancelled) {
+                    summary.totalValue += Number(item.totalAmount) || 0;
+                    summary.totalQuantity += Number(item.totalQuantity) || 0;
+                }
+                if (item.status === "COMPLETED") {
+                    summary.completedReceipts += 1;
+                }
+                return summary;
+            },
+            {
+                totalReceipts: 0,
+                totalValue: 0,
+                totalQuantity: 0,
+                completedReceipts: 0,
+            },
+        );
+    }, [importHistory]);
 
     const filteredCatalogProducts = useMemo(() => {
         const normalizedKeyword = catalogKeyword.trim().toLowerCase();
@@ -437,36 +413,6 @@ export default function SupplierDetailPage() {
         filteredCatalogProductIds.every((id) => selectedCatalogProductIds.includes(id));
     const someFilteredSelected =
         filteredCatalogProductIds.some((id) => selectedCatalogProductIds.includes(id)) && !allFilteredSelected;
-
-    const timelineEvents = useMemo(
-        () => [
-            {
-                id: "created",
-                title: "Khởi tạo nhà cung cấp",
-                at: supplierRecord?.createdAt,
-                detail: supplierRecord?.createdByName
-                    ? `Hồ sơ được tạo bởi ${supplierRecord.createdByName}.`
-                    : "Hồ sơ nhà cung cấp được tạo trong hệ thống.",
-            },
-            {
-                id: "updated",
-                title: "Cập nhật hồ sơ gần nhất",
-                at: supplierRecord?.updatedAt,
-                detail: supplierRecord?.updatedByName
-                    ? `Người cập nhật gần nhất: ${supplierRecord.updatedByName}.`
-                    : "Thông tin supplier đã được cập nhật gần nhất.",
-            },
-            {
-                id: "latest-import",
-                title: "Phiếu nhập gần nhất",
-                at: latestImport?.createdAt,
-                detail: latestImport
-                    ? `${latestImport.code} · ${formatCurrency(latestImport.totalAmount)}`
-                    : "Chưa có phát sinh phiếu nhập nào.",
-            },
-        ],
-        [supplierRecord?.createdAt, supplierRecord?.createdByName, supplierRecord?.updatedAt, supplierRecord?.updatedByName, latestImport],
-    );
 
     useEffect(() => {
         setSelectedCatalogProductIds((prev) =>
@@ -520,20 +466,6 @@ export default function SupplierDetailPage() {
         document.addEventListener("click", handleDocumentLinkClick, true);
         return () => document.removeEventListener("click", handleDocumentLinkClick, true);
     }, [hasCatalogDraft]);
-
-    const copyValue = async (label: string, value?: string) => {
-        if (!value) {
-            toast.warning(`Chưa có ${label.toLowerCase()} để sao chép`);
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(value);
-            toast.success(`Đã sao chép ${label.toLowerCase()}`);
-        } catch {
-            toast.error(`Không thể sao chép ${label.toLowerCase()}`);
-        }
-    };
 
     const updateCatalogItem = (productId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "note">>) => {
         setCatalogItems((prev) => {
@@ -727,6 +659,42 @@ export default function SupplierDetailPage() {
         toast.error("Vui lòng kiểm tra lại các trường bắt buộc");
     };
 
+    const copyValue = async (label: string, value?: string) => {
+        const normalizedValue = value?.trim();
+        if (!normalizedValue) {
+            toast.warning(`${label} chưa có dữ liệu`);
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(normalizedValue);
+            toast.success(`Đã sao chép ${label.toLowerCase()}`);
+        } catch {
+            toast.error(`Không thể sao chép ${label.toLowerCase()}`);
+        }
+    };
+
+    const copyButton = (label: string, value?: string, multiline = false) => (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Sao chép ${label.toLowerCase()}`}
+                    onClick={() => void copyValue(label, value)}
+                    className={cn(
+                        "absolute right-1.5 z-10 h-7 w-7 text-slate-400 hover:bg-slate-100 hover:text-emerald-600",
+                        multiline ? "top-1.5" : "top-1/2 -translate-y-1/2",
+                    )}
+                >
+                    <Copy size={14} />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Sao chép {label.toLowerCase()}</TooltipContent>
+        </Tooltip>
+    );
+
     if (isLoading) {
         return (
             <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500">
@@ -737,244 +705,103 @@ export default function SupplierDetailPage() {
     }
 
     return (
-        <form onSubmit={handleSubmit(onSave, onError)} className="space-y-4 pb-10">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start">
-                <div className="flex items-start gap-3">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleGoBack}
-                        className="h-8 w-8 text-slate-400 hover:text-emerald-600"
-                    >
-                        <ChevronLeft size={20} />
-                    </Button>
-                    <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h1 className="text-[18px] font-black text-slate-800 uppercase tracking-tight">CHI TIẾT NHÀ CUNG CẤP</h1>
-                            <span className={cn("inline-flex items-center rounded border px-2 py-1 text-[10px] font-black uppercase", supplierStatusMeta.className)}>
-                                {supplierStatusMeta.label}
-                            </span>
-                            <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase text-slate-600">
-                                {supplierRecord?.code || `#${supplierId}`}
-                            </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                            Hồ sơ supplier, catalog sản phẩm và lịch sử nhập hàng được quản lý riêng trong phạm vi module nhà cung cấp.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" size="sm" className="h-8 text-[11px] font-bold uppercase" onClick={() => void copyValue("Mã NCC", supplierRecord?.code)}>
-                                <Copy size={13} className="mr-1.5" /> Mã NCC
-                            </Button>
-                            <Button type="button" variant="outline" size="sm" className="h-8 text-[11px] font-bold uppercase" onClick={() => void copyValue("MST", supplierData.taxCode)}>
-                                <Copy size={13} className="mr-1.5" /> MST
-                            </Button>
-                            <Button type="button" variant="outline" size="sm" className="h-8 text-[11px] font-bold uppercase" onClick={() => void copyValue("SĐT", supplierData.phone)}>
-                                <Copy size={13} className="mr-1.5" /> SĐT
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-                <div className="md:ml-auto">
-                    <Button type="submit" disabled={isSaving} className="h-9 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 uppercase">
-                        <Save size={14} className="mr-1.5" />
-                        {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-                    </Button>
-                </div>
+        <TooltipProvider delayDuration={150}>
+        <form onSubmit={handleSubmit(onSave, onError)} className="space-y-5 pb-[104px] text-slate-800">
+            <div className="px-1">
+                <h1 className="text-[20px] font-semibold uppercase text-slate-900">Cập nhật nhà cung cấp</h1>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
-                <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sản phẩm trong catalog</p>
-                    <p className="mt-2 text-[22px] font-black text-slate-800">{catalogSummary.total}</p>
-                </div>
-                <div className="rounded-[4px] border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Có cung cấp</p>
-                    <p className="mt-2 text-[22px] font-black text-emerald-700">{catalogSummary.available}</p>
-                </div>
-                <div className="rounded-[4px] border border-rose-100 bg-rose-50 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-rose-700">Không cung cấp</p>
-                    <p className="mt-2 text-[22px] font-black text-rose-700">{catalogSummary.unavailable}</p>
-                </div>
-                <div className="rounded-[4px] border border-amber-100 bg-amber-50 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Đang kiểm tra</p>
-                    <p className="mt-2 text-[22px] font-black text-amber-700">{catalogSummary.checking}</p>
-                </div>
-                <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tổng phiếu nhập</p>
-                    <p className="mt-2 text-[22px] font-black text-slate-800">{importHistory.length}</p>
-                </div>
-                <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Lần nhập gần nhất</p>
-                    <p className="mt-2 text-[12px] font-black text-slate-700">{formatDate(latestImport?.createdAt)}</p>
-                    <p className="mt-1 text-[10px] text-slate-400">{latestImport?.code || "Chưa phát sinh"}</p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                <div className="space-y-4 lg:col-span-4">
-                    <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden">
-                        <div className="p-5 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 border-2 border-emerald-100 shrink-0">
-                                    <Warehouse size={30} />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[15px] font-black text-slate-800 uppercase leading-tight line-clamp-2">{supplierData.name || "---"}</p>
-                                    <p className="text-[11px] text-slate-500 font-mono mt-2">{supplierRecord?.code || `#${supplierId}`}</p>
-                                    <p className="text-[10px] text-slate-400 font-mono mt-1">MST: {supplierData.taxCode || "---"}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 p-4">
-                            <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-3">
-                                <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wide">Ngày tạo</p>
-                                <p className="text-[11px] font-bold text-slate-700 mt-1">{formatDate(supplierRecord?.createdAt)}</p>
-                            </div>
-                            <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-3">
-                                <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wide">Cập nhật</p>
-                                <p className="text-[11px] font-bold text-slate-700 mt-1">{formatDate(supplierRecord?.updatedAt)}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="text-[11px] font-black uppercase tracking-wide text-slate-700">Thông tin liên hệ</h3>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsContactEdit((prev) => !prev)}
-                                className="h-7 text-[10px] font-bold uppercase"
-                            >
-                                {isContactEdit ? <Check size={12} className="mr-1" /> : <PencilLine size={12} className="mr-1" />}
-                                {isContactEdit ? "Xong" : "Chỉnh sửa"}
-                            </Button>
-                        </div>
-                        <div className="space-y-4 p-4">
-                            <div className="flex items-start gap-3">
-                                <FileText size={14} className="text-slate-300 mt-1.5" />
-                                <div className="w-full">
-                                    <p className="text-[10px] uppercase text-slate-400 font-bold">Người liên hệ</p>
-                                    {isContactEdit ? (
-                                        <>
-                                            <Input {...register("contactName")} className="h-8 mt-1 text-[12px]" />
-                                            {errors.contactName && <p className="text-[10px] text-red-500 mt-1">{errors.contactName.message}</p>}
-                                        </>
-                                    ) : (
-                                        <p className="text-[12px] font-bold text-slate-700 mt-1">{supplierData.contactName || "---"}</p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Phone size={14} className="text-slate-300 mt-1.5" />
-                                <div className="w-full">
-                                    <p className="text-[10px] uppercase text-slate-400 font-bold">Điện thoại</p>
-                                    {isContactEdit ? (
-                                        <>
-                                            <Input {...register("phone")} className="h-8 mt-1 text-[12px]" />
-                                            {errors.phone && <p className="text-[10px] text-red-500 mt-1">{errors.phone.message}</p>}
-                                        </>
-                                    ) : (
-                                        <div className="mt-1 flex items-center gap-2">
-                                            <p className="text-[12px] font-bold text-slate-700">{supplierData.phone || "---"}</p>
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-emerald-600" onClick={() => void copyValue("SĐT", supplierData.phone)}>
-                                                <Copy size={12} />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Mail size={14} className="text-slate-300 mt-1.5" />
-                                <div className="w-full">
-                                    <p className="text-[10px] uppercase text-slate-400 font-bold">Email</p>
-                                    {isContactEdit ? (
-                                        <>
-                                            <Input {...register("email")} className="h-8 mt-1 text-[12px]" />
-                                            {errors.email && <p className="text-[10px] text-red-500 mt-1">{errors.email.message}</p>}
-                                        </>
-                                    ) : (
-                                        <p className="text-[12px] font-semibold text-slate-700 mt-1 break-all">{supplierData.email || "---"}</p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <MapPin size={14} className="text-slate-300 mt-1.5" />
-                                <div className="w-full">
-                                    <p className="text-[10px] uppercase text-slate-400 font-bold">Địa chỉ</p>
-                                    {isContactEdit ? (
-                                        <>
-                                            <Textarea {...register("addressDetail")} className="mt-1 text-[12px] min-h-[80px]" />
-                                            {errors.addressDetail && <p className="text-[10px] text-red-500 mt-1">{errors.addressDetail.message}</p>}
-                                        </>
-                                    ) : (
-                                        <p className="text-[12px] text-slate-700 mt-1 leading-relaxed">{supplierData.addressDetail || "---"}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-4">
-                        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-700 border-b border-slate-100 pb-3">
-                            <ShieldCheck size={14} className="text-emerald-600" /> Audit supplier
-                        </div>
-                        <div className="mt-4 space-y-3 text-[12px] text-slate-600">
-                            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Tạo bởi</p>
-                                <p className="mt-1 font-semibold text-slate-700">{supplierRecord?.createdByName || "Chưa rõ"}</p>
-                            </div>
-                            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Cập nhật gần nhất</p>
-                                <p className="mt-1 font-semibold text-slate-700">{supplierRecord?.updatedByName || "Chưa rõ"}</p>
-                                <p className="mt-1 text-[10px] text-slate-400">{formatDate(supplierRecord?.updatedAt)}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {supplierWarnings.length > 0 && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-[4px] shadow-sm p-4 space-y-3">
-                            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-amber-800">
-                                <AlertTriangle size={14} /> Cảnh báo dữ liệu supplier
-                            </div>
-                            <div className="space-y-2">
-                                {supplierWarnings.map((warning) => (
-                                    <div key={warning.code} className="rounded border border-amber-200 bg-white/70 px-3 py-2 text-[12px] text-amber-900">
-                                        {warning.message}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="lg:col-span-8">
+            <div className="space-y-5 px-1">
                     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                        <TabsList className="bg-white border border-[#dcdcdc] rounded-[4px] p-1 w-full flex justify-start gap-1 h-auto shadow-sm">
-                            <TabsTrigger value="info" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-                                <Info size={14} className="mr-1.5" /> Thông tin
+                        <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-slate-200 bg-transparent p-0">
+                            <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
+                                Thông tin
                             </TabsTrigger>
-                            <TabsTrigger value="catalog" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-                                <Warehouse size={14} className="mr-1.5" /> Catalog ({catalogSummary.total})
+                            <TabsTrigger value="catalog" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
+                                Sản phẩm cung cấp ({catalogSummary.total})
                             </TabsTrigger>
-                            <TabsTrigger value="history" className="text-[11px] font-bold uppercase py-2 px-4 rounded-[3px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-                                <History size={14} className="mr-1.5" /> Lịch sử ({filteredHistory.length})
+                            <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
+                                Lịch sử nhập ({filteredHistory.length})
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="info" className="space-y-4 mt-4">
-                            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-5">
-                                <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">Trạng thái vận hành</Label>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase border px-2 py-1 rounded bg-slate-50 text-slate-700 border-slate-200">
-                                            <CalendarClock size={12} /> Cập nhật: {formatDate(supplierRecord?.updatedAt || supplierRecord?.createdAt)}
-                                        </span>
+                        <TabsContent value="info" className="mt-5">
+                            <div className="border border-slate-200 bg-white p-6 shadow-sm">
+                                <div className="mb-6 border-b border-slate-200 pb-4">
+                                    <h2 className="text-[12px] font-semibold text-slate-900">1. Thông tin nhà cung cấp</h2>
+                                </div>
+                                <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tên nhà cung cấp *</Label>
+                                        <div className="relative">
+                                            <Input {...register("name")} className="h-[40px] pr-10 text-[13px]" />
+                                            {copyButton("Tên nhà cung cấp", supplierData.name)}
+                                        </div>
+                                        {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name.message}</p>}
                                     </div>
                                     <div>
-                                        <Label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Trạng thái NCC</Label>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
+                                        <div className="relative">
+                                            <Input {...register("taxCode")} className="h-[40px] pr-10 text-[13px]" />
+                                            {copyButton("Mã số thuế", supplierData.taxCode)}
+                                        </div>
+                                        {errors.taxCode && <p className="text-[10px] text-red-500 mt-1">{errors.taxCode.message}</p>}
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã nhà cung cấp</Label>
+                                        <div className="relative">
+                                            <Input value={supplierRecord?.code || `#${supplierId}`} disabled className="h-[40px] bg-slate-50 pr-10 text-[13px] text-slate-500" />
+                                            {copyButton("Mã nhà cung cấp", supplierRecord?.code || `#${supplierId}`)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tỉnh / thành *</Label>
+                                        <Controller
+                                            name="provinceId"
+                                            control={control}
+                                            render={({ field }) => (
+                                                <Select value={field.value || ""} onValueChange={field.onChange}>
+                                                    <SelectTrigger className="h-[40px] text-[13px] shadow-none">
+                                                        <SelectValue placeholder="Chọn tỉnh / thành phố" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="max-h-[260px]">
+                                                        {provinces.map((province) => (
+                                                            <SelectItem key={province.id} value={province.id}>
+                                                                {province.full_name || province.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                        {errors.provinceId && <p className="text-[10px] text-red-500 mt-1">{errors.provinceId.message}</p>}
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Người đại diện *</Label>
+                                        <div className="relative">
+                                            <Input {...register("contactName")} className="h-[40px] pr-10 text-[13px]" />
+                                            {copyButton("Người đại diện", supplierData.contactName)}
+                                        </div>
+                                        {errors.contactName && <p className="mt-1 text-[10px] text-red-500">{errors.contactName.message}</p>}
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Điện thoại *</Label>
+                                        <div className="relative">
+                                            <Input {...register("phone")} className="h-[40px] pr-10 text-[13px]" />
+                                            {copyButton("Số điện thoại", supplierData.phone)}
+                                        </div>
+                                        {errors.phone && <p className="mt-1 text-[10px] text-red-500">{errors.phone.message}</p>}
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Email *</Label>
+                                        <div className="relative">
+                                            <Input {...register("email")} className="h-[40px] pr-10 text-[13px]" />
+                                            {copyButton("Email", supplierData.email)}
+                                        </div>
+                                        {errors.email && <p className="mt-1 text-[10px] text-red-500">{errors.email.message}</p>}
+                                    </div>
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Trạng thái</Label>
                                         <Controller
                                             name="status"
                                             control={control}
@@ -990,116 +817,80 @@ export default function SupplierDetailPage() {
                                                     }}
                                                     value={field.value}
                                                 >
-                                                    <SelectTrigger className="h-[38px] text-[13px] border-[#ccc] font-black shadow-none focus:ring-0">
+                                                    <SelectTrigger className="h-[40px] text-[13px] shadow-none">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="active" className="text-emerald-600 font-bold uppercase tracking-tighter">ĐANG GIAO DỊCH</SelectItem>
-                                                        <SelectItem value="inactive" className="text-rose-600 font-bold uppercase tracking-tighter">TẠM NGỪNG</SelectItem>
+                                                        <SelectItem value="active">Đang giao dịch</SelectItem>
+                                                        <SelectItem value="inactive">Tạm ngừng</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             )}
                                         />
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-5">
-                                <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">Thông tin pháp nhân</Label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <Label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Tên nhà cung cấp</Label>
-                                        <Input {...register("name")} className="h-[38px] text-[12px] font-bold uppercase" />
-                                        {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name.message}</p>}
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cập nhật gần nhất</Label>
+                                        <Input value={formatDate(supplierRecord?.updatedAt || supplierRecord?.createdAt)} disabled className="h-[40px] bg-slate-50 text-[13px] text-slate-500" />
                                     </div>
-                                    <div>
-                                        <Label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Mã số thuế</Label>
-                                        <Input {...register("taxCode")} className="h-[38px] text-[12px] font-bold font-mono" />
-                                        {errors.taxCode && <p className="text-[10px] text-red-500 mt-1">{errors.taxCode.message}</p>}
-                                    </div>
-                                    <div>
-                                        <Label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Mã tỉnh / thành</Label>
-                                        <Input {...register("provinceId")} className="h-[38px] text-[12px] font-semibold" />
-                                        {errors.provinceId && <p className="text-[10px] text-red-500 mt-1">{errors.provinceId.message}</p>}
-                                    </div>
-                                    <div className="rounded border border-slate-200 bg-slate-50 px-4 py-3">
-                                        <p className="text-[10px] font-bold uppercase text-slate-400">Độ sẵn sàng catalog</p>
-                                        <p className="mt-2 text-[14px] font-black text-slate-800">{catalogSummary.total > 0 ? "Đã khai báo" : "Chưa khai báo"}</p>
-                                        <p className="mt-1 text-[11px] text-slate-500">Theo số sản phẩm đã lưu trong catalog supplier</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-5">
-                                <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">Timeline hoạt động</Label>
-                                <div className="space-y-4">
-                                    {timelineEvents.map((event, index) => (
-                                        <div key={event.id} className="relative pl-6">
-                                            {index < timelineEvents.length - 1 && <span className="absolute left-[7px] top-4 h-[calc(100%+8px)] w-[1px] bg-slate-200" />}
-                                            <span className="absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 border-emerald-200 bg-emerald-50" />
-                                            <p className="text-[12px] font-black text-slate-800 uppercase">{event.title}</p>
-                                            <p className="text-[11px] text-slate-500 mt-0.5">{event.detail}</p>
-                                            <p className="text-[10px] font-bold text-emerald-600 mt-1">{formatDate(event.at)}</p>
+                                    <div className="sm:col-span-2 xl:col-span-3">
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Địa chỉ *</Label>
+                                        <div className="relative">
+                                            <Textarea {...register("addressDetail")} className="min-h-[84px] resize-none pr-10 text-[13px]" />
+                                            {copyButton("Địa chỉ", supplierData.addressDetail, true)}
                                         </div>
-                                    ))}
+                                        {errors.addressDetail && <p className="mt-1 text-[10px] text-red-500">{errors.addressDetail.message}</p>}
+                                    </div>
+                                </div>
+                                <div className="mt-5 flex flex-wrap gap-x-6 gap-y-1 border-t border-slate-100 pt-4 text-[10.5px] text-slate-400">
+                                    <span>Tạo bởi: {supplierRecord?.createdByName || "Chưa rõ"}</span>
+                                    <span>Cập nhật bởi: {supplierRecord?.updatedByName || "Chưa rõ"}</span>
+                                    <span>Ngày tạo: {formatDate(supplierRecord?.createdAt)}</span>
                                 </div>
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="catalog" className="mt-4">
-                            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden">
-                                <div className="px-4 py-3 border-b border-slate-100 bg-[#fcfcfc] flex flex-col gap-3">
+                        <TabsContent value="catalog" className="mt-5">
+                            <div className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+                                <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4">
                                     <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <h3 className="text-[12px] font-black text-slate-700 uppercase flex items-center gap-2">
-                                            <Warehouse size={14} className="text-emerald-600" /> Danh mục sản phẩm nhà cung cấp
+                                        <h3 className="text-[12px] font-semibold text-slate-900">
+                                            2. Danh mục sản phẩm cung cấp
                                         </h3>
-                                        <div className="flex items-center gap-2">
-                                            <span
-                                                className={cn(
-                                                    "text-[10px] font-bold uppercase px-2 py-1 rounded border",
-                                                    hasCatalogDraft
-                                                        ? "bg-amber-50 text-amber-700 border-amber-200"
-                                                        : "bg-emerald-50 text-emerald-700 border-emerald-200",
+                                        <span
+                                            className={cn(
+                                                "text-[10.5px] font-medium",
+                                                hasCatalogDraft ? "text-amber-700" : "text-slate-400",
+                                            )}
+                                        >
+                                            {hasCatalogDraft ? "Có thay đổi chưa lưu" : "Đã đồng bộ"}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 border border-slate-200 md:grid-cols-4">
+                                        <div className="border-b border-r border-slate-200 px-4 py-3 md:border-b-0">
+                                            <p className="text-[10.5px] text-slate-500">Đã khai báo</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{catalogSummary.total}</p>
+                                        </div>
+                                        <div className="border-b border-slate-200 px-4 py-3 md:border-b-0 md:border-r">
+                                            <p className="text-[10.5px] text-slate-500">Có cung cấp</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{catalogSummary.available}</p>
+                                        </div>
+                                        <div className="border-r border-slate-200 px-4 py-3">
+                                            <p className="text-[10.5px] text-slate-500">Không cung cấp</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{catalogSummary.unavailable}</p>
+                                        </div>
+                                        <div className="px-4 py-3">
+                                            <p className="text-[10.5px] text-slate-500">Đang kiểm tra</p>
+                                            <div className="mt-1 flex items-baseline gap-2">
+                                                <p className="text-[16px] font-semibold text-slate-800">{catalogSummary.checking}</p>
+                                                {checkingTooLongItems.length > 0 && (
+                                                    <p className="text-[10.5px] text-amber-700">
+                                                        Quá {STALE_CHECKING_DAYS} ngày
+                                                    </p>
                                                 )}
-                                            >
-                                                {hasCatalogDraft ? "Có nháp chưa lưu" : "Đã đồng bộ"}
-                                            </span>
-                                            <Button
-                                                type="button"
-                                                className="h-8 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 uppercase"
-                                                onClick={() => void saveCatalog()}
-                                                disabled={isCatalogSaving || Boolean(catalogLoadError)}
-                                            >
-                                                <Save size={14} className="mr-1.5" />
-                                                {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
-                                            </Button>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-slate-600">Đã khai báo</p>
-                                            <p className="text-[16px] font-black text-slate-800">{catalogSummary.total}</p>
-                                        </div>
-                                        <div className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-emerald-700">Có cung cấp</p>
-                                            <p className="text-[16px] font-black text-emerald-700">{catalogSummary.available}</p>
-                                        </div>
-                                        <div className="rounded border border-rose-100 bg-rose-50 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-rose-700">Không cung cấp</p>
-                                            <p className="text-[16px] font-black text-rose-700">{catalogSummary.unavailable}</p>
-                                        </div>
-                                        <div className="rounded border border-amber-100 bg-amber-50 px-3 py-2">
-                                            <p className="text-[10px] font-bold uppercase text-amber-700">Đang kiểm tra</p>
-                                            <p className="text-[16px] font-black text-amber-700">{catalogSummary.checking}</p>
-                                        </div>
-                                    </div>
-
-                                    {checkingTooLongItems.length > 0 && (
-                                        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900">
-                                            {checkingTooLongItems.length} sản phẩm ở trạng thái CHECKING đã quá {STALE_CHECKING_DAYS} ngày. Nên rà soát lại nguồn cung hoặc cập nhật ghi chú kiểm tra.
-                                        </div>
-                                    )}
 
                                     {catalogLoadError && (
                                         <div className="rounded border border-rose-200 bg-rose-50 px-3 py-3 text-[12px] text-rose-800">
@@ -1130,11 +921,11 @@ export default function SupplierDetailPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="ALL">Tất cả sản phẩm</SelectItem>
-                                                    <SelectItem value="TRACKED">Đã có trong catalog</SelectItem>
-                                                    <SelectItem value="NOT_IN_CATALOG">Chưa đưa vào catalog</SelectItem>
-                                                    <SelectItem value="AVAILABLE">Có cung cấp</SelectItem>
-                                                    <SelectItem value="UNAVAILABLE">Không cung cấp</SelectItem>
-                                                    <SelectItem value="CHECKING">Đang kiểm tra</SelectItem>
+                                                    <SelectItem value="TRACKED">Đã thiết lập</SelectItem>
+                                                    <SelectItem value="NOT_IN_CATALOG">Chưa thiết lập</SelectItem>
+                                                    <SelectItem value="AVAILABLE">Có thể đặt mua</SelectItem>
+                                                    <SelectItem value="CHECKING">Đang xác minh</SelectItem>
+                                                    <SelectItem value="UNAVAILABLE">Ngừng cung cấp</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <Select
@@ -1146,15 +937,15 @@ export default function SupplierDetailPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="none">Chọn trạng thái</SelectItem>
-                                                    <SelectItem value="AVAILABLE">CÓ CUNG CẤP</SelectItem>
-                                                    <SelectItem value="UNAVAILABLE">KHÔNG CUNG CẤP</SelectItem>
-                                                    <SelectItem value="CHECKING">ĐANG KIỂM TRA</SelectItem>
+                                                    <SelectItem value="AVAILABLE">Có thể đặt mua</SelectItem>
+                                                    <SelectItem value="CHECKING">Đang xác minh</SelectItem>
+                                                    <SelectItem value="UNAVAILABLE">Ngừng cung cấp</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                className="h-[34px] text-[11px] font-bold uppercase"
+                                                className="h-[34px] text-[11px] font-medium"
                                                 onClick={applyBulkCatalogStatus}
                                                 disabled={Boolean(catalogLoadError)}
                                             >
@@ -1164,14 +955,14 @@ export default function SupplierDetailPage() {
                                     </div>
                                 </div>
 
-                                <div className="p-0 overflow-x-auto">
-                                    <Table className="table-custom border-collapse table-fixed min-w-[1180px]">
+                                <div className="min-w-0 p-0">
+                                    <Table className="table-custom w-full table-fixed border-collapse">
                                         <colgroup>
-                                            <col className="w-[56px]" />
-                                            <col className="w-[340px]" />
-                                            <col className="w-[220px]" />
-                                            <col className="w-[210px]" />
-                                            <col />
+                                            <col className="w-[44px]" />
+                                            <col className="w-[34%]" />
+                                            <col className="w-[18%]" />
+                                            <col className="w-[18%]" />
+                                            <col className="w-[30%]" />
                                         </colgroup>
                                         <TableHeader>
                                             <TableRow className="bg-slate-50 border-b border-slate-100">
@@ -1182,25 +973,23 @@ export default function SupplierDetailPage() {
                                                         disabled={Boolean(catalogLoadError)}
                                                     />
                                                 </TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3">Sản phẩm</TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3">Thương hiệu / Xuất xứ</TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3">Trạng thái NCC</TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3 pr-4">Ghi chú & audit</TableHead>
+                                                <TableHead className="py-3 text-[11px] font-medium text-slate-500">Sản phẩm</TableHead>
+                                                <TableHead className="py-3 text-[11px] font-medium text-slate-500">Thương hiệu và xuất xứ</TableHead>
+                                                <TableHead className="py-3 text-[11px] font-medium text-slate-500">Khả năng cung cấp</TableHead>
+                                                <TableHead className="py-3 pr-4 text-[11px] font-medium text-slate-500">Ghi chú</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {paginatedCatalogProducts.length > 0 ? (
                                                 paginatedCatalogProducts.map((product) => {
                                                     const current = catalogByProductId.get(product.id);
-                                                    const status = current?.status || "CHECKING";
                                                     const previewImage = product.imageUrls?.[0] || product.variants?.find((variant) => variant.imageUrl)?.imageUrl;
-                                                    const isTracked = Boolean(current);
                                                     const isSelected = selectedCatalogProductIds.includes(product.id);
                                                     const checkingAgeDays = current ? getCheckingAgeDays(current) : null;
 
                                                     return (
-                                                        <TableRow key={product.id} className="border-b border-slate-50 hover:bg-emerald-50/20 align-top">
-                                                            <TableCell className="pl-4 py-4">
+                                                        <TableRow key={product.id} className="border-b border-slate-100 align-top hover:bg-slate-50/70">
+                                                            <TableCell className="py-4 pl-3">
                                                                 <Checkbox
                                                                     checked={isSelected}
                                                                     onCheckedChange={(checked) => toggleCatalogSelection(product.id, checked === true)}
@@ -1208,8 +997,8 @@ export default function SupplierDetailPage() {
                                                                 />
                                                             </TableCell>
                                                             <TableCell className="py-3">
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className="h-14 w-14 rounded border border-slate-200 bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
+                                                                <div className="flex min-w-0 items-start gap-2.5">
+                                                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
                                                                         {previewImage ? (
                                                                             <img
                                                                                 src={previewImage}
@@ -1223,63 +1012,52 @@ export default function SupplierDetailPage() {
                                                                             <ImageOff size={16} className="text-slate-400" />
                                                                         )}
                                                                     </div>
-                                                                    <div>
-                                                                        <p className="text-[12px] font-black text-slate-800 line-clamp-2">{product.name}</p>
-                                                                        <p className="text-[10px] text-slate-400 font-mono mt-1">SKU gốc: {product.baseSku || "---"}</p>
-                                                                        <p className="text-[10px] text-slate-500 mt-1">{product.categoryName || "---"} · {product.variants?.length || 0} biến thể</p>
-                                                                        <span className={cn(
-                                                                            "mt-2 inline-flex items-center rounded border px-2 py-0.5 text-[9px] font-black uppercase",
-                                                                            isTracked ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-slate-50 text-slate-500 border-slate-200",
-                                                                        )}>
-                                                                            {isTracked ? "Đã vào catalog" : "Chưa đưa vào catalog"}
-                                                                        </span>
+                                                                    <div className="min-w-0">
+                                                                        <p className="line-clamp-2 text-[12.5px] font-semibold leading-5 text-slate-800">{product.name}</p>
+                                                                        <p className="mt-1 text-[10.5px] text-slate-400">SKU gốc: {product.baseSku || "---"}</p>
+                                                                        <p className="mt-1 text-[10.5px] text-slate-500">{product.categoryName || "---"} · {product.variants?.length || 0} biến thể</p>
                                                                     </div>
                                                                 </div>
                                                             </TableCell>
-                                                            <TableCell className="py-3">
-                                                                <p className="text-[11px] font-bold text-slate-700">{product.brandName || "---"}</p>
-                                                                <p className="text-[10px] text-slate-500 mt-1">Xuất xứ: {product.origin || "---"}</p>
+                                                            <TableCell className="py-3 pr-3">
+                                                                <p className="text-[11.5px] font-medium text-slate-700">{product.brandName || "---"}</p>
+                                                                <p className="mt-1 text-[10.5px] text-slate-500">{product.origin || "Chưa có xuất xứ"}</p>
                                                             </TableCell>
-                                                            <TableCell className="py-3">
+                                                            <TableCell className="py-3 pr-3">
                                                                 <Select
-                                                                    value={status}
+                                                                    value={current?.status}
                                                                     onValueChange={(value) => updateCatalogItem(product.id, { status: value as SupplierProductCatalogStatus })}
                                                                     disabled={Boolean(catalogLoadError)}
                                                                 >
-                                                                    <SelectTrigger className="h-8 text-[11px] font-bold">
-                                                                        <SelectValue />
+                                                                    <SelectTrigger className="h-9 w-full text-[11.5px] font-normal shadow-none">
+                                                                        <SelectValue placeholder="Chưa thiết lập" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="AVAILABLE" className="text-emerald-700 font-bold">CÓ CUNG CẤP</SelectItem>
-                                                                        <SelectItem value="UNAVAILABLE" className="text-rose-700 font-bold">KHÔNG CUNG CẤP</SelectItem>
-                                                                        <SelectItem value="CHECKING" className="text-amber-700 font-bold">ĐANG KIỂM TRA</SelectItem>
+                                                                        <SelectItem value="AVAILABLE">Có thể đặt mua</SelectItem>
+                                                                        <SelectItem value="CHECKING">Đang xác minh</SelectItem>
+                                                                        <SelectItem value="UNAVAILABLE">Ngừng cung cấp</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
-                                                                <span className={cn("mt-2 inline-flex items-center rounded border px-2 py-0.5 text-[9px] font-black uppercase", catalogStatusStyles[status])}>
-                                                                    {catalogStatusLabels[status]}
-                                                                </span>
-                                                                {checkingAgeDays != null && status === "CHECKING" && (
-                                                                    <p className={cn("mt-2 text-[10px] font-medium", checkingAgeDays >= STALE_CHECKING_DAYS ? "text-amber-700" : "text-slate-500")}>
-                                                                        Đã kiểm tra {checkingAgeDays} ngày
+                                                                {checkingAgeDays != null && current?.status === "CHECKING" && (
+                                                                    <p className={cn("mt-1.5 text-[10.5px]", checkingAgeDays >= STALE_CHECKING_DAYS ? "text-amber-700" : "text-slate-400")}>
+                                                                        Xác minh {checkingAgeDays} ngày
                                                                     </p>
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="py-3 pr-4">
+                                                            <TableCell className="py-3 pr-3">
                                                                 <Textarea
                                                                     value={current?.note || ""}
                                                                     onChange={(e) => updateCatalogItem(product.id, { note: e.target.value })}
-                                                                    placeholder="Ghi chú ngắn: điều kiện giao, đang xác minh, ưu tiên thương hiệu..."
-                                                                    className="min-h-[72px] text-[11px]"
+                                                                    placeholder="Điều kiện giao hàng, thông tin xác minh..."
+                                                                    className="min-h-[58px] w-full resize-none px-3 py-2 text-[11px]"
                                                                     maxLength={255}
                                                                     disabled={Boolean(catalogLoadError)}
                                                                 />
-                                                                <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-400">
-                                                                    <span>{(current?.note || "").length}/255 ký tự</span>
-                                                                    {current?.updatedByName ? <span>Người sửa: {current.updatedByName}</span> : <span>Chưa có lịch sử sửa</span>}
-                                                                </div>
-                                                                <p className="mt-1 text-[10px] text-slate-400">
-                                                                    {current?.updatedAt ? `Cập nhật: ${formatDate(current.updatedAt)}` : "Chưa lưu thay đổi vào catalog"}
-                                                                </p>
+                                                                {(current?.updatedAt || current?.updatedByName) && (
+                                                                    <p className="mt-1.5 text-[10px] text-slate-400">
+                                                                        {current.updatedByName || "Đã cập nhật"} · {formatDate(current.updatedAt)}
+                                                                    </p>
+                                                                )}
                                                             </TableCell>
                                                         </TableRow>
                                                     );
@@ -1290,7 +1068,7 @@ export default function SupplierDetailPage() {
                                                         <div className="flex flex-col items-center gap-3 text-slate-400">
                                                             <PackageSearch size={28} />
                                                             <div>
-                                                                <p className="text-[12px] font-black uppercase tracking-widest">
+                                                                <p className="text-[12px] font-medium text-slate-600">
                                                                     {catalogLoadError ? "Không tải được catalog supplier" : "Không có sản phẩm phù hợp bộ lọc"}
                                                                 </p>
                                                                 <p className="mt-1 text-[11px]">
@@ -1309,7 +1087,7 @@ export default function SupplierDetailPage() {
 
                                 {filteredCatalogProducts.length > 0 && (
                                     <div className="px-4 py-3 border-t border-slate-100 bg-[#fcfcfc] flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+                                        <p className="text-[11px] text-slate-500">
                                             Hiển thị {(catalogCurrentPage - 1) * CATALOG_PAGE_SIZE + 1} - {Math.min(catalogCurrentPage * CATALOG_PAGE_SIZE, filteredCatalogProducts.length)} trong {filteredCatalogProducts.length}
                                         </p>
                                         <div className="flex items-center gap-2">
@@ -1317,20 +1095,20 @@ export default function SupplierDetailPage() {
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-[11px] font-bold uppercase"
+                                                className="h-8 text-[11px] font-medium"
                                                 onClick={() => setCatalogCurrentPage((prev) => Math.max(prev - 1, 1))}
                                                 disabled={catalogCurrentPage === 1}
                                             >
                                                 ← Trước
                                             </Button>
-                                            <span className="text-[11px] font-bold text-slate-600 uppercase min-w-[60px] text-center">
+                                            <span className="min-w-[60px] text-center text-[11px] text-slate-500">
                                                 {catalogCurrentPage} / {catalogTotalPages}
                                             </span>
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-[11px] font-bold uppercase"
+                                                className="h-8 text-[11px] font-medium"
                                                 onClick={() => setCatalogCurrentPage((prev) => Math.min(prev + 1, catalogTotalPages))}
                                                 disabled={catalogCurrentPage === catalogTotalPages}
                                             >
@@ -1342,17 +1120,35 @@ export default function SupplierDetailPage() {
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="history" className="mt-4">
-                            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden">
-                                <div className="px-4 py-3 border-b border-slate-100 bg-[#fcfcfc]">
-                                    <h3 className="text-[12px] font-black text-slate-700 uppercase flex items-center gap-2 mb-3">
-                                        <History size={14} className="text-emerald-600" /> Lịch sử phiếu nhập
+                        <TabsContent value="history" className="mt-5">
+                            <div className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+                                <div className="border-b border-slate-200 px-5 py-4">
+                                    <h3 className="mb-4 text-[12px] font-semibold text-slate-900">
+                                        3. Lịch sử phiếu nhập
                                     </h3>
                                     {historyLoadError && (
                                         <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900">
                                             {historyLoadError}
                                         </div>
                                     )}
+                                    <div className="mb-4 grid grid-cols-2 border border-slate-200 lg:grid-cols-4">
+                                        <div className="border-b border-r border-slate-200 px-4 py-3 lg:border-b-0">
+                                            <p className="text-[10.5px] text-slate-500">Tổng phiếu nhập</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{historySummary.totalReceipts}</p>
+                                        </div>
+                                        <div className="border-b border-slate-200 px-4 py-3 lg:border-b-0 lg:border-r">
+                                            <p className="text-[10.5px] text-slate-500">Tổng giá trị nhập</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{formatCurrency(historySummary.totalValue)}</p>
+                                        </div>
+                                        <div className="border-r border-slate-200 px-4 py-3">
+                                            <p className="text-[10.5px] text-slate-500">Tổng số lượng</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{historySummary.totalQuantity.toLocaleString("vi-VN")}</p>
+                                        </div>
+                                        <div className="px-4 py-3">
+                                            <p className="text-[10.5px] text-slate-500">Đã hoàn thành</p>
+                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{historySummary.completedReceipts}</p>
+                                        </div>
+                                    </div>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                                         <div className="relative md:col-span-2">
                                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1377,7 +1173,7 @@ export default function SupplierDetailPage() {
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            className="h-[34px] text-[11px] font-bold uppercase"
+                                            className="h-[34px] text-[11px] font-medium"
                                             onClick={() => {
                                                 setHistoryKeyword("");
                                                 setHistoryStatus("all");
@@ -1394,36 +1190,37 @@ export default function SupplierDetailPage() {
                                     </div>
                                 </div>
 
-                                <div className="p-0 overflow-x-auto">
-                                    <Table className="table-custom border-collapse table-fixed min-w-[740px]">
+                                <div className="min-w-0 p-0">
+                                    <Table className="table-custom w-full table-fixed border-collapse">
                                         <colgroup>
-                                            <col className="w-[180px]" />
-                                            <col className="w-[190px]" />
-                                            <col className="w-[160px]" />
-                                            <col />
+                                            <col className="w-[28%]" />
+                                            <col className="w-[24%]" />
+                                            <col className="w-[20%]" />
+                                            <col className="w-[20%]" />
+                                            <col className="w-[8%]" />
                                         </colgroup>
                                         <TableHeader>
                                             <TableRow className="bg-slate-50 border-b border-slate-100">
-                                                <TableHead className="text-[10px] font-bold uppercase py-3 pl-4">Mã phiếu</TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3">Ngày tạo</TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3">Trạng thái</TableHead>
-                                                <TableHead className="text-[10px] font-bold uppercase py-3 text-right pr-4">Tổng giá trị</TableHead>
+                                                <TableHead className="py-3 pl-4 text-[10px] font-semibold text-[#1f1f1f]">Mã phiếu</TableHead>
+                                                <TableHead className="py-3 text-[10px] font-semibold text-[#1f1f1f]">Ngày tạo</TableHead>
+                                                <TableHead className="py-3 text-[10px] font-semibold text-[#1f1f1f]">Trạng thái</TableHead>
+                                                <TableHead className="py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">Tổng giá trị</TableHead>
+                                                <TableHead className="py-3 pr-4 text-right text-[10px] font-semibold text-[#1f1f1f]">Thao tác</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {paginatedHistory.length > 0 ? (
                                                 paginatedHistory.map((item) => {
-                                                    const statusMeta = getHistoryStatusMeta(item.status);
                                                     return (
                                                         <TableRow
                                                             key={item.id}
-                                                            className="border-b border-slate-50 hover:bg-emerald-50/20 cursor-pointer"
+                                                            className="cursor-pointer border-b border-slate-100 hover:bg-slate-50/70"
                                                             onClick={() => router.push(`/admin/receipts/${item.id}`)}
                                                         >
-                                                            <TableCell className="pl-4">
+                                                            <TableCell className="py-3 pl-4">
                                                                 <button
                                                                     type="button"
-                                                                    className="text-[12px] font-black text-emerald-600 hover:text-emerald-700"
+                                                                    className="text-[12px] font-semibold text-slate-800 hover:text-emerald-700"
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
                                                                         router.push(`/admin/receipts/${item.id}`);
@@ -1431,46 +1228,45 @@ export default function SupplierDetailPage() {
                                                                 >
                                                                     {item.code}
                                                                 </button>
-                                                                <div className="mt-1 flex flex-col">
-                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                                                                        {item.itemCount || 0} mã hàng
-                                                                    </span>
-                                                                    <span className="text-[10px] font-semibold text-slate-400">
-                                                                        {item.totalQuantity || 0} sản phẩm
-                                                                    </span>
-                                                                </div>
+                                                                <p className="mt-1 text-[10.5px] text-slate-400">
+                                                                    {item.itemCount || 0} mã hàng · {item.totalQuantity || 0} sản phẩm
+                                                                </p>
                                                             </TableCell>
-                                                            <TableCell className="text-[11px] text-slate-500 font-medium">{formatDate(item.createdAt)}</TableCell>
-                                                            <TableCell>
-                                                                <span className={cn("text-[9px] font-bold border px-1.5 py-0.5 rounded uppercase", statusMeta.className)}>
-                                                                    {statusMeta.label}
+                                                            <TableCell className="py-3 text-[11.5px] text-slate-500">{formatDate(item.createdAt)}</TableCell>
+                                                            <TableCell className="py-3">
+                                                                <span className="text-[11.5px] text-slate-600">
+                                                                    {getHistoryStatusLabel(item.status)}
                                                                 </span>
                                                             </TableCell>
-                                                            <TableCell className="text-right pr-4">
-                                                                <div className="flex flex-col items-end gap-1">
-                                                                    <span className="text-[12px] font-black text-slate-800">
-                                                                        {formatCurrency(item.totalAmount)}
-                                                                    </span>
+                                                            <TableCell className="py-3 text-right text-[12px] font-semibold text-slate-800">
+                                                                {formatCurrency(item.totalAmount)}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 pr-4 text-right">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
                                                                     <Button
                                                                         type="button"
                                                                         variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-7 px-2 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                                                        size="icon"
+                                                                        aria-label="Xem chi tiết phiếu nhập"
+                                                                        className="h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-emerald-600"
                                                                         onClick={(event) => {
                                                                             event.stopPropagation();
                                                                             router.push(`/admin/receipts/${item.id}`);
                                                                         }}
                                                                     >
-                                                                        Xem chi tiết <ArrowUpRight size={12} className="ml-1" />
+                                                                        <ArrowUpRight size={15} />
                                                                     </Button>
-                                                                </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="top">Xem chi tiết</TooltipContent>
+                                                                </Tooltip>
                                                             </TableCell>
                                                         </TableRow>
                                                     );
                                                 })
                                             ) : (
                                                 <TableRow>
-                                                    <TableCell colSpan={4} className="text-center py-10 text-[12px] text-slate-400 font-bold uppercase tracking-widest">
+                                                    <TableCell colSpan={5} className="py-10 text-center text-[12px] text-slate-400">
                                                         Không có phiếu nhập phù hợp bộ lọc
                                                     </TableCell>
                                                 </TableRow>
@@ -1481,7 +1277,7 @@ export default function SupplierDetailPage() {
 
                                 {filteredHistory.length > 0 && (
                                     <div className="px-4 py-3 border-t border-slate-100 bg-[#fcfcfc] flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+                                        <p className="text-[11px] text-slate-500">
                                             Hiển thị {(historyCurrentPage - 1) * HISTORY_PAGE_SIZE + 1} - {Math.min(historyCurrentPage * HISTORY_PAGE_SIZE, filteredHistory.length)} trong {filteredHistory.length}
                                         </p>
                                         <div className="flex items-center gap-2">
@@ -1489,20 +1285,20 @@ export default function SupplierDetailPage() {
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-[11px] font-bold uppercase"
+                                                className="h-8 text-[11px] font-medium"
                                                 onClick={() => setHistoryCurrentPage((prev) => Math.max(prev - 1, 1))}
                                                 disabled={historyCurrentPage === 1}
                                             >
                                                 ← Trước
                                             </Button>
-                                            <span className="text-[11px] font-bold text-slate-600 uppercase min-w-[60px] text-center">
+                                            <span className="min-w-[60px] text-center text-[11px] text-slate-500">
                                                 {historyCurrentPage} / {historyTotalPages}
                                             </span>
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-8 text-[11px] font-bold uppercase"
+                                                className="h-8 text-[11px] font-medium"
                                                 onClick={() => setHistoryCurrentPage((prev) => Math.min(prev + 1, historyTotalPages))}
                                                 disabled={historyCurrentPage === historyTotalPages}
                                             >
@@ -1514,8 +1310,34 @@ export default function SupplierDetailPage() {
                             </div>
                         </TabsContent>
                     </Tabs>
-                </div>
             </div>
+
+            {activeTab !== "history" && (
+                <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-4px_14px_rgba(15,23,42,0.06)] backdrop-blur lg:left-[260px]">
+                    <div className="flex items-center justify-end gap-3">
+                        <Button type="button" variant="outline" onClick={handleGoBack} className="h-10 min-w-[104px] text-[12px] font-medium">
+                            Hủy
+                        </Button>
+                        {activeTab === "info" && (
+                        <Button type="submit" disabled={isSaving} className="h-10 min-w-[156px] bg-emerald-600 text-[12px] font-semibold hover:bg-emerald-700">
+                            <Save size={15} className="mr-2" />
+                            {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                        </Button>
+                        )}
+                        {activeTab === "catalog" && (
+                            <Button
+                                type="button"
+                                disabled={isCatalogSaving || Boolean(catalogLoadError) || !hasCatalogDraft}
+                                onClick={() => void saveCatalog()}
+                                className="h-10 min-w-[156px] bg-emerald-600 text-[12px] font-semibold hover:bg-emerald-700"
+                            >
+                                <Save size={15} className="mr-2" />
+                                {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <AlertDialog
                 open={showStatusConfirmModal}
@@ -1597,5 +1419,6 @@ export default function SupplierDetailPage() {
                 </AlertDialogContent>
             </AlertDialog>
         </form>
+        </TooltipProvider>
     );
 }

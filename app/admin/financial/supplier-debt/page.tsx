@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
   ChevronDown,
   HelpCircle,
   Download,
@@ -63,7 +61,6 @@ type StaffApiItem = {
 const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 export default function SupplierDebtReportPage() {
-  const router = useRouter();
   const { user, warehouseId } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
@@ -190,169 +187,151 @@ export default function SupplierDebtReportPage() {
   };
 
   return (
-    <div className="min-h-screen space-y-0 bg-[#f0f2f5] pb-10">
-      <div className="flex items-center gap-6 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
-        <div className="flex items-center gap-3 border-r border-slate-200 pr-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/admin/financial")}
-            className="h-8 w-8 rounded-none border border-slate-200 text-slate-500 transition-colors hover:text-blue-600"
-          >
-            <ChevronLeft size={20} />
-          </Button>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 space-y-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h1 className="whitespace-nowrap text-[18px] font-medium uppercase tracking-tight text-slate-800">
-              Công nợ nhà cung cấp
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+              Công nợ NCC
             </h1>
-            <p className="text-[11px] font-medium text-slate-500">
-              Dư nợ còn lại được chốt tại ngày kết thúc báo cáo
-            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+              onClick={() => setIsExplainOpen(true)}
+            >
+              <HelpCircle size={16} className="mr-2" />
+              Trợ giúp
+            </Button>
+            <Button
+              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              onClick={handleExportExcel}
+            >
+              <Download size={16} className="mr-2" />
+              Xuất file
+            </Button>
           </div>
         </div>
 
-        <div className="ms-auto flex items-center gap-3">
+        <div className="flex flex-wrap items-start gap-3 lg:flex-nowrap">
+          <div className="relative w-full min-w-0 lg:w-[280px] lg:flex-none xl:w-[300px]">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+              size={16}
+            />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm tên, SĐT, mã NCC"
+              className="h-[38px] w-full rounded-md border-slate-200 pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+            />
+          </div>
+
           <Input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="h-8 w-[140px] rounded-none border-slate-300 text-[12px] font-medium shadow-none"
+            className="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none focus-visible:ring-blue-500/20"
           />
+
           <Input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="h-8 w-[140px] rounded-none border-slate-300 text-[12px] font-medium shadow-none"
+            className="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none focus-visible:ring-blue-500/20"
           />
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 text-[11px] font-black uppercase text-slate-600 transition-colors hover:text-emerald-600"
-          >
-            <Download size={16} /> Xuất file
-          </button>
-          <button
-            onClick={() => setIsExplainOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] font-black uppercase text-slate-600 transition-colors hover:text-blue-600"
-          >
-            <HelpCircle size={16} /> Trợ giúp
-          </button>
-        </div>
-      </div>
 
-      <div className="p-4">
-        <div className="min-h-[400px] rounded-none border border-[#dcdcdc] bg-white shadow-sm">
-          <div className="flex flex-wrap items-start gap-3 border-b border-slate-100 bg-white px-6 py-4">
-            <div className="relative min-w-[400px] flex-1">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-                size={16}
-              />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Tìm kiếm theo tên, SĐT, mã nhà cung cấp"
-                className="h-[36px] w-full rounded-none border-slate-200 pl-10 text-[13px] shadow-none focus:border-blue-500"
-              />
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="group flex h-[36px] min-w-[140px] cursor-pointer items-center gap-0 border border-slate-200 bg-white px-3 hover:bg-slate-50">
-                  <span className="text-[12px] text-slate-500 group-hover:text-slate-700">
-                    Nợ cuối kỳ
-                  </span>
-                  <ChevronDown size={14} className="ml-auto text-slate-300" />
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[180px] rounded-none">
-                <DropdownMenuItem
-                  onClick={() => setDebtFilter("all")}
-                  className="cursor-pointer text-[13px]"
-                >
-                  Tất cả
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setDebtFilter("not_zero")}
-                  className="cursor-pointer text-[13px] font-medium text-blue-600"
-                >
-                  Khác 0
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setDebtFilter("zero")}
-                  className="cursor-pointer text-[13px] font-medium"
-                >
-                  Bằng 0
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Select value={branchId} onValueChange={setBranchId}>
-              <SelectTrigger
-                className="h-[36px] w-[180px] rounded-none border-slate-200 text-[12px] shadow-none"
-                disabled={!isAdmin}
-              >
-                <SelectValue placeholder="Chi nhánh" />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                {isAdmin && (
-                  <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                )}
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={String(branch.id)}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={staffId} onValueChange={setStaffId}>
-              <SelectTrigger className="h-[36px] w-[180px] rounded-none border-slate-200 text-[12px] shadow-none">
-                <SelectValue placeholder="Nhân viên phụ trách" />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                <SelectItem value="all">Tất cả nhân viên</SelectItem>
-                {staffs.map((staff) => (
-                  <SelectItem key={staff.id} value={String(staff.id)}>
-                    {staff.displayName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="border-b border-slate-50 bg-amber-50/60 px-6 py-2 text-[12px] text-amber-800">
-            Nợ cuối kỳ được chốt tại <span className="font-bold">{endDate}</span>.
-            Các chứng từ cũ trước ngày bắt đầu vẫn được tính nếu đến ngày này còn
-            dư nợ chưa thanh toán hết.
-          </div>
-
-          {debtFilter !== "all" && (
-            <div className="flex items-center gap-2 border-b border-slate-50 bg-white px-6 py-2">
-              <div className="border border-blue-100 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-600">
-                Nợ cuối kỳ: {debtFilter === "not_zero" ? "Khác 0" : "Bằng 0"}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="group flex h-[38px] min-w-[150px] cursor-pointer items-center gap-0 rounded-md border border-slate-200 bg-white px-3 hover:bg-slate-50 lg:w-[150px]">
+                <span className="text-[12px] text-slate-500 group-hover:text-slate-700">
+                  Nợ cuối kỳ
+                </span>
+                <ChevronDown size={14} className="ml-auto text-slate-300" />
               </div>
-            </div>
-          )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[180px]">
+              <DropdownMenuItem
+                onClick={() => setDebtFilter("all")}
+                className="cursor-pointer text-[13px]"
+              >
+                Tất cả
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setDebtFilter("not_zero")}
+                className="cursor-pointer text-[13px] font-medium text-blue-600"
+              >
+                Khác 0
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setDebtFilter("zero")}
+                className="cursor-pointer text-[13px] font-medium"
+              >
+                Bằng 0
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Select value={branchId} onValueChange={setBranchId}>
+            <SelectTrigger
+              className="h-[38px] w-[220px] rounded-md border-slate-200 text-[13px] shadow-none"
+              disabled={!isAdmin}
+            >
+              <SelectValue placeholder="Chi nhánh" />
+            </SelectTrigger>
+            <SelectContent>
+              {isAdmin && (
+                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+              )}
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={String(branch.id)}>
+                  {branch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={staffId} onValueChange={setStaffId}>
+            <SelectTrigger className="h-[38px] w-[220px] rounded-md border-slate-200 text-[13px] shadow-none">
+              <SelectValue placeholder="Nhân viên phụ trách" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả nhân viên</SelectItem>
+              {staffs.map((staff) => (
+                <SelectItem key={staff.id} value={String(staff.id)}>
+                  {staff.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
 
           {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 className="animate-spin text-blue-600" size={32} />
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+              <Loader2 className="mb-3 animate-spin text-emerald-600" size={32} />
+              <p className="text-[11px] uppercase tracking-widest text-slate-400">
+                Đang đồng bộ dữ liệu...
+              </p>
             </div>
           ) : data.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50 hover:bg-slate-50">
-                    <TableHead className="py-3 pl-6 text-[11px] font-bold uppercase">
+                  <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+                    <TableHead className="py-3 pl-6 text-[12px] font-semibold">
                       Mã NCC
                     </TableHead>
-                    <TableHead className="py-3 text-[11px] font-bold uppercase">
+                    <TableHead className="py-3 text-[12px] font-semibold">
                       Tên nhà cung cấp
                     </TableHead>
-                    <TableHead className="py-3 text-[11px] font-bold uppercase">
+                    <TableHead className="py-3 text-[12px] font-semibold">
                       SĐT
                     </TableHead>
-                    <TableHead className="py-3 pr-6 text-right text-[11px] font-bold uppercase">
+                    <TableHead className="py-3 pr-6 text-right text-[12px] font-semibold">
                       Nợ cuối kỳ
                     </TableHead>
                   </TableRow>
@@ -361,18 +340,18 @@ export default function SupplierDebtReportPage() {
                   {data.map((row) => (
                     <TableRow
                       key={row.id}
-                      className="transition-colors hover:bg-slate-50"
+                      className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                     >
-                      <TableCell className="py-3 pl-6 font-mono text-[13px] font-bold text-blue-600">
+                      <TableCell className="py-3 pl-6 font-mono text-[13px] font-semibold text-blue-600">
                         {row.supplierCode}
                       </TableCell>
-                      <TableCell className="py-3 text-[13px] font-medium">
+                      <TableCell className="py-3 text-[13px] font-medium text-slate-800">
                         {row.supplierName}
                       </TableCell>
                       <TableCell className="py-3 text-[13px] text-slate-500">
                         {row.phone || "---"}
                       </TableCell>
-                      <TableCell className="py-3 pr-6 text-right text-[14px] font-bold text-rose-600">
+                      <TableCell className="py-3 pr-6 text-right text-[14px] font-semibold text-rose-600">
                         {row.totalDebt.toLocaleString("vi-VN")} ₫
                       </TableCell>
                     </TableRow>
@@ -381,15 +360,10 @@ export default function SupplierDebtReportPage() {
               </Table>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-slate-200">
-                <Search size={40} strokeWidth={1.5} />
-              </div>
-              <h3 className="mb-2 text-[15px] font-bold text-slate-700">
-                Không tìm thấy nhà cung cấp phù hợp với điều kiện lọc
-              </h3>
-              <p className="text-[12px] font-medium text-slate-400">
-                Thử thay đổi từ khóa, chi nhánh, nhân viên hoặc bộ lọc nợ cuối kỳ
+            <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
+              <Search className="mb-2 opacity-20" size={40} strokeWidth={1.5} />
+              <p className="text-xs font-medium uppercase">
+                Không tìm thấy dữ liệu công nợ phù hợp
               </p>
             </div>
           )}
@@ -397,7 +371,7 @@ export default function SupplierDebtReportPage() {
       </div>
 
       <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
-        <DialogContent className="max-w-2xl rounded-none">
+        <DialogContent className="max-w-2xl border border-slate-200 bg-white shadow-xl">
           <DialogHeader>
             <DialogTitle className="uppercase">
               Trợ giúp công nợ nhà cung cấp

@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminBranchTable } from "@/components/admin/AdminBranchTable";
 // Đã sửa: Viết thường chữ b
 import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
-import { Loader2, AlertTriangle, AlertCircle } from "lucide-react";
+import { Loader2, AlertTriangle, AlertCircle, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +21,8 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 const statusFilters = [
   { label: "Tất cả trạng thái", value: "all" },
@@ -82,39 +83,51 @@ export default function BranchManagementPage() {
 
   return (
     <div className="space-y-3">
-      <AdminPageHeader
-        title="Hệ thống chi nhánh & Kho hàng"
-        addBtnLabel="Thêm chi nhánh"
-        addBtnHref="/admin/branches/add"
-        permission={P.BRANCH_CREATE}
-      />
+      <div className="mt-2 mb-8">
+        <div className="mb-4">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Chi nhánh & kho
+          </h1>
+        </div>
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden mb-8">
         <AdminSearchFilter
           placeholder="Tìm tên, mã chi nhánh, người phụ trách..."
+          containerClassName="bg-transparent border-b-0 px-0 pt-0"
+          hideFilter1
           filter2Placeholder="Trạng thái vận hành"
           filter2Options={statusFilters}
           onRefresh={fetchBranches}
+          trailingContent={
+            hasPermission(P.BRANCH_CREATE) ? (
+              <Link href="/admin/branches/add">
+                <Button className="h-[38px] px-4 text-[14px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition-all">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Thêm chi nhánh
+                </Button>
+              </Link>
+            ) : null
+          }
         />
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
-            <Loader2 className="h-8 w-8 animate-spin mb-3 text-emerald-600" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Đang đồng bộ dữ liệu...</p>
-          </div>
-        ) : branches.length > 0 ? (
-          <AdminBranchTable
-            branches={branches}
-            onDeleteClick={(id, name) => setDeleteBranch({id, name})} // Mở dialog
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
-            <AlertTriangle className="mb-2 opacity-20" size={40} />
-            <p className="text-xs font-bold uppercase">Chưa có dữ liệu chi nhánh</p>
-          </div>
-        )}
+        <div className="bg-white border border-[#dcdcdc] shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
+              <Loader2 className="h-8 w-8 animate-spin mb-3 text-emerald-600" />
+              <p className="text-[11px] uppercase tracking-widest text-slate-400">Đang đồng bộ dữ liệu...</p>
+            </div>
+          ) : branches.length > 0 ? (
+            <AdminBranchTable
+              branches={branches}
+              onDeleteClick={(id, name) => setDeleteBranch({id, name})}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
+              <AlertTriangle className="mb-2 opacity-20" size={40} />
+              <p className="text-xs font-medium uppercase">Chưa có dữ liệu chi nhánh</p>
+            </div>
+          )}
+        </div>
       </div>
-
       {/*AlertDialog xác nhận xóa giống Category */}
       <AlertDialog open={!!deleteBranch} onOpenChange={() => setDeleteBranch(null)}>
         <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">

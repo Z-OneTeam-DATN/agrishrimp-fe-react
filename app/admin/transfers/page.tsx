@@ -1,19 +1,26 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminTransferTable } from "@/components/admin/AdminTransferTable";
-import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { apiJava } from "@/lib/axios";
 import { toast } from "sonner";
 import {
   Loader2,
   AlertCircle,
-  RefreshCcw,
   ArrowLeftRight,
+  Plus,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -168,12 +175,12 @@ export default function AdminTransferListPage() {
       : "Không có dữ liệu phù hợp";
 
   const tabs = [
-    { id: "all", label: "TẤT CẢ" },
-    { id: "pending", label: "CHỜ DUYỆT" },
-    { id: "approved", label: "ĐÃ DUYỆT" },
-    { id: "shipping", label: "ĐANG CHUYỂN" },
-    { id: "completed", label: "HOÀN THÀNH" },
-    { id: "cancelled", label: "ĐÃ HỦY" },
+    { id: "all", label: "Tất cả" },
+    { id: "pending", label: "Chờ duyệt" },
+    { id: "approved", label: "Đã duyệt" },
+    { id: "shipping", label: "Đang chuyển" },
+    { id: "completed", label: "Hoàn thành" },
+    { id: "cancelled", label: "Đã hủy" },
   ];
 
   const counts = useMemo(() => {
@@ -194,110 +201,160 @@ export default function AdminTransferListPage() {
     };
   }, [transfers]);
 
+  const summaryCards = [
+    {
+      title: "Phiếu chờ duyệt",
+      value: counts.pending,
+      description: "Đang chờ xác nhận để tạo lệnh điều chuyển",
+    },
+    {
+      title: "Đã duyệt",
+      value: counts.approved,
+      description: "Sẵn sàng xuất kho hoặc bàn giao cho vận chuyển",
+    },
+    {
+      title: "Đang chuyển",
+      value: counts.shipping,
+      description: "Hàng đang trên đường tới kho hoặc chi nhánh nhận",
+    },
+    {
+      title: "Hoàn thành",
+      value: counts.completed,
+      description: "Phiếu đã nhận đủ và hoàn tất điều chuyển",
+    },
+  ];
+
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] -m-4 md:-m-5 bg-[#f8f9fa] overflow-hidden">
-      <div className="bg-white border-b shrink-0">
-        <div className="px-6 pt-5 pb-3 flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-[16px] font-black uppercase tracking-tight text-slate-700 flex items-center gap-2">
-              <ArrowLeftRight className="text-slate-400" size={18} />
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Danh sách điều chuyển hàng hóa
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <AdminPageHeader
-              title=""
-              addBtnLabel="Lập lệnh điều chuyển"
-              addBtnHref="/admin/transfers/new"
+        </div>
+
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="w-full xl:max-w-[260px]">
+            <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                <SelectValue placeholder="Lọc theo kho" />
+              </SelectTrigger>
+              <SelectContent>
+                {warehouseOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              onClick={() => window.location.assign("/admin/transfers/new")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Lập lệnh điều chuyển
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => (
+            <div
+              key={card.title}
+              className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+            >
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  {card.title}
+                </p>
+              </div>
+              <div className="mt-3 space-y-1">
+                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                  {card.value}
+                </p>
+                <p className="text-[10px] leading-4.5 text-slate-500">
+                  {card.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {tabs.map((tab) => {
+              const hasItems = (counts as Record<string, number>)[tab.id] > 0;
+              const showRedDot =
+                (tab.id === "pending" || tab.id === "approved") && hasItems;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "relative h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                    activeTab === tab.id
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
+                  )}
+                >
+                  {tab.label}
+                  {showRedDot && (
+                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-500" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative w-full xl:max-w-[360px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+            <Input
+              placeholder="Tìm mã lệnh, chi nhánh..."
+              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="px-6 flex items-center h-[48px] gap-8">
-          {tabs.map((tab) => {
-            const hasItems = (counts as Record<string, number>)[tab.id] > 0;
-            const showRedDot = (tab.id === "pending" || tab.id === "approved") && hasItems;
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "h-full text-[12px] font-black border-b-2 px-1 tracking-wider transition-all relative",
-                  activeTab === tab.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-400 hover:text-slate-600",
-                )}
-              >
-                {tab.label}
-                {showRedDot && (
-                  <span className="absolute top-2 -right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                )}
-                {activeTab === tab.id && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex-1 p-6 flex flex-col min-h-0">
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between pr-4 bg-slate-50/50 border-b shrink-0">
-            <div className="flex-1">
-              <AdminSearchFilter
-                placeholder="Tìm mã lệnh, chi nhánh..."
-                filter1Placeholder="Lọc theo kho"
-                filter1Options={warehouseOptions}
-                onRefresh={fetchTransfers}
-                onSearch={setSearchQuery}
-                onFilter1Change={setSelectedWarehouse}
-                hideFilter2={true}
-                hideSort={true}
-              />
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+              <p className="text-[11px] uppercase tracking-widest text-slate-400 text-center px-10">
+                Đang truy xuất dữ liệu vận chuyển...
+              </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={fetchTransfers} disabled={isLoading}>
-              <RefreshCcw size={16} className={cn(isLoading && "animate-spin")} />
-            </Button>
-          </div>
-
-          <div className="flex-1 min-h-0 bg-white relative">
-            {isLoading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
-                <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 text-center px-10">
-                  Đang truy xuất dữ liệu vận chuyển...
-                </p>
-              </div>
-            ) : filteredData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <div className="bg-slate-50 p-4 rounded-full mb-3">
-                  <ArrowLeftRight className="opacity-20" size={40} />
-                </div>
-                <p className="text-xs font-bold uppercase tracking-tight">
-                  {emptyMessage}
-                </p>
-              </div>
-            ) : (
-              <AdminTransferTable
-                data={displayData}
-                totalCount={totalItems}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                selectedIds={[]}
-                onSelectionChange={() => {}}
-                onDelete={(id) => {
-                  const item = transfers.find((t) => t.id === id);
-                  setDeleteTransfer({
-                    id,
-                    code: item?.transferCode || item?.code || "N/A",
-                  });
-                }}
-              />
-            )}
-          </div>
+          ) : filteredData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
+              <ArrowLeftRight className="mb-2 opacity-20" size={40} />
+              <p className="text-xs font-medium uppercase">{emptyMessage}</p>
+            </div>
+          ) : (
+            <AdminTransferTable
+              data={displayData}
+              totalCount={totalItems}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              selectedIds={[]}
+              onSelectionChange={() => {}}
+              onDelete={(id) => {
+                const item = transfers.find((t) => t.id === id);
+                setDeleteTransfer({
+                  id,
+                  code: item?.transferCode || item?.code || "N/A",
+                });
+              }}
+            />
+          )}
         </div>
       </div>
 

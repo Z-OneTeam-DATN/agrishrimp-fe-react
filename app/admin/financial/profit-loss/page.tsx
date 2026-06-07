@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, Download, HelpCircle, Loader2 } from "lucide-react";
+import { Download, HelpCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,7 +61,6 @@ const formatDateVN = (dateStr: string) => {
 };
 
 export default function ProfitLossReportPage() {
-  const router = useRouter();
   const { user, warehouseId } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
@@ -371,182 +369,190 @@ export default function ProfitLossReportPage() {
   const { prevStart, prevEnd } = getPrevPeriod(startDate, endDate);
 
   return (
-    <div className="space-y-0 pb-10 bg-[#f0f2f5] min-h-screen">
-      <div className="px-6 py-3 flex items-center gap-5 bg-white border-b border-slate-200 shadow-sm flex-wrap">
-        <div className="flex items-center gap-3 border-r pr-5 border-slate-200">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/admin/financial")}
-            className="h-8 w-8 text-slate-500 hover:text-blue-600 border border-slate-200 rounded-none"
-          >
-            <ChevronLeft size={20} />
-          </Button>
-          <h1 className="text-[17px] font-bold text-slate-800 uppercase">
-            Báo cáo lãi lỗ
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 px-1">
+        <div className="mb-4">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Lãi lỗ
           </h1>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 uppercase">
-            Từ ngày
-          </span>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-8 w-[140px] text-[12px] border-slate-300 rounded-none shadow-none font-medium"
-          />
-        </div>
+        <div className="flex flex-col gap-3 border-b-0 bg-transparent px-0 pt-0 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="space-y-1">
+              <span className="text-[10px] font-medium uppercase text-slate-400">
+                Từ ngày
+              </span>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-[38px] w-full min-w-[180px] text-[13px] font-medium shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              />
+            </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 uppercase">
-            Đến ngày
-          </span>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="h-8 w-[140px] text-[12px] border-slate-300 rounded-none shadow-none font-medium"
-          />
-        </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-medium uppercase text-slate-400">
+                Đến ngày
+              </span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-[38px] w-full min-w-[180px] text-[13px] font-medium shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              />
+            </div>
 
-        <div className="flex items-center gap-2 border-l pl-5 border-slate-200">
-          <span className="text-[11px] font-bold text-slate-500 uppercase">
-            Chi nhánh
-          </span>
-          <Select value={branchId} onValueChange={setBranchId}>
-            <SelectTrigger
-              className="h-8 w-[180px] text-[12px] border-slate-300 rounded-none shadow-none bg-white font-medium focus:ring-0"
-              disabled={!isAdmin}
+            <div className="space-y-1">
+              <span className="text-[10px] font-medium uppercase text-slate-400">
+                Chi nhánh
+              </span>
+              <Select value={branchId} onValueChange={setBranchId}>
+                <SelectTrigger
+                  className="h-[38px] w-full min-w-[220px] text-[13px] font-medium shadow-none focus:ring-0 lg:w-[260px]"
+                  disabled={!isAdmin}
+                >
+                  <SelectValue placeholder="Tất cả chi nhánh" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsExplainOpen(true)}
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
             >
-              <SelectValue placeholder="Tất cả chi nhánh" />
-            </SelectTrigger>
-            <SelectContent className="rounded-none">
-              {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <HelpCircle className="mr-2 h-4 w-4" />
+              Trợ giúp
+            </Button>
+            <Button
+              onClick={handleExportExcel}
+              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Xuất file
+            </Button>
+          </div>
         </div>
 
-        <div className="ms-auto flex items-center gap-5">
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-emerald-600 transition-colors uppercase"
-          >
-            <Download size={15} /> Xuất file
-          </button>
-          <button
-            onClick={() => setIsExplainOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] text-slate-600 font-black hover:text-blue-600 transition-colors uppercase"
-          >
-            <HelpCircle size={15} /> Trợ giúp
-          </button>
-        </div>
-      </div>
-
-      <div className="p-4">
-        <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden relative min-h-[500px]">
+        <div className="mt-4 relative overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           {loading && (
-            <div className="absolute inset-0 bg-white/70 flex flex-col items-center justify-center z-10">
-              <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70">
+              <Loader2 className="mb-2 animate-spin text-emerald-600" size={32} />
               <span className="text-[12px] font-medium text-slate-500">
                 Đang tổng hợp số liệu...
               </span>
             </div>
           )}
 
-          <Table className="border-collapse">
-            <TableHeader>
-              <TableRow className="bg-[#5c7293] hover:bg-[#5c7293] h-12">
-                <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 pl-6 w-[40%]">
+          {reportRows.length > 0 ? (
+            <Table className="min-w-[980px] border-collapse">
+              <TableHeader>
+                <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+                  <TableHead className="w-[40%] p-3 pl-6 text-[12px] font-semibold text-[#1f1f1f]">
                   Chỉ tiêu báo cáo
-                </TableHead>
-                <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[20%]">
-                  <p>Kỳ trước</p>
-                  <p className="text-[9px] font-medium text-blue-200">
-                    ({formatDateVN(prevStart)} - {formatDateVN(prevEnd)})
-                  </p>
-                </TableHead>
-                <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[20%]">
-                  <p>Kỳ hiện tại</p>
-                  <p className="text-[9px] font-medium text-emerald-200">
-                    ({formatDateVN(startDate)} - {formatDateVN(endDate)})
-                  </p>
-                </TableHead>
-                <TableHead className="text-white font-bold text-[11px] uppercase text-center w-[20%]">
+                  </TableHead>
+                  <TableHead className="w-[20%] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">
+                    <div className="space-y-0.5">
+                      <p>Kỳ trước</p>
+                      <p className="text-[10px] font-medium text-slate-400">
+                        {formatDateVN(prevStart)} - {formatDateVN(prevEnd)}
+                      </p>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[20%] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">
+                    <div className="space-y-0.5">
+                      <p>Kỳ hiện tại</p>
+                      <p className="text-[10px] font-medium text-slate-400">
+                        {formatDateVN(startDate)} - {formatDateVN(endDate)}
+                      </p>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[20%] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">
                   % thay đổi
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reportRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={cn(
-                    "border-b border-slate-100 hover:bg-slate-50 transition-colors h-10",
-                    row.isBold ? "bg-slate-50/30" : "bg-white",
-                    row.isResult && "bg-blue-50/50 hover:bg-blue-50 border-t-2 border-t-blue-100"
-                  )}
-                >
-                  <TableCell
-                    className={cn(
-                      "py-2 text-[13px] border-r border-slate-50",
-                      row.padding || "pl-6",
-                      row.isBold ? "font-black text-slate-800" : "text-slate-600",
-                      row.isItalic && "italic",
-                      row.isResult && "text-blue-700"
-                    )}
-                  >
-                    {row.label}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      "py-2 text-center text-[13px] border-r border-slate-50",
-                      row.isBold ? "font-bold text-slate-800" : "text-slate-600"
-                    )}
-                  >
-                    {formatNumber(row.prev)}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      "py-2 text-center text-[13px] border-r border-slate-50",
-                      row.isBold ? "font-black text-slate-800" : "text-slate-600",
-                      row.isResult && "text-blue-700 text-[15px]"
-                    )}
-                  >
-                    {formatNumber(row.current)}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      "py-2 text-center text-[13px] font-bold",
-                      row.change === "0%"
-                        ? "text-slate-400"
-                        : row.change.includes("-")
-                          ? "text-rose-500"
-                          : "text-emerald-600"
-                    )}
-                  >
-                    {row.change}
-                  </TableCell>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {reportRows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className={cn(
+                      "h-[56px] border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]",
+                      row.isBold && "bg-slate-50/60",
+                      row.isResult && "bg-emerald-50/40 hover:bg-emerald-50/50"
+                    )}
+                  >
+                    <TableCell
+                      className={cn(
+                        "border-r border-[#f3f3f3] py-2 text-[13px]",
+                        row.padding || "pl-6",
+                        row.isBold ? "font-semibold text-slate-800" : "text-slate-600",
+                        row.isItalic && "italic",
+                        row.isResult && "font-semibold text-emerald-700"
+                      )}
+                    >
+                      {row.label}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "border-r border-[#f3f3f3] p-2 text-center text-[13px]",
+                        row.isBold ? "font-semibold text-slate-800" : "text-slate-600"
+                      )}
+                    >
+                      {formatNumber(row.prev)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "border-r border-[#f3f3f3] p-2 text-center text-[13px]",
+                        row.isBold ? "font-semibold text-slate-800" : "text-slate-600",
+                        row.isResult && "font-semibold text-emerald-700"
+                      )}
+                    >
+                      {formatNumber(row.current)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "p-2 text-center text-[13px] font-semibold",
+                        row.change === "0%"
+                          ? "text-slate-400"
+                          : row.change.includes("-")
+                            ? "text-rose-500"
+                            : "text-emerald-600"
+                      )}
+                    >
+                      {row.change}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
+              <AlertTriangle className="mb-2 opacity-20" size={40} />
+              <p className="text-xs font-medium uppercase">Chưa có dữ liệu báo cáo</p>
+            </div>
+          )}
         </div>
       </div>
 
       <Dialog open={isExplainOpen} onOpenChange={setIsExplainOpen}>
-        <DialogContent className="max-w-2xl rounded-none">
+        <DialogContent className="max-w-2xl border border-slate-200 bg-white shadow-xl">
           <DialogHeader>
-            <DialogTitle className="uppercase">
+            <DialogTitle className="uppercase text-slate-900">
               Trợ giúp báo cáo lãi lỗ
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-slate-500">
               Báo cáo này dùng đúng công thức backend cho mọi thẻ số liệu, bảng
               và file xuất.
             </DialogDescription>

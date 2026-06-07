@@ -330,7 +330,7 @@ export default function InventoryBelowMinReportPage() {
                 </div>
                 <Button 
                   variant="outline"
-                  onClick={() => router.push("/admin/receipts/new")}
+                  onClick={() => router.push("/admin/receipts/select-request")}
                   className="border-blue-600 text-blue-600 hover:bg-blue-50 font-bold uppercase text-[12px] h-10 rounded-none px-6"
                 >
                   Tạo phiếu nhập kho ngay

@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminRoleTable } from "@/components/admin/AdminRoleTable";
-import { Users } from "lucide-react";
 import { RoleService } from "@/app/services/RoleService";
 import { RoleType } from "@/app/types/role.schema";
 import { toast } from "sonner";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 const typeFilters = [
   { label: "Tất cả nhóm", value: "all" },
@@ -73,7 +74,6 @@ export default function RolesManagementPage() {
     fetchRoles();
   }, [fetchRoles]);
 
-  // Handlers
   const handleSearch = (val: string) => {
     setFilters(prev => ({ ...prev, keyword: val, page: 0 }));
   };
@@ -92,22 +92,16 @@ export default function RolesManagementPage() {
 
   return (
     <div className="space-y-3">
-      <div className="mx-6 mt-5">
-        <AdminPageHeader 
-          title="Danh sách vai trò hệ thống" 
-          titleClassName="text-[26px] font-black tracking-[0.04em]"
-          subtitle="Quản lý nhóm quyền truy cập, phân loại vai trò và trạng thái hoạt động trong hệ thống."
-          addBtnLabel="Thêm vai trò mới" 
-          addBtnHref="/admin/employees/roles/add" 
-          secondaryBtnLabel="Quản lý nhân sự"
-          secondaryBtnHref="/admin/employees"
-          secondaryBtnIcon={Users}
-        />
-      </div>
+      <div className="mt-2 mb-8">
+        <div className="mb-4">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Quản lý vai trò hệ thống
+          </h1>
+        </div>
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
         <AdminSearchFilter 
           placeholder="Tìm kiếm tên vai trò, slug..." 
+          containerClassName="bg-transparent border-b-0 px-0 pt-0"
           filter1Placeholder="Lọc theo nhóm"
           filter1Options={typeFilters}
           onFilter1Change={handleTypeChange}
@@ -116,10 +110,21 @@ export default function RolesManagementPage() {
           onFilter2Change={handleStatusChange}
           onSearch={handleSearch}
           onRefresh={fetchRoles}
+          hideRefreshButton
+          hideSort
+          hideSettingsButton
+          trailingContent={
+            <Link href="/admin/employees/roles/add">
+              <Button className="h-[38px] px-4 text-[14px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition-all">
+                <Plus className="mr-2 h-4 w-4" />
+                Thêm vai trò mới
+              </Button>
+            </Link>
+          }
         />
         
         {loading ? (
-          <div className="p-8 text-center text-slate-500 font-medium italic">
+          <div className="p-8 text-center text-slate-500 italic">
             Đang tải dữ liệu...
           </div>
         ) : (

@@ -43,15 +43,18 @@ export function AdminPageHeader({
 }: AdminPageHeaderProps) {
   const { hasPermission } = usePermissions();
   const canAdd = !permission || hasPermission(permission);
+  const hasTabs = Boolean(tabs && onTabChange);
+  const hasActions = Boolean(
+    secondaryBtnLabel || (canAdd && (addBtnHref || onAddClick)),
+  );
+
+  if (!hasTabs && !hasActions) {
+    return null;
+  }
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-1">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
       <div className="flex items-center gap-4">
-        <div>
-          <h1 className={cn("text-[20px] font-bold text-slate-900 tracking-tight uppercase", titleClassName)}>{title}</h1>
-          {subtitle && <p className="text-[13px] text-slate-500 mt-1">{subtitle}</p>}
-        </div>
-        
         {tabs && onTabChange && (
           <div className="hidden md:flex gap-[5px]">
             {tabs.map((tab) => (

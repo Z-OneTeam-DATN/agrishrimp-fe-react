@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, CheckCircle, FileText, Calendar, Warehouse, User, AlertCircle } from "lucide-react";
+import { AlertCircle, Check, Eye, Pencil, Trash2 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
@@ -27,6 +27,7 @@ interface InventoryExportTableProps {
   totalCount: number;
   currentPage: number;
   totalPages: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
 }
 
@@ -36,6 +37,7 @@ export function InventoryExportTable({
   totalCount,
   currentPage,
   totalPages,
+  pageSize,
   onPageChange
 }: InventoryExportTableProps) {
   const router = useRouter();
@@ -125,116 +127,115 @@ export function InventoryExportTable({
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "PENDING":
-        return "text-amber-500 bg-white border-amber-200";
+        return "text-amber-600";
       case "APPROVED":
-        return "text-blue-500 bg-white border-blue-200";
+        return "text-blue-600";
       case "COMPLETED":
-        return "text-emerald-600 bg-white border-emerald-200";
+        return "text-emerald-600";
       case "CANCELLED":
       case "REJECTED":
-        return "text-slate-400 bg-white border-slate-200";
+        return "text-slate-500";
       default:
-        return "text-slate-500 bg-white border-slate-100";
+        return "text-slate-500";
     }
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-x-auto overflow-y-hidden relative custom-scrollbar">
-        <Table className="table-custom border-collapse min-w-[1400px] w-full">
-          <TableHeader className="sticky top-0 z-20 bg-white shadow-sm">
-            <TableRow className="bg-white border-b border-slate-100 hover:bg-white">
-              <TableHead className="w-[60px] font-bold text-[10px] uppercase p-3 pl-5 text-slate-400">ID</TableHead>
-              <TableHead className="w-[140px] font-bold text-[10px] uppercase p-3 text-slate-400">Mã lệnh</TableHead>
-              <TableHead className="w-[160px] font-bold text-[10px] uppercase p-3 text-slate-400">Thời gian</TableHead>
-              <TableHead className="w-[160px] font-bold text-[10px] uppercase p-3 text-slate-400">Người tạo</TableHead>
-              <TableHead className="min-w-[250px] font-bold text-[10px] uppercase p-3 text-slate-400">Đối tác nhận</TableHead>
-              <TableHead className="w-[180px] font-bold text-[10px] uppercase p-3 text-slate-400">Kho xuất</TableHead>
-              <TableHead className="w-[130px] text-right font-bold text-[10px] uppercase p-3 text-slate-400">Tổng giá trị</TableHead>
-              <TableHead className="w-[130px] font-bold text-[10px] uppercase p-3 text-center text-slate-400">Trạng thái</TableHead>
-              <TableHead className="w-[120px] text-right font-bold text-[10px] uppercase p-3 pr-5 text-slate-400">Thao tác</TableHead>
+        <Table className="table-custom w-full table-auto border-collapse">
+          <TableHeader className="sticky top-0 z-20">
+            <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+              <TableHead className="w-[44px] px-1.5 py-2 pl-4 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">STT</TableHead>
+              <TableHead className="w-[130px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Mã lệnh</TableHead>
+              <TableHead className="w-[150px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Thời gian</TableHead>
+              <TableHead className="w-[100px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Người tạo</TableHead>
+              <TableHead className="min-w-[280px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Đối tác nhận</TableHead>
+              <TableHead className="w-[180px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Kho xuất</TableHead>
+              <TableHead className="w-[120px] px-1.5 py-2 text-right text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Tổng giá trị</TableHead>
+              <TableHead className="w-[100px] px-1.5 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Trạng thái</TableHead>
+              <TableHead className="w-[80px] px-1.5 py-2 pr-4 text-right text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {exports.map((item: any) => {
+            {exports.map((item: any, index: number) => {
               const status = (item.status || "").toUpperCase();
-              let displayPartner = item.displayPartnerName || item.supplierName || item.partnerBranchName || "N/A";
+              const displayPartner = item.displayPartnerName || item.supplierName || item.partnerBranchName || "N/A";
 
               return (
-                <TableRow key={item.id} className="hover:bg-slate-50/50 border-b border-slate-50 transition-colors cursor-pointer group h-[64px]">
-                  <TableCell className="p-3 pl-5 text-[11px] font-bold text-slate-300 uppercase">#{item.id || "0"}</TableCell>
-
-                  <TableCell className="p-3">
-                    <span className="text-[12px] font-bold text-slate-700 uppercase tracking-tight flex items-center gap-1.5 whitespace-nowrap">
-                      <FileText size={13} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+                <TableRow key={item.id} className="group cursor-pointer border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]">
+                  <TableCell className="px-1.5 py-2 pl-4 text-[11px] font-medium text-slate-500 transition-colors group-hover:text-blue-500">
+                    {(currentPage - 1) * pageSize + index + 1}
+                  </TableCell>
+                  <TableCell className="px-1.5 py-2">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold tracking-tight text-slate-700">
                       {item.code}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-3">
-                    <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 whitespace-nowrap uppercase">
+                  <TableCell className="px-1.5 py-2">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-slate-500">
                       {formatDate(item.createdAt)}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-3">
-                    <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 uppercase whitespace-nowrap">
+                  <TableCell className="px-1.5 py-2">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-slate-500">
                       {item.creatorName || "Hệ thống"}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-3">
+                  <TableCell className="px-1.5 py-2">
                     <span className={cn(
-                      "text-[12px] font-bold leading-tight flex items-center gap-1 truncate max-w-[300px] text-slate-600"
+                      "block max-w-[420px] truncate text-[11px] font-semibold leading-tight text-slate-600"
                     )} title={displayPartner}>
-                      <User size={12} className="text-slate-300"/>
                       {displayPartner}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-3">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-bold uppercase whitespace-nowrap">
-                      <Warehouse size={12} className="text-slate-300" /> {item.branchName || "N/A"}
+                  <TableCell className="px-1.5 py-2">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-slate-500">
+                      {item.branchName || "N/A"}
                     </div>
                   </TableCell>
 
-                  <TableCell className="p-3 text-right text-[12px] font-bold text-slate-700 whitespace-nowrap">{formatNumber(item.totalAmount || 0)}</TableCell>
+                  <TableCell className="px-1.5 py-2 text-right text-[11px] font-semibold text-slate-700 whitespace-nowrap">{formatNumber(item.totalAmount || 0)}</TableCell>
 
-                  <TableCell className="p-3 text-center">
-                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border tracking-tight uppercase whitespace-nowrap", getStatusStyle(status))}>
+                  <TableCell className="px-1.5 py-2 text-center">
+                    <span className={cn("whitespace-nowrap text-[11px] font-medium", getStatusStyle(status))}>
                       {status === "PENDING" ? "Chờ duyệt" : status === "APPROVED" ? "Đã duyệt" : status === "COMPLETED" ? "Đã xuất" : "Đã hủy"}
                     </span>
                   </TableCell>
 
-                  <TableCell className="p-3 text-right pr-5">
+                  <TableCell className="px-1.5 py-2 pr-4 text-right">
                     <div className="flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                       {status === "PENDING" && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Chỉnh sửa" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
-                          <Pencil size={13} className="text-slate-400 hover:text-blue-600" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" title="Chỉnh sửa" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
+                          <Pencil size={13} />
                         </Button>
                       )}
                       
                       {status === "PENDING" && canApprove && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Duyệt lệnh" onClick={(e) => { e.stopPropagation(); handleApprove(item.id, item.code); }}>
-                          <CheckCircle size={13} className="text-blue-500" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Duyệt lệnh" onClick={(e) => { e.stopPropagation(); handleApprove(item.id, item.code); }}>
+                          <Check size={14} />
                         </Button>
                       )}
 
                       {status === "APPROVED" && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
-                          <CheckCircle size={13} className="text-emerald-500" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:text-emerald-600" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
+                          <Check size={14} />
                         </Button>
                       )}
 
                       {status === "PENDING" && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Xóa" onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.code); }}>
-                          <Trash2 size={13} className="text-slate-400 hover:text-rose-600" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" title="Xóa" onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.code); }}>
+                          <Trash2 size={13} />
                         </Button>
                       )}
 
                       {status !== "PENDING" && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
-                          <FileText size={13} className="text-slate-400 hover:text-blue-600" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
+                          <Eye size={14} />
                         </Button>
                       )}
                     </div>
@@ -247,30 +248,30 @@ export function InventoryExportTable({
       </div>
 
       {/* Footer thanh tổng cộng */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-white min-w-full shrink-0">
+      <div className="flex min-w-full shrink-0 items-center justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
         <div className="flex items-center gap-8 whitespace-nowrap">
-          <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Hiển thị {exports.length} / {totalCount} bản ghi</p>
+          <p className="text-[12px] font-semibold text-slate-500">Hiển thị {exports.length} / {totalCount} bản ghi</p>
           <div className="flex items-center gap-6">
-            <p className="text-[11px] font-bold text-slate-400 uppercase">Tổng giá trị: <span className="text-slate-700 ml-1">{formatNumber(totalAmount)} ₫</span></p>
+            <p className="text-[12px] font-semibold text-slate-500">Tổng giá trị: <span className="ml-1 text-slate-700">{formatNumber(totalAmount)} ₫</span></p>
           </div>
         </div>
         <div className="flex items-center gap-1 ml-4">
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-7 px-3 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
+            className="h-7 px-3 text-[11px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
             disabled={currentPage === 1}
             onClick={() => onPageChange(currentPage - 1)}
           >
             Trước
           </Button>
-          <div className="flex items-center justify-center h-7 w-auto px-3 text-[10px] font-black bg-slate-100 text-slate-600 rounded-full min-w-[28px]">
+          <div className="flex h-7 min-w-[28px] w-auto items-center justify-center rounded-full bg-slate-100 px-3 text-[11px] font-black text-slate-600">
             {currentPage} / {totalPages || 1}
           </div>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-7 px-3 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
+            className="h-7 px-3 text-[11px] font-bold text-slate-400 uppercase hover:text-slate-600 disabled:opacity-30"
             disabled={currentPage === totalPages || totalPages === 0}
             onClick={() => onPageChange(currentPage + 1)}
           >
@@ -281,23 +282,25 @@ export function InventoryExportTable({
 
       {/* AlertDialog dành cho các xác nhận quan trọng */}
       <AlertDialog open={confirmConfig.open} onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}>
-        <AlertDialogContent className="rounded-none border-2 border-slate-200 shadow-2xl">
+        <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-slate-200 bg-white shadow-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[16px] font-black uppercase text-slate-800 flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 text-[16px] font-bold uppercase tracking-tight text-slate-800">
               <AlertCircle className={cn("w-5 h-5", confirmConfig.variant === "destructive" ? "text-rose-500" : "text-blue-500")} />
               {confirmConfig.title}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-[13px] font-medium text-slate-500 leading-relaxed pt-2">
+            <AlertDialogDescription className="pt-2 text-[13px] leading-relaxed text-slate-500">
               {confirmConfig.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-4 gap-3">
-            <AlertDialogCancel className="rounded-none border-slate-300 text-slate-500 font-bold uppercase text-[11px] h-9 px-6 hover:bg-slate-50">Quay lại</AlertDialogCancel>
+            <AlertDialogCancel className="h-[32px] rounded-[3px] border-slate-300 text-[12px] font-bold">
+              Quay lại
+            </AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmConfig.action}
               className={cn(
-                "rounded-none font-black uppercase text-[11px] h-9 px-8 shadow-lg transition-all",
-                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+                "h-[32px] rounded-[3px] px-6 text-[12px] font-bold text-white",
+                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
               )}
             >
               Xác nhận

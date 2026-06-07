@@ -79,6 +79,12 @@ export default function BlogPostForm({ categories, initialData }: Props) {
 
   const [saving, setSaving] = useState(false);
   const isEdit = !!initialData;
+  const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
+  const fieldControlClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
+  const sectionCardClass = "border border-slate-200 bg-white p-6 shadow-sm";
+  const sidebarCardClass = "overflow-hidden border border-slate-200 bg-white shadow-sm";
+  const sectionTitleClass = "text-[11px] font-bold text-slate-800";
 
   const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,171 +170,139 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
-      {/* ── LEFT: nội dung chính ── */}
-      <div className="space-y-5">
-        {/* Tiêu đề */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
-          <Label className="text-[13px] font-semibold text-slate-600 uppercase tracking-wide">
-            Tiêu đề <span className="text-rose-500 normal-case">*</span>
-          </Label>
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Nhập tiêu đề bài viết..."
-            className="h-11 text-[15px] font-medium bg-slate-50 border-slate-200 focus:bg-white"
-          />
+    <form onSubmit={handleSubmit} className="space-y-5 px-1 pb-[100px] text-slate-800">
+      <div className={sectionCardClass}>
+        <div className="border-b border-slate-200 pb-3">
+          <span className={sectionTitleClass}>1. Thông tin bài viết</span>
         </div>
 
-        {/* Mô tả ngắn */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
-          <div>
-            <Label className="text-[13px] font-semibold text-slate-600 uppercase tracking-wide">
-              Mô tả ngắn
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
+          <div className="space-y-1.5 md:col-span-6">
+            <Label className={fieldLabelClass}>
+              Tiêu đề <span className="text-rose-500 normal-case">*</span>
             </Label>
-            <p className="text-[12px] text-slate-400 mt-0.5">Hiển thị ngoài trang danh sách và kết quả tìm kiếm</p>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Nhập tiêu đề bài viết..."
+              className={cn(fieldControlClass, "border-slate-200 bg-white")}
+            />
           </div>
-          <Textarea
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            placeholder="Tóm tắt nội dung bài viết..."
-            className="resize-none bg-slate-50 border-slate-200 focus:bg-white text-sm"
-            rows={3}
-          />
+
+          <div className="space-y-1.5 md:col-span-6">
+            <Label className={fieldLabelClass}>Ảnh bìa</Label>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailChange} aria-label="Tải ảnh bìa lên" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  fieldControlClass,
+                  "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-emerald-300 hover:text-emerald-600",
+                )}
+              >
+                <Upload size={14} className="mr-2 shrink-0" />
+                <span className="truncate">
+                  {thumbnailFile?.name ?? (thumbnailPreview ? "Đã có ảnh bìa" : "Chọn ảnh bìa...")}
+                </span>
+              </button>
+              {thumbnailPreview && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={removeThumbnail}
+                  className="h-[38px] shrink-0 rounded-[4px] border-slate-200 px-3 text-[12px] text-slate-500"
+                >
+                  <X size={12} />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5 md:col-span-6">
+            <Label className={fieldLabelClass}>Trạng thái</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as "DRAFT" | "PUBLISHED")}>
+              <SelectTrigger className={cn(fieldControlClass, "border-slate-200 bg-white")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DRAFT" className="text-[13px]">Bản nháp</SelectItem>
+                <SelectItem value="PUBLISHED" className="text-[13px]">Xuất bản ngay</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5 md:col-span-6">
+            <Label className={fieldLabelClass}>Danh mục</Label>
+            <Select
+              value={categoryId || EMPTY_CATEGORY_VALUE}
+              onValueChange={(value) => setCategoryId(value === EMPTY_CATEGORY_VALUE ? "" : value)}
+            >
+              <SelectTrigger className={cn(fieldControlClass, "border-slate-200 bg-white")}>
+                <SelectValue placeholder="Chọn danh mục..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={EMPTY_CATEGORY_VALUE} className="text-[13px]">Không có danh mục</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)} className="text-[13px]">{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5 md:col-span-12">
+            <div>
+              <Label className={fieldLabelClass}>Mô tả ngắn</Label>
+              <p className="mt-0.5 text-[10px] text-slate-400">Hiển thị ngoài trang danh sách và kết quả tìm kiếm</p>
+            </div>
+            <Textarea
+              value={excerpt}
+              onChange={(e) => setExcerpt(e.target.value)}
+              placeholder="Tóm tắt nội dung bài viết..."
+              className="min-h-[88px] resize-none border-slate-200 bg-white text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400"
+              rows={3}
+            />
+          </div>
+
+        </div>
+      </div>
+
+      <div className={sectionCardClass}>
+        <div className="border-b border-slate-200 pb-3">
+          <span className={sectionTitleClass}>2. Nội dung bài viết</span>
         </div>
 
-        {/* Nội dung */}
-        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3">
-          <Label className="text-[13px] font-semibold text-slate-600 uppercase tracking-wide">
+        <div className="mt-4 space-y-3">
+          <Label className={fieldLabelClass}>
             Nội dung bài viết <span className="text-rose-500 normal-case">*</span>
           </Label>
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white">
             <ReactQuill
               theme="snow"
               value={content}
               onChange={setContent}
               modules={QUILL_MODULES}
               placeholder="Viết nội dung bài viết tại đây..."
-              className="min-h-[420px]"
+              className="min-h-[420px] text-[13px]"
             />
           </div>
         </div>
       </div>
 
-      {/* ── RIGHT: sidebar ── */}
-      <div className="space-y-4 xl:sticky xl:top-6">
-        {/* Xuất bản */}
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Xuất bản</h3>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-slate-500">Trạng thái</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as "DRAFT" | "PUBLISHED")}>
-                <SelectTrigger className="h-9 bg-slate-50 border-slate-200 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">Bản nháp</SelectItem>
-                  <SelectItem value="PUBLISHED">Xuất bản ngay</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                className="flex-1 h-9 text-sm font-medium"
-              >
-                Hủy
-              </Button>
-              <Button
-                type="submit"
-                disabled={saving}
-                className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold"
-              >
-                {saving ? <Loader2 className="animate-spin mr-1.5" size={14} /> : <Save size={14} className="mr-1.5" />}
-                {isEdit ? "Lưu thay đổi" : "Lưu bài viết"}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Ảnh bìa */}
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Ảnh bìa</h3>
-          </div>
-          <div className="p-4 space-y-3">
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailChange} aria-label="Tải ảnh bìa lên" />
-            {thumbnailPreview ? (
-              <div className="space-y-2">
-                <div className="relative w-full aspect-video rounded-md overflow-hidden border border-slate-200 bg-slate-100">
-                  <img src={thumbnailPreview} alt="" className="w-full h-full object-cover" />
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={removeThumbnail}
-                  className="w-full h-8 text-xs text-slate-500 border-slate-200"
-                >
-                  <X size={12} className="mr-1.5" /> Xóa ảnh bìa
-                </Button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full aspect-video rounded-md border-2 border-dashed border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30 transition-colors flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:text-emerald-600"
-              >
-                <Upload size={20} />
-                <span className="text-[12px] font-medium">Tải ảnh lên</span>
-                <span className="text-[11px] text-slate-300">JPG, PNG, WEBP</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Danh mục */}
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Danh mục</h3>
-          </div>
-          <div className="p-4">
-            <Select
-              value={categoryId || EMPTY_CATEGORY_VALUE}
-              onValueChange={(value) => setCategoryId(value === EMPTY_CATEGORY_VALUE ? "" : value)}
-            >
-              <SelectTrigger className="h-9 bg-slate-50 border-slate-200 text-sm">
-                <SelectValue placeholder="Chọn danh mục..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={EMPTY_CATEGORY_VALUE}>Không có danh mục</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
         {/* Sản phẩm liên quan */}
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+        <div className={sidebarCardClass}>
+          <div className="border-b border-slate-200 px-4 py-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-[13px] font-semibold text-slate-700 uppercase tracking-wide">Sản phẩm liên quan</h3>
+              <h3 className={sectionTitleClass}>3. Sản phẩm liên quan</h3>
               {selectedProducts.length > 0 && (
-                <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="text-[11px] font-semibold text-emerald-600">
                   {selectedProducts.length}
                 </span>
               )}
             </div>
           </div>
           <div className="p-4 space-y-3">
-            <p className="text-[12px] text-slate-400">Gắn sản phẩm vào bài viết để người đọc tham khảo mua hàng</p>
+            <p className="text-[10px] text-slate-400">Gắn sản phẩm vào bài viết để người đọc tham khảo mua hàng</p>
 
             {/* Search box */}
             <div className="relative">
@@ -339,7 +313,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
                 onFocus={() => setProductFocused(true)}
                 onBlur={() => setTimeout(() => setProductFocused(false), 200)}
                 placeholder="Tìm tên sản phẩm..."
-                className="pl-8 h-9 text-sm bg-slate-50 border-slate-200 focus:bg-white"
+                className={cn(fieldControlClass, "border-slate-200 bg-white pl-8")}
               />
               {searchingProducts && (
                 <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
@@ -347,7 +321,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
 
               {/* Dropdown kết quả */}
               {productFocused && productResults.length > 0 && (
-                <div className="absolute z-20 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-lg divide-y divide-slate-50">
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 divide-y divide-slate-50 overflow-y-auto rounded-[4px] border border-slate-200 bg-white shadow-lg">
                   {productResults.map((p) => {
                     const selected = selectedProducts.some((s) => s.id === p.id);
                     return (
@@ -356,18 +330,18 @@ export default function BlogPostForm({ categories, initialData }: Props) {
                         type="button"
                         onMouseDown={() => toggleProduct(p)}
                         className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                          "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors",
                           selected ? "bg-emerald-50 text-emerald-700" : "hover:bg-slate-50 text-slate-700"
                         )}
                       >
-                        <div className="w-8 h-8 rounded border border-slate-100 bg-slate-100 overflow-hidden shrink-0">
+                        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-[4px] border border-slate-100 bg-slate-100">
                           {p.imageUrls?.[0] ? (
                             <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-slate-200" />
                           )}
                         </div>
-                        <span className="flex-1 font-medium truncate text-[13px]">{p.name}</span>
+                        <span className="flex-1 truncate font-medium">{p.name}</span>
                         {selected && (
                           <span className="text-[10px] font-semibold text-emerald-600 shrink-0">✓</span>
                         )}
@@ -384,16 +358,16 @@ export default function BlogPostForm({ categories, initialData }: Props) {
                 {selectedProducts.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5"
+                    className="flex items-center gap-2 rounded-[4px] border border-slate-200 bg-slate-50 px-2.5 py-1.5"
                   >
-                    <div className="w-7 h-7 rounded border border-slate-200 bg-white overflow-hidden shrink-0">
+                    <div className="h-7 w-7 shrink-0 overflow-hidden rounded-[4px] border border-slate-200 bg-white">
                       {p.imageUrls?.[0] ? (
                         <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-slate-200" />
                       )}
                     </div>
-                    <span className="flex-1 text-[12px] font-medium text-slate-700 truncate">{p.name}</span>
+                    <span className="flex-1 truncate text-[12px] font-medium text-slate-700">{p.name}</span>
                     <button
                       type="button"
                       aria-label={`Xóa sản phẩm ${p.name}`}
@@ -408,9 +382,29 @@ export default function BlogPostForm({ categories, initialData }: Props) {
             )}
 
             {selectedProducts.length === 0 && !productFocused && (
-              <p className="text-center text-[12px] text-slate-300 py-2">Chưa có sản phẩm nào được gắn</p>
+              <p className="py-2 text-center text-[12px] text-slate-300">Chưa có sản phẩm nào được gắn</p>
             )}
           </div>
+        </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            disabled={saving}
+            className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+          >
+            {saving ? <Loader2 className="mr-2 animate-spin" size={16} /> : <Save size={16} className="mr-2" />}
+            {isEdit ? "Lưu thay đổi" : "Lưu bài viết"}
+          </Button>
         </div>
       </div>
     </form>

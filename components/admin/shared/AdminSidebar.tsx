@@ -148,7 +148,7 @@ export default function AdminSidebar() {
           ? ProductService.getAll({ status: "ACTIVE" })
           : Promise.resolve(null),
         hasPermission(P.CATEGORY_VIEW)
-          ? getCategories()
+          ? getCategories().catch(() => [])
           : Promise.resolve(null),
         hasPermission(P.ATTRIBUTE_VIEW)
           ? ProductService.getAttributes()
@@ -322,6 +322,16 @@ export default function AdminSidebar() {
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
+    if (path === "/admin/employees") {
+      return (
+        pathname === "/admin/employees" ||
+        pathname.startsWith("/admin/employees/add") ||
+        pathname.startsWith("/admin/employees/edit")
+      );
+    }
+    if (path === "/admin/employees/roles") {
+      return pathname.startsWith("/admin/employees/roles");
+    }
     return pathname.startsWith(path);
   };
 
@@ -336,14 +346,20 @@ export default function AdminSidebar() {
   return (
     <div className="w-[260px] bg-[#020617] text-slate-400 h-screen flex flex-col border-r border-slate-800/40 sticky top-0 z-30">
       <div className="h-[64px] px-7 flex items-center mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-6 bg-emerald-500 rounded-full" />
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-700/60 bg-white shadow-lg ring-1 ring-slate-700/50">
+            <img
+              src="/images/logo_arishrimp.jpg"
+              alt="AgriShrimp Logo"
+              className="h-full w-full object-cover"
+            />
+          </div>
           <div className="flex flex-col">
             <h1 className="font-black text-white text-[18px] tracking-[0.15em] leading-none uppercase">
               AGRI<span className="text-emerald-500">SHRIMP</span>
             </h1>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em] mt-1">
-              {isAdmin ? "Administrator" : isManager ? "Manager" : "User"}
+              {isAdmin ? "Quản trị viên" : isManager ? "Quản lý" : "Người dùng"}
             </span>
           </div>
         </div>
@@ -631,7 +647,6 @@ export default function AdminSidebar() {
         {hasAnyPermission([
           P.REPORT_REVENUE_VIEW,
           P.REPORT_INVENTORY_VIEW,
-          P.REPORT_FINANCE_VIEW,
         ]) && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
@@ -656,15 +671,6 @@ export default function AdminSidebar() {
                   color="text-amber-500"
                 />
               )}
-              {hasPermission(P.REPORT_FINANCE_VIEW) && !isBranchAccount && (
-                <SidebarLink
-                  href="/admin/financial/profit-loss"
-                  icon={FileBarChart}
-                  label="Báo cáo tài chính"
-                  active={isActive("/admin/financial/profit-loss")}
-                  color="text-emerald-500"
-                />
-              )}
             </div>
           </section>
         )}
@@ -681,7 +687,6 @@ export default function AdminSidebar() {
                   icon={UserCircle}
                   label="Nhân viên"
                   active={isActive("/admin/employees")}
-                  badge={employeeCount}
                 />
               )}
               {hasPermission(P.BRANCH_VIEW) && (
@@ -690,7 +695,6 @@ export default function AdminSidebar() {
                   icon={Building2}
                   label="Chi nhánh & Kho"
                   active={isActive("/admin/branches")}
-                  badge={branchCount}
                 />
               )}
               {hasPermission(P.ROLE_VIEW) && (

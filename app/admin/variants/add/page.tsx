@@ -9,15 +9,7 @@ import {
   getAttributeById,
   updateAttribute,
 } from "@/app/services/AttributeService";
-import {
-  X,
-  Settings,
-  Save,
-  ChevronLeft,
-  Tag,
-  Settings2,
-  Loader2,
-} from "lucide-react";
+import { X, Save, Settings2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,7 +33,8 @@ const generateCodeFromName = (name: string) => {
   return name
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d").replace(/Đ/g, "D")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
     .trim()
     .toUpperCase()
     .replace(/\s+/g, "_")
@@ -111,6 +104,11 @@ export default function AddVariantPage() {
   }, [isEditMode, idFromUrl, reset, router]);
 
   const values = watch("values") || [];
+  const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
+  const fieldControlClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
+  const sectionCardClass = "border border-slate-200 bg-white p-6 shadow-sm";
+  const sectionTitleClass = "text-[11px] font-bold text-slate-800";
 
   const addValue = () => {
     const val = newValueInput.trim();
@@ -134,11 +132,15 @@ export default function AddVariantPage() {
   const onSave = async (data: AdminAttributeForm) => {
     try {
       setIsSubmitting(true);
+      const payload = {
+        ...data,
+        code: data.code || generateCodeFromName(data.name),
+      };
       if (isEditMode) {
-        await updateAttribute(Number(idFromUrl), data);
+        await updateAttribute(Number(idFromUrl), payload);
         toast.success("Cập nhật thành công!");
       } else {
-        await createAttribute(data);
+        await createAttribute(payload);
         toast.success("Thêm mới thành công!");
       }
       router.push("/admin/variants");
@@ -150,123 +152,78 @@ export default function AddVariantPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSave)} className="space-y-3 pb-[100px]">
-      <div className="flex items-center gap-4 mb-4 px-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          className="h-8 w-8 text-slate-400"
-        >
-          <ChevronLeft size={20} />
-        </Button>
-        <h1 className="text-[18px] font-black text-[#1f1f1f] uppercase tracking-tight">
+    <form
+      onSubmit={handleSubmit(onSave)}
+      className="space-y-5 px-1 pb-[100px] text-slate-800"
+    >
+      <div className="mt-2 mb-8 space-y-4">
+        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
           {isEditMode ? "Chỉnh sửa thuộc tính" : "Thêm thuộc tính mới"}
         </h1>
-        <div className="ms-auto flex items-center gap-3 text-gray-400">
-          <Settings size={18} className="cursor-pointer hover:text-emerald-600 transition-colors" />
-          <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
-            <X size={20} />
-          </Button>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 space-y-3">
-          <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-sm">
-            <div className="flex items-center gap-2 mb-4 text-emerald-700 font-black text-[11px] uppercase tracking-wider">
-              <Tag size={16} /> 1. Thông tin định danh
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              <div className="space-y-[2px] relative pb-5">
-                <Label className="text-[11px] font-bold text-slate-500 uppercase">Tên thuộc tính *</Label>
-                <Input
-                  {...register("name")}
-                  placeholder="Ví dụ: Đơn vị tính..."
-                  className="h-[32px] text-[13px] border-[#ccc]"
-                />
-                {errors.name && <p className="absolute bottom-0 text-[11px] text-red-500 font-bold">{errors.name.message}</p>}
-              </div>
-
-              <div className="space-y-[2px] relative pb-5">
-                <Label className="text-[11px] font-bold text-slate-500 uppercase">Mã định danh (Code) *</Label>
-                <Input
-                  {...register("code")}
-                  readOnly={isEditMode}
-                  className={cn("h-[32px] text-[13px] border-[#ccc] font-mono", isEditMode && "bg-slate-50 opacity-70")}
-                  placeholder="Tự động sinh: DON_VI_TINH..."
-                />
-                {errors.code && <p className="absolute bottom-0 text-[11px] text-red-500 font-bold">{errors.code.message}</p>}
-              </div>
-
-              <div className="md:col-span-2 space-y-[2px] relative pb-5">
-                <Label className="text-[11px] font-bold text-slate-500 uppercase">Ghi chú / Mô tả *</Label>
-                <Input
-                  {...register("description")}
-                  placeholder="Mục đích sử dụng..."
-                  className="h-[32px] text-[13px] border-[#ccc]"
-                />
-                {errors.description && <p className="absolute bottom-0 text-[11px] text-red-500 font-bold">{errors.description.message}</p>}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-sm">
-            <div className="flex items-center gap-2 mb-4 text-slate-700 font-black text-[11px] uppercase tracking-wider">
-              <Settings2 size={16} className="text-emerald-600" /> 2. Danh sách giá trị hợp lệ
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 max-w-md">
-                <Input
-                  placeholder="Nhập giá trị mới..."
-                  className="h-[32px] text-[13px]"
-                  value={newValueInput}
-                  onChange={(e) => setNewValueInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addValue();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addValue} className="h-[32px] bg-emerald-600 font-bold px-4 rounded-[3px]">
-                  THÊM
-                </Button>
-              </div>
-
-              <div className={cn("flex flex-wrap gap-2 p-4 bg-slate-50 border rounded-[4px] min-h-[100px] relative pb-6", errors.values ? "border-red-200" : "border-slate-100")}>
-                {values.map((val) => (
-                  <div key={val} className="flex items-center bg-white border border-slate-200 rounded px-3 py-1 shadow-sm group">
-                    <span className="text-[13px] font-bold text-slate-700 mr-3">{val}</span>
-                    <button type="button" onClick={() => removeValue(val)} className="text-slate-300 hover:text-rose-500">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                {values.length === 0 && (
-                  <span className="text-slate-300 text-[11px] uppercase font-bold m-auto italic">Chưa có giá trị nào</span>
-                )}
-                {errors.values && <p className="absolute bottom-1 left-4 text-[11px] text-red-500 font-bold uppercase">{errors.values.message}</p>}
-              </div>
-            </div>
-          </div>
+      <div className={sectionCardClass}>
+        <div className="border-b border-slate-200 pb-3">
+          <span className={sectionTitleClass}>1. Thông tin thuộc tính</span>
         </div>
 
-        <div className="lg:col-span-4 space-y-3">
-          <div className="bg-white border border-[#dcdcdc] p-[15px_20px] rounded-[4px] shadow-sm">
-            <Label className="text-[11px] font-bold text-slate-500 uppercase block mb-3">Trạng thái sử dụng</Label>
+        <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className={fieldLabelClass}>
+              Tên thuộc tính <span className="text-rose-500">*</span>
+            </Label>
+            <Input
+              {...register("name")}
+              placeholder="Ví dụ: Đơn vị tính..."
+              className={cn(fieldControlClass, "border-slate-200 bg-white")}
+            />
+            {errors.name && (
+              <p className="text-[10px] font-medium text-rose-500">
+                {errors.name.message}
+              </p>
+            )}
+          </div>
+
+          <input type="hidden" {...register("code")} />
+
+          <div className="space-y-1.5">
+            <Label className={fieldLabelClass}>
+              Ghi chú / Mô tả <span className="text-rose-500">*</span>
+            </Label>
+            <Input
+              {...register("description")}
+              placeholder="Mục đích sử dụng..."
+              className={cn(fieldControlClass, "border-slate-200 bg-white")}
+            />
+            {errors.description && (
+              <p className="text-[10px] font-medium text-rose-500">
+                {errors.description.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className={fieldLabelClass}>Trạng thái sử dụng</Label>
             <Controller
               name="status"
               control={control}
               render={({ field }) => (
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className="h-[32px] text-[13px] font-black text-emerald-600 border-[#ccc]">
+                  <SelectTrigger
+                    className={cn(
+                      fieldControlClass,
+                      "border-slate-200 bg-white",
+                    )}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ACTIVE">ĐANG SỬ DỤNG</SelectItem>
-                    <SelectItem value="INACTIVE">TẠM NGỪNG</SelectItem>
+                    <SelectItem value="ACTIVE" className="text-[13px]">
+                      Đang sử dụng
+                    </SelectItem>
+                    <SelectItem value="INACTIVE" className="text-[13px]">
+                      Tạm ngừng
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -275,14 +232,100 @@ export default function AddVariantPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[8px_20px] flex items-center justify-end gap-[10px] z-[999]">
-        <Button type="button" variant="outline" className="min-w-[100px] h-[34px] text-[12px] font-bold border-[#ccc]" onClick={() => router.back()}>
-          HỦY BỎ
-        </Button>
-        <Button type="submit" disabled={isSubmitting} className="min-w-[120px] h-[34px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white transition-all">
-          {isSubmitting ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save size={16} className="mr-2" />}
-          LƯU DỮ LIỆU
-        </Button>
+      <div className={sectionCardClass}>
+        <div className="border-b border-slate-200 pb-3">
+          <span className={sectionTitleClass}>2. Danh sách giá trị hợp lệ</span>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              placeholder="Nhập giá trị mới rồi nhấn Enter..."
+              className={cn(
+                fieldControlClass,
+                "border-slate-200 bg-white sm:max-w-[420px]",
+              )}
+              value={newValueInput}
+              onChange={(e) => setNewValueInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addValue();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              onClick={addValue}
+              className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white hover:bg-emerald-700"
+            >
+              Thêm
+            </Button>
+          </div>
+
+          <div
+            className={cn(
+              "flex min-h-[120px] flex-wrap content-start gap-2 rounded-[4px] border bg-slate-50 p-4",
+              errors.values ? "border-rose-200" : "border-slate-200",
+            )}
+          >
+            {values.map((val) => (
+              <div
+                key={val}
+                className="flex h-8 items-center rounded-[4px] border border-slate-200 bg-white px-3 shadow-sm"
+              >
+                <span className="mr-2 text-[12px] font-semibold text-slate-700">
+                  {val}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeValue(val)}
+                  className="text-slate-300 transition-colors hover:text-rose-500"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+            {values.length === 0 && (
+              <span className="m-auto text-[12px] font-medium text-slate-300">
+                Chưa có giá trị nào
+              </span>
+            )}
+          </div>
+          {errors.values && (
+            <p className="text-[10px] font-medium text-rose-500">
+              {errors.values.message}
+            </p>
+          )}
+          <p className="text-[10px] text-slate-400">
+            Mẹo: nhấn Enter để thêm nhanh từng giá trị.
+          </p>
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+            onClick={() => router.back()}
+          >
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+          >
+            {isSubmitting ? (
+              <Loader2 className="mr-2 animate-spin" size={16} />
+            ) : (
+              <Save className="mr-2" size={16} />
+            )}
+            {isEditMode ? "Lưu thay đổi" : "Tạo thuộc tính"}
+          </Button>
+        </div>
       </div>
     </form>
   );

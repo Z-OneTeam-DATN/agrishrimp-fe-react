@@ -6,17 +6,9 @@ import {
   Plus,
   Loader2,
   AlertTriangle,
-  ClipboardCheck,
-  Boxes,
-  ShieldAlert,
-  PackageSearch,
-  RefreshCcw,
   Eye,
   Pencil,
   Trash2,
-  CalendarDays,
-  Building2,
-  User,
   Search,
   FileSpreadsheet,
 } from "lucide-react";
@@ -25,8 +17,6 @@ import { vi } from "date-fns/locale";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -222,56 +212,28 @@ export default function InventoryCheckListPage() {
     return { pending, waitingApproval, completed, damagedUnits, needRestockCount };
   }, [inventoryChecks]);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusLabel = (status: string) => {
     const normalized = String(status || "").toUpperCase();
     if (normalized === "COUNTING_COMPLETED") {
-      return (
-        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase">
-          Đã cân bằng
-        </Badge>
-      );
+      return "Đã cân bằng";
     }
     if (normalized === "WAITING_FOR_ADJUSTMENT_APPROVAL") {
-      return (
-        <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase">
-          Chờ duyệt cân bằng
-        </Badge>
-      );
+      return "Chờ duyệt cân bằng";
     }
     if (normalized === "COUNTING_IN_PROGRESS") {
-      return (
-        <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase">
-          Đang đếm thực tế
-        </Badge>
-      );
+      return "Đang đếm thực tế";
     }
     if (normalized === "COUNTING_INIT") {
-      return (
-        <Badge className="bg-violet-50 text-violet-700 border border-violet-100 text-[10px] font-black uppercase">
-          Mới khởi tạo
-        </Badge>
-      );
+      return "Mới khởi tạo";
     }
 
     switch (String(status || "").toUpperCase()) {
       case "COUNTING_COMPLETED":
-        return (
-          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-black uppercase">
-            Đã chốt kho
-          </Badge>
-        );
+        return "Đã chốt kho";
       case "WAITING_FOR_ADJUSTMENT_APPROVAL":
-        return (
-          <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black uppercase">
-            Chờ xử lý
-          </Badge>
-        );
+        return "Chờ xử lý";
       default:
-        return (
-          <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-black uppercase">
-            {status}
-          </Badge>
-        );
+        return status;
     }
   };
 
@@ -390,37 +352,50 @@ export default function InventoryCheckListPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] -m-4 md:-m-5 bg-[#f8f9fa] overflow-hidden">
-      <div className="bg-white border-b shrink-0">
-        <div className="px-6 pt-5 pb-4 flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-[17px] font-black uppercase tracking-tight text-slate-800 flex items-center gap-2">
-              <ClipboardCheck className="text-indigo-600" size={20} />
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Kiểm kê kho
             </h1>
-            <p className="text-[12px] text-slate-500 font-medium">
-              Theo dõi chênh lệch tồn kho, hư hại và đề xuất nhập bù sau kiểm kê.
-            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="w-full xl:max-w-[260px]">
+            <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                <SelectValue placeholder="Lọc theo kho kiểm kê" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả kho</SelectItem>
+                {branches.map((branch: any) => (
+                  <SelectItem key={branch.id} value={String(branch.id)}>
+                    {branch.name || branch.branchName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <Button
               variant="outline"
-              className="h-9 rounded-md border-slate-200 text-[12px] font-bold"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
               onClick={handleExportLowStockExcel}
               disabled={loading || exporting}
             >
               {exporting ? (
-                <Loader2 size={15} className="animate-spin mr-2" />
+                <Loader2 size={15} className="mr-2 animate-spin" />
               ) : (
                 <FileSpreadsheet size={15} className="mr-2" />
               )}
-              Xuất Excel cần nhập thêm
+              Xuất Excel
             </Button>
-
             {hasPermission(P.CHECK_CREATE) && (
               <Button
-                className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 rounded-md text-[12px] font-bold"
+                className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
                 onClick={() => router.push("/admin/inventory-checks/new")}
               >
                 <Plus size={15} className="mr-2" />
@@ -430,148 +405,151 @@ export default function InventoryCheckListPage() {
           </div>
         </div>
 
-        <div className="px-6 pb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <Card className="border border-slate-200 shadow-none bg-gradient-to-br from-indigo-50 to-white p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase text-slate-500">
-                  Phiếu chờ xử lý
-                </p>
-                <p className="text-2xl font-black text-slate-800 mt-1">{stats.pending}</p>
-              </div>
-              <ClipboardCheck className="text-indigo-500" size={20} />
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Phiếu chờ xử lý
+              </p>
             </div>
-          </Card>
-          <Card className="border border-slate-200 shadow-none bg-gradient-to-br from-emerald-50 to-white p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase text-slate-500">
-                  Phiếu đã chốt
-                </p>
-                <p className="text-2xl font-black text-slate-800 mt-1">{stats.waitingApproval}</p>
-              </div>
-              <Boxes className="text-emerald-500" size={20} />
+            <div className="mt-3 space-y-1">
+              <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                {stats.pending}
+              </p>
+              <p className="text-[10px] leading-4.5 text-slate-500">Đang khởi tạo hoặc đang đếm thực tế</p>
             </div>
-          </Card>
-          <Card className="border border-slate-200 shadow-none bg-gradient-to-br from-rose-50 to-white p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase text-slate-500">
-                  Tổng hàng hư hại
-                </p>
-                <p className="text-2xl font-black text-slate-800 mt-1">{stats.damagedUnits}</p>
-              </div>
-              <ShieldAlert className="text-rose-500" size={20} />
+          </div>
+
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Chờ duyệt cân bằng
+              </p>
             </div>
-          </Card>
-          <Card className="border border-slate-200 shadow-none bg-gradient-to-br from-amber-50 to-white p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-black uppercase text-slate-500">
-                  Mặt hàng cần nhập thêm
-                </p>
-                <p className="text-2xl font-black text-slate-800 mt-1">{stats.needRestockCount}</p>
-              </div>
-              <PackageSearch className="text-amber-500" size={20} />
+            <div className="mt-3 space-y-1">
+              <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                {stats.waitingApproval}
+              </p>
+              <p className="text-[10px] leading-4.5 text-slate-500">Chờ xác nhận điều chỉnh tồn kho sau kiểm kê</p>
             </div>
-          </Card>
+          </div>
+
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Tổng hàng hư hại
+              </p>
+            </div>
+            <div className="mt-3 space-y-1">
+              <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                {stats.damagedUnits}
+              </p>
+              <p className="text-[10px] leading-4.5 text-slate-500">Tổng số lượng hư hại ghi nhận trong phiếu</p>
+            </div>
+          </div>
+
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Cần nhập thêm
+              </p>
+            </div>
+            <div className="mt-3 space-y-1">
+              <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                {stats.needRestockCount}
+              </p>
+              <p className="text-[10px] leading-4.5 text-slate-500">Mặt hàng đang thấp hơn định mức tồn kho</p>
+            </div>
+          </div>
         </div>
 
-        <div className="px-6 flex items-center h-[48px] gap-8">
-          {[
-            { id: "ALL", label: "TẤT CẢ" },
-            { id: "PENDING", label: "CHỜ XỬ LÝ" },
-            { id: "COMPLETED", label: "ĐÃ CHỐT" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as InventoryCheckStatus)}
-              className={cn(
-                "h-full text-[12px] font-black border-b-2 px-1 tracking-wider transition-all relative",
-                activeTab === tab.id
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: "ALL", label: "Tất cả" },
+              { id: "PENDING", label: "Chờ xử lý" },
+              { id: "COMPLETED", label: "Đã chốt" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as InventoryCheckStatus)}
+                className={cn(
+                  "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                  activeTab === tab.id
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      <div className="flex-1 p-6 flex flex-col min-h-0">
-        <div className="bg-white border border-slate-200 rounded-md shadow-sm flex flex-col h-full overflow-hidden">
-          <div className="p-4 border-b bg-slate-50/40 flex flex-col xl:flex-row xl:items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <div className="flex flex-1 flex-col gap-3 xl:max-w-[420px] xl:flex-row xl:items-center xl:justify-end">
+            <div className="relative w-full xl:max-w-[420px]">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                size={16}
+              />
               <Input
                 placeholder="Tìm theo mã phiếu, ghi chú, người kiểm kê hoặc chi nhánh..."
-                className="pl-10 h-10 bg-white border-slate-200 rounded-md text-[13px]"
+                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            <div className="flex items-center gap-3">
-              <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                <SelectTrigger className="w-[240px] h-10 bg-white border-slate-200 text-[13px]">
-                  <SelectValue placeholder="Lọc theo kho kiểm kê" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả kho</SelectItem>
-                  {branches.map((branch: any) => (
-                    <SelectItem key={branch.id} value={String(branch.id)}>
-                      {branch.name || branch.branchName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 border-slate-200"
-                onClick={bootstrap}
-                disabled={loading}
-              >
-                <RefreshCcw size={16} className={cn(loading && "animate-spin")} />
-              </Button>
-            </div>
           </div>
+        </div>
 
-          <div className="flex-1 min-h-0 overflow-auto">
-            <Table>
-              <TableHeader className="bg-slate-50/60 sticky top-0 z-10">
-                <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400">Mã phiếu</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400">Ngày kiểm kê</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400">Kho kiểm kê</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400">Người phụ trách</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Trạng thái</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Hư hại</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Cần nhập thêm</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right pr-6">Hành động</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-40 text-center">
-                      <Loader2 className="animate-spin text-indigo-600 mx-auto" size={30} />
-                      <p className="text-[11px] font-bold text-slate-400 uppercase mt-2">Đang tải dữ liệu kiểm kê...</p>
-                    </TableCell>
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+              <p className="text-[11px] uppercase tracking-widest text-slate-400">
+                Đang đồng bộ dữ liệu...
+              </p>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <AlertTriangle className="mb-2 opacity-20" size={40} />
+              <p className="text-xs font-medium uppercase">Chưa có phiếu kiểm kê phù hợp</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table className="min-w-[1060px]">
+                <TableHeader>
+                  <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+                    <TableHead className="w-[52px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f]">
+                      STT
+                    </TableHead>
+                    <TableHead className="w-[126px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Mã phiếu
+                    </TableHead>
+                    <TableHead className="w-[124px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Ngày kiểm kê
+                    </TableHead>
+                    <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Kho kiểm kê
+                    </TableHead>
+                    <TableHead className="w-[150px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Người phụ trách
+                    </TableHead>
+                    <TableHead className="w-[106px] px-1.5 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Trạng thái
+                    </TableHead>
+                    <TableHead className="w-[74px] px-1.5 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Hư hại
+                    </TableHead>
+                    <TableHead className="w-[94px] px-1.5 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Cần nhập thêm
+                    </TableHead>
+                    <TableHead className="w-[86px] px-1.5 py-2 pr-3 text-right text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Hành động
+                    </TableHead>
                   </TableRow>
-                ) : filteredData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-40 text-center">
-                      <div className="flex flex-col items-center gap-2 text-slate-300">
-                        <ClipboardCheck size={40} />
-                        <p className="text-sm font-black uppercase">Chưa có phiếu kiểm kê phù hợp</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredData.map((item: any) => {
+                </TableHeader>
+                <TableBody>
+                  {filteredData.map((item: any, index: number) => {
                     const details = Array.isArray(item.details) ? item.details : [];
                     const damaged = details.reduce(
                       (sum: number, detail: any) =>
@@ -591,96 +569,94 @@ export default function InventoryCheckListPage() {
                     return (
                       <TableRow
                         key={item.id}
-                        className="group hover:bg-slate-50/50 cursor-pointer"
+                        className="group cursor-pointer border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                         onClick={() => router.push(`/admin/inventory-checks/${item.code || item.id}`)}
                       >
-                        <TableCell className="font-black text-indigo-600 text-[13px]">
+                        <TableCell className="px-1.5 py-2 text-[11px] font-medium text-slate-700">
+                          {index + 1}
+                        </TableCell>
+                        <TableCell className="px-1.5 py-2 text-[11px] font-semibold text-blue-600 whitespace-nowrap">
                           {item.code || `PKK-${item.id}`}
                         </TableCell>
-                        <TableCell className="text-[12px] font-bold text-slate-600">
-                          <div className="flex items-center gap-2">
-                            <CalendarDays size={13} className="text-slate-400" />
-                            {item.checkDate || item.createdAt
-                              ? format(new Date(item.checkDate || item.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })
-                              : "N/A"}
-                          </div>
+                        <TableCell className="px-1.5 py-2 text-[11px] text-slate-600 whitespace-nowrap">
+                          {item.checkDate || item.createdAt
+                            ? format(new Date(item.checkDate || item.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })
+                            : "N/A"}
                         </TableCell>
-                        <TableCell className="text-[12px] font-bold text-slate-600">
-                          <div className="flex items-center gap-2">
-                            <Building2 size={13} className="text-slate-400" />
-                            {item.branchName || "Kho tổng"}
-                          </div>
+                        <TableCell className="px-1.5 py-2 text-[11px] text-slate-600">
+                          {item.branchName || "Kho tổng"}
                         </TableCell>
-                        <TableCell className="text-[12px]">
+                        <TableCell className="px-1.5 py-2 text-[11px]">
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-bold text-slate-700 flex items-center gap-2">
-                              <User size={13} className="text-slate-400" />
+                            <span className="font-semibold text-slate-700">
                               {item.checkedByName || item.createdByName || "N/A"}
                             </span>
                             {item.note && (
-                              <span className="text-[10px] text-slate-400 line-clamp-1">{item.note}</span>
+                              <span className="line-clamp-1 text-[10px] text-slate-400">
+                                {item.note}
+                              </span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">{getStatusBadge(getWorkflowStatus(item))}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge className="bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-black">
-                            {damaged}
-                          </Badge>
+                        <TableCell className="px-1.5 py-2 text-center">
+                          <span className="text-[11px] font-medium text-slate-900">
+                            {getStatusLabel(getWorkflowStatus(item))}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black">
-                            {restock}
-                          </Badge>
+                        <TableCell className="px-1.5 py-2 text-center text-[11px] font-medium text-slate-900">
+                          {damaged}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <TableCell className="px-1.5 py-2 text-center text-[11px] font-medium text-slate-900">
+                          {restock}
+                        </TableCell>
+                        <TableCell className="px-1 py-2">
+                          <div className="flex justify-end gap-0.5 pr-0.5">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-indigo-600"
+                              className="h-7 w-7 text-slate-500 hover:text-blue-600"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 router.push(`/admin/inventory-checks/${item.code || item.id}`);
                               }}
                             >
-                              <Eye size={16} />
+                              <Eye size={14} />
                             </Button>
                             {["COUNTING_INIT", "COUNTING_IN_PROGRESS"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_UPDATE) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-amber-600"
+                                className="h-7 w-7 text-slate-500 hover:text-amber-600"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   router.push(`/admin/inventory-checks/${item.code || item.id}?edit=true`);
                                 }}
                               >
-                                <Pencil size={16} />
+                                <Pencil size={14} />
                               </Button>
                             )}
                             {["COUNTING_INIT", "COUNTING_IN_PROGRESS"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_DELETE) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-rose-600"
+                                className="h-7 w-7 text-slate-500 hover:text-rose-600"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setConfirmDeleteId(item.id);
                                 }}
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={14} />
                               </Button>
                             )}
                           </div>
                         </TableCell>
                       </TableRow>
                     );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       </div>
 

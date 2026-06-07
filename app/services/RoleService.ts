@@ -1,4 +1,4 @@
-import { apiJava } from '@/lib/axios'
+import { apiJava, apiNext } from '@/lib/axios'
 import { RoleType, PermissionGroup, RoleDetail } from '@/app/types/role.schema'
 
 export class RoleService {
@@ -55,7 +55,7 @@ export class RoleService {
 
   static async delete(id: number): Promise<void> {
     try {
-      await apiJava.delete(`${this.PREFIX}/${id}`)
+      await apiNext.delete(`/roles/${id}`)
     } catch (error) {
       console.error("Error in RoleService.delete:", error)
       throw error

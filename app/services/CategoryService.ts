@@ -45,7 +45,6 @@ export const getCategories = async (keyword?: string, status?: string) => {
     });
     return unwrapData(response.data) ?? [];
   } catch (error) {
-    console.error("Lỗi khi lấy danh sách danh mục:", error);
     throw error;
   }
 };

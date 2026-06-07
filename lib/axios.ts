@@ -39,6 +39,9 @@ const getBrowserApiBaseUrl = () =>
     process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_PUBLIC_API_BASE_URL,
   );
 
+const isRelativeProxyBaseUrl = (value: string) =>
+  value.startsWith("/");
+
 const getServerApiBaseUrl = () =>
   trimTrailingSlash(
     process.env.JAVA_API_URL ??
@@ -47,10 +50,18 @@ const getServerApiBaseUrl = () =>
   );
 
 export const buildJavaApiUrl = (path: ApiPath) =>
-  joinApiUrl(
-    typeof window !== "undefined" ? getBrowserApiBaseUrl() : getServerApiBaseUrl(),
-    path,
-  );
+  typeof window !== "undefined"
+    ? (() => {
+        const browserBaseUrl = getBrowserApiBaseUrl();
+
+        // When the browser uses a same-origin proxy base such as "/be-api",
+        // apiJava already prefixes requests with that baseURL. Returning the
+        // raw API path here avoids accidental "/be-api/be-api/..." URLs.
+        return isRelativeProxyBaseUrl(browserBaseUrl)
+          ? path
+          : joinApiUrl(browserBaseUrl, path);
+      })()
+    : joinApiUrl(getServerApiBaseUrl(), path);
 
 const debugLog = (...args: unknown[]) => {
   if (isDev) console.log(...args);

@@ -6,18 +6,15 @@ import { toast } from "sonner";
 import {
   AlertCircle,
   ArrowDownToLine,
-  ArrowRightLeft,
   Ban,
   CheckCircle2,
   CheckSquare,
   ChevronLeft,
   Edit,
-  FileText,
   Package,
   Plus,
   Printer,
   Truck,
-  X,
 } from "lucide-react";
 
 import { transferService } from "@/app/services/transfer.service";
@@ -348,68 +345,401 @@ export default function TransferDetailPage() {
     return logs;
   })();
 
+  const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
+  const fieldControlClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
+  const selectTriggerClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 data-[placeholder]:text-slate-400";
+  const readOnlyInputClass = cn(
+    fieldControlClass,
+    "border-slate-200 bg-slate-50 text-slate-600",
+  );
+  const sectionCardClass = "border border-slate-200 bg-white p-6 shadow-sm";
+  const sectionTitleClass = "text-[11px] font-bold text-slate-800";
+  const formatDateTimeLocal = (value?: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return offsetDate.toISOString().slice(0, 16);
+  };
+  const findBranchIdByName = (name?: string) =>
+    branches.find((branch) => branch.name === name)?.id;
+  const sourceBranchValue = String(
+    transfer.sourceBranchId ||
+      transfer.fromBranchId ||
+      findBranchIdByName(transfer.fromBranchName) ||
+      "",
+  );
+  const destinationBranchValue = String(
+    transfer.destinationBranchId ||
+      transfer.toBranchId ||
+      transfer.destBranchId ||
+      findBranchIdByName(transfer.toBranchName) ||
+      "",
+  );
+
   return (
-    <div className="min-h-screen space-y-4 bg-slate-50/30 p-4 pb-20">
-      <div className="mb-2 flex items-center gap-4 px-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          className="h-8 w-8 text-slate-400"
-        >
-          <ChevronLeft size={20} />
-        </Button>
-        <div className="flex flex-col">
-          <h1 className="text-[18px] font-black uppercase tracking-tight text-[#1f1f1f]">
-            Chi tiết phiếu điều chuyển
+    <div className="space-y-3 pb-[100px] text-slate-800">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            className="h-8 w-8 rounded-[4px] text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <ChevronLeft size={18} />
+          </Button>
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Chi tiết phiếu điều chuyển hàng hóa
           </h1>
-          <div className="mt-1 flex items-center gap-6 opacity-70">
-            <div className="flex items-center space-x-2">
-              <div
-                className={cn(
-                  "h-3.5 w-3.5 rounded-full border-[4px]",
-                  !isInternalSale
-                    ? "border-emerald-500 bg-white"
-                    : "border-slate-300",
-                )}
-              />
-              <Label
-                className={cn(
-                  "text-[11px] font-bold uppercase tracking-wider",
-                  !isInternalSale ? "text-blue-600" : "text-slate-400",
-                )}
-              >
-                Kho tổng → chi nhánh
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div
-                className={cn(
-                  "h-3.5 w-3.5 rounded-full border-[4px]",
-                  isInternalSale
-                    ? "border-emerald-500 bg-white"
-                    : "border-slate-300",
-                )}
-              />
-              <Label
-                className={cn(
-                  "text-[11px] font-bold uppercase tracking-wider",
-                  isInternalSale ? "text-blue-600" : "text-slate-400",
-                )}
-              >
-                Chi nhánh ↔ chi nhánh
-              </Label>
+        </div>
+      </div>
+
+      <div className="border border-slate-200 bg-white px-4 py-4 shadow-sm">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
+          {steps.map((step, idx) => (
+            <React.Fragment key={step.label}>
+              <div className="relative z-10 flex min-w-0 flex-col items-center gap-2">
+                <div
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors",
+                    step.status === "completed"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                      : step.status === "active"
+                        ? status === "CANCELLED"
+                          ? "border-rose-200 bg-rose-50 text-rose-600"
+                          : "border-sky-200 bg-sky-50 text-sky-600"
+                        : "border-slate-200 bg-slate-50 text-slate-300",
+                  )}
+                >
+                  <step.icon size={15} />
+                </div>
+                <span
+                  className={cn(
+                    "text-center text-[10px] font-medium",
+                    step.status === "active"
+                      ? status === "CANCELLED"
+                        ? "text-rose-600"
+                        : "text-sky-600"
+                      : "text-slate-500",
+                  )}
+                >
+                  {step.label}
+                </span>
+              </div>
+              {idx < steps.length - 1 && (
+                <div className="relative -mt-5 h-px flex-1 bg-slate-200">
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 transition-all duration-500",
+                      steps[idx].status === "completed"
+                        ? "w-full bg-emerald-300"
+                        : "w-0 bg-transparent",
+                    )}
+                  />
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-5 px-1">
+        <div className={sectionCardClass}>
+          <div className="border-b border-slate-200 pb-3">
+            <span className={sectionTitleClass}>
+              1. Thông tin lệnh điều chuyển hàng hóa
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Loại nghiệp vụ điều chuyển *
+                </Label>
+                <Select value={transfer.transferBusinessType || "STOCK_TRANSFER"} disabled>
+                  <SelectTrigger className={cn(selectTriggerClass, "border-slate-200 bg-slate-50")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="STOCK_TRANSFER">
+                      Điều chuyển kho thuần
+                    </SelectItem>
+                    <SelectItem value="INTERNAL_SALE">
+                      Bán nội bộ (có hạch toán)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Chi nhánh xuất hàng *</Label>
+                <Select value={sourceBranchValue || undefined} disabled>
+                  <SelectTrigger className={cn(selectTriggerClass, "border-slate-200 bg-slate-50")}>
+                    <SelectValue placeholder={transfer.fromBranchName || "---"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={String(branch.id)}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Chi nhánh nhận hàng *</Label>
+                <div className="flex gap-2">
+                  <Select value={destinationBranchValue || undefined} disabled>
+                    <SelectTrigger className={cn(selectTriggerClass, "border-slate-200 bg-slate-50")}>
+                      <SelectValue placeholder={transfer.toBranchName || "---"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map((branch) => (
+                        <SelectItem key={branch.id} value={String(branch.id)}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {canChangeDestination && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowChangeBranchModal(true)}
+                      className="h-[38px] shrink-0 rounded-[4px] border-slate-200 px-3 text-[12px] text-slate-500"
+                      title="Thay đổi chi nhánh nhận"
+                    >
+                      <Edit size={13} />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Lý do điều chuyển / Diễn giải *
+                </Label>
+                <Input
+                  value={transfer.description || ""}
+                  readOnly
+                  className={readOnlyInputClass}
+                  placeholder="Nhập lý do điều chuyển..."
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Mã phiếu hệ thống</Label>
+                <Input
+                  value={transfer.transferCode || transfer.code || ""}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Ngày điều chuyển (24H) *</Label>
+                <Input
+                  type="datetime-local"
+                  value={formatDateTimeLocal(transfer.transferDate || transfer.deadline || transfer.createdAt)}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Trạng thái nhập</Label>
+                <Select value={transfer.importStatus || "PENDING"} disabled>
+                  <SelectTrigger className={cn(selectTriggerClass, "border-slate-200 bg-slate-50")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">Chờ nhập</SelectItem>
+                    <SelectItem value="PARTIAL">Nhập một phần</SelectItem>
+                    <SelectItem value="COMPLETED">Đã nhập đủ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Tham chiếu chứng từ *</Label>
+                <Input
+                  value={transfer.referenceCode || ""}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Người vận chuyển</Label>
+                <Input
+                  value={transfer.transporter || ""}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Phương tiện</Label>
+                <Input
+                  value={transfer.vehicle || ""}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Lệnh điều phối</Label>
+                <Input
+                  value={transfer.dispatchOrder || ""}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Trạng thái phiếu</Label>
+                <Input value={status} readOnly className={readOnlyInputClass} />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="ms-auto flex items-center gap-2">
+        <div className={sectionCardClass}>
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <span className={sectionTitleClass}>2. Nhật ký xử lý</span>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {auditLogs.map((log, idx) => (
+              <div
+                key={`${log.action}-${idx}`}
+                className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-2.5"
+              >
+                <p className="text-[11px] font-semibold text-slate-800">
+                  {log.action}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-400">{log.time}</p>
+                <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
+                  {log.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={sectionCardClass}>
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <span className={sectionTitleClass}>3. Danh sách vật tư điều chuyển</span>
+            <span className="text-[11px] font-semibold text-slate-500">
+              Tổng số lượng: {transfer.totalQuantity || 0}
+            </span>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[900px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-[#ccc] bg-[#f0f0f0]">
+                  <th className="w-[52px] px-3 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                    STT
+                  </th>
+                  <th className="px-3 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                    Sản phẩm / SKU
+                  </th>
+                  <th className="w-[96px] px-3 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                    Yêu cầu
+                  </th>
+                  <th className="w-[96px] px-3 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                    Thực nhận
+                  </th>
+                  <th className="w-[96px] px-3 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                    Đạt
+                  </th>
+                  <th className="w-[96px] px-3 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                    Lỗi/thiếu
+                  </th>
+                  {isInternalSale && (
+                    <th className="w-[130px] px-3 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                      Đơn giá
+                    </th>
+                  )}
+                  <th className="w-[180px] px-3 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                    Ghi chú
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(transfer.items || []).length > 0 ? (
+                  (transfer.items || []).map((item: any, index: number) => (
+                    <tr
+                      key={item.variantId || item.sku || index}
+                      className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
+                    >
+                      <td className="px-3 py-3 text-[11px] font-medium text-slate-500">
+                        {index + 1}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="text-[11px] font-semibold text-slate-800">
+                          {item.productName}
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-slate-400">
+                          {item.sku || item.variantSku || "---"}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <Input
+                          value={item.quantityRequested || 0}
+                          readOnly
+                          className="ml-auto h-8 w-20 rounded-[4px] border-slate-200 bg-slate-50 text-right text-[12px] shadow-none"
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-right text-[11px] font-semibold text-blue-600">
+                        {item.quantityReal || 0}
+                      </td>
+                      <td className="px-3 py-3 text-right text-[11px] font-semibold text-emerald-600">
+                        {item.quantityAccepted || 0}
+                      </td>
+                      <td className="px-3 py-3 text-right text-[11px] font-semibold text-rose-600">
+                        {item.quantityRejected || 0}
+                      </td>
+                      {isInternalSale && (
+                        <td className="px-3 py-3 text-right text-[11px] font-semibold text-slate-600">
+                          {Number(item.unitTransferPrice || 0).toLocaleString("vi-VN")}đ
+                        </td>
+                      )}
+                      <td className="px-3 py-3 text-[11px] text-slate-500">
+                        {item.itemNote || item.note || "-"}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={isInternalSale ? 8 : 7}
+                      className="h-[160px] text-center text-[12px] font-medium text-slate-400"
+                    >
+                      Không có vật tư điều chuyển.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button
+            type="button"
             variant="outline"
-            className="h-8 rounded-none border-slate-300 px-3 text-[11px] font-bold text-slate-600"
+            className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
           >
-            <Printer size={14} className="mr-1.5" />
-            IN PHIẾU
+            <Printer size={15} className="mr-2" />
+            In phiếu
           </Button>
           {canSourceConfirm && (
             <Button
@@ -420,9 +750,9 @@ export default function TransferDetailPage() {
                 )
               }
               disabled={isProcessing}
-              className="rounded-none bg-amber-600 hover:bg-amber-700"
+              className="h-10 min-w-[150px] rounded-md bg-amber-600 px-6 text-[13px] font-semibold text-white hover:bg-amber-700"
             >
-              XÁC NHẬN NGUỒN
+              Xác nhận nguồn
             </Button>
           )}
           {canApprove && (
@@ -434,9 +764,9 @@ export default function TransferDetailPage() {
                 )
               }
               disabled={isProcessing}
-              className="rounded-none bg-blue-600 hover:bg-blue-700"
+              className="h-10 min-w-[130px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
             >
-              DUYỆT PHIẾU
+              Duyệt phiếu
             </Button>
           )}
           {canShip && (
@@ -448,9 +778,9 @@ export default function TransferDetailPage() {
                 )
               }
               disabled={isProcessing}
-              className="rounded-none bg-indigo-600 hover:bg-indigo-700"
+              className="h-10 min-w-[130px] rounded-md bg-indigo-600 px-6 text-[13px] font-semibold text-white hover:bg-indigo-700"
             >
-              XUẤT KHO
+              Xuất kho
             </Button>
           )}
           {canStartInspection && (
@@ -462,9 +792,9 @@ export default function TransferDetailPage() {
                 )
               }
               disabled={isProcessing}
-              className="rounded-none bg-amber-500 hover:bg-amber-600"
+              className="h-10 min-w-[160px] rounded-md bg-amber-500 px-6 text-[13px] font-semibold text-white hover:bg-amber-600"
             >
-              BẮT ĐẦU KIỂM HÀNG
+              Bắt đầu kiểm hàng
             </Button>
           )}
           {canReceive && (
@@ -487,18 +817,18 @@ export default function TransferDetailPage() {
                   )
                 }
                 disabled={isProcessing}
-                className="rounded-none bg-emerald-600 hover:bg-emerald-700"
+                className="h-10 min-w-[120px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
               >
-                <CheckSquare size={14} className="mr-1.5" />
-                NHẬN ĐỦ
+                <CheckSquare size={15} className="mr-2" />
+                Nhận đủ
               </Button>
               <Button
                 onClick={openInspectModal}
                 disabled={isProcessing}
-                className="rounded-none bg-orange-500 hover:bg-orange-600"
+                className="h-10 min-w-[160px] rounded-md bg-orange-500 px-6 text-[13px] font-semibold text-white hover:bg-orange-600"
               >
-                <Package size={14} className="mr-1.5" />
-                KIỂM ĐẾM CHI TIẾT
+                <Package size={15} className="mr-2" />
+                Kiểm đếm chi tiết
               </Button>
             </>
           )}
@@ -512,252 +842,20 @@ export default function TransferDetailPage() {
               }
               disabled={isProcessing}
               variant="outline"
-              className="rounded-none border-rose-200 text-rose-600 hover:bg-rose-50"
+              className="h-10 min-w-[120px] rounded-md border-rose-200 px-6 text-[13px] font-semibold text-rose-600 hover:bg-rose-50"
             >
-              <Ban size={14} className="mr-1.5" />
-              HỦY PHIẾU
+              <Ban size={15} className="mr-2" />
+              Hủy phiếu
             </Button>
           )}
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
+            variant="outline"
             onClick={() => router.back()}
-            className="h-8 w-8"
+            className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
           >
-            <X size={20} />
+            Đóng
           </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between border border-[#dcdcdc] bg-white p-3 shadow-sm">
-        <div className="flex items-center gap-2 text-[14px] font-black uppercase tracking-tighter text-slate-800">
-          Mã phiếu:{" "}
-          <span className="text-blue-600">
-            {transfer.transferCode || "---"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 border border-slate-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">
-            <ArrowDownToLine size={14} />
-            Trạng thái: {status}
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          {steps.map((step, idx) => (
-            <React.Fragment key={step.label}>
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300",
-                    step.status === "completed"
-                      ? "border-emerald-500 bg-emerald-500 text-white"
-                      : step.status === "active"
-                        ? status === "CANCELLED"
-                          ? "border-rose-500 bg-rose-500 text-white"
-                          : "border-blue-600 bg-blue-600 text-white shadow-lg"
-                        : "border-slate-200 bg-slate-50 text-slate-300",
-                  )}
-                >
-                  <step.icon size={20} />
-                </div>
-                <span
-                  className={cn(
-                    "text-center text-[10px] font-black uppercase tracking-tighter",
-                    step.status === "active"
-                      ? status === "CANCELLED"
-                        ? "text-rose-600"
-                        : "text-blue-600"
-                      : "text-slate-400",
-                  )}
-                >
-                  {step.label}
-                </span>
-              </div>
-              {idx < steps.length - 1 && (
-                <div className="relative mx-2 -mt-6 h-[3px] flex-1 bg-slate-100">
-                  <div
-                    className={cn(
-                      "absolute inset-0 transition-all duration-500",
-                      steps[idx].status === "completed"
-                        ? "bg-emerald-500"
-                        : "bg-transparent",
-                    )}
-                  />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <div className="space-y-5 lg:col-span-8">
-          <div className="grid grid-cols-1 gap-6 rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm md:grid-cols-2">
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-100 bg-blue-50 font-black text-blue-600">
-                  XUẤT
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Kho nguồn
-                  </p>
-                  <p className="text-[15px] font-black uppercase text-slate-700">
-                    {transfer.fromBranchName || "---"}
-                  </p>
-                </div>
-              </div>
-              <div className="rounded-none border border-slate-100 bg-slate-50 p-4">
-                <p className="flex justify-between border-b border-slate-100 pb-2 text-[13px]">
-                  <span className="text-slate-400">Ngày tạo:</span>
-                  <span className="font-bold">
-                    {transfer.createdAt
-                      ? new Date(transfer.createdAt).toLocaleString("vi-VN")
-                      : "---"}
-                  </span>
-                </p>
-                <p className="mt-2 flex justify-between text-[13px]">
-                  <span className="text-slate-400">Tổng số lượng:</span>
-                  <span className="font-black text-blue-600">
-                    {transfer.totalQuantity || 0}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 font-black text-emerald-600">
-                  NHẬN
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Kho nhận
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[15px] font-black uppercase text-slate-700">
-                      {transfer.toBranchName || "---"}
-                    </p>
-                    {canChangeDestination && (
-                      <button
-                        onClick={() => setShowChangeBranchModal(true)}
-                        className="text-blue-500 transition-colors hover:text-blue-700"
-                        title="Thay đổi chi nhánh nhận"
-                      >
-                        <Edit size={14} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-none border border-slate-100 bg-slate-50 p-4">
-                <p className="flex justify-between border-b border-slate-100 pb-2 text-[13px]">
-                  <span className="text-slate-400">Loại điều chuyển:</span>
-                  <span className="font-bold">
-                    {isInternalSale
-                      ? "Nội bộ giữa chi nhánh"
-                      : "Kho tổng cấp phát"}
-                  </span>
-                </p>
-                <p className="mt-2 flex justify-between text-[13px]">
-                  <span className="text-slate-400">Mã tham chiếu:</span>
-                  <span className="font-mono font-bold">
-                    {transfer.referenceCode || "---"}
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 border-b pb-3 text-[11px] font-black uppercase tracking-widest text-slate-700">
-              <ArrowRightLeft size={15} />
-              Danh sách sản phẩm điều chuyển
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-[12px]">
-                <thead className="border-b bg-slate-50">
-                  <tr className="text-[10px] uppercase text-slate-500">
-                    <th className="p-3">Sản phẩm</th>
-                    <th className="p-3 text-right">Yêu cầu</th>
-                    <th className="p-3 text-right">Thực nhận</th>
-                    <th className="p-3 text-right">Đạt</th>
-                    <th className="p-3 text-right">Lỗi/thiếu</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(transfer.items || []).map((item: any) => (
-                    <tr
-                      key={item.variantId}
-                      className="border-b last:border-0 hover:bg-slate-50"
-                    >
-                      <td className="p-3">
-                        <div className="font-bold text-slate-700">
-                          {item.productName}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {item.sku || item.variantSku || "---"}
-                        </div>
-                      </td>
-                      <td className="p-3 text-right font-black text-slate-700">
-                        {item.quantityRequested || 0}
-                      </td>
-                      <td className="p-3 text-right font-black text-blue-600">
-                        {item.quantityReal || 0}
-                      </td>
-                      <td className="p-3 text-right font-black text-emerald-600">
-                        {item.quantityAccepted || 0}
-                      </td>
-                      <td className="p-3 text-right font-black text-rose-600">
-                        {item.quantityRejected || 0}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-none border border-amber-100 bg-amber-50 p-5">
-            <h3 className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase text-amber-600">
-              <FileText size={14} />
-              Diễn giải
-            </h3>
-            <p className="text-[13px] font-medium italic leading-relaxed text-amber-800">
-              "
-              {transfer.description ||
-                "Không có ghi chú thêm cho phiếu điều chuyển này."}
-              "
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5 lg:col-span-4">
-          <div className="rounded-none border border-[#dcdcdc] bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 border-b pb-3 text-[11px] font-black uppercase tracking-widest text-slate-700">
-              <Package size={15} />
-              Nhật ký xử lý
-            </div>
-            <div className="space-y-4">
-              {auditLogs.map((log, idx) => (
-                <div key={`${log.action}-${idx}`} className="relative pl-6">
-                  <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-blue-500" />
-                  <p className="text-[11px] font-black uppercase text-slate-700">
-                    {log.action}
-                  </p>
-                  <p className="text-[11px] text-slate-500">{log.time}</p>
-                  <p className="text-[12px] text-slate-600">{log.detail}</p>
-                  <p className="text-[11px] italic text-slate-400">
-                    {log.user}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 

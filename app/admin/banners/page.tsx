@@ -1,7 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Image as ImageIcon,
@@ -14,6 +20,7 @@ import {
   EyeOff,
   XCircle,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -35,8 +42,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   BannerDTO,
@@ -84,21 +102,55 @@ export default function BannersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [statusModal, setStatusModal] = useState<{ id: number; title: string; isActive: boolean } | null>(null);
+  const [statusModal, setStatusModal] = useState<{
+    id: number;
+    title: string;
+    isActive: boolean;
+  } | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const summary = useMemo(() => {
     const activeCount = allBanners.filter((banner) => banner.isActive).length;
     const inactiveCount = allBanners.length - activeCount;
+    const linkedCount = allBanners.filter((banner) => banner.linkUrl).length;
     return {
       total: allBanners.length,
       active: activeCount,
       inactive: inactiveCount,
+      linked: linkedCount,
     };
   }, [allBanners]);
 
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Tổng banner",
+        value: summary.total.toLocaleString("vi-VN"),
+        note: "Tất cả banner đã tạo",
+      },
+      {
+        label: "Có liên kết",
+        value: summary.linked.toLocaleString("vi-VN"),
+        note: "Banner điều hướng sang trang khác",
+      },
+      {
+        label: "Đang hiển thị",
+        value: summary.active.toLocaleString("vi-VN"),
+        note: "Banner đang công khai ngoài trang chủ",
+      },
+      {
+        label: "Tạm ẩn",
+        value: summary.inactive.toLocaleString("vi-VN"),
+        note: "Banner chưa hiển thị với khách hàng",
+      },
+    ],
+    [summary],
+  );
+
   const positionOptions = useMemo(() => {
-    const totalSlots = editingId ? Math.max(allBanners.length, 1) : allBanners.length + 1;
+    const totalSlots = editingId
+      ? Math.max(allBanners.length, 1)
+      : allBanners.length + 1;
     return Array.from({ length: totalSlots }, (_, index) => ({
       value: String(index),
       label:
@@ -129,13 +181,23 @@ export default function BannersPage() {
         case "displayOrder,desc":
           return (b.displayOrder ?? 0) - (a.displayOrder ?? 0);
         case "title,asc":
-          return (a.title ?? "").localeCompare(b.title ?? "", "vi", { sensitivity: "base" });
+          return (a.title ?? "").localeCompare(b.title ?? "", "vi", {
+            sensitivity: "base",
+          });
         case "title,desc":
-          return (b.title ?? "").localeCompare(a.title ?? "", "vi", { sensitivity: "base" });
+          return (b.title ?? "").localeCompare(a.title ?? "", "vi", {
+            sensitivity: "base",
+          });
         case "createdAt,asc":
-          return new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime();
+          return (
+            new Date(a.createdAt ?? 0).getTime() -
+            new Date(b.createdAt ?? 0).getTime()
+          );
         case "createdAt,desc":
-          return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+          return (
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime()
+          );
         case "displayOrder,asc":
         default:
           return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
@@ -146,18 +208,29 @@ export default function BannersPage() {
   }, []);
 
   const applyFilters = useCallback(
-    (data: BannerDTO[], kw = keyword, st = statusFilter, sortValue = sortBy) => {
+    (
+      data: BannerDTO[],
+      kw = keyword,
+      st = statusFilter,
+      sortValue = sortBy,
+    ) => {
       let result = [...data];
       if (kw.trim()) {
         const lower = kw.trim().toLowerCase();
-        result = result.filter((b) => b.title?.toLowerCase().includes(lower) || b.linkUrl?.toLowerCase().includes(lower));
+        result = result.filter(
+          (b) =>
+            b.title?.toLowerCase().includes(lower) ||
+            b.linkUrl?.toLowerCase().includes(lower),
+        );
       }
       if (st !== "all") {
-        result = result.filter((b) => (st === "ACTIVE" ? b.isActive : !b.isActive));
+        result = result.filter((b) =>
+          st === "ACTIVE" ? b.isActive : !b.isActive,
+        );
       }
       setBanners(sortBanners(result, sortValue));
     },
-    [keyword, sortBy, sortBanners, statusFilter]
+    [keyword, sortBy, sortBanners, statusFilter],
   );
 
   const loadData = async () => {
@@ -172,17 +245,12 @@ export default function BannersPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
-  useEffect(() => { applyFilters(allBanners, keyword, statusFilter, sortBy); }, [allBanners, applyFilters, keyword, statusFilter, sortBy]);
-
-  const handleAddNew = () => {
-    setEditingId(null);
-    setForm({ ...EMPTY_FORM, displayOrder: String(allBanners.length) });
-    setPreviewUrl(null);
-    setImageFile(null);
-    setImageFileName("");
-    setIsModalOpen(true);
-  };
+  useEffect(() => {
+    loadData();
+  }, []);
+  useEffect(() => {
+    applyFilters(allBanners, keyword, statusFilter, sortBy);
+  }, [allBanners, applyFilters, keyword, statusFilter, sortBy]);
 
   const handleEdit = (b: BannerDTO) => {
     setEditingId(b.id);
@@ -226,7 +294,11 @@ export default function BannersPage() {
       toast.error("Thứ tự ưu tiên phải là số không âm");
       return;
     }
-    if (form.startDate && form.endDate && new Date(form.startDate) > new Date(form.endDate)) {
+    if (
+      form.startDate &&
+      form.endDate &&
+      new Date(form.startDate) > new Date(form.endDate)
+    ) {
       toast.error("Ngày kết thúc phải sau ngày bắt đầu");
       return;
     }
@@ -266,7 +338,9 @@ export default function BannersPage() {
     setTogglingId(statusModal.id);
     try {
       await adminToggleBanner(statusModal.id);
-      toast.success(`Đã ${statusModal.isActive ? "ẩn" : "hiện"} banner: ${statusModal.title || "Banner"}`);
+      toast.success(
+        `Đã ${statusModal.isActive ? "ẩn" : "hiện"} banner: ${statusModal.title || "Banner"}`,
+      );
       await loadData();
     } catch {
       toast.error("Cập nhật trạng thái thất bại");
@@ -289,89 +363,191 @@ export default function BannersPage() {
     }
   };
 
+  const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
+  const fieldControlClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
+  const selectTriggerClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 data-[placeholder]:text-slate-400";
+
   return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-3 pb-[100px] text-slate-800">
+      <div className="mt-2 mb-8 space-y-4 px-1">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý banner</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Banner hiển thị trên trang chủ. Chọn vị trí hiển thị để sắp xếp dễ hơn.
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            {summary.total} banner, {summary.active} đang hiển thị, {summary.inactive} tạm ẩn.
-          </p>
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Quản lý banner
+          </h1>
         </div>
-        <Button onClick={handleAddNew} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-          <Plus className="mr-2" size={18} /> Thêm banner mới
-        </Button>
       </div>
 
-      <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-        <AdminSearchFilter
-          placeholder="Tìm tiêu đề, đường dẫn..."
-          hideFilter1
-          hideSettingsButton
-          filter2Placeholder="Tất cả trạng thái"
-          filter2Options={[
-            { label: "Tất cả trạng thái", value: "all" },
-            { label: "Đang hiển thị", value: "ACTIVE" },
-            { label: "Tạm ẩn", value: "INACTIVE" },
-          ]}
-          sortOptions={[
-            { label: "Vị trí tăng dần", value: "displayOrder,asc" },
-            { label: "Vị trí giảm dần", value: "displayOrder,desc" },
-            { label: "Mới nhất", value: "createdAt,desc" },
-            { label: "Cũ nhất", value: "createdAt,asc" },
-            { label: "Tiêu đề A-Z", value: "title,asc" },
-            { label: "Tiêu đề Z-A", value: "title,desc" },
-          ]}
-          onSearch={(v) => setKeyword(v)}
-          onFilter2Change={(v) => setStatusFilter(v)}
-          onSortChange={(v) => setSortBy(v)}
-          onRefresh={loadData}
-        />
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => (
+          <div
+            key={card.label}
+            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+          >
+            <p className="text-[11px] font-semibold text-slate-400">
+              {card.label}
+            </p>
+            <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
+              {card.value}
+            </p>
+            <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+              {card.note}
+            </p>
+          </div>
+        ))}
+      </div>
 
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+      <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-[360px]">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+            />
+            <Input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="Tìm tiêu đề, đường dẫn..."
+              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[180px]">
+              <SelectValue placeholder="Tất cả trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-[13px]">
+                Tất cả trạng thái
+              </SelectItem>
+              <SelectItem value="ACTIVE" className="text-[13px]">
+                Đang hiển thị
+              </SelectItem>
+              <SelectItem value="INACTIVE" className="text-[13px]">
+                Tạm ẩn
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[180px]">
+              <SelectValue placeholder="Sắp xếp" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="displayOrder,asc" className="text-[13px]">
+                Vị trí tăng dần
+              </SelectItem>
+              <SelectItem value="displayOrder,desc" className="text-[13px]">
+                Vị trí giảm dần
+              </SelectItem>
+              <SelectItem value="createdAt,desc" className="text-[13px]">
+                Mới nhất
+              </SelectItem>
+              <SelectItem value="createdAt,asc" className="text-[13px]">
+                Cũ nhất
+              </SelectItem>
+              <SelectItem value="title,asc" className="text-[13px]">
+                Tiêu đề A-Z
+              </SelectItem>
+              <SelectItem value="title,desc" className="text-[13px]">
+                Tiêu đề Z-A
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link href="/admin/banners/new">
+            <Button className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700">
+              <Plus className="mr-1.5" size={15} /> Thêm banner mới
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="table-custom min-w-[980px] w-full border-collapse text-left">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-sm text-slate-500 font-semibold">
-                <th className="p-3 pl-5 w-[70px]">ID</th>
-                <th className="p-3 w-[100px]">Ảnh</th>
-                <th className="p-3">Tên banner / liên kết</th>
-                <th className="p-3 text-center w-[120px]">Vị trí</th>
-                <th className="p-3 text-center w-[180px]">Hiệu lực</th>
-                <th className="p-3 text-center w-[120px]">Trạng thái</th>
-                <th className="p-3 text-right pr-5 w-[130px]">Hành động</th>
+              <tr className="border-b border-[#ccc] bg-[#f0f0f0]">
+                <th className="w-[70px] px-4 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                  STT
+                </th>
+                <th className="w-[100px] px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                  Ảnh
+                </th>
+                <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                  Tên banner / liên kết
+                </th>
+                <th className="w-[120px] px-2 py-3 text-center text-[10px] font-semibold text-[#1f1f1f]">
+                  Vị trí
+                </th>
+                <th className="w-[180px] px-2 py-3 text-center text-[10px] font-semibold text-[#1f1f1f]">
+                  Hiệu lực
+                </th>
+                <th className="w-[120px] px-2 py-3 text-center text-[10px] font-semibold text-[#1f1f1f]">
+                  Trạng thái
+                </th>
+                <th className="w-[130px] px-4 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                  Hành động
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i} className="border-b border-slate-100">
-                    <td className="p-3 pl-5"><div className="h-4 w-8 bg-slate-100 rounded animate-pulse" /></td>
-                    <td className="p-3"><div className="h-14 w-20 bg-slate-100 rounded animate-pulse" /></td>
-                    <td className="p-3"><div className="h-4 w-48 bg-slate-100 rounded animate-pulse" /></td>
-                    <td className="p-3"><div className="h-4 w-8 bg-slate-100 rounded animate-pulse mx-auto" /></td>
-                    <td className="p-3"><div className="h-4 w-28 bg-slate-100 rounded animate-pulse mx-auto" /></td>
-                    <td className="p-3"><div className="h-5 w-20 bg-slate-100 rounded animate-pulse mx-auto" /></td>
-                    <td className="p-3" />
+                  <tr key={i} className="border-b border-[#eee]">
+                    <td className="px-4 py-3">
+                      <div className="h-3.5 w-8 animate-pulse rounded bg-slate-100" />
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="h-10 w-16 animate-pulse rounded bg-slate-100" />
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="h-3.5 w-48 animate-pulse rounded bg-slate-100" />
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="mx-auto h-3.5 w-8 animate-pulse rounded bg-slate-100" />
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="mx-auto h-3.5 w-28 animate-pulse rounded bg-slate-100" />
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="mx-auto h-5 w-20 animate-pulse rounded bg-slate-100" />
+                    </td>
+                    <td className="px-4 py-3" />
                   </tr>
                 ))
               ) : banners.length > 0 ? (
-                banners.map((b) => (
-                  <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td className="p-3 pl-5 text-sm text-slate-500 font-bold font-mono">#{b.id}</td>
-                    <td className="p-3">
-                      <div className="w-20 h-12 rounded border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                banners.map((b, index) => (
+                  <tr
+                    key={b.id}
+                    className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
+                  >
+                    <td className="px-4 py-3 text-[11px] font-medium text-slate-500">
+                      {index + 1}
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-100">
                         {b.imageUrl ? (
-                          <img src={b.imageUrl} alt={b.title ?? ""} className="w-full h-full object-cover" />
+                          <img
+                            src={b.imageUrl}
+                            alt={b.title ?? ""}
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
                           <ImageIcon size={16} className="text-slate-300" />
                         )}
                       </div>
                     </td>
-                    <td className="p-3">
-                      <p className={cn("text-[15px] font-semibold", b.title ? "text-slate-800" : "text-slate-400 italic")}>
+                    <td className="px-2 py-3">
+                      <p
+                        className={cn(
+                          "line-clamp-2 text-[11px] font-semibold leading-snug",
+                          b.title ? "text-slate-800" : "text-slate-400 italic",
+                        )}
+                      >
                         {b.title || "Banner không tên"}
                       </p>
                       {b.linkUrl && (
@@ -379,65 +555,76 @@ export default function BannersPage() {
                           href={b.linkUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-1 flex items-center gap-1 text-sm text-primary hover:underline truncate max-w-[340px]"
+                          className="mt-1 flex max-w-[340px] items-center gap-1 truncate text-[10px] font-medium text-slate-500 hover:text-blue-600 hover:underline"
                         >
                           <ExternalLink size={10} />
                           {b.linkUrl}
                         </a>
                       )}
                     </td>
-                    <td className="p-3 text-center">
-                      <span className="text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
+                    <td className="px-2 py-3 text-center">
+                      <span className="text-[11px] font-medium text-slate-600">
                         Vị trí {b.displayOrder + 1}
                       </span>
                     </td>
-                    <td className="p-3 text-center">
-                      <div className="text-sm text-slate-500">
-                        <div>{formatDate(b.startDate)} → {formatDate(b.endDate)}</div>
+                    <td className="px-2 py-3 text-center">
+                      <div className="text-[11px] text-slate-500">
+                        <div>
+                          {formatDate(b.startDate)} → {formatDate(b.endDate)}
+                        </div>
                       </div>
                     </td>
-                    <td className="p-3 text-center">
-                      <span className={cn(
-                        "text-xs font-semibold px-3 py-1 rounded-full border",
-                        b.isActive
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-slate-50 text-slate-400 border-slate-200"
-                      )}>
+                    <td className="px-2 py-3 text-center">
+                      <span className="text-[11px] font-medium text-slate-600">
                         {b.isActive ? "Hiển thị" : "Tạm ẩn"}
                       </span>
                     </td>
-                    <td className="p-3 text-right">
-                      <div className="flex justify-end gap-2">
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           title={b.isActive ? "Ẩn banner" : "Hiện banner"}
                           disabled={togglingId === b.id}
-                          className={cn("h-8 w-8", b.isActive ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-500 hover:bg-amber-50")}
-                          onClick={() => setStatusModal({ id: b.id, title: b.title ?? "", isActive: b.isActive })}
-                        >
-                          {togglingId === b.id
-                            ? <Loader2 size={15} className="animate-spin" />
-                            : b.isActive ? <Eye size={16} /> : <EyeOff size={16} />
+                          className={cn(
+                            "h-7 w-7 rounded-[4px] text-slate-400",
+                            b.isActive
+                              ? "hover:bg-amber-50 hover:text-amber-600"
+                              : "hover:bg-emerald-50 hover:text-emerald-600",
+                          )}
+                          onClick={() =>
+                            setStatusModal({
+                              id: b.id,
+                              title: b.title ?? "",
+                              isActive: b.isActive,
+                            })
                           }
+                        >
+                          {togglingId === b.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : b.isActive ? (
+                            <EyeOff size={16} />
+                          ) : (
+                            <Eye size={16} />
+                          )}
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           title="Chỉnh sửa"
-                          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                          className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600"
                           onClick={() => handleEdit(b)}
                         >
-                          <Edit size={15} />
+                          <Edit size={14} />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           title="Xóa"
-                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                          className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                           onClick={() => setDeleteId(b.id)}
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </Button>
                       </div>
                     </td>
@@ -445,7 +632,10 @@ export default function BannersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400 italic font-medium">
+                  <td
+                    colSpan={7}
+                    className="h-[180px] text-center text-[12px] font-medium text-slate-400"
+                  >
                     Chưa có banner nào.
                   </td>
                 </tr>
@@ -456,78 +646,68 @@ export default function BannersPage() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="w-[95vw] max-w-[640px] max-h-[92vh] p-0 overflow-hidden bg-white flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
-          <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b bg-slate-50">
-            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <ImageIcon className="text-emerald-600" size={20} />
-              {editingId ? "Cập nhật banner" : "Thêm banner mới"}
+        <DialogContent className="flex max-h-[92vh] w-[95vw] max-w-[640px] flex-col overflow-hidden border border-slate-200 bg-white p-0 shadow-xl duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-3 data-[state=open]:slide-in-from-bottom-3">
+          <DialogHeader className="border-b border-slate-200 px-5 py-4 sm:px-6">
+            <DialogTitle className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+              <ImageIcon className="text-emerald-600" size={16} />
+              Cập nhật banner
             </DialogTitle>
-            <p className="text-sm text-slate-500 font-medium mt-1">
-              Chỉ giữ lại các thông tin cần thiết để người dùng thao tác nhanh hơn.
+            <p className="mt-1 text-[11px] font-medium text-slate-500">
+              Chỉ giữ lại các thông tin cần thiết để người dùng thao tác nhanh
+              hơn.
             </p>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6 space-y-5">
+          <form
+            onSubmit={handleSave}
+            className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6"
+          >
             <div className="space-y-3">
-              <Label className="text-sm font-medium text-slate-700 block">
+              <Label className={cn(fieldLabelClass, "block")}>
                 Ảnh banner <span className="text-rose-500">*</span>
               </Label>
-              <div className="flex flex-col items-center gap-3">
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    "w-full max-w-sm aspect-[16/7] rounded-xl border-2 border-dashed flex items-center justify-center relative overflow-hidden bg-white group transition-all duration-200 cursor-pointer",
-                    previewUrl
-                      ? "border-slate-200"
-                      : "border-slate-300 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm"
-                  )}
-                >
-                  {previewUrl ? (
-                    <>
-                      <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <ImageIcon className="text-white h-6 w-6" />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center text-slate-400 hover:text-emerald-600 transition-colors gap-1">
-                      <ImageIcon size={28} />
-                      <span className="text-xs font-medium">Tải ảnh lên</span>
-                      <span className="text-[11px] text-slate-400">Khuyến nghị tỷ lệ 16:7</span>
-                    </div>
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-[38px] flex-1 justify-start rounded-[4px] border-slate-200 bg-white px-3 text-left text-[13px] font-normal text-slate-500"
+                  >
+                    <ImageIcon size={14} className="mr-2" />
+                    {imageFileName || (previewUrl ? "Đã có ảnh banner" : "Chọn ảnh banner...")}
+                  </Button>
+                  {previewUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRemoveImage}
+                      className="h-[38px] shrink-0 rounded-[4px] border-slate-200 px-3 text-[12px] text-slate-500"
+                    >
+                      <XCircle size={14} />
+                    </Button>
                   )}
                 </div>
 
                 {previewUrl && (
-                  <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white px-3 py-2 flex items-center justify-between gap-2">
-                    <TooltipProvider delayDuration={150}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <p className="text-xs font-semibold text-slate-600 truncate max-w-[220px] cursor-help">
-                            {imageFileName || "Ảnh đã chọn"}
-                          </p>
-                        </TooltipTrigger>
-                        {(imageFileName || "Ảnh đã chọn").length > 28 && (
-                          <TooltipContent side="top" className="max-w-[320px] break-all text-xs">
-                            {imageFileName || "Ảnh đã chọn"}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </TooltipProvider>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveImage}
-                      className="h-7 w-7 sm:w-auto p-0 sm:px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                    >
-                      <XCircle size={14} className="sm:mr-1" />
-                      <span className="hidden sm:inline">Xóa</span>
-                    </Button>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="group relative flex aspect-[16/7] w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden border border-slate-200 bg-white transition-all duration-200"
+                  >
+                      <img
+                        src={previewUrl}
+                        alt="preview"
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                        <ImageIcon className="h-6 w-6 text-white" />
+                      </div>
                   </div>
                 )}
               </div>
-              <p className="text-xs text-slate-400">Ảnh rõ, ngang, ít chữ sẽ hiển thị đẹp hơn ngoài trang chủ.</p>
+              <p className="text-[10px] font-medium text-slate-400">
+                Ảnh rõ, ngang, ít chữ sẽ hiển thị đẹp hơn ngoài trang chủ.
+              </p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -538,21 +718,33 @@ export default function BannersPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Tên banner</Label>
+              <div className="space-y-1.5">
+                <Label className={fieldLabelClass}>Tên banner</Label>
                 <Input
                   value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, title: e.target.value }))
+                  }
                   placeholder="Ví dụ: Khuyến mãi tháng 5"
-                  className="h-11 text-sm bg-white"
+                  className={cn(fieldControlClass, "border-slate-200 bg-white")}
                 />
-                <p className="text-xs text-slate-400">Tên này chỉ để quản lý nội bộ.</p>
+                <p className="text-[10px] font-medium text-slate-400">
+                  Tên này chỉ để quản lý nội bộ.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Trạng thái</Label>
-                <Select value={form.isActive} onValueChange={(v) => setForm((f) => ({ ...f, isActive: v }))}>
-                  <SelectTrigger className="h-11 bg-white text-sm">
+              <div className="space-y-1.5">
+                <Label className={fieldLabelClass}>Trạng thái</Label>
+                <Select
+                  value={form.isActive}
+                  onValueChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
+                >
+                  <SelectTrigger
+                    className={cn(
+                      selectTriggerClass,
+                      "border-slate-200 bg-white",
+                    )}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -563,21 +755,35 @@ export default function BannersPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-700">Liên kết khi bấm vào banner</Label>
+            <div className="space-y-1.5">
+              <Label className={fieldLabelClass}>
+                Liên kết khi bấm vào banner
+              </Label>
               <Input
                 value={form.linkUrl}
-                onChange={(e) => setForm((f) => ({ ...f, linkUrl: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, linkUrl: e.target.value }))
+                }
                 placeholder="https://..."
-                className="h-11 text-sm bg-white"
+                className={cn(fieldControlClass, "border-slate-200 bg-white")}
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Vị trí hiển thị</Label>
-                <Select value={form.displayOrder} onValueChange={(value) => setForm((f) => ({ ...f, displayOrder: value }))}>
-                  <SelectTrigger className="h-11 bg-white text-sm">
+              <div className="space-y-1.5">
+                <Label className={fieldLabelClass}>Vị trí hiển thị</Label>
+                <Select
+                  value={form.displayOrder}
+                  onValueChange={(value) =>
+                    setForm((f) => ({ ...f, displayOrder: value }))
+                  }
+                >
+                  <SelectTrigger
+                    className={cn(
+                      selectTriggerClass,
+                      "border-slate-200 bg-white",
+                    )}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -588,12 +794,14 @@ export default function BannersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-slate-400">Vị trí 1 sẽ được hiển thị đầu tiên.</p>
+                <p className="text-[10px] font-medium text-slate-400">
+                  Vị trí 1 sẽ được hiển thị đầu tiên.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700">Hiệu lực</Label>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+              <div className="space-y-1.5">
+                <Label className={fieldLabelClass}>Hiệu lực</Label>
+                <div className="flex h-[38px] items-center border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-500">
                   {form.startDate || form.endDate
                     ? `${formatDate(form.startDate || null)} → ${formatDate(form.endDate || null)}`
                     : "Không giới hạn thời gian"}
@@ -602,45 +810,67 @@ export default function BannersPage() {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-sm font-medium text-slate-700 block">Thời gian hiệu lực</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-slate-500">Ngày bắt đầu</Label>
+              <Label className={cn(fieldLabelClass, "block")}>
+                Thời gian hiệu lực
+              </Label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-semibold text-slate-500">
+                    Ngày bắt đầu
+                  </Label>
                   <Input
                     type="datetime-local"
                     value={form.startDate}
-                    onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                    className="h-11 text-sm bg-white"
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, startDate: e.target.value }))
+                    }
+                    className={cn(
+                      fieldControlClass,
+                      "border-slate-200 bg-white",
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-slate-500">Ngày kết thúc</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-semibold text-slate-500">
+                    Ngày kết thúc
+                  </Label>
                   <Input
                     type="datetime-local"
                     value={form.endDate}
-                    onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                    className="h-11 text-sm bg-white"
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, endDate: e.target.value }))
+                    }
+                    className={cn(
+                      fieldControlClass,
+                      "border-slate-200 bg-white",
+                    )}
                   />
                 </div>
               </div>
-              <p className="text-xs text-slate-400">Bạn có thể để trống nếu banner luôn được phép hiển thị.</p>
+              <p className="text-[10px] font-medium text-slate-400">
+                Bạn có thể để trống nếu banner luôn được phép hiển thị.
+              </p>
             </div>
 
-            <DialogFooter className="sticky bottom-0 bg-white pt-4 pb-1 mt-2 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
+            <DialogFooter className="sticky bottom-0 mt-2 flex flex-col-reverse items-stretch gap-2.5 border-t border-slate-200 bg-white pt-4 pb-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsModalOpen(false)}
-                className="h-11 w-full sm:w-auto px-6 text-sm font-medium"
+                className="h-10 w-full rounded-md border-slate-300 px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50 sm:w-auto"
               >
                 Hủy
               </Button>
               <Button
                 type="submit"
                 disabled={saving}
-                className="h-11 w-full sm:w-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-lg shadow-emerald-100"
+                className="h-10 w-full rounded-md bg-emerald-600 px-8 text-[13px] font-semibold text-white hover:bg-emerald-700 sm:w-auto"
               >
-                {saving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
+                {saving ? (
+                  <Loader2 className="animate-spin mr-2" size={16} />
+                ) : (
+                  <Save className="mr-2" size={16} />
+                )}
                 {editingId ? "Lưu thay đổi" : "Tạo banner"}
               </Button>
             </DialogFooter>
@@ -651,37 +881,50 @@ export default function BannersPage() {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-rose-600 font-bold">Xác nhận xóa banner</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-500 font-medium">
+            <AlertDialogTitle className="font-bold text-rose-600">
+              Xác nhận xóa banner
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] font-medium text-slate-500">
               Ảnh sẽ bị xóa khỏi Cloudinary và không thể khôi phục.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="font-medium h-9 text-sm">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-rose-600 hover:bg-rose-700 text-white font-medium h-9 text-sm">
+            <AlertDialogCancel className="h-9 text-[13px] font-medium">
+              Hủy bỏ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="h-9 bg-rose-600 text-[13px] font-medium text-white hover:bg-rose-700"
+            >
               Đồng ý xóa
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!statusModal} onOpenChange={() => setStatusModal(null)}>
+      <AlertDialog
+        open={!!statusModal}
+        onOpenChange={() => setStatusModal(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-amber-600 font-bold">
+            <AlertDialogTitle className="font-bold text-amber-600">
               Thay đổi trạng thái hiển thị
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-500 font-medium">
+            <AlertDialogDescription className="text-[13px] font-medium text-slate-500">
               Bạn muốn{" "}
-              <strong>{statusModal?.isActive ? "ẨN" : "HIỂN THỊ"}</strong> banner{" "}
-              <strong>{statusModal?.title || "này"}</strong> trên trang chủ?
+              <strong>{statusModal?.isActive ? "ẨN" : "HIỂN THỊ"}</strong>{" "}
+              banner <strong>{statusModal?.title || "này"}</strong> trên trang
+              chủ?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="font-medium h-9 text-sm">Hủy</AlertDialogCancel>
+            <AlertDialogCancel className="h-9 text-[13px] font-medium">
+              Hủy
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleToggleStatus}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-medium h-9 text-sm"
+              className="h-9 bg-amber-500 text-[13px] font-medium text-white hover:bg-amber-600"
             >
               Xác nhận
             </AlertDialogAction>

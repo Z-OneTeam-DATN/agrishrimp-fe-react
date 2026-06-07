@@ -2,13 +2,10 @@
 
 import React from "react";
 import {
-  Building2,
   Pencil,
   Trash2,
   Phone,
   Mail,
-  MapPin,
-  UserCheck,
 } from "lucide-react";
 import {
   Table,
@@ -39,6 +36,7 @@ interface Branch {
   status: string;
   managerNames: string[];
   managerIds: number[];
+  managerAvatarUrls?: (string | null)[];
 }
 
 interface AdminBranchTableProps {
@@ -50,17 +48,52 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
   const router = useRouter();
   const { hasPermission } = usePermissions();
   const canAction = hasPermission(P.BRANCH_UPDATE) || hasPermission(P.BRANCH_DELETE);
+  const sortedBranches = React.useMemo(
+    () =>
+      [...branches].sort((a, b) => {
+        const aIsWarehouse = a.branchType === "WAREHOUSE";
+        const bIsWarehouse = b.branchType === "WAREHOUSE";
+
+        if (aIsWarehouse !== bIsWarehouse) {
+          return aIsWarehouse ? -1 : 1;
+        }
+
+        return a.name.localeCompare(b.name, "vi-VN");
+      }),
+    [branches]
+  );
+
+  const formatBranchName = (value?: string) => {
+    const source = (value || "").trim();
+    if (!source) return "Chưa có tên";
+
+    return source
+      .toLocaleLowerCase("vi-VN")
+      .split(/\s+/)
+      .map((part) => part.charAt(0).toLocaleUpperCase("vi-VN") + part.slice(1))
+      .join(" ");
+  };
+
+  const formatBranchAddress = (branch: Branch) => {
+    return [
+      branch.addressDetail,
+      branch.ward,
+      branch.district,
+      branch.province,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  };
 
   return (
     <div className="w-full">
-      <Table className="table-custom border-collapse min-w-[1100px]">
+      <Table className="table-custom border-collapse min-w-[1120px]">
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
+            <TableHead className="w-[70px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">STT</TableHead>
             <TableHead className="w-[100px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">Mã CN</TableHead>
-            <TableHead className="font-semibold text-[12px] p-2 text-[#1f1f1f]">Thông tin & Vị trí</TableHead>
-            <TableHead className="w-[140px] font-semibold text-[12px] p-2 text-center text-slate-500">Phân loại</TableHead>
-            <TableHead className="w-[220px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Quản lý</TableHead>
-            <TableHead className="w-[200px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Liên hệ</TableHead>
+            <TableHead className="w-[420px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Thông tin chi nhánh</TableHead>
+            <TableHead className="w-[320px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Quản lý</TableHead>
             <TableHead className="w-[130px] font-semibold text-[12px] p-2 text-center text-[#1f1f1f]">Trạng thái</TableHead>
             {canAction && (
               <TableHead className="w-[100px] text-right font-semibold text-[12px] p-2 pr-6 text-[#1f1f1f]">Thao tác</TableHead>
@@ -68,95 +101,61 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {branches.map((branch) => {
+          {sortedBranches.map((branch, index) => {
             const isWarehouse = branch.branchType === "WAREHOUSE";
-            const isStore = branch.branchType === "STORE";
             const isActive = branch.status === "ACTIVE";
 
             return (
               <TableRow
                 key={branch.id}
                 className={cn(
-                  "hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer",
+                  "h-[108px] hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer",
                   isWarehouse && "bg-amber-50/40"
                 )}
               >
-                <TableCell className="p-2 pl-6 text-[12px] font-semibold text-slate-600">#{branch.branchCode}</TableCell>
+                <TableCell className="h-[108px] p-2 pl-6 align-middle text-[12px] font-semibold text-slate-600">
+                  {index + 1}
+                </TableCell>
+                <TableCell className="h-[108px] p-2 pl-6 align-middle text-[12px] font-semibold text-slate-600">#{branch.branchCode}</TableCell>
 
-                <TableCell className="p-2">
+                <TableCell className="h-[108px] p-2 align-middle">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-9 h-9 rounded flex items-center justify-center border",
-                        isWarehouse
-                          ? "bg-amber-100 text-amber-700 border-amber-200 shadow-sm"
-                          : "bg-emerald-50 text-emerald-600 border-emerald-100",
-                      )}
-                    >
-                      <Building2 size={16} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-semibold text-slate-800 capitalize tracking-tight">
-                        {branch.name}
+                    <div className="flex min-h-[76px] flex-col justify-center gap-1.5">
+                      <span className="text-[13px] font-medium text-slate-800 tracking-tight line-clamp-1">
+                        {formatBranchName(branch.name)}
                       </span>
-                      <span className="text-[11px] text-slate-500 font-normal mt-0.5 flex items-center gap-1 capitalize">
-                        <MapPin size={10} className="text-slate-300" />
-                        {branch.addressDetail}
-                        {branch.ward && `, ${branch.ward}`}
-                        {branch.district && `, ${branch.district}`}
-                        {branch.province && `, ${branch.province}`}
+                      <span className="max-w-[280px] line-clamp-2 text-[11px] font-normal leading-5 text-slate-500">
+                      {formatBranchAddress(branch)}
                       </span>
                     </div>
                   </div>
                 </TableCell>
 
-                <TableCell className="p-2 text-center">
-                   <span className={cn(
-                     "text-[11px] font-semibold px-2 py-0.5 rounded-none border tracking-tight capitalize",
-                     isWarehouse ? "bg-amber-600 text-white border-amber-700" : "bg-slate-50 text-slate-500 border-slate-200"
-                   )}>
-                     {isWarehouse ? "Kho tổng" : isStore ? "Chi nhánh" : "Khác"}
-                   </span>
-                </TableCell>
-
-                <TableCell className="p-2">
-                  <div className="flex items-center gap-2">
-                     <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-semibold text-[11px] border border-slate-200 capitalize">
-                      {branch.managerNames?.[0]?.substring(0, 2) || "??"}
-                     </div>
-                     <div className="flex flex-col">
-                       <span className="text-[12px] font-semibold text-slate-700 leading-none capitalize">
-                         {branch.managerNames?.[0] || "Chưa có"}
-                       </span>
-                       <span className="text-[10px] text-slate-400 mt-1 font-normal flex items-center gap-1">
-                         <UserCheck size={10} /> ID: {branch.managerIds?.[0] || "N/A"}
-                       </span>
-                     </div>
-                  </div>
-                </TableCell>
-
-                <TableCell className="p-2">
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-normal">
+                <TableCell className="h-[108px] p-2 align-middle">
+                  <div className="flex min-h-[76px] flex-col justify-center gap-1.5">
+                    <span className="text-[12px] font-semibold text-slate-700 capitalize line-clamp-1">
+                      {branch.managerNames?.[0] || "Chưa có"}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-[11px] font-normal text-slate-600 whitespace-nowrap">
                       <Phone size={10} className="text-slate-400" /> {branch.phone}
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-normal">
+                    <div className="flex items-center gap-1.5 text-[10px] font-normal text-slate-400 truncate">
                       <Mail size={10} className="text-slate-400" /> {branch.email}
                     </div>
                   </div>
                 </TableCell>
 
-                <TableCell className="p-2 text-center">
+                <TableCell className="h-[108px] p-2 align-middle text-center">
                   <span className={cn(
-                    "text-[11px] font-semibold px-2 py-0.5 rounded border tracking-tight capitalize whitespace-nowrap",
-                    isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
+                    "text-[11px] font-medium tracking-tight capitalize whitespace-nowrap",
+                    isActive ? "text-emerald-600" : "text-rose-600"
                   )}>
                     {isActive ? "Đang hoạt động" : "Ngừng hoạt động"}
                   </span>
                 </TableCell>
 
                 {canAction && (
-                  <TableCell className="p-2 text-right pr-6">
+                  <TableCell className="h-[108px] p-2 align-middle text-right pr-6">
                     <div className="flex justify-end gap-1">
                       {hasPermission(P.BRANCH_UPDATE) && (
                         <Button
@@ -202,7 +201,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
 
       {/* Footer Pagination */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
-        <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+        <p className="text-[11px] text-gray-400 font-bold tracking-wide">
           Tổng số {branches.length} chi nhánh & kho hàng
         </p>
         <div className="flex items-center gap-1">

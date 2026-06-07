@@ -7,18 +7,10 @@ import { toast } from "sonner";
 import {
   Loader2,
   ChevronLeft,
-  ShoppingCart,
   CheckCircle2,
-  Clock,
   Truck,
-  PackageCheck,
-  AlertTriangle,
-  XCircle,
   Plus,
   RefreshCcw,
-  Package,
-  FileText,
-  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +29,8 @@ import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { InventoryApiService } from "@/app/services/inventory.service";
 import type {
   PurchaseRequestResponse,
-  PurchaseRequestStatus,
 } from "@/app/types/purchase.schema";
-import { PR_STATUS_LABEL, PR_STATUS_COLOR } from "@/app/types/purchase.schema";
+import { PR_STATUS_LABEL } from "@/app/types/purchase.schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -212,7 +203,7 @@ export default function PurchaseRequestDetailPage() {
   // ─── RENDER ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4 space-y-5">
+    <div className="space-y-5 px-1 pb-8 pt-2 text-slate-900">
       {/* ── Page Header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -226,19 +217,16 @@ export default function PurchaseRequestDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-[16px] font-black uppercase tracking-tight text-slate-700">
-                {pr.code}
+              <h1 className="text-[20px] font-semibold uppercase text-slate-900">
+                Cập nhật phiếu yêu cầu {pr.code}
               </h1>
               <span
-                className={cn(
-                  "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide",
-                  PR_STATUS_COLOR[pr.status],
-                )}
+                className="text-[12px] font-medium text-slate-500"
               >
                 {PR_STATUS_LABEL[pr.status]}
               </span>
             </div>
-            <p className="text-[12px] text-slate-400">
+            <p className="text-[10.5px] text-slate-400">
               Tạo lúc {fmtDateTime(pr.createdAt)} bởi {pr.createdByName}
             </p>
           </div>
@@ -256,14 +244,14 @@ export default function PurchaseRequestDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 text-[12px] font-bold"
+                  className="h-8 rounded-[4px] border-slate-200 text-[12px] font-medium"
                 >
                   Sửa
                 </Button>
               </Link>
               <Button
                 size="sm"
-                className="h-8 bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-bold rounded-[3px]"
+                className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
                 onClick={() =>
                   setConfirmAction({ type: "submit", label: "Gửi duyệt" })
                 }
@@ -278,7 +266,7 @@ export default function PurchaseRequestDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-[12px] font-bold text-red-600 border-red-200"
+                className="h-8 rounded-[4px] border-rose-200 text-[12px] font-medium text-rose-600"
                 onClick={() =>
                   setConfirmAction({
                     type: "reject",
@@ -290,7 +278,7 @@ export default function PurchaseRequestDetailPage() {
               </Button>
               <Button
                 size="sm"
-                className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold rounded-[3px]"
+                className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
                 onClick={() =>
                   setConfirmAction({ type: "approve", label: "Duyệt phiếu" })
                 }
@@ -319,7 +307,7 @@ export default function PurchaseRequestDetailPage() {
           {canCreateReceipt && hasRemaining && (
             <Button
               size="sm"
-              className="h-8 bg-green-600 hover:bg-green-700 text-white text-[12px] font-bold rounded-[3px]"
+              className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
               onClick={handleCreateReceipt}
             >
               <Plus size={13} className="mr-1.5" />
@@ -347,7 +335,7 @@ export default function PurchaseRequestDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-[12px] font-bold text-red-500 border-red-200"
+              className="h-8 rounded-[4px] border-rose-200 text-[12px] font-medium text-rose-600"
               onClick={() =>
                 setConfirmAction({ type: "cancel", label: "Hủy phiếu yêu cầu" })
               }
@@ -359,37 +347,33 @@ export default function PurchaseRequestDetailPage() {
       </div>
 
       {/* ── Info Cards ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
         {[
           {
             label: "Nhà cung cấp",
             value: `${pr.supplierName} (${pr.supplierCode})`,
-            icon: <Package size={14} />,
           },
           {
             label: "Chi nhánh nhận",
             value: pr.branchName,
-            icon: <PackageCheck size={14} />,
           },
           {
             label: "Ngày tạo phiếu",
             value: fmtDate(pr.createdAt),
-            icon: <CalendarDays size={14} />,
           },
           {
             label: "Tổng giá trị",
             value: fmtCurrency(pr.totalAmount ?? 0),
-            icon: <FileText size={14} />,
           },
         ].map((card) => (
           <div
             key={card.label}
-            className="bg-white border border-slate-200 rounded-sm p-4 shadow-sm"
+            className="rounded-[4px] border border-slate-200 bg-white p-3 shadow-sm"
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-              {card.icon} {card.label}
+            <div className="mb-3 text-[11px] font-semibold text-slate-400">
+              {card.label}
             </div>
-            <div className="text-[13px] font-bold text-slate-700 truncate">
+            <div className="truncate text-[13px] font-semibold text-slate-900">
               {card.value}
             </div>
           </div>
@@ -397,41 +381,41 @@ export default function PurchaseRequestDetailPage() {
       </div>
 
       {/* ── Items Table ───────────────────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-sm shadow-sm">
+      <div className="border border-slate-200 bg-white shadow-sm">
         <div className="px-5 py-3 border-b flex items-center justify-between">
-          <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600">
-            Danh sách hàng hóa
+          <h2 className="text-[12px] font-semibold text-slate-900">
+            1. Danh sách hàng hóa
           </h2>
           <span className="text-[11px] text-slate-400">
             {pr.items?.length ?? 0} mặt hàng
           </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
+          <table className="w-full min-w-[920px] table-fixed text-[12px]">
             <thead>
               <tr className="bg-slate-50 border-b">
-                <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider">
+                <th className="w-[28%] px-4 py-3 text-left text-[11px] font-medium text-slate-500">
                   Sản phẩm
                 </th>
-                <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-center text-[11px] font-medium text-slate-500">
                   Yêu cầu
                 </th>
-                <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-center text-[11px] font-medium text-slate-500">
                   NCC giao
                 </th>
-                <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider text-green-700">
+                <th className="px-4 py-3 text-center text-[11px] font-medium text-slate-500">
                   Đạt QC
                 </th>
-                <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider text-red-600">
+                <th className="px-4 py-3 text-center text-[11px] font-medium text-slate-500">
                   Lỗi
                 </th>
-                <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider text-orange-600">
+                <th className="px-4 py-3 text-center text-[11px] font-medium text-slate-500">
                   Còn thiếu
                 </th>
-                <th className="px-4 py-2.5 text-right font-black text-slate-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-[11px] font-medium text-slate-500">
                   Đơn giá
                 </th>
-                <th className="px-4 py-2.5 text-right font-black text-slate-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-[11px] font-medium text-slate-500">
                   Thành tiền
                 </th>
               </tr>
@@ -444,8 +428,7 @@ export default function PurchaseRequestDetailPage() {
                   <tr
                     key={item.id ?? idx}
                     className={cn(
-                      "border-b",
-                      fulfilled ? "bg-green-50/30" : "bg-white",
+                      "border-b border-slate-100 hover:bg-slate-50",
                     )}
                   >
                     <td className="px-4 py-2.5">
@@ -458,17 +441,17 @@ export default function PurchaseRequestDetailPage() {
                           />
                         )}
                         <div>
-                          <div className="font-medium text-slate-700">
+                          <div className="text-[12.5px] font-semibold text-slate-800">
                             {item.productName}
                           </div>
-                          <div className="text-[10px] text-slate-400">
+                          <div className="text-[10.5px] text-slate-400">
                             {item.productCode}
                           </div>
                         </div>
                         {fulfilled && (
                           <CheckCircle2
                             size={13}
-                            className="text-green-500 ml-1"
+                            className="ml-1 text-emerald-500"
                           />
                         )}
                       </div>
@@ -479,23 +462,14 @@ export default function PurchaseRequestDetailPage() {
                     <td className="px-4 py-2.5 text-center text-slate-600">
                       {item.deliveredQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-green-700 font-bold">
+                    <td className="px-4 py-2.5 text-center font-medium text-slate-700">
                       {item.acceptedQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-red-600 font-semibold">
+                    <td className="px-4 py-2.5 text-center font-medium text-slate-700">
                       {item.defectiveQty}
                     </td>
                     <td className="px-4 py-2.5 text-center">
-                      <span
-                        className={cn(
-                          "inline-block px-2 py-0.5 rounded text-[10px] font-bold",
-                          (item.remainingQty ?? 0) > 0
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-green-100 text-green-700",
-                        )}
-                      >
-                        {item.remainingQty ?? 0}
-                      </span>
+                      {item.remainingQty ?? 0}
                     </td>
                     <td className="px-4 py-2.5 text-right text-slate-600">
                       {fmtCurrency(item.unitPrice ?? 0)}
@@ -514,11 +488,10 @@ export default function PurchaseRequestDetailPage() {
       </div>
 
       {/* ── Goods Receipts Timeline ───────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-sm shadow-sm">
+      <div className="border border-slate-200 bg-white shadow-sm">
         <div className="px-5 py-3 border-b flex items-center justify-between">
-          <h2 className="text-[13px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-2">
-            <Truck size={14} />
-            Lịch sử đợt nhập hàng
+          <h2 className="text-[12px] font-semibold text-slate-900">
+            2. Lịch sử đợt nhập hàng
           </h2>
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
             <span>
@@ -528,7 +501,7 @@ export default function PurchaseRequestDetailPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-[11px] font-bold border-green-300 text-green-700 hover:bg-green-50"
+                className="h-8 rounded-[4px] border-slate-200 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
                 onClick={handleCreateReceipt}
               >
                 <Plus size={12} className="mr-1" />
@@ -545,7 +518,7 @@ export default function PurchaseRequestDetailPage() {
             {canCreateReceipt && (
               <Button
                 size="sm"
-                className="mt-3 bg-green-600 hover:bg-green-700 text-white h-8 text-[12px] font-bold rounded-[3px]"
+                className="mt-3 h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
                 onClick={handleCreateReceipt}
               >
                 <Plus size={13} className="mr-1.5" /> Tạo đợt nhập đầu tiên
@@ -569,39 +542,27 @@ export default function PurchaseRequestDetailPage() {
                       {/* Timeline dot */}
                       <div
                         className={cn(
-                          "relative z-10 flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold",
-                          receipt.status === "COMPLETED"
-                            ? "bg-green-500"
-                            : receipt.status === "PENDING"
-                              ? "bg-amber-400"
-                              : receipt.status === "APPROVED"
-                                ? "bg-blue-500"
-                                : receipt.status === "CANCELLED"
-                                  ? "bg-gray-400"
-                                  : "bg-red-400",
+                          "relative z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] font-semibold text-slate-500",
                         )}
                       >
                         {idx + 1}
                       </div>
 
                       {/* Card */}
-                      <div className="flex-1 bg-slate-50 border border-slate-200 rounded-[4px] p-3 hover:border-blue-200 transition-colors">
+                      <div className="flex-1 rounded-[4px] border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-white">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-600">
+                            <span className="text-[10.5px] font-medium text-slate-500">
                               Đợt {idx + 1}
                             </span>
                             <Link
                               href={`/admin/receipts/${receipt.id}`}
-                              className="font-bold text-blue-600 text-[13px] hover:underline"
+                              className="text-[13px] font-semibold text-slate-800 hover:text-emerald-700"
                             >
                               {receipt.code}
                             </Link>
                             <span
-                              className={cn(
-                                "inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
-                                statusInfo.cls,
-                              )}
+                              className="text-[10.5px] font-medium text-slate-500"
                             >
                               {statusInfo.label}
                             </span>
@@ -616,7 +577,7 @@ export default function PurchaseRequestDetailPage() {
                             <div className="text-[10px] text-slate-400 mb-0.5">
                               NCC giao
                             </div>
-                            <div className="font-bold text-slate-700">
+                            <div className="font-semibold text-slate-700">
                               {receipt.totalDelivered}
                             </div>
                           </div>
@@ -624,7 +585,7 @@ export default function PurchaseRequestDetailPage() {
                             <div className="text-[10px] text-slate-400 mb-0.5">
                               Đạt QC
                             </div>
-                            <div className="font-bold text-green-700">
+                            <div className="font-semibold text-slate-700">
                               {receipt.totalAccepted}
                             </div>
                           </div>
@@ -632,7 +593,7 @@ export default function PurchaseRequestDetailPage() {
                             <div className="text-[10px] text-slate-400 mb-0.5">
                               Lỗi
                             </div>
-                            <div className="font-bold text-red-600">
+                            <div className="font-semibold text-slate-700">
                               {receipt.totalDefective}
                             </div>
                           </div>
@@ -642,23 +603,23 @@ export default function PurchaseRequestDetailPage() {
                           <div className="mt-3 overflow-x-auto rounded border border-slate-200 bg-white">
                             <table className="min-w-[760px] w-full text-[11px]">
                               <thead className="bg-slate-50">
-                                <tr className="text-slate-500 uppercase">
-                                  <th className="px-3 py-2 text-left font-black">
+                                <tr className="text-slate-500">
+                                  <th className="px-3 py-2 text-left font-medium">
                                     Sản phẩm / SKU
                                   </th>
-                                  <th className="px-3 py-2 text-left font-black">
+                                  <th className="px-3 py-2 text-left font-medium">
                                     Số lô / Hạn dùng
                                   </th>
-                                  <th className="px-3 py-2 text-right font-black">
+                                  <th className="px-3 py-2 text-right font-medium">
                                     Nhập đợt này
                                   </th>
-                                  <th className="px-3 py-2 text-right font-black">
+                                  <th className="px-3 py-2 text-right font-medium">
                                     Hàng lỗi
                                   </th>
-                                  <th className="px-3 py-2 text-right font-black">
+                                  <th className="px-3 py-2 text-right font-medium">
                                     Đơn giá
                                   </th>
-                                  <th className="px-3 py-2 text-left font-black">
+                                  <th className="px-3 py-2 text-left font-medium">
                                     Ghi chú
                                   </th>
                                 </tr>
@@ -691,7 +652,7 @@ export default function PurchaseRequestDetailPage() {
                                       <td className="px-3 py-2 text-right font-bold text-slate-700">
                                         {item.quantityReal ?? 0}
                                       </td>
-                                      <td className="px-3 py-2 text-right font-bold text-red-600">
+                                      <td className="px-3 py-2 text-right font-medium text-slate-700">
                                         {item.quantityRejected ?? 0}
                                       </td>
                                       <td className="px-3 py-2 text-right font-semibold text-slate-700">

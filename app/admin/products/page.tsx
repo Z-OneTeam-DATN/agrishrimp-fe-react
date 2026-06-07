@@ -2,18 +2,24 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminProductTable } from "@/components/admin/AdminProductTable";
 import { ProductService } from "@/app/services/product.service";
 import { PriceRoundingRule, SettingService } from "@/app/services/setting.service";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
-import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -21,7 +27,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 
 import { usePermissions } from "@/hooks/usePermissions";
@@ -40,6 +45,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
+    const [brands, setBrands] = useState<string[]>([]);
 
     // 0. Kiểm tra quyền truy cập route
     useEffect(() => {
@@ -56,6 +62,7 @@ export default function ProductsPage() {
     });
 
     const [sort, setSort] = useState("id,desc");
+    const [selectedBrand, setSelectedBrand] = useState("all");
     const [viewMode, setViewMode] = useState<"product" | "sku">("product");
 
     const [debouncedKeyword, setDebouncedKeyword] = useState("");
@@ -83,12 +90,28 @@ export default function ProductsPage() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const data = await ProductService.getCategories();
+                const [data, brandData] = await Promise.all([
+                    ProductService.getCategories(),
+                    ProductService.getBrands(),
+                ]);
                 const mapped = [
                     { label: "Tất cả danh mục", value: "all" },
                     ...data.map((c: any) => ({ label: c.name, value: String(c.id) }))
                 ];
                 setCategories(mapped);
+                setBrands(
+                    Array.from(
+                        new Set(
+                            (Array.isArray(brandData) ? brandData : [])
+                                .map((brand: any) =>
+                                    typeof brand === "string" ? brand : brand?.name,
+                                )
+                                .filter((name: unknown): name is string =>
+                                    typeof name === "string" && name.trim().length > 0,
+                                ),
+                        ),
+                    ).sort((left, right) => left.localeCompare(right, "vi")),
+                );
 
                 if (isAdmin) {
                     const marginData = await SettingService.getProfitMargin();
@@ -214,40 +237,6 @@ export default function ProductsPage() {
         }
     };
 
-    const handleBulkEnable = async (ids: number[]) => {
-        if (!ids.length) return;
-
-        const results = await Promise.allSettled(ids.map((id) => ProductService.enable(id)));
-        const successCount = results.filter((result) => result.status === "fulfilled").length;
-        const failCount = results.length - successCount;
-
-        if (successCount > 0) {
-            toast.success(`Đã mở kinh doanh ${successCount}/${ids.length} sản phẩm.`);
-        }
-        if (failCount > 0) {
-            toast.error(`Có ${failCount} sản phẩm không thể mở kinh doanh. Vui lòng kiểm tra lại.`);
-        }
-
-        fetchProducts();
-    };
-
-    const handleBulkDelete = async (ids: number[]) => {
-        if (!ids.length) return;
-
-        const results = await Promise.allSettled(ids.map((id) => ProductService.delete(id)));
-        const successCount = results.filter((result) => result.status === "fulfilled").length;
-        const failCount = results.length - successCount;
-
-        if (successCount > 0) {
-            toast.success(`Đã xóa ${successCount}/${ids.length} sản phẩm.`);
-        }
-        if (failCount > 0) {
-            toast.error(`Có ${failCount} sản phẩm không thể xóa. Có thể đang có giao dịch hoặc tồn kho.`);
-        }
-
-        fetchProducts();
-    };
-
     const handleEdit = (id: number) => {
         router.push(`/admin/products/${id}/edit`);
     };
@@ -297,7 +286,10 @@ export default function ProductsPage() {
     }, [viewMode]);
 
     const sortedProducts = useMemo(() => {
-        const items = [...products];
+        const items = products.filter(
+            (product) =>
+                selectedBrand === "all" || product.brandName === selectedBrand,
+        );
 
         items.sort((left, right) => {
             const leftName = (left.name || "").toString().trim().toLowerCase();
@@ -319,7 +311,11 @@ export default function ProductsPage() {
         });
 
         return items;
-    }, [products, sort]);
+    }, [products, selectedBrand, sort]);
+
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [selectedBrand]);
 
     const totalPages = Math.ceil(sortedProducts.length / pageSize);
     const currentProducts = sortedProducts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
@@ -327,6 +323,37 @@ export default function ProductsPage() {
         () => sortedProducts.reduce((sum, product) => sum + (product.variants?.length || 0), 0),
         [sortedProducts]
     );
+    const productOverviewCards = useMemo(() => {
+        const activeProducts = sortedProducts.filter(
+            (product) => product.status === "ACTIVE",
+        ).length;
+        const inactiveProducts = sortedProducts.filter(
+            (product) => product.status === "INACTIVE",
+        ).length;
+
+        return [
+            {
+                title: "Tổng sản phẩm",
+                value: sortedProducts.length,
+                description: "Sản phẩm trong danh sách hiện tại",
+            },
+            {
+                title: "Đang kinh doanh",
+                value: activeProducts,
+                description: "Sản phẩm đang hiển thị và bán",
+            },
+            {
+                title: "Ngừng kinh doanh",
+                value: inactiveProducts,
+                description: "Sản phẩm đang tạm ngừng bán",
+            },
+            {
+                title: "Tổng SKU",
+                value: totalSkuCount,
+                description: "Biến thể hàng hóa đang quản lý",
+            },
+        ];
+    }, [sortedProducts, totalSkuCount]);
     const sortedVariants = useMemo(
         () =>
             sortedProducts.flatMap((product: any) =>
@@ -410,20 +437,101 @@ export default function ProductsPage() {
 
     return (
         <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1 py-1">
+            <div className="mt-2 mb-8 space-y-4 px-1">
                 <div>
-                    <h1 className="text-[18px] font-black uppercase text-[#1f1f1f] tracking-tight">Hệ thống sản phẩm</h1>
-                    <p className="text-[12px] text-slate-500 font-medium mt-1">Quản lý danh sách và biến thể hàng hóa</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Danh sách bên dưới hiển thị theo sản phẩm, mỗi sản phẩm có thể chứa nhiều SKU/biến thể.</p>
+                    <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+                        Hệ thống sản phẩm
+                    </h1>
                 </div>
-                <div className="flex items-center gap-3">
+
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                    {productOverviewCards.map((card) => (
+                        <div
+                            key={card.title}
+                            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+                        >
+                            <p className="text-[11px] font-semibold text-slate-400">
+                                {card.title}
+                            </p>
+                            <div className="mt-3 space-y-1">
+                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                                    {card.value.toLocaleString("vi-VN")}
+                                </p>
+                                <p className="text-[10px] leading-[18px] text-slate-500">
+                                    {card.description}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                        <Select
+                            value={filters.categoryId}
+                            onValueChange={(value) => setFilters((current) => ({ ...current, categoryId: value }))}
+                        >
+                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[220px]">
+                                <SelectValue placeholder="Tất cả danh mục" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {categories.map((category) => (
+                                    <SelectItem key={category.value} value={category.value} className="text-[13px]">
+                                        {category.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={filters.status}
+                            onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+                        >
+                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[180px]">
+                                <SelectValue placeholder="Tất cả trạng thái" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all" className="text-[13px]">Tất cả trạng thái</SelectItem>
+                                <SelectItem value="ACTIVE" className="text-[13px]">Đang kinh doanh</SelectItem>
+                                <SelectItem value="INACTIVE" className="text-[13px]">Ngừng kinh doanh</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={selectedBrand}
+                            onValueChange={(value) => {
+                                setSelectedBrand(value);
+                            }}
+                        >
+                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
+                                <SelectValue placeholder="Tất cả thương hiệu" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all" className="text-[13px]">
+                                    Tất cả thương hiệu
+                                </SelectItem>
+                                {brands.map((brand) => (
+                                    <SelectItem key={brand} value={brand} className="text-[13px]">
+                                        {brand}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <div className="relative w-full lg:w-[300px]">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                            <Input
+                                value={filters.keyword}
+                                onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
+                                placeholder="Tìm tên sản phẩm, mã SKU..."
+                                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                     {isAdmin && (
                         <Dialog open={isSettingOpen} onOpenChange={setIsSettingOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" className="h-[38px] text-[12px] font-bold border-[#ccc] rounded-[3px]">
-                                    <Settings size={16} className="mr-2" /> Cấu hình Giá Bán
-                                </Button>
-                            </DialogTrigger>
                             <DialogContent className="sm:max-w-[560px] rounded-[4px]">
                                 <DialogHeader>
                                     <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
@@ -549,74 +657,63 @@ export default function ProductsPage() {
                     {hasPermission(P.PRODUCT_CREATE) && (
                         <Button
                             onClick={() => router.push("/admin/products/add")}
-                            className="h-[38px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[3px] uppercase px-5"
+                            className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
                         >
-                            + Thêm sản phẩm
+                            <Plus size={15} className="mr-2" />
+                            Thêm sản phẩm
                         </Button>
                     )}
-                </div>
-            </div>
-
-            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm overflow-hidden mb-8">
-                <div className="px-4 pt-3 pb-0">
-                    <div className="inline-flex rounded-[4px] border border-slate-200 bg-white overflow-hidden">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setViewMode("product")}
-                            className={cn(
-                                "h-8 px-3 rounded-none text-[11px] font-bold uppercase",
-                                viewMode === "product" ? "bg-emerald-50 text-emerald-700" : "text-slate-500"
-                            )}
-                        >
-                            Theo sản phẩm
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setViewMode("sku")}
-                            className={cn(
-                                "h-8 px-3 rounded-none text-[11px] font-bold uppercase border-l border-slate-200",
-                                viewMode === "sku" ? "bg-blue-50 text-blue-700" : "text-slate-500"
-                            )}
-                        >
-                            Theo SKU
-                        </Button>
                     </div>
                 </div>
 
-                <AdminSearchFilter
-                    placeholder="Tìm tên sản phẩm, mã SKU..."
-                    filter1Placeholder="Danh mục"
-                    filter1Options={categories}
-                    onFilter1Change={(val) => setFilters(f => ({ ...f, categoryId: val }))}
-                    filter2Placeholder="Trạng thái"
-                    filter2Options={[
-                        { label: "Tất cả trạng thái", value: "all" },
-                        { label: "Đang kinh doanh", value: "ACTIVE" },
-                        { label: "Ngừng kinh doanh", value: "INACTIVE" },
-                    ]}
-                    defaultFilter2Value="all"
-                    onFilter2Change={(val) => setFilters(f => ({ ...f, status: val }))}
-                    sortOptions={[
-                        { label: "Mới nhất", value: "id,desc" },
-                        { label: "Cũ nhất", value: "id,asc" },
-                        { label: "Tên A-Z", value: "name,asc" },
-                        { label: "Tên Z-A", value: "name,desc" },
-                    ]}
-                    defaultSortValue={sort}
-                    onSortChange={(val) => {
-                        setSort(val);
-                        setCurrentPage(0);
-                    }}
-                    onSearch={(val) => setFilters(f => ({ ...f, keyword: val }))}
-                    onRefresh={fetchProducts}
-                />
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("product")}
+                            className={cn(
+                                "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                                viewMode === "product"
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
+                            )}
+                        >
+                            Theo sản phẩm
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode("sku")}
+                            className={cn(
+                                "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                                viewMode === "sku"
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
+                            )}
+                        >
+                            Theo SKU
+                        </button>
+                    </div>
 
+                    {isAdmin && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsSettingOpen(true)}
+                            className="h-[38px] rounded-md border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
+                        >
+                            <Settings size={15} className="mr-2" />
+                            Cấu hình giá bán
+                        </Button>
+                    )}
+                </div>
+
+                <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
                 {isLoading ? (
-                    <div className="py-20 flex flex-col items-center justify-center gap-3">
-                        <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
-                        <p className="text-sm text-slate-500 font-medium">Đang tải dữ liệu...</p>
+                    <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
+                        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+                        <p className="px-10 text-center text-[11px] uppercase tracking-widest text-slate-400">
+                            Đang tải dữ liệu sản phẩm...
+                        </p>
                     </div>
                 ) : (
                     <>
@@ -629,8 +726,6 @@ export default function ProductsPage() {
                                 onEdit={handleEdit}
                                 onDisable={handleDisable}
                                 onEnable={handleEnable}
-                                onBulkEnable={handleBulkEnable}
-                                onBulkDelete={handleBulkDelete}
                             />
                         ) : (
                             <div className="overflow-x-auto">
@@ -771,6 +866,7 @@ export default function ProductsPage() {
                         )}
                     </>
                 )}
+                </div>
             </div>
         </div>
     );

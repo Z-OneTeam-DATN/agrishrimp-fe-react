@@ -1,79 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AlertCircle, Edit, EyeOff, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Plus,
-  Edit,
-  Trash2,
-  Ticket,
-  X,
-  Loader2,
-  AlertCircle,
-  EyeOff,
-} from "lucide-react";
-import {
-  voucherService,
   Voucher,
+  voucherService,
   VoucherUpsertPayload,
 } from "@/app/services/voucher.service";
-import { useRouter } from "next/navigation";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
-
-type VoucherFormData = {
-  code: string;
-  title: string;
-  description: string;
-  discountType: Voucher["discountType"];
-  discountValue: string;
-  minOrderValue: string;
-  maxDiscount: string;
-  startDate: string;
-  endDate: string;
-  quantity: string;
-  usageLimit: string;
-  status: Voucher["status"];
-};
-
-type VoucherFormErrors = Partial<
-  Record<
-    | "code"
-    | "title"
-    | "discountValue"
-    | "minOrderValue"
-    | "maxDiscount"
-    | "quantity"
-    | "usageLimit"
-    | "startDate"
-    | "endDate",
-    string
-  >
->;
-
-const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
-
-const normalizeDigitString = (value: string) =>
-  sanitizeNumericInput(value).replace(/^0+(?=\d)/, "");
-
-const normalizeNumericValue = (value: number | string | undefined | null) => {
-  if (value === undefined || value === null || value === "") return "";
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? String(Math.trunc(value)) : "";
-  }
-
-  const normalized = value.replace(/,/g, "").trim();
-  if (!normalized) return "";
-
-  const parsed = Number(normalized);
-  if (Number.isFinite(parsed)) {
-    return String(Math.trunc(parsed));
-  }
-
-  return normalizeDigitString(normalized);
-};
 
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number"
@@ -84,176 +24,34 @@ const toNumber = (value: number | string | undefined | null) =>
           : value || 0,
       );
 
-const isEmptyNumeric = (value: string) => sanitizeNumericInput(value) === "";
+const formatMoney = (value: number | string | undefined | null) =>
+  `${toNumber(value).toLocaleString("vi-VN")} đ`;
 
-const normalizeErrorText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const getFieldErrorsFromApiMessage = (message: string): VoucherFormErrors => {
-  const normalizedMessage = normalizeErrorText(message);
-
-  if (normalizedMessage.includes("ma voucher")) {
-    return { code: message };
-  }
-
-  if (normalizedMessage.includes("ten chuong trinh")) {
-    return { title: message };
-  }
-
-  if (
-    normalizedMessage.includes("giam toi da") ||
-    normalizedMessage.includes("max discount")
-  ) {
-    return { maxDiscount: message };
-  }
-
-  if (
-    normalizedMessage.includes("ngay ket thuc") ||
-    normalizedMessage.includes("ket thuc")
-  ) {
-    return { endDate: message };
-  }
-
-  if (normalizedMessage.includes("ngay bat dau")) {
-    return { startDate: message };
-  }
-
-  if (
-    normalizedMessage.includes("gia tri giam gia") ||
-    normalizedMessage.includes("muc giam") ||
-    normalizedMessage.includes("phan tram")
-  ) {
-    return { discountValue: message };
-  }
-
-  if (
-    normalizedMessage.includes("don hang toi thieu") ||
-    normalizedMessage.includes("don toi thieu")
-  ) {
-    return { minOrderValue: message };
-  }
-
-  if (
-    normalizedMessage.includes("luot su dung") ||
-    normalizedMessage.includes("luot dung")
-  ) {
-    return { usageLimit: message };
-  }
-
-  if (normalizedMessage.includes("so luong")) {
-    return { quantity: message };
-  }
-
-  return {};
+const formatDate = (value: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("vi-VN");
 };
 
-type VoucherApiErrorItem = {
-  field?: string;
-  defaultMessage?: string;
+const getDiscountValue = (voucher: Voucher) =>
+  toNumber(voucher.value ?? voucher.discountValue);
+
+const getDiscountText = (voucher: Voucher) =>
+  voucher.discountType === "PERCENT"
+    ? `Giảm ${getDiscountValue(voucher)}%`
+    : `Giảm ${getDiscountValue(voucher).toLocaleString("vi-VN")}đ`;
+
+const getDisplayStatus = (voucher: Voucher): Voucher["status"] => {
+  const isExpired = new Date(voucher.endDate).getTime() < Date.now();
+  return isExpired ? "EXPIRED" : voucher.status;
 };
 
-type VoucherApiErrorResponse = {
-  message?: string;
-  error?: string;
-  errors?: VoucherApiErrorItem[];
-};
-
-const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
-  code: voucher.code,
-  title: voucher.title || "",
-  description: voucher.description || "",
-  discountType: voucher.discountType || "FIXED",
-  discountValue: normalizeNumericValue(voucher.value ?? voucher.discountValue),
-  minOrderValue: normalizeNumericValue(voucher.minOrderValue),
-  maxDiscount: normalizeNumericValue(voucher.maxDiscount),
-  startDate: voucher.startDate ? voucher.startDate.substring(0, 16) : "",
-  endDate: voucher.endDate ? voucher.endDate.substring(0, 16) : "",
-  quantity: normalizeNumericValue(voucher.quantity),
-  usageLimit: normalizeNumericValue(
-    voucher.maxUsagePerUser ?? voucher.usageLimit,
-  ),
-  status: voucher.status || "ACTIVE",
-});
-
-const validateVoucherForm = (
-  formData: VoucherFormData,
-  dateError: string,
-): VoucherFormErrors => {
-  const nextErrors: VoucherFormErrors = {};
-  const discountValue = toNumber(formData.discountValue);
-  const minOrderValue = toNumber(formData.minOrderValue);
-  const maxDiscount =
-    formData.maxDiscount === "" ? 0 : toNumber(formData.maxDiscount);
-  const quantity = toNumber(formData.quantity);
-  const usageLimit = toNumber(formData.usageLimit);
-
-  if (!formData.code.trim()) {
-    nextErrors.code = "Mã voucher không hợp lệ, vui lòng tạo lại";
-  }
-
-  if (!formData.title.trim()) {
-    nextErrors.title = "Vui lòng nhập tên chương trình voucher";
-  }
-
-  if (isEmptyNumeric(formData.discountValue)) {
-    nextErrors.discountValue =
-      formData.discountType === "PERCENT"
-        ? "Vui lòng nhập mức giảm phần trăm"
-        : "Vui lòng nhập mức giảm tiền";
-  } else if (formData.discountType === "PERCENT") {
-    if (discountValue <= 0) {
-      nextErrors.discountValue = "Mức giảm phần trăm phải lớn hơn 0%";
-    } else if (discountValue > 50) {
-      nextErrors.discountValue = "Mức giảm phần trăm không được vượt quá 50%";
-    }
-
-    if (isEmptyNumeric(formData.maxDiscount)) {
-      nextErrors.maxDiscount = "Vui lòng nhập mức giảm tối đa";
-    } else if (maxDiscount <= 0) {
-      nextErrors.maxDiscount = "Mức giảm tối đa phải lớn hơn 0đ";
-    }
-  } else {
-    if (discountValue <= 1000) {
-      nextErrors.discountValue = "Mức giảm tiền phải lớn hơn 1.000đ";
-    } else if (
-      !isEmptyNumeric(formData.minOrderValue) &&
-      discountValue > minOrderValue / 2
-    ) {
-      nextErrors.discountValue =
-        "Mức giảm (VNĐ) không được vượt quá một nửa đơn tối thiểu";
-    }
-  }
-
-  if (isEmptyNumeric(formData.minOrderValue)) {
-    nextErrors.minOrderValue = "Vui lòng nhập đơn tối thiểu";
-  }
-
-  if (isEmptyNumeric(formData.quantity)) {
-    nextErrors.quantity = "Vui lòng nhập tổng số lượng phát hành";
-  } else if (quantity <= 0) {
-    nextErrors.quantity = "Số lượng phải lớn hơn 0";
-  }
-
-  if (isEmptyNumeric(formData.usageLimit)) {
-    nextErrors.usageLimit = "Vui lòng nhập lượt dùng tối đa mỗi người";
-  } else if (usageLimit <= 0) {
-    nextErrors.usageLimit = "Lượt dùng tối đa phải lớn hơn 0";
-  }
-
-  if (!formData.startDate) {
-    nextErrors.startDate = "Vui lòng chọn ngày bắt đầu";
-  }
-
-  if (!formData.endDate) {
-    nextErrors.endDate = "Vui lòng chọn ngày kết thúc";
-  } else if (dateError) {
-    nextErrors.endDate = dateError;
-  }
-
-  return nextErrors;
+const getStatusLabel = (status: Voucher["status"]) => {
+  if (status === "ACTIVE") return "Đang hoạt động";
+  if (status === "INACTIVE") return "Tạm ẩn";
+  if (status === "EXPIRED") return "Hết hạn";
+  return status;
 };
 
 export default function AdminVoucherPage() {
@@ -265,65 +63,24 @@ export default function AdminVoucherPage() {
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-
+  const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | Voucher["status"]>(
+    "ALL",
+  );
   const [deleteConfirmVoucher, setDeleteConfirmVoucher] =
     useState<Voucher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const [dateError, setDateError] = useState<string>("");
-  const [errors, setErrors] = useState<VoucherFormErrors>({});
-
-  const [formData, setFormData] = useState<VoucherFormData>({
-    code: "",
-    title: "",
-    description: "",
-    discountType: "FIXED",
-    discountValue: "",
-    minOrderValue: "",
-    maxDiscount: "",
-    startDate: "",
-    endDate: "",
-    quantity: "",
-    usageLimit: "",
-    status: "ACTIVE",
-  });
-
-  const clearFieldError = useCallback((field: keyof VoucherFormErrors) => {
-    setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
-  }, []);
-
-  const updateNumericField = useCallback(
-    (
-      field:
-        | "discountValue"
-        | "minOrderValue"
-        | "maxDiscount"
-        | "quantity"
-        | "usageLimit",
-      value: string,
-    ) => {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: normalizeDigitString(value),
-      }));
-      clearFieldError(field);
-    },
-    [clearFieldError],
-  );
 
   const fetchVouchers = useCallback(async () => {
     if (!canViewVoucher) return;
 
     try {
       setLoading(true);
-      const res = await voucherService.getAllAdmin();
-      let arr = Array.isArray(res) ? res : [];
-      arr = arr.sort((a, b) => (b.id || 0) - (a.id || 0));
-
-      setVouchers(arr);
+      const response = await voucherService.getAllAdmin();
+      const items = (Array.isArray(response) ? response : []).sort(
+        (left, right) => (right.id || 0) - (left.id || 0),
+      );
+      setVouchers(items);
     } catch {
       toast.error("Lỗi khi tải danh sách voucher");
     } finally {
@@ -342,201 +99,51 @@ export default function AdminVoucherPage() {
     }
   }, [canViewVoucher, fetchVouchers, isLoadingAuth, router]);
 
-  useEffect(() => {
-    if (formData.startDate && formData.endDate) {
-      const start = new Date(formData.startDate).getTime();
-      const end = new Date(formData.endDate).getTime();
-      if (end <= start) {
-        setDateError("Ngày kết thúc phải lớn hơn ngày bắt đầu");
-      } else if (end <= new Date().getTime()) {
-        setDateError("Ngày kết thúc không được ở trong quá khứ");
-      } else {
-        setDateError("");
-      }
-    } else {
-      setDateError("");
-    }
-  }, [formData.startDate, formData.endDate]);
+  const filteredVouchers = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
 
-  const handleOpenModal = (voucher?: Voucher) => {
-    if (!canManageVoucher) {
-      toast.warning("Bạn chỉ có quyền xem thông tin voucher");
-      return;
-    }
+    return vouchers.filter((voucher) => {
+      const matchesKeyword =
+        !normalizedKeyword ||
+        voucher.code?.toLowerCase().includes(normalizedKeyword) ||
+        voucher.title?.toLowerCase().includes(normalizedKeyword) ||
+        voucher.description?.toLowerCase().includes(normalizedKeyword);
+      const matchesStatus =
+        statusFilter === "ALL" || getDisplayStatus(voucher) === statusFilter;
 
-    setErrors({});
-    setDateError("");
-    if (voucher) {
-      setEditingId(voucher.id!);
-      setFormData(mapVoucherToFormData(voucher));
-    } else {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      const currentDateTime = now.toISOString().slice(0, 16);
+      return matchesKeyword && matchesStatus;
+    });
+  }, [keyword, statusFilter, vouchers]);
 
-      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const nextWeekDateTime = nextWeek.toISOString().slice(0, 16);
-
-      const autoCode =
-        "VC" + Math.random().toString(36).substring(2, 8).toUpperCase();
-
-      setEditingId(null);
-      setFormData({
-        code: autoCode,
-        title: "",
-        description: "",
-        discountType: "FIXED",
-        discountValue: "",
-        minOrderValue: "",
-        maxDiscount: "",
-        startDate: currentDateTime,
-        endDate: nextWeekDateTime,
-        quantity: "",
-        usageLimit: "",
-        status: "ACTIVE",
-      });
-    }
-    setIsModalOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canManageVoucher) return;
-
-    const nextErrors = validateVoucherForm(formData, dateError);
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
-
-    setErrors({});
-
-    setIsSubmitting(true);
-    try {
-      const normalizedCode = formData.code.trim().toUpperCase();
-      const trimmedTitle = formData.title.trim();
-      const discountValue = toNumber(formData.discountValue);
-      const minOrderValue = toNumber(formData.minOrderValue);
-      const maxDiscount =
-        formData.maxDiscount === "" ? 0 : toNumber(formData.maxDiscount);
-      const quantity = toNumber(formData.quantity);
-      const usageLimit = toNumber(formData.usageLimit);
-
-      const dataToSubmit: VoucherUpsertPayload = {
-        code: normalizedCode,
-        title: trimmedTitle,
-        discountType: formData.discountType,
-        value: discountValue,
-        minOrderValue,
-        maxDiscount: formData.maxDiscount === "" ? null : maxDiscount,
-        startDate:
-          formData.startDate.length === 16
-            ? `${formData.startDate}:00`
-            : formData.startDate, // Bổ sung giây
-        endDate:
-          formData.endDate.length === 16
-            ? `${formData.endDate}:00`
-            : formData.endDate, // Bổ sung giây
-        quantity,
-        maxUsagePerUser: usageLimit,
-        status: formData.status,
-      };
-
-      if (dataToSubmit.discountType === "FIXED") {
-        dataToSubmit.maxDiscount = null;
-      }
-
-      if (editingId) {
-        // --- LOGIC MỚI: BẮT LỖI VÀ HIỂN THỊ THÔNG BÁO RIÊNG KHI CHUYỂN THÀNH HẾT HẠN ---
-        const originalVoucher = vouchers.find((v) => v.id === editingId);
-        await voucherService.update(editingId, dataToSubmit);
-
-        const nowTime = new Date().getTime();
-        // Kiểm tra xem lúc trước có phải CÒN HẠN không?
-        const wasActive =
-          originalVoucher &&
-          originalVoucher.status !== "EXPIRED" &&
-          new Date(originalVoucher.endDate).getTime() > nowTime;
-        // Kiểm tra xem hiện tại có phải HẾT HẠN không?
-        const isNowExpired =
-          dataToSubmit.status === "EXPIRED" ||
-          new Date(dataToSubmit.endDate).getTime() <= nowTime;
-
-        if (wasActive && isNowExpired) {
-          toast.success(
-            "Voucher còn hạn sử dụng đã được chuyển thành Hết hạn!",
-          );
-        } else {
-          toast.success("Cập nhật voucher thành công");
-        }
-        // -------------------------------------------------------------------------------
-      } else {
-        await voucherService.create(dataToSubmit);
-        toast.success("Tạo voucher thành công");
-      }
-      setIsModalOpen(false);
-      fetchVouchers();
-    } catch (error: unknown) {
-      const apiError = error as {
-        response?: { data?: unknown };
-        message?: string;
-      };
-
-      console.error(
-        "API Error Details:",
-        apiError.response?.data || apiError.message,
-      );
-
-      let message = "Có lỗi xảy ra khi lưu voucher";
-      const data = apiError.response?.data as
-        | VoucherApiErrorResponse
-        | string
-        | undefined;
-
-      if (data) {
-        if (typeof data === "string") {
-          message = data;
-        } else if (data.message) {
-          message = data.message;
-        } else if (data.errors && Array.isArray(data.errors)) {
-          // Bóc tách chi tiết lỗi Validation từ Spring Boot
-          message = data.errors
-            .map((e) => `${e.field || "Lỗi"}: ${e.defaultMessage}`)
-            .join(" | ");
-        } else if (data.error) {
-          message = data.error;
-        }
-      }
-
-      toast.error(message);
-
-      if (message && typeof message === "string") {
-        const apiFieldErrors = getFieldErrorsFromApiMessage(message);
-        if (Object.keys(apiFieldErrors).length > 0) {
-          setErrors((prev) => ({ ...prev, ...apiFieldErrors }));
-        }
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const counts = useMemo(
+    () => ({
+      total: vouchers.length,
+      active: vouchers.filter(
+        (voucher) => getDisplayStatus(voucher) === "ACTIVE",
+      ).length,
+      inactive: vouchers.filter(
+        (voucher) => getDisplayStatus(voucher) === "INACTIVE",
+      ).length,
+      expired: vouchers.filter(
+        (voucher) => getDisplayStatus(voucher) === "EXPIRED",
+      ).length,
+    }),
+    [vouchers],
+  );
 
   const confirmDelete = async () => {
-    if (!canManageVoucher) return;
-    if (!deleteConfirmVoucher || !deleteConfirmVoucher.id) return;
-    setIsDeleting(true);
+    if (!canManageVoucher || !deleteConfirmVoucher?.id) return;
 
+    setIsDeleting(true);
     const isExpired =
-      new Date(deleteConfirmVoucher.endDate).getTime() <=
-        new Date().getTime() || deleteConfirmVoucher.status === "EXPIRED";
+      new Date(deleteConfirmVoucher.endDate).getTime() <= Date.now() ||
+      deleteConfirmVoucher.status === "EXPIRED";
 
     try {
       if (isExpired) {
         await voucherService.delete(deleteConfirmVoucher.id);
         toast.success("Đã xóa voucher vĩnh viễn");
       } else {
-        // Tạo payload sạch sẽ, không dùng ...spread để tránh gửi rác xuống Backend
         const payload: VoucherUpsertPayload = {
           code: deleteConfirmVoucher.code,
           title: deleteConfirmVoucher.title,
@@ -560,9 +167,15 @@ export default function AdminVoucherPage() {
           ),
           status: "INACTIVE",
         };
+
+        if (payload.discountType === "FIXED") {
+          payload.maxDiscount = null;
+        }
+
         await voucherService.update(deleteConfirmVoucher.id, payload);
         toast.success("Voucher còn thời hạn, đã chuyển sang trạng thái Tạm ẩn");
       }
+
       fetchVouchers();
     } catch {
       toast.error("Lỗi khi xử lý voucher");
@@ -572,505 +185,221 @@ export default function AdminVoucherPage() {
     }
   };
 
-  const getDiscountValue = (v: Voucher) => toNumber(v.value ?? v.discountValue);
-
-  const generateTitle = (type: string, val: number) => {
-    if (type === "PERCENT") return `Giảm ${val}%`;
-    return `Giảm ${val.toLocaleString("vi-VN")}đ`;
-  };
-
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Ticket className="text-emerald-600" /> Quản lý Voucher
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Tạo và quản lý các chương trình khuyến mãi
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-[20px] font-semibold uppercase text-slate-900">
+          Quản lý voucher
+        </h1>
         {canManageVoucher && (
-          <button
-            onClick={() => handleOpenModal()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
+          <Link
+            href="/admin/vouchers/add"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-emerald-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700"
           >
-            <Plus size={18} /> Thêm Voucher
-          </button>
+            <Plus size={16} />
+            Thêm voucher
+          </Link>
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 text-gray-600 text-sm border-b border-gray-100">
-              <th className="p-4 font-semibold">Mã Code</th>
-              <th className="p-4 font-semibold">Chương trình</th>
-              <th className="p-4 font-semibold">Mức giảm</th>
-              <th className="p-4 font-semibold">Thời hạn</th>
-              <th className="p-4 font-semibold">Số lượng</th>
-              <th className="p-4 font-semibold">Trạng thái</th>
-              {canManageVoucher && (
-                <th className="p-4 font-semibold text-right">Thao tác</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="text-center py-10">
-                  <Loader2 className="animate-spin mx-auto text-emerald-600" />
-                </td>
-              </tr>
-            ) : vouchers.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-10 text-gray-500">
-                  Chưa có voucher nào.
-                </td>
-              </tr>
-            ) : (
-              vouchers.map((v) => {
-                const val = getDiscountValue(v);
-
-                // ===== TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI HIỂN THỊ =====
-                const isExpired =
-                  new Date(v.endDate).getTime() < new Date().getTime();
-                const displayStatus = isExpired ? "EXPIRED" : v.status;
-                // ================================================
-
-                return (
-                  <tr
-                    key={v.id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="p-4 font-bold text-emerald-600 uppercase">
-                      {v.code}
-                    </td>
-                    <td className="p-4">
-                      <p className="font-medium text-gray-800">
-                        {v.title || generateTitle(v.discountType, val)}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Đơn tối thiểu:{" "}
-                        {v.minOrderValue?.toLocaleString("vi-VN") || 0}đ
-                      </p>
-                    </td>
-                    <td className="p-4">
-                      {v.discountType === "FIXED"
-                        ? `${val.toLocaleString("vi-VN")}đ`
-                        : `${val}% ${v.maxDiscount ? `(Tối đa ${v.maxDiscount.toLocaleString("vi-VN")}đ)` : ""}`}
-                    </td>
-                    <td className="p-4 text-sm text-gray-600">
-                      {new Date(v.endDate).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td className="p-4 text-sm text-gray-600">{v.quantity}</td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          displayStatus === "ACTIVE"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : displayStatus === "EXPIRED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {displayStatus}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right space-x-2">
-                      <button
-                        onClick={() => handleOpenModal(v)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmVoucher(v)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Tổng voucher", counts.total],
+          ["Đang hoạt động", counts.active],
+          ["Tạm ẩn", counts.inactive],
+          ["Hết hạn", counts.expired],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <p className="text-[10.5px] font-semibold text-slate-500">
+              {label}
+            </p>
+            <p className="mt-2 text-[22px] font-semibold text-slate-900">
+              {value}
+            </p>
+          </div>
+        ))}
       </div>
 
-      {canManageVoucher && isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold">
-                {editingId ? "Sửa Voucher" : "Thêm Voucher Mới"}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)}>
-                <X className="text-gray-500 hover:text-gray-800" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4" noValidate>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mã Voucher (Code)
-                  </label>
-                  <input
-                    readOnly
-                    value={formData.code}
-                    className={`w-full border rounded-lg p-2 bg-gray-100 text-emerald-700 font-bold cursor-not-allowed outline-none focus:ring-0 uppercase ${
-                      errors.code
-                        ? "border-red-500 bg-red-50"
-                        : "border-gray-200"
-                    }`}
-                  />
-                  {errors.code && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.code}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Trạng thái
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as VoucherFormData["status"],
-                      })
-                    }
-                    className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
-                  >
-                    <option value="ACTIVE">Kích hoạt</option>
-                    <option value="INACTIVE">Tạm ẩn</option>
-                    {editingId && <option value="EXPIRED">Đã hết hạn</option>}
-                  </select>
-                </div>
-              </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <input
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder="Tìm mã voucher, tên chương trình..."
+          className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] outline-none placeholder:text-slate-400 focus:border-emerald-500 lg:max-w-[420px]"
+        />
+        <select
+          value={statusFilter}
+          onChange={(event) =>
+            setStatusFilter(event.target.value as "ALL" | Voucher["status"])
+          }
+          className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500 lg:w-[220px]"
+        >
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="ACTIVE">Đang hoạt động</option>
+          <option value="INACTIVE">Tạm ẩn</option>
+          <option value="EXPIRED">Hết hạn</option>
+        </select>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tên chương trình
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => {
-                    setFormData((prev) => ({ ...prev, title: e.target.value }));
-                    clearFieldError("title");
-                  }}
-                  className={`w-full border rounded-lg p-2 text-gray-800 font-medium outline-none ${errors.title ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                  placeholder="VD: Khuyến mãi mùa hè 2026..."
-                />
-                {errors.title && (
-                  <p className="text-red-500 text-xs mt-1 font-medium">
-                    {errors.title}
-                  </p>
+      <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse">
+            <thead className="border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">
+                  Voucher
+                </th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">
+                  Giảm giá
+                </th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">
+                  Điều kiện
+                </th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">
+                  Hiệu lực
+                </th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium text-slate-500">
+                  Trạng thái
+                </th>
+                {canManageVoucher && (
+                  <th className="px-4 py-3 text-right text-[11px] font-medium text-slate-500">
+                    Thao tác
+                  </th>
                 )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Loại giảm giá
-                  </label>
-                  <select
-                    value={formData.discountType}
-                    onChange={(e) => {
-                      setFormData({
-                        ...formData,
-                        discountType: e.target
-                          .value as VoucherFormData["discountType"],
-                        discountValue: "",
-                        maxDiscount: "",
-                      });
-                      setErrors((prev) => ({
-                        ...prev,
-                        discountValue: "",
-                        maxDiscount: "",
-                      }));
-                    }}
-                    className="w-full border rounded-lg p-2 outline-none focus:border-emerald-500"
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={canManageVoucher ? 6 : 5}
+                    className="px-4 py-12 text-center"
                   >
-                    <option value="FIXED">Giảm số tiền cố định (VNĐ)</option>
-                    <option value="PERCENT">Giảm theo phần trăm (%)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mức giảm{" "}
-                    {formData.discountType === "PERCENT" ? "(%)" : "(VNĐ)"}
-                  </label>
-                  {/* Bắt số định dạng phẩy cho tiền mặt hoặc ô nhập % thường */}
-                  {formData.discountType === "FIXED" ? (
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      required
-                      value={formData.discountValue}
-                      onChange={(e) =>
-                        updateNumericField("discountValue", e.target.value)
-                      }
-                      placeholder="VD: 50000"
-                      className={`w-full border rounded-lg p-2 outline-none ${errors.discountValue ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      required
-                      value={formData.discountValue}
-                      onChange={(e) =>
-                        updateNumericField("discountValue", e.target.value)
-                      }
-                      placeholder="VD: 10"
-                      className={`w-full border rounded-lg p-2 outline-none ${errors.discountValue ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                    />
-                  )}
-                  {errors.discountValue && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.discountValue}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Đơn tối thiểu (VNĐ)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    required
-                    value={formData.minOrderValue}
-                    onChange={(e) =>
-                      updateNumericField("minOrderValue", e.target.value)
-                    }
-                    placeholder="VD: 100000"
-                    className={`w-full border rounded-lg p-2 outline-none ${errors.minOrderValue ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                  />
-                  {errors.minOrderValue && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.minOrderValue}
-                    </p>
-                  )}
-                </div>
-                {formData.discountType === "PERCENT" ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Giảm tối đa (VNĐ)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      required
-                      value={formData.maxDiscount}
-                      onChange={(e) =>
-                        updateNumericField("maxDiscount", e.target.value)
-                      }
-                      placeholder="VD: 30000"
-                      className={`w-full border rounded-lg p-2 outline-none ${errors.maxDiscount ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                    />
-                    {errors.maxDiscount && (
-                      <p className="text-red-500 text-xs mt-1 font-medium">
-                        {errors.maxDiscount}
+                    <Loader2 className="mx-auto animate-spin text-slate-400" />
+                  </td>
+                </tr>
+              ) : filteredVouchers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={canManageVoucher ? 6 : 5}
+                    className="px-4 py-12 text-center text-[12px] text-slate-400"
+                  >
+                    Chưa có voucher phù hợp
+                  </td>
+                </tr>
+              ) : (
+                filteredVouchers.map((voucher) => (
+                  <tr
+                    key={voucher.id ?? voucher.code}
+                    className="border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50"
+                  >
+                    <td className="px-4 py-4">
+                      <p className="text-[12.5px] font-semibold text-slate-900">
+                        {voucher.title || "Voucher chưa đặt tên"}
                       </p>
+                      <p className="mt-1 text-[10.5px] text-slate-400">
+                        {voucher.code}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-[12px] text-slate-700">
+                      {getDiscountText(voucher)}
+                    </td>
+                    <td className="px-4 py-4 text-[12px] text-slate-500">
+                      <p>Đơn từ {formatMoney(voucher.minOrderValue)}</p>
+                      {voucher.discountType === "PERCENT" &&
+                        voucher.maxDiscount && (
+                          <p className="mt-1 text-[10.5px] text-slate-400">
+                            Tối đa {formatMoney(voucher.maxDiscount)}
+                          </p>
+                        )}
+                    </td>
+                    <td className="px-4 py-4 text-[12px] text-slate-500">
+                      {formatDate(voucher.startDate)} -{" "}
+                      {formatDate(voucher.endDate)}
+                    </td>
+                    <td className="px-4 py-4 text-[12px] text-slate-700">
+                      {getStatusLabel(getDisplayStatus(voucher))}
+                    </td>
+                    {canManageVoucher && (
+                      <td className="px-4 py-4">
+                        <div className="flex justify-end gap-2">
+                          {voucher.id && (
+                            <Link
+                              href={`/admin/vouchers/edit/${voucher.id}`}
+                              title="Cập nhật voucher"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                            >
+                              <Edit size={15} />
+                            </Link>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmVoucher(voucher)}
+                            title="Xóa hoặc tạm ẩn voucher"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
                     )}
-                  </div>
-                ) : (
-                  <div />
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tổng số lượng phát hành
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    required
-                    value={formData.quantity}
-                    onChange={(e) =>
-                      updateNumericField("quantity", e.target.value)
-                    }
-                    placeholder="VD: 100"
-                    className={`w-full border rounded-lg p-2 outline-none ${errors.quantity ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                  />
-                  {errors.quantity && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.quantity}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lượt dùng tối đa / 1 người
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    required
-                    value={formData.usageLimit}
-                    onChange={(e) =>
-                      updateNumericField("usageLimit", e.target.value)
-                    }
-                    placeholder="VD: 1"
-                    className={`w-full border rounded-lg p-2 outline-none ${errors.usageLimit ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                  />
-                  {errors.usageLimit && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.usageLimit}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ngày bắt đầu
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formData.startDate}
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }));
-                      setErrors((prev) => ({
-                        ...prev,
-                        startDate: "",
-                        endDate: "",
-                      }));
-                    }}
-                    className={`w-full border rounded-lg p-2 outline-none ${errors.startDate ? "border-red-500 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                  />
-                  {errors.startDate && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.startDate}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ngày kết thúc
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formData.endDate}
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }));
-                      clearFieldError("endDate");
-                    }}
-                    className={`w-full border rounded-lg p-2 outline-none ${errors.endDate || dateError ? "border-red-500 focus:border-red-500 bg-red-50" : "border-gray-200 focus:border-emerald-500"}`}
-                  />
-                  {(errors.endDate || dateError) && (
-                    <p className="text-red-500 text-xs mt-1 font-medium">
-                      {errors.endDate || dateError}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    "Lưu Voucher"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
-      {/* MODAL XÁC NHẬN XÓA / TẠM ẨN THÔNG MINH */}
       {canManageVoucher && deleteConfirmVoucher && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center transform transition-all">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-[4px] border border-slate-200 bg-white p-6 text-center shadow-xl">
             <div
-              className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
                 new Date(deleteConfirmVoucher.endDate).getTime() <=
-                  new Date().getTime() ||
-                deleteConfirmVoucher.status === "EXPIRED"
-                  ? "bg-red-100"
-                  : "bg-orange-100"
+                  Date.now() || deleteConfirmVoucher.status === "EXPIRED"
+                  ? "bg-red-50"
+                  : "bg-orange-50"
               }`}
             >
               {new Date(deleteConfirmVoucher.endDate).getTime() <=
-                new Date().getTime() ||
-              deleteConfirmVoucher.status === "EXPIRED" ? (
-                <AlertCircle className="text-red-600" size={32} />
+                Date.now() || deleteConfirmVoucher.status === "EXPIRED" ? (
+                <AlertCircle className="text-red-600" size={28} />
               ) : (
-                <EyeOff className="text-orange-500" size={32} />
+                <EyeOff className="text-orange-500" size={28} />
               )}
             </div>
-
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="mb-2 text-[16px] font-semibold text-slate-900">
               {new Date(deleteConfirmVoucher.endDate).getTime() <=
-                new Date().getTime() ||
-              deleteConfirmVoucher.status === "EXPIRED"
+                Date.now() || deleteConfirmVoucher.status === "EXPIRED"
                 ? "Xác nhận xóa vĩnh viễn"
-                : "Tạm ẩn Voucher"}
+                : "Tạm ẩn voucher"}
             </h3>
-
-            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+            <p className="mb-6 text-[12px] leading-relaxed text-slate-500">
               {new Date(deleteConfirmVoucher.endDate).getTime() <=
-                new Date().getTime() ||
-              deleteConfirmVoucher.status === "EXPIRED"
-                ? "Bạn có chắc chắn muốn xóa vĩnh viễn voucher đã hết hạn này không? Hành động này không thể hoàn tác."
-                : "Voucher này vẫn còn thời hạn. Hệ thống sẽ chuyển voucher sang trạng thái 'Tạm ẩn' để ngừng sử dụng thay vì xóa vĩnh viễn."}
+                Date.now() || deleteConfirmVoucher.status === "EXPIRED"
+                ? "Bạn có chắc chắn muốn xóa vĩnh viễn voucher đã hết hạn này không?"
+                : "Voucher còn thời hạn sẽ được chuyển sang trạng thái Tạm ẩn để ngừng sử dụng."}
             </p>
-
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setDeleteConfirmVoucher(null)}
                 disabled={isDeleting}
-                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors w-full disabled:opacity-50"
+                className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
               >
-                Hủy bỏ
+                Hủy
               </button>
               <button
+                type="button"
                 onClick={confirmDelete}
                 disabled={isDeleting}
-                className={`px-5 py-2.5 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors w-full disabled:opacity-50 ${
+                className={`flex h-10 w-full items-center justify-center gap-2 rounded-[4px] px-5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50 ${
                   new Date(deleteConfirmVoucher.endDate).getTime() <=
-                    new Date().getTime() ||
-                  deleteConfirmVoucher.status === "EXPIRED"
+                    Date.now() || deleteConfirmVoucher.status === "EXPIRED"
                     ? "bg-red-600 hover:bg-red-700"
                     : "bg-orange-500 hover:bg-orange-600"
                 }`}
@@ -1078,11 +407,10 @@ export default function AdminVoucherPage() {
                 {isDeleting ? (
                   <Loader2 className="animate-spin" size={16} />
                 ) : new Date(deleteConfirmVoucher.endDate).getTime() <=
-                    new Date().getTime() ||
-                  deleteConfirmVoucher.status === "EXPIRED" ? (
-                  "Xóa vĩnh viễn"
+                    Date.now() || deleteConfirmVoucher.status === "EXPIRED" ? (
+                  "Xóa"
                 ) : (
-                  "Tạm ẩn ngay"
+                  "Tạm ẩn"
                 )}
               </button>
             </div>

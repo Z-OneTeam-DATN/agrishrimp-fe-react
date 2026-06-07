@@ -22,7 +22,10 @@ interface AdminSearchFilterProps {
     placeholder?: string;
     onSearch?: (val: string) => void;
     onRefresh?: () => void;
+    hideRefreshButton?: boolean;
     hideSettingsButton?: boolean;
+    trailingContent?: React.ReactNode;
+    containerClassName?: string;
 
     // Tùy chọn ẩn hiện bộ lọc
     hideFilter1?: boolean;
@@ -53,7 +56,10 @@ export function AdminSearchFilter({
                                       placeholder = "Tìm kiếm...",
                                       onSearch,
                                       onRefresh,
+                                      hideRefreshButton = false,
                                       hideSettingsButton = false,
+                                      trailingContent,
+                                      containerClassName,
                                       hideFilter1 = false,
                                       hideFilter2 = false, // ✅ KHAI BÁO MẶC ĐỊNH
                                       hideSort = false,
@@ -80,8 +86,11 @@ export function AdminSearchFilter({
                                       ]
                                   }: AdminSearchFilterProps) {
     return (
-        <div className="p-3 border-b border-slate-100 bg-white flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1">
+        <div className={cn(
+            "p-3 border-b border-slate-100 bg-white flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between",
+            containerClassName
+        )}>
+            <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
                 {/* Ô nhập tìm kiếm */}
                 <div className="relative w-full max-w-[280px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -148,15 +157,17 @@ export function AdminSearchFilter({
             </div>
 
             {/* Các nút chức năng bên phải */}
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-[38px] w-[38px] border-slate-200 bg-white rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 shadow-none transition-colors"
-                    onClick={onRefresh}
-                >
-                    <RotateCw size={18} />
-                </Button>
+            <div className="flex items-center justify-end gap-2">
+                {!hideRefreshButton && (
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-[38px] w-[38px] border-slate-200 bg-white rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 shadow-none transition-colors"
+                        onClick={onRefresh}
+                    >
+                        <RotateCw size={18} />
+                    </Button>
+                )}
                 {!hideSettingsButton && (
                     <Button
                         variant="outline"
@@ -166,6 +177,7 @@ export function AdminSearchFilter({
                         <Settings size={18} />
                     </Button>
                 )}
+                {trailingContent}
             </div>
         </div>
     );

@@ -5,9 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    ChevronLeft, Users,
-    Mail, Phone, MapPin, 
-    Lock, Loader2, Camera, UserCircle2, Briefcase, Fingerprint
+    Mail, Phone, MapPin,
+    Loader2, Camera, UserCircle2, Fingerprint
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -190,36 +189,78 @@ export default function EditEmployeePage() {
     if (loading || isLoadingAuth) return <div className="min-h-screen flex items-center justify-center flex-col gap-4 bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={32} /><p className="text-sm font-medium text-slate-50">Đang tải dữ liệu nhân viên...</p></div>;
 
     return (
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pb-[100px] bg-slate-50 min-h-screen text-slate-800">
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3 pb-[100px] text-slate-800">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleEmployeeAvatarUpload} />
-            {/* HEADER */}
-            <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="text-slate-400">
-                        <ChevronLeft size={20} />
-                    </Button>
-                    <h1 className="text-[16px] font-bold uppercase tracking-tight text-slate-800">Chỉnh sửa nhân viên</h1>
-                </div>
-            </div>
+            <div className="mt-2 mb-8 space-y-4">
+                <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+                    Chỉnh sửa nhân viên
+                </h1>
 
-            <div className="max-w-[1200px] mx-auto p-4 grid grid-cols-12 gap-6">
-                {/* LEFT COL */}
-                <div className="col-span-8 space-y-4">
-                    <div className="bg-white border border-slate-200 p-6 shadow-sm rounded-lg">
-                        <div className="flex items-center gap-2 mb-6 border-b pb-3 text-blue-600">
-                            <Users size={16} />
-                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-800">1. Thông tin cá nhân</span>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400">Họ và tên *</Label>
-                                    <Input {...register("fullName")} className={cn("h-9 text-[13px] font-medium", errors.fullName && "border-red-500")} />
-                                    {errors.fullName && <p className="text-[10px] text-red-500 font-bold">{errors.fullName.message}</p>}
+                <div className="border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="border-b border-slate-200 pb-3">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            1. Thông tin cá nhân
+                        </span>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-12">
+                        <div className="xl:col-span-3">
+                            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-6 xl:min-h-[360px]">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-medium text-slate-400">
+                                        Ảnh đại diện
+                                    </Label>
+                                    <div className="flex flex-col items-center justify-center gap-5 xl:min-h-[290px]">
+                                        <div className="relative cursor-pointer" onClick={handleAvatarClick}>
+                                            <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-200 bg-white">
+                                                {uploading ? (
+                                                    <Loader2 className="animate-spin text-emerald-600" />
+                                                ) : watch("avatarUrl") ? (
+                                                    <img src={watch("avatarUrl") as string} alt="avatar" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <UserCircle2 size={86} className="text-slate-200" />
+                                                )}
+                                            </div>
+                                            <div className="absolute bottom-1 right-1 rounded-full bg-emerald-600 p-2 text-white shadow-lg">
+                                                <Camera size={18} />
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleAvatarClick}
+                                            disabled={uploading}
+                                            className="h-10 w-full text-[13px] font-medium"
+                                        >
+                                            {uploading ? (
+                                                <>
+                                                    <Loader2 size={12} className="mr-2 animate-spin" />
+                                                    Đang tải ảnh
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Camera size={12} className="mr-2" />
+                                                    Đổi ảnh đại diện
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400">Giới tính</Label>
+                            </div>
+                        </div>
+
+                        <div className="xl:col-span-9">
+                            <div className="space-y-5">
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+                                <div className="space-y-1.5 md:col-span-6">
+                                    <Label className="flex h-4 items-center text-[10px] font-medium text-slate-400">Họ và tên *</Label>
+                                    <Input {...register("fullName")} className={cn("h-9 text-[13px] font-medium", errors.fullName && "border-red-500")} />
+                                    <p className={cn("min-h-4 text-[10px] font-bold", errors.fullName ? "text-red-500" : "text-transparent")}>
+                                        {errors.fullName?.message || "\u00A0"}
+                                    </p>
+                                </div>
+                                <div className="space-y-1.5 md:col-span-6">
+                                    <Label className="flex h-4 items-center text-[10px] font-medium text-slate-400">Giới tính</Label>
                                     <Select value={currentGender} onValueChange={(val: any) => setValue("gender", val)}>
                                         <SelectTrigger className="h-9 text-[13px]"><SelectValue /></SelectTrigger>
                                         <SelectContent>
@@ -228,135 +269,109 @@ export default function EditEmployeePage() {
                                             <SelectItem value="OTHER">Khác</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <p className="min-h-4 text-[10px] text-transparent">{"\u00A0"}</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Mail size={10} /> Email (Tài khoản)</Label>
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+                                <div className="space-y-1.5 md:col-span-6">
+                                    <Label className="flex h-4 items-center gap-1.5 text-[10px] font-medium text-slate-400"><Mail size={10} /> Email đăng nhập *</Label>
                                     <Input value={userEmail || ""} disabled className="h-9 text-[13px] bg-slate-50 cursor-not-allowed" />
-                                    <p className="text-[10px] text-slate-400 italic">Email không thể thay đổi</p>
+                                    <p className="min-h-4 text-[10px] text-slate-400 italic">Email không thể thay đổi</p>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Phone size={10} /> Số điện thoại *</Label>
+                                <div className="space-y-1.5 md:col-span-6">
+                                    <Label className="flex h-4 items-center gap-1.5 text-[10px] font-medium text-slate-400"><Phone size={10} /> Số điện thoại *</Label>
                                     <Input {...register("phoneNumber")} className={cn("h-9 text-[13px]", errors.phoneNumber && "border-red-500")} />
-                                    {errors.phoneNumber && <p className="text-[10px] text-red-500 font-bold">{errors.phoneNumber.message}</p>}
+                                    <p className={cn("min-h-4 text-[10px] font-bold", errors.phoneNumber ? "text-red-500" : "text-transparent")}>
+                                        {errors.phoneNumber?.message || "\u00A0"}
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Fingerprint size={10} /> Số CCCD (12 số)</Label>
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+                                <div className="space-y-1.5 md:col-span-6">
+                                    <Label className="flex h-4 items-center gap-1.5 text-[10px] font-medium text-slate-400"><Fingerprint size={10} /> Số CCCD (12 số)</Label>
                                     <Input {...register("citizenId")} disabled className="h-9 text-[13px] font-bold bg-slate-50 cursor-not-allowed" maxLength={12} />
-                                    <p className="text-[10px] text-slate-400 italic">Số CCCD không thể thay đổi sau khi tạo</p>
+                                    <p className="min-h-4 text-[10px] text-slate-400 italic">Số CCCD không thể thay đổi sau khi tạo</p>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase text-slate-400">Ngày sinh *</Label>
+                                <div className="space-y-1.5 md:col-span-6">
+                                    <Label className="flex h-4 items-center text-[10px] font-medium text-slate-400">Ngày sinh *</Label>
                                     <Input type="date" {...register("dateOfBirth")} className={cn("h-9 text-[13px]", errors.dateOfBirth && "border-red-500")} />
-                                    {errors.dateOfBirth && <p className="text-[10px] text-red-500 font-bold">{errors.dateOfBirth.message}</p>}
+                                    <p className={cn("min-h-4 text-[10px] font-bold", errors.dateOfBirth ? "text-red-500" : "text-transparent")}>
+                                        {errors.dateOfBirth?.message || "\u00A0"}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><MapPin size={10} /> Địa chỉ liên hệ *</Label>
+                                <Label className="flex h-4 items-center gap-1.5 text-[10px] font-medium text-slate-400"><MapPin size={10} /> Địa chỉ liên hệ *</Label>
                                 <Input {...register("addressDetail")} className={cn("h-9 text-[13px]", errors.addressDetail && "border-red-500")} />
-                                {errors.addressDetail && <p className="text-[10px] text-red-500 font-bold">{errors.addressDetail.message}</p>}
+                                <p className={cn("min-h-4 text-[10px] font-bold", errors.addressDetail ? "text-red-500" : "text-transparent")}>
+                                    {errors.addressDetail?.message || "\u00A0"}
+                                </p>
+                            </div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="bg-white border border-slate-200 p-6 shadow-sm rounded-lg">
-                        <div className="flex items-center gap-2 mb-6 border-b pb-3 text-blue-600">
-                            <Briefcase size={16} />
-                            <span className="text-[11px] font-black uppercase text-slate-800 tracking-widest">2. Công tác & Phân quyền</span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400">Mã nhân viên</Label>
-                                <Input {...register("employeeCode")} disabled className="h-9 text-[13px] bg-slate-50 font-bold cursor-not-allowed" />
-                                <p className="text-[10px] text-slate-400 italic">Mã nhân viên không thể thay đổi</p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400">Ngày vào làm *</Label>
-                                <Input type="date" {...register("startDate")} className={cn("h-9 text-[13px]", errors.startDate && "border-red-500")} />
-                                {errors.startDate && <p className="text-[10px] text-red-500 font-bold">{errors.startDate.message}</p>}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400">Chi nhánh làm việc *</Label>
-                                <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
-                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {errors.branchId && <p className="text-[10px] text-red-500 font-bold">{errors.branchId.message}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400">Vai trò hệ thống *</Label>
-                                <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val))}>
-                                    <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {errors.roleId && <p className="text-[10px] text-red-500 font-bold">{errors.roleId.message}</p>}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="col-span-4 space-y-4">
-                    <div className="bg-white border border-slate-200 p-6 shadow-sm flex flex-col items-center rounded-lg">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 mb-4 self-start">Ảnh hồ sơ</Label>
-                        <div className="relative mb-4">
-                            <div className="h-24 w-24 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200">
-                                {watch("avatarUrl") ? (
-                                    <img src={watch("avatarUrl") as string} alt="avatar" className="h-full w-full object-cover" />
-                                ) : (
-                                    <UserCircle2 size={60} className="text-slate-300" />
-                                )}
-                            </div>
-                            <Button type="button" variant="outline" size="sm" className="absolute bottom-0 right-0 translate-x-2 translate-y-2 rounded-full p-2 border border-slate-200 bg-white shadow-sm" onClick={handleAvatarClick} disabled={uploading}>
-                                <Camera size={14} />
-                            </Button>
-                        </div>
-                        <div className="w-full space-y-4">
-                            <div className="text-center text-[11px] text-slate-500">Nhấn vào biểu tượng camera để thay đổi ảnh</div>
-                            {uploading && <div className="text-[11px] text-slate-400">Đang tải ảnh...</div>}
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-slate-400">Trạng thái</Label>
-                                <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val)}>
-                                    <SelectTrigger className="h-9 text-[12px] font-bold uppercase"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ACTIVE" className="text-emerald-600 font-bold">ĐANG HOẠT ĐỘNG</SelectItem>
-                                        <SelectItem value="INACTIVE" className="text-rose-600 font-bold">TẠM KHÓA</SelectItem>
-                                        <SelectItem value="BANNED" className="text-amber-700 font-bold">CẤM TRUY CẬP</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                <div className="border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="border-b border-slate-200 pb-3">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            2. Công tác & phân quyền
+                        </span>
                     </div>
 
-                    <div className="bg-amber-50 border border-amber-100 p-4 space-y-3 rounded-lg">
-                        <div className="flex items-center gap-2 text-amber-700">
-                            <Lock size={16} />
-                            <span className="text-[11px] font-black uppercase tracking-widest">Bảo mật</span>
+                    <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-medium text-slate-400">Mã nhân viên</Label>
+                            <Input {...register("employeeCode")} disabled className="h-9 text-[13px] bg-slate-50 font-bold cursor-not-allowed" />
                         </div>
-                        <p className="text-[11px] text-amber-600 font-medium leading-relaxed italic">
-                            Mật khẩu có thể được đặt lại bởi quản trị viên hệ thống hoặc qua chức năng Quên mật khẩu.
-                        </p>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-medium text-slate-400">Chi nhánh làm việc *</Label>
+                            <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
+                                <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            {errors.branchId && <p className="text-[10px] text-red-500 font-bold">{errors.branchId.message}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-medium text-slate-400">Vai trò hệ thống *</Label>
+                            <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val))}>
+                                <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            {errors.roleId && <p className="text-[10px] text-red-500 font-bold">{errors.roleId.message}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-medium text-slate-400">Ngày vào làm *</Label>
+                            <Input type="date" {...register("startDate")} className={cn("h-9 text-[13px]", errors.startDate && "border-red-500")} />
+                            {errors.startDate && <p className="text-[10px] text-red-500 font-bold">{errors.startDate.message}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-medium text-slate-400">Trạng thái tài khoản</Label>
+                            <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val)}>
+                                <SelectTrigger className="h-9 text-[12px] font-medium"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
+                                    <SelectItem value="INACTIVE">Tạm khóa</SelectItem>
+                                    <SelectItem value="BANNED">Cấm truy cập</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t p-3 flex justify-end gap-3 z-[999] shadow-inner">
-                <Button type="button" variant="ghost" onClick={() => router.back()} className="font-bold uppercase text-[11px]">Hủy bỏ</Button>
-                <Button type="submit" disabled={saving} className="h-9 px-10 text-[11px] font-black bg-slate-900 text-white uppercase shadow-xl">
-                    {saving ? <Loader2 className="animate-spin mr-2" /> : "CẬP NHẬT NHÂN VIÊN"}
+                <Button type="button" variant="ghost" onClick={() => router.back()} className="font-medium text-[11px] text-slate-400">Hủy bỏ</Button>
+                <Button type="submit" disabled={saving} className="h-9 bg-emerald-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700">
+                    {saving ? <Loader2 className="animate-spin mr-2" /> : null}
+                    Cập nhật nhân viên
                 </Button>
             </div>
         </form>

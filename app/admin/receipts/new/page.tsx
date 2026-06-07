@@ -5,20 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  X,
   Search,
-  Plus,
   Trash2,
-  Package,
   Save,
   Loader2,
-  ChevronLeft,
-  CheckCircle2,
-  User,
   Clock,
   FileUp,
   AlertCircle,
   Ban,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,7 +130,7 @@ function AdminReceiptFormContent() {
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
   const [searchSupplierText, setSearchSupplierText] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
+  const [, setSelectedSupplier] = useState<Supplier | null>(
     null,
   );
 
@@ -145,6 +140,7 @@ function AdminReceiptFormContent() {
   const [searchProductText, setSearchProductText] = useState("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
+  const [noteExpandedRows, setNoteExpandedRows] = useState<Record<string, boolean>>({});
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +210,7 @@ function AdminReceiptFormContent() {
     }
   }, [errors]);
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: "items",
   });
@@ -223,17 +219,19 @@ function AdminReceiptFormContent() {
   const watchStatus = watch("status") || "PENDING";
   const currentTargetBranch = watch("branchName");
 
-  const isQCMode =
-    (watchStatus || "").toUpperCase() === "COMPLETED" ||
-    (watchStatus || "").toUpperCase() === "IMPORTED";
-
   const isInfoReadOnly =
     isReadOnly || (isEditMode && (watchStatus || "").toUpperCase() !== "PENDING");
   const isLinkedPurchaseRequest = Boolean(watchPurchaseRequestId);
   const isMissingPurchaseRequestLink = !isEditMode && !isLinkedPurchaseRequest;
   const isMasterDataLocked = isInfoReadOnly || isLinkedPurchaseRequest;
   const isItemSourceLocked = isInfoReadOnly || isLinkedPurchaseRequest;
-  const tableColCount = isLinkedPurchaseRequest ? 13 : 12;
+  const tableColCount = 5;
+
+  useEffect(() => {
+    if (!isInitialLoading && isMissingPurchaseRequestLink) {
+      router.replace("/admin/receipts/select-request");
+    }
+  }, [isInitialLoading, isMissingPurchaseRequestLink, router]);
 
   const normalizeBranchValue = (value?: string | null) =>
     (value || "")
@@ -296,10 +294,6 @@ function AdminReceiptFormContent() {
     return acc + qty * price;
   }, 0);
 
-  const totalQty = watchItems.reduce(
-    (acc, item) => acc + (Number(item.plannedQuantity) || 0),
-    0,
-  );
   const debtAmount = subTotal;
 
   const validateReceiptItems = (items: Receipt["items"]) => {
@@ -454,14 +448,6 @@ function AdminReceiptFormContent() {
     setSelectedSupplier(s);
     setIsSupplierDropdownOpen(false);
     setSearchSupplierText(s.name);
-  };
-
-  const handleClearSupplier = () => {
-    if (isMasterDataLocked) return;
-    setValue("supplierCode", "");
-    setValue("supplierName", "");
-    setSelectedSupplier(null);
-    setSearchSupplierText("");
   };
 
   const onSaveDraft = async (data: Receipt) => {
@@ -724,7 +710,7 @@ function AdminReceiptFormContent() {
   const handleReject = async () => {
     if (!receiptId) return;
     showConfirm(
-      "Xác nhận TỪ CHỐI phiếu",
+      "Xác nhận từ chối phiếu",
       "Hành động này sẽ từ chối đơn nhập hàng này. Bạn không thể hoàn tác.",
       async () => {
         setIsSubmitting(true);
@@ -749,8 +735,8 @@ function AdminReceiptFormContent() {
     }
 
     const title = isAdmin
-      ? "Xác nhận LƯU VÀ DUYỆT PHIẾU"
-      : "Xác nhận LƯU PHIẾU CHỜ DUYỆT";
+      ? "Xác nhận lưu và duyệt phiếu"
+      : "Xác nhận lưu phiếu chờ duyệt";
     const msg = isAdmin
       ? "Phiếu nhập do admin tạo sẽ được duyệt ngay. Nếu đã nhập đủ số lượng đạt/lỗi, hệ thống sẽ chốt luôn tồn kho và công nợ nhà cung cấp."
       : "Phiếu nhập sẽ được lưu ở trạng thái chờ admin duyệt. Khi duyệt, hệ thống mới cập nhật tồn kho và công nợ.";
@@ -763,117 +749,52 @@ function AdminReceiptFormContent() {
   if (isInitialLoading)
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={32} />
+        <Loader2 className="animate-spin text-emerald-600" size={32} />
       </div>
     );
 
+  if (isMissingPurchaseRequestLink) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-emerald-600" size={32} />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 pb-20">
-      {/* 1. Workflow Diagram (Fixed 80px) */}
-      <div className="h-[80px] w-full bg-white border-b border-slate-200 flex items-center justify-center px-10 shrink-0">
-        <div className="flex items-center w-full max-w-4xl relative">
-          {["LẬP PHIẾU", "CHỜ DUYỆT", "DUYỆT & HẠCH TOÁN"].map(
-            (label, idx) => {
-              const status = (watchStatus || "").toUpperCase();
-              let activeIdx = 0;
-              if (status === "COMPLETED" || status === "IMPORTED" || status === "APPROVED")
-                activeIdx = 2;
-              else if (status !== "PENDING") activeIdx = 1;
-              const isDone = idx < activeIdx;
-              const isCurrent = idx === activeIdx;
-              return (
-                <React.Fragment key={idx}>
-                  <div className="flex flex-col items-center z-10">
-                    <div
-                      className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all bg-white",
-                        isDone || isCurrent
-                          ? "border-blue-600 text-blue-600"
-                          : "border-slate-200 text-slate-300",
-                      )}
-                    >
-                      {isDone ? <CheckCircle2 size={14} /> : idx + 1}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-[10px] font-bold mt-1 uppercase tracking-tight",
-                        isCurrent ? "text-blue-600" : "text-slate-400",
-                      )}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                  {idx < 2 && (
-                    <div
-                      className={cn(
-                        "flex-1 h-[2px] mx-2 -mt-4",
-                        idx < activeIdx ? "bg-blue-600" : "bg-slate-100",
-                      )}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            },
-          )}
-        </div>
+    <div className="min-h-screen space-y-5 px-1 pb-[104px] text-slate-900">
+      <div className="pt-2">
+        <h1 className="text-[20px] font-semibold uppercase text-slate-900">
+          {isEditMode ? "Cập nhật phiếu nhập" : "Thêm phiếu nhập"}
+        </h1>
       </div>
-
-      <div className="mx-6 mt-4 p-3 bg-white border border-slate-200 rounded-sm flex items-start gap-3 text-slate-700">
-        <AlertCircle size={18} className="shrink-0 mt-0.5" />
-        <p className="text-xs font-bold uppercase tracking-wide">
-          Nghiệp vụ chuẩn: người lập phiếu phải nhập ngay số đạt chuẩn và số lỗi cho từng mặt hàng. Admin duyệt là thời điểm hệ thống cộng tồn kho, tách hàng lỗi và ghi nhận công nợ nhà cung cấp.
-        </p>
-      </div>
-
-      {isMissingPurchaseRequestLink ? (
-        <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-sm flex items-start gap-3 text-rose-700">
-          <AlertCircle size={18} className="shrink-0 mt-0.5" />
-          <div className="space-y-2">
-            <p className="text-xs font-black uppercase tracking-wide">
-              Phiếu nhập chỉ được tạo từ phiếu yêu cầu mua
-            </p>
-            <p className="text-xs font-medium leading-relaxed">
-              Vui lòng mở một phiếu yêu cầu hợp lệ rồi chọn hành động tạo phiếu nhập. Hệ thống sẽ không cho lưu phiếu nhập nếu chưa có mã phiếu yêu cầu.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 rounded-none border-rose-300 bg-white px-4 text-[11px] font-bold uppercase text-rose-700 hover:bg-rose-100"
-              onClick={() => router.push("/admin/purchase-requests")}
-            >
-              Đi tới phiếu yêu cầu
-            </Button>
-          </div>
-        </div>
-      ) : null}
 
       {linkedPurchaseRequestMeta && (
-        <div className="mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-sm flex items-start gap-3 text-blue-800">
+        <div className="flex items-start gap-3 border border-slate-200 bg-white p-4 text-slate-600">
           <AlertCircle size={18} className="shrink-0 mt-0.5" />
-          <p className="text-xs font-bold uppercase tracking-wide leading-relaxed">
-            Phiếu nhập này đang liên kết với yêu cầu mua{" "}
-            <span className="text-blue-600">{linkedPurchaseRequestMeta.code}</span>.
-            Hệ thống đã tự nạp nhà cung cấp, kho nhận và các mặt hàng còn thiếu.
-            Hãy nhập tổng số NCC giao đợt này, số lượng đạt chuẩn và số lỗi ngay trên từng dòng sản phẩm.
+          <p className="text-[11.5px] leading-relaxed">
+            Đang liên kết với yêu cầu mua <span className="font-semibold text-slate-800">{linkedPurchaseRequestMeta.code}</span>.
+            Nhà cung cấp, kho nhận và các mặt hàng còn thiếu đã được nạp tự động.
           </p>
         </div>
       )}
 
       {/* 2. Information Row (Supplier & Receipt Info) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 shrink-0">
-        {/* Left: Supplier Info */}
-        <div className="md:col-span-7 bg-white border border-slate-200 p-5 shadow-sm rounded-sm min-h-[160px] flex flex-col">
-          <h2 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-            Nhà cung cấp
-          </h2>
-          <div className="relative mb-4" ref={dropdownRef}>
+      <div className="border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-6 border-b border-slate-200 pb-4">
+          <h2 className="text-[12px] font-semibold text-slate-900">1. Thông tin phiếu nhập</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+          <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Nhà cung cấp *</Label>
+          <div className="relative" ref={dropdownRef}>
             <Search
               className="absolute left-3 top-3 text-slate-400"
               size={16}
             />
             <Input
-              className="pl-10 h-10 text-xs border-slate-200"
-              placeholder="Tìm theo tên hoặc mã NCC (F4)..."
+              className="h-10 border-slate-200 pl-10 text-[13px] shadow-none"
+              placeholder="Tìm theo tên hoặc mã nhà cung cấp..."
               value={searchSupplierText}
               onChange={(e) => {
                 setSearchSupplierText(e.target.value);
@@ -895,7 +816,7 @@ function AdminReceiptFormContent() {
                       className="p-2 border-b hover:bg-slate-50 cursor-pointer"
                       onClick={() => handleSelectSupplier(s)}
                     >
-                      <p className="font-bold">{s.name}</p>
+                      <p className="font-medium">{s.name}</p>
                       <p className="text-[10px] text-slate-400">#{s.code}</p>
                     </div>
                   ))
@@ -907,47 +828,13 @@ function AdminReceiptFormContent() {
               </div>
             )}
           </div>
-
-          {selectedSupplier && (
-            <div className="flex items-start gap-4 bg-blue-50/50 border border-blue-100 p-4 rounded-sm relative animate-in fade-in duration-300">
-              {!isMasterDataLocked && (
-                <button
-                  type="button"
-                  onClick={handleClearSupplier}
-                  className="absolute top-2 right-2 text-slate-300 hover:text-rose-500 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              )}
-              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white shrink-0 shadow-sm">
-                <User size={20} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[14px] font-bold text-blue-700">
-                  {selectedSupplier.name}
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  Mã NCC: {selectedSupplier.code}
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  {selectedSupplier.phone || "Chưa có SĐT"}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Right: Receipt Info */}
-        <div className="md:col-span-5 bg-white border border-slate-200 p-5 shadow-sm rounded-sm space-y-3">
-          <h2 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-            Thông tin phiếu
-          </h2>
-
-          <div className="grid grid-cols-12 items-center gap-2">
-            <Label className="col-span-4 text-[11px] font-bold text-slate-500">
+          <div>
+            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Chi nhánh nhập (*)
             </Label>
-            <div className="col-span-8">
+            <div>
               <Controller
                 name="branchName"
                 control={control}
@@ -958,7 +845,7 @@ function AdminReceiptFormContent() {
                     value={field.value}
                     disabled={isInfoReadOnly}
                   >
-                    <SelectTrigger className="h-8 text-xs border-slate-200 shadow-none font-bold text-blue-600">
+                    <SelectTrigger className="h-10 border-slate-200 text-[13px] shadow-none">
                       <SelectValue placeholder="-- Chọn chi nhánh nhập --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -966,7 +853,7 @@ function AdminReceiptFormContent() {
                         <SelectItem
                           key={b.id}
                           value={b.name || b.branchName}
-                          className="text-xs font-bold uppercase"
+                          className="text-[12px]"
                         >
                           {b.name || b.branchName}
                         </SelectItem>
@@ -983,37 +870,35 @@ function AdminReceiptFormContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-12 items-center gap-2">
-            <Label className="col-span-4 text-[11px] font-bold text-slate-500">
+          <div>
+            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Mã phiếu
             </Label>
             <Input
               readOnly
               {...register("receiptCode")}
-              className="col-span-8 h-8 text-xs bg-slate-50 border-slate-200 font-bold text-blue-600"
+              className="h-10 border-slate-200 bg-slate-50 text-[13px] text-slate-500"
             />
           </div>
-          {linkedPurchaseRequestMeta ? (
-            <div className="grid grid-cols-12 items-center gap-2">
-              <Label className="col-span-4 text-[11px] font-bold text-slate-500">
-                Mã phiếu yêu cầu
-              </Label>
-              <Input
-                readOnly
-                value={linkedPurchaseRequestMeta.code}
-                className="col-span-8 h-8 text-xs bg-slate-50 border-slate-200 font-bold text-amber-700"
-              />
-            </div>
-          ) : null}
-          <div className="grid grid-cols-12 items-center gap-2">
-            <Label className="col-span-4 text-[11px] font-bold text-slate-500">
+          <div>
+            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
+              Mã phiếu yêu cầu
+            </Label>
+            <Input
+              readOnly
+              value={linkedPurchaseRequestMeta?.code || watch("purchaseRequestCode") || "Chưa liên kết"}
+              className="h-10 border-slate-200 bg-slate-50 text-[13px] text-slate-500"
+            />
+          </div>
+          <div>
+            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Ngày nhập
             </Label>
-            <div className="col-span-8 relative">
+            <div className="relative">
               <input
                 type="date"
                 {...register("entryDate")}
-                className="w-full h-8 text-xs border rounded-sm px-2 bg-slate-50 font-medium outline-none border-slate-200"
+                className="h-10 w-full border border-slate-200 bg-white px-3 text-[13px] outline-none"
                 disabled={isInfoReadOnly}
               />
               <Clock
@@ -1022,27 +907,26 @@ function AdminReceiptFormContent() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-12 items-center gap-2">
-            <Label className="col-span-4 text-[11px] font-bold text-slate-500">
+          <div>
+            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Người tạo
             </Label>
             <Input
               readOnly
               value={watch("creator") || "..."}
-              className="col-span-8 h-8 text-xs bg-slate-50 border-slate-200 font-medium"
+              className="h-10 border-slate-200 bg-slate-50 text-[13px] text-slate-500"
             />
           </div>
         </div>
       </div>
 
       {/* 3. Product Entry & Table */}
-      <div className="flex-1 flex flex-col px-6 pb-6 overflow-hidden">
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col h-full overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden border border-slate-200 bg-white shadow-sm">
           {!isItemSourceLocked && (
             <div className="p-4 border-b bg-white flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3 flex-1">
-                <h3 className="text-[12px] font-bold text-slate-700 whitespace-nowrap uppercase">
-                  Thông tin sản phẩm
+                <h3 className="whitespace-nowrap text-[12px] font-semibold text-slate-900">
+                  2. Hàng hóa nhập kho
                 </h3>
                 <div className="relative flex-1 max-w-md">
                   <Search
@@ -1064,7 +948,7 @@ function AdminReceiptFormContent() {
                       {products.length > 0 && (
                         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
                           <span className="text-slate-500">
-                            Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
+                            Đã chọn <span className="font-semibold text-slate-700">{selectedProductIds.length}</span> sản phẩm
                           </span>
                           <Button
                             type="button"
@@ -1080,7 +964,7 @@ function AdminReceiptFormContent() {
                         <div className="p-10 text-center">
                           <Loader2
                             size={24}
-                            className="animate-spin text-blue-600 inline"
+                            className="inline animate-spin text-emerald-600"
                           />
                         </div>
                       ) : products.length > 0 ? (
@@ -1101,19 +985,19 @@ function AdminReceiptFormContent() {
                                 />
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-bold">{v.productName}</span>
+                                <span className="font-medium">{v.productName}</span>
                                 <span className="text-[10px] text-slate-400 font-mono">
                                 #{v.sku}
                                 </span>
                               </div>
                             </div>
-                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 border">
-                              TỒN: {v.quantity || 0}
+                            <span className="text-[10px] font-medium text-slate-500">
+                              Tồn {v.quantity || 0}
                             </span>
                           </div>
                         ))
                       ) : (
-                        <div className="p-10 text-center text-slate-400 text-xs font-bold italic">
+                        <div className="p-10 text-center text-xs text-slate-400">
                           Không có sản phẩm
                         </div>
                       )}
@@ -1125,10 +1009,10 @@ function AdminReceiptFormContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 text-[10px] font-bold"
+                  className="h-9 text-[11px] font-medium"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <FileUp size={14} className="mr-2" /> NHẬP EXCEL
+                  <FileUp size={14} className="mr-2" /> Nhập Excel
                 </Button>
                 <input
                   type="file"
@@ -1142,55 +1026,24 @@ function AdminReceiptFormContent() {
           )}
 
           <div className="flex-1 overflow-auto">
-            <Table className="min-w-[1550px]">
-              <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
+            <Table className="w-full table-fixed">
+              <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
                 <TableRow>
-                  <TableHead className="w-10 text-center text-[10px] font-bold text-slate-400">
-                    #
+                  <TableHead className="w-[30%] text-[11px] font-medium text-slate-500">
+                    Sản phẩm
                   </TableHead>
-                  <TableHead className="text-[10px] font-bold text-slate-400">
-                    SẢN PHẨM / SKU
+                  <TableHead className="w-[17%] text-[11px] font-medium text-slate-500">
+                    Lô / hạn
                   </TableHead>
-                  <TableHead className="w-32 text-center text-[10px] font-bold text-slate-400">
-                    SỐ LÔ
+                  <TableHead className="w-[34%] text-[11px] font-medium text-slate-500">
+                    Kiểm nhận
                   </TableHead>
-                  <TableHead className="w-32 text-center text-[10px] font-bold text-slate-400">
-                    HẠN DÙNG
+                  <TableHead className="w-[13%] text-right text-[11px] font-medium text-slate-500">
+                    Giá trị
                   </TableHead>
-                  {isLinkedPurchaseRequest ? (
-                    <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                      SỐ LƯỢNG YÊU CẦU
-                    </TableHead>
-                  ) : null}
-                  <TableHead className="w-24 text-right text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                    {isLinkedPurchaseRequest
-                      ? "SỐ LƯỢNG GIAO"
-                      : "SỐ LƯỢNG GIAO"}
+                  <TableHead className="w-[72px]">
+                    <span className="sr-only">Thao tác</span>
                   </TableHead>
-                  {isLinkedPurchaseRequest ? (
-                    <TableHead className="w-24 text-right text-[10px] font-bold text-amber-600 whitespace-nowrap">
-                      CÒN THIẾU
-                    </TableHead>
-                  ) : null}
-                  <TableHead className="w-24 text-right text-[10px] font-bold text-emerald-600 whitespace-nowrap">
-                    ĐẠT CHUẨN
-                  </TableHead>
-                  <TableHead className="w-24 text-right text-[10px] font-bold text-rose-600 whitespace-nowrap">
-                    LỖI / HỎNG
-                  </TableHead>
-                  <TableHead className="w-24 text-right text-[10px] font-bold text-blue-600 whitespace-nowrap">
-                    TỔNG THỰC NHẬN
-                  </TableHead>
-                  <TableHead className="w-32 text-right text-[10px] font-bold text-blue-600">
-                    GIÁ NHẬP (₫)
-                  </TableHead>
-                  <TableHead className="w-32 text-right text-[10px] font-bold text-slate-400">
-                    THÀNH TIỀN
-                  </TableHead>
-                  <TableHead className="w-40 text-[10px] font-bold text-slate-400">
-                    GHI CHÚ / NGUYÊN NHÂN
-                  </TableHead>
-                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1198,7 +1051,7 @@ function AdminReceiptFormContent() {
                   <TableRow>
                     <TableCell
                       colSpan={tableColCount}
-                      className="h-40 text-center text-slate-300 text-xs font-bold uppercase tracking-widest"
+                      className="h-40 text-center text-[12px] text-slate-400"
                     >
                       Chưa có sản phẩm nào
                     </TableCell>
@@ -1212,6 +1065,8 @@ function AdminReceiptFormContent() {
                     const plannedQty = Number(item.plannedQuantity) || 0;
                     const hasQuantityMismatch =
                       plannedQty > 0 && actualReceived !== plannedQty;
+                    const isNoteOpen = !!noteExpandedRows[field.id];
+                    const hasNote = Boolean((item.note || "").trim());
                     const acceptedBeforeQty =
                       Number(item.acceptedBeforeQuantity) || 0;
                     const defectiveBeforeQty = Math.max(
@@ -1228,133 +1083,165 @@ function AdminReceiptFormContent() {
                       : 0;
                     return (
                       <React.Fragment key={field.id}>
-                        <TableRow className="h-12 border-b border-slate-50 hover:bg-slate-50/50">
-                          <TableCell className="text-center text-[10px] text-slate-300 font-bold">
-                            {idx + 1}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-[11px] font-bold text-slate-700">
-                              {item.productName}
-                            </div>
-                            <div className="text-[9px] text-slate-400 font-mono mt-0.5">
-                              #{item.productCode}
-                            </div>
-                            {isLinkedPurchaseRequest ? (
-                              <div className="mt-1 text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                                YCM {formatNumber(Number(item.requestedQuantity) || 0)} ·
-                                Đã đạt {formatNumber(acceptedBeforeQty)} ·
-                                Lỗi trước {formatNumber(defectiveBeforeQty)} ·
-                                Còn thiếu {formatNumber(Number(item.remainingQuantity) || 0)}
+                        <TableRow className="border-b border-slate-100 hover:bg-slate-50/60">
+                          <TableCell className="py-3 align-top">
+                            <div className="flex gap-3">
+                              <span className="mt-0.5 min-w-5 text-[11px] font-medium text-slate-400">
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="truncate text-[12.5px] font-semibold text-slate-800">
+                                  {item.productName}
+                                </div>
+                                <div className="mt-1 font-mono text-[10px] text-slate-400">
+                                  {item.productCode}
+                                </div>
+                                {isLinkedPurchaseRequest ? (
+                                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-slate-500">
+                                    <span>Yêu cầu {formatNumber(Number(item.requestedQuantity) || 0)}</span>
+                                    <span>Đã đạt {formatNumber(acceptedBeforeQty)}</span>
+                                    <span>Lỗi trước {formatNumber(defectiveBeforeQty)}</span>
+                                  </div>
+                                ) : null}
                               </div>
-                            ) : null}
+                            </div>
                           </TableCell>
-                          <TableCell className="px-1">
-                            <Input
-                              readOnly
-                              className="h-7 text-xs text-center border-slate-200 bg-slate-50 font-bold text-slate-600"
-                              {...register(`items.${idx}.lotNumber`)}
-                              disabled={isReadOnly}
-                            />
-                          </TableCell>
-                          <TableCell className="px-1">
-                            <Input
-                              type="date"
-                              className="h-7 text-xs px-1 border-slate-200"
-                              {...register(`items.${idx}.expiryDate`)}
-                              disabled={isInfoReadOnly}
-                            />
-                          </TableCell>
-                          {isLinkedPurchaseRequest ? (
-                            <TableCell className="text-right text-xs font-bold text-slate-700 pr-4">
-                              {formatNumber(Number(item.requestedQuantity) || 0)}
-                            </TableCell>
-                          ) : null}
-                          <TableCell className="px-1">
-                            <Input
-                              type="number"
-                              min={0}
-                              placeholder={
-                                isLinkedPurchaseRequest ? "Nhập SL đợt này" : ""
-                              }
-                              className="h-7 text-xs text-right font-bold border-slate-200"
-                              {...register(`items.${idx}.plannedQuantity`, {
-                                valueAsNumber: true,
-                              })}
-                              disabled={isInfoReadOnly}
-                            />
-                          </TableCell>
-                          {isLinkedPurchaseRequest ? (
-                            <TableCell className="text-right text-xs font-bold text-amber-600 pr-4">
-                              {formatNumber(remainingAfterReceipt)}
-                            </TableCell>
-                          ) : null}
-                          <TableCell className="px-1">
-                            <Input
-                              type="number"
-                              min={0}
-                              className="h-7 text-xs text-right border-emerald-200 bg-emerald-50/10 font-bold text-emerald-700"
-                              {...register(`items.${idx}.quantityAccepted`, {
-                                valueAsNumber: true,
-                              })}
-                              disabled={isInfoReadOnly}
-                            />
-                          </TableCell>
-                          <TableCell className="px-1">
-                            <Input
-                              type="number"
-                              min={0}
-                              className="h-7 text-xs text-right border-rose-200 bg-rose-50/10 font-bold text-rose-600"
-                              {...register(`items.${idx}.quantityRejected`, {
-                                valueAsNumber: true,
-                              })}
-                              disabled={isInfoReadOnly}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right text-xs font-bold text-blue-600 pr-4">
-                            <span className={cn(hasQuantityMismatch && "text-rose-600")}>
-                              {formatNumber(actualReceived)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-1 bg-blue-50/20">
-                            <Input
-                              type="number"
-                              readOnly
-                              className="h-7 text-xs text-right text-blue-600 font-bold border-blue-200 bg-slate-50"
-                              {...register(`items.${idx}.importPrice`, {
-                                valueAsNumber: true,
-                              })}
-                              disabled={isReadOnly}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right text-xs font-bold text-slate-900 pr-4">
-                            {formatNumber(
-                              (Number(item.plannedQuantity) || 0) *
-                                (Number(item.importPrice) || 0),
-                            )}
-                          </TableCell>
-                          <TableCell className="px-1 min-w-[150px]">
-                            <Input
-                              className="h-7 text-[10px] border-slate-200 bg-slate-50/30 italic"
-                              {...register(`items.${idx}.note`)}
-                              placeholder="Nguyên nhân..."
-                              disabled={isReadOnly}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {!isInfoReadOnly && (
-                              <Trash2
-                                size={14}
-                                className="text-slate-200 hover:text-rose-500 cursor-pointer transition-colors"
-                                onClick={() => remove(idx)}
+                          <TableCell className="px-2 py-3 align-top">
+                            <div className="space-y-2">
+                              <Input
+                                readOnly
+                                className="h-9 truncate border-slate-200 bg-slate-50 text-[11.5px] text-slate-600 shadow-none"
+                                {...register(`items.${idx}.lotNumber`)}
+                                disabled={isReadOnly}
                               />
+                              <Input
+                                type="date"
+                                className="h-9 border-slate-200 px-2 text-[11.5px] shadow-none"
+                                {...register(`items.${idx}.expiryDate`)}
+                                disabled={isInfoReadOnly}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 align-top">
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <span className="block text-[10.5px] font-medium text-slate-500">Giao</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  className="h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none"
+                                  {...register(`items.${idx}.plannedQuantity`, {
+                                    valueAsNumber: true,
+                                  })}
+                                  disabled={isInfoReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="block text-[10.5px] font-medium text-slate-500">Đạt</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  className="h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none"
+                                  {...register(`items.${idx}.quantityAccepted`, {
+                                    valueAsNumber: true,
+                                  })}
+                                  disabled={isInfoReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="block text-[10.5px] font-medium text-slate-500">Lỗi</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  className="h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none"
+                                  {...register(`items.${idx}.quantityRejected`, {
+                                    valueAsNumber: true,
+                                  })}
+                                  disabled={isInfoReadOnly}
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between text-[10.5px] text-slate-500">
+                              <span>Còn nhập {formatNumber(remainingAfterReceipt)}</span>
+                              <span>
+                              Thực nhận{" "}
+                              <span className={cn("text-slate-800", hasQuantityMismatch && "text-rose-600")}>
+                                {formatNumber(actualReceived)}
+                              </span>
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 align-top">
+                            <div className="space-y-2">
+                              <Input
+                                type="number"
+                                readOnly
+                                className="h-9 border-slate-200 bg-slate-50 text-right text-[11.5px] text-slate-600 shadow-none"
+                                {...register(`items.${idx}.importPrice`, {
+                                  valueAsNumber: true,
+                                })}
+                                disabled={isReadOnly}
+                              />
+                              <div className="text-right text-[11.5px] font-semibold text-slate-800">
+                                {formatNumber(
+                                  (Number(item.plannedQuantity) || 0) *
+                                    (Number(item.importPrice) || 0),
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 align-top">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                title={hasNote ? "Sửa ghi chú" : "Thêm ghi chú"}
+                                className={cn(
+                                  "inline-flex h-7 w-7 items-center justify-center text-slate-400 transition-colors hover:text-slate-700",
+                                  hasNote && "text-emerald-600",
+                                )}
+                                onClick={() =>
+                                  setNoteExpandedRows((prev) => ({
+                                    ...prev,
+                                    [field.id]: !prev[field.id],
+                                  }))
+                                }
+                              >
+                                <FileText size={14} />
+                              </button>
+                            {!isInfoReadOnly && (
+                              <button
+                                type="button"
+                                title="Xóa dòng"
+                                className="inline-flex h-7 w-7 items-center justify-center text-slate-300 transition-colors hover:text-rose-500"
+                                onClick={() => remove(idx)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             )}
+                            </div>
                           </TableCell>
                         </TableRow>
+                        {isNoteOpen ? (
+                          <TableRow className="border-b border-slate-100 bg-slate-50/60">
+                            <TableCell colSpan={tableColCount} className="px-4 py-3">
+                              <div className="w-full">
+                                <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
+                                  Ghi chú dòng hàng
+                                </Label>
+                                <textarea
+                                  className="h-20 w-full resize-none border border-slate-200 bg-white p-2 text-[11.5px] outline-none placeholder:text-slate-400"
+                                  {...register(`items.${idx}.note`)}
+                                  placeholder="Nhập ghi chú kiểm nhận, lý do lỗi/hỏng nếu có..."
+                                  disabled={isReadOnly}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
                         {hasQuantityMismatch ? (
                           <TableRow className="bg-rose-50/70">
-                            <TableCell className="border-t-0" />
-                            <TableCell colSpan={tableColCount - 1} className="border-t-0 px-4 py-2">
-                              <div className="text-[11px] font-bold text-rose-600">
+                            <TableCell colSpan={tableColCount} className="border-t-0 px-4 py-2">
+                              <div className="text-[11px] font-medium text-rose-600">
                                 Đạt + lỗi phải đúng bằng số lượng giao của dòng này.
                               </div>
                             </TableCell>
@@ -1368,60 +1255,49 @@ function AdminReceiptFormContent() {
             </Table>
           </div>
 
-          <div className="p-6 bg-slate-50/50 border-t flex flex-col md:flex-row justify-between items-start gap-10 shrink-0">
-            <div className="flex-1 w-full md:max-w-lg space-y-2">
-              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Ghi chú / Nguyên nhân
+          <div className="flex shrink-0 flex-col items-start justify-between gap-8 border-t border-slate-200 bg-white p-6 md:flex-row">
+            <div className="w-full flex-1 space-y-2 md:max-w-2xl">
+              <Label className="text-[10.5px] font-semibold text-slate-500">
+                Ghi chú
               </Label>
               <textarea
                 {...register("note")}
-                className="w-full mt-1 border border-slate-200 rounded-sm p-3 text-xs outline-none h-20 bg-white"
-                placeholder="..."
+                className="mt-1 h-20 w-full resize-none border border-slate-200 bg-white p-3 text-[12px] outline-none"
+                placeholder="Ghi chú cho phiếu nhập..."
                 disabled={isReadOnly}
               />
             </div>
-            <div className="w-full md:w-80 space-y-3">
-              <div className="flex justify-between text-xs font-bold text-slate-500 uppercase">
+            <div className="w-full space-y-3 md:w-80">
+              <div className="flex justify-between text-[12px] text-slate-500">
                 <span>Tổng tiền hàng:</span>
                 <span className="text-slate-900">
                   {formatNumber(subTotal)} VND
                 </span>
               </div>
-              <div className="pt-3 border-t border-slate-200 flex justify-between text-[14px] font-black uppercase">
-                <span>Tổng nợ:</span>
-                <span
-                  className={
-                    debtAmount > 0 ? "text-rose-600" : "text-emerald-600"
-                  }
-                >
+              <div className="flex justify-between border-t border-slate-200 pt-3 text-[13px] font-semibold text-slate-900">
+                <span>Công nợ dự kiến:</span>
+                <span>
                   {formatNumber(debtAmount)} VND
                 </span>
               </div>
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                Công nợ NCC được ghi nhận khi admin duyệt phiếu. Hệ thống luôn tính trên tổng số hàng thực nhận gồm cả hàng đạt và hàng lỗi để đối soát với phiếu xuất trả sau này.
-              </p>
             </div>
           </div>
         </div>
-      </div>
 
       {/* 4. Footer Actions */}
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 h-16 bg-white border-t border-slate-200 px-8 flex items-center justify-between z-50 shadow-lg">
-        <div className="flex gap-2">
+      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-4px_14px_rgba(15,23,42,0.06)] backdrop-blur lg:left-[260px]">
+        <div className="flex items-center justify-end gap-3">
           <Button
-            variant="ghost"
-            className="text-xs font-bold uppercase text-slate-400"
+            variant="outline"
+            className="h-10 min-w-[104px] text-[12px] font-medium"
             onClick={() => router.back()}
           >
-            Hủy bỏ
+            Hủy
           </Button>
-        </div>
-
-        <div className="flex gap-3">
           {isEditMode && watchStatus === "PENDING" && isAdmin && (
             <Button
               variant="outline"
-              className="text-xs font-bold uppercase text-rose-600 border-rose-200 hover:bg-rose-50 h-9 px-6 rounded-sm"
+              className="h-10 px-5 text-[12px] font-medium text-rose-600"
               onClick={handleReject}
               disabled={isSubmitting}
             >
@@ -1431,7 +1307,7 @@ function AdminReceiptFormContent() {
 
           {!isReadOnly && (
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase px-8 rounded-sm h-9 shadow-md"
+              className="h-10 min-w-[190px] bg-emerald-600 px-6 text-[12px] font-semibold text-white hover:bg-emerald-700"
               onClick={handleSubmit(onSubmitWithConfirm)}
               disabled={isSubmitting || isMissingPurchaseRequestLink}
             >
@@ -1440,7 +1316,7 @@ function AdminReceiptFormContent() {
               )}
               <>
                 <Save size={14} className="mr-2" />{" "}
-                {isAdmin ? "Lưu phiếu & Duyệt ngay" : "Lưu phiếu & Gửi duyệt"}
+                {isAdmin ? "Lưu và duyệt phiếu" : "Lưu và gửi duyệt"}
               </>
             </Button>
           )}
@@ -1452,34 +1328,34 @@ function AdminReceiptFormContent() {
         open={confirmConfig.open}
         onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}
       >
-        <AlertDialogContent className="rounded-none border-2 border-slate-200 shadow-2xl">
+        <AlertDialogContent className="rounded-md border border-slate-200 shadow-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[16px] font-black uppercase text-slate-800 flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 text-[15px] font-semibold text-slate-900">
               <AlertCircle
                 className={cn(
                   "w-5 h-5",
                   confirmConfig.variant === "destructive"
                     ? "text-rose-500"
-                    : "text-blue-500",
+                    : "text-emerald-600",
                 )}
               />
               {confirmConfig.title}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-[13px] font-medium text-slate-500 leading-relaxed pt-2">
+            <AlertDialogDescription className="pt-2 text-[12px] font-normal leading-relaxed text-slate-500">
               {confirmConfig.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-4 gap-3">
-            <AlertDialogCancel className="rounded-none border-slate-300 text-slate-500 font-bold uppercase text-[11px] h-9 px-6 hover:bg-slate-50">
+          <AlertDialogFooter className="gap-3 pt-4">
+            <AlertDialogCancel className="h-10 rounded-md border-slate-200 px-6 text-[12px] font-medium text-slate-600 hover:bg-slate-50">
               Quay lại
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmConfig.action}
               className={cn(
-                "rounded-none font-black uppercase text-[11px] h-9 px-8 shadow-lg transition-all",
+                "h-10 rounded-md px-8 text-[12px] font-semibold transition-colors",
                 confirmConfig.variant === "destructive"
                   ? "bg-rose-600 hover:bg-rose-700"
-                  : "bg-blue-600 hover:bg-blue-700",
+                  : "bg-emerald-600 hover:bg-emerald-700",
               )}
             >
               Xác nhận
@@ -1496,7 +1372,7 @@ export default function Page() {
     <Suspense
       fallback={
         <div className="flex h-screen items-center justify-center bg-slate-50">
-          <Loader2 className="animate-spin text-blue-600" size={32} />
+          <Loader2 className="animate-spin text-emerald-600" size={32} />
         </div>
       }
     >

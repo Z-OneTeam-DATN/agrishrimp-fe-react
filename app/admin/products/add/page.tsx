@@ -5,15 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import dynamic from "next/dynamic";
 import {
-    X,
     Trash2,
     Save,
-    ChevronLeft,
     Camera,
     Upload,
     AlertCircle,
-    FileText,
-    Layers,
     Loader2,
     ChevronDown,
     Check,
@@ -28,7 +24,6 @@ import {
     Select,
     SelectContent,
     SelectItem,
-    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
@@ -203,7 +198,7 @@ function CreatableCombobox({
                 <Button
                     variant="outline"
                     role="combobox"
-                    className="w-full h-[34px] justify-between text-[13px] border-[#ccc] rounded-none px-3 font-normal bg-white shadow-none"
+                    className="h-[38px] w-full justify-between rounded-md border-slate-200 bg-white px-3 text-[13px] font-normal shadow-none"
                 >
                     {value ? (
                         <span>{value}</span>
@@ -214,10 +209,10 @@ function CreatableCombobox({
                 </Button>
             </PopoverTrigger>
             <PopoverContent
-                className="p-0 w-[--radix-popover-trigger-width] rounded-none"
+                className="w-[--radix-popover-trigger-width] rounded-md p-0"
                 align="start"
             >
-                <Command className="rounded-none">
+                <Command className="rounded-md">
                     <CommandInput
                         placeholder="Tìm hoặc gõ mới..."
                         className="h-9 text-[13px]"
@@ -269,27 +264,141 @@ function CreatableCombobox({
     );
 }
 
+function AttributeValueCombobox({
+    options,
+    value,
+    onSelect,
+    onCreate,
+    canCreate,
+}: {
+    options: AttributeOption[];
+    value: string;
+    onSelect: (value: string) => void;
+    onCreate: (value: string) => Promise<void>;
+    canCreate: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [inputValue, setInputValue] = useState("");
+    const [saving, setSaving] = useState(false);
+    const selectedOption = options.find(
+        (option) => String(option.valueId) === value,
+    );
+    const trimmedInput = inputValue.trim();
+    const hasExactMatch = options.some(
+        (option) =>
+            option.value.trim().toLowerCase() === trimmedInput.toLowerCase(),
+    );
+
+    const createValue = async () => {
+        if (!trimmedInput || saving) return;
+        setSaving(true);
+        try {
+            await onCreate(trimmedInput);
+            setInputValue("");
+            setOpen(false);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="h-[38px] w-full justify-between rounded-md border-slate-200 bg-white px-3 text-[13px] font-normal shadow-none"
+                >
+                    <span className={cn("truncate", !selectedOption && "text-slate-400")}>
+                        {selectedOption?.value || "Không áp dụng"}
+                    </span>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                align="start"
+                className="w-[--radix-popover-trigger-width] rounded-md p-0"
+            >
+                <Command shouldFilter>
+                    <CommandInput
+                        value={inputValue}
+                        onValueChange={setInputValue}
+                        placeholder="Tìm hoặc nhập giá trị mới..."
+                        onKeyDown={(event) => {
+                            if (
+                                event.key === "Enter" &&
+                                canCreate &&
+                                trimmedInput &&
+                                !hasExactMatch
+                            ) {
+                                event.preventDefault();
+                                void createValue();
+                            }
+                        }}
+                    />
+                    <CommandList>
+                        <CommandGroup>
+                            <CommandItem
+                                value="Không áp dụng"
+                                onSelect={() => {
+                                    onSelect("none");
+                                    setOpen(false);
+                                }}
+                            >
+                                <Check className={cn("mr-2 h-4 w-4", value === "none" ? "opacity-100" : "opacity-0")} />
+                                Không áp dụng
+                            </CommandItem>
+                            {options.map((option) => (
+                                <CommandItem
+                                    key={option.valueId}
+                                    value={option.value}
+                                    onSelect={() => {
+                                        onSelect(String(option.valueId));
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check className={cn("mr-2 h-4 w-4", value === String(option.valueId) ? "opacity-100" : "opacity-0")} />
+                                    {option.value}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                        {canCreate && trimmedInput && !hasExactMatch && (
+                            <CommandGroup>
+                                <CommandItem
+                                    value={`create-${trimmedInput}`}
+                                    onSelect={() => void createValue()}
+                                    disabled={saving}
+                                    className="text-emerald-700"
+                                >
+                                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <span className="mr-2">+</span>}
+                                    Thêm “{trimmedInput}”
+                                </CommandItem>
+                            </CommandGroup>
+                        )}
+                        <CommandEmpty>
+                            {canCreate ? "Nhập giá trị mới để thêm" : "Không tìm thấy giá trị"}
+                        </CommandEmpty>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 // ─── SECTION HEADER ───
 function SectionHeader({
                            num,
-                           icon: Icon,
                            title,
-                           color = "text-emerald-700",
                        }: {
     num: string;
-    icon: React.ElementType;
     title: string;
-    color?: string;
 }) {
     return (
-        <div
-            className={cn(
-                "flex items-center gap-2 mb-5 font-black text-[11px] uppercase tracking-widest border-b pb-3",
-                color
-            )}
-        >
-            <Icon size={15} />
-            {num}. {title}
+        <div className="mb-4 border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+                {num}. {title}
+            </span>
         </div>
     );
 }
@@ -490,6 +599,67 @@ export default function AddProductPage() {
         }
     };
 
+    const handleCreateAttributeValue = async (
+        attribute: any,
+        variantIndex: number,
+        rawValue: string,
+    ) => {
+        const trimmedValue = rawValue.trim();
+        if (!trimmedValue) return;
+
+        const currentValues = normalizeAttributeValues(attribute);
+        const existingDetail = (attribute.valueDetails || []).find(
+            (detail: AttributeOption) =>
+                detail.value.trim().toLowerCase() === trimmedValue.toLowerCase(),
+        );
+
+        if (existingDetail) {
+            applyAttributeValueToVariant(
+                variantIndex,
+                Number(attribute.id),
+                Number(existingDetail.valueId),
+            );
+            return;
+        }
+
+        try {
+            await updateAttribute(Number(attribute.id), {
+                name: attribute.name || "",
+                code: attribute.code || "",
+                status: attribute.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+                values: [...currentValues, trimmedValue],
+            });
+
+            const refreshedAttributes = filterActiveAttributes(
+                (await ProductService.getAttributes()) || [],
+            );
+            setAttributes(refreshedAttributes);
+
+            const refreshedAttribute = refreshedAttributes.find(
+                (item: any) => Number(item.id) === Number(attribute.id),
+            );
+            const createdDetail = (refreshedAttribute?.valueDetails || []).find(
+                (detail: AttributeOption) =>
+                    detail.value.trim().toLowerCase() === trimmedValue.toLowerCase(),
+            );
+
+            if (!createdDetail) {
+                throw new Error("Không tìm thấy giá trị vừa tạo");
+            }
+
+            applyAttributeValueToVariant(
+                variantIndex,
+                Number(attribute.id),
+                Number(createdDetail.valueId),
+            );
+            toast.success(`Đã thêm “${trimmedValue}” vào ${attribute.name}`);
+        } catch (error) {
+            console.error(error);
+            toast.error("Không thể thêm giá trị thuộc tính");
+            throw error;
+        }
+    };
+
     const {
         register,
         handleSubmit,
@@ -621,8 +791,7 @@ export default function AddProductPage() {
 
         (variantsWatch || []).forEach((variant, idx) => {
             const ids = variant?.attributeValueIds || [];
-            const missing = attributes.length > 0 && ids.length < attributes.length;
-            map[idx] = { missing, duplicate: false };
+            map[idx] = { missing: false, duplicate: false };
 
             if (ids.length > 0) {
                 const combo = [...ids].sort((a, b) => a - b).join("_");
@@ -642,10 +811,10 @@ export default function AddProductPage() {
         });
 
         return map;
-    }, [variantsWatch, attributes.length]);
+    }, [variantsWatch]);
 
     const variantWarningCount = useMemo(
-        () => Object.values(variantValidationMap).filter((item) => item.missing || item.duplicate).length,
+        () => Object.values(variantValidationMap).filter((item) => item.duplicate).length,
         [variantValidationMap]
     );
 
@@ -1098,6 +1267,16 @@ export default function AddProductPage() {
         setCollapsedVariantIds((prev) => ({ ...prev, [fieldId]: !prev[fieldId] }));
     };
 
+    useEffect(() => {
+        setCollapsedVariantIds((prev) => {
+            const next: Record<string, boolean> = {};
+            fields.forEach((field, index) => {
+                next[field.id] = prev[field.id] ?? index > 0;
+            });
+            return next;
+        });
+    }, [fields]);
+
     const handleDuplicateVariant = (idx: number) => {
         const source = getValues(`variants.${idx}`);
         const nextIndex = fields.length + 1;
@@ -1228,95 +1407,37 @@ export default function AddProductPage() {
     return (
         <form
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-5 pb-[170px] sm:pb-[150px] bg-slate-50/30 p-3 sm:p-4 lg:p-5 max-w-[1680px] mx-auto"
+            className="space-y-3 pb-[100px] text-slate-800"
         >
-            <div className="flex items-center gap-3 mb-2 px-1">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                        confirmLeaveIfDirty(() => {
-                            setAllowUnload(true);
-                            router.back();
-                        });
-                    }}
-                    className="h-8 w-8 text-slate-400"
-                >
-                    <ChevronLeft size={20} />
-                </Button>
-                <h1 className="text-[17px] font-black text-[#1f1f1f] tracking-tight uppercase flex-1">
+            <div className="mt-2 mb-8 space-y-4 px-1">
+                <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
                     Thiết lập sản phẩm mới
                 </h1>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                        confirmLeaveIfDirty(() => {
-                            setAllowUnload(true);
-                            router.back();
-                        });
-                    }}
-                    className="h-8 w-8 text-slate-400"
-                >
-                    <X size={18} />
-                </Button>
             </div>
 
-            <div className="sticky top-2 z-30 bg-slate-50/90 backdrop-blur rounded-xl border border-slate-200 px-3 py-2">
-                <div className="flex items-center gap-2 overflow-x-auto">
-                    {steps.map((step, idx) => {
-                        const isActive = activeStep === step.key;
-                        const stepState = sectionStates[step.key];
-                        return (
-                            <button
-                                key={step.key}
-                                type="button"
-                                onClick={() => scrollToStep(step.key)}
-                                className={cn(
-                                    "flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors border",
-                                    isActive
-                                        ? "bg-emerald-600 text-white border-emerald-600"
-                                        : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-700"
-                                )}
-                            >
-                                {stepState === "done" ? (
-                                    <Check size={12} className={isActive ? "text-white" : "text-emerald-600"} />
-                                ) : (
-                                    <AlertCircle size={12} className={isActive ? "text-white" : "text-amber-600"} />
-                                )}
-                                <span className={cn("inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]", isActive ? "bg-white/20" : "bg-slate-100")}>{idx + 1}</span>
-                                {step.label}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
+            <div className="space-y-5 px-1">
+                <div className="space-y-5">
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-9 space-y-5">
-
-                    <div ref={infoSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
-                        <SectionHeader num="1" icon={AlertCircle} title="Thông tin sản phẩm chính" />
+                    <div ref={infoSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
+                        <SectionHeader num="1" title="Thông tin sản phẩm chính" />
                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="md:col-span-2 space-y-1.5">
-                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10.5px] font-semibold text-slate-500">
                                         Tên sản phẩm *
                                     </Label>
                                     <Input
                                         {...register("name")}
                                         placeholder="VD: Thuốc trị nấm tôm ShrimpCare"
                                         className={cn(
-                                            "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none focus:border-emerald-500",
+                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500",
                                             errors.name && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
                                         )}
                                     />
                                     <ErrorMessage message={errors.name?.message} />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                                    <Label className="text-[10.5px] font-semibold text-slate-500">
                                         Danh mục *
                                     </Label>
                                     <Controller
@@ -1327,13 +1448,13 @@ export default function AddProductPage() {
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <SelectTrigger
                                                         className={cn(
-                                                            "h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none focus:border-emerald-500",
+                                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500",
                                                             errors.categoryId && "border-rose-500 bg-rose-50/10"
                                                         )}
                                                     >
                                                         <SelectValue placeholder="-- Chọn danh mục --" />
                                                     </SelectTrigger>
-                                                    <SelectContent className="rounded-none">
+                                                    <SelectContent className="rounded-md">
                                                         {categories.map((cat, catIdx) => {
                                                             const uniqueVal = cat.id != null ? String(cat.id) : `cat-idx-${catIdx}`;
                                                             return (
@@ -1349,11 +1470,8 @@ export default function AddProductPage() {
                                         )}
                                     />
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                                    <Label className="text-[10.5px] font-semibold text-slate-500">
                                         Thương hiệu
                                     </Label>
                                     <Controller
@@ -1370,31 +1488,58 @@ export default function AddProductPage() {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                                    <Label className="text-[10.5px] font-semibold text-slate-500">
                                         Xuất xứ
                                     </Label>
                                     <Input
                                         {...register("origin")}
-                                        className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none"
+                                        className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-1">
+                                    <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
                                         Mã SKU gốc
                                         <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
                                     </Label>
                                     <Input
                                         {...register("baseSku")}
                                         readOnly
-                                        className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-inner font-mono font-bold bg-slate-50 text-slate-400 cursor-not-allowed focus-visible:ring-0"
+                                        className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0"
+                                    />
+                                </div>
+                                <div ref={statusSectionRef} className="space-y-1.5">
+                                    <Label className="text-[10.5px] font-semibold text-slate-500">
+                                        Trạng thái phát hành
+                                    </Label>
+                                    <Controller
+                                        name="status"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-md">
+                                                    <SelectItem value="ACTIVE" className="text-emerald-600">
+                                                        Đang kinh doanh
+                                                    </SelectItem>
+                                                    <SelectItem value="INACTIVE" className="text-rose-500">
+                                                        Tạm ngừng bán
+                                                    </SelectItem>
+                                                    <SelectItem value="DRAFT" className="text-slate-500">
+                                                        Lưu nháp
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
                                     />
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div ref={descriptionSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
-                        <SectionHeader num="2" icon={FileText} title="Đặc tính & Bài viết mô tả" />
+                    <div ref={descriptionSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
+                        <SectionHeader num="2" title="Đặc tính & Bài viết mô tả" />
 
                         <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
                             <Controller
@@ -1414,92 +1559,64 @@ export default function AddProductPage() {
 
                     </div>
 
-                    <div ref={variantsSectionRef} className="bg-white border border-[#dcdcdc] rounded-xl shadow-sm overflow-hidden">
-                        <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex justify-between items-center">
-                            <h3 className="text-[11px] font-black text-slate-700 flex items-center gap-2 uppercase tracking-wider">
-                                <Layers size={15} className="text-emerald-600" />
+                    <div ref={variantsSectionRef} className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                            <h3 className="text-[11px] font-bold text-slate-800">
                                 3. Danh sách biến thể sản phẩm (SKUs)
                             </h3>
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={handleAppendVariant}
-                                className="h-[28px] text-[10px] font-black text-emerald-600 border-emerald-200 bg-white px-4 rounded-none shadow-sm uppercase"
+                                className="h-[34px] rounded-md border-emerald-200 bg-white px-4 text-[11px] font-medium text-emerald-600 shadow-none"
                             >
                                 + Thêm biến thể
                             </Button>
                         </div>
 
-                        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 space-y-2">
-                            <div className="flex items-center justify-between">
-                                <p className="text-[11px] font-black uppercase tracking-wide text-slate-600">Bulk actions biến thể</p>
-                                <button type="button" onClick={toggleSelectAllVariants} className="text-[11px] font-bold text-blue-600 hover:underline">
-                                    {selectedVariantCount === fields.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                <Select value={bulkAttributeId} onValueChange={(value) => {
-                                    setBulkAttributeId(value);
-                                    setBulkAttributeValueId("none");
-                                }}>
-                                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn thuộc tính" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Chọn thuộc tính</SelectItem>
-                                        {attributes.map((attr: any) => (
-                                            <SelectItem key={`bulk-attr-${attr.id}`} value={String(attr.id)}>{attr.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={bulkAttributeValueId} onValueChange={setBulkAttributeValueId}>
-                                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn giá trị" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Chọn giá trị</SelectItem>
-                                        {bulkAttributeOptions.map((option: any) => (
-                                            <SelectItem key={`bulk-value-${option.valueId}`} value={String(option.valueId)}>{option.value}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Button type="button" variant="outline" onClick={handleBulkAssignAttribute} className="h-9 text-[11px] font-black uppercase border-emerald-200 text-emerald-700">Gán nhanh đã chọn</Button>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Button type="button" variant="outline" onClick={handleBulkDuplicateSelected} className="h-9 text-[11px] font-black uppercase border-blue-200 text-blue-700">Nhân bản</Button>
-                                    <Button type="button" variant="outline" onClick={handleBulkDeleteSelected} className="h-9 text-[11px] font-black uppercase border-rose-200 text-rose-600">Xóa</Button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <Input value={bulkPresetName} onChange={(e) => setBulkPresetName(e.target.value)} placeholder="Tên preset (tùy chọn)" className="h-9 bg-white text-[12px]" />
-                                <Button type="button" variant="outline" onClick={handleSaveBulkPreset} className="h-9 text-[11px] font-black uppercase border-indigo-200 text-indigo-700">Lưu preset</Button>
-                                <div className="flex gap-2">
-                                    <Select value={selectedBulkPresetId} onValueChange={setSelectedBulkPresetId}>
-                                        <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Chọn preset" /></SelectTrigger>
+                        {(fields.length > 1 || variantWarningCount > 0 || variantWindow.virtual) && (
+                        <div className="space-y-2 border-b border-slate-100 bg-slate-50/70 px-6 py-4">
+                            {fields.length > 1 && (
+                                <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                                    <div className="flex items-center justify-between gap-4 lg:w-[190px]">
+                                        <span className="text-[11px] font-medium text-slate-500">
+                                            Đã chọn {selectedVariantCount}/{fields.length}
+                                        </span>
+                                        <button type="button" onClick={toggleSelectAllVariants} className="text-[11px] font-medium text-blue-600 hover:underline">
+                                            {selectedVariantCount === fields.length ? "Bỏ chọn" : "Chọn tất cả"}
+                                        </button>
+                                    </div>
+                                    <Select value={bulkAttributeId} onValueChange={(value) => {
+                                        setBulkAttributeId(value);
+                                        setBulkAttributeValueId("none");
+                                    }}>
+                                        <SelectTrigger className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[220px]"><SelectValue placeholder="Chọn thuộc tính" /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">Chọn preset</SelectItem>
-                                            {bulkPresets.map((preset) => (
-                                                <SelectItem key={`preset-${preset.id}`} value={preset.id}>
-                                                    <span className="flex items-center gap-2">
-                                                        <span>{preset.name}</span>
-                                                        {preset.isDefault && <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-700">Mặc định</span>}
-                                                    </span>
-                                                </SelectItem>
+                                            <SelectItem value="none">Chọn thuộc tính</SelectItem>
+                                            {attributes.map((attr: any) => (
+                                                <SelectItem key={`bulk-attr-${attr.id}`} value={String(attr.id)}>{attr.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button type="button" variant="outline" onClick={handleApplyBulkPreset} className="h-9 text-[11px] font-black uppercase border-indigo-200 text-indigo-700">Áp</Button>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                <Button type="button" variant="outline" onClick={handleSetDefaultBulkPreset} className="h-9 text-[11px] font-black uppercase border-emerald-200 text-emerald-700">Đặt preset mặc định</Button>
-                                <Button type="button" variant="outline" onClick={handleDeleteBulkPreset} className="h-9 text-[11px] font-black uppercase border-rose-200 text-rose-600">Xóa preset</Button>
-                            </div>
-                            {variantWarningCount > 0 && (
-                                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
-                                    Có {variantWarningCount} biến thể thiếu thuộc tính hoặc trùng tổ hợp. Vui lòng kiểm tra trước khi lưu.
+                                    <Select value={bulkAttributeValueId} onValueChange={setBulkAttributeValueId}>
+                                        <SelectTrigger className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[220px]"><SelectValue placeholder="Chọn giá trị" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Chọn giá trị</SelectItem>
+                                            {bulkAttributeOptions.map((option: any) => (
+                                                <SelectItem key={`bulk-value-${option.valueId}`} value={String(option.valueId)}>{option.value}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-emerald-600 px-4 text-[11px] font-medium text-white hover:bg-emerald-700">
+                                        Áp dụng cho biến thể đã chọn
+                                    </Button>
                                 </div>
                             )}
-                            <p className="text-[11px] text-slate-400">Đang chọn {selectedVariantCount}/{fields.length} biến thể.</p>
                             {variantWindow.virtual && (
                                 <p className="text-[11px] font-semibold text-slate-500">Đang hiển thị {variantWindow.start + 1}-{Math.min(variantWindow.end, fields.length)} / {fields.length} biến thể theo cửa sổ cuộn.</p>
                             )}
                         </div>
+                        )}
 
                         <div ref={variantListRef} className={cn("divide-y divide-slate-100", fields.length > VARIANT_VIRTUAL_THRESHOLD && "max-h-[calc(100vh-430px)] lg:max-h-[calc(100vh-360px)] overflow-y-auto overscroll-contain pr-1")}>
                             {variantWindow.virtual && <div style={{ height: variantWindow.topPadding }} />}
@@ -1509,17 +1626,77 @@ export default function AddProductPage() {
                                 const isCollapsed = !!collapsedVariantIds[field.id];
                                 const isSelected = !!selectedVariantIds[field.id];
                                 const variantIssue = variantValidationMap[idx] || { missing: false, duplicate: false };
+                                const selectedAttributeLabels = attributes.flatMap((attr) => {
+                                    const matched = (attr.valueDetails || []).find((option: any) =>
+                                        variantAttributeIds.includes(Number(option.valueId)),
+                                    );
+                                    return matched ? [`${attr.name}: ${matched.value}`] : [];
+                                });
 
                                 return (
-                                    <div key={field.id} className={cn("p-5 bg-white", isSelected && "bg-blue-50/40")}>
-                                        <div className="flex flex-col xl:flex-row gap-5">
+                                    <div key={field.id} className={cn("bg-white", isSelected && "bg-blue-50/40")}>
+                                        <div className="flex min-h-[56px] items-center gap-3 px-5 py-3">
+                                            <div className="flex w-6 shrink-0 items-center justify-center">
+                                                {variantImagePreviews[idx] ? (
+                                                    <img src={variantImagePreviews[idx]} className="h-7 w-7 rounded-md object-cover" alt="SKU" />
+                                                ) : (
+                                                    <span className="text-[12px] font-semibold text-slate-400">
+                                                        {idx + 1}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {fields.length > 1 && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelectVariant(field.id)}
+                                                    className="h-4 w-4 shrink-0 accent-emerald-600"
+                                                    aria-label={`Chọn biến thể ${idx + 1}`}
+                                                />
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleVariant(field.id)}
+                                                className="min-w-0 flex-1 text-left"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className="shrink-0 text-[12px] font-semibold text-slate-700">
+                                                        Biến thể #{idx + 1}
+                                                    </span>
+                                                    {variantIssue.duplicate && (
+                                                        <span className="truncate text-[11px] font-normal text-rose-500">
+                                                            Trùng tổ hợp thuộc tính
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {selectedAttributeLabels.length > 0 && (
+                                                    <p className="mt-0.5 truncate text-[11px] font-normal text-slate-400">
+                                                        {selectedAttributeLabels.join(" · ")}
+                                                    </p>
+                                                )}
+                                            </button>
+                                            <div className="flex shrink-0 items-center gap-1">
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => handleDuplicateVariant(idx)} className="h-8 w-8 rounded-md text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Nhân bản biến thể">
+                                                    <Copy size={14} />
+                                                </Button>
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => handleToggleVariant(field.id)} className="h-8 w-8 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={isCollapsed ? "Mở rộng biến thể" : "Thu gọn biến thể"}>
+                                                    {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                                                </Button>
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveVariant(idx)} className="h-8 w-8 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Xóa biến thể">
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {!isCollapsed && (
+                                        <div className="flex flex-col gap-5 border-t border-slate-100 px-6 py-5 xl:flex-row">
                                             {/* Ảnh biến thể */}
                                             <div className="flex flex-col items-center shrink-0">
                                                 <div
                                                     onClick={() =>
                                                         document.getElementById(`v-img-${idx}`)?.click()
                                                     }
-                                                    className="w-[100px] h-[100px] border border-[#ddd] bg-slate-50 flex flex-col items-center justify-center cursor-pointer group hover:border-emerald-500 transition-all overflow-hidden relative"
+                                                    className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-emerald-500"
                                                 >
                                                     {variantImagePreviews[idx] ? (
                                                         <img
@@ -1530,9 +1707,9 @@ export default function AddProductPage() {
                                                     ) : (
                                                         <>
                                                             <Camera size={26} className="text-slate-300" />
-                                                            <span className="text-[7px] font-bold text-slate-300 mt-1 uppercase tracking-wider">
-                                ẢNH SKU
-                              </span>
+                                                            <span className="mt-1 text-[9px] font-normal text-slate-300">
+                                                                Chọn ảnh
+                                                            </span>
                                                         </>
                                                     )}
                                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -1546,43 +1723,14 @@ export default function AddProductPage() {
                                                     onChange={(e) => handleVariantImageChange(idx, e)}
                                                     accept="image/*"
                                                 />
-                                                <p className="text-[8px] font-black text-slate-400 mt-1.5 uppercase tracking-tighter text-center">
-                                                    ẢNH SKU/BARCODE
+                                                <p className="mt-1.5 text-center text-[9px] font-medium text-slate-400">
+                                                    Ảnh SKU / Barcode
                                                 </p>
                                             </div>
 
                                             <div className="flex-1 space-y-4">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <label className="inline-flex items-center gap-2 text-[12px] font-bold text-slate-700 cursor-pointer">
-                                                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectVariant(field.id)} className="h-4 w-4 accent-emerald-600" />
-                                                        Biến thể #{idx + 1}
-                                                    </label>
-                                                    <div className="flex items-center gap-1.5 mr-auto ml-3">
-                                                        {variantIssue.missing && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 uppercase">Thiếu thuộc tính</span>}
-                                                        {variantIssue.duplicate && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 uppercase">Trùng tổ hợp</span>}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Button type="button" variant="outline" onClick={() => handleDuplicateVariant(idx)} className="h-[28px] text-[10px] uppercase font-black px-3 border-blue-200 text-blue-600 hover:bg-blue-50">
-                                                            <Copy size={12} className="mr-1" /> Nhân bản
-                                                        </Button>
-                                                        <Button type="button" variant="outline" onClick={() => handleToggleVariant(field.id)} className="h-[28px] text-[10px] uppercase font-black px-3">
-                                                            {isCollapsed ? <ChevronDown size={12} className="mr-1" /> : <ChevronUp size={12} className="mr-1" />}
-                                                            {isCollapsed ? "Mở rộng" : "Thu gọn"}
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                {!isCollapsed && attributes.length > 0 && (
-                                                    <div
-                                                        className={cn(
-                                                            "grid gap-4",
-                                                            attributes.length === 1
-                                                                ? "grid-cols-1 max-w-xs"
-                                                                : attributes.length === 2
-                                                                    ? "grid-cols-1 sm:grid-cols-2"
-                                                                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
-                                                        )}
-                                                    >
+                                                {attributes.length > 0 && (
+                                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                                         {attributes.map((attr, attrIdx) => {
                                                             const attributeOptions = attr.valueDetails || []; // Dùng mảng mới tạo ở backend
                                                             const matchedValue = attributeOptions.find((v: any) => variantAttributeIds.includes(Number(v.valueId)));
@@ -1590,65 +1738,27 @@ export default function AddProductPage() {
 
                                                             return (
                                                                 <div key={`attr-group-${idx}-${attr.id ?? attrIdx}`} className="space-y-1">
-                                                                    <Label className="text-[10px] font-bold text-slate-500 uppercase">
-                                                                        {attr.name} *
+                                                                    <Label className="text-[10.5px] font-semibold text-slate-500">
+                                                                        {attr.name}
                                                                     </Label>
-                                                                    <Controller
-                                                                        name={`variants.${idx}.attributeValueIds`}
-                                                                        control={control}
-                                                                        render={({ field: selectField }) => (
-                                                                            <Select
-                                                                                onValueChange={(val) => {
-                                                                                    if (val === `manage-${attr.id}`) {
-                                                                                        openAttributeEditor(attr, idx);
-                                                                                        return;
-                                                                                    }
-
-                                                                                    const current = selectField.value || [];
-
-                                                                                    const others = current.filter((id: number) => !attributeOptions.some((v: any) => Number(v.valueId) === id));
-
-                                                                                    const newValue = val !== "none" ? [...others, Number(val)] : others;
-                                                                                    selectField.onChange(newValue);
-                                                                                }}
-                                                                                value={currentValStr}
-                                                                            >
-                                                                                <SelectTrigger className="h-[34px] border-[#ccc] rounded-none text-[13px] bg-white shadow-none">
-                                                                                    <SelectValue placeholder={`-- Chọn --`} />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent className="rounded-none max-h-[280px]" position="item-aligned">
-                                                                                    <SelectItem value="none">-- Bỏ chọn --</SelectItem>
-                                                                                    {attributeOptions.map((v: any, vIdx: number) => {
-
-                                                                                        const safeId = v.valueId ?? vIdx;
-                                                                                        const valString = String(safeId);
-                                                                                        const displayValue = v.value || String(v);
-
-                                                                                        return (
-                                                                                            <SelectItem key={`safe-val-${idx}-${attr.id}-${valString}-${vIdx}`} value={valString}>
-                                                                                                {displayValue}
-                                                                                            </SelectItem>
-                                                                                        );
-                                                                                    })}
-                                                                                    {canUpdateAttribute && (
-                                                                                        <>
-                                                                                            <SelectSeparator className="my-1 bg-slate-200" />
-                                                                                            <SelectItem
-                                                                                                value={`manage-${attr.id}`}
-                                                                                                className="mt-1 bg-emerald-50 text-emerald-700 font-semibold focus:bg-emerald-100 focus:text-emerald-800"
-                                                                                            >
-                                                                                                + Thêm giá trị mới cho {attr.name}
-                                                                                            </SelectItem>
-                                                                                        </>
-                                                                                    )}
-                                                                                    {attributeOptions.length > 8 && (
-                                                                                        <div className="px-2 py-1 text-[11px] text-slate-400 border-t border-dashed border-slate-200 mt-1">
-                                                                                            Lướt để xem thêm giá trị
-                                                                                        </div>
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        )}
+                                                                    <AttributeValueCombobox
+                                                                        options={attributeOptions}
+                                                                        value={currentValStr}
+                                                                        canCreate={canUpdateAttribute}
+                                                                        onSelect={(value) =>
+                                                                            applyAttributeValueToVariant(
+                                                                                idx,
+                                                                                Number(attr.id),
+                                                                                value === "none" ? null : Number(value),
+                                                                            )
+                                                                        }
+                                                                        onCreate={(value) =>
+                                                                            handleCreateAttributeValue(
+                                                                                attr,
+                                                                                idx,
+                                                                                value,
+                                                                            )
+                                                                        }
                                                                     />
                                                                 </div>
                                                             );
@@ -1656,52 +1766,13 @@ export default function AddProductPage() {
                                                     </div>
                                                 )}
 
-                                                {!isCollapsed && (
-                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
-                                                    <div className="md:col-span-5 space-y-1">
-                                                        <Label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                                                            Mã SKU biến thể
-                                                            <span title="Hệ thống tự động sinh"><Info size={11} className="text-slate-400" /></span>
-                                                        </Label>
-                                                        <Input
-                                                            {...register(`variants.${idx}.sku`)}
-                                                            readOnly
-                                                            className={cn(
-                                                                "h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-inner bg-slate-50 text-slate-400 font-bold cursor-not-allowed focus-visible:ring-0",
-                                                                errors.variants?.[idx]?.sku && "border-rose-500 bg-rose-50/10"
-                                                            )}
-                                                        />
-                                                        <ErrorMessage message={errors.variants?.[idx]?.sku?.message} />
-                                                    </div>
-
-                                                    <div className="md:col-span-5 space-y-1 relative">
-                                                        <Label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                                                            Mã vạch / Barcode
-                                                            <span title="Hệ thống tự động sinh"><Info size={11} className="text-slate-400" /></span>
-                                                        </Label>
-                                                        <Input
-                                                            {...register(`variants.${idx}.barcode`)}
-                                                            readOnly
-                                                            className="h-[34px] border-[#ccc] rounded-none font-mono text-[13px] shadow-inner bg-slate-50 text-slate-400 cursor-not-allowed focus-visible:ring-0 w-full"
-                                                        />
-                                                    </div>
-
-                                                    <div className="md:col-span-2 flex justify-end md:pt-5">
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={() => handleRemoveVariant(idx)}
-                                                            className="w-full h-[34px] text-[10px] font-black text-rose-500 border-rose-100 rounded-md hover:bg-rose-50 shadow-none uppercase px-2"
-                                                        >
-                                                            <Trash2 size={12} className="mr-1" />
-                                                            Xóa
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                                )}
+                                                <input type="hidden" {...register(`variants.${idx}.sku`)} />
+                                                <input type="hidden" {...register(`variants.${idx}.barcode`)} />
+                                                <ErrorMessage message={errors.variants?.[idx]?.sku?.message} />
 
                                             </div>
                                         </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -1711,105 +1782,6 @@ export default function AddProductPage() {
 
                 </div>
 
-                <div className="lg:col-span-3 space-y-5">
-                    <div className="bg-white border border-[#dcdcdc] p-4 rounded-xl shadow-sm lg:sticky lg:top-4">
-                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-3">Tóm tắt nhanh</p>
-                        <div className="space-y-2 text-[12px]">
-                            <div className="flex items-center justify-between"><span className="text-slate-500">Số biến thể</span><span className="font-black text-slate-700">{fields.length}</span></div>
-                            <div className="flex items-center justify-between"><span className="text-slate-500">Ảnh sản phẩm</span><span className="font-black text-slate-700">{firstVariantImagePreview ? 1 : 0}</span></div>
-                            <div className="flex items-center justify-between"><span className="text-slate-500">Trạng thái</span><span className={cn("font-black", statusWatch === "ACTIVE" ? "text-emerald-600" : statusWatch === "INACTIVE" ? "text-rose-500" : "text-slate-500")}>{statusWatch === "ACTIVE" ? "Đang kinh doanh" : statusWatch === "INACTIVE" ? "Tạm ngừng" : "Lưu nháp"}</span></div>
-                        </div>
-                        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-                            <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 mb-2">Preview realtime</p>
-                            <div className="flex items-center gap-2.5">
-                                <div className="h-12 w-12 rounded-md bg-white border border-slate-200 overflow-hidden shrink-0">
-                                    {firstVariantImagePreview ? (
-                                        <img src={firstVariantImagePreview} alt="Preview" className="h-full w-full object-cover" />
-                                    ) : (
-                                        <div className="h-full w-full flex items-center justify-center text-[9px] font-bold text-slate-300">NO IMG</div>
-                                    )}
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[12px] font-bold text-slate-700 truncate">{nameWatch?.trim() || "Sản phẩm chưa đặt tên"}</p>
-                                    <p className="text-[11px] text-slate-500">{fields.length} SKU · {firstVariantImagePreview ? 1 : 0} ảnh</p>
-                                </div>
-                            </div>
-                        </div>
-                        {missingWarnings.length > 0 && (
-                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                                <p className="text-[11px] font-black text-amber-700 uppercase mb-1">Cần bổ sung</p>
-                                <ul className="text-[11px] text-amber-700 space-y-0.5">
-                                    {missingWarnings.map((warning) => (
-                                        <li key={warning}>- {warning}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                        <p className="mt-3 text-[11px] text-slate-400">{lastDraftSavedAt ? `Đã lưu nháp cục bộ lúc ${lastDraftSavedAt}` : "Chưa có bản nháp cục bộ"}</p>
-                    </div>
-
-                    <div ref={imagesSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
-                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 text-center tracking-widest border-b pb-3">
-                            Ảnh sản phẩm (tự lấy từ biến thể đầu tiên)
-                        </Label>
-                        <div className="space-y-3">
-                            <p className="text-[12px] text-slate-500">
-                                Hệ thống sẽ tự dùng ảnh của <span className="font-bold text-slate-700">biến thể #1</span> làm ảnh sản phẩm.
-                            </p>
-                            <div className="aspect-square border border-[#e0e0e0] bg-white rounded-none overflow-hidden flex items-center justify-center">
-                                {firstVariantImagePreview ? (
-                                    <img
-                                        src={firstVariantImagePreview}
-                                        className="w-full h-full object-cover"
-                                        alt="Ảnh sản phẩm tự động"
-                                    />
-                                ) : (
-                                    <div className="text-center px-4">
-                                        <Camera size={32} className="mx-auto text-slate-300 mb-2" />
-                                        <p className="text-[11px] font-bold text-slate-400 uppercase">Chưa có ảnh biến thể #1</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div ref={statusSectionRef} className="bg-white border border-[#dcdcdc] p-5 rounded-xl shadow-sm">
-                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-4 tracking-widest border-b pb-3">
-                            Trạng thái phát hành
-                        </Label>
-                        <Controller
-                            name="status"
-                            control={control}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className="h-[38px] text-[13px] border-[#ccc] rounded-none font-black shadow-none">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-none">
-                                        <SelectItem
-                                            value="ACTIVE"
-                                            className="text-emerald-600 font-bold"
-                                        >
-                                            Đang kinh doanh
-                                        </SelectItem>
-                                        <SelectItem
-                                            value="INACTIVE"
-                                            className="text-rose-500 font-bold"
-                                        >
-                                            Tạm ngừng bán
-                                        </SelectItem>
-                                        <SelectItem
-                                            value="DRAFT"
-                                            className="text-slate-500 font-bold"
-                                        >
-                                            Lưu nháp
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                    </div>
-                </div>
             </div>
 
             <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
@@ -1999,32 +1971,34 @@ export default function AddProductPage() {
                 </DialogContent>
             </Dialog>
 
-            <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-[#ddd] p-3 sm:p-[12px_20px] lg:p-[12px_30px] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                        confirmLeaveIfDirty(() => {
-                            setAllowUnload(true);
-                            router.back();
-                        });
-                    }}
-                    className="w-full sm:w-auto min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-md uppercase"
-                >
-                    Hủy bỏ
-                </Button>
-                <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full sm:w-auto min-w-[160px] h-[38px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-md uppercase"
-                >
-                    {isLoading ? (
-                        <Loader2 size={17} className="mr-2 animate-spin" />
-                    ) : (
-                        <Save size={17} className="mr-2" />
-                    )}
-                    Lưu dữ liệu
-                </Button>
+            <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+                <div className="flex flex-wrap justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                            confirmLeaveIfDirty(() => {
+                                setAllowUnload(true);
+                                router.back();
+                            });
+                        }}
+                        className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                        Hủy bỏ
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                    >
+                        {isLoading ? (
+                            <Loader2 size={16} className="mr-2 animate-spin" />
+                        ) : (
+                            <Save size={16} className="mr-2" />
+                        )}
+                        {isLoading ? "Đang lưu..." : "Lưu sản phẩm"}
+                    </Button>
+                </div>
             </div>
         </form>
     );

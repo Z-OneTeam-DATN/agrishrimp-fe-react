@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, ShoppingCart, RefreshCcw, Plus } from "lucide-react";
+import { Loader2, Plus, Search, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -21,19 +21,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
-import type { PurchaseRequestResponse, PurchaseRequestStatus } from "@/app/types/purchase.schema";
-import { PR_STATUS_LABEL, PR_STATUS_COLOR } from "@/app/types/purchase.schema";
+import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
+import { PR_STATUS_LABEL } from "@/app/types/purchase.schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "all",              label: "TẤT CẢ" },
-  { id: "PENDING_APPROVAL", label: "CHỜ DUYỆT" },
-  { id: "APPROVED",         label: "ĐÃ DUYỆT" },
-  { id: "SENT_TO_SUPPLIER", label: "GỬI NCC" },
-  { id: "PARTIALLY_RECEIVED", label: "NHẬN MỘT PHẦN" },
-  { id: "COMPLETED",        label: "HOÀN TẤT" },
-  { id: "CANCELLED",        label: "ĐÃ HỦY" },
+  { id: "all",              label: "Tất cả" },
+  { id: "PENDING_APPROVAL", label: "Chờ duyệt" },
+  { id: "APPROVED",         label: "Đã duyệt" },
+  { id: "SENT_TO_SUPPLIER", label: "Gửi NCC" },
+  { id: "PARTIALLY_RECEIVED", label: "Nhận một phần" },
+  { id: "COMPLETED",        label: "Hoàn tất" },
+  { id: "CANCELLED",        label: "Đã hủy" },
 ] as const;
 
 function formatCurrency(amount: number) {
@@ -105,6 +105,31 @@ export default function PurchaseRequestListPage() {
     return c;
   }, [data]);
 
+  const summaryCards = useMemo(() => [
+    {
+      title: "Tổng yêu cầu",
+      value: data.length,
+      description: "Toàn bộ phiếu yêu cầu đã lập",
+    },
+    {
+      title: "Chờ duyệt",
+      value: counts.PENDING_APPROVAL ?? 0,
+      description: "Phiếu cần xác nhận trước khi gửi NCC",
+    },
+    {
+      title: "Đang nhập",
+      value: (counts.SENT_TO_SUPPLIER ?? 0) + (counts.PARTIALLY_RECEIVED ?? 0),
+      description: "Đã gửi NCC hoặc đang nhận một phần",
+    },
+    {
+      title: "Tổng giá trị",
+      value: formatCurrency(
+        data.reduce((sum, pr) => sum + (Number(pr.totalAmount) || 0), 0),
+      ),
+      description: "Giá trị dự kiến của các yêu cầu",
+    },
+  ], [counts, data]);
+
   const confirmCancel = async () => {
     if (!cancelTarget) return;
     try {
@@ -121,144 +146,183 @@ export default function PurchaseRequestListPage() {
   // ─── RENDER ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] -m-4 md:-m-5 bg-[#f8f9fa] overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b shrink-0">
-        <div className="px-6 pt-5 pb-3 flex items-center justify-between">
-          <h1 className="text-[16px] font-black uppercase tracking-tight text-slate-700 flex items-center gap-2">
-            <ShoppingCart className="text-slate-400" size={18} />
+    <div className="space-y-4 px-1 pb-8 text-slate-900">
+      <div className="mb-8 mt-2 space-y-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <h1 className="text-[20px] font-semibold uppercase text-slate-900">
             Phiếu yêu cầu mua hàng NCC
           </h1>
-          {canAccessPurchaseRequests && <Link href="/admin/purchase-requests/new">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-[12px] font-bold rounded-[3px]">
-              <Plus size={14} className="mr-1" />
-              Lập phiếu yêu cầu
-            </Button>
-          </Link>}
+          {canAccessPurchaseRequests && (
+            <Link href="/admin/purchase-requests/new">
+              <Button className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700">
+                <Plus size={16} className="mr-2" />
+                Lập phiếu yêu cầu
+              </Button>
+            </Link>
+          )}
         </div>
 
-        {/* Tabs */}
-        <div className="px-6 flex items-center h-[48px] gap-6 overflow-x-auto">
-          {TABS.map((tab) => {
-            const count = counts[tab.id] ?? 0;
-            const isAlert = (tab.id === "PENDING_APPROVAL" || tab.id === "APPROVED") && count > 0;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "h-full text-[11px] font-black border-b-2 px-1 tracking-wider transition-all relative whitespace-nowrap",
-                  activeTab === tab.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-400 hover:text-slate-600"
-                )}
-              >
-                {tab.label}
-                {count > 0 && (
-                  <span className="ml-1 text-[10px] font-bold text-slate-500">({count})</span>
-                )}
-                {isAlert && (
-                  <span className="absolute top-2 -right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                )}
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => (
+            <div
+              key={card.title}
+              className="rounded-[4px] border border-slate-200 bg-white p-3 shadow-sm"
+            >
+              <p className="text-[11px] font-semibold text-slate-400">
+                {card.title}
+              </p>
+              <div className="mt-3 space-y-1">
+                <p className="text-[20px] font-semibold leading-none text-slate-900">
+                  {card.value}
+                </p>
+                <p className="text-[10px] leading-4 text-slate-500">
+                  {card.description}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 p-6 flex flex-col min-h-0">
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col h-full overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center gap-3 px-4 py-2 border-b bg-slate-50/50 shrink-0">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm mã phiếu, nhà cung cấp..."
-              className="flex-1 max-w-[320px] h-8 border border-slate-200 rounded-[3px] px-3 text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <Button variant="ghost" size="sm" onClick={fetchAll} disabled={isLoading}>
-              <RefreshCcw size={14} className={cn(isLoading && "animate-spin")} />
-            </Button>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {TABS.map((tab) => {
+              const count = counts[tab.id] ?? 0;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                    activeTab === tab.id
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                  )}
+                >
+                  {tab.label}
+                  <span className="ml-2 text-[11px] text-slate-400">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Table */}
-          <div className="flex-1 min-h-0 overflow-auto">
-            {isLoading ? (
-              <div className="h-full flex items-center justify-center">
-                <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
-              </div>
-            ) : displayData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <ShoppingCart size={40} className="opacity-20 mb-3" />
-                <p className="text-xs font-bold uppercase tracking-tight">Không có dữ liệu phù hợp</p>
-              </div>
-            ) : (
-              <table className="w-full text-[12px]">
-                <thead className="bg-slate-50 border-b sticky top-0 z-10">
+          <div className="flex items-center gap-2">
+            <div className="relative w-full xl:w-[300px]">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm mã phiếu, nhà cung cấp..."
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-emerald-300"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
+            </div>
+          ) : displayData.length === 0 ? (
+            <div className="py-20 text-center text-[12px] text-slate-400">
+              Không có dữ liệu phù hợp
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[960px] table-fixed text-[11.5px]">
+                <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
-                    <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider">Mã phiếu</th>
-                    <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider">Nhà cung cấp</th>
-                    <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider">Chi nhánh</th>
-                    <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-4 py-2.5 text-right font-black text-slate-500 uppercase tracking-wider">Tổng tiền</th>
-                    <th className="px-4 py-2.5 text-center font-black text-slate-500 uppercase tracking-wider">Đợt nhập</th>
-                    <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider">Ngày tạo</th>
-                    <th className="px-4 py-2.5 text-left font-black text-slate-500 uppercase tracking-wider">Người tạo</th>
+                    <th className="w-[16%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Mã phiếu</th>
+                    <th className="w-[26%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Nhà cung cấp</th>
+                    <th className="w-[18%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Chi nhánh</th>
+                    <th className="w-[13%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Trạng thái</th>
+                    <th className="w-[12%] px-4 py-3 text-right text-[10.5px] font-medium text-slate-500">Tổng tiền</th>
+                    <th className="w-[7%] px-4 py-3 text-center text-[10.5px] font-medium text-slate-500">Đợt nhập</th>
+                    <th className="w-[8%] px-4 py-3 text-right text-[10.5px] font-medium text-slate-500">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayData.map((pr, idx) => (
+                  {displayData.map((pr) => (
                     <tr
                       key={pr.id}
-                      onClick={() => window.location.href = `/admin/purchase-requests/${pr.id}`}
-                      className={cn(
-                        "cursor-pointer border-b transition-colors hover:bg-blue-50/50",
-                        idx % 2 === 0 ? "bg-white" : "bg-slate-50/30"
-                      )}
+                      className="border-b border-slate-100 transition-colors hover:bg-slate-50"
                     >
-                      <td className="px-4 py-2.5">
-                        <span className="font-bold text-blue-600 hover:underline">{pr.code}</span>
+                      <td className="px-4 py-3 align-top">
+                        <div className="text-[12px] font-semibold text-slate-900">
+                          {pr.code}
+                        </div>
+                        <div className="mt-1 text-[10.5px] text-slate-400">
+                          {formatDate(pr.createdAt)}
+                        </div>
                       </td>
-                      <td className="px-4 py-2.5 font-medium text-slate-700">{pr.supplierName || "—"}</td>
-                      <td className="px-4 py-2.5 text-slate-500">{pr.branchName || "—"}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span className={cn(
-                          "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide",
-                          PR_STATUS_COLOR[pr.status]
-                        )}>
-                          {PR_STATUS_LABEL[pr.status]}
+                      <td className="px-4 py-3 align-top">
+                        <div className="truncate text-[12px] font-semibold text-slate-800">
+                          {pr.supplierName || "—"}
+                        </div>
+                        <div className="mt-1 text-[10.5px] text-slate-400">
+                          {pr.createdByName || "—"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[11.5px] text-slate-600">
+                        <span className="block truncate whitespace-nowrap">
+                          {pr.branchName || "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right font-semibold text-slate-700">
+                      <td className="px-4 py-3 text-[11.5px] text-slate-600">
+                        {PR_STATUS_LABEL[pr.status] || pr.status}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[11.5px] font-medium text-slate-800">
                         {formatCurrency(pr.totalAmount ?? 0)}
                       </td>
-                      <td className="px-4 py-2.5 text-center text-slate-500">
+                      <td className="px-4 py-3 text-center text-[11.5px] text-slate-600">
                         {pr.completedReceiptCount ?? 0}/{pr.totalReceiptCount ?? 0}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500">{formatDate(pr.createdAt)}</td>
-                      <td className="px-4 py-2.5 text-slate-500">{pr.createdByName || "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/admin/purchase-requests/${pr.id}`}
+                          className="inline-flex h-8 w-8 items-center justify-center text-slate-400 transition-colors hover:text-slate-700"
+                          title="Xem chi tiết"
+                        >
+                          <Eye size={15} />
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-2 border-t bg-white shrink-0">
-              <span className="text-[11px] text-slate-500">
-                {filtered.length} kết quả — trang {currentPage}/{totalPages}
+            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3">
+              <span className="text-[11px] font-medium text-slate-500">
+                Hiển thị {displayData.length} trong {filtered.length}
               </span>
-              <div className="flex gap-1">
-                <Button variant="outline" size="sm" className="h-7 text-[11px]"
-                  disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="h-8 rounded-[4px] border-slate-200 text-[12px] font-medium"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
                   Trước
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 text-[11px]"
-                  disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                <span className="text-[12px] font-medium text-slate-600">
+                  {currentPage}/{totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  className="h-8 rounded-[4px] border-slate-200 text-[12px] font-medium"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
                   Sau
                 </Button>
               </div>

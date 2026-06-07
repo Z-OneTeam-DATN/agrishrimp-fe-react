@@ -16,13 +16,7 @@ import {
 } from "@/app/types/dashboard.type";
 import { formatDate } from "@/lib/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertCircle,
-  PieChart as PieChartIcon,
-  TrendingUp,
-  Calendar,
-  Info,
-} from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 import {
   Chart as ChartJS,
@@ -140,46 +134,43 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
   if (!isClient)
     return (
       <div>
-        <Skeleton className="h-[420px] w-full rounded-2xl" />
+        <Skeleton className="h-[420px] w-full rounded-[4px]" />
       </div>
     );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
       {/* Header chuyên nghiệp */}
-      <div className="flex flex-col items-start justify-between border-b border-slate-100 bg-slate-50/40 px-4 py-3 md:flex-row md:items-center">
-        <div className="flex">
+      <div className="flex flex-col items-start justify-between border-b border-slate-100 bg-white px-4 py-3 md:flex-row md:items-center">
+        <div className="flex gap-1">
           <button
             onClick={() => setActiveTab("revenue")}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all ${
+            className={`inline-flex h-9 items-center rounded-[4px] border px-3 text-[12px] font-semibold transition-all ${
               activeTab === "revenue"
-                ? "border-blue-600 text-blue-600 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]"
-                : "border-transparent text-gray-400 hover:text-gray-700"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50"
             }`}
           >
-            <TrendingUp size={15} />
             Hiệu suất doanh số
           </button>
           <button
             onClick={() => setActiveTab("proportion")}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all ${
+            className={`inline-flex h-9 items-center rounded-[4px] border px-3 text-[12px] font-semibold transition-all ${
               activeTab === "proportion"
-                ? "border-blue-600 text-blue-600 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]"
-                : "border-transparent text-gray-400 hover:text-gray-700"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50"
             }`}
           >
-            <PieChartIcon size={15} />
             Tỷ trọng nhóm hàng
           </button>
         </div>
 
-        <div className="flex items-center gap-3 px-1 pt-3 md:px-0 md:pt-0">
-          <div className="hidden items-center gap-1.5 text-slate-400 sm:flex">
-            <Calendar size={14} />
-            <span className="text-[10px] font-bold uppercase">Thời gian:</span>
-          </div>
+        <div className="flex items-center gap-2 px-1 pt-3 md:px-0 md:pt-0">
+          <span className="hidden text-[10.5px] font-semibold text-slate-500 sm:inline">
+            Thời gian
+          </span>
           <Select value={days} onValueChange={setDays}>
-            <SelectTrigger className="h-9 w-36 rounded-lg border-slate-200 bg-white text-[11px] font-medium shadow-sm focus:ring-blue-500">
+            <SelectTrigger className="h-9 w-36 rounded-[4px] border-slate-200 bg-white text-[12px] font-medium shadow-none focus:ring-emerald-500">
               <SelectValue placeholder="7 ngày qua" />
             </SelectTrigger>
             <SelectContent>
@@ -195,19 +186,19 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
       <div className="p-4">
         {isPerfLoading || isDistLoading ? (
           <div className="space-y-4">
-            <Skeleton className="h-[320px] w-full rounded-xl" />
+            <Skeleton className="h-[320px] w-full rounded-[4px]" />
           </div>
         ) : isPerfError || isDistError ? (
-          <div className="flex h-[320px] flex-col items-center justify-center rounded-xl border border-red-100 border-dashed bg-red-50/20 text-red-400">
+          <div className="flex h-[320px] flex-col items-center justify-center rounded-[4px] border border-rose-100 border-dashed bg-rose-50/20 text-rose-500">
             <AlertCircle size={32} className="mb-3 opacity-50" />
-            <p className="text-sm font-bold uppercase tracking-tight">
+            <p className="text-[12.5px] font-semibold">
               Không thể kết nối máy chủ dữ liệu
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-white border border-red-200 text-red-500 text-[10px] font-bold rounded-sm hover:bg-red-50 transition-colors"
+              className="mt-4 h-9 rounded-[4px] border border-rose-200 bg-white px-4 text-[12px] font-semibold text-rose-600 transition-colors hover:bg-rose-50"
             >
-              THỬ LẠI NGAY
+              Thử lại
             </button>
           </div>
         ) : activeTab === "revenue" ? (
@@ -278,8 +269,8 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row items-center gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="h-[350px] w-full md:w-1/2 flex justify-center relative">
+          <div className="flex flex-col items-center gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500 md:flex-row">
+            <div className="relative flex h-[350px] w-full justify-center md:w-1/2">
               <Doughnut
                 data={doughnutData}
                 options={{
@@ -297,21 +288,12 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
                   },
                 }}
               />
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <PieChartIcon className="text-gray-100" size={80} />
-                <p className="text-[10px] font-black text-gray-400 uppercase">
-                  Phân tích
-                </p>
-              </div>
             </div>
 
             <div className="flex-1 space-y-3 w-full">
-              <div className="flex items-center gap-2 mb-4">
-                <Info size={14} className="text-blue-500" />
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Chi tiết tỷ trọng doanh thu
-                </p>
-              </div>
+              <p className="mb-4 text-[12px] font-semibold text-slate-900">
+                Chi tiết tỷ trọng doanh thu
+              </p>
               {doughnutData.labels.map((label: string, i: number) => (
                 <div
                   key={label}
@@ -319,17 +301,17 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="h-3 w-3 rounded-[4px]"
                       style={{
                         backgroundColor:
                           doughnutData.datasets[0].backgroundColor[i],
                       }}
                     ></div>
-                    <span className="text-xs font-bold text-gray-600">
+                    <span className="text-[12px] font-medium text-slate-600">
                       {label}
                     </span>
                   </div>
-                  <span className="text-xs font-black text-slate-800">
+                  <span className="text-[12px] font-semibold text-slate-800">
                     {doughnutData.datasets[0].data[i]}%
                   </span>
                 </div>

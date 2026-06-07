@@ -6,7 +6,6 @@ import {
   AlertCircle,
   Package,
   AlertTriangle,
-  Boxes,
   Wallet,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -39,8 +38,8 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       value: (data?.totalItems ?? 0).toLocaleString(),
       subtext: "Sản phẩm duy nhất",
       icon: Package,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      color: "text-slate-700",
+      bgColor: "bg-slate-50",
       href: "/admin/products",
     },
     {
@@ -49,7 +48,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       subtext: "Cần nhập hàng ngay",
       icon: AlertCircle,
       color: "text-red-600",
-      bgColor: "bg-red-50",
+      bgColor: "bg-slate-50",
       alert: (data?.outOfStockCount ?? 0) > 0,
       href: "/admin/products?stock=out",
     },
@@ -59,7 +58,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       subtext: "Tồn kho dưới 10",
       icon: AlertTriangle,
       color: "text-amber-600",
-      bgColor: "bg-amber-50",
+      bgColor: "bg-slate-50",
       alert: (data?.lowStockCount ?? 0) > 0,
       href: "/admin/products?stock=low",
     },
@@ -68,17 +67,17 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
       value: formatCurrency(data?.totalInventoryValue ?? 0),
       subtext: "Giá vốn hiện tại",
       icon: Wallet,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50",
+      color: "text-slate-700",
+      bgColor: "bg-slate-50",
       href: "/admin/inventory-dashboard",
     },
   ];
 
   if (isError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+      <div className="flex h-full flex-col items-center justify-center rounded-[4px] border border-slate-200 bg-white p-6 text-center shadow-sm">
         <AlertCircle className="text-red-500 mb-2" size={32} />
-        <p className="text-sm font-bold text-gray-700">Lỗi tải thông tin kho</p>
+        <p className="text-[12px] font-semibold text-slate-700">Lỗi tải thông tin kho</p>
         <p className="text-xs text-gray-500 mt-1">
           Không thể kết nối với dữ liệu kho hàng
         </p>
@@ -87,17 +86,16 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/40 px-4 py-3">
+    <div className="flex h-full flex-col overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
         <div className="flex items-center gap-2">
-          <Boxes size={15} className="text-slate-500" />
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+          <h2 className="text-[12px] font-semibold text-slate-900">
             Thông tin kho hàng
           </h2>
         </div>
         <Link
           href="/admin/inventory-dashboard"
-          className="text-[11px] font-semibold text-blue-600 hover:underline"
+          className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
         >
           Chi tiết kho
         </Link>
@@ -111,7 +109,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
                 className="flex items-center justify-between p-4"
               >
                 <div className="flex items-center gap-3">
-                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <Skeleton className="h-8 w-8 rounded-[4px]" />
                   <div className="space-y-2">
                     <Skeleton className="h-3 w-32" />
                     <Skeleton className="h-5 w-20" />
@@ -129,7 +127,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
                 <div className="flex items-center gap-4">
                   <div
                     className={cn(
-                      "rounded-lg p-2 transition-transform group-hover:scale-105",
+                      "rounded-[4px] p-2",
                       item.bgColor,
                       item.color,
                     )}
@@ -137,13 +135,13 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
                     <item.icon size={18} />
                   </div>
                   <div className="space-y-0.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    <p className="text-[10.5px] font-semibold text-slate-500">
                       {item.label}
                     </p>
                     <div className="flex items-center gap-2">
                       <p
                         className={cn(
-                          "text-base font-semibold tracking-tight",
+                          "text-[13px] font-semibold",
                           item.color,
                         )}
                       >
@@ -152,7 +150,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
                       {item.alert && (
                         <span
                           className={cn(
-                            "animate-pulse h-2 w-2 rounded-full",
+                            "h-2 w-2 animate-pulse rounded-[4px]",
                             item.color.replace("text", "bg"),
                           )}
                         />
@@ -163,7 +161,7 @@ export default function InventoryInfo({ branchId }: InventoryInfoProps) {
                 </div>
                 <ChevronRight
                   size={15}
-                  className="text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-blue-500"
+                  className="text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-slate-500"
                 />
               </Link>
             ))}

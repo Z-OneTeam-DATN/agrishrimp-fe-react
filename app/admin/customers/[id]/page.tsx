@@ -10,7 +10,6 @@ import {
     User,
     History,
     ShoppingCart,
-    UserCircle,
     Wallet,
     PackageCheck,
     Clock,
@@ -120,13 +119,13 @@ const translateOrderStatus = (status: string) => translateStatusLabel(status);
 
 const getOrderStatusColor = (status: string) => {
     switch (status) {
-        case 'COMPLETED': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+        case 'COMPLETED': return 'text-emerald-700';
         case 'CANCELLED':
-        case 'RETURNED': return 'bg-rose-50 text-rose-600 border-rose-100';
-        case 'SHIPPING': return 'bg-blue-50 text-blue-600 border-blue-100';
-        case 'CONFIRMED': return 'bg-purple-50 text-purple-600 border-purple-100';
-        case 'PENDING': return 'bg-orange-50 text-orange-600 border-orange-100';
-        default: return 'bg-slate-50 text-slate-600 border-slate-200';
+        case 'RETURNED': return 'text-rose-600';
+        case 'SHIPPING': return 'text-slate-700';
+        case 'CONFIRMED': return 'text-slate-700';
+        case 'PENDING': return 'text-amber-700';
+        default: return 'text-slate-600';
     }
 };
 
@@ -245,19 +244,6 @@ export default function CustomerDetailPage({
         return customer?.riskLevel === 'HIGH';
     };
 
-    const getRiskLabel = () => {
-        switch (customer?.riskLevel) {
-            case 'HIGH':
-                return 'Rủi ro cao';
-            case 'MEDIUM':
-                return 'Cần theo dõi';
-            case 'UNKNOWN':
-                return 'Chưa đủ dữ liệu';
-            default:
-                return 'Uy tín tốt';
-        }
-    };
-
     const handleAddNote = async () => {
         if (!newNote.trim() || !customer?.userId) return;
         try {
@@ -287,78 +273,64 @@ export default function CustomerDetailPage({
     if (isLoading)
         return (
             <div className="p-20 text-center flex flex-col items-center justify-center gap-4">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm font-black uppercase text-slate-400 tracking-widest">
-                    Đang truy xuất hồ sơ khách hàng...
+                <div className="w-7 h-7 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-[12px] font-medium text-slate-400">
+                    Đang tải hồ sơ khách hàng...
                 </p>
             </div>
         );
 
     return (
-        <div className="space-y-4 pb-10">
+        <div className="space-y-4 pb-10 bg-slate-50 min-h-screen">
             {/* Header */}
-            <div className="flex items-center gap-4 mb-2">
+            <div className="flex items-center gap-3 mb-2">
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => router.back()}
-                    className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                    className="h-8 w-8 text-slate-400 hover:text-slate-700 rounded-[4px]"
                 >
                     <ChevronLeft size={20} />
                 </Button>
                 <div className="flex flex-col flex-1">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-[18px] font-black text-slate-800 uppercase tracking-tight">
-                                Chi tiết hồ sơ khách hàng
-                            </h1>
-                            <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded uppercase">
-                  #{customerIdentifier}
-                </span>
-                        </div>
+                        <h1 className="text-[20px] font-semibold text-slate-900">
+                            CẬP NHẬT KHÁCH HÀNG
+                        </h1>
                         {customer?.onlinePaymentOnly && (
-                            <div className="text-[10px] font-bold px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 uppercase rounded">
+                            <div className="text-[11px] font-medium px-3 py-1.5 bg-white text-rose-700 border border-rose-200 rounded-[4px]">
                                 Chỉ thanh toán online
                             </div>
                         )}
                     </div>
-                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                        <UserCircle size={12} /> Hệ thống quản trị AgriShrimp
+                    <p className="text-[10.5px] text-slate-500 font-normal">
+                        Mã khách hàng: {customerIdentifier}
                     </p>
                 </div>
             </div>
 
             {/* Quick Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-blue-50 border border-blue-100 p-3 flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded">
-                        <Clock size={18} className="text-blue-600" />
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white border border-slate-200 p-4 rounded-[4px] shadow-sm">
                     <div>
-                        <p className="text-[9px] font-bold text-blue-600 uppercase">Ngày đặt hàng gần nhất</p>
-                        <p className="text-[12px] font-black text-blue-700">
+                        <p className="text-[10.5px] font-medium text-slate-500">Ngày đặt hàng gần nhất</p>
+                        <p className="text-[14px] font-semibold text-slate-900 mt-1">
                             {customer?.lastOrderDate ? new Date(customer.lastOrderDate).toLocaleDateString('vi-VN') : 'Chưa có'}
                         </p>
                     </div>
                 </div>
-                <div className="bg-purple-50 border border-purple-100 p-3 flex items-center gap-3">
-                    <div className="bg-purple-100 p-2 rounded">
-                        <Wallet size={18} className="text-purple-600" />
-                    </div>
+                <div className="bg-white border border-slate-200 p-4 rounded-[4px] shadow-sm">
                     <div>
-                        <p className="text-[9px] font-bold text-purple-600 uppercase">Giá trị đơn trung bình</p>
-                        <p className="text-[12px] font-black text-purple-700">
+                        <p className="text-[10.5px] font-medium text-slate-500">Giá trị đơn trung bình</p>
+                        <p className="text-[14px] font-semibold text-slate-900 mt-1">
                             {customer?.averageOrderValue ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer.averageOrderValue) : '---'}
                         </p>
                     </div>
                 </div>
-                <div className="bg-orange-50 border border-orange-100 p-3 flex items-center gap-3">
-                    <div className="bg-orange-100 p-2 rounded">
-                        <UserCircle size={18} className="text-orange-600" />
-                    </div>
+                <div className="bg-white border border-slate-200 p-4 rounded-[4px] shadow-sm">
                     <div>
-                        <p className="text-[9px] font-bold text-orange-600 uppercase">Ngày tham gia</p>
-                        <p className="text-[12px] font-black text-orange-700">
+                        <p className="text-[10.5px] font-medium text-slate-500">Ngày tham gia</p>
+                        <p className="text-[14px] font-semibold text-slate-900 mt-1">
                             {calculateDaysSinceSignup()} ngày trước
                         </p>
                     </div>
@@ -370,7 +342,7 @@ export default function CustomerDetailPage({
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
                     onClick={() => {
                         if (!customer?.email) {
                             toast.error('Khách hàng chưa có email');
@@ -384,7 +356,7 @@ export default function CustomerDetailPage({
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
                     onClick={() => {
                         setActiveTab('notes');
                         setShowNotesModal(true);
@@ -395,7 +367,7 @@ export default function CustomerDetailPage({
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
                     onClick={() => setActiveTab('activity')}
                 >
                     <Activity size={14} /> Lịch sử
@@ -403,7 +375,7 @@ export default function CustomerDetailPage({
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2 text-[11px] font-bold uppercase"
+                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
                     onClick={() => window.print()}
                 >
                     <Download size={14} /> PDF
@@ -411,7 +383,7 @@ export default function CustomerDetailPage({
                 {isRiskAccount() && (
                     <div className="flex items-center gap-2 ml-auto px-3 py-2 bg-rose-50 border border-rose-200 rounded text-[11px]">
                         <AlertTriangle size={14} className="text-rose-600" />
-                        <span className="font-bold text-rose-700">⚠️ Tài khoản rủi ro khóa!</span>
+                        <span className="font-medium text-rose-700">Tài khoản rủi ro khóa</span>
                     </div>
                 )}
             </div>
@@ -419,10 +391,10 @@ export default function CustomerDetailPage({
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 {/* Cột trái: Thông tin tổng quan */}
                 <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                    <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
                         <div className="p-5 border-b border-slate-50 flex flex-col items-center text-center">
                             <div className="relative mb-4 group">
-                                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 border-2 border-blue-100 shadow-sm overflow-hidden">
+                                <div className="w-20 h-20 bg-slate-50 rounded-[4px] flex items-center justify-center text-slate-400 border border-slate-200 overflow-hidden">
                                     {customer?.avatarUrl ? (
                                         <img
                                             src={customer.avatarUrl}
@@ -439,27 +411,27 @@ export default function CustomerDetailPage({
                                 {/* Đã bỏ hiển thị provider ở đây */}
                             </div>
 
-                            <h2 className="text-[16px] font-black text-slate-800 uppercase leading-tight mb-1 mt-2">
+                            <h2 className="text-[14px] font-semibold text-slate-900 leading-tight mb-1 mt-2">
                                 {customer?.fullName || "Chưa cập nhật tên"}
                             </h2>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                            <p className="text-[10.5px] font-normal text-slate-500">
                                 Mã định danh: {customer?.userId ? `USR-${customer.userId}` : "KHÔNG CÓ TÀI KHOẢN"}
                             </p>
 
                             <div className="mt-5 grid grid-cols-2 gap-2 w-full">
-                                <div className="bg-emerald-50/50 p-3 border border-emerald-100 text-center">
-                                    <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1 flex items-center justify-center gap-1">
+                                <div className="bg-white p-3 border border-slate-200 text-center rounded-[4px]">
+                                    <p className="text-[10px] font-medium text-slate-500 mb-1 flex items-center justify-center gap-1">
                                         <Wallet size={10} /> Chi tiêu
                                     </p>
-                                    <p className="text-[13px] font-black text-emerald-700">
+                                    <p className="text-[13px] font-semibold text-slate-900">
                                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.totalSpent || 0)}
                                     </p>
                                 </div>
-                                <div className="bg-blue-50/50 p-3 border border-blue-100 text-center">
-                                    <p className="text-[9px] font-bold text-blue-600 uppercase mb-1 flex items-center justify-center gap-1">
+                                <div className="bg-white p-3 border border-slate-200 text-center rounded-[4px]">
+                                    <p className="text-[10px] font-medium text-slate-500 mb-1 flex items-center justify-center gap-1">
                                         <ShoppingCart size={10} /> Đơn hàng
                                     </p>
-                                    <p className="text-[13px] font-black text-blue-700">
+                                    <p className="text-[13px] font-semibold text-slate-900">
                                         {customer?.totalOrders || 0}
                                     </p>
                                 </div>
@@ -470,42 +442,42 @@ export default function CustomerDetailPage({
                             <div className="flex items-start gap-3">
                                 <Phone size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Đường dây liên lạc</span>
-                                    <span className="text-[12px] font-bold text-slate-700">{customer?.phone || "N/A"}</span>
+                                    <span className="text-[10.5px] font-medium text-slate-500">Điện thoại</span>
+                                    <span className="text-[12px] font-medium text-slate-700">{customer?.phone || "N/A"}</span>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
                                 <Mail size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hòm thư điện tử</span>
-                                    <span className="text-[12px] font-bold text-slate-700">{customer?.email || "Chưa cập nhật"}</span>
+                                    <span className="text-[10.5px] font-medium text-slate-500">Email</span>
+                                    <span className="text-[12px] font-medium text-slate-700">{customer?.email || "Chưa cập nhật"}</span>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
                                 <MapPin size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Địa chỉ giao dịch</span>
+                                    <span className="text-[10.5px] font-medium text-slate-500">Địa chỉ</span>
                                     <span className="text-[11px] font-medium text-slate-600 leading-snug">{customer?.addressDetail || "Chưa cập nhật địa chỉ"}</span>
                                 </div>
                             </div>
 
                             <div className="pt-3 border-t border-slate-50 flex justify-between items-center">
-                <span className="text-[10px] font-black text-slate-400 uppercase">
+                <span className="text-[10.5px] font-medium text-slate-500">
                   Trạng thái vận hành
                 </span>
                                         <div className="flex flex-col items-end gap-1">
                                             <span
                                                 className={cn(
-                                                    "text-[10px] font-black px-2 py-0.5 rounded-none border uppercase tracking-tighter",
+                                                    "text-[12px] font-medium",
                                                     customer?.userStatus === "ACTIVE"
-                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                                        : "bg-slate-50 text-slate-500 border-slate-200",
+                                                        ? "text-emerald-700"
+                                                        : "text-slate-600",
                                                 )}
                                             >
-                                              {customer?.userStatus === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : "TẠM NGƯNG"}
+                                              {customer?.userStatus === "ACTIVE" ? "Đang hoạt động" : "Tạm ngưng"}
                                             </span>
                                             {customer?.onlinePaymentOnly && (
-                                                <span className="text-[10px] font-bold text-rose-600 uppercase">PayOS bắt buộc</span>
+                                                <span className="text-[11px] font-medium text-rose-600">PayOS bắt buộc</span>
                                             )}
                                         </div>
                             </div>
@@ -513,12 +485,12 @@ export default function CustomerDetailPage({
                     </div>
 
                     {/* Addresses Section */}
-                    <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                    <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
                         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="text-[12px] font-black text-slate-800 uppercase flex items-center gap-2">
+                            <h3 className="text-[12px] font-semibold text-slate-900 flex items-center gap-2">
                                 <MapPinCheck size={14} /> Địa chỉ giao hàng
                             </h3>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50">
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-500 hover:bg-slate-100 rounded-[4px]">
                                 <Plus size={14} />
                             </Button>
                         </div>
@@ -533,7 +505,7 @@ export default function CustomerDetailPage({
                                                 <p className="text-[10px] text-slate-500 mt-1">📞 {addr.receiverPhone}</p>
                                             </div>
                                             {addr.isDefault && (
-                                                <span className="text-[8px] font-bold px-2 py-1 bg-emerald-100 text-emerald-700 whitespace-nowrap rounded">
+                                                <span className="text-[10px] font-medium text-emerald-700 whitespace-nowrap">
                                                     Mặc định
                                                 </span>
                                             )}
@@ -550,35 +522,35 @@ export default function CustomerDetailPage({
                 {/* Cột phải: Tabs chi tiết */}
                 <div className="lg:col-span-3">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="bg-white border border-[#dcdcdc] rounded-none p-1 w-full flex justify-start gap-0.5 h-auto shadow-sm overflow-x-auto">
+                        <TabsList className="bg-white border border-slate-200 rounded-[4px] p-1 w-full flex justify-start gap-1 h-auto shadow-sm overflow-x-auto">
                             <TabsTrigger
                                 value="history"
-                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <History size={13} className="mr-1.5" /> Nhật ký giao dịch
                             </TabsTrigger>
                             <TabsTrigger
                                 value="notes"
-                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <FileText size={13} className="mr-1.5" /> Ghi chú nội bộ
                             </TabsTrigger>
                             <TabsTrigger
                                 value="activity"
-                                className="text-[10px] font-black uppercase py-2 px-5 rounded-none data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <Activity size={13} className="mr-1.5" /> Lịch sử thay đổi
                             </TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="history" className="mt-0">
-                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden min-h-[400px]">
+                            <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden min-h-[400px] mt-3">
                                 {/* Filter & Sort Controls */}
                                 <div className="p-3 border-b border-slate-100 flex items-center gap-2 flex-wrap bg-slate-50">
                                     <select
                                         value={orderStatusFilter}
                                         onChange={(e) => setOrderStatusFilter(e.target.value)}
-                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white uppercase"
+                                        className="text-[11px] font-medium px-2 py-1.5 border border-slate-200 rounded-[4px] bg-white"
                                     >
                                         <option value="all">Tất cả trạng thái</option>
                                         <option value="PENDING">Chờ xử lý</option>
@@ -593,7 +565,7 @@ export default function CustomerDetailPage({
                                     <select
                                         value={orderSort}
                                         onChange={(e) => setOrderSort(e.target.value as 'newest' | 'oldest' | 'highest')}
-                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white uppercase"
+                                        className="text-[11px] font-medium px-2 py-1.5 border border-slate-200 rounded-[4px] bg-white"
                                     >
                                         <option value="newest">Mới nhất</option>
                                         <option value="oldest">Cũ nhất</option>
@@ -612,7 +584,7 @@ export default function CustomerDetailPage({
                                         className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
                                     />
                                     {getCancellationStats() > 0 && (
-                                        <div className="ml-auto text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-100">
+                                        <div className="ml-auto text-[11px] font-medium text-amber-700 px-2 py-1">
                                             {getCancellationStats()} đơn hủy/hoàn trả
                                         </div>
                                     )}
@@ -620,10 +592,10 @@ export default function CustomerDetailPage({
                                 <Table>
                                     <TableHeader className="bg-slate-50/80">
                                         <TableRow className="hover:bg-transparent">
-                                            <TableHead className="w-[120px] text-[10px] font-black uppercase tracking-widest p-3">Mã đơn</TableHead>
-                                            <TableHead className="w-[130px] text-[10px] font-black uppercase tracking-widest p-3">Ngày giao dịch</TableHead>
-                                            <TableHead className="w-[140px] text-right text-[10px] font-black uppercase tracking-widest p-3">Tổng tiền</TableHead>
-                                            <TableHead className="w-[110px] text-center text-[10px] font-black uppercase tracking-widest p-3">Trạng thái</TableHead>
+                                            <TableHead className="w-[120px] text-[11px] font-medium text-slate-500 p-3">Mã đơn</TableHead>
+                                            <TableHead className="w-[130px] text-[11px] font-medium text-slate-500 p-3">Ngày giao dịch</TableHead>
+                                            <TableHead className="w-[140px] text-right text-[11px] font-medium text-slate-500 p-3">Tổng tiền</TableHead>
+                                            <TableHead className="w-[110px] text-center text-[11px] font-medium text-slate-500 p-3">Trạng thái</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -631,8 +603,8 @@ export default function CustomerDetailPage({
                                             <TableRow>
                                                 <TableCell colSpan={4} className="h-40 text-center">
                                                     <div className="flex flex-col items-center gap-2 opacity-50">
-                                                        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest">Đang tải lịch sử...</p>
+                                                        <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                                                        <p className="text-[11px] font-medium">Đang tải lịch sử...</p>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -640,7 +612,7 @@ export default function CustomerDetailPage({
                                             getSortedAndFilteredOrders().map((order) => (
                                                 <TableRow key={order.id} className="hover:bg-slate-50/50 cursor-pointer transition-colors group">
                                                     <TableCell className="p-3">
-                                                        <span className="text-[11px] font-black text-blue-600 group-hover:underline uppercase">#{order.code}</span>
+                                                        <span className="text-[11.5px] font-semibold text-slate-900 group-hover:underline">{order.code}</span>
                                                     </TableCell>
                                                     <TableCell className="p-3">
                                                         <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
@@ -648,12 +620,12 @@ export default function CustomerDetailPage({
                                                             {new Date(order.createdAt).toLocaleDateString('vi-VN')}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="p-3 text-right text-[12px] font-black text-slate-700">
+                                                    <TableCell className="p-3 text-right text-[12px] font-semibold text-slate-900">
                                                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.finalAmount || 0)}
                                                     </TableCell>
                                                     <TableCell className="p-3 text-center">
                             <span className={cn(
-                                "text-[9px] font-black px-2 py-0.5 rounded-none uppercase tracking-tighter border",
+                                "text-[11px] font-medium",
                                 getOrderStatusColor(order.status)
                             )}>
                               {translateOrderStatus(order.status)}
@@ -666,7 +638,7 @@ export default function CustomerDetailPage({
                                                 <TableCell colSpan={4} className="h-60 text-center">
                                                     <div className="flex flex-col items-center justify-center gap-2 opacity-20">
                                                         <PackageCheck size={48} />
-                                                        <p className="text-[11px] font-black uppercase tracking-[0.2em]">Khách hàng chưa có giao dịch</p>
+                                                        <p className="text-[12px] font-medium">Khách hàng chưa có giao dịch</p>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -677,7 +649,7 @@ export default function CustomerDetailPage({
                         </TabsContent>
 
                         <TabsContent value="notes" className="mt-0">
-                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                            <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden mt-3">
                                 {/* Add Note Form */}
                                 <div className="p-4 border-b border-slate-100 bg-slate-50">
                                     <div className="flex gap-2">
@@ -692,7 +664,7 @@ export default function CustomerDetailPage({
                                         <Button
                                             onClick={handleAddNote}
                                             size="sm"
-                                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold uppercase"
+                                            className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium rounded-[4px]"
                                         >
                                             <Plus size={12} className="mr-1" /> Thêm
                                         </Button>
@@ -730,9 +702,9 @@ export default function CustomerDetailPage({
                         </TabsContent>
 
                         <TabsContent value="activity" className="mt-0">
-                            <div className="bg-white border border-t-0 border-[#dcdcdc] rounded-none shadow-sm overflow-hidden">
+                            <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden mt-3">
                                 <div className="p-4 border-b border-slate-100 bg-slate-50">
-                                    <h3 className="text-[11px] font-black uppercase text-slate-700">Lịch sử thay đổi trạng thái</h3>
+                                    <h3 className="text-[12px] font-semibold text-slate-900">Lịch sử thay đổi trạng thái</h3>
                                 </div>
                                 <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto">
                                     {statusLogs.length > 0 ? (
@@ -764,9 +736,9 @@ export default function CustomerDetailPage({
             {/* Notes Modal */}
             {showNotesModal && (
                 <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-[4px] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="text-[14px] font-black uppercase text-slate-800 flex items-center gap-2">
+                            <h3 className="text-[14px] font-semibold text-slate-900 flex items-center gap-2">
                                 <FileText size={18} /> Thêm ghi chú nội bộ
                             </h3>
                             <button
@@ -788,7 +760,7 @@ export default function CustomerDetailPage({
                             <Button
                                 variant="outline"
                                 onClick={() => setShowNotesModal(false)}
-                                className="text-[11px] font-bold uppercase h-9"
+                                className="text-[12px] font-medium h-9 rounded-[4px]"
                             >
                                 Hủy
                             </Button>
@@ -797,7 +769,7 @@ export default function CustomerDetailPage({
                                     await handleAddNote();
                                     setShowNotesModal(false);
                                 }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold uppercase h-9"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-medium h-9 rounded-[4px]"
                             >
                                 <Plus size={14} className="mr-1" /> Thêm ghi chú
                             </Button>

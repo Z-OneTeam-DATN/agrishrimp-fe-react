@@ -5,25 +5,16 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    X,
     Save,
-    ChevronLeft,
-    User,
     Mail,
     Phone,
-    MapPin,
-    UserCircle,
-    ShieldCheck,
     Check,
     ChevronsUpDown,
     Loader2,
     AlertCircle,
     MapPin as MapPinIcon,
     Copy,
-    CheckCircle2,
-    Building2,
-    Users,
-    FileText
+    CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +70,6 @@ interface StaffMember {
 export default function AddCustomerPage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitMode, setSubmitMode] = useState<"list" | "add-more">("list");
 
     // States lưu data địa chỉ
     const [provinces, setProvinces] = useState<LocationItem[]>([]);
@@ -97,7 +87,7 @@ export default function AddCustomerPage() {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearchingMap, setIsSearchingMap] = useState(false);
-    const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+    const [, setIsCheckingDuplicate] = useState(false);
     const [inlineDuplicate, setInlineDuplicate] = useState<{ email?: string; phone?: string }>({});
 
     // 🟢 New states for branches, staff, and copy functionality
@@ -119,8 +109,6 @@ export default function AddCustomerPage() {
         setValue,
         setError,
         clearErrors,
-        reset,
-        getValues,
         formState: { errors },
     } = useForm<CustomerFormValues>({
         resolver: zodResolver(CustomerSchema),
@@ -378,26 +366,6 @@ export default function AddCustomerPage() {
     const isNameValid = Boolean(nameValue?.trim());
     const isPhoneValid = Boolean(phoneValue?.trim() && phoneValue.replace(/\D/g, "").length === 10);
     const isEmailValid = Boolean(emailValue?.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue));
-    const isAddressComplete = Boolean(selectedProvince && selectedDistrict && selectedWard && addressDetail?.trim());
-
-    const step1Complete = isNameValid && isPhoneValid && isEmailValid;
-    const step2Complete = isAddressComplete;
-    const activeStep = !step1Complete ? 1 : !step2Complete ? 2 : 3;
-
-    // Calculate form completion percentage
-    const completionPercentage = Math.round(
-        ((isNameValid ? 1 : 0) +
-            (isPhoneValid ? 1 : 0) +
-            (isEmailValid ? 1 : 0) +
-            (Boolean(selectedProvince) ? 1 : 0) +
-            (Boolean(selectedDistrict) ? 1 : 0) +
-            (Boolean(selectedWard) ? 1 : 0) +
-            (Boolean(addressDetail?.trim()) ? 1 : 0) +
-            (Boolean(selectedBranch) ? 0.5 : 0)) /
-            8 *
-            100
-    );
-
     const handleCheckDuplicate = async (field: "email" | "phone") => {
         const email = (watch("email") || "").trim();
         const phone = (watch("phone") || "").replace(/\D+/g, "");
@@ -442,31 +410,8 @@ export default function AddCustomerPage() {
             await customerService.create(data);
             clearDraft();
             window.dispatchEvent(new Event("customerUpdated"));
-            if (submitMode === "add-more") {
-                toast.success("Đã lưu khách hàng. Bạn có thể thêm khách hàng tiếp theo.");
-                reset({
-                    status: "ACTIVE",
-                    gender: "MALE",
-                    addressDetail: "",
-                    provinceId: "",
-                    districtId: "",
-                    wardId: "",
-                    name: "",
-                    email: "",
-                    phone: "",
-                    branchId: "",
-                    staffAssignedId: "",
-                    internalNotes: "",
-                });
-                setDistricts([]);
-                setWards([]);
-                setSuggestions([]);
-                setInlineDuplicate({});
-                window.scrollTo({ top: 0, behavior: "smooth" });
-            } else {
-                toast.success("Thêm khách hàng và gửi mail thành công!");
-                router.push("/admin/customers");
-            }
+            toast.success("Thêm khách hàng thành công");
+            router.push("/admin/customers");
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Lỗi hệ thống";
             toast.error(errorMessage);
@@ -478,89 +423,33 @@ export default function AddCustomerPage() {
     return (
         <form
             onSubmit={handleSubmit(onSave)}
-            className="space-y-5 pb-[110px] bg-slate-50/30 min-h-screen px-4 md:px-6 lg:px-8 max-w-[1400px] mx-auto"
+            className="space-y-5 pb-[104px] w-full"
         >
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-1 px-1">
-                <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
-                    <ChevronLeft size={20} />
-                </Button>
-                <div className="flex flex-col">
-                    <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">Thêm khách hàng mới</h1>
-                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                        <UserCircle size={12} /> Hồ sơ đối tác & khách hàng AgriShrimp
-                    </p>
-                </div>
-                <div className="ms-auto flex items-center gap-2 text-gray-400">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
-                        <X size={20} />
-                    </Button>
-                </div>
+            <div className="flex items-center justify-between px-1">
+                <h1 className="text-[20px] font-semibold text-slate-900">THÊM KHÁCH HÀNG</h1>
             </div>
 
-            {/* 🟢 Progress Bar */}
-            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-black text-slate-600 uppercase">Tiến độ hoàn thành</p>
-                    <p className="text-[12px] font-black text-blue-600">{completionPercentage.toFixed(0)}%</p>
-                </div>
-                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300"
-                        style={{ width: `${completionPercentage}%` }}
-                    />
-                </div>
-            </div>
-
-            {/* Step Indicator */}
-            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-sm p-3 md:p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
-                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 1 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50")}>
-                        <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 1 ? "bg-blue-600 text-white" : "bg-slate-300 text-slate-700")}>1</span>
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-700">Bước 1</p>
-                            <p className="text-[11px] font-bold text-slate-600">Thông tin</p>
-                        </div>
-                    </div>
-                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 2 ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-slate-50")}>
-                        <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 2 ? "bg-blue-600 text-white" : "bg-slate-300 text-slate-700")}>2</span>
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-700">Bước 2</p>
-                            <p className="text-[11px] font-bold text-slate-600">Địa chỉ</p>
-                        </div>
-                    </div>
-                    <div className={cn("flex items-center gap-2 px-3 py-2 border rounded-[4px]", activeStep >= 3 ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50")}>
-                        <span className={cn("w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center", activeStep >= 3 ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700")}>3</span>
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-700">Bước 3</p>
-                            <p className="text-[11px] font-bold text-slate-600">Xác nhận</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 items-start">
-                <div className="lg:col-span-8 space-y-4">
+            <div className="space-y-4">
+                <div className="space-y-4">
                     {/* Section 1: Basic Information */}
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
-                        <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
-                            <User size={16} /> 1. Thông tin định danh khách hàng
+                    <div className="bg-white border border-slate-200 p-6 rounded-[4px] shadow-sm">
+                        <div className="mb-6 text-[12px] font-semibold text-slate-900 border-b border-slate-200 pb-3">
+                            1. Thông tin chính
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6">
                             {/* Name */}
-                            <div className="md:col-span-3 space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Họ và tên khách hàng *</span>
                                     {isNameValid && <CheckCircle2 size={14} className="text-emerald-500" />}
                                 </Label>
-                                <Input {...register("name")} placeholder="Ví dụ: Nguyễn Văn Đại..." className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none font-bold focus:border-blue-500" />
+                                <Input {...register("name")} placeholder="Ví dụ: Nguyễn Văn Đại..." className="h-10 text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal focus:border-emerald-500" />
                                 {errors.name && <p className="text-[10px] text-red-500">{errors.name.message}</p>}
                             </div>
 
                             {/* Phone */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Số điện thoại *</span>
                                     {isPhoneValid && <CheckCircle2 size={14} className="text-emerald-500" />}
                                 </Label>
@@ -571,7 +460,7 @@ export default function AddCustomerPage() {
                                         onChange={handlePhoneChange}
                                         onBlur={() => handleCheckDuplicate("phone")}
                                         value={phoneValue || ""}
-                                        className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none font-bold focus:border-blue-500"
+                                        className="h-10 pl-9 text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal focus:border-emerald-500"
                                     />
                                 </div>
                                 {errors.phone && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.phone.message}</p>}
@@ -579,7 +468,7 @@ export default function AddCustomerPage() {
 
                             {/* Email */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Email liên hệ *</span>
                                     {isEmailValid && <CheckCircle2 size={14} className="text-emerald-500" />}
                                 </Label>
@@ -589,7 +478,7 @@ export default function AddCustomerPage() {
                                         {...register("email")}
                                         onBlur={() => handleCheckDuplicate("email")}
                                         placeholder="customer@gmail.com"
-                                        className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none shadow-none focus:border-blue-500"
+                                        className="h-10 pl-9 text-[13px] border-slate-200 rounded-[4px] shadow-none focus:border-emerald-500"
                                     />
                                 </div>
                                 {errors.email && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.email.message}</p>}
@@ -597,19 +486,37 @@ export default function AddCustomerPage() {
 
                             {/* Gender */}
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Giới tính</Label>
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Giới tính</Label>
                                 <Controller
                                     name="gender"
                                     control={control}
                                     render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <SelectTrigger className="h-[34px] text-[13px] border-[#ccc] rounded-none shadow-none focus:ring-0">
+                                            <SelectTrigger className="h-10 text-[13px] border-slate-200 rounded-[4px] shadow-none focus:ring-0">
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent className="rounded-none font-bold text-[11px]">
-                                                <SelectItem value="MALE">NAM GIỚI</SelectItem>
-                                                <SelectItem value="FEMALE">NỮ GIỚI</SelectItem>
-                                                <SelectItem value="OTHER">KHÁC</SelectItem>
+                                            <SelectContent className="rounded-[4px] text-[12px]">
+                                                <SelectItem value="MALE">Nam</SelectItem>
+                                                <SelectItem value="FEMALE">Nữ</SelectItem>
+                                                <SelectItem value="OTHER">Khác</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái tài khoản</Label>
+                                <Controller
+                                    name="status"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <SelectTrigger className="h-10 text-[13px] border-slate-200 rounded-[4px] font-normal shadow-none focus:ring-0">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-[4px] text-[12px]">
+                                                <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
+                                                <SelectItem value="LOCKED">Tạm khóa</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     )}
@@ -619,14 +526,14 @@ export default function AddCustomerPage() {
                     </div>
 
                     {/* Section 2: Address */}
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
-                        <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
-                            <MapPin size={16} /> 2. Địa chỉ thường trú & Vị trí giao hàng
+                    <div className="bg-white border border-slate-200 p-6 rounded-[4px] shadow-sm">
+                        <div className="mb-6 text-[12px] font-semibold text-slate-900 border-b border-slate-200 pb-3">
+                            2. Địa chỉ
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6">
                             {/* Province */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Tỉnh / Thành phố *</span>
                                     {Boolean(selectedProvince) && <CheckCircle2 size={14} className="text-emerald-500" />}
                                 </Label>
@@ -640,7 +547,7 @@ export default function AddCustomerPage() {
                                                     variant="outline"
                                                     role="combobox"
                                                     aria-expanded={openProvince}
-                                                    className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white"
+                                                    className="h-10 justify-between text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal px-3 bg-white"
                                                 >
                                                     {field.value
                                                         ? provinces.find((p) => p.id === field.value)?.full_name
@@ -671,7 +578,7 @@ export default function AddCustomerPage() {
 
                             {/* District */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Quận / Huyện *</span>
                                     {Boolean(selectedDistrict) && <CheckCircle2 size={14} className="text-emerald-500" />}
                                 </Label>
@@ -681,7 +588,7 @@ export default function AddCustomerPage() {
                                     render={({ field }) => (
                                         <Popover open={openDistrict} onOpenChange={setOpenDistrict}>
                                             <PopoverTrigger asChild>
-                                                <Button variant="outline" role="combobox" aria-expanded={openDistrict} disabled={!selectedProvince} className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white disabled:opacity-50">
+                                                <Button variant="outline" role="combobox" aria-expanded={openDistrict} disabled={!selectedProvince} className="h-10 justify-between text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal px-3 bg-white disabled:opacity-50">
                                                     {field.value ? districts.find((d) => d.id === field.value)?.full_name : "-- Chọn hoặc Gõ Quận/Huyện --"}
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
@@ -709,7 +616,7 @@ export default function AddCustomerPage() {
 
                             {/* Ward */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Phường / Xã *</span>
                                     {Boolean(selectedWard) && <CheckCircle2 size={14} className="text-emerald-500" />}
                                 </Label>
@@ -719,7 +626,7 @@ export default function AddCustomerPage() {
                                     render={({ field }) => (
                                         <Popover open={openWard} onOpenChange={setOpenWard}>
                                             <PopoverTrigger asChild>
-                                                <Button variant="outline" role="combobox" aria-expanded={openWard} disabled={!selectedDistrict} className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white disabled:opacity-50">
+                                                <Button variant="outline" role="combobox" aria-expanded={openWard} disabled={!selectedDistrict} className="h-10 justify-between text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal px-3 bg-white disabled:opacity-50">
                                                     {field.value ? wards.find((w) => w.id === field.value)?.full_name : "-- Chọn hoặc Gõ Phường/Xã --"}
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
@@ -747,7 +654,7 @@ export default function AddCustomerPage() {
 
                             {/* Address Detail with Geoapify */}
                             <div className="md:col-span-3 space-y-1.5" ref={wrapperRef}>
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                                <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Số nhà, tên đường (Địa chỉ chi tiết) *</span>
                                     {isSearchingMap && <span className="text-blue-500 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Đang tìm...</span>}
                                 </Label>
@@ -757,18 +664,18 @@ export default function AddCustomerPage() {
                                         onChange={handleAddressChange}
                                         onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                                         placeholder={selectedProvince ? "Gõ số nhà, tên đường để Geoapify gợi ý..." : "Vui lòng chọn Tỉnh/Thành trước khi nhập địa chỉ..."}
-                                        className="h-[34px] text-[13px] border-[#ccc] rounded-none focus:border-blue-500 shadow-none bg-blue-50/30"
+                                        className="h-10 text-[13px] border-slate-200 rounded-[4px] focus:border-emerald-500 shadow-none bg-white"
                                         disabled={!selectedProvince}
                                         autoComplete="off"
                                     />
 
                                     {showSuggestions && suggestions.length > 0 && (
-                                        <ul className="absolute z-50 w-full bg-white border border-[#ccc] shadow-lg mt-1 rounded-none max-h-[250px] overflow-y-auto animate-in fade-in slide-in-from-top-1 custom-scrollbar">
+                                        <ul className="absolute z-50 w-full bg-white border border-slate-200 shadow-lg mt-1 rounded-[4px] max-h-[250px] overflow-y-auto animate-in fade-in slide-in-from-top-1 custom-scrollbar">
                                             {suggestions.map((addr, idx) => (
                                                 <li
                                                     key={idx}
                                                     onClick={() => handleSelectSuggestion(addr)}
-                                                    className="px-3 py-2.5 text-[12px] text-slate-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b border-slate-100 last:border-0 flex items-start gap-2 transition-colors"
+                                                    className="px-3 py-2.5 text-[12px] text-slate-700 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 flex items-start gap-2 transition-colors"
                                                 >
                                                     <MapPinIcon size={14} className="mt-0.5 shrink-0 opacity-50 text-blue-500" />
                                                     <span className="line-clamp-2 leading-tight">{addr}</span>
@@ -779,9 +686,9 @@ export default function AddCustomerPage() {
                                 </div>
 
                                 {/* Normalized Address Preview */}
-                                <div className="mt-2 p-3 border border-blue-100 bg-blue-50/40 rounded-[4px] flex items-start justify-between gap-2">
+                                <div className="mt-2 p-3 border border-slate-200 bg-slate-50 rounded-[4px] flex items-start justify-between gap-2">
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-wider text-blue-700 mb-1">Địa chỉ chuẩn hóa trước khi lưu</p>
+                                        <p className="text-[10.5px] font-semibold text-slate-500 mb-1">Địa chỉ chuẩn hóa</p>
                                         <p className="text-[11px] text-slate-700 leading-relaxed">
                                             {normalizedAddressPreview || "Chưa đủ dữ liệu để chuẩn hóa địa chỉ"}
                                         </p>
@@ -792,9 +699,9 @@ export default function AddCustomerPage() {
                                             variant="ghost"
                                             size="sm"
                                             onClick={copyAddressToClipboard}
-                                            className="h-8 w-8 shrink-0 hover:bg-blue-200"
+                                            className="h-7 w-7 shrink-0 hover:bg-slate-200 rounded-[4px]"
                                         >
-                                            {copiedAddress ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} className="text-blue-600" />}
+                                            {copiedAddress ? <CheckCircle2 size={14} className="text-emerald-600" /> : <Copy size={14} className="text-slate-500" />}
                                         </Button>
                                     )}
                                 </div>
@@ -803,14 +710,14 @@ export default function AddCustomerPage() {
                     </div>
 
                     {/* Section 3: Assignment & Notes */}
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
-                        <div className="flex items-center gap-2 mb-5 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-2.5">
-                            <Building2 size={16} /> 3. Gán chi nhánh & Nhân viên phụ trách
+                    <div className="bg-white border border-slate-200 p-6 rounded-[4px] shadow-sm">
+                        <div className="mb-6 text-[12px] font-semibold text-slate-900 border-b border-slate-200 pb-3">
+                            3. Phụ trách & ghi chú
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6">
                             {/* Branch */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Chi nhánh</Label>
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Chi nhánh</Label>
                                 <Controller
                                     name="branchId"
                                     control={control}
@@ -821,7 +728,7 @@ export default function AddCustomerPage() {
                                                     variant="outline"
                                                     role="combobox"
                                                     aria-expanded={openBranch}
-                                                    className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white"
+                                                    className="h-10 justify-between text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal px-3 bg-white"
                                                 >
                                                     {isLoadingBranches ? (
                                                         <span className="flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Đang tải...</span>
@@ -855,7 +762,7 @@ export default function AddCustomerPage() {
 
                             {/* Staff */}
                             <div className="space-y-1.5 flex flex-col">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Nhân viên phụ trách</Label>
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Nhân viên phụ trách</Label>
                                 <Controller
                                     name="staffAssignedId"
                                     control={control}
@@ -867,7 +774,7 @@ export default function AddCustomerPage() {
                                                     role="combobox"
                                                     aria-expanded={openStaff}
                                                     disabled={!selectedBranch}
-                                                    className="h-[34px] justify-between text-[12px] border-[#ccc] rounded-none shadow-none font-normal px-3 bg-white disabled:opacity-50"
+                                                    className="h-10 justify-between text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal px-3 bg-white disabled:opacity-50"
                                                 >
                                                     {isLoadingStaff ? (
                                                         <span className="flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Đang tải...</span>
@@ -903,14 +810,14 @@ export default function AddCustomerPage() {
                             </div>
 
                             {/* Internal Notes */}
-                            <div className="md:col-span-2 space-y-1.5">
-                                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                                    <FileText size={14} /> Ghi chú nội bộ (chỉ nhân viên thấy)
+                            <div className="sm:col-span-2 xl:col-span-3 space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">
+                                    Ghi chú nội bộ
                                 </Label>
                                 <Textarea
                                     {...register("internalNotes")}
                                     placeholder="Thêm ghi chú về khách hàng này cho bộ phận nội bộ..."
-                                    className="h-[80px] text-[13px] border-[#ccc] rounded-none shadow-none focus:border-blue-500 resize-none font-medium"
+                                    className="min-h-[84px] text-[13px] border-slate-200 rounded-[4px] shadow-none focus:border-emerald-500 resize-none font-normal"
                                 />
                                 {errors.internalNotes && <p className="text-[10px] text-red-500">{errors.internalNotes.message}</p>}
                             </div>
@@ -918,67 +825,19 @@ export default function AddCustomerPage() {
                     </div>
                 </div>
 
-                {/* Sidebar */}
-                <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
-                    {/* Status */}
-                    <div className="bg-white border border-[#dcdcdc] p-5 rounded-[4px] shadow-sm">
-                        <Label className="text-[11px] font-black text-slate-700 uppercase block mb-5 tracking-widest border-b pb-3">
-                            Trạng thái tài khoản
-                        </Label>
-                        <Controller
-                            name="status"
-                            control={control}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className="h-[38px] text-[13px] border-[#ccc] rounded-none font-black text-emerald-600 shadow-none uppercase focus:ring-0">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-none">
-                                        <SelectItem value="ACTIVE" className="text-emerald-600 font-bold">ĐANG HOẠT ĐỘNG</SelectItem>
-                                        <SelectItem value="LOCKED" className="text-rose-600 font-bold">ĐANG TẠM KHÓA</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                    </div>
-
-                    {/* Data Rules */}
-                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-[4px]">
-                        <div className="flex items-center gap-2 text-blue-700 font-black text-[10px] uppercase mb-3 tracking-widest border-b border-blue-200 pb-1.5">
-                            <ShieldCheck size={14} /> Quy tắc dữ liệu
-                        </div>
-                        <p className="text-[11px] text-blue-700/80 leading-relaxed font-medium italic">
-                            * Hệ thống sẽ tự động gửi Email tài khoản ngay khi bạn nhấn lưu thành công.
-                        </p>
-                        {isCheckingDuplicate && (
-                            <p className="text-[10px] mt-2 text-blue-600 font-bold">Đang kiểm tra trùng email/số điện thoại...</p>
-                        )}
-                    </div>
-                </div>
             </div>
 
-            {/* Footer Actions */}
-            <div className="sticky bottom-3 bg-white/95 backdrop-blur border border-[#ddd] rounded-[6px] p-3 md:p-4 flex items-center justify-end gap-3 z-30 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-                <Button type="button" variant="outline" className="min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] bg-white shadow-sm hover:bg-slate-50 transition-all uppercase" onClick={() => router.back()}>
-                    HỦY BỎ
+            <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px] flex items-center justify-end gap-3">
+                <Button type="button" variant="outline" className="min-w-[120px] h-10 text-[13px] font-medium border-slate-200 bg-white shadow-none hover:bg-slate-50 transition-all rounded-[4px]" onClick={() => router.back()}>
+                    Hủy
                 </Button>
                 <Button
                     type="submit"
                     disabled={isSubmitting}
-                    onClick={() => setSubmitMode("add-more")}
-                    className="min-w-[170px] h-[38px] text-[12px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all active:scale-[0.98] uppercase"
+                    className="min-w-[180px] h-10 text-[13px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-none transition-all active:scale-[0.98] rounded-[4px]"
                 >
                     <Save size={16} className="mr-2" />
-                    {isSubmitting ? "ĐANG LƯU..." : "LƯU & THÊM MỚI"}
-                </Button>
-                <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    onClick={() => setSubmitMode("list")}
-                    className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100 transition-all active:scale-[0.98] uppercase"
-                >
-                    <Save size={18} className="mr-2" />
-                    {isSubmitting ? "ĐANG LƯU..." : "LƯU HỒ SƠ KHÁCH HÀNG"}
+                    {isSubmitting ? "Đang lưu..." : "Thêm khách hàng"}
                 </Button>
             </div>
         </form>

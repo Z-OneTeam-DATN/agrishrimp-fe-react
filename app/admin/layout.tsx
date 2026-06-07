@@ -119,7 +119,7 @@ export default function AdminLayout({
       <div className="flex flex-col flex-1 min-w-0">
         <AdminTopHeader />
         <main className="flex-1 overflow-y-auto p-[15px] pt-[20px]">
-          <div className="max-w-[1600px] mx-auto">
+          <div className="w-full min-w-0">
             {isAllowed ? (
               children
             ) : (

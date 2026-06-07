@@ -1,35 +1,41 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
-import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { InventoryExportTable } from "@/components/inventory/InventoryExportTable";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, RefreshCcw, FileText } from "lucide-react";
+import { Loader2, Plus, Search, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
 import { branchService } from "@/app/services/branchService";
 
 export default function AdminExportListPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("all");
   const [exports, setExports] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // State cho tìm kiếm, lọc và phân trang
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
-  const [warehouseOptions, setWarehouseOptions] = useState<any[]>([{ label: "Tất cả kho", value: "all" }]);
+  const [warehouseOptions, setWarehouseOptions] = useState<any[]>([
+    { label: "Tất cả kho", value: "all" },
+  ]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
   const fetchList = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Sử dụng API lấy tất cả lệnh xuất làm nguồn dữ liệu chính
       const result = await InventoryExportApiService.getAllExportCommands();
-      const data = Array.isArray(result) ? result : (result.content || []);
-      console.log("Danh sách lệnh xuất từ API:", data);
+      const data = Array.isArray(result) ? result : result.content || [];
       setExports(data);
     } catch (error: any) {
       toast.error("Lỗi tải danh sách lệnh xuất");
@@ -39,158 +45,254 @@ export default function AdminExportListPage() {
   }, []);
 
   useEffect(() => {
-    fetchList();
-    // Lấy danh sách kho thực tế
-    (async () => {
+    void fetchList();
+    void (async () => {
       try {
         const data = await branchService.getAll();
-        const list = Array.isArray(data) ? data : (data.content || []);
+        const list = Array.isArray(data) ? data : data.content || [];
         const options = list.map((b: any) => ({
           label: b.name || b.branchName,
-          value: b.name || b.branchName
+          value: b.name || b.branchName,
         }));
-        setWarehouseOptions([{ label: "Tất cả kho", value: "all" }, ...options]);
-      } catch (e) { console.error("Lỗi tải danh sách kho:", e); }
+        setWarehouseOptions([
+          { label: "Tất cả kho", value: "all" },
+          ...options,
+        ]);
+      } catch (e) {
+        console.error("Lỗi tải danh sách kho:", e);
+      }
     })();
   }, [fetchList]);
 
-  // Reset phân trang khi đổi filter
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery, selectedWarehouse]);
 
-  // Logic lọc dữ liệu
   const filteredData = exports.filter((item) => {
-    // 1. Lọc theo Tab
     let matchTab = true;
     const status = (item.status || "").toUpperCase();
     if (activeTab === "pending") matchTab = status === "PENDING";
-    else if (activeTab === "completed") matchTab = status === "APPROVED" || status === "COMPLETED";
-    else if (activeTab === "cancelled") matchTab = status === "CANCELLED" || status === "REJECTED";
-    
+    else if (activeTab === "completed") {
+      matchTab = status === "APPROVED" || status === "COMPLETED";
+    } else if (activeTab === "cancelled") {
+      matchTab = status === "CANCELLED" || status === "REJECTED";
+    }
+
     if (!matchTab) return false;
 
-    // 2. Lọc theo Kho xuất
-    if (selectedWarehouse !== "all" && item.branchName !== selectedWarehouse) return false;
+    if (selectedWarehouse !== "all" && item.branchName !== selectedWarehouse) {
+      return false;
+    }
 
-    // 3. Tìm kiếm theo mã hoặc đối tác
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const displayPartner = (item.displayPartnerName || item.supplierName || item.partnerBranchName || "").toLowerCase();
-      if (!item.code.toLowerCase().includes(q) && !displayPartner.includes(q)) return false;
+      const displayPartner = (
+        item.displayPartnerName ||
+        item.supplierName ||
+        item.partnerBranchName ||
+        ""
+      ).toLowerCase();
+      if (
+        !String(item.code || "")
+          .toLowerCase()
+          .includes(q) &&
+        !displayPartner.includes(q)
+      ) {
+        return false;
+      }
     }
 
     return true;
   });
 
-  console.log(`Tab hiện tại: ${activeTab}, Số lượng sau lọc: ${filteredData.length}`);
-
-  // Tính toán phân trang
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / pageSize);
-  const displayData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const displayData = filteredData.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const counts = React.useMemo(() => {
     const s = (status: string) => (status || "").toUpperCase();
     return {
       all: exports.length,
-      pending: exports.filter(t => s(t.status) === "PENDING").length,
-      completed: exports.filter(t => s(t.status) === "APPROVED" || s(t.status) === "COMPLETED").length,
-      cancelled: exports.filter(t => s(t.status) === "CANCELLED" || s(t.status) === "REJECTED").length,
+      pending: exports.filter((t) => s(t.status) === "PENDING").length,
+      completed: exports.filter(
+        (t) => s(t.status) === "APPROVED" || s(t.status) === "COMPLETED",
+      ).length,
+      cancelled: exports.filter(
+        (t) => s(t.status) === "CANCELLED" || s(t.status) === "REJECTED",
+      ).length,
     };
   }, [exports]);
+  const totalExportAmount = React.useMemo(
+    () => exports.reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0),
+    [exports],
+  );
+
+  const summaryCards = [
+    {
+      title: "Tổng giá trị",
+      value: `${totalExportAmount.toLocaleString("vi-VN")} ₫`,
+      description: "Tổng giá trị các phiếu xuất trả nhà cung cấp",
+    },
+    {
+      title: "Phiếu chờ duyệt",
+      value: counts.pending,
+      description: "Đang chờ xác nhận trước khi xuất kho",
+    },
+    {
+      title: "Đã xuất kho",
+      value: counts.completed,
+      description: "Phiếu đã duyệt hoặc đã hoàn tất xuất kho",
+    },
+    {
+      title: "Đã hủy",
+      value: counts.cancelled,
+      description: "Phiếu đã bị hủy hoặc từ chối xử lý",
+    },
+  ];
 
   const tabs = [
-    { id: "all", label: "TẤT CẢ" },
-    { id: "pending", label: "CHỜ DUYỆT" },
-    { id: "completed", label: "ĐÃ XUẤT KHO" },
-    { id: "cancelled", label: "ĐÃ HỦY" },
+    { id: "all", label: "Tất cả" },
+    { id: "pending", label: "Chờ duyệt" },
+    { id: "completed", label: "Đã xuất kho" },
+    { id: "cancelled", label: "Đã hủy" },
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] -m-4 md:-m-5 bg-[#f8f9fa] overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b shrink-0">
-        <div className="px-6 pt-5 pb-3 flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-[16px] font-black uppercase tracking-tight text-slate-700 flex items-center gap-2">
-              <FileText className="text-slate-400" size={18}/>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
               Danh sách phiếu xuất trả NCC
             </h1>
           </div>
-          <AdminPageHeader title="" addBtnLabel="Tạo phiếu xuất trả NCC" addBtnHref="/admin/exports/new-command" />
+
         </div>
 
-        <div className="px-6 flex items-center h-[48px] gap-8">
-          {tabs.map((tab) => {
-            const hasItems = (counts as any)[tab.id] > 0;
-            const showRedDot = tab.id === "pending" && hasItems;
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "h-full text-[12px] font-black border-b-2 px-1 tracking-wider transition-all relative",
-                  activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-600"
-                )}
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="w-full xl:max-w-[260px]">
+              <Select
+                value={selectedWarehouse}
+                onValueChange={setSelectedWarehouse}
               >
-                {tab.label}
-                {showRedDot && (
-                  <span className="absolute top-2 -right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                )}
-                {activeTab === tab.id && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600"></span>}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                  <SelectValue placeholder="Lọc theo kho xuất" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouseOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+          </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6 flex flex-col min-0">
-        <div className="bg-white border border-slate-200 rounded-sm shadow-sm flex flex-col h-full overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between pr-4 bg-slate-50/50 border-b shrink-0">
-            <div className="flex-1">
-              <AdminSearchFilter
-                placeholder="Tìm mã lệnh, đối tác nhận..."
-                filter1Placeholder="Lọc theo kho xuất"
-                filter1Options={warehouseOptions}
-                onRefresh={fetchList}
-                onSearch={setSearchQuery}
-                onFilter1Change={setSelectedWarehouse}
-                hideFilter2={true}
-                hideSort={true}
-              />
-            </div>
-            <Button variant="ghost" size="sm" onClick={fetchList} disabled={isLoading}>
-              <RefreshCcw size={16} className={cn(isLoading && "animate-spin")} />
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              onClick={() => router.push("/admin/exports/new-command")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Tạo phiếu xuất trả NCC
             </Button>
           </div>
+        </div>
 
-          {/* Table Container */}
-          <div className="flex-1 min-h-0 bg-white relative">
-            {isLoading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
-                <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 text-center px-10">Đang đồng bộ dữ liệu AgriShrimp...</p>
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => (
+            <div
+              key={card.title}
+              className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+            >
+              <div>
+                <p className="text-[11px] font-semibold text-slate-600">
+                  {card.title}
+                </p>
               </div>
-            ) : displayData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <div className="bg-slate-50 p-4 rounded-full mb-3"><FileText className="opacity-20" size={40} /></div>
-                <p className="text-xs font-bold uppercase tracking-tight">Không có dữ liệu phù hợp</p>
+              <div className="mt-3 space-y-1">
+                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                  {card.value}
+                </p>
+                <p className="text-[10px] leading-4.5 text-slate-500">
+                  {card.description}
+                </p>
               </div>
-            ) : (
-              <InventoryExportTable
-                exports={displayData}
-                totalCount={totalItems}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                onRefresh={fetchList}
-              />
-            )}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="flex flex-wrap items-center gap-2 xl:col-span-3">
+            {tabs.map((tab) => {
+              const hasItems = (counts as any)[tab.id] > 0;
+              const showRedDot = tab.id === "pending" && hasItems;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "relative h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                    activeTab === tab.id
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
+                  )}
+                >
+                  {tab.label}
+                  {showRedDot && (
+                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          <div className="relative w-full xl:max-w-[360px]">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+              size={16}
+            />
+            <Input
+              placeholder="Tìm mã lệnh, đối tác nhận..."
+              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+              <p className="px-10 text-center text-[11px] uppercase tracking-widest text-slate-400">
+                Đang đồng bộ dữ liệu AgriShrimp...
+              </p>
+            </div>
+          ) : displayData.length === 0 ? (
+            <div className="flex min-h-[420px] flex-col items-center justify-center bg-white text-slate-400">
+              <div className="mb-3 rounded-full bg-slate-50 p-4">
+                <FileText className="opacity-20" size={40} />
+              </div>
+              <p className="text-xs font-medium uppercase">
+                Không có dữ liệu phù hợp
+              </p>
+            </div>
+          ) : (
+            <InventoryExportTable
+              exports={displayData}
+              totalCount={totalItems}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onRefresh={fetchList}
+            />
+          )}
         </div>
       </div>
     </div>

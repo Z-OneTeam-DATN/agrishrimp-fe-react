@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { AlertTriangle, Copy, Eye, Truck } from "lucide-react";
+import { AlertTriangle, Copy, Eye } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -29,9 +29,9 @@ export function AdminSupplierTable({
 }: AdminSupplierTableProps) {
     const getStatusInfo = (status: Supplier["status"]) => {
         if (status === "ACTIVE") {
-            return { label: "ĐANG GIAO DỊCH", class: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+            return { label: "Đang giao dịch", class: "text-emerald-600" };
         }
-        return { label: "TẠM DỪNG", class: "bg-slate-100 text-slate-500 border-slate-200" };
+        return { label: "Tạm ngừng", class: "text-slate-500" };
     };
 
     const copyValue = async (label: string, value?: string) => {
@@ -50,7 +50,7 @@ export function AdminSupplierTable({
 
     return (
         <div className="w-full overflow-x-auto">
-            <Table className="table-custom border-collapse table-fixed min-w-[1040px]">
+            <Table className="table-custom min-w-[980px] table-fixed border-collapse">
                 <colgroup>
                     <col className="w-[64px]" />
                     <col className="w-[170px]" />
@@ -60,13 +60,13 @@ export function AdminSupplierTable({
                     <col className="w-[100px]" />
                 </colgroup>
                 <TableHeader>
-                    <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-                        <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pl-4 text-center">STT</TableHead>
-                        <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Mã NCC</TableHead>
-                        <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Nhà cung cấp & MST</TableHead>
-                        <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2">Người liên hệ</TableHead>
-                        <TableHead className="font-bold text-[#1f1f1f] text-[11px] uppercase p-2 text-center">Trạng thái</TableHead>
-                        <TableHead className="text-right font-bold text-[#1f1f1f] text-[11px] uppercase p-2 pr-4">Chi tiết</TableHead>
+                    <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+                        <TableHead className="p-2 pl-4 text-center text-[10px] font-semibold text-[#1f1f1f]">STT</TableHead>
+                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Mã NCC</TableHead>
+                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Nhà cung cấp & MST</TableHead>
+                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Người liên hệ</TableHead>
+                        <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái</TableHead>
+                        <TableHead className="p-2 pr-4 text-right text-[10px] font-semibold text-[#1f1f1f]">Chi tiết</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -76,12 +76,12 @@ export function AdminSupplierTable({
                         const warningCount = supplier.warnings?.length ?? 0;
 
                         return (
-                            <TableRow key={supplier.id} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors group">
-                                <TableCell className="p-2 pl-4 text-[12px] font-bold text-slate-500 text-center">{stt}</TableCell>
+                            <TableRow key={supplier.id} className="group border-b border-slate-100 transition-colors hover:bg-sky-50/50">
+                                <TableCell className="p-2 pl-4 text-center text-[11px] font-normal text-slate-500">{stt}</TableCell>
                                 <TableCell className="p-2 align-top">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-1">
-                                            <span className="text-[12px] font-bold text-slate-700 break-words">{supplier.code || `#${supplier.id}`}</span>
+                                            <span className="break-words text-[11px] font-medium text-slate-700">{supplier.code || `#${supplier.id}`}</span>
                                             <Button
                                                 type="button"
                                                 variant="ghost"
@@ -93,7 +93,7 @@ export function AdminSupplierTable({
                                             </Button>
                                         </div>
                                         {warningCount > 0 && (
-                                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 w-fit">
+                                            <span className="inline-flex w-fit items-center gap-1 text-[9px] font-medium text-amber-600">
                                                 <AlertTriangle size={10} />
                                                 {warningCount} cảnh báo
                                             </span>
@@ -101,14 +101,11 @@ export function AdminSupplierTable({
                                     </div>
                                 </TableCell>
                                 <TableCell className="p-2 align-top">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 bg-orange-50 rounded flex items-center justify-center text-orange-600 border border-orange-100 group-hover:bg-orange-100 transition-colors shrink-0">
-                                            <Truck size={14} />
-                                        </div>
-                                        <div className="flex flex-col gap-1 min-w-0">
-                                            <span className="text-[13px] font-bold text-slate-800 uppercase tracking-tighter line-clamp-1">{supplier.name}</span>
+                                    <div className="flex items-start">
+                                        <div className="flex min-w-0 flex-col gap-1">
+                                            <span className="line-clamp-1 text-[12px] font-medium text-slate-800">{supplier.name}</span>
                                             <div className="flex items-center gap-1">
-                                                <span className="text-[10px] text-slate-400 font-mono font-bold">MST: {supplier.taxCode || "---"}</span>
+                                                <span className="font-mono text-[10px] font-normal text-slate-400">MST: {supplier.taxCode || "---"}</span>
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
@@ -124,7 +121,7 @@ export function AdminSupplierTable({
                                 </TableCell>
                                 <TableCell className="p-2 align-top">
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-[12px] font-bold text-slate-700 line-clamp-2">{supplier.contactName || "---"}</span>
+                                        <span className="line-clamp-2 text-[11px] font-medium text-slate-700">{supplier.contactName || "---"}</span>
                                         <div className="flex items-center gap-1">
                                             <span className="text-[10px] text-slate-400 font-medium truncate">{supplier.phone || "---"}</span>
                                             <Button
@@ -141,7 +138,7 @@ export function AdminSupplierTable({
                                     </div>
                                 </TableCell>
                                 <TableCell className="p-2 text-center align-top">
-                                    <span className={cn("text-[10px] font-black px-2 py-1 rounded border tracking-tight uppercase whitespace-nowrap inline-block min-w-[110px]", statusInfo.class)}>
+                                    <span className={cn("inline-block whitespace-nowrap text-[11px] font-medium", statusInfo.class)}>
                                         {statusInfo.label}
                                     </span>
                                 </TableCell>

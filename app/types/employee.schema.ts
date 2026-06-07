@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+const requiredSelectNumber = (message: string) =>
+  z.preprocess((val) => {
+    if (val === "" || val === null || val === undefined) return undefined;
+
+    const parsed = Number(val);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }, z.number({
+    required_error: message,
+    invalid_type_error: message,
+  }).min(1, message));
+
 export const EmployeeCreateSchema = z.object({
   fullName: z.string()
     .min(2, "Họ tên từ 2-100 ký tự")
@@ -33,8 +44,8 @@ export const EmployeeCreateSchema = z.object({
     maxDate.setDate(maxDate.getDate() + 30);
     return d >= minDate && d <= maxDate;
   }, { message: "Ngày vào làm không hợp lệ (từ năm 2000 đến +30 ngày tới)" }),
-  branchId: z.preprocess((val) => Number(val), z.number().min(1, "Vui lòng chọn chi nhánh")),
-  roleId: z.preprocess((val) => Number(val), z.number().min(1, "Vui lòng chọn vai trò")),
+  branchId: requiredSelectNumber("Vui lòng chọn chi nhánh"),
+  roleId: requiredSelectNumber("Vui lòng chọn vai trò"),
   citizenId: z.string().regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
 });

@@ -3,23 +3,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   Boxes,
-  Building2,
-  Calendar,
   CheckCircle2,
-  ChevronLeft,
-  ClipboardCheck,
   FileSpreadsheet,
-  Hash,
   Loader2,
+  MessageSquareText,
   Pencil,
   Plus,
   Save,
   Search,
-  ShieldAlert,
   Trash2,
-  User,
   X,
 } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -27,9 +20,17 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -148,9 +149,34 @@ const getItemMetrics = (item: CheckItem) => {
 const getItemBadge = (item: CheckItem) => {
   const metrics = getItemMetrics(item);
   if (metrics.rejectedQty > 0) return { label: "Hư hại", className: "bg-rose-50 text-rose-700 border-rose-100" };
-  if (metrics.suggestedImport > 0) return { label: "Cần nhập thêm", className: "bg-amber-50 text-amber-700 border-amber-100" };
+  if (metrics.suggestedImport > 0) return { label: "Cần nhập", className: "bg-amber-50 text-amber-700 border-amber-100" };
   if (metrics.diffQty !== 0) return { label: "Chênh lệch", className: "bg-sky-50 text-sky-700 border-sky-100" };
   return { label: "Khớp kho", className: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+};
+
+const getWorkflowStatusMeta = (status: CheckWorkflowStatus) => {
+  switch (status) {
+    case "COUNTING_IN_PROGRESS":
+      return {
+        label: "Đang đếm thực tế",
+        className: "border-amber-100 bg-amber-50 text-amber-700",
+      };
+    case "WAITING_FOR_ADJUSTMENT_APPROVAL":
+      return {
+        label: "Chờ duyệt cân bằng",
+        className: "border-blue-100 bg-blue-50 text-blue-700",
+      };
+    case "COUNTING_COMPLETED":
+      return {
+        label: "Đã cân bằng",
+        className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+      };
+    default:
+      return {
+        label: "Mới khởi tạo",
+        className: "border-slate-200 bg-slate-50 text-slate-600",
+      };
+  }
 };
 
 const isInternalEmployee = (employee: any) => {
@@ -183,6 +209,10 @@ export default function InventoryUpsert({
   const [selectedProductIds, setSelectedProductIds] = useState<
     (number | string)[]
   >([]);
+  const [resultFilter, setResultFilter] = useState("ALL");
+  const [stockFilter, setStockFilter] = useState("ALL");
+  const [noteDialogIndex, setNoteDialogIndex] = useState<number | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const [formData, setFormData] = useState({
     type: initialData?.type || "PERIODIC",
@@ -397,6 +427,22 @@ export default function InventoryUpsert({
     );
   };
 
+  const openNoteDialog = (index: number) => {
+    setNoteDialogIndex(index);
+    setNoteDraft(items[index]?.reason || "");
+  };
+
+  const closeNoteDialog = () => {
+    setNoteDialogIndex(null);
+    setNoteDraft("");
+  };
+
+  const saveNoteDialog = () => {
+    if (noteDialogIndex === null) return;
+    updateItem(noteDialogIndex, "reason", noteDraft);
+    closeNoteDialog();
+  };
+
   const removeItem = (index: number) => {
     setItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
@@ -442,6 +488,32 @@ export default function InventoryUpsert({
       ),
     [items],
   );
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const metrics = getItemMetrics(item);
+      const badge = getItemBadge(item);
+
+      const matchesResult =
+        resultFilter === "ALL" ||
+        (resultFilter === "MATCHED" && badge.label === "Khớp kho") ||
+        (resultFilter === "REPLENISH" && badge.label === "Cần nhập") ||
+        (resultFilter === "DAMAGED" && badge.label === "Hư hại") ||
+        (resultFilter === "DIFF" && badge.label === "Chênh lệch");
+
+      const matchesStock =
+        stockFilter === "ALL" ||
+        (stockFilter === "HAS_DAMAGE" && metrics.rejectedQty > 0) ||
+        (stockFilter === "LOW_STOCK" && metrics.suggestedImport > 0) ||
+        (stockFilter === "HAS_DIFF" && metrics.diffQty !== 0) ||
+        (stockFilter === "ENOUGH" &&
+          metrics.rejectedQty === 0 &&
+          metrics.suggestedImport === 0 &&
+          metrics.diffQty === 0);
+
+      return matchesResult && matchesStock;
+    });
+  }, [items, resultFilter, stockFilter]);
 
   const handleExportExcel = () => {
     const lowStockItems = items
@@ -634,210 +706,171 @@ export default function InventoryUpsert({
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-600" />
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-slate-400">
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+        <p className="text-[11px] uppercase tracking-widest text-slate-400">
+          Đang đồng bộ dữ liệu...
+        </p>
       </div>
     );
   }
 
+  const pageTitle =
+    mode === "create"
+      ? "Thêm phiếu kiểm kê mới"
+      : mode === "edit"
+        ? `Cập nhật phiếu ${formData.code}`
+        : `Chi tiết phiếu ${formData.code}`;
+  const workflowStatusMeta = getWorkflowStatusMeta(workflowStatus);
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
-      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-5 py-2.5 backdrop-blur">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-md"
-              onClick={() => router.push("/admin/inventory-checks")}
-            >
-              <ChevronLeft size={16} />
-            </Button>
-            <div>
-              <p className="text-[11px] font-medium text-slate-500">Kiểm kê kho</p>
-              <h1 className="text-base font-semibold text-slate-900">
-                {mode === "create"
-                  ? "Tạo phiếu kiểm kê kho"
-                  : mode === "edit"
-                    ? `Chỉnh sửa phiếu ${formData.code}`
-                    : `Chi tiết phiếu ${formData.code}`}
-              </h1>
-            </div>
+    <div className="space-y-3 pb-[100px] text-slate-800">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+              {pageTitle}
+            </h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {workflowStatus !== "COUNTING_INIT" && (
+              <Badge
+                className={cn(
+                  "rounded-[4px] border px-3 py-1 text-[11px] font-medium shadow-none",
+                  workflowStatusMeta.className,
+                )}
+              >
+                {workflowStatusMeta.label}
+              </Badge>
+            )}
             <Button
               variant="outline"
-              className="h-8 rounded-md border-slate-200 px-3 text-[12px] font-medium"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
               onClick={handleExportExcel}
             >
               <FileSpreadsheet size={14} className="mr-2" />
               Xuất Excel
             </Button>
-
-            {mode === "view" &&
-              (workflowStatus === "COUNTING_INIT" ||
-                workflowStatus === "COUNTING_IN_PROGRESS") &&
-              hasPermission(P.CHECK_UPDATE) && (
-              <Button
-                variant="outline"
-                className="h-8 rounded-md border-amber-200 px-3 text-[12px] font-medium text-amber-700"
-                onClick={() => router.push(`/admin/inventory-checks/${formData.code}?edit=true`)}
-              >
-                <Pencil size={14} className="mr-2" />
-                Sửa phiếu
-              </Button>
-            )}
-
-            {mode === "view" &&
-              workflowStatus === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
-              hasPermission(P.CHECK_APPROVE) && (
-              <Button className="h-8 rounded-md bg-emerald-600 px-3 text-[12px] font-medium text-white hover:bg-emerald-700" disabled={isSubmitting} onClick={handleComplete}>
-                {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <CheckCircle2 size={14} className="mr-2" />}
-                Duyệt cân bằng
-              </Button>
-            )}
-
-            {mode !== "view" && (
-              <>
-                <Button variant="outline" className="h-8 rounded-md border-slate-200 px-3 text-[12px] font-medium" disabled={isSubmitting} onClick={handleSubmit}>
-                  {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
-                  Lưu phiếu
-                </Button>
-                {hasPermission(P.CHECK_UPDATE) && (
-                  <Button className="h-8 rounded-md bg-slate-900 px-3 text-[12px] font-medium text-white hover:bg-slate-800" disabled={isSubmitting} onClick={handleSubmitForApproval}>
-                    {isSubmitting ? <Loader2 size={14} className="mr-2 animate-spin" /> : <CheckCircle2 size={14} className="mr-2" />}
-                    Gửi duyệt cân bằng
-                  </Button>
-                )}
-              </>
-            )}
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-[1360px] space-y-4 px-5 py-4">
-        <div className="grid gap-4 xl:grid-cols-[1.35fr,0.65fr]">
-          <Card className="overflow-hidden border border-slate-200 shadow-none">
-            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck size={16} className="text-slate-500" />
-                <h2 className="text-sm font-semibold text-slate-900">Thông tin kiểm kê</h2>
-              </div>
-              <p className="mt-1 text-xs text-slate-500">
-                Kiểm tra hàng hóa hư hại, đối chiếu tồn khả dụng và xác định mặt hàng cần nhập bổ sung.
-              </p>
+        <div className="bg-white border border-slate-200 p-6 shadow-sm">
+          <div className="border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+              1. Thông tin phiếu kiểm kê
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Loại kiểm kê
+              </Label>
+              <Select
+                disabled={mode === "view"}
+                value={formData.type}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, type: value }))
+                }
+              >
+                <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-[13px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PERIODIC">Định kỳ</SelectItem>
+                  <SelectItem value="UNEXPECTED">Đột xuất</SelectItem>
+                  <SelectItem value="YEAR_END">Cuối năm</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-slate-600">Loại kiểm kê</Label>
-                <Select disabled={mode === "view"} value={formData.type} onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}>
-                  <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PERIODIC">Định kỳ</SelectItem>
-                    <SelectItem value="UNEXPECTED">Đột xuất</SelectItem>
-                    <SelectItem value="YEAR_END">Cuối năm</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Kho kiểm kê
+              </Label>
+              <Select
+                disabled={mode !== "create"}
+                value={formData.branchId}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, branchId: value }))
+                }
+              >
+                <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-[13px]">
+                  <SelectValue placeholder="Chọn kho kiểm kê" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={String(branch.id)}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-slate-600">Kho kiểm kê</Label>
-                <Select disabled={mode !== "create"} value={formData.branchId} onValueChange={(value) => setFormData((prev) => ({ ...prev, branchId: value }))}>
-                  <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-sm">
-                    <div className="flex items-center gap-2 truncate">
-                      <Building2 size={14} className="text-slate-400" />
-                      <SelectValue placeholder="Chọn kho kiểm kê" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={String(branch.id)}>
-                        {branch.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-slate-600">Số chứng từ</Label>
-                <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
-                  <Hash size={14} className="mr-2 text-slate-400" />
-                  {formData.code}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-slate-600">Ngày kiểm kê</Label>
-                <div className="relative">
-                  <Calendar
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    size={14}
-                  />
-                  <Input
-                    type="date"
-                    disabled={mode === "view"}
-                    className="h-9 rounded-md border-slate-200 bg-white pl-10 text-sm"
-                    value={formData.checkDate}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        checkDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-slate-600">Người kiểm kê</Label>
-                <Select
-                  disabled={mode === "view"}
-                  value=""
-                  onValueChange={(value) => {
-                    const employee = employees.find(
-                      (item) =>
-                        item.fullName === value || item.username === value,
-                    );
-                    const name = employee?.fullName || value;
-                    if (checkedByNames.includes(name)) return;
-                    setFormData((prev) => ({
-                      ...prev,
-                      checkedBy: prev.checkedBy
-                        ? `${prev.checkedBy}, ${name}`
-                        : name,
-                    }));
-                  }}
-                >
-                  <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-sm">
-                    <SelectValue placeholder="Thêm người kiểm kê" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.fullName}>
-                        {employee.fullName} ({employee.username})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-slate-600">Người tạo</Label>
-                <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
-                  <User size={14} className="mr-2 text-slate-400" />
-                  {formData.createdByName}
-                </div>
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Số chứng từ
+              </Label>
+              <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-700">
+                {formData.code}
               </div>
             </div>
 
-            <div className="px-4 pb-4">
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Ngày kiểm kê
+              </Label>
+              <Input
+                type="date"
+                disabled={mode === "view"}
+                className="h-9 rounded-md border-slate-200 bg-white text-[13px]"
+                value={formData.checkDate}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    checkDate: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Người kiểm kê
+              </Label>
+              <Select
+                disabled={mode === "view"}
+                value=""
+                onValueChange={(value) => {
+                  const employee = employees.find(
+                    (item) => item.fullName === value || item.username === value,
+                  );
+                  const name = employee?.fullName || value;
+                  if (checkedByNames.includes(name)) return;
+                  setFormData((prev) => ({
+                    ...prev,
+                    checkedBy: prev.checkedBy
+                      ? `${prev.checkedBy}, ${name}`
+                      : name,
+                  }));
+                }}
+              >
+                <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-[13px]">
+                  <SelectValue placeholder="Thêm người kiểm kê" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.fullName}>
+                      {employee.fullName} ({employee.username})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {checkedByNames.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 pt-1">
                   {checkedByNames.map((name) => (
                     <Badge
                       key={name}
@@ -862,11 +895,24 @@ export default function InventoryUpsert({
                   ))}
                 </div>
               )}
+            </div>
 
-              <Label className="text-[12px] font-medium text-slate-600">Ghi chú phiếu</Label>
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Người tạo
+              </Label>
+              <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-700">
+                {formData.createdByName}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-12">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Ghi chú phiếu
+              </Label>
               <Input
                 disabled={mode === "view"}
-                className="mt-1 h-9 rounded-md border-slate-200 bg-white text-sm"
+                className="h-9 rounded-md border-slate-200 bg-white text-[13px]"
                 placeholder="Mô tả đợt kiểm kê hoặc lưu ý xử lý tồn kho..."
                 value={formData.note}
                 onChange={(e) =>
@@ -874,232 +920,267 @@ export default function InventoryUpsert({
                 }
               />
             </div>
-          </Card>
-
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <Card className="border border-slate-200 bg-white p-4 shadow-none">
-              <p className="text-sm font-semibold text-slate-900">Tổng quan kiểm kê</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[12px] font-medium text-slate-500">Tồn hệ thống</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.systemQty)}</p>
-                </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[12px] font-medium text-slate-500">Tồn khả dụng sau kiểm</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.usableQty)}</p>
-                </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[12px] font-medium text-slate-500">Đơn vị hư hại</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.rejectedQty)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{summary.damagedLines} dòng có hư hại</p>
-                </div>
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[12px] font-medium text-slate-500">Cần nhập thêm</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{formatNumber(summary.suggestedImport)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{summary.replenishmentLines} dòng dưới định mức</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border border-slate-200 bg-white p-4 shadow-none">
-              <p className="text-sm font-semibold text-slate-900">Kết luận nhanh</p>
-              <div className="mt-3 space-y-2.5 text-sm text-slate-600">
-                <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <ShieldAlert size={18} className="mt-0.5 text-rose-500" />
-                  <div>
-                    <p className="font-medium text-slate-800">Ưu tiên xử lý hàng hư hại</p>
-                    <p>{summary.damagedLines > 0 ? `Có ${summary.damagedLines} mặt hàng cần cập nhật hao hụt hoặc hư hại.` : "Hiện chưa có dòng nào ghi nhận hư hại."}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <AlertTriangle size={18} className="mt-0.5 text-amber-500" />
-                  <div>
-                    <p className="font-medium text-slate-800">Đề xuất nhập bổ sung</p>
-                    <p>{summary.replenishmentLines > 0 ? `Có ${summary.replenishmentLines} mặt hàng đang dưới định mức và có thể xuất Excel ngay.` : "Tồn khả dụng đang đáp ứng định mức tối thiểu."}</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </div>
         </div>
 
-        <Card className="overflow-hidden border border-slate-200 bg-white shadow-none">
-          <div className="border-b border-slate-200 px-4 py-3">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-[12px] font-medium text-slate-500">Danh sách sản phẩm</p>
-                <h2 className="mt-1 text-base font-semibold text-slate-900">Theo dõi hàng hóa, hư hại và nhu cầu nhập thêm</h2>
-              </div>
+        <div className="bg-white border border-slate-200 p-6 shadow-sm">
+          <div className="border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+              2. Danh sách sản phẩm kiểm kê
+            </span>
+          </div>
 
-              {mode !== "view" && (
-                <div className="relative w-full max-w-xl">
-                  <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    size={16}
-                  />
-                  <Input
-                    className="h-9 rounded-md border-slate-200 bg-white pl-9 pr-9 text-sm"
-                    placeholder="Tìm SKU hoặc tên sản phẩm để thêm..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  {isSearching && (
-                    <Loader2
-                      className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
-                      size={15}
-                    />
-                  )}
-
-                  {searchResults.length > 0 && (
-                    <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
-                      <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
-                        <span className="text-slate-500">
-                          Đã chọn{" "}
-                          <span className="font-bold text-slate-700">
-                            {selectedProductIds.length}
-                          </span>{" "}
-                          sản phẩm
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-7 text-[11px]"
-                          onClick={handleAddSelectedProducts}
-                        >
-                          Thêm đã chọn
-                        </Button>
-                      </div>
-                      <div className="max-h-[320px] overflow-y-auto">
-                        {searchResults.map((product) => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50"
-                            onClick={() => addItem(product)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center"
-                              >
-                                <Checkbox
-                                  checked={selectedProductIds.some(
-                                    (id) => String(id) === String(product.id),
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleSelectedProduct(product.id)
-                                  }
-                                />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">
-                                  {product.productName || product.name}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  SKU: {product.sku} | tồn hiện tại: {formatNumber(toNumber(product.quantity))}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {toNumber(product.quantity) <= toNumber(product.minThreshold ?? product.minStock ?? 10, 10) && (
-                                <Badge className="rounded-md border border-amber-100 bg-amber-50 text-[10px] font-medium text-amber-700">Sắp hết hàng</Badge>
-                              )}
-                              <Plus size={16} className="text-emerald-600" />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+          <div className="mt-5 grid grid-cols-1 gap-2.5 xl:grid-cols-4">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] font-medium text-slate-400">Tồn hệ thống</p>
+              <p className="mt-1 text-[21px] font-semibold tracking-tight text-slate-900">
+                {formatNumber(summary.systemQty)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] font-medium text-slate-400">Tồn khả dụng sau kiểm</p>
+              <p className="mt-1 text-[21px] font-semibold tracking-tight text-slate-900">
+                {formatNumber(summary.usableQty)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] font-medium text-slate-400">Đơn vị hư hại</p>
+              <p className="mt-1 text-[21px] font-semibold tracking-tight text-slate-900">
+                {formatNumber(summary.rejectedQty)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {summary.damagedLines} dòng có hư hại
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+              <p className="text-[10px] font-medium text-slate-400">Cần nhập thêm</p>
+              <p className="mt-1 text-[21px] font-semibold tracking-tight text-slate-900">
+                {formatNumber(summary.suggestedImport)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {summary.replenishmentLines} dòng dưới định mức
+              </p>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50/80">
-                <TableRow className="border-slate-100">
-                  <TableHead className="w-12 text-center text-[12px] font-medium text-slate-500 whitespace-nowrap">STT</TableHead>
-                  <TableHead className="w-[130px] text-[12px] font-medium text-slate-500 whitespace-nowrap">SKU</TableHead>
-                  <TableHead className="min-w-[220px] text-[12px] font-medium text-slate-500 whitespace-nowrap">Tên sản phẩm</TableHead>
-                  <TableHead className="text-center text-[12px] font-medium text-slate-500 whitespace-nowrap">ĐVT</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Tồn hệ thống</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Đếm thực tế</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Hư hại</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Khả dụng</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Định mức</TableHead>
-                  <TableHead className="text-right text-[12px] font-medium text-slate-500 whitespace-nowrap">Cần nhập thêm</TableHead>
-                  <TableHead className="text-center text-[12px] font-medium text-slate-500 whitespace-nowrap">Kết luận</TableHead>
-                  <TableHead className="min-w-[200px] text-[12px] font-medium text-slate-500 whitespace-nowrap">Ghi chú</TableHead>
-                  {mode !== "view" && <TableHead className="w-16" />}
+          <div className="mt-6 border-t border-slate-200 pt-6" />
+
+          <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center">
+            {mode !== "view" && (
+              <div className="relative w-full xl:max-w-[420px] xl:flex-1">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
+                />
+                <Input
+                  className="h-9 rounded-md border-slate-200 bg-white pl-9 pr-9 text-sm"
+                  placeholder="Tìm SKU hoặc tên sản phẩm để thêm..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {isSearching && (
+                  <Loader2
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+                    size={15}
+                  />
+                )}
+
+                {searchResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                      <span className="text-slate-500">
+                        Đã chọn{" "}
+                        <span className="font-bold text-slate-700">
+                          {selectedProductIds.length}
+                        </span>{" "}
+                        sản phẩm
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        onClick={handleAddSelectedProducts}
+                      >
+                        Thêm đã chọn
+                      </Button>
+                    </div>
+                    <div className="max-h-[320px] overflow-y-auto">
+                      {searchResults.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                          onClick={() => addItem(product)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center"
+                            >
+                              <Checkbox
+                                checked={selectedProductIds.some(
+                                  (id) => String(id) === String(product.id),
+                                )}
+                                onCheckedChange={() =>
+                                  toggleSelectedProduct(product.id)
+                                }
+                              />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">
+                                {product.productName || product.name}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                SKU: {product.sku} | tồn hiện tại:{" "}
+                                {formatNumber(toNumber(product.quantity))}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {toNumber(product.quantity) <=
+                              toNumber(
+                                product.minThreshold ?? product.minStock ?? 10,
+                                10,
+                              ) && (
+                              <Badge className="rounded-md border border-amber-100 bg-amber-50 text-[10px] font-medium text-amber-700">
+                                Sắp hết hàng
+                              </Badge>
+                            )}
+                            <Plus size={16} className="text-emerald-600" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Select value={resultFilter} onValueChange={setResultFilter}>
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-200 bg-white text-[12px] xl:w-[170px]">
+                <SelectValue placeholder="Lọc kết luận" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả kết luận</SelectItem>
+                <SelectItem value="MATCHED">Khớp kho</SelectItem>
+                <SelectItem value="REPLENISH">Cần nhập</SelectItem>
+                <SelectItem value="DAMAGED">Hư hại</SelectItem>
+                <SelectItem value="DIFF">Chênh lệch</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={stockFilter} onValueChange={setStockFilter}>
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-200 bg-white text-[12px] xl:w-[170px]">
+                <SelectValue placeholder="Lọc tình trạng" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả tình trạng</SelectItem>
+                <SelectItem value="HAS_DAMAGE">Có hư hại</SelectItem>
+                <SelectItem value="LOW_STOCK">Dưới định mức</SelectItem>
+                <SelectItem value="HAS_DIFF">Có chênh lệch</SelectItem>
+                <SelectItem value="ENOUGH">Ổn định</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="mt-5 overflow-x-auto rounded-[4px] border border-slate-100">
+            <Table className="min-w-[980px]">
+              <TableHeader>
+                <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
+                  <TableHead className="w-10 px-1 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">STT</TableHead>
+                  <TableHead className="w-[98px] px-1 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Mã SKU</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] max-w-[150px] px-1 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Sản phẩm</TableHead>
+                  <TableHead className="px-1 py-2 text-center text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Đơn vị</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Tồn kho</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Đếm thực</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">SL hư</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Khả dụng</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">ĐM</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Cần nhập</TableHead>
+                  <TableHead className="px-1 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Kết luận</TableHead>
+                  <TableHead className="w-[72px] px-1 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={mode === "view" ? 12 : 13}
+                      colSpan={12}
                       className="h-32 text-center"
                     >
                       <div className="flex flex-col items-center gap-3 text-slate-400">
                         <Boxes size={32} className="opacity-40" />
                         <div>
                           <p className="text-sm font-medium text-slate-700">Chưa có sản phẩm kiểm kê</p>
-                          <p className="mt-1 text-sm">Thêm sản phẩm để theo dõi hư hại và đề xuất nhập kho.</p>
+                          <p className="mt-1 text-sm">Kho này chưa có dữ liệu hàng hóa để lập phiếu kiểm kê.</p>
                         </div>
                       </div>
                     </TableCell>
                   </TableRow>
+                ) : filteredItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={12}
+                      className="h-28 text-center text-sm text-slate-500"
+                    >
+                      Không có sản phẩm phù hợp với điều kiện lọc hiện tại
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  items.map((item, index) => {
+                  filteredItems.map((item) => {
+                    const index = items.findIndex(
+                      (sourceItem) =>
+                        String(sourceItem.productVariantId) ===
+                          String(item.productVariantId) &&
+                        sourceItem.sku === item.sku,
+                    );
                     const metrics = getItemMetrics(item);
                     const badge = getItemBadge(item);
                     return (
                       <TableRow
                         key={`${item.productVariantId}-${index}`}
-                        className="border-slate-100"
+                        className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                       >
-                        <TableCell className="text-center text-sm text-slate-500">
+                        <TableCell className="px-1 py-2 text-center text-[12px] text-slate-500">
                           {index + 1}
                         </TableCell>
-                        <TableCell className="font-mono text-sm font-medium text-slate-700">
+                        <TableCell className="px-1 py-2 font-mono text-[11px] font-medium whitespace-nowrap text-slate-700">
                           {item.sku}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="w-[150px] min-w-[150px] max-w-[150px] px-1 py-2">
                           <div>
-                            <p className="text-sm font-medium text-slate-900">
+                            <p className="max-w-[150px] break-words text-[11px] font-medium leading-4.5 text-slate-900">
                               {item.name}
                             </p>
                             {metrics.diffQty !== 0 && (
-                              <p className={cn("mt-1 text-xs font-semibold", metrics.diffQty < 0 ? "text-rose-600" : "text-blue-600")}>
-                                Chênh lệch {metrics.diffQty > 0 ? `+${metrics.diffQty}` : metrics.diffQty}
+                              <p className={cn("mt-0.5 text-[10px] font-semibold", metrics.diffQty < 0 ? "text-rose-600" : "text-blue-600")}>
+                                Lệch {metrics.diffQty > 0 ? `+${metrics.diffQty}` : metrics.diffQty}
                               </p>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center text-sm text-slate-600">
+                        <TableCell className="px-1 py-2 text-center text-[11px] text-slate-600">
                           {item.unit}
                         </TableCell>
-                        <TableCell className="text-right text-sm font-medium text-slate-800">
+                        <TableCell className="px-1 py-2 text-right text-[11px] font-medium text-slate-800">
                           {formatNumber(metrics.systemQty)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-1 py-2 text-right">
                           <Input
                             type="number"
                             disabled={mode === "view"}
-                            className="ml-auto h-8 w-20 rounded-md border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800"
+                            className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
                             value={item.quantityReal}
                             onChange={(e) =>
                               updateItem(index, "quantityReal", e.target.value)
                             }
                           />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-1 py-2 text-right">
                           <Input
                             type="number"
                             disabled={mode === "view"}
-                            className="ml-auto h-8 w-20 rounded-md border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800"
+                            className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
                             value={item.quantityRejected}
                             onChange={(e) =>
                               updateItem(
@@ -1110,49 +1191,63 @@ export default function InventoryUpsert({
                             }
                           />
                         </TableCell>
-                        <TableCell className="text-right text-sm font-medium text-slate-800">
+                        <TableCell className="px-1 py-2 text-right text-[11px] font-medium text-slate-800">
                           {formatNumber(metrics.usableQty)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-1 py-2 text-right">
                           <Input
                             type="number"
                             disabled={mode === "view"}
-                            className="ml-auto h-8 w-20 rounded-md border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800"
+                            className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
                             value={item.minThreshold}
                             onChange={(e) =>
                               updateItem(index, "minThreshold", e.target.value)
                             }
                           />
                         </TableCell>
-                        <TableCell className="text-right text-sm font-medium text-slate-800">
+                        <TableCell className="px-1 py-2 text-right text-[11px] font-medium text-slate-800">
                           {formatNumber(metrics.suggestedImport)}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="px-1 py-2 text-center">
                           <Badge
                             className={cn(
-                              "rounded-md border px-2 py-0.5 text-[11px] font-normal",
+                              "rounded-md border px-1.5 py-0.5 text-[9px] font-normal",
                               badge.className,
                             )}
                           >
                             {badge.label}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Input disabled={mode === "view"} className="h-8 rounded-md border-slate-200 bg-white text-sm" placeholder="Ghi rõ nguyên nhân..." value={item.reason} onChange={(e) => updateItem(index, "reason", e.target.value)} />
-                        </TableCell>
-                        {mode !== "view" && (
-                          <TableCell className="text-right">
+                        <TableCell className="px-1 py-2">
+                          <div className="flex items-center justify-center gap-1">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 rounded-md text-slate-400 hover:bg-slate-100 hover:text-rose-600"
-                              onClick={() => removeItem(index)}
+                              className={cn(
+                                "h-7 w-7 rounded-md hover:bg-slate-100",
+                                item.reason
+                                  ? "text-emerald-600 hover:text-emerald-700"
+                                  : "text-slate-400 hover:text-slate-600",
+                              )}
+                              onClick={() => openNoteDialog(index)}
+                              title="Ghi chú"
                             >
-                              <Trash2 size={15} />
+                              <MessageSquareText size={15} />
                             </Button>
-                          </TableCell>
-                        )}
+                            {mode !== "view" && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                                onClick={() => removeItem(index)}
+                              >
+                                <Trash2 size={15} />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -1160,7 +1255,129 @@ export default function InventoryUpsert({
               </TableBody>
             </Table>
           </div>
-        </Card>
+        </div>
+
+        <Dialog
+          open={noteDialogIndex !== null}
+          onOpenChange={(open) => !open && closeNoteDialog()}
+        >
+          <DialogContent className="max-w-md rounded-[6px] border border-slate-200 bg-white p-0 shadow-xl">
+            <DialogHeader className="border-b border-slate-200 px-5 py-4">
+              <DialogTitle className="text-[16px] font-bold text-slate-900">
+                Ghi chú sản phẩm
+              </DialogTitle>
+              <DialogDescription className="pt-1 text-[12px] leading-relaxed text-slate-500">
+                {noteDialogIndex !== null
+                  ? items[noteDialogIndex]?.name
+                  : "Cập nhật lý do hư hại hoặc ghi chú kiểm kê"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="px-5 py-4">
+              <Textarea
+                value={noteDraft}
+                disabled={mode === "view"}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                placeholder="Ghi rõ nguyên nhân hoặc ghi chú liên quan..."
+                className="min-h-[120px] resize-none rounded-md border-slate-200 text-[13px] shadow-none"
+              />
+            </div>
+
+            <DialogFooter className="border-t border-slate-200 px-5 py-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-md border-slate-200 px-4 text-[11px] font-medium text-slate-700 shadow-none hover:bg-slate-50"
+                onClick={closeNoteDialog}
+              >
+                {mode === "view" ? "Đóng" : "Hủy"}
+              </Button>
+              {mode !== "view" && (
+                <Button
+                  type="button"
+                  className="h-9 rounded-md bg-emerald-600 px-4 text-[11px] font-medium text-white hover:bg-emerald-700"
+                  onClick={saveNoteDialog}
+                >
+                  Lưu ghi chú
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <div className="fixed bottom-0 left-0 right-0 z-[999] flex justify-end gap-3 border-t bg-white p-3 lg:left-[260px]">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push("/admin/inventory-checks")}
+            className="text-[11px] font-medium text-slate-400"
+          >
+            Quay lại
+          </Button>
+
+          {mode === "view" &&
+            (workflowStatus === "COUNTING_INIT" ||
+              workflowStatus === "COUNTING_IN_PROGRESS") &&
+            hasPermission(P.CHECK_UPDATE) && (
+              <Button
+                variant="outline"
+                className="h-9 border-slate-200 bg-white px-5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                onClick={() => router.push(`/admin/inventory-checks/${formData.code}?edit=true`)}
+              >
+                <Pencil size={14} className="mr-2" />
+                Sửa phiếu
+              </Button>
+            )}
+
+          {mode === "view" &&
+            workflowStatus === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
+            hasPermission(P.CHECK_APPROVE) && (
+              <Button
+                className="h-9 bg-emerald-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700"
+                disabled={isSubmitting}
+                onClick={handleComplete}
+              >
+                {isSubmitting ? (
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 size={14} className="mr-2" />
+                )}
+                Duyệt cân bằng
+              </Button>
+            )}
+
+          {mode !== "view" && (
+            <>
+              <Button
+                variant="outline"
+                className="h-9 border-slate-200 bg-white px-5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                disabled={isSubmitting}
+                onClick={handleSubmit}
+              >
+                {isSubmitting ? (
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                ) : (
+                  <Save size={14} className="mr-2" />
+                )}
+                Lưu phiếu
+              </Button>
+              {hasPermission(P.CHECK_UPDATE) && (
+                <Button
+                  className="h-9 bg-emerald-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700"
+                  disabled={isSubmitting}
+                  onClick={handleSubmitForApproval}
+                >
+                  {isSubmitting ? (
+                    <Loader2 size={14} className="mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={14} className="mr-2" />
+                  )}
+                  Gửi duyệt cân bằng
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

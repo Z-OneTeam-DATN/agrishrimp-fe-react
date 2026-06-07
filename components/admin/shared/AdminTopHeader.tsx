@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Bell,
-  CircleHelp,
   User,
   LogOut,
   Settings as SettingsIcon,
   MapPin,
   Clock,
-  ShieldCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,6 +20,15 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { useLogout } from "@/hooks/use-logout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -38,7 +45,82 @@ type BranchSummary = {
 
 type BranchResponse = BranchSummary[] | { content?: BranchSummary[] };
 
+const ADMIN_ROUTE_LABELS: Record<string, string> = {
+  "/admin": "Trang chủ",
+  "/admin/inventory-dashboard": "Bàn làm việc kho",
+  "/admin/employees": "Quản lý nhân sự",
+  "/admin/employees/add": "Thêm nhân sự",
+  "/admin/employees/edit": "Chỉnh sửa nhân sự",
+  "/admin/employees/roles": "Vai trò & quyền",
+  "/admin/employees/roles/add": "Thêm vai trò",
+  "/admin/employees/roles/edit": "Chỉnh sửa vai trò",
+  "/admin/branches": "Chi nhánh & Kho",
+  "/admin/branches/add": "Thêm chi nhánh",
+  "/admin/customers": "Khách hàng",
+  "/admin/customers/add": "Thêm khách hàng",
+  "/admin/suppliers": "Nhà cung cấp",
+  "/admin/suppliers/add": "Thêm nhà cung cấp",
+  "/admin/products": "Sản phẩm",
+  "/admin/products/add": "Thêm sản phẩm",
+  "/admin/products/edit": "Chỉnh sửa sản phẩm",
+  "/admin/categories": "Danh mục",
+  "/admin/variants": "Thuộc tính",
+  "/admin/variants/add": "Thêm thuộc tính",
+  "/admin/banners": "Banner",
+  "/admin/blog/posts": "Bài viết",
+  "/admin/blog/posts/new": "Thêm bài viết",
+  "/admin/blog/posts/edit": "Chỉnh sửa bài viết",
+  "/admin/blog/categories": "Danh mục blog",
+  "/admin/orders": "Đơn hàng",
+  "/admin/orders-all": "Tất cả đơn hàng",
+  "/admin/orders/add": "Tạo đơn hàng",
+  "/admin/orders/draft": "Đơn hàng nháp",
+  "/admin/orders/incomplete": "Đơn hàng chưa hoàn tất",
+  "/admin/orders/return": "Trả hàng",
+  "/admin/orders-handover": "Bàn giao đơn hàng",
+  "/admin/orders-handover/create": "Tạo bàn giao",
+  "/admin/orders-processing": "Đơn đang xử lý",
+  "/admin/receipts": "Phiếu nhập",
+  "/admin/receipts/new": "Lập phiếu nhập",
+  "/admin/receipts/select-request": "Chọn phiếu yêu cầu",
+  "/admin/exports": "Phiếu xuất",
+  "/admin/exports/new": "Lập phiếu xuất",
+  "/admin/exports/new-command": "Tạo phiếu xuất trả NCC",
+  "/admin/transfers": "Điều chuyển kho",
+  "/admin/transfers/new": "Tạo điều chuyển",
+  "/admin/transfers/requests": "Yêu cầu điều chuyển",
+  "/admin/purchase-requests": "Yêu cầu nhập hàng",
+  "/admin/purchase-requests/new": "Tạo yêu cầu nhập",
+  "/admin/inventory-checks": "Kiểm kê kho",
+  "/admin/inventory-checks/new": "Tạo phiếu kiểm kê",
+  "/admin/financial": "Tổng quan tài chính",
+  "/admin/financial/cashbook": "Sổ quỹ / Tiền chi",
+  "/admin/financial/profit-loss": "Lãi lỗ",
+  "/admin/financial/supplier-debt": "Công nợ NCC",
+  "/admin/financial/customer-debt": "Công nợ khách hàng",
+  "/admin/reports/sales": "Báo cáo doanh thu",
+  "/admin/reports/inventory": "Báo cáo nhập xuất tồn",
+  "/admin/settings": "Cài đặt",
+  "/admin/chat": "Chat khách hàng",
+  "/admin/vouchers": "Khuyến mãi & Voucher",
+  "/admin/vouchers/add": "Thêm voucher",
+  "/admin/vouchers/edit": "Cập nhật voucher",
+  "/admin/shipping/overview": "Tổng quan giao hàng",
+};
+
+const HIDDEN_BREADCRUMB_PATHS = new Set([
+  "/admin/employees",
+]);
+
+const SEGMENT_LABELS: Record<string, string> = {
+  add: "Thêm mới",
+  edit: "Chỉnh sửa",
+  new: "Tạo mới",
+  page: "Trang",
+};
+
 export default function AdminTopHeader() {
+  const pathname = usePathname();
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
@@ -88,6 +170,51 @@ export default function AdminTopHeader() {
       })
     : "--:--:--";
 
+  const breadcrumbs = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean);
+    const items: { href: string; label: string }[] = [];
+
+    if (segments[0] !== "admin") {
+      return items;
+    }
+
+    let currentPath = "";
+
+    segments.forEach((segment, index) => {
+      currentPath += `/${segment}`;
+
+      const exactLabel = ADMIN_ROUTE_LABELS[currentPath];
+      const isLast = index === segments.length - 1;
+
+      if (pathname.startsWith("/admin/employees/roles") && HIDDEN_BREADCRUMB_PATHS.has(currentPath)) {
+        return;
+      }
+
+      if (exactLabel) {
+        items.push({ href: currentPath, label: exactLabel });
+        return;
+      }
+
+      if (/^\d+$/.test(segment) || segment.startsWith("[")) {
+        if (isLast) {
+          items.push({ href: currentPath, label: "Chi tiết" });
+        }
+        return;
+      }
+
+      const segmentLabel =
+        SEGMENT_LABELS[segment] ??
+        segment
+          .split("-")
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(" ");
+
+      items.push({ href: currentPath, label: segmentLabel });
+    });
+
+    return items;
+  }, [pathname]);
+
   const getUserRoleName = () => {
     if (typeof user?.role === "object" && user.role !== null) {
       return user.role.displayName || "Quản trị viên";
@@ -120,26 +247,35 @@ export default function AdminTopHeader() {
 
   return (
     <header className="h-[64px] border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
-      <div className="flex items-center gap-6 flex-1">
-        <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
-          <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-xl border border-slate-100 shadow-sm ring-4 ring-slate-50">
-            <img
-              src="/images/logo_arishrimp.jpg"
-              alt="AgriShrimp Logo"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[13px] font-black text-slate-900 leading-none tracking-tight uppercase">
-              AGRISHRIMP CO.
-            </span>
-            <span className="text-[10px] font-bold text-emerald-600 uppercase mt-0.5 tracking-wider">
-              System Admin
-            </span>
-          </div>
+      <div className="flex items-center gap-6 flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
+          <Breadcrumb>
+            <BreadcrumbList className="flex-nowrap overflow-x-auto whitespace-nowrap text-[13px] font-medium text-slate-400 no-scrollbar">
+              {breadcrumbs.map((item, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+
+                return (
+                  <Fragment key={item.href}>
+                    <BreadcrumbItem className="min-w-0">
+                      {isLast ? (
+                        <BreadcrumbPage className="truncate text-[13px] font-bold text-slate-800">
+                          {item.label}
+                        </BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild className="truncate text-[13px] text-slate-500 hover:text-emerald-600">
+                          <Link href={item.href}>{item.label}</Link>
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                    {!isLast && <BreadcrumbSeparator className="text-slate-300" />}
+                  </Fragment>
+                );
+              })}
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
 
-        <div className="hidden xl:flex items-center gap-4 text-slate-500 ml-2">
+        <div className="hidden xl:flex items-center gap-4 text-slate-500">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100/50">
             <Clock size={14} className="text-slate-400" />
             <span className="text-[13px] font-bold text-slate-700 font-mono tracking-wider">
@@ -162,18 +298,6 @@ export default function AdminTopHeader() {
           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></div>
         </div>
 
-        {hasPermission(P.ROLE_VIEW) && (
-          <Link href="/admin/employees/roles">
-            <Button
-              variant="outline"
-              className="hidden md:flex h-8 items-center gap-1.5 px-3 text-[12px] font-semibold text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100 hover:border-violet-300 rounded-full transition-colors"
-            >
-              <ShieldCheck size={14} className="text-violet-500" />
-              Quản lý vai trò
-            </Button>
-          </Link>
-        )}
-
         <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
           <Button
             variant="ghost"
@@ -182,14 +306,6 @@ export default function AdminTopHeader() {
           >
             <Bell size={20} />
             <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
-          >
-            <CircleHelp size={20} />
           </Button>
         </div>
 

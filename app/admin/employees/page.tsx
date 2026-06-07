@@ -1,19 +1,18 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { AdminPageHeader } from "@/components/admin/shared/AdminPageHeader";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminEmployeeTable } from "@/components/admin/AdminEmployeeTable";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { EmployeeService } from "@/app/services/employee.service";
-import { RoleService } from "@/app/services/RoleService";
 import { branchService } from "@/app/services/branchService";
 import { UserResponse } from "@/app/types/employee.schema";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function EmployeeManagementPage() {
   const { user: currentUser, isAuthenticated, isLoadingAuth } = useAuthStore();
@@ -35,7 +34,6 @@ export default function EmployeeManagementPage() {
     sort: "createdAt,desc" 
   });
 
-  const [roles, setRoles] = useState<{label: string, value: string}[]>([]);
   const [branches, setBranches] = useState<{label: string, value: string}[]>([]);
 
   useEffect(() => {
@@ -51,19 +49,9 @@ export default function EmployeeManagementPage() {
   const fetchInitData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const fetchRoles = hasPermission(P.ROLE_VIEW) ? RoleService.getAll() : Promise.resolve([]);
       const fetchBranches = hasPermission(P.BRANCH_VIEW) ? branchService.getAll() : Promise.resolve([]);
 
-      const [rolesRes, branchesRes] = await Promise.all([
-        fetchRoles,
-        fetchBranches
-      ]);
-      
-      let rolesList = (Array.isArray(rolesRes) ? rolesRes : (rolesRes as any).content || [])
-        .map((r: any) => ({ label: r.displayName, value: String(r.id), slug: r.slug }));
-      
-      // Không hiển thị role USER (1.2)
-      rolesList = rolesList.filter((r: any) => r.slug.toLowerCase() !== "user" && r.slug.toLowerCase() !== "customer");
+      const branchesRes = await fetchBranches;
 
       const branchesData = Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).content || [];
       let branchesList = branchesData.map((b: any) => ({ label: b.name, value: String(b.id) }));
@@ -73,7 +61,6 @@ export default function EmployeeManagementPage() {
         branchesList = branchesList.filter((b: any) => b.value === String(currentUser.branch?.id));
       }
 
-      setRoles([{ label: "Tất cả vai trò", value: "all" }, ...rolesList]);
       setBranches([{ label: "Tất cả chi nhánh", value: "all" }, ...branchesList]);
     } catch (e) {
       console.error("Error fetching filter data", e);
@@ -125,24 +112,17 @@ export default function EmployeeManagementPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="mx-6 mt-5">
-        <AdminPageHeader
-          title="Quản lý nhân sự & Hệ thống"
-          titleClassName="text-[26px] font-black tracking-[0.04em]"
-          subtitle="Theo dõi danh sách nhân sự, quyền truy cập và trạng thái làm việc theo từng chi nhánh."
-          addBtnLabel="Thêm nhân viên mới"
-          addBtnHref="/admin/employees/add"
-          permission={P.STAFF_CREATE}
-          secondaryBtnLabel={hasPermission(P.ROLE_VIEW) ? "Quản lý quyền" : undefined}
-          secondaryBtnHref="/admin/employees/roles"
-          secondaryBtnIcon={ShieldCheck}
-        />
-      </div>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8">
+        <div className="mb-4">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Quản lý nhân sự hệ thống
+          </h1>
+        </div>
 
-      <div className="mx-6 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden mb-8">
         <AdminSearchFilter 
           placeholder="Tìm tên, email, SĐT hoặc CCCD..." 
+          containerClassName="bg-transparent border-b-0 px-0 pt-0"
           filter1Placeholder="Tất cả chi nhánh"
           filter1Options={branches}
           onFilter1Change={(val) => setFilters(f => ({...f, branchId: val, page: 0}))}
@@ -152,10 +132,24 @@ export default function EmployeeManagementPage() {
           onSortChange={(val) => setFilters(f => ({...f, sort: val, page: 0}))}
           onSearch={(val) => setFilters(f => ({...f, keyword: val, page: 0}))}
           onRefresh={fetchEmployees}
+          hideRefreshButton
+          hideSettingsButton
+          trailingContent={
+            <>
+              {hasPermission(P.STAFF_CREATE) && (
+                <Link href="/admin/employees/add">
+                  <Button className="h-[38px] px-4 text-[14px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition-all">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Thêm nhân viên mới
+                  </Button>
+                </Link>
+              )}
+            </>
+          }
         />
         
         {loading ? (
-          <div className="p-12 text-center text-slate-500 font-medium italic">
+          <div className="border border-[#dcdcdc] bg-white p-12 text-center text-slate-500 font-medium italic shadow-sm">
             <Loader2 className="animate-spin mx-auto mb-2 text-emerald-600" />
             Đang tải danh sách nhân sự...
           </div>
@@ -165,6 +159,7 @@ export default function EmployeeManagementPage() {
             onRefresh={fetchEmployees}
             totalElements={totalElements}
             currentPage={filters.page}
+            pageSize={filters.size}
             onPageChange={(p) => setFilters(f => ({...f, page: p}))}
           />
         )}

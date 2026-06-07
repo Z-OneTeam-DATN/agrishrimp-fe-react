@@ -4,6 +4,7 @@ export interface RoleType {
   displayName: string;
   isActive: boolean;
   isSystem: boolean;
+  memberCount?: number;
   description: string;
   createdAt: string;
   updatedAt: string;

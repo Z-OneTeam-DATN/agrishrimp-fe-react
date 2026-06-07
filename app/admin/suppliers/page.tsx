@@ -2,14 +2,21 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronLeft, ChevronRight, PackageSearch, Truck } from "lucide-react";
-import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
+import { ChevronLeft, ChevronRight, Loader2, PackageSearch, Plus, Search, Truck } from "lucide-react";
 import { AdminSupplierTable } from "@/components/admin/AdminSupplierTable";
 import { supplierService } from "@/app/services/supplier.service";
 import { Supplier } from "@/app/types/supplier.type";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export default function SupplierListPage() {
     const router = useRouter();
@@ -63,79 +70,86 @@ export default function SupplierListPage() {
     }, [suppliers]);
 
     return (
-        <div className="space-y-4 pb-10">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1 py-1">
-                <div>
-                    <h1 className="text-[18px] font-black uppercase text-[#1f1f1f] tracking-tight">QUẢN LÝ NHÀ CUNG CẤP</h1>
-                    <p className="text-[12px] text-slate-500 font-medium mt-1">
-                        Theo dõi hồ sơ đối tác, trạng thái vận hành và chất lượng dữ liệu supplier mà không ảnh hưởng các module kho, mua và bán.
-                    </p>
-                </div>
-                <Button
-                    onClick={() => router.push("/admin/suppliers/add")}
-                    className="h-[38px] text-[12px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-[3px] uppercase px-5"
-                >
-                    + Thêm nhà cung cấp
-                </Button>
-            </div>
+        <div className="space-y-3">
+            <div className="mb-8 mt-2 space-y-4 px-1">
+                <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
+                    Quản lý nhà cung cấp
+                </h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tổng kết quả</p>
-                    <p className="mt-2 text-[22px] font-black text-slate-800">{totalElements}</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Theo bộ lọc hiện tại</p>
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="w-full xl:max-w-[260px]">
+                        <Select
+                            value={status}
+                            onValueChange={(value) => {
+                                setStatus(value);
+                                setCurrentPage(0);
+                            }}
+                        >
+                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                                <SelectValue placeholder="Tất cả trạng thái" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-md">
+                                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                                <SelectItem value="ACTIVE">Đang giao dịch</SelectItem>
+                                <SelectItem value="INACTIVE">Tạm ngừng</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Button
+                        onClick={() => router.push("/admin/suppliers/add")}
+                        className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Thêm nhà cung cấp
+                    </Button>
                 </div>
-                <div className="rounded-[4px] border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Đang giao dịch</p>
-                    <p className="mt-2 text-[22px] font-black text-emerald-700">{visibleSummary.activeCount}</p>
-                    <p className="text-[11px] text-emerald-700/80 mt-1">Trong trang đang hiển thị</p>
-                </div>
-                <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Tạm dừng</p>
-                    <p className="mt-2 text-[22px] font-black text-slate-700">{visibleSummary.inactiveCount}</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Trong trang đang hiển thị</p>
-                </div>
-                <div className="rounded-[4px] border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Cảnh báo dữ liệu</p>
-                    <p className="mt-2 text-[22px] font-black text-amber-700">{visibleSummary.warningCount}</p>
-                    <p className="text-[11px] text-amber-700/80 mt-1">Trùng liên hệ hoặc thiếu catalog</p>
-                </div>
-            </div>
 
-            <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden mb-8">
-                <AdminSearchFilter
-                    placeholder="Tìm theo tên, mã NCC, MST, SĐT, email..."
-                    onSearch={handleSearch}
-                    onRefresh={fetchSuppliers}
-                    hideSort
-                    hideFilter2
-                    filter1Placeholder="Tất cả trạng thái"
-                    filter1Options={[
-                        { label: "Tất cả trạng thái", value: "all" },
-                        { label: "Đang giao dịch", value: "ACTIVE" },
-                        { label: "Tạm ngừng", value: "INACTIVE" },
-                    ]}
-                    onFilter1Change={(value) => {
-                        setStatus(value);
-                        setCurrentPage(0);
-                    }}
-                />
+                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+                    {[
+                        { title: "Tổng nhà cung cấp", value: totalElements, description: "Số hồ sơ theo bộ lọc hiện tại" },
+                        { title: "Đang giao dịch", value: visibleSummary.activeCount, description: "Nhà cung cấp đang hoạt động trong trang" },
+                        { title: "Tạm ngừng", value: visibleSummary.inactiveCount, description: "Nhà cung cấp đang tạm dừng trong trang" },
+                        { title: "Cảnh báo dữ liệu", value: visibleSummary.warningCount, description: "Thông tin cần kiểm tra hoặc bổ sung" },
+                    ].map((card) => (
+                        <div key={card.title} className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+                            <p className="text-[11px] font-semibold text-slate-400">{card.title}</p>
+                            <div className="mt-3 space-y-1">
+                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">{card.value}</p>
+                                <p className="text-[10px] leading-4.5 text-slate-500">{card.description}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex justify-end">
+                    <div className="relative w-full xl:max-w-[360px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                        <Input
+                            value={keyword}
+                            onChange={(event) => handleSearch(event.target.value)}
+                            placeholder="Tìm tên, mã NCC, MST, SĐT..."
+                            className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                        />
+                    </div>
+                </div>
+
+            <div className="mb-8 overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
 
                 {isLoading ? (
-                    <div className="p-20 text-center flex flex-col items-center gap-2">
-                        <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                    <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
+                        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+                        <p className="px-10 text-center text-[11px] uppercase tracking-widest text-slate-400">
                             Đang tải dữ liệu...
                         </p>
                     </div>
                 ) : suppliers.length > 0 ? (
                     <>
                         <AdminSupplierTable suppliers={suppliers} currentPage={currentPage} pageSize={pageSize} />
-                        <div className="flex flex-col gap-3 px-5 py-3 border-t border-[#eee] bg-[#f8f9fa] lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold uppercase tracking-tight text-slate-500">
+                        <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-500">
                                 <span>Hiển thị {suppliers.length} / {totalElements} kết quả</span>
                                 {keyword.trim() && (
-                                    <span className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">
+                                    <span className="inline-flex items-center gap-1 text-blue-600">
                                         <PackageSearch size={12} />
                                         Từ khóa: {keyword.trim()}
                                     </span>
@@ -211,7 +225,7 @@ export default function SupplierListPage() {
                         {keyword || status !== "all" ? (
                             <Button
                                 variant="outline"
-                                className="h-9 text-[11px] font-bold uppercase"
+                                className="h-9 text-[11px] font-medium"
                                 onClick={() => {
                                     setKeyword("");
                                     setStatus("all");
@@ -222,18 +236,15 @@ export default function SupplierListPage() {
                             </Button>
                         ) : (
                             <Button
-                                className="h-9 text-[11px] font-bold uppercase bg-blue-600 hover:bg-blue-700"
+                                className="h-9 bg-emerald-600 text-[11px] font-medium hover:bg-emerald-700"
                                 onClick={() => router.push("/admin/suppliers/add")}
                             >
                                 + Tạo supplier đầu tiên
                             </Button>
                         )}
-                        <div className="inline-flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
-                            <AlertTriangle size={14} />
-                            Tìm kiếm supplier hiện hỗ trợ tên, mã NCC, MST, SĐT và email.
-                        </div>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );

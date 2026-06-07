@@ -10,6 +10,7 @@ import {
   PackageSearch,
   ArrowLeftRight,
   FileBarChart2,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -71,39 +72,69 @@ const inventoryReports = [
 
 export default function InventoryReportListPage() {
   return (
-    <div className="space-y-6 pb-10 bg-[#f0f2f5] min-h-screen p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[24px] font-medium text-[#1f1f1f]">
-          Danh sách báo cáo kho
-        </h1>
-        <Button
-          variant="outline"
-          className="bg-white border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2"
-        >
-          <HelpCircle size={18} className="text-slate-500" /> Trợ giúp
-        </Button>
-      </div>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8">
+        <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Báo cáo nhập xuất tồn
+          </h1>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+            >
+              <HelpCircle className="mr-2 h-4 w-4" />
+              Trợ giúp
+            </Button>
+          </div>
+        </div>
 
-      {/* Report Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {inventoryReports.map((report) => (
-          <Link key={report.id} href={report.href}>
-            <div className="bg-white border border-[#dcdcdc] p-6 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer group min-h-[100px] items-center">
-              <div className="text-slate-700 group-hover:text-blue-600 transition-colors shrink-0">
-                <report.icon size={32} strokeWidth={1.5} />
-              </div>
-              <div className="flex flex-col">
-                <h3 className="text-[15px] font-bold text-[#1f1f1f] group-hover:text-blue-600 transition-colors uppercase tracking-tight">
-                  {report.title}
-                </h3>
-                <p className="text-[13px] text-slate-500 mt-0.5 leading-snug">
-                  {report.description}
-                </p>
-              </div>
-            </div>
-          </Link>
-        ))}
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Danh mục báo cáo kho
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
+            {inventoryReports.map((report, index) => (
+              <Link key={report.id} href={report.href}>
+                <div
+                  className={[
+                    "group flex min-h-[128px] items-start gap-4 border-b border-slate-100 p-5 transition-colors hover:bg-[#f0f8ff]",
+                    index % 2 === 0 ? "md:border-r md:border-slate-100" : "",
+                    index >= inventoryReports.length - (inventoryReports.length % 2 === 0 ? 2 : 1)
+                      ? "border-b-0"
+                      : "",
+                  ].join(" ")}
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600">
+                    <report.icon size={22} strokeWidth={1.75} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-[15px] font-semibold tracking-tight text-slate-900 transition-colors group-hover:text-blue-600">
+                      {report.title}
+                    </h3>
+                    <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                      {report.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-1 text-slate-300 transition-colors group-hover:text-blue-500">
+                    <ChevronRight size={18} />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="border-t border-slate-100 bg-[#f8f9fa] px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              Tổng số {inventoryReports.length} báo cáo kho
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

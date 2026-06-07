@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  X, Settings, HelpCircle, Save, ChevronLeft,
-  Building2, User, Mail, Phone, MapPin,
-  AlertCircle, Loader2, Search, Navigation, ExternalLink,
+  Loader2,
+  Search,
+  MapPin,
+  Navigation,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +25,6 @@ import { toast } from "sonner";
 import { AdminBranchSchema, AdminBranchForm } from "@/app/types/admin.schema";
 import { branchService } from '@/app/services/branchService';
 import { EmployeeService } from "@/app/services/employee.service";
-import { usePermissions } from "@/hooks/usePermissions";
-import { P } from "@/lib/permissions";
 import MapPicker from "@/components/admin/map-picker";
 
 // --- HELPERS TRÍCH XUẤT DỮ LIỆU ---
@@ -59,7 +59,6 @@ const fetchWithAuth = async (url: string) => {
 };
 
 export default function AddBranchPage() {
-  const { hasPermission, isLoadingAuth } = usePermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const branchId = searchParams.get("id");
@@ -70,7 +69,6 @@ export default function AddBranchPage() {
   const [assignedManagerIds, setAssignedManagerIds] = useState<Set<number>>(new Set());
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isGettingGPS, setIsGettingGPS] = useState(false);
-  const [hasAutoGeocoded, setHasAutoGeocoded] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
 
   const [provinces, setProvinces] = useState<any[]>([]);
@@ -530,7 +528,7 @@ export default function AddBranchPage() {
     <div className="sticky top-0 z-10 bg-white p-2 border-b">
       <div className="relative">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-        <Input placeholder={placeholder} className="h-8 pl-8 text-[12px] rounded-none focus-visible:ring-0" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+        <Input placeholder={placeholder} className="h-8 pl-8 text-[12px] focus-visible:ring-0" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
       </div>
     </div>
   );
@@ -556,178 +554,330 @@ export default function AddBranchPage() {
 
   return (
     <>
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen">
-      <div className="flex items-center gap-4 mb-2 px-1">
-        <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400"><ChevronLeft size={20} /></Button>
-        <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">{isEditMode ? "Cập nhật chi nhánh" : "Khởi tạo chi nhánh mới"}</h1>
-        <div className="ms-auto flex items-center gap-3 text-gray-400">
-          <Settings size={18} className="cursor-pointer hover:text-emerald-600 transition-colors" />
-          <HelpCircle size={18} className="cursor-pointer hover:text-emerald-600 transition-colors" />
-          <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8"><X size={20} /></Button>
-        </div>
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 pb-[100px] text-slate-800">
+      <div className="mt-2 mb-8 space-y-4">
+        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+          {isEditMode ? "Cập nhật chi nhánh" : "Thêm chi nhánh mới"}
+        </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-9 space-y-5">
-          {/* Section 1 */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-emerald-700 font-black text-[11px] uppercase tracking-widest border-b pb-3"><Building2 size={16} /> 1. Thông tin định danh</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
-              <div className="md:col-span-2 space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Tên chi nhánh *</Label>
-                <Input {...register("name")} className={`h-[34px] text-[13px] border-[#ccc] rounded-none font-bold ${errors.name ? 'border-red-500' : ''}`} />
-                {errors.name && <span className="text-[10px] text-red-500 font-bold">{errors.name.message}</span>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Loại hình *</Label>
-                <Controller name="branchType" control={control} render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="h-[34px] border-[#ccc] rounded-none"><SelectValue /></SelectTrigger>
-                      <SelectContent className="rounded-none font-bold">
-                        <SelectItem value="WAREHOUSE" className="text-blue-600">KHO TRUNG TÂM / TRỤ SỞ</SelectItem>
-                        <SelectItem value="STORE" className="text-slate-600">CỬA HÀNG BÁN LẺ</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Mã chi nhánh *</Label>
-                <Input {...register("id")} readOnly className="h-[34px] text-[13px] border-[#ccc] rounded-none font-mono bg-slate-100 cursor-not-allowed" />
-              </div>
-            </div>
+        <div className="bg-white border border-slate-200 p-6 shadow-sm">
+          <div className="border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+              1. Thông tin cơ bản
+            </span>
           </div>
 
-          {/* Section 2 */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-emerald-700 font-black text-[11px] uppercase tracking-widest border-b pb-3"><MapPin size={16} /> 2. Vị trí địa lý & Địa chỉ kho</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Tỉnh / Thành phố *</Label>
-                <Controller name="province" control={control} render={({ field }) => (
-                    <Select onValueChange={(val) => { field.onChange(val); setValue("district", ""); setValue("ward", ""); }} value={field.value}>
-                      <SelectTrigger className={`h-[34px] text-[12px] border-[#ccc] rounded-none ${errors.province ? 'border-red-500' : ''}`}><SelectValue placeholder="-- Chọn Tỉnh --" /></SelectTrigger>
-                      <SelectContent className="rounded-none z-[1000] p-0">
-                        {renderSearchInput("Tìm tỉnh...")}
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredProvinces.map(p => <SelectItem key={getProvId(p)} value={String(getProvId(p))}>{getProvName(p)}</SelectItem>)}
-                        </div>
-                      </SelectContent>
-                    </Select>
-                  )} />
-                {errors.province && <span className="text-[10px] text-red-500 font-bold">{errors.province.message}</span>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Quận / Huyện *</Label>
-                <Controller name="district" control={control} render={({ field }) => (
-                    <Select onValueChange={(val) => { field.onChange(val); setValue("ward", ""); }} value={field.value} disabled={!watchedProvince}>
-                      <SelectTrigger className="h-[34px] text-[12px] border-[#ccc] rounded-none"><SelectValue placeholder="-- Chọn Huyện --" /></SelectTrigger>
-                      <SelectContent className="rounded-none z-[1000] p-0">
-                        {renderSearchInput("Tìm huyện...")}
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredDistricts.map(d => <SelectItem key={getDistId(d)} value={String(getDistId(d))}>{getDistName(d)}</SelectItem>)}
-                        </div>
-                      </SelectContent>
-                    </Select>
-                  )} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Phường / Xã *</Label>
-                <Controller name="ward" control={control} render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!watchedDistrict}>
-                      <SelectTrigger className="h-[34px] text-[12px] border-[#ccc] rounded-none"><SelectValue placeholder="-- Chọn Xã --" /></SelectTrigger>
-                      <SelectContent className="rounded-none z-[1000] p-0">
-                        {renderSearchInput("Tìm xã...")}
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredWards.map(w => <SelectItem key={getWardId(w)} value={String(getWardId(w))}>{getWardName(w)}</SelectItem>)}
-                        </div>
-                      </SelectContent>
-                    </Select>
-                  )} />
-              </div>
+          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Tên chi nhánh *
+              </Label>
+              <Input
+                {...register("name")}
+                className={`h-9 text-[13px] ${errors.name ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
+                placeholder="Nhập tên chi nhánh..."
+              />
+              {errors.name && (
+                <span className="text-[11px] text-rose-500">{errors.name.message}</span>
+              )}
+            </div>
 
-              <div className="md:col-span-3 space-y-1.5 relative" ref={suggestionRef}>
-                <Label className="text-[10px] font-black uppercase text-slate-500">Địa chỉ chi tiết (Số nhà, tên đường) *</Label>
-                <div className="relative">
-                  <Input
-                    {...register("addressDetail")}
-                    autoComplete="off"
-                    onBlur={handleAddressBlur}
-                    onFocus={() => {
-                      if (addressSuggestions.length > 0) {
-                        setShowSuggestions(true);
-                      }
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Loại hình *
+              </Label>
+              <Controller
+                name="branchType"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger className="h-9 text-[12px] font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WAREHOUSE">Kho trung tâm / Trụ sở</SelectItem>
+                      <SelectItem value="STORE">Cửa hàng bán lẻ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Trạng thái
+              </Label>
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger className="h-9 text-[12px] font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Đang hoạt động</SelectItem>
+                      <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 p-6 shadow-sm">
+          <div className="border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+              2. Địa chỉ & vị trí
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Tỉnh / Thành phố *
+              </Label>
+              <Controller
+                name="province"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      setValue("district", "");
+                      setValue("ward", "");
                     }}
-                    placeholder={
-                      currentProvince && currentDistrict && currentWard
-                        ? "Ví dụ: 12 Nguyễn Văn Cừ, hẻm 5, khu dân cư..."
-                        : "Chọn đủ Tỉnh / Quận / Phường trước để gợi ý realtime"
+                    value={field.value}
+                  >
+                    <SelectTrigger className={`h-9 text-[12px] ${errors.province ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}>
+                      <SelectValue placeholder="Chọn tỉnh / thành phố" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000] p-0">
+                      {renderSearchInput("Tìm tỉnh...")}
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {filteredProvinces.map((p) => (
+                          <SelectItem key={getProvId(p)} value={String(getProvId(p))}>
+                            {getProvName(p)}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.province && (
+                <span className="text-[11px] text-rose-500">{errors.province.message}</span>
+              )}
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Quận / Huyện *
+              </Label>
+              <Controller
+                name="district"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      setValue("ward", "");
+                    }}
+                    value={field.value}
+                    disabled={!watchedProvince}
+                  >
+                    <SelectTrigger className="h-9 text-[12px]">
+                      <SelectValue placeholder="Chọn quận / huyện" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000] p-0">
+                      {renderSearchInput("Tìm huyện...")}
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {filteredDistricts.map((d) => (
+                          <SelectItem key={getDistId(d)} value={String(getDistId(d))}>
+                            {getDistName(d)}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Phường / Xã *
+              </Label>
+              <Controller
+                name="ward"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!watchedDistrict}
+                  >
+                    <SelectTrigger className="h-9 text-[12px]">
+                      <SelectValue placeholder="Chọn phường / xã" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000] p-0">
+                      {renderSearchInput("Tìm xã...")}
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {filteredWards.map((w) => (
+                          <SelectItem key={getWardId(w)} value={String(getWardId(w))}>
+                            {getWardName(w)}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="relative space-y-1.5 xl:col-span-12" ref={suggestionRef}>
+              <Label className="text-[10px] font-medium text-slate-400">
+                Địa chỉ chi tiết *
+              </Label>
+              <div className="relative">
+                <Input
+                  {...register("addressDetail")}
+                  autoComplete="off"
+                  onBlur={handleAddressBlur}
+                  onFocus={() => {
+                    if (addressSuggestions.length > 0) {
+                      setShowSuggestions(true);
                     }
-                    className={`h-[34px] pr-9 text-[13px] border-[#ccc] rounded-none ${errors.addressDetail ? 'border-red-500' : ''}`}
+                  }}
+                  placeholder={
+                    currentProvince && currentDistrict && currentWard
+                      ? "Ví dụ: 12 Nguyễn Văn Cừ, hẻm 5, khu dân cư..."
+                      : "Chọn đủ Tỉnh / Quận / Phường trước để dùng gợi ý địa chỉ"
+                  }
+                  className={`h-9 pr-9 text-[13px] ${errors.addressDetail ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
+                />
+                {isLoadingAddressSuggestions && (
+                  <Loader2
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+                    size={14}
                   />
-                  {isLoadingAddressSuggestions && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={14} />
+                )}
+              </div>
+              {currentProvince && currentDistrict && currentWard && (
+                <p className="text-[10px] text-slate-400">
+                  Gợi ý đang khóa theo {getWardName(currentWard)}, {getDistName(currentDistrict)}, {getProvName(currentProvince)}
+                </p>
+              )}
+              {showSuggestions && addressSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-[1100] mt-1 max-h-[200px] overflow-y-auto border border-slate-200 bg-white shadow-xl">
+                  {addressSuggestions.map((item: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="cursor-pointer border-b px-4 py-2 text-[12px] hover:bg-slate-50"
+                      onClick={() => {
+                        setValue("addressDetail", getScopedAddressDetail(item.label), {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                        if (typeof item.lat === "number" && typeof item.lng === "number") {
+                          setValue("lat", item.lat, { shouldDirty: true });
+                          setValue("lng", item.lng, { shouldDirty: true });
+                        }
+                        setShowSuggestions(false);
+                        setAddressSuggestions([]);
+                      }}
+                    >
+                      <p className="font-medium text-slate-700">{getScopedAddressDetail(item.label)}</p>
+                      <p className="truncate text-[10px] text-slate-400">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {errors.addressDetail && (
+                <span className="text-[11px] text-rose-500">{errors.addressDetail.message}</span>
+              )}
+            </div>
+
+            <div className="space-y-4 border-t border-dashed border-slate-200 pt-5 xl:col-span-12">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-medium text-slate-400">
+                    Tọa độ địa lý
+                  </Label>
+                  <p className="text-[11px] text-slate-400">
+                    Có thể lấy từ địa chỉ hoặc chọn trực tiếp trên bản đồ.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleFetchCoordsFromAddress}
+                    disabled={isGettingGPS}
+                    className="h-8 text-[11px] font-medium"
+                  >
+                    {isGettingGPS ? <Loader2 size={12} className="mr-2 animate-spin" /> : <Navigation size={12} className="mr-2" />}
+                    Lấy tọa độ
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowMapPicker(true)}
+                    className="h-8 text-[11px] font-medium"
+                  >
+                    <MapPin size={12} className="mr-2" />
+                    Chọn trên bản đồ
+                  </Button>
+                  {watchedLat && watchedLng && (
+                    <a
+                      href={`https://www.google.com/maps?q=${watchedLat},${watchedLng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 px-3 text-[11px] font-medium text-blue-600 hover:bg-slate-50"
+                    >
+                      <ExternalLink size={12} />
+                      Xem bản đồ
+                    </a>
                   )}
                 </div>
-                {currentProvince && currentDistrict && currentWard && (
-                  <p className="text-[10px] text-slate-400">
-                    Gợi ý đang được khóa theo: <span className="font-bold text-slate-600">{getWardName(currentWard)}, {getDistName(currentDistrict)}, {getProvName(currentProvince)}</span>
-                  </p>
-                )}
-                {showSuggestions && addressSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-[1100] bg-white border border-[#ccc] shadow-xl max-h-[200px] overflow-y-auto mt-1">
-                    {addressSuggestions.map((item: any, idx: number) => (
-                      <div key={idx} className="px-4 py-2 text-[12px] hover:bg-slate-50 cursor-pointer border-b"
-                        onClick={() => {
-                          setValue("addressDetail", getScopedAddressDetail(item.label), { shouldDirty: true, shouldValidate: true });
-                          if (typeof item.lat === "number" && typeof item.lng === "number") {
-                            setValue("lat", item.lat, { shouldDirty: true });
-                            setValue("lng", item.lng, { shouldDirty: true });
-                          }
-                          setShowSuggestions(false);
-                          setAddressSuggestions([]);
-                        }}>
-                        <p className="font-bold">{getScopedAddressDetail(item.label)}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{item.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {errors.addressDetail && <span className="text-[10px] text-red-500 font-bold">{errors.addressDetail.message}</span>}
               </div>
 
-              {/* Tọa độ */}
-              <div className="md:col-span-3 border-t border-dashed border-slate-200 pt-4 mt-1">
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-[10px] font-black text-slate-500 flex items-center gap-1.5 uppercase"><Navigation size={12} /> Tọa độ địa lý</Label>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" onClick={handleFetchCoordsFromAddress} disabled={isGettingGPS} className="h-7 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3">
-                    {isGettingGPS ? <Loader2 size={11} className="animate-spin mr-1" /> : <Navigation size={11} className="mr-1" />} Lấy tọa độ
-                    </Button>
-                    <Button type="button" onClick={() => setShowMapPicker(true)} className="h-7 text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3">
-                      <MapPin size={11} className="mr-1" /> Chọn trên bản đồ
-                    </Button>
-                    {watchedLat && watchedLng && (
-                      <a href={`https://www.google.com/maps?q=${watchedLat},${watchedLng}`} target="_blank" rel="noopener noreferrer" className="h-7 flex items-center gap-1 px-3 text-[10px] font-bold text-blue-600 border border-blue-200 bg-blue-50">
-                        <ExternalLink size={11} /> Xem bản đồ
-                      </a>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input {...register("lat", { valueAsNumber: true })} type="text" placeholder="Vĩ độ" className="h-[34px] font-mono text-[12px] bg-slate-50" />
-                  <Input {...register("lng", { valueAsNumber: true })} type="text" placeholder="Kinh độ" className="h-[34px] font-mono text-[12px] bg-slate-50" />
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Input
+                  {...register("lat", { valueAsNumber: true })}
+                  type="text"
+                  placeholder="Vĩ độ"
+                  className="h-9 bg-slate-50 font-mono text-[12px]"
+                />
+                <Input
+                  {...register("lng", { valueAsNumber: true })}
+                  type="text"
+                  placeholder="Kinh độ"
+                  className="h-9 bg-slate-50 font-mono text-[12px]"
+                />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Section 3 */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-emerald-700 font-black text-[11px] uppercase border-b pb-3"><User size={16} /> 3. Nhân sự phụ trách & Liên hệ</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-500">Người quản lý chi nhánh</Label>
-                <Controller name="managerId" control={control} render={({ field }) => (
+        <div className="bg-white border border-slate-200 p-6 shadow-sm">
+          <div className="border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+              3. Quản lý & liên hệ
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Người quản lý chi nhánh
+              </Label>
+              <Controller
+                name="managerId"
+                control={control}
+                render={({ field }) => (
                   <Select
                     onValueChange={(val) => {
                       field.onChange(val === "__none__" ? "" : val);
@@ -735,16 +885,18 @@ export default function AddBranchPage() {
                     }}
                     value={field.value || "__none__"}
                   >
-                    <SelectTrigger className={`h-[34px] text-[13px] border-[#ccc] rounded-none ${errors.managerId ? 'border-red-500' : ''}`}><SelectValue placeholder="-- Tìm nhân sự --" /></SelectTrigger>
-                    <SelectContent className="rounded-none z-[1050] p-0">
+                    <SelectTrigger className={`h-9 text-[13px] ${errors.managerId ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}>
+                      <SelectValue placeholder="Tìm nhân sự phụ trách" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1050] p-0">
                       {renderSearchInput("Nhập tên quản lý...")}
                       <div className="max-h-[200px] overflow-y-auto">
                         <SelectItem value="__none__">Chưa gán người quản lý</SelectItem>
                         {filteredStaffs.length > 0 ? (
-                          filteredStaffs.map(staff => (
-                              <SelectItem key={staff.id} value={String(staff.id)}>
-                                  {staff.fullName} (ID: {staff.id})
-                              </SelectItem>
+                          filteredStaffs.map((staff) => (
+                            <SelectItem key={staff.id} value={String(staff.id)}>
+                              {staff.fullName} (ID: {staff.id})
+                            </SelectItem>
                           ))
                         ) : (
                           <div className="px-3 py-2 text-[12px] text-slate-400">
@@ -754,48 +906,61 @@ export default function AddBranchPage() {
                       </div>
                     </SelectContent>
                   </Select>
-                )} />
-                <span className="text-[10px] text-slate-400">
-                  Có thể để trống lúc khởi tạo chi nhánh và gán sau khi đã có nhân viên.
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase">Số điện thoại *</Label>
-                <Input {...register("phone")} className={`h-[34px] border-[#ccc] rounded-none font-bold ${errors.phone ? 'border-red-500' : ''}`} />
-                {errors.phone && <span className="text-[10px] text-red-500 font-bold">{errors.phone.message}</span>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase">Email *</Label>
-                <Input {...register("email")} type="email" className={`h-[34px] border-[#ccc] rounded-none ${errors.email ? 'border-red-500' : ''}`} />
-                {errors.email && <span className="text-[10px] text-red-500 font-bold">{errors.email.message}</span>}
-              </div>
+                )}
+              />
+              <span className="text-[10px] text-slate-400">
+                Có thể để trống khi khởi tạo và gán sau.
+              </span>
             </div>
-          </div>
-        </div>
 
-        {/* Sidebar */}
-        <div className="lg:col-span-3 space-y-5">
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <Label className="text-[11px] font-black text-slate-700 uppercase block mb-5 border-b pb-3">Trạng thái vận hành</Label>
-            <Controller name="status" control={control} render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className="h-[38px] border-[#ccc] rounded-none font-black text-emerald-600 uppercase"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none font-bold">
-                    <SelectItem value="active">ĐANG HOẠT ĐỘNG</SelectItem>
-                    <SelectItem value="inactive">NGỪNG HOẠT ĐỘNG</SelectItem>
-                  </SelectContent>
-                </Select>
-              )} />
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Số điện thoại *
+              </Label>
+              <Input
+                {...register("phone")}
+                className={`h-9 text-[13px] ${errors.phone ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
+                placeholder="Nhập số điện thoại..."
+              />
+              {errors.phone && (
+                <span className="text-[11px] text-rose-500">{errors.phone.message}</span>
+              )}
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-4">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Email *
+              </Label>
+              <Input
+                {...register("email")}
+                type="email"
+                className={`h-9 text-[13px] ${errors.email ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
+                placeholder="Nhập email..."
+              />
+              {errors.email && (
+                <span className="text-[11px] text-rose-500">{errors.email.message}</span>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-[15px] z-[999] shadow-lg">
-        <Button type="button" variant="outline" className="min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] rounded-none uppercase shadow-sm bg-white" onClick={() => router.back()}>HỦY BỎ</Button>
-        <Button type="submit" disabled={isLoading} className="min-w-[160px] h-[38px] text-[12px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-none shadow-md">
-          {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Save size={18} className="mr-2" />}
-          {isEditMode ? "CẬP NHẬT DỮ LIỆU" : "KHỞI TẠO CHI NHÁNH"}
+      <div className="fixed bottom-0 left-0 right-0 z-[999] flex justify-end gap-3 border-t bg-white p-3 lg:left-[260px]">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.back()}
+          className="text-[11px] font-medium text-slate-400"
+        >
+          Hủy bỏ
+        </Button>
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="h-9 px-10 text-[11px] font-medium bg-emerald-600 text-white shadow-xl hover:bg-emerald-700"
+        >
+          {isLoading ? <Loader2 className="mr-2 animate-spin" /> : null}
+          {isEditMode ? "Lưu thay đổi" : "Lưu chi nhánh"}
         </Button>
       </div>
     </form>

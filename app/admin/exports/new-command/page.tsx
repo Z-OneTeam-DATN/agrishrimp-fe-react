@@ -6,14 +6,12 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
-  X, Plus, Trash2, FileText, ChevronLeft, Save, ShoppingBag, Warehouse, UserCheck,
-  MapPin, User, Phone, CalendarIcon, Hash, Search, BadgeCheck, Loader2, Package, AlertCircle, ChevronDown, ChevronUp
+  Trash2, Save, Search, Loader2, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
@@ -84,7 +82,6 @@ function AdminExportFormContent() {
   const [isLoadingSearch, setIsLoadingSearch] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const [returnSourceLocked, setReturnSourceLocked] = useState(false);
-  const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const generateNoteCode = () => {
@@ -120,11 +117,6 @@ function AdminExportFormContent() {
   const watchBranchId = watch("branchId");
   const watchTargetId = watch("targetId");
   const watchItems = watch("items");
-
-  const selectedBranchInfo = branches.find(b => b.id?.toString() === watchBranchId);
-  const isMainBranch = !selectedBranchInfo || selectedBranchInfo.branchCode === "MAIN_WH";
-
-  const totalAmount = watchItems.reduce((acc, item) => acc + ((item.quantity || 0) * (item.price || 0)), 0);
 
   useEffect(() => {
       if (isEditMode && exportId) {
@@ -189,7 +181,7 @@ function AdminExportFormContent() {
               );
           });
         setAllProducts(defectiveBatches);
-      } catch (error) {
+      } catch {
         toast.error("Không thể tải danh sách lô hàng lỗi");
       } finally {
         setIsLoadingSearch(false);
@@ -227,7 +219,7 @@ function AdminExportFormContent() {
           }
         }
         if (resS) setSuppliers(Array.isArray(resS.content) ? resS.content : (Array.isArray(resS) ? resS : []));
-      } catch (err) { toast.error("Lỗi tải danh mục"); }
+      } catch { toast.error("Lỗi tải danh mục"); }
     };
     loadMasterData();
 
@@ -316,7 +308,7 @@ function AdminExportFormContent() {
         );
         replace(rejectedItems);
         setReturnSourceLocked(true);
-      } catch (error) {
+      } catch {
         toast.error("Không thể khởi tạo phiếu xuất trả từ phiếu nhập đã chọn.");
       }
     })();
@@ -446,128 +438,131 @@ function AdminExportFormContent() {
 
   if (isInitialLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-slate-400">
         <div className="text-center">
-          <Loader2 className="animate-spin mx-auto text-blue-600 mb-2" size={32} />
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Đang tải dữ liệu...</p>
+          <Loader2 className="mx-auto mb-3 animate-spin text-emerald-600" size={30} />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
   }
 
+  const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
+  const fieldControlClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
+  const selectTriggerClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 data-[placeholder]:text-slate-400";
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className={`space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen text-[#1f1f1f] ${isReadOnly ? "select-none opacity-95" : ""}`}>
-      <div className="flex items-center gap-4 mb-2">
-        <Button type="button" variant="ghost" size="icon" onClick={() => router.back()}><ChevronLeft /></Button>
-        <div className="flex flex-col">
-            <h1 className="text-[18px] font-black uppercase tracking-tight text-[#1f1f1f]">
-               {isEditMode ? (isReadOnly ? "Chi tiết phiếu xuất trả NCC" : "Chi tiết phiếu xuất trả NCC") : "Tạo phiếu xuất trả NCC"}
-            </h1>
-            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                <Hash size={12}/> Mã: <span className="text-blue-600">{watch("noteCode")}</span>
-            </p>
+    <form onSubmit={handleSubmit(onSubmit)} className={`space-y-3 pb-[100px] text-slate-800 ${isReadOnly ? "select-none opacity-95" : ""}`}>
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex items-center gap-3">
+          <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
+            {isEditMode ? "Chi tiết phiếu xuất trả NCC" : "Tạo phiếu xuất trả NCC"}
+          </h1>
         </div>
       </div>
 
-      <div className="mt-2 rounded-sm border border-slate-200 bg-white shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowWorkflowGuide((prev) => !prev)}
-          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-        >
-          <div className="flex items-center gap-3">
-            <AlertCircle size={18} className="text-blue-600" />
-            <div>
-              <p className="text-[12px] font-black uppercase tracking-wide text-slate-700">
-                Hướng dẫn nghiệp vụ xuất trả NCC
-              </p>
-              <p className="text-[11px] text-slate-400">
-                Bấm để {showWorkflowGuide ? "ẩn" : "xem"} hướng dẫn màn hình này
-              </p>
-            </div>
-          </div>
-          {showWorkflowGuide ? (
-            <ChevronUp size={18} className="text-slate-400" />
-          ) : (
-            <ChevronDown size={18} className="text-slate-400" />
-          )}
-        </button>
-
-        {showWorkflowGuide ? (
-          <div className="border-t border-slate-100 px-4 py-3 space-y-3">
-            <div
-              className={cn(
-                "p-3 border rounded-sm shadow-sm",
-                isAdmin
-                  ? "bg-blue-50 border-blue-200 text-blue-700"
-                  : "bg-amber-50 border-amber-200 text-amber-700",
-              )}
-            >
-              <p className="text-[12px] font-bold uppercase tracking-wide">
-                {isAdmin
-                  ? "Chế độ Quản trị: Có thể duyệt nhanh phiếu xuất trả, nhưng hệ thống vẫn khóa đúng nghiệp vụ theo kho tổng và lô hàng lỗi."
-                  : "Chế độ Quản lý kho tổng: Phiếu xuất trả sau khi lưu sẽ chờ admin duyệt mới có hiệu lực."}
-              </p>
+      <div className="grid grid-cols-1 gap-5 px-1 lg:grid-cols-12">
+        <div className="contents">
+          <div className="order-1 border border-slate-200 bg-white p-6 shadow-sm lg:col-span-12">
+            <div className="border-b border-slate-200 pb-3">
+              <span className="text-[11px] font-bold text-slate-800">1. Thông tin lệnh xuất kho</span>
             </div>
 
-            <div className="border border-slate-200 bg-slate-50 text-slate-700 rounded-sm p-3">
-              <p className="text-[12px] font-bold uppercase tracking-wide">
-                Nghiệp vụ chuẩn: màn hình này chỉ phục vụ xuất trả nhà cung cấp từ kho tổng, dựa trên các lô hàng lỗi đang còn tồn.
-              </p>
-              {watchExportType === "RETURN" && (
-                <p className="mt-2 text-[12px] text-rose-700 font-medium">
-                  Phiếu trả NCC chỉ cho phép chọn các lô hàng lỗi đang còn số lượng lỗi lớn hơn 0, đúng nhà cung cấp và đúng kho nhập.
-                </p>
-              )}
-              {returnSourceLocked && (
-                <p className="mt-2 text-[12px] text-blue-700 font-medium">
-                  Phiếu xuất trả này được khởi tạo trực tiếp từ phiếu nhập có hàng lỗi. Nhà cung cấp và danh sách lô hàng đã được khóa theo phiếu nguồn.
-                </p>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-8 space-y-5">
-          <div className="bg-white border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <FileText size={16} /> 1. Thông tin lệnh xuất kho
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Loại lệnh xuất (*)</Label>
-                <Input value="Xuất trả nhà cung cấp" readOnly className="rounded-none h-10 w-full shadow-none border-slate-200 bg-slate-50 font-bold text-rose-700" />
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Loại lệnh xuất *</Label>
+                <Input value="Xuất trả nhà cung cấp" readOnly className={cn(fieldControlClass, "w-full border-slate-200 bg-slate-50 text-slate-600")} />
               </div>
 
-              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase flex items-center gap-1 mb-1 text-slate-400 tracking-wider"><Hash size={12}/> Mã phiếu (Tự động)</Label>
-                <Input {...register("noteCode")} readOnly className="rounded-none bg-slate-50 text-slate-500 font-mono text-[13px] h-10 w-full border-slate-200" />
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Mã phiếu hệ thống</Label>
+                <Input {...register("noteCode")} readOnly className={cn(fieldControlClass, "w-full border-slate-200 bg-slate-50 text-slate-500")} />
               </div>
 
-
-              <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1 mb-1 tracking-wider">Ngày hẹn xuất</Label>
-                <div className="relative w-full">
-                  <Input readOnly={isReadOnly} type="date" {...register("expectedDate")} className={`rounded-none border-slate-200 text-[13px] h-10 w-full pr-10 shadow-none block ${errors.expectedDate ? "border-rose-500" : ""} ${isReadOnly ? 'bg-slate-50' : ''}`} />
-                  <CalendarIcon size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Ngày hẹn xuất</Label>
+                <Input readOnly={isReadOnly} type="date" {...register("expectedDate")} className={cn(fieldControlClass, "w-full border-slate-200", errors.expectedDate && "border-rose-500", isReadOnly && "bg-slate-50")} />
                 {errors.expectedDate && <p className="text-rose-500 text-[10px] mt-1">{errors.expectedDate.message}</p>}
               </div>
 
-              <div className="col-span-2 space-y-1.5 flex flex-col mt-2">
-                <Label className="text-[10px] font-bold uppercase mb-1 text-slate-400 tracking-wider">Lý do / Diễn giải (*)</Label>
-                <Textarea readOnly={isReadOnly} {...register("note")} className={`rounded-none min-h-[80px] text-[13px] w-full shadow-none ${errors.note ? "border-rose-500" : "border-slate-200"} ${isReadOnly ? 'bg-slate-50' : ''}`} placeholder="Nhập lý do xuất kho..." />
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Lý do / Diễn giải *</Label>
+                <Input readOnly={isReadOnly} {...register("note")} className={cn(fieldControlClass, "w-full", errors.note ? "border-rose-500" : "border-slate-200", isReadOnly && "bg-slate-50")} placeholder="Nhập lý do xuất kho..." />
                 {errors.note && <p className="text-rose-500 text-[10px] mt-1">{errors.note.message}</p>}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Kho tổng xuất hàng *</Label>
+                <Controller
+                  name="branchId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
+                      <SelectTrigger className={cn(selectTriggerClass, errors.branchId ? "border-rose-500" : "border-slate-200", "bg-slate-50")}>
+                        <SelectValue placeholder="-- KHO TỔNG --" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        {branches
+                          .filter((b: any) => {
+                            const code = String(b.branchCode || "").toUpperCase();
+                            const type = String(b.branchType || "").toUpperCase();
+                            const name = String(b.name || "").toLowerCase();
+                            if (code === "SYSTEM_DEFECT") return false;
+                            if (code === "MAIN_WH") return true;
+                            return type === "WAREHOUSE" && name.includes("kho tổng");
+                          })
+                          .map((b: any) => (
+                            <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.branchId && <p className="mt-1 text-[10px] text-rose-500">{errors.branchId.message}</p>}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Chọn đối tượng nhận *</Label>
+                <Controller
+                  name="targetId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
+                      <SelectTrigger className={cn(selectTriggerClass, errors.targetId ? "border-rose-500" : "border-slate-200")}>
+                        <SelectValue placeholder="-- Chọn đối tượng --" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        {suppliers.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier?.id?.toString() || ""}>
+                            {supplier.name?.toUpperCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.targetId && <p className="mt-1 text-[10px] text-rose-500">{errors.targetId.message}</p>}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Tên người nhận *</Label>
+                <Input readOnly={isReadOnly} {...register("specificReceiver")} className={cn(fieldControlClass, errors.specificReceiver ? "border-rose-500" : "border-slate-200", isReadOnly && "bg-slate-50")} placeholder="Tên người nhận..." />
+                {errors.specificReceiver && <p className="mt-1 text-[10px] text-rose-500">{errors.specificReceiver.message}</p>}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>Địa chỉ giao hàng *</Label>
+                <Input readOnly={isReadOnly} {...register("shippingAddress")} className={cn(fieldControlClass, errors.shippingAddress ? "border-rose-500" : "border-slate-200", isReadOnly && "bg-slate-50")} placeholder="Địa chỉ giao hàng thực tế..." />
+                {errors.shippingAddress && <p className="mt-1 text-[10px] text-rose-500">{errors.shippingAddress.message}</p>}
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 shadow-sm overflow-visible">
-             <div className="px-5 py-3 bg-[#f8f9fa] border-b flex flex-wrap items-center gap-4">
-                <h3 className="text-[11px] font-black uppercase flex items-center gap-2 whitespace-nowrap"><ShoppingBag size={16} className="text-blue-600"/> 2. Danh mục sản phẩm</h3>
+          <div className="order-2 overflow-visible border border-slate-200 bg-white shadow-sm lg:col-span-12">
+             <div className="flex flex-wrap items-center gap-4 border-b border-slate-200 px-6 py-4">
+                <h3 className="whitespace-nowrap text-[11px] font-bold text-slate-800">2. Danh sách sản phẩm xuất</h3>
 
                 <div className="relative flex-1 min-w-[300px]" ref={dropdownRef}>
                   <div className="relative">
@@ -583,7 +578,7 @@ function AdminExportFormContent() {
                             ? "Tìm theo mã lô lỗi, SKU, tên sản phẩm..."
                             : "Tìm theo mã lô lỗi, SKU, tên sản phẩm..."
                       }
-                      className={`pl-10 h-10 text-[13px] border-slate-200 rounded-none bg-white w-full shadow-none ${isReadOnly || returnSourceLocked ? 'bg-slate-50' : ''}`}
+                      className={cn(fieldControlClass, "w-full border-slate-200 bg-white pl-10", (isReadOnly || returnSourceLocked) && "bg-slate-50")}
                       value={searchTerm}
                       onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
                       onFocus={() => {
@@ -593,7 +588,7 @@ function AdminExportFormContent() {
                   </div>
 
                   {showDropdown && !isReadOnly && !returnSourceLocked && (
-                    <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm overflow-hidden flex flex-col z-[9999]">
+                    <div className="absolute left-0 top-full z-[9999] mt-1 flex w-full flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-2xl">
                       {allProducts.length > 0 && (
                         <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
                           <span className="text-slate-500">
@@ -679,27 +674,27 @@ function AdminExportFormContent() {
                 </div>
              </div>
 
-             <div className="overflow-x-auto">
-               <Table>
-                  <TableHeader className="bg-slate-50">
-                     <TableRow>
-                        <TableHead className="w-[40px] text-[10px] font-black uppercase text-slate-500 text-center tracking-wider">#</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Mã SKU</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tên sản phẩm</TableHead>
+             <div className="overflow-x-auto px-3 py-3">
+               <Table className="table-custom min-w-[920px] border-collapse">
+                 <TableHeader className="bg-slate-50">
+                     <TableRow className="border-b border-slate-200">
+                        <TableHead className="w-[40px] px-1.5 py-2 text-center text-[10px] font-semibold text-slate-700">STT</TableHead>
+                        <TableHead className="w-[120px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">Mã SKU</TableHead>
+                        <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">Tên sản phẩm</TableHead>
                         {watchExportType === "RETURN" && (
-                          <TableHead className="text-[10px] font-black uppercase text-amber-600 tracking-wider">Lô lỗi</TableHead>
+                          <TableHead className="w-[120px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">Lô lỗi</TableHead>
                         )}
-                        <TableHead className="text-right text-[10px] font-black uppercase text-blue-600 w-[110px] tracking-wider">SL Xuất</TableHead>
+                        <TableHead className="w-[90px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">SL xuất</TableHead>
                         {watchExportType === "RETURN" && (
-                          <TableHead className="text-[10px] font-black uppercase text-rose-600 min-w-[200px] tracking-wider">Lý do trả hàng</TableHead>
+                          <TableHead className="min-w-[180px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">Lý do trả hàng</TableHead>
                         )}
-                        <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 tracking-wider">Giá vốn</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[100px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">Giá vốn</TableHead>
+                        <TableHead className="w-[42px] px-1.5 py-2 text-center text-[10px] font-semibold text-slate-700">Xóa</TableHead>
                      </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fields.length === 0 ? (
-                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 8 : 6} className="h-[150px] text-center text-slate-300 italic font-medium tracking-widest uppercase text-[11px]">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={watchExportType === "RETURN" ? 8 : 6} className="h-[150px] text-center text-[12px] font-medium text-slate-400">Chưa có sản phẩm nào được chọn</TableCell></TableRow>
                     ) : (
                       fields.map((field, index) => {
                         const hasQtyError = errors.items?.[index]?.quantity;
@@ -708,29 +703,29 @@ function AdminExportFormContent() {
 
                         return (
                           <React.Fragment key={field.id}>
-                            <TableRow className="hover:bg-slate-50/50">
-                              <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
-                              <TableCell className="font-mono text-[12px] text-slate-500">{currentItem?.sku}</TableCell>
-                              <TableCell className="font-bold text-[13px] text-slate-700">
+                            <TableRow className="border-b border-slate-100 hover:bg-sky-50/40">
+                              <TableCell className="px-1.5 py-2 text-center text-[11px] font-medium text-slate-500">{index + 1}</TableCell>
+                              <TableCell className="px-1.5 py-2 font-mono text-[11px] text-slate-500">{currentItem?.sku}</TableCell>
+                              <TableCell className="px-1.5 py-2 text-[11px] font-semibold text-slate-700">
                                 {currentItem?.name}
-                                <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                                <div className="mt-0.5 text-[10px] font-medium text-emerald-600">
                                   SL lỗi hiện có: {currentItem?.stock || 0}
                                 </div>
                               </TableCell>
 
                               {watchExportType === "RETURN" && (
-                                <TableCell className="font-mono text-[12px] text-amber-700">
+                                <TableCell className="px-1.5 py-2 font-mono text-[11px] text-amber-700">
                                   {currentItem?.lotNumber || "---"}
                                 </TableCell>
                               )}
 
-                              <TableCell className="p-1">
+                              <TableCell className="px-1.5 py-1.5">
                                 <Input
                                   readOnly={isReadOnly}
                                   type="number"
                                   {...register(`items.${index}.quantity`)}
                                   className={cn(
-                                    "h-8 text-right font-black rounded-none text-blue-600 focus:bg-white",
+                                    "h-7 rounded-md px-2 text-right text-[11px] font-semibold text-slate-700 focus:bg-white",
                                     (hasQtyError || currentItem?.quantity > currentItem?.stock) ? "border-rose-500" : "border-blue-200",
                                     isReadOnly ? "bg-slate-50 border-transparent" : ""
                                   )}
@@ -744,14 +739,14 @@ function AdminExportFormContent() {
                               </TableCell>
 
                               {watchExportType === "RETURN" && (
-                                <TableCell className="p-1">
-                                  <Input readOnly={isReadOnly} placeholder="Nhập lý do..." {...register(`items.${index}.returnReason`)} className={`h-8 text-[12px] rounded-none focus:bg-white ${hasReasonError ? "border-rose-500" : "border-rose-100"} ${isReadOnly ? 'bg-slate-50 border-transparent' : ''}`} />
+                                <TableCell className="px-1.5 py-1.5">
+                                  <Input readOnly={isReadOnly} placeholder="Nhập lý do..." {...register(`items.${index}.returnReason`)} className={`h-7 rounded-md px-2 text-[11px] focus:bg-white ${hasReasonError ? "border-rose-500" : "border-slate-200"} ${isReadOnly ? "border-transparent bg-slate-50" : ""}`} />
                                 </TableCell>
                               )}
 
-                              <TableCell className="text-right text-[12px] font-medium">{formatNumber(currentItem?.price || 0)}</TableCell>
-                              <TableCell className="text-center">
-                                {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>}
+                              <TableCell className="px-1.5 py-2 text-right text-[11px] font-medium">{formatNumber(currentItem?.price || 0)}</TableCell>
+                              <TableCell className="px-1.5 py-1.5 text-center">
+                                {!isReadOnly && <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-red-500"><Trash2 size={14}/></button>}
                               </TableCell>
                             </TableRow>
                             {(hasQtyError || hasReasonError) && (
@@ -773,102 +768,35 @@ function AdminExportFormContent() {
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-5">
-
-          <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><Warehouse size={16}/> Kho xuất hàng</div>
-             <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Kho tổng xuất hàng (*)</Label>
-                <Controller
-                  name="branchId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
-                      <SelectTrigger className={`rounded-none h-10 font-bold ${errors.branchId ? "border-rose-500" : "border-slate-200"} bg-slate-50 text-slate-700`}>
-                        <SelectValue placeholder="-- KHO TỔNG --" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {branches
-                          .filter((b: any) => {
-                            const code = String(b.branchCode || "").toUpperCase();
-                            const type = String(b.branchType || "").toUpperCase();
-                            const name = String(b.name || "").toLowerCase();
-                            if (code === "SYSTEM_DEFECT") return false;
-                            if (code === "MAIN_WH") return true;
-                            return type === "WAREHOUSE" && name.includes("kho tổng");
-                          })
-                          .map((b: any) => (
-                            <SelectItem key={b.id} value={b.id.toString()}>{b.name.toUpperCase()}</SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.branchId && <p className="text-rose-500 text-[10px] mt-1">{errors.branchId.message}</p>}
-             </div>
-             <div className="space-y-1.5 pt-1">
-                <Label className="text-[10px] font-bold uppercase text-rose-500 flex items-center gap-1 mb-1"><MapPin size={12} /> Địa chỉ kho xuất</Label>
-                <Textarea readOnly value={branches.find(b => b.id.toString() === watchBranchId)?.addressDetail || ""} className="min-h-[40px] text-[12px] border-slate-200 rounded-none bg-slate-50 resize-none text-slate-600" placeholder="Địa chỉ tự động hiển thị..."/>
-             </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 p-6 shadow-sm space-y-4">
-             <div className="flex items-center gap-2 font-bold text-[11px] uppercase border-b pb-2"><UserCheck size={16}/> Đối tượng nhận</div>
-             <div className="space-y-1.5 flex flex-col">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Chọn đối tượng nhận (*)</Label>
-                <Controller
-                  name="targetId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
-                       <SelectTrigger className={`rounded-none h-10 font-bold ${errors.targetId ? "border-rose-500" : "border-slate-200"}`}><SelectValue placeholder="-- Chọn đối tượng --" /></SelectTrigger>
-                       <SelectContent className="rounded-none">
-                          {suppliers.map(s => <SelectItem key={s.id} value={s?.id?.toString() || ""}>{s.name?.toUpperCase()}</SelectItem>)}
-                       </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.targetId && <p className="text-rose-500 text-[10px] mt-1">{errors.targetId.message}</p>}
-             </div>
-             <div className="space-y-1.5 pt-2 flex flex-col">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Tên người nhận (*)</Label>
-                 <Input readOnly={isReadOnly} {...register("specificReceiver")} className={`rounded-none text-[13px] h-10 ${errors.specificReceiver ? "border-rose-500" : "border-slate-200"}`} placeholder="Tên người nhận..." />
-                 {errors.specificReceiver && <p className="text-rose-500 text-[10px] mt-1">{errors.specificReceiver.message}</p>}
-             </div>
-             <div className="space-y-1.5 flex flex-col">
-                 <Label className="text-[10px] font-bold uppercase text-slate-400 mb-1">Địa chỉ giao hàng (*)</Label>
-                 <Textarea readOnly={isReadOnly} {...register("shippingAddress")} className={`rounded-none min-h-[60px] text-[13px] ${errors.shippingAddress ? "border-rose-500" : "border-slate-200"}`} placeholder="Địa chỉ giao hàng thực tế..." />
-                 {errors.shippingAddress && <p className="text-rose-500 text-[10px] mt-1">{errors.shippingAddress.message}</p>}
-             </div>
-          </div>
-        </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t p-[12px_30px] flex justify-between items-center z-[999] shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-         <div className="text-[12px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-4">
-            <span>Tổng số lượng: <span className="text-slate-800 font-black text-[14px]">
+      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+         <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium text-slate-400">
+            <span>Tổng số lượng: <span className="text-[14px] font-semibold tracking-normal text-slate-800">
                {watchItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)}
             </span></span>
-            <div className="h-4 w-[1px] bg-slate-300"></div>
-            <span>Tổng giá trị: <span className="text-blue-600 font-black text-[15px]">
+            <div className="hidden h-4 w-px bg-slate-300 md:block"></div>
+            <span>Tổng giá trị: <span className="text-[14px] font-semibold tracking-normal text-emerald-600">
                {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} VND
             </span></span>
          </div>
-         <div className="flex gap-3">
-           <Button type="button" variant="outline" className="rounded-none uppercase px-8 border-slate-300 bg-white" onClick={() => router.back()}>{isReadOnly ? "Quay lại" : "Hủy bỏ"}</Button>
+         <div className="flex flex-wrap justify-end gap-3">
+           <Button type="button" variant="outline" className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-slate-600 hover:bg-slate-50" onClick={() => router.back()}>{isReadOnly ? "Quay lại" : "Hủy bỏ"}</Button>
            {!isReadOnly && (
-             <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white rounded-none font-black px-10">
+             <Button type="submit" disabled={isSubmitting} className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700">
                {isSubmitting ? (
                  <Loader2 className="animate-spin mr-2" />
                ) : (
                  <>
-                   <Save size={18} className="mr-2" />
-                   {isAdmin ? "LƯU & DUYỆT PHIẾU TRẢ" : "LƯU & GỬI DUYỆT"}
+                   <Save size={16} className="mr-2" />
+                   {isAdmin ? "Lưu & duyệt phiếu trả" : "Lưu & gửi duyệt"}
                  </>
                )}
              </Button>
            )}
          </div>
+        </div>
       </div>
     </form>
   );
@@ -876,7 +804,7 @@ function AdminExportFormContent() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={32} /></div>}>
+    <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={30} /></div>}>
       <AdminExportFormContent />
     </Suspense>
   );

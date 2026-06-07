@@ -4,19 +4,17 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowRight,
   HelpCircle,
   BarChart3,
   Landmark,
   Users,
+  Loader2,
   RefreshCw,
-  Wallet,
-  CircleDollarSign,
-  TrendingUp,
-  TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +37,7 @@ import type {
   SupplierDebtData,
 } from "@/app/services/financial-report.types";
 import { branchService } from "@/app/services/branchService";
-import { cn, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
 
@@ -172,80 +170,115 @@ export default function FinancialReportListPage() {
     };
   }, [profitLoss, supplierDebts, selectedBranchId, branches]);
 
+  const summaryCards = [
+    {
+      id: "net-revenue",
+      label: "Doanh thu thuần",
+      value: formatMoney(metrics.netRevenue),
+      badge: metrics.branchLabel,
+      hint: "Theo phạm vi chi nhánh đang chọn",
+      valueClassName: "text-slate-900",
+    },
+    {
+      id: "expense",
+      label: "Tổng chi phí",
+      value: formatMoney(metrics.totalExpense),
+      badge: "Chi phí",
+      hint: "Gồm giá vốn, điểm, ship và chi phí khác",
+      valueClassName: "text-slate-900",
+    },
+    {
+      id: "profit",
+      label: "Lợi nhuận ròng",
+      value: formatMoney(Math.round(metrics.estimatedProfit)),
+      badge: metrics.estimatedProfit < 0 ? "Âm" : "Dương",
+      hint: "Tính theo dữ liệu chốt trong kỳ",
+      valueClassName:
+        metrics.estimatedProfit < 0 ? "text-amber-600" : "text-emerald-600",
+    },
+    {
+      id: "debt",
+      label: "NCC còn nợ",
+      value: `${metrics.debtCount} NCC`,
+      badge: "Công nợ",
+      hint: `Tổng dư nợ ${formatMoney(metrics.debtTotal)}`,
+      valueClassName: "text-slate-900",
+    },
+  ];
+
   return (
-    <div className="space-y-6 bg-[#f0f2f5] min-h-screen p-6 pb-10">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.25em] mb-1">
-            Kinh doanh / tài chính
-          </p>
-          <h1 className="text-[28px] font-black text-[#1f1f1f] uppercase">
-            Danh sách báo cáo tài chính
-          </h1>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 space-y-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+              Tổng quan tài chính
+            </h1>
+          </div>
+          <Button
+            variant="outline"
+            className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+            onClick={() => setIsHelpOpen(true)}
+          >
+            <HelpCircle size={16} className="mr-2" /> Trợ giúp
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          className="border-[#dcdcdc] rounded-[4px] h-[36px] text-[13px] font-medium flex items-center gap-2"
-          onClick={() => setIsHelpOpen(true)}
-        >
-          <HelpCircle size={18} className="text-slate-500" /> Trợ giúp
-        </Button>
-      </div>
 
-      <Card className="border-[#dcdcdc] rounded-[4px] bg-white p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-end">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-              Chi nhánh
-            </p>
-            <Select
-              value={selectedBranchId}
-              onValueChange={setSelectedBranchId}
-            >
-              <SelectTrigger
-                className="h-[38px] rounded-none border-[#dcdcdc] shadow-none text-[13px] bg-white"
-                disabled={!isAdmin}
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Chi nhánh
+              </p>
+              <Select
+                value={selectedBranchId}
+                onValueChange={setSelectedBranchId}
               >
-                <SelectValue placeholder="Tất cả chi nhánh" />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id.toString()}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  className="h-[38px] w-full min-w-[220px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0 lg:w-[260px]"
+                  disabled={!isAdmin}
+                >
+                  <SelectValue placeholder="Tất cả chi nhánh" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Từ ngày
+              </p>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Đến ngày
+              </p>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-              Từ ngày
-            </p>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-[38px] w-full rounded-none border border-[#dcdcdc] px-3 text-[13px] bg-white"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-              Đến ngày
-            </p>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-[38px] w-full rounded-none border border-[#dcdcdc] px-3 text-[13px] bg-white"
-            />
-          </div>
-
-          <div className="flex gap-2">
+          <div className="flex items-center justify-end gap-2">
             <Button
-              className="h-[38px] rounded-none bg-blue-600 hover:bg-blue-700 text-white flex-1"
+              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
               onClick={loadFinancialData}
               disabled={loading}
             >
@@ -258,203 +291,145 @@ export default function FinancialReportListPage() {
             </Button>
           </div>
         </div>
-      </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#dcdcdc] rounded-[4px] p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-[4px] bg-blue-50 flex items-center justify-center text-blue-600">
-              <CircleDollarSign size={20} />
-            </div>
-            <Badge
-              variant="secondary"
-              className="rounded-none bg-blue-50 text-blue-600 border-none"
-            >
-              {metrics.branchLabel}
-            </Badge>
-          </div>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Doanh thu thuần
-          </p>
-          <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">
-            {formatMoney(metrics.netRevenue)}
-          </h3>
-        </div>
-
-        <div className="bg-white border border-[#dcdcdc] rounded-[4px] p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-[4px] bg-rose-50 flex items-center justify-center text-rose-600">
-              <TrendingDown size={20} />
-            </div>
-            <Badge
-              variant="secondary"
-              className="rounded-none bg-rose-50 text-rose-600 border-none"
-            >
-              Chi phí
-            </Badge>
-          </div>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Tổng chi phí
-          </p>
-          <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">
-            {formatMoney(metrics.totalExpense)}
-          </h3>
-        </div>
-
-        <div className="bg-white border border-[#dcdcdc] rounded-[4px] p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div
-              className={cn(
-                "w-10 h-10 rounded-[4px] flex items-center justify-center",
-                metrics.estimatedProfit < 0
-                  ? "bg-amber-50 text-amber-600"
-                  : "bg-emerald-50 text-emerald-600"
-              )}
-            >
-              <TrendingUp size={20} />
-            </div>
-            <Badge
-              variant="secondary"
-              className={cn(
-                "rounded-none border-none",
-                metrics.estimatedProfit < 0
-                  ? "bg-amber-50 text-amber-600"
-                  : "bg-emerald-50 text-emerald-600"
-              )}
-            >
-              Chuẩn hóa
-            </Badge>
-          </div>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Lợi nhuận ròng
-          </p>
-          <h3
-            className={cn(
-              "text-2xl font-black tracking-tight mt-1",
-              metrics.estimatedProfit < 0
-                ? "text-amber-600"
-                : "text-emerald-600"
-            )}
-          >
-            {formatMoney(Math.round(metrics.estimatedProfit))}
-          </h3>
-        </div>
-
-        <div className="bg-white border border-[#dcdcdc] rounded-[4px] p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-[4px] bg-violet-50 flex items-center justify-center text-violet-600">
-              <Wallet size={20} />
-            </div>
-            <Badge
-              variant="secondary"
-              className="rounded-none bg-violet-50 text-violet-600 border-none"
-            >
-              Công nợ
-            </Badge>
-          </div>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            NCC còn nợ
-          </p>
-          <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">
-            {metrics.debtCount} NCC
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-1">
-            Tổng dư nợ:{" "}
-            <span className="font-black text-violet-600">
-              {formatMoney(metrics.debtTotal)}
-            </span>
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-4">
-        <div className="bg-white border border-[#dcdcdc] p-6 rounded-[4px] shadow-sm">
-          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">
-              Điểm vào nghiệp vụ
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {reportCards.map((report) => (
-              <Link key={report.id} href={report.href}>
-                <div className="bg-[#fcfcfc] border border-[#e5e7eb] p-5 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer group h-full min-h-[120px]">
-                  <div className="text-slate-700 group-hover:text-blue-600 transition-colors">
-                    <report.icon size={30} strokeWidth={1.5} />
-                  </div>
-                  <div className="flex flex-col">
-                    <h3 className="text-[15px] font-bold text-[#1f1f1f] group-hover:text-blue-600 transition-colors">
-                      {report.title}
-                    </h3>
-                    <p className="text-[13px] text-slate-500 mt-0.5 leading-relaxed">
-                      {report.description}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#dcdcdc] p-6 rounded-[4px] shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">
-                Top công nợ
-              </p>
-              <h2 className="text-[18px] font-bold text-[#1f1f1f]">
-                5 nhà cung cấp nợ cao nhất
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Cùng scope chi nhánh và kỳ báo cáo đang chọn, chốt theo ngày
-                kết thúc.
+        {loading ? (
+          <div className="rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+              <p className="text-[11px] uppercase tracking-widest text-slate-400">
+                Đang đồng bộ dữ liệu...
               </p>
             </div>
-            <Button
-              variant="ghost"
-              className="rounded-none text-blue-600 hover:text-blue-700"
-              onClick={() => router.push("/admin/financial/supplier-debt")}
-            >
-              Xem chi tiết
-            </Button>
           </div>
-
-          <div className="space-y-3">
-            {supplierDebts.slice(0, 5).map((supplier, index) => (
-              <div
-                key={supplier.id}
-                className="flex items-center justify-between gap-3 p-3 border border-slate-100 rounded-[4px] bg-slate-50/40"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[11px] font-black shrink-0">
-                    {index + 1}
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {summaryCards.map((card) => (
+                <div
+                  key={card.id}
+                  className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      {card.label}
+                    </p>
+                    <Badge
+                      variant="secondary"
+                      className="border-none bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+                    >
+                      {card.badge}
+                    </Badge>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-bold text-slate-800 truncate">
-                      {supplier.supplierName}
+                  <div className="mt-6 space-y-2">
+                    <p className={`text-[32px] font-semibold leading-none tracking-tight ${card.valueClassName}`}>
+                      {card.value}
                     </p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {supplier.supplierCode} • {supplier.phone || "Chưa có SĐT"}
-                    </p>
+                    <p className="text-[12px] text-slate-500">{card.hint}</p>
                   </div>
                 </div>
-                <p className="text-[13px] font-black text-rose-600 whitespace-nowrap">
-                  {formatMoney(supplier.totalDebt)}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
 
-            {supplierDebts.length === 0 && (
-              <div className="py-10 text-center border border-dashed border-slate-200 rounded-[4px] text-slate-500">
-                Chưa có dữ liệu công nợ để hiển thị
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+              <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Điểm vào nghiệp vụ
+                  </p>
+                </div>
+
+                <div className="space-y-4 px-5 pb-5 pt-5">
+                  {reportCards.map((report) => (
+                    <Link
+                      key={report.id}
+                      href={report.href}
+                      className="block"
+                    >
+                      <div className="group flex items-center justify-between gap-4 rounded-[4px] border border-slate-200 bg-slate-50/60 px-5 py-5 transition-colors hover:border-blue-200 hover:bg-blue-50/50">
+                        <div className="flex min-w-0 items-center gap-3.5">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] border border-slate-200 bg-white text-slate-600 transition-colors group-hover:border-blue-200 group-hover:text-blue-600">
+                            <report.icon size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-[14px] font-semibold text-slate-900 transition-colors group-hover:text-blue-600">
+                              {report.title}
+                            </h3>
+                            <p className="mt-1.5 text-[12px] leading-5 text-slate-500">
+                              {report.description}
+                            </p>
+                          </div>
+                        </div>
+                        <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-blue-500" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+
+              <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Top công nợ
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="h-[32px] border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+                      onClick={() => router.push("/admin/financial/supplier-debt")}
+                    >
+                      Xem chi tiết
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 p-4">
+                  <div className="rounded-[4px] border border-slate-200 bg-slate-50/50 px-4 py-3">
+                    <p className="text-[14px] font-semibold text-slate-900">
+                      5 nhà cung cấp nợ cao nhất
+                    </p>
+                    <p className="mt-1 text-[12px] leading-5 text-slate-500">
+                      Chốt theo phạm vi chi nhánh và ngày kết thúc đang chọn.
+                    </p>
+                  </div>
+
+                  {supplierDebts.length > 0 ? (
+                    supplierDebts.slice(0, 5).map((supplier, index) => (
+                      <div
+                        key={supplier.id}
+                        className="flex items-center justify-between gap-3 rounded-[4px] border border-slate-200 bg-white px-4 py-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
+                            {index + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold text-slate-900">
+                              {supplier.supplierName}
+                            </p>
+                            <p className="truncate text-[11px] text-slate-500">
+                              {supplier.supplierCode} • {supplier.phone || "Chưa có SĐT"}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="whitespace-nowrap text-[13px] font-semibold text-rose-600">
+                          {formatMoney(supplier.totalDebt)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[4px] border border-dashed border-slate-200 bg-slate-50/40 py-12 text-center text-[12px] text-slate-500">
+                      Chưa có dữ liệu công nợ để hiển thị
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
-        <DialogContent className="max-w-2xl rounded-none">
+        <DialogContent className="max-w-2xl border border-slate-200 bg-white shadow-xl">
           <DialogHeader>
             <DialogTitle className="uppercase">
               Trợ giúp danh sách báo cáo tài chính

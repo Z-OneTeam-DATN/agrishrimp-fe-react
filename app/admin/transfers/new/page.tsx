@@ -1,43 +1,27 @@
-﻿"use client";
+"use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useFieldArray, useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { transferService } from "@/app/services/transfer.service";
 import { branchService } from "@/app/services/branchService";
 import { ProductService } from "@/app/services/product.service";
 import {
-  X,
-  Settings,
-  HelpCircle,
   Plus,
   Trash2,
   Search,
   Truck,
-  User,
-  FileText,
-  ChevronRight,
   CheckCircle2,
   AlertCircle,
-  ArrowRightLeft,
-  ChevronLeft,
   Save,
-  Car,
-  ScanBarcode,
-  ListPlus,
-  History,
-  MapPin,
-  Building2,
-  ArrowDownToLine,
   DollarSign,
-  Receipt,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -53,7 +37,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TransferSchema } from "@/app/types/inventory.schema";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,6 +48,12 @@ export default function NewTransferPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const onError = (errors: any) => {
     console.log("Lỗi Validation của Zod:", errors);
@@ -118,21 +107,13 @@ export default function NewTransferPage() {
   });
 
   const transferBusinessType = watch("transferBusinessType");
-  const importStatus = watch("importStatus");
   const currentSourceBranch = watch("sourceBranch");
   const watchedItems = watch("items");
-
   const isInternalSale = transferBusinessType === "INTERNAL_SALE";
-
-  useEffect(() => {
-    setValue(
-      "transferType",
-      isInternalSale ? "INTERNAL" : "BETWEEN_WAREHOUSES",
-      { shouldValidate: true }
-    );
-  }, [isInternalSale, setValue]);
-
-  // Tính tổng thành tiền nội bộ (chỉ hiện khi INTERNAL_SALE)
+  const totalTransferQuantity = (watchedItems || []).reduce(
+    (sum: number, item: any) => sum + (Number(item.quantity) || 0),
+    0,
+  );
   const totalTransferAmount = isInternalSale
     ? (watchedItems || []).reduce((sum: number, item: any) => {
         const qty = Number(item.quantity) || 0;
@@ -141,45 +122,54 @@ export default function NewTransferPage() {
       }, 0)
     : 0;
 
+  useEffect(() => {
+    setValue(
+      "transferType",
+      isInternalSale ? "INTERNAL" : "BETWEEN_WAREHOUSES",
+      { shouldValidate: true },
+    );
+  }, [isInternalSale, setValue]);
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: "items",
   });
 
-  const auditLogs = [
-    {
-      time: new Date().toLocaleString("vi-VN"),
-      user: "Hệ thống",
-      action: "Khởi tạo phiếu dự thảo",
-      detail: "Hệ thống tự động cấp mã phiếu",
-    },
-  ];
-
   const onSubmit = async (formData: any) => {
     setIsSubmitting(true);
     try {
-      const isInternalSalePayload = formData.transferBusinessType === "INTERNAL_SALE";
-      const resolvedTransferType = isInternalSalePayload ? "INTERNAL" : "BETWEEN_WAREHOUSES";
+      const isInternalSalePayload =
+        formData.transferBusinessType === "INTERNAL_SALE";
+      const resolvedTransferType = isInternalSalePayload
+        ? "INTERNAL"
+        : "BETWEEN_WAREHOUSES";
       const payload = {
         fromBranchId: Number(formData.sourceBranch),
         toBranchId: Number(formData.destBranch),
         transferType: resolvedTransferType,
-        transferBusinessType: formData.transferBusinessType || "STOCK_TRANSFER",
+        transferBusinessType:
+          formData.transferBusinessType || "STOCK_TRANSFER",
         description: formData.description,
         transporter: formData.transporter || null,
         vehicle: formData.vehicle || null,
         dispatchOrder: formData.dispatchOrder || null,
         referenceCode: formData.referenceCode || null,
         priority: "NORMAL",
-        transferDate: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
-        deadline: formData.transferDate ? new Date(formData.transferDate).toISOString() : null,
+        transferDate: formData.transferDate
+          ? new Date(formData.transferDate).toISOString()
+          : null,
+        deadline: formData.transferDate
+          ? new Date(formData.transferDate).toISOString()
+          : null,
         items: formData.items.map((item: any) => ({
           sku: item.productCode,
           quantity: Number(item.quantity),
           quantityRequested: Number(item.quantity),
           quantityReal: 0,
           itemNote: item.itemNote || "",
-          unitTransferPrice: isInternalSalePayload ? (Number(item.unitTransferPrice) || 0) : null,
+          unitTransferPrice: isInternalSalePayload
+            ? Number(item.unitTransferPrice) || 0
+            : null,
         })),
       };
 
@@ -187,7 +177,10 @@ export default function NewTransferPage() {
       toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
       router.push("/admin/transfers");
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.response?.data || "Không thể tạo phiếu";
+      const errMsg =
+        error.response?.data?.message ||
+        error.response?.data ||
+        "Không thể tạo phiếu";
       toast.error("Lỗi: " + errMsg);
     } finally {
       setIsSubmitting(false);
@@ -200,13 +193,11 @@ export default function NewTransferPage() {
     { label: "Đang vận chuyển", status: "upcoming", icon: Truck },
     { label: "Đã nhận hàng", status: "upcoming", icon: CheckCircle2 },
   ];
-
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
+  const fieldControlClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
+  const selectTriggerClass =
+    "h-[38px] text-[13px] font-normal text-slate-800 data-[placeholder]:text-slate-400";
 
   const openProductDropdown = () => {
     if (!currentSourceBranch) {
@@ -226,11 +217,18 @@ export default function NewTransferPage() {
 
       setIsSearching(true);
       try {
-        const results = await ProductService.searchVariants(searchTerm, currentSourceBranch);
+        const results = await ProductService.searchVariants(
+          searchTerm,
+          currentSourceBranch,
+        );
         const finalData = Array.isArray(results) ? results : results?.data || [];
-        setSearchResults(finalData.filter((v: any) => Number(v.quantity ?? 0) > 0));
+        setSearchResults(
+          finalData.filter((v: any) => Number(v.quantity ?? 0) > 0),
+        );
 
-        if (document.activeElement?.getAttribute("placeholder")?.includes("Tìm theo tên")) {
+        if (
+          document.activeElement?.getAttribute("placeholder")?.includes("Tìm theo tên")
+        ) {
           setShowDropdown(true);
         }
       } catch (error) {
@@ -241,34 +239,33 @@ export default function NewTransferPage() {
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, currentSourceBranch]);
+  }, [searchTerm, currentSourceBranch, showDropdown]);
 
   const handleSelectProduct = (variant: any) => {
-      // 1. Kiểm tra trùng dựa trên SKU giống Nhập kho
-      const isExist = fields.some((f: any) => f.productCode === variant.sku);
-      if (isExist) {
-        toast.error("Sản phẩm này đã có trong danh sách!");
-        return;
-      }
+    const isExist = fields.some((f: any) => f.productCode === variant.sku);
+    if (isExist) {
+      toast.error("Sản phẩm này đã có trong danh sách!");
+      return;
+    }
 
-      let displayName = variant.productName || "Sản phẩm";
-      if (variant.sku) displayName += ` [${variant.sku}]`;
+    let displayName = variant.productName || "Sản phẩm";
+    if (variant.sku) displayName += ` [${variant.sku}]`;
 
-      // 2. Append dữ liệu - Dùng variant.sku làm định danh chính
-      append({
-        variantId: variant.id,
-        productCode: variant.sku,
-        productName: displayName,
-        unit: variant.unit || "Cái",
-        quantity: 1,
-        availableQuantity: variant.quantity || 0,
-        receivedQuantity: 0,
-        itemNote: "",
-      });
+    append({
+      variantId: variant.id,
+      productCode: variant.sku,
+      productName: displayName,
+      unit: variant.unit || "Cái",
+      quantity: 1,
+      availableQuantity: variant.quantity || 0,
+      receivedQuantity: 0,
+      itemNote: "",
+    });
 
-      setSearchTerm("");
-      setShowDropdown(false);
-      toast.success("Đã thêm biến thể thành công!");
+    setSearchTerm("");
+    setShowDropdown(false);
+    setSelectedProductIds([]);
+    toast.success("Đã thêm biến thể thành công!");
   };
 
   const toggleSelectedProduct = (productId: number | string) => {
@@ -296,44 +293,54 @@ export default function NewTransferPage() {
   return (
     <form
       onSubmit={handleSubmit(onSubmit, onError)}
-      className="space-y-4 pb-[100px] bg-slate-50/30 p-4 min-h-screen"
+      className="space-y-3 pb-[100px] text-slate-800"
     >
-      {/* Page Header */}
-      <div className="flex items-center gap-4 mb-2 px-1">
-        <Button type="button" variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-slate-400">
-          <ChevronLeft size={20} />
-        </Button>
-        <div className="flex flex-col">
-          <h1 className="text-[18px] font-black text-[#1f1f1f] tracking-tight uppercase">
+      <div className="mt-2 mb-8 space-y-4 px-1">
+        <div className="flex items-center gap-3">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
             Lập phiếu điều chuyển hàng hóa
           </h1>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Chọn một loại nghiệp vụ để hệ thống tự áp đúng luồng điều chuyển
-          </p>
         </div>
       </div>
 
-      {/* Step Bar */}
-      <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm mb-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="border border-slate-200 bg-white px-4 py-4 shadow-sm">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
           {steps.map((step, idx) => (
             <React.Fragment key={idx}>
-              <div className="flex flex-col items-center gap-2 relative z-10">
+              <div className="relative z-10 flex min-w-0 flex-col items-center gap-2">
                 <div
                   className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300",
-                    step.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white" : step.status === "active" ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100" : "bg-slate-50 border-slate-200 text-slate-300"
+                    "flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors",
+                    step.status === "completed"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                      : step.status === "active"
+                        ? "border-sky-200 bg-sky-50 text-sky-600"
+                        : "border-slate-200 bg-slate-50 text-slate-300",
                   )}
                 >
-                  <step.icon size={20} />
+                  <step.icon size={15} />
                 </div>
-                <span className={cn("text-[10px] font-black uppercase tracking-tighter", step.status === "active" ? "text-blue-600" : "text-slate-400")}>
+                <span
+                  className={cn(
+                    "text-center text-[10px] font-medium",
+                    step.status === "active"
+                      ? "text-sky-600"
+                      : "text-slate-500",
+                  )}
+                >
                   {step.label}
                 </span>
               </div>
               {idx < steps.length - 1 && (
-                <div className="flex-1 h-[3px] bg-slate-100 mx-2 -mt-6 relative">
-                  <div className={cn("absolute inset-0 transition-all duration-500", steps[idx].status === "completed" ? "bg-emerald-500" : "bg-transparent")} />
+                <div className="relative -mt-5 h-px flex-1 bg-slate-200">
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 transition-all duration-500",
+                      steps[idx].status === "completed"
+                        ? "w-full bg-emerald-300"
+                        : "w-0 bg-transparent",
+                    )}
+                  />
                 </div>
               )}
             </React.Fragment>
@@ -341,276 +348,607 @@ export default function NewTransferPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-9 space-y-5">
-          {/* Section 1: Thông tin lệnh */}
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm">
-            <div className="flex items-center gap-2 mb-6 text-blue-700 font-black text-[11px] uppercase tracking-widest border-b pb-3">
-              <ArrowRightLeft size={16} /> 1. Thông tin lệnh điều chuyển hàng hóa
-            </div>
+      <div className="space-y-5 px-1">
+        <div className="border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="border-b border-slate-200 pb-3">
+            <span className="text-[11px] font-bold text-slate-800">
+              1. Thông tin lệnh điều chuyển hàng hóa
+            </span>
+          </div>
 
-            {/* Loại nghiệp vụ điều chuyển */}
-            <div className="mb-5 p-4 border border-dashed border-slate-300 bg-slate-50/50 rounded-none">
-              <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex items-center gap-2 block">
-                <Receipt size={13} className="text-blue-600" /> Loại nghiệp vụ điều chuyển *
-              </Label>
-              <Controller
-                name="transferBusinessType"
-                control={control}
-                render={({ field }) => (
-                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap items-center gap-6 mt-2">
-                    <div className={cn("flex items-center gap-3 p-3 border-2 cursor-pointer transition-all min-w-[220px]",
-                      field.value === "STOCK_TRANSFER" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"
-                    )}>
-                      <RadioGroupItem value="STOCK_TRANSFER" id="bt-stock" />
-                      <div>
-                        <Label htmlFor="bt-stock" className="text-[12px] font-black text-slate-700 cursor-pointer block">
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Loại nghiệp vụ điều chuyển *
+                </Label>
+                <Controller
+                  name="transferBusinessType"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
+                      <SelectTrigger className={cn(selectTriggerClass, "border-slate-200")}>
+                        <SelectValue placeholder="Chọn loại điều chuyển" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STOCK_TRANSFER">
                           Điều chuyển kho thuần
-                        </Label>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Cùng đơn vị — không phát sinh doanh thu / công nợ nội bộ</p>
-                      </div>
-                    </div>
-                    <div className={cn("flex items-center gap-3 p-3 border-2 cursor-pointer transition-all min-w-[220px]",
-                      field.value === "INTERNAL_SALE" ? "border-amber-500 bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"
-                    )}>
-                      <RadioGroupItem value="INTERNAL_SALE" id="bt-sale" />
-                      <div>
-                        <Label htmlFor="bt-sale" className="text-[12px] font-black text-slate-700 cursor-pointer block">
+                        </SelectItem>
+                        <SelectItem value="INTERNAL_SALE">
                           Bán nội bộ (có hạch toán)
-                        </Label>
-                        <p className="text-[10px] text-slate-400 mt-0.5">2 chi nhánh hạch toán riêng — cần nhập đơn giá điều chuyển</p>
-                      </div>
-                    </div>
-                  </RadioGroup>
-                )}
-              />
-              {isInternalSale && (
-                <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 text-amber-800">
-                  <DollarSign size={14} className="mt-0.5 shrink-0" />
-                  <p className="text-[11px] font-medium">
-                    Chế độ <strong>Bán nội bộ</strong>: Vui lòng nhập <strong>đơn giá điều chuyển</strong> cho từng mặt hàng bên dưới.
-                    Hệ thống sẽ tự động ghi nhận <strong>phải thu nội bộ</strong> cho kho xuất và <strong>phải trả nội bộ</strong> cho kho nhận.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
-
-              <div className="md:col-span-8 space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight">Lý do điều chuyển / Diễn giải *</Label>
-                <Input
-                  {...register("description")}
-                  className={cn("h-[34px] text-[13px] rounded-none font-bold shadow-none", errors.description ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
-                {/* HIỂN THỊ LỖI */}
-                {errors.description && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.description.message as string}</p>}
               </div>
 
-              <div className="md:col-span-4 space-y-1.5">
-                <Label className="text-[10px] font-black text-rose-600 uppercase tracking-tight">Mã phiếu hệ thống</Label>
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Chi nhánh xuất hàng *
+                </Label>
+                <Controller
+                  name="sourceBranch"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        remove();
+                        const selectedBranch = branches.find(
+                          (b) => b.id.toString() === val,
+                        );
+                        if (selectedBranch) {
+                          setValue(
+                            "sourceAddress",
+                            selectedBranch.addressDetail ||
+                              "Chưa cập nhật địa chỉ",
+                          );
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          selectTriggerClass,
+                          errors.sourceBranch
+                            ? "border-rose-500"
+                            : "border-slate-200",
+                        )}
+                      >
+                        <SelectValue placeholder="Chọn kho xuất..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        {(transferBusinessType === "STOCK_TRANSFER"
+                          ? branches.filter((b) => {
+                              const code = String(
+                                b.branchCode || "",
+                              ).toUpperCase();
+                              const type = String(
+                                b.branchType || "",
+                              ).toUpperCase();
+                              const name = String(b.name || "").toLowerCase();
+                              if (code === "SYSTEM_DEFECT") return false;
+                              if (code === "MAIN_WH") return true;
+                              return (
+                                type === "WAREHOUSE" &&
+                                name.includes("kho tổng")
+                              );
+                            })
+                          : branches
+                        ).map((b) => (
+                          <SelectItem key={b.id} value={b.id.toString()}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.sourceBranch && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.sourceBranch.message as string}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Chi nhánh nhận hàng *
+                </Label>
+                <Controller
+                  name="destBranch"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        const selectedBranch = branches.find(
+                          (b) => b.id.toString() === val,
+                        );
+                        if (selectedBranch) {
+                          setValue(
+                            "destAddress",
+                            selectedBranch.addressDetail ||
+                              "Chưa cập nhật địa chỉ",
+                          );
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          selectTriggerClass,
+                          errors.destBranch
+                            ? "border-rose-500"
+                            : "border-slate-200",
+                        )}
+                      >
+                        <SelectValue placeholder="Chọn kho nhận..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        {branches.map((b) => (
+                          <SelectItem
+                            key={b.id}
+                            value={b.id.toString()}
+                            disabled={b.id.toString() === currentSourceBranch}
+                          >
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.destBranch && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.destBranch.message as string}
+                  </p>
+                )}
+                {errors.destWarehouse && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.destWarehouse.message as string}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Lý do điều chuyển / Diễn giải *
+                </Label>
+                <Input
+                  {...register("description")}
+                  className={cn(
+                    fieldControlClass,
+                    errors.description
+                      ? "border-rose-500 focus-visible:ring-rose-500"
+                      : "border-slate-200",
+                  )}
+                  placeholder="Nhập lý do điều chuyển..."
+                />
+                {errors.description && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.description.message as string}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Mã phiếu hệ thống
+                </Label>
                 <Input
                   {...register("transferCode")}
                   readOnly
-                  className="h-[34px] text-[13px] border-[#ccc] rounded-none bg-slate-50 font-mono text-slate-500 cursor-not-allowed"
+                  className={cn(fieldControlClass, "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500")}
                 />
               </div>
 
-              <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Phương tiện vận chuyển</Label>
-                <div className="relative">
-                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                  <Input
-                    {...register("vehicle")}
-                    className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.vehicle ? "border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                    placeholder="Biển số xe..."
-                  />
-                </div>
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Ngày điều chuyển (24H) *
+                </Label>
+                <Input
+                  type="datetime-local"
+                  {...register("transferDate")}
+                  className={cn(
+                    fieldControlClass,
+                    errors.transferDate
+                      ? "border-rose-500 focus-visible:ring-rose-500"
+                      : "border-slate-200",
+                  )}
+                />
+                {errors.transferDate && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.transferDate.message as string}
+                  </p>
+                )}
               </div>
-              <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Tài xế vận chuyển *</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                  <Input
-                    {...register("transporter")}
-                    className={cn("h-[34px] pl-9 text-[13px] rounded-none shadow-none", errors.transporter ? "border-rose-500 focus:border-rose-500" : "border-[#ccc] focus:border-blue-500")}
-                    placeholder="Họ tên tài xế..."
-                  />
-                </div>
-                {errors.transporter && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transporter.message as string}</p>}
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Trạng thái nhập
+                </Label>
+                <Controller
+                  name="importStatus"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className={cn(selectTriggerClass, "border-slate-200")}>
+                        <SelectValue placeholder="Chọn trạng thái nhập" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        <SelectItem value="PENDING">Chờ nhập</SelectItem>
+                        <SelectItem value="PARTIAL">Nhập một phần</SelectItem>
+                        <SelectItem value="COMPLETED">Đã nhập đủ</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
-              <div className="md:col-span-4 space-y-1.5 animate-in fade-in zoom-in-95 duration-300">
-                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Lệnh điều động số</Label>
-                <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                  <Input
-                    {...register("dispatchOrder")}
-                    className="h-[34px] pl-9 text-[13px] border-[#ccc] rounded-none font-mono focus:border-blue-500 shadow-none"
-                    placeholder="Số hiệu văn bản..."
-                  />
-                </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Tham chiếu chứng từ *
+                </Label>
+                <Input
+                  {...register("referenceCode")}
+                  className={cn(
+                    fieldControlClass,
+                    errors.referenceCode
+                      ? "border-rose-500 focus-visible:ring-rose-500"
+                      : "border-slate-200",
+                  )}
+                  placeholder="Mã YCDC, Mã ĐH..."
+                />
+                {errors.referenceCode && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.referenceCode.message as string}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Phương tiện vận chuyển
+                </Label>
+                <Input
+                  {...register("vehicle")}
+                  className={cn(
+                    fieldControlClass,
+                    errors.vehicle
+                      ? "border-rose-500 focus-visible:ring-rose-500"
+                      : "border-slate-200",
+                  )}
+                  placeholder="Biển số xe..."
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Tài xế vận chuyển *
+                </Label>
+                <Input
+                  {...register("transporter")}
+                  className={cn(
+                    fieldControlClass,
+                    errors.transporter
+                      ? "border-rose-500 focus-visible:ring-rose-500"
+                      : "border-slate-200",
+                  )}
+                  placeholder="Họ tên tài xế..."
+                />
+                {errors.transporter && (
+                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                    {errors.transporter.message as string}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 md:col-span-3">
+                <Label className={fieldLabelClass}>
+                  Lệnh điều động số
+                </Label>
+                <Input
+                  {...register("dispatchOrder")}
+                  className={cn(fieldControlClass, "border-slate-200")}
+                  placeholder="Số hiệu văn bản..."
+                />
+              </div>
+
+            </div>
+
+            {isInternalSale && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
+                <DollarSign size={14} className="mt-0.5 shrink-0" />
+                <p className="text-[11px] font-medium">
+                  Chế độ <strong>Bán nội bộ</strong>: cần nhập đơn giá điều
+                  chuyển cho từng mặt hàng.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+            <h3 className="text-[11px] font-bold text-slate-800">
+              3. Danh sách vật tư điều chuyển
+            </h3>
+
+            <div className="flex min-w-[300px] flex-1 items-center gap-2 lg:max-w-[600px]">
+              <div className="relative flex-1">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
+                />
+                <Input
+                  ref={searchInputRef}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={openProductDropdown}
+                  onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                  disabled={!currentSourceBranch}
+                  placeholder={
+                    !currentSourceBranch
+                      ? "Vui lòng chọn kho xuất trước..."
+                      : "Tìm theo tên, mã SKU..."
+                  }
+                  className="relative z-20 h-9 bg-white pl-10 text-[13px] shadow-none disabled:bg-slate-50"
+                />
+
+                {showDropdown && currentSourceBranch && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[320px] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl">
+                    {searchResults.length > 0 && (
+                      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
+                        <span className="text-slate-500">
+                          Đã chọn{" "}
+                          <span className="font-bold text-slate-700">
+                            {selectedProductIds.length}
+                          </span>{" "}
+                          sản phẩm
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 rounded-md bg-emerald-600 px-3 text-[11px] hover:bg-emerald-700"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={handleAddSelectedProducts}
+                        >
+                          Thêm đã chọn
+                        </Button>
+                      </div>
+                    )}
+                    {isSearching ? (
+                      <div className="p-3 text-center text-[12px] italic text-slate-400">
+                        Đang tải dữ liệu...
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      searchResults.map((variant) => (
+                        <div
+                          key={variant.id}
+                          onMouseDown={() => handleSelectProduct(variant)}
+                          className="flex cursor-pointer items-center justify-between border-b border-slate-100 p-2.5 transition-colors hover:bg-sky-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              onMouseDown={(e) => e.stopPropagation()}
+                              className="flex items-center"
+                            >
+                              <Checkbox
+                                checked={selectedProductIds.some(
+                                  (id) => String(id) === String(variant.id),
+                                )}
+                                onCheckedChange={() =>
+                                  toggleSelectedProduct(variant.id)
+                                }
+                              />
+                            </div>
+                            <div>
+                              <p className="text-[12px] font-semibold text-slate-800">
+                                {variant.productName || variant.unit}
+                              </p>
+                              <p className="text-[10px] text-slate-500">
+                                SKU:{" "}
+                                <span className="font-mono text-sky-600">
+                                  {variant.sku}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p
+                              className={cn(
+                                "text-[11px] font-semibold",
+                                (variant.quantity || 0) > 0
+                                  ? "text-emerald-600"
+                                  : "text-rose-500",
+                              )}
+                            >
+                              Tồn: {variant.quantity || 0}
+                            </p>
+                            <p className="text-[10px] text-slate-400">Cái</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-[12px] text-slate-400">
+                        Không có sản phẩm nào
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Section 2: Danh mục hàng hóa */}
-          <div className="bg-white border border-[#dcdcdc] rounded-none shadow-sm">
-            <div className="px-5 py-3 border-b border-[#eee] bg-[#f8f9fa] flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-[11px] font-black text-slate-700 uppercase flex items-center gap-2 tracking-wider whitespace-nowrap">
-                <Plus size={16} className="text-blue-600" /> 2. Danh mục vật tư điều chuyển
-              </h3>
-
-              <div className="flex flex-1 items-center gap-2 min-w-[300px] max-w-[600px]">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <Input
-                    ref={searchInputRef}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onFocus={openProductDropdown}
-                    onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                    disabled={!currentSourceBranch}
-                    placeholder={!currentSourceBranch ? "Vui lòng chọn Kho xuất trước..." : "Tìm theo tên, mã SKU...(F3)"}
-                    className="pl-10 h-9 text-[13px] border-slate-200 rounded-none focus:border-blue-500 shadow-none bg-white relative z-20 disabled:bg-slate-50"
-                  />
-
-                  {showDropdown && currentSourceBranch && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl z-50 max-h-[300px] overflow-y-auto">
-                      {searchResults.length > 0 && (
-                        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
-                          <span className="text-slate-500">
-                            Đã chọn <span className="font-bold text-slate-700">{selectedProductIds.length}</span> sản phẩm
-                          </span>
-                          <Button type="button" size="sm" className="h-7 text-[11px]" onMouseDown={(e) => e.preventDefault()} onClick={handleAddSelectedProducts}>
-                            Thêm đã chọn
-                          </Button>
-                        </div>
-                      )}
-                      {isSearching ? (
-                        <div className="p-3 text-center text-[12px] text-slate-400 italic">Đang tải dữ liệu...</div>
-                      ) : searchResults.length > 0 ? (
-                        searchResults.map((variant) => (
-                          <div
-                            key={variant.id}
-                            onMouseDown={() => handleSelectProduct(variant)}
-                            className="flex items-center justify-between p-2.5 hover:bg-blue-50 border-b border-slate-100 cursor-pointer transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div onMouseDown={(e) => e.stopPropagation()} className="flex items-center">
-                                <Checkbox
-                                  checked={selectedProductIds.some((id) => String(id) === String(variant.id))}
-                                  onCheckedChange={() => toggleSelectedProduct(variant.id)}
-                                />
-                              </div>
-                              <div>
-                                <p className="text-[12px] font-bold text-slate-800">{variant.productName || variant.unit}</p>
-                                <p className="text-[10px] text-slate-500">SKU: <span className="font-mono text-blue-600">{variant.sku}</span></p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className={cn("text-[11px] font-black", (variant.quantity || 0) > 0 ? "text-emerald-600" : "text-rose-500")}>
-                                Tồn: {variant.quantity || 0}
-                              </p>
-                              <p className="text-[10px] text-slate-400">Cái</p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-3 text-center text-[12px] text-slate-400">Không có sản phẩm nào</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <Table className="table-custom border-collapse min-w-[1250px]">
-                <TableHeader>
-                  <TableRow className="bg-slate-50 border-b border-[#ccc]">
-                    <TableHead className="w-[40px] text-center p-2 text-[10px] font-black uppercase text-slate-500">STT</TableHead>
-                    <TableHead className="w-[150px] p-2 text-[10px] font-black uppercase text-slate-500">Hàng hóa</TableHead>
-                    <TableHead className="w-[80px] p-2 text-[10px] font-black uppercase text-slate-500">ĐVT</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-slate-500">Tồn kho</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-blue-600">SL chuyển</TableHead>
-                    <TableHead className="w-[100px] text-right p-2 text-[10px] font-black uppercase text-emerald-600">Thực nhận</TableHead>
+          <div className="overflow-x-auto px-3 py-3">
+            <div className="overflow-hidden border border-slate-200">
+              <Table
+                className={cn(
+                  "table-custom table-fixed border-collapse",
+                  isInternalSale ? "min-w-[920px]" : "min-w-[760px]",
+                )}
+              >
+                <TableHeader className="bg-slate-50">
+                  <TableRow className="border-b border-slate-200">
+                    <TableHead className="w-[40px] px-1.5 py-2 text-center text-[10px] font-semibold text-slate-700">
+                      STT
+                    </TableHead>
+                    <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
+                      Sản phẩm
+                    </TableHead>
+                    <TableHead className="w-[54px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
+                      ĐVT
+                    </TableHead>
+                    <TableHead className="w-[70px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                      Tồn kho
+                    </TableHead>
+                    <TableHead className="w-[78px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                      SL chuyển
+                    </TableHead>
+                    <TableHead className="w-[78px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                      Thực nhận
+                    </TableHead>
                     {isInternalSale && (
                       <>
-                        <TableHead className="w-[120px] text-right p-2 text-[10px] font-black uppercase text-amber-600">Đơn giá NB</TableHead>
-                        <TableHead className="w-[120px] text-right p-2 text-[10px] font-black uppercase text-amber-700">Thành tiền NB</TableHead>
+                        <TableHead className="w-[86px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                          Đơn giá NB
+                        </TableHead>
+                        <TableHead className="w-[94px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
+                          Thành tiền NB
+                        </TableHead>
                       </>
                     )}
-                    <TableHead className="p-2 text-[10px] font-black uppercase text-slate-500">Ghi chú</TableHead>
-                    <TableHead className="w-[40px]"></TableHead>
+                    <TableHead className="w-[160px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
+                      Ghi chú
+                    </TableHead>
+                    <TableHead className="w-[38px] px-1.5 py-2 text-center text-[10px] font-semibold text-slate-700">
+                      Xóa
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {fields.map((field, index) => {
                     const qty = Number(watch(`items.${index}.quantity`)) || 0;
-                    const unitPrice = Number(watch(`items.${index}.unitTransferPrice`)) || 0;
+                    const unitPrice =
+                      Number(watch(`items.${index}.unitTransferPrice`)) || 0;
                     const lineTotal = qty * unitPrice;
                     const itemErrors = (errors?.items as any)?.[index];
-                    const hasRowError = Boolean(itemErrors?.quantity || itemErrors?.unitTransferPrice);
+                    const hasRowError = Boolean(
+                      itemErrors?.quantity || itemErrors?.unitTransferPrice,
+                    );
                     const colSpan = isInternalSale ? 10 : 8;
 
                     return (
                       <React.Fragment key={field.id}>
-                        <TableRow className="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
-                          <TableCell className="text-center text-slate-400 font-bold text-[11px]">{index + 1}</TableCell>
-                          <TableCell className="p-1">
-                            <Input {...register(`items.${index}.productName`)} className="h-8 text-[12px] border-none bg-transparent font-bold focus:ring-0" readOnly />
+                        <TableRow className="border-b border-slate-100 hover:bg-sky-50/40">
+                          <TableCell className="px-1.5 py-2 text-center text-[11px] font-medium text-slate-500">
+                            {index + 1}
                           </TableCell>
-                          <TableCell className="p-1">
-                            <Input {...register(`items.${index}.unit`)} className="h-8 text-[12px] border-none bg-transparent focus:ring-0" readOnly />
+                          <TableCell className="px-1.5 py-1.5">
+                            <Input
+                              {...register(`items.${index}.productName`)}
+                              className="h-7 truncate border-none bg-transparent px-0 text-[11px] font-semibold focus-visible:ring-0"
+                              readOnly
+                            />
                           </TableCell>
-                          <TableCell className="p-1 text-right font-bold text-slate-500 pr-3">
-                            {(watch(`items.${index}.availableQuantity`) || 0).toLocaleString("vi-VN")}
+                          <TableCell className="px-1.5 py-1.5">
+                            <Input
+                              {...register(`items.${index}.unit`)}
+                              className="h-7 truncate border-none bg-transparent px-0 text-[11px] focus-visible:ring-0"
+                              readOnly
+                            />
                           </TableCell>
-                          <TableCell className="p-1 text-right">
+                          <TableCell className="px-1.5 py-2 text-right text-[11px] font-medium text-slate-500">
+                            {(
+                              watch(`items.${index}.availableQuantity`) || 0
+                            ).toLocaleString("vi-VN")}
+                          </TableCell>
+                          <TableCell className="px-1.5 py-1.5 text-right">
                             <Input
                               type="number"
                               step="any"
                               {...register(`items.${index}.quantity`)}
-                              className={cn("h-8 text-[13px] text-right bg-blue-50/30 rounded-none font-black text-blue-700 focus:ring-0", itemErrors?.quantity ? "border-rose-500" : "border-blue-200")}
+                              className={cn(
+                                "h-7 rounded-md border-sky-200 bg-sky-50/40 px-2 text-right text-[11px] font-semibold text-sky-700 focus-visible:ring-0",
+                                itemErrors?.quantity ? "border-rose-500" : "",
+                              )}
                             />
                           </TableCell>
-                          <TableCell className="p-1">
-                            <Input type="number" {...register(`items.${index}.receivedQuantity`)} readOnly className="h-8 text-[13px] text-right border-emerald-100 bg-emerald-50/30 rounded-none text-emerald-700 font-bold focus:ring-0 cursor-not-allowed" />
+                          <TableCell className="px-1.5 py-1.5">
+                            <Input
+                              type="number"
+                              {...register(`items.${index}.receivedQuantity`)}
+                              readOnly
+                              className="h-7 cursor-not-allowed rounded-md border-emerald-200 bg-emerald-50/40 px-2 text-right text-[11px] font-medium text-emerald-700 focus-visible:ring-0"
+                            />
                           </TableCell>
                           {isInternalSale && (
                             <>
-                              <TableCell className="p-1 text-right">
+                              <TableCell className="px-1.5 py-1.5 text-right">
                                 <Input
                                   type="number"
                                   step="any"
-                                  {...register(`items.${index}.unitTransferPrice`)}
-                                  className={cn("h-8 text-[13px] text-right bg-amber-50/40 rounded-none font-black text-amber-700 focus:ring-0", itemErrors?.unitTransferPrice ? "border-rose-500" : "border-amber-200")}
+                                  {...register(
+                                    `items.${index}.unitTransferPrice`,
+                                  )}
+                                  className={cn(
+                                    "h-7 rounded-md border-amber-200 bg-amber-50/50 px-2 text-right text-[11px] font-semibold text-amber-700 focus-visible:ring-0",
+                                    itemErrors?.unitTransferPrice
+                                      ? "border-rose-500"
+                                      : "",
+                                  )}
                                   placeholder="0"
                                 />
                               </TableCell>
-                              <TableCell className="p-1 text-right font-black text-amber-700 text-[12px] pr-3">
-                                {lineTotal > 0 ? lineTotal.toLocaleString("vi-VN") : <span className="text-slate-300">—</span>}
+                              <TableCell className="px-1.5 py-2 text-right text-[11px] font-semibold text-amber-700">
+                                {lineTotal > 0 ? (
+                                  lineTotal.toLocaleString("vi-VN")
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
                               </TableCell>
                             </>
                           )}
-                          <TableCell className="p-1">
-                            <Input {...register(`items.${index}.itemNote`)} className="h-8 text-[11px] border-none italic bg-transparent focus:ring-0" placeholder="..." />
+                          <TableCell className="px-1.5 py-1.5">
+                            <Input
+                              {...register(`items.${index}.itemNote`)}
+                              className="h-7 truncate border-none bg-transparent px-0 text-[11px] italic focus-visible:ring-0"
+                              placeholder="..."
+                            />
                           </TableCell>
-                          <TableCell className="p-1 text-center">
-                            <button type="button" onClick={() => remove(index)} className="text-slate-300 hover:text-rose-500 transition-colors">
-                              <Trash2 size={16} />
+                          <TableCell className="px-1.5 py-1.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => remove(index)}
+                              className="text-slate-300 transition-colors hover:text-rose-500"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </TableCell>
                         </TableRow>
                         {hasRowError && (
                           <TableRow className="bg-rose-50/70">
-                            <TableCell colSpan={colSpan} className="px-3 py-2 text-[10px] font-medium text-rose-600">
+                            <TableCell
+                              colSpan={colSpan}
+                              className="px-3 py-2 text-[10px] font-medium text-rose-600"
+                            >
                               <div className="flex flex-wrap gap-x-4 gap-y-1">
                                 {itemErrors?.quantity && (
-                                  <span>SL chuyển: {itemErrors.quantity.message as string}</span>
+                                  <span>
+                                    SL chuyển:{" "}
+                                    {itemErrors.quantity.message as string}
+                                  </span>
                                 )}
                                 {itemErrors?.unitTransferPrice && (
-                                  <span>Đơn giá NB: {itemErrors.unitTransferPrice.message as string}</span>
+                                  <span>
+                                    Đơn giá NB:{" "}
+                                    {itemErrors.unitTransferPrice.message as string}
+                                  </span>
                                 )}
                               </div>
                             </TableCell>
@@ -622,185 +960,85 @@ export default function NewTransferPage() {
                 </TableBody>
               </Table>
             </div>
-            {/* Footer tổng tiền nội bộ (chỉ hiện khi INTERNAL_SALE) */}
-            {isInternalSale && fields.length > 0 && (
-              <div className="flex items-center justify-end gap-4 px-5 py-3 bg-amber-50 border-t border-amber-200">
-                <span className="text-[11px] font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <DollarSign size={14} /> Tổng thành tiền nội bộ:
-                </span>
-                <span className="text-[16px] font-black text-amber-700 font-mono">
-                  {totalTransferAmount.toLocaleString("vi-VN")} ₫
-                </span>
-              </div>
-            )}
-            {/* Lỗi nếu chưa có items nào hoặc lỗi từ Zod items level */}
-            {(errors.items?.message || errors.items?.root?.message) && (
-                <div className="p-3 bg-rose-50 border-t border-rose-100 text-rose-500 text-[11px] font-bold text-center">
-                    {errors.items?.message as string || errors.items?.root?.message as string}
-                </div>
-            )}
-            {fields.length === 0 && (
-              <div className="py-16 flex flex-col items-center justify-center bg-white space-y-4">
-                <Search size={48} className="text-slate-200" />
-                <div className="text-center">
-                  <p className="text-[13px] font-black text-slate-600 uppercase tracking-widest">Danh mục điều chuyển đang trống</p>
-                </div>
-              </div>
-            )}
           </div>
+
+          {isInternalSale && fields.length > 0 && (
+            <div className="flex items-center justify-end gap-3 border-t border-amber-200 bg-amber-50 px-6 py-3">
+              <span className="text-[11px] font-medium text-amber-700">
+                Tổng thành tiền nội bộ
+              </span>
+              <span className="font-mono text-[16px] font-semibold text-amber-700">
+                {totalTransferAmount.toLocaleString("vi-VN")} ₫
+              </span>
+            </div>
+          )}
+
+          {(errors.items?.message || errors.items?.root?.message) && (
+            <div className="border-t border-rose-100 bg-rose-50 p-3 text-center text-[11px] font-semibold text-rose-500">
+              {errors.items?.message as string ||
+                errors.items?.root?.message as string}
+            </div>
+          )}
+
+          {fields.length === 0 && (
+            <div className="flex flex-col items-center justify-center space-y-3 px-6 py-16">
+              <Search size={42} className="text-slate-200" />
+              <div className="text-center">
+                <p className="text-[13px] font-semibold text-slate-500">
+                  Danh mục điều chuyển đang trống
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Sidebar - Right */}
-        <div className="lg:col-span-3 space-y-5">
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
-                  <Building2 size={12} /> Chi nhánh xuất hàng *
-                </Label>
-                <Controller
-                  name="sourceBranch"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        remove();
-                        const selectedBranch = branches.find((b) => b.id.toString() === val);
-                        if (selectedBranch) setValue("sourceAddress", selectedBranch.addressDetail || "Chưa cập nhật địa chỉ");
-                      }}
-                    >
-                      <SelectTrigger className={cn("h-8 text-[12px] rounded-none font-bold focus:ring-0", errors.sourceBranch ? "border-rose-500" : "border-[#eee]")}>
-                        <SelectValue placeholder="Chọn kho xuất..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {(transferBusinessType === "STOCK_TRANSFER"
-                          ? branches.filter((b) => {
-                              const code = String(b.branchCode || "").toUpperCase();
-                              const type = String(b.branchType || "").toUpperCase();
-                              const name = String(b.name || "").toLowerCase();
-                              if (code === "SYSTEM_DEFECT") return false;
-                              if (code === "MAIN_WH") return true;
-                              return type === "WAREHOUSE" && name.includes("kho tổng");
-                            })
-                          : branches
-                        ).map((b) => (
-                          <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {/* HIỂN THỊ LỖI */}
-                {errors.sourceBranch && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.sourceBranch.message as string}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                  <MapPin size={12} className="text-rose-500" /> Địa chỉ kho xuất
-                </Label>
-                <Controller
-                  name="sourceAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea {...field} readOnly className="min-h-[60px] text-[12px] border-[#ccc] rounded-none resize-none bg-slate-50 text-slate-600 cursor-not-allowed" />
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-center -my-2 relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-dashed border-slate-200"></div>
-              </div>
-              <div className="relative w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
-                <ArrowRightLeft size={16} className="rotate-90 md:rotate-0" />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
-                  <Building2 size={12} /> Chi nhánh nhận hàng *
-                </Label>
-                <Controller
-                  name="destBranch"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        const selectedBranch = branches.find((b) => b.id.toString() === val);
-                        if (selectedBranch) setValue("destAddress", selectedBranch.addressDetail || "Chưa cập nhật địa chỉ");
-                      }}
-                    >
-                      <SelectTrigger className={cn("h-8 text-[12px] rounded-none font-bold focus:ring-0", errors.destBranch ? "border-rose-500" : "border-[#eee]")}>
-                        <SelectValue placeholder="Chọn kho nhận..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {branches.map((b) => (
-                          <SelectItem key={b.id} value={b.id.toString()} disabled={b.id.toString() === currentSourceBranch}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {/* HIỂN THỊ LỖI */}
-                {errors.destBranch && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.destBranch.message as string}</p>}
-                {errors.destWarehouse && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.destWarehouse.message as string}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black text-slate-500 uppercase tracking-tight flex items-center gap-2">
-                  <MapPin size={12} className="text-emerald-500" /> Địa chỉ kho nhận
-                </Label>
-                <Controller
-                  name="destAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea {...field} readOnly className="min-h-[60px] text-[12px] border-[#ccc] rounded-none resize-none bg-slate-50 text-slate-600 cursor-not-allowed" />
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-[#dcdcdc] p-6 rounded-none shadow-sm space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold text-slate-400 uppercase">Ngày điều chuyển (24H) *</Label>
-              <Input
-                type="datetime-local"
-                {...register("transferDate")}
-                className={cn("h-[34px] text-[12px] rounded-none", errors.transferDate ? "border-rose-500" : "border-[#ccc]")}
-              />
-              {/* HIỂN THỊ LỖI */}
-              {errors.transferDate && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.transferDate.message as string}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-bold text-slate-400 uppercase">Tham chiếu chứng từ *</Label>
-              <Input
-                {...register("referenceCode")}
-                className={cn("h-[34px] text-[12px] rounded-none font-mono", errors.referenceCode ? "border-rose-500" : "border-[#ccc]")}
-                placeholder="Mã YCDC, Mã ĐH..."
-              />
-              {/* HIỂN THỊ LỖI */}
-              {errors.referenceCode && <p className="text-rose-500 text-[10px] mt-1 font-medium">{errors.referenceCode.message as string}</p>}
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-[#f8f9fa] border-t border-[#ddd] p-[12px_30px] flex items-center justify-end gap-[15px] z-[999] shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-        <Button variant="outline" type="button" className="min-w-[110px] h-[38px] text-[12px] font-bold border-[#ccc] bg-white rounded-none uppercase hover:bg-slate-50 transition-all" onClick={() => router.back()}>
-          HỦY BỎ
-        </Button>
-        <Button type="submit" disabled={isSubmitting} className="min-w-[180px] h-[38px] text-[12px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-none shadow-md shadow-blue-100 uppercase transition-all active:scale-[0.98] flex items-center justify-center">
-          {isSubmitting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : <Save size={18} className="mr-2" />}
-          {isSubmitting ? "ĐANG LƯU..." : "LƯU & GỬI DUYỆT"}
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium text-slate-400">
+            <span>
+              Tổng số lượng:{" "}
+              <span className="text-[14px] font-semibold tracking-normal text-slate-800">
+                {totalTransferQuantity}
+              </span>
+            </span>
+            {isInternalSale && (
+              <>
+                <div className="hidden h-4 w-px bg-slate-300 md:block"></div>
+                <span>
+                  Tổng tiền nội bộ:{" "}
+                  <span className="text-[14px] font-semibold tracking-normal text-amber-700">
+                    {totalTransferAmount.toLocaleString("vi-VN")} ₫
+                  </span>
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button
+              variant="outline"
+              type="button"
+              className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-slate-600 hover:bg-slate-50"
+              onClick={() => router.back()}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700"
+            >
+              {isSubmitting ? (
+                <Loader2 size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Save size={16} className="mr-2" />
+              )}
+              {isSubmitting ? "Đang lưu..." : "Lưu & gửi duyệt"}
+            </Button>
+          </div>
+        </div>
       </div>
     </form>
   );
