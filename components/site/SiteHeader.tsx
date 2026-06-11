@@ -12,9 +12,6 @@ import {
   Mic,
   MicOff,
   Camera,
-  Phone,
-  MapPin,
-  Bell,
 } from "lucide-react";
 import ImageSearchModal from "@/components/site/ImageSearchModal";
 import NotificationBell from "@/components/site/NotificationBell";
@@ -23,8 +20,6 @@ import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognitio
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
 import { useCartStore } from "@/stores/useCartStore";
-import { SITE_CONFIG } from "@/lib/Constant";
-import { addressService } from "@/app/services/address.service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,21 +68,10 @@ export default function Header() {
 
   const { itemCount, fetchCartCount } = useCartStore();
   const isLoggedIn = isAuthenticated && !!user;
-  const [defaultAddress, setDefaultAddress] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoggedIn) fetchCartCount();
   }, [isLoggedIn, fetchCartCount]);
-
-  useEffect(() => {
-    if (!isLoggedIn) { setDefaultAddress(null); return; }
-    addressService.getAll()
-      .then((list: any[]) => {
-        const def = list.find((a) => a.isDefault) ?? list[0];
-        setDefaultAddress(def?.addressDetail ?? null);
-      })
-      .catch(() => setDefaultAddress(null));
-  }, [isLoggedIn]);
 
   const getUserDisplayName = () =>
     user?.fullName || user?.displayName || user?.phoneNumber || user?.email || "Người dùng";
@@ -239,29 +223,6 @@ export default function Header() {
             {/* 3. Right section — cố định bên phải */}
             <div className="flex items-center gap-0 ml-auto shrink-0">
 
-              {/* Delivery address */}
-              <div className="hidden lg:flex items-center gap-2 px-4 border-l border-gray-200">
-                <MapPin size={15} className="text-primary shrink-0" />
-                <div className="leading-[1.2]">
-                  <p className="text-[10px] text-gray-400">Địa chỉ giao hàng</p>
-                  {isLoggedIn ? (
-                    defaultAddress ? (
-                      <p className="text-[12px] font-semibold text-gray-700 whitespace-nowrap max-w-[140px] truncate">
-                        {defaultAddress}
-                      </p>
-                    ) : (
-                      <Link href="/address" className="text-[12px] font-semibold text-primary hover:underline whitespace-nowrap">
-                        Cập nhật ngay
-                      </Link>
-                    )
-                  ) : (
-                    <p className="text-[12px] font-semibold text-gray-700 whitespace-nowrap max-w-[140px] truncate">
-                      {SITE_CONFIG.address}
-                    </p>
-                  )}
-                </div>
-              </div>
-
               {/* Cart */}
               <div className="pl-3 pr-1">
                 <Link href="/user/cart" id="cart-icon-target"
@@ -273,17 +234,6 @@ export default function Header() {
                     </span>
                   )}
                 </Link>
-              </div>
-
-              {/* Hotline pill */}
-              <div className="hidden xl:flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-3 py-1.5 cursor-pointer mx-2 shrink-0">
-                <div className="w-6 h-6 bg-primary/15 rounded-full flex items-center justify-center shrink-0">
-                  <Phone size={13} className="text-primary" />
-                </div>
-                <div className="leading-[1.2]">
-                  <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Hotline</p>
-                  <p className="text-[12px] font-bold text-gray-800">{SITE_CONFIG.phone}</p>
-                </div>
               </div>
 
               {/* Bell - Notification */}
