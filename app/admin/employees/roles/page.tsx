@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 
 const typeFilters = [
   { label: "Tất cả nhóm", value: "all" },
@@ -124,8 +125,8 @@ export default function RolesManagementPage() {
         />
         
         {loading ? (
-          <div className="p-8 text-center text-slate-500 italic">
-            Đang tải dữ liệu...
+          <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+            <AdminDataSyncLoader />
           </div>
         ) : (
           <AdminRoleTable 

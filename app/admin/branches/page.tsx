@@ -23,6 +23,7 @@ import { P } from "@/lib/permissions";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 
 const statusFilters = [
   { label: "Tất cả trạng thái", value: "all" },
@@ -111,10 +112,7 @@ export default function BranchManagementPage() {
 
         <div className="bg-white border border-[#dcdcdc] shadow-sm overflow-hidden">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white">
-              <Loader2 className="h-8 w-8 animate-spin mb-3 text-emerald-600" />
-              <p className="text-[11px] uppercase tracking-widest text-slate-400">Đang đồng bộ dữ liệu...</p>
-            </div>
+            <AdminDataSyncLoader />
           ) : branches.length > 0 ? (
             <AdminBranchTable
               branches={branches}

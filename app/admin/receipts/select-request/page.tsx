@@ -9,6 +9,7 @@ import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import {
   Select,
   SelectContent,
@@ -192,10 +193,7 @@ export default function SelectPurchaseRequestForReceiptPage() {
 
       <div className="overflow-hidden border border-slate-200 bg-white shadow-sm">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-            <p className="text-[11px]">Đang tải phiếu yêu cầu...</p>
-          </div>
+          <AdminDataSyncLoader />
         ) : displayRows.length === 0 ? (
           <div className="py-16 text-center text-[12px] text-slate-400">
             Không có phiếu yêu cầu nào còn hàng cần nhập

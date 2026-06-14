@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
 import { branchService } from "@/app/services/branchService";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 
 export default function AdminExportListPage() {
   const router = useRouter();
@@ -267,12 +268,7 @@ export default function AdminExportListPage() {
 
         <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
-              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-              <p className="px-10 text-center text-[11px] uppercase tracking-widest text-slate-400">
-                Đang đồng bộ dữ liệu AgriShrimp...
-              </p>
-            </div>
+            <AdminDataSyncLoader />
           ) : displayData.length === 0 ? (
             <div className="flex min-h-[420px] flex-col items-center justify-center bg-white text-slate-400">
               <div className="mb-3 rounded-full bg-slate-50 p-4">

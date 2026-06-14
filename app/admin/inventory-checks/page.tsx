@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -503,12 +504,7 @@ export default function InventoryCheckListPage() {
 
         <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-              <p className="text-[11px] uppercase tracking-widest text-slate-400">
-                Đang đồng bộ dữ liệu...
-              </p>
-            </div>
+            <AdminDataSyncLoader />
           ) : filteredData.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
               <AlertTriangle className="mb-2 opacity-20" size={40} />

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -135,7 +135,7 @@ export default function AdminSidebar() {
     }
   }, [pathname]);
 
-  const fetchCounts = async () => {
+  const fetchCounts = useCallback(async () => {
     try {
       const results = await Promise.allSettled([
         hasPermission(P.SUPPLIER_VIEW)
@@ -304,21 +304,46 @@ export default function AdminSidebar() {
     } catch (error) {
       console.warn("Sidebar counts sync failed");
     }
-  };
+  }, [canAccessPurchaseRequests, hasPermission, isBranchAccount]);
 
   useEffect(() => {
-    fetchCounts();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+    const browserWindow = window;
+    const scheduleFetch = () => {
+      if ("requestIdleCallback" in browserWindow) {
+        idleId = browserWindow.requestIdleCallback(
+          () => {
+            void fetchCounts();
+          },
+          { timeout: 1500 },
+        );
+        return;
+      }
+
+      timeoutId = globalThis.setTimeout(() => {
+        void fetchCounts();
+      }, 500);
+    };
+
+    scheduleFetch();
     const handleUpdate = () => fetchCounts();
     window.addEventListener("supplierUpdated", handleUpdate);
     window.addEventListener("customerUpdated", handleUpdate);
     window.addEventListener("orderUpdated", handleUpdate);
 
     return () => {
+      if (idleId !== null && "cancelIdleCallback" in browserWindow) {
+        browserWindow.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        globalThis.clearTimeout(timeoutId);
+      }
       window.removeEventListener("supplierUpdated", handleUpdate);
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
     };
-  }, [hasPermission, isWarehouseUser, canAccessPurchaseRequests]);
+  }, [fetchCounts]);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
@@ -736,9 +761,23 @@ function SidebarLink({
   badgeColor,
   isChild,
 }: any) {
+  const router = useRouter();
+  const canPrefetch = typeof href === "string" && href.startsWith("/");
+
   return (
     <Link
       href={href}
+      prefetch={canPrefetch}
+      onMouseEnter={() => {
+        if (canPrefetch) {
+          router.prefetch(href);
+        }
+      }}
+      onFocus={() => {
+        if (canPrefetch) {
+          router.prefetch(href);
+        }
+      }}
       className={cn(
         "flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative",
         active

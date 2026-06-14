@@ -227,22 +227,23 @@ export default function AdminTopHeader() {
 
     if (user?.branch?.name) return user.branch.name;
 
+    const branchData = branches as BranchResponse | undefined;
+    const branchList = Array.isArray(branchData)
+      ? branchData
+      : branchData?.content ?? [];
+
     if (warehouseId && branches) {
-      const branchData = branches as BranchResponse;
-      const branchList = Array.isArray(branchData)
-        ? branchData
-        : branchData.content ?? [];
       const currentBranch = branchList.find((branch) => branch.id === warehouseId);
       if (currentBranch) return currentBranch.name;
     }
 
-    if (warehouseId === 1) return "Kho Tổng Cần Thơ";
-
     if (isAdminRole(user?.role)) {
-      return "Kho Tổng Cần Thơ";
+      return branchList.length > 0 ? "Toàn hệ thống" : "Chưa có chi nhánh";
     }
 
-    return warehouseId ? `Chi Nhánh (ID: ${warehouseId})` : "Đang xác định chi nhánh...";
+    return warehouseId
+      ? `Chi nhánh (ID: ${warehouseId})`
+      : (branchList.length > 0 ? "Chưa gán chi nhánh" : "Chưa có chi nhánh");
   };
 
   return (

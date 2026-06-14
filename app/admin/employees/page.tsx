@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 
 export default function EmployeeManagementPage() {
   const { user: currentUser, isAuthenticated, isLoadingAuth } = useAuthStore();
@@ -149,9 +150,8 @@ export default function EmployeeManagementPage() {
         />
         
         {loading ? (
-          <div className="border border-[#dcdcdc] bg-white p-12 text-center text-slate-500 font-medium italic shadow-sm">
-            <Loader2 className="animate-spin mx-auto mb-2 text-emerald-600" />
-            Đang tải danh sách nhân sự...
+          <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+            <AdminDataSyncLoader />
           </div>
         ) : (
           <AdminEmployeeTable 

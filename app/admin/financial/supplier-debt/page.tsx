@@ -43,6 +43,7 @@ import {
   type SupplierDebtData,
 } from "@/app/services/supplier-debt.service";
 import { branchService } from "@/app/services/branchService";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -311,12 +312,7 @@ export default function SupplierDebtReportPage() {
         <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-              <Loader2 className="mb-3 animate-spin text-emerald-600" size={32} />
-              <p className="text-[11px] uppercase tracking-widest text-slate-400">
-                Đang đồng bộ dữ liệu...
-              </p>
-            </div>
+            <AdminDataSyncLoader className="min-h-[360px]" />
           ) : data.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>

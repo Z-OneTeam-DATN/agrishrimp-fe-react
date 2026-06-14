@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server"
 
-const GHN_TOKEN = process.env.GHN_TOKEN ?? ""
-const GHN_BASE = "https://online-gateway.ghn.vn/shiip/public-api/master-data"
+const JAVA_API_URL = process.env.JAVA_API_URL ?? "http://localhost:8004/api"
 
 export async function GET() {
   try {
-    const res = await fetch(`${GHN_BASE}/province`, {
-      headers: { Token: GHN_TOKEN },
+    const res = await fetch(`${JAVA_API_URL}/ghn/province`, {
       next: { revalidate: 86400 }, // cache 24h — data rarely changes
     })
+
+    if (!res.ok) {
+      return NextResponse.json({ error: "Không thể tải tỉnh/thành" }, { status: res.status })
+    }
+
     const json = await res.json()
     const provinces = (json.data || []).map((p: any) => ({
       id: p.ProvinceID,

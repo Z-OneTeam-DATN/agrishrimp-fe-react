@@ -50,6 +50,16 @@ export async function POST(_request: Request) {
       secure: process.env.NODE_ENV === "production",
     });
 
+    response.cookies.set({
+      name: "hasSession",
+      value: "1",
+      path: "/",
+      httpOnly: false,
+      expires: expiresDateRefreshToken,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+
     return response;
   } catch (error) {
     const response = NextResponse.json(
@@ -60,6 +70,7 @@ export async function POST(_request: Request) {
     // Xóa sạch cookies khi refresh thất bại
     response.cookies.delete("accessToken");
     response.cookies.delete("refreshToken");
+    response.cookies.delete("hasSession");
     
     return response;
   }

@@ -31,10 +31,19 @@ export async function GET() {
       const inner = raw.data ?? raw.permissions ?? raw.content ?? raw.result;
       if (Array.isArray(inner)) permissions = inner;
     }
-
-    return NextResponse.json(permissions, { status: 200 });
+    return NextResponse.json(permissions, {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error: any) {
     console.error("Fetch /me/permissions failed:", error?.response?.data || error.message);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json([], {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   }
 }

@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import type { AxiosError } from "axios";
 import { getErrorMessage } from "@/lib/axios";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import { cn, formatNumber } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -240,10 +241,7 @@ export default function AdminReceiptListPage() {
 
       <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-            <p className="text-[11px]">Đang tải dữ liệu...</p>
-          </div>
+          <AdminDataSyncLoader />
         ) : displayData.length > 0 ? (
           <InventoryReceiptTable
             receipts={displayData}

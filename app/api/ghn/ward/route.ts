@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const GHN_TOKEN = process.env.GHN_TOKEN ?? ""
-const GHN_BASE = "https://online-gateway.ghn.vn/shiip/public-api/master-data"
+const JAVA_API_URL = process.env.JAVA_API_URL ?? "http://localhost:8004/api"
 
 export async function GET(request: NextRequest) {
   const districtId = request.nextUrl.searchParams.get("district_id")
@@ -10,10 +9,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${GHN_BASE}/ward?district_id=${districtId}`, {
-      headers: { Token: GHN_TOKEN },
+    const res = await fetch(`${JAVA_API_URL}/ghn/ward?district_id=${districtId}`, {
       next: { revalidate: 86400 },
     })
+
+    if (!res.ok) {
+      return NextResponse.json({ error: "Không thể tải phường/xã" }, { status: res.status })
+    }
+
     const json = await res.json()
     const wards = (json.data || []).map((w: any) => ({
       wardId: w.WardID as number,    // integer — dùng cho branch.wardId

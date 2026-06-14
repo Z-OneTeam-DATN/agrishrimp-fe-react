@@ -12,6 +12,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -294,12 +295,7 @@ export default function FinancialReportListPage() {
 
         {loading ? (
           <div className="rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-              <p className="text-[11px] uppercase tracking-widest text-slate-400">
-                Đang đồng bộ dữ liệu...
-              </p>
-            </div>
+            <AdminDataSyncLoader />
           </div>
         ) : (
           <>

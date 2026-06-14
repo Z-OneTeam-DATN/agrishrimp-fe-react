@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -87,140 +87,12 @@ export default function LayoutClient({
     user,
     setUser,
     setAccessToken,
-    setAccessAndRefreshToken,
+    setRefreshToken,
     clearAuth,
     setLoadingAuth,
     isLoadingAuth,
     setPermissions,
   } = useAuthStore();
-
-  useLayoutEffect(() => {
-    if (!Cookies.get("hasSession")) {
-      clearCache();
-      setLoadingAuth(false);
-    }
-  }, [setLoadingAuth]);
-
-  useEffect(() => {
-    const hydrateAuth = async () => {
-      if (!Cookies.get("hasSession")) return;
-
-      const cachedUser = readCache();
-
-      if (cachedUser) {
-        let hasAccessToken = false;
-
-        try {
-          const tokenData = await AuthService.meTokenNext();
-          if (tokenData?.accessToken) {
-            setAccessToken(tokenData.accessToken);
-            hasAccessToken = true;
-          }
-        } catch {
-          try {
-            const refreshData = await AuthService.refreshAuthTokenNext();
-            setAccessAndRefreshToken(refreshData);
-            hasAccessToken = true;
-          } catch {
-            clearCache();
-            clearAuth();
-            setLoadingAuth(false);
-            return;
-          }
-        }
-
-        if (!hasAccessToken) {
-          clearCache();
-          clearAuth();
-          setLoadingAuth(false);
-          return;
-        }
-
-        const cachedPerms = readPermissionsCache();
-        setPermissions(cachedPerms);
-        setUser(cachedUser as UserType);
-        setLoadingAuth(false);
-
-        const [freshResult, permsResult] = await Promise.allSettled([
-          AuthService.meNext(),
-          AuthService.getMyPermissionsNext(),
-        ]);
-
-        if (freshResult.status === "fulfilled" && freshResult.value) {
-          writeCache(freshResult.value);
-          setUser(freshResult.value);
-        }
-
-        if (permsResult.status === "fulfilled") {
-          writePermissionsCache(permsResult.value);
-          setPermissions(permsResult.value);
-        }
-
-        if (
-          freshResult.status === "rejected" &&
-          permsResult.status === "rejected"
-        ) {
-          try {
-            const refreshData = await AuthService.refreshAuthTokenNext();
-            setAccessAndRefreshToken(refreshData);
-          } catch {
-            clearCache();
-            clearAuth();
-          }
-        }
-      } else {
-        setLoadingAuth(true);
-        try {
-          const [userResult, tokenResult, permsResult] = await Promise.allSettled(
-            [
-              AuthService.meNext(),
-              AuthService.meTokenNext(),
-              AuthService.getMyPermissionsNext(),
-            ],
-          );
-
-          if (
-            tokenResult.status === "fulfilled" &&
-            tokenResult.value?.accessToken
-          ) {
-            setAccessToken(tokenResult.value.accessToken);
-          }
-
-          if (permsResult.status === "fulfilled") {
-            writePermissionsCache(permsResult.value);
-            setPermissions(permsResult.value);
-          }
-
-          if (userResult.status === "fulfilled" && userResult.value) {
-            writeCache(userResult.value);
-            setUser(userResult.value);
-          } else {
-            try {
-              const refreshData = await AuthService.refreshAuthTokenNext();
-              setAccessAndRefreshToken(refreshData);
-            } catch {
-              clearCache();
-              clearAuth();
-            }
-          }
-        } catch {
-          clearCache();
-          clearAuth();
-        } finally {
-          setLoadingAuth(false);
-        }
-      }
-    };
-
-    hydrateAuth();
-  }, [
-    setUser,
-    setAccessToken,
-    setAccessAndRefreshToken,
-    clearAuth,
-    setLoadingAuth,
-    setPermissions,
-  ]);
 
   const isAuthPage =
     pathname?.startsWith("/login") ||
@@ -236,6 +108,173 @@ export default function LayoutClient({
     "/user/checkout",
     "/ai-doctor",
   ].some((p) => pathname?.startsWith(p));
+  const hydratePromiseRef = useRef<Promise<void> | null>(null);
+  const lastHydratedAtRef = useRef(0);
+
+  const clearClientAuth = useCallback(() => {
+    clearCache();
+    clearAuth();
+    setLoadingAuth(false);
+  }, [clearAuth, setLoadingAuth]);
+
+  const applyTokenSnapshot = useCallback(
+    (tokens?: { accessToken?: string | null; refreshToken?: string | null } | null) => {
+      if (tokens?.accessToken) {
+        setAccessToken(tokens.accessToken);
+      }
+      if (tokens?.refreshToken !== undefined) {
+        setRefreshToken(tokens.refreshToken);
+      }
+    },
+    [setAccessToken, setRefreshToken],
+  );
+
+  const fetchFreshAuthSnapshot = useCallback(async () => {
+    const [tokenData, freshUser, permissions] = await Promise.all([
+      AuthService.meTokenNext().catch(() => null),
+      AuthService.meNext(),
+      AuthService.getMyPermissionsNext(),
+    ]);
+
+    applyTokenSnapshot(tokenData);
+    writeCache(freshUser);
+    writePermissionsCache(permissions);
+    setUser(freshUser);
+    setPermissions(permissions);
+  }, [applyTokenSnapshot, setPermissions, setUser]);
+
+  const refreshAndFetchAuthSnapshot = useCallback(async () => {
+    const refreshData = await AuthService.refreshAuthTokenNext();
+    applyTokenSnapshot(refreshData);
+    await fetchFreshAuthSnapshot();
+  }, [applyTokenSnapshot, fetchFreshAuthSnapshot]);
+
+  const detectServerSession = useCallback(async () => {
+    if (Cookies.get("hasSession")) {
+      return true;
+    }
+
+    try {
+      const tokenData = await AuthService.meTokenNext();
+      const hasServerSession = Boolean(
+        tokenData?.accessToken || tokenData?.refreshToken,
+      );
+
+      if (hasServerSession) {
+        applyTokenSnapshot(tokenData);
+      }
+
+      return hasServerSession;
+    } catch {
+      return false;
+    }
+  }, [applyTokenSnapshot]);
+
+  const hydrateAuth = useCallback(
+    async ({
+      preferCache = true,
+      background = false,
+    }: {
+      preferCache?: boolean;
+      background?: boolean;
+    } = {}) => {
+      if (hydratePromiseRef.current) {
+        return hydratePromiseRef.current;
+      }
+
+      const cachedUser = preferCache ? readCache() : null;
+      const cachedPermissions = preferCache ? readPermissionsCache() : [];
+
+      if (cachedUser) {
+        setUser(cachedUser as UserType);
+        setPermissions(cachedPermissions);
+        setLoadingAuth(false);
+      } else if (background) {
+        setLoadingAuth(false);
+      } else {
+        setLoadingAuth(true);
+      }
+
+      const hydrateTask = (async () => {
+        try {
+          const hasServerSession = await detectServerSession();
+
+          if (!hasServerSession) {
+            clearClientAuth();
+            return;
+          }
+
+          try {
+            await fetchFreshAuthSnapshot();
+          } catch {
+            await refreshAndFetchAuthSnapshot();
+          }
+
+          lastHydratedAtRef.current = Date.now();
+        } catch {
+          clearClientAuth();
+        } finally {
+          setLoadingAuth(false);
+          hydratePromiseRef.current = null;
+        }
+      })();
+
+      hydratePromiseRef.current = hydrateTask;
+      return hydrateTask;
+    },
+    [
+      clearClientAuth,
+      detectServerSession,
+      fetchFreshAuthSnapshot,
+      refreshAndFetchAuthSnapshot,
+      setLoadingAuth,
+      setPermissions,
+      setUser,
+    ],
+  );
+
+  useEffect(() => {
+    const shouldBlockOnFirstLoad = Boolean(
+      Cookies.get("hasSession") || readCache() || isAdminPage || isProtectedPath,
+    );
+
+    void hydrateAuth({
+      preferCache: true,
+      background: !shouldBlockOnFirstLoad,
+    });
+  }, [hydrateAuth, isAdminPage, isProtectedPath]);
+
+  useEffect(() => {
+    const revalidateAuth = () => {
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+
+      const state = useAuthStore.getState();
+      const sessionHint = Boolean(
+        Cookies.get("hasSession") || state.user || state.accessToken,
+      );
+      const missingUser = !state.user || !state.isAuthenticated;
+      const staleHydration = Date.now() - lastHydratedAtRef.current > 60_000;
+
+      if (!sessionHint || (!missingUser && !staleHydration)) {
+        return;
+      }
+
+      void hydrateAuth({
+        preferCache: !missingUser,
+        background: !missingUser,
+      });
+    };
+
+    window.addEventListener("focus", revalidateAuth);
+    document.addEventListener("visibilitychange", revalidateAuth);
+
+    return () => {
+      window.removeEventListener("focus", revalidateAuth);
+      document.removeEventListener("visibilitychange", revalidateAuth);
+    };
+  }, [hydrateAuth]);
 
   useEffect(() => {
     if (!isLoadingAuth && user?.mustChangePassword && !isChangePasswordPage) {

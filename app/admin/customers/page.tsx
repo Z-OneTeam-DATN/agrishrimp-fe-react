@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import {
     Select,
     SelectContent,
@@ -210,12 +211,7 @@ export default function CustomerManagementPage() {
 
             <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
-                        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-                        <p className="px-10 text-center text-[11px] uppercase tracking-widest text-slate-400">
-                            Đang tải dữ liệu khách hàng...
-                        </p>
-                    </div>
+                    <AdminDataSyncLoader />
                 ) : (
                     <AdminCustomerTable
                         customers={customers}
