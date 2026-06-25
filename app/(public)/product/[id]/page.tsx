@@ -261,7 +261,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <div className="md:col-span-7 flex flex-col pt-2">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="bg-teal-50 text-teal-700 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                      {product.brandName || "Premium"}
+                      {product.supplierName || "Premium"}
                     </span>
                     <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                       • SKU: <span className="text-teal-600 font-mono">{currentVariant?.sku || "N/A"}</span>
@@ -395,8 +395,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 {activeTab === "specs" && (
                   <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                     <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                      <span className="text-slate-400">Thương hiệu:</span>
-                      <span className="font-bold">{product.brandName || "Tomboy Feed"}</span>
+                      <span className="text-slate-400">Nhà cung cấp:</span>
+                      <span className="font-bold">{product.supplierName || "—"}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
                       <span className="text-slate-400">Danh mục:</span>
@@ -412,10 +412,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         </span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
-                      <span className="text-slate-400">Xuất xứ:</span>
-                      <span className="font-bold">{product.origin || "Việt Nam"}</span>
-                    </div>
                     <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-200/50">
                       <span className="text-slate-400">Mã SKU hệ thống:</span>
                       <span className="font-mono font-bold text-teal-600">{product.baseSku || currentVariant?.sku || "N/A"}</span>

@@ -17,3 +17,10 @@ export function formatCurrency(value: number | string) {
     currency: "VND",
   }).format(num);
 }
+
+export function cleanSupplierName(name: string): string {
+  if (!name) return "";
+  return name
+    .replace(/^(công ty tnhh mtv|công ty tnhh|công ty cổ phần|công ty cp|doanh nghiệp tư nhân|dntn|co\.op|cty tnhh|cty cp)\s+/i, "")
+    .trim();
+}

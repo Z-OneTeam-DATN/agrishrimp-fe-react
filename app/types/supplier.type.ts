@@ -32,6 +32,10 @@ export interface Supplier {
   bankAccountHolder: string;
   status: "ACTIVE" | "INACTIVE";
 
+  issueDate?: string;
+  taxAuthority?: string;
+  mainBusinessSector?: string;
+
   note?: string;
   createdAt: string;
   updatedAt?: string;
@@ -52,6 +56,8 @@ export interface SupplierProductCatalogItem {
   id: number;
   supplierId: number;
   supplierCode: string;
+  productVariantId: number;
+  sku: string;
   productId: number;
   productName: string;
   productSlug: string;
@@ -60,6 +66,8 @@ export interface SupplierProductCatalogItem {
   categoryName?: string;
   status: SupplierProductCatalogStatus;
   note?: string;
+  statusChangedAt?: string;
+  version: number;
   createdAt?: string;
   updatedAt?: string;
   createdByUserId?: number;

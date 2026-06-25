@@ -7,12 +7,12 @@ import { ProductService } from "@/app/services/product.service";
 import { PriceRoundingRule, SettingService } from "@/app/services/setting.service";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
-import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { cn } from "@/lib/utils";
+import { cn, cleanSupplierName } from "@/lib/utils";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import {
     Select,
@@ -46,7 +46,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
+    const [suppliers, setSuppliers] = useState<string[]>([]);
 
     // 0. Kiểm tra quyền truy cập route
     useEffect(() => {
@@ -63,14 +63,14 @@ export default function ProductsPage() {
     });
 
     const [sort, setSort] = useState("id,desc");
-    const [selectedBrand, setSelectedBrand] = useState("all");
+    const [selectedSupplier, setSelectedSupplier] = useState("all");
     const [viewMode, setViewMode] = useState<"product" | "sku">("product");
 
     const [debouncedKeyword, setDebouncedKeyword] = useState("");
 
     // Phân trang
     const [currentPage, setCurrentPage] = useState(0);
-    const pageSize = 10;
+    const pageSize = 20;
 
     // State Cấu hình Lợi nhuận
     const [isSettingOpen, setIsSettingOpen] = useState(false);
@@ -91,21 +91,21 @@ export default function ProductsPage() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const [data, brandData] = await Promise.all([
+                const [data, supplierData] = await Promise.all([
                     ProductService.getCategories(),
-                    ProductService.getBrands(),
+                    ProductService.getSuppliers(),
                 ]);
                 const mapped = [
                     { label: "Tất cả danh mục", value: "all" },
                     ...data.map((c: any) => ({ label: c.name, value: String(c.id) }))
                 ];
                 setCategories(mapped);
-                setBrands(
+                setSuppliers(
                     Array.from(
                         new Set(
-                            (Array.isArray(brandData) ? brandData : [])
-                                .map((brand: any) =>
-                                    typeof brand === "string" ? brand : brand?.name,
+                            (Array.isArray(supplierData) ? supplierData : [])
+                                .map((supplier: any) =>
+                                    typeof supplier === "string" ? supplier : supplier?.name,
                                 )
                                 .filter((name: unknown): name is string =>
                                     typeof name === "string" && name.trim().length > 0,
@@ -162,8 +162,7 @@ export default function ProductsPage() {
                 slug: p.slug || "",
                 baseSku: p.baseSku || "",
                 categoryName: p.categoryName || "",
-                brandName: p.brandName || "",
-                origin: p.origin || "",
+                supplierName: p.supplierName || "",
                 status: p.status,
                 image: p.imageUrls?.[0] || "",
                 imageUrls: p.imageUrls || [],
@@ -289,7 +288,7 @@ export default function ProductsPage() {
     const sortedProducts = useMemo(() => {
         const items = products.filter(
             (product) =>
-                selectedBrand === "all" || product.brandName === selectedBrand,
+                selectedSupplier === "all" || product.supplierName === selectedSupplier,
         );
 
         items.sort((left, right) => {
@@ -312,11 +311,11 @@ export default function ProductsPage() {
         });
 
         return items;
-    }, [products, selectedBrand, sort]);
+    }, [products, selectedSupplier, sort]);
 
     useEffect(() => {
         setCurrentPage(0);
-    }, [selectedBrand]);
+    }, [selectedSupplier]);
 
     const totalPages = Math.ceil(sortedProducts.length / pageSize);
     const currentProducts = sortedProducts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
@@ -362,7 +361,7 @@ export default function ProductsPage() {
                     productId: product.id,
                     productName: product.name,
                     categoryName: product.categoryName,
-                    brandName: product.brandName,
+                    brandName: product.supplierName,
                     productStatus: product.status,
                     variantId: variant.id,
                     sku: variant.sku,
@@ -499,21 +498,21 @@ export default function ProductsPage() {
                         </Select>
 
                         <Select
-                            value={selectedBrand}
+                            value={selectedSupplier}
                             onValueChange={(value) => {
-                                setSelectedBrand(value);
+                                setSelectedSupplier(value);
                             }}
                         >
                             <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
-                                <SelectValue placeholder="Tất cả thương hiệu" />
+                                <SelectValue placeholder="Tất cả nhà cung cấp" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all" className="text-[13px]">
-                                    Tất cả thương hiệu
+                                    Tất cả nhà cung cấp
                                 </SelectItem>
-                                {brands.map((brand) => (
-                                    <SelectItem key={brand} value={brand} className="text-[13px]">
-                                        {brand}
+                                {suppliers.map((supplier) => (
+                                    <SelectItem key={supplier} value={supplier} className="text-[13px]">
+                                        {supplier}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -726,16 +725,26 @@ export default function ProductsPage() {
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[980px] border-collapse table-fixed">
+                                    <colgroup>
+                                        <col className="w-[5%]" />
+                                        <col className="w-[5%]" />
+                                        <col className="w-[15%]" />
+                                        <col className="w-[30%]" />
+                                        <col className="w-[20%]" />
+                                        <col className="w-[8%]" />
+                                        <col className="w-[10%]" />
+                                        <col className="w-[7%]" />
+                                    </colgroup>
                                     <thead>
                                     <tr className="bg-[#f0f0f0] border-b border-[#ccc]">
-                                        <th className="w-[56px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">STT</th>
-                                        <th className="w-[74px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">Ảnh SKU</th>
-                                        <th className="w-[220px] p-2 text-left text-[11px] font-bold uppercase text-[#1f1f1f]">SKU / Barcode</th>
-                                        <th className="p-2 text-left text-[11px] font-bold uppercase text-[#1f1f1f]">Sản phẩm</th>
-                                        <th className="w-[150px] p-2 text-left text-[11px] font-bold uppercase text-[#1f1f1f]">Thương hiệu</th>
-                                        <th className="w-[100px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">Tồn kho</th>
-                                        <th className="w-[130px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">Trạng thái SKU</th>
-                                        <th className="w-[110px] p-2 text-right text-[11px] font-bold uppercase text-[#1f1f1f] pr-4">Hành động</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Stt</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Ảnh SKU</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">SKU / Barcode</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Sản phẩm</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Nhà cung cấp</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Tồn kho</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái SKU</th>
+                                        <th className="p-2 text-right text-[10px] font-semibold text-[#1f1f1f] pr-4">Thao tác</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -744,7 +753,7 @@ export default function ProductsPage() {
                                         const skuStatusLabel = variant.variantStatus === "ACTIVE" ? "Đang bán" : variant.variantStatus || "Không rõ";
                                         return (
                                             <tr key={`${variant.variantId}-${variant.sku}-${index}`} className="border-b border-[#eee] hover:bg-[#f8fbff] transition-colors">
-                                                <td className="p-2 text-center text-[12px] font-bold text-slate-500">{stt}</td>
+                                                <td className="p-2 text-center text-[11px] font-bold text-slate-500">{stt}</td>
                                                 <td className="p-2">
                                                     <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] overflow-hidden flex items-center justify-center">
                                                         {variant.imageUrl ? (
@@ -755,22 +764,26 @@ export default function ProductsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[12px] font-black text-blue-700 font-mono">{variant.sku || "—"}</span>
-                                                        <span className="text-[10px] text-slate-400 font-mono">{variant.barcode || "Không có barcode"}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="block truncate text-[11px] font-bold text-blue-700 font-mono" title={variant.sku || ""}>{variant.sku || "—"}</span>
+                                                        <span className="block truncate text-[10px] text-slate-400 font-mono" title={variant.barcode || ""}>{variant.barcode || "Không có barcode"}</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[12px] font-bold text-[#1f1f1f]">{variant.productName}</span>
-                                                        <span className="text-[10px] text-slate-400">{variant.categoryName || "—"}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="block truncate text-[11px] font-bold text-[#1f1f1f]" title={variant.productName}>{variant.productName}</span>
+                                                        <span className="block truncate text-[10px] text-slate-400" title={variant.categoryName || ""}>{variant.categoryName || "—"}</span>
                                                     </div>
                                                 </td>
-                                                <td className="p-2 text-[11px] font-bold text-slate-500 uppercase">{variant.brandName || "—"}</td>
-                                                <td className="p-2 text-center text-[12px] font-black text-slate-700">{variant.quantity.toLocaleString("vi-VN")}</td>
+                                                <td className="p-2">
+                                                    <span className="block truncate text-[11px] font-normal text-slate-500" title={variant.brandName || ""}>
+                                                        {cleanSupplierName(variant.brandName) || "—"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-2 text-center text-[11px] font-bold text-slate-700">{variant.quantity.toLocaleString("vi-VN")}</td>
                                                 <td className="p-2 text-center">
                                                         <span className={cn(
-                                                            "text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase",
+                                                            "text-[10px] font-semibold px-1.5 py-0.5 rounded border",
                                                             variant.variantStatus === "ACTIVE"
                                                                 ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                                                                 : "bg-slate-100 text-slate-400 border-slate-200"
@@ -780,15 +793,18 @@ export default function ProductsPage() {
                                                 </td>
                                                 <td className="p-2 text-right pr-4">
                                                     {hasPermission(P.PRODUCT_UPDATE) ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50"
-                                                            onClick={() => handleEdit(variant.productId)}
-                                                        >
-                                                            Sửa SP
-                                                        </Button>
+                                                        <div className="flex justify-end gap-1">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 hover:bg-slate-100"
+                                                                onClick={() => handleEdit(variant.productId)}
+                                                                title="Chỉnh sửa"
+                                                            >
+                                                                <Pencil size={14} className="text-blue-600" />
+                                                            </Button>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-[10px] text-slate-300">—</span>
                                                     )}
@@ -802,59 +818,34 @@ export default function ProductsPage() {
                         )}
 
                         {totalItems > 0 && (
-                            <div className="flex items-center justify-between px-5 py-3 border-t border-[#eee] bg-[#f8f9fa]">
-                                <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
-                                    {viewMode === "product"
-                                        ? `Đang hiển thị ${paginatedProducts.length} / Tổng số ${sortedProducts.length} sản phẩm (${totalSkuCount} SKU)`
-                                        : `Đang hiển thị ${paginatedVariants.length} / Tổng số ${sortedVariants.length} SKU thuộc ${sortedProducts.length} sản phẩm`}
+                            <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#fcfcfc] px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+                                <p className="text-[11px] text-slate-500">
+                                    Hiển thị {currentPage * pageSize + 1} - {Math.min((currentPage + 1) * pageSize, totalItems)} trong {totalItems}
                                 </p>
                                 {effectiveTotalPages > 0 && (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-2">
                                         <Button
+                                            type="button"
                                             variant="outline"
                                             size="sm"
+                                            className="h-8 text-[11px] font-medium bg-white"
                                             onClick={() => setCurrentPage(currentPage - 1)}
                                             disabled={currentPage === 0}
-                                            className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
                                         >
-                                            <ChevronLeft size={14} className="mr-1" /> Trước
+                                            ← Trước
                                         </Button>
-
-                                        <div className="flex items-center gap-1">
-                                            {Array.from({ length: effectiveTotalPages }).map((_, index) => {
-                                                if (index === 0 || index === effectiveTotalPages - 1 || (index >= currentPage - 1 && index <= currentPage + 1)) {
-                                                    return (
-                                                        <Button
-                                                            key={index}
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => setCurrentPage(index)}
-                                                            className={cn(
-                                                                "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all",
-                                                                currentPage === index
-                                                                    ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
-                                                                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                            )}
-                                                        >
-                                                            {index + 1}
-                                                        </Button>
-                                                    );
-                                                }
-                                                if (index === currentPage - 2 || index === currentPage + 2) {
-                                                    return <span key={index} className="text-slate-400 text-[10px] px-1 tracking-widest">...</span>;
-                                                }
-                                                return null;
-                                            })}
-                                        </div>
-
+                                        <span className="min-w-[50px] text-center text-[11px] text-slate-500 font-medium">
+                                            {currentPage + 1} / {effectiveTotalPages}
+                                        </span>
                                         <Button
+                                            type="button"
                                             variant="outline"
                                             size="sm"
+                                            className="h-8 text-[11px] font-medium bg-white"
                                             onClick={() => setCurrentPage(currentPage + 1)}
                                             disabled={currentPage >= effectiveTotalPages - 1}
-                                            className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
                                         >
-                                            Sau <ChevronRight size={14} className="ml-1" />
+                                            Sau →
                                         </Button>
                                     </div>
                                 )}

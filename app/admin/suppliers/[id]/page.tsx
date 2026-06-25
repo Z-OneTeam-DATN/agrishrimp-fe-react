@@ -82,28 +82,50 @@ const CATALOG_PAGE_SIZE = 20;
 const HISTORY_PAGE_SIZE = 20;
 const STALE_CHECKING_DAYS = 14;
 
-const shouldPersistCatalogItem = (item: Pick<SupplierProductCatalogItem, "id" | "productId" | "status" | "note">) => {
-    const normalizedNote = item.note?.trim() || "";
-    return Boolean(item.productId) && (item.id > 0 || normalizedNote.length > 0 || item.status !== "CHECKING");
-};
+interface FlatVariantCatalogItem {
+    id: number;
+    productVariantId: number;
+    sku: string;
+    productName: string;
+    productId: number;
+    brandName?: string;
+    origin?: string;
+    categoryName?: string;
+    imageUrl?: string;
+    status?: SupplierProductCatalogStatus;
+    note?: string;
+    updatedAt?: string;
+    statusChangedAt?: string;
+    updatedByName?: string;
+    version?: number;
+}
 
-const buildCatalogPayload = (items: SupplierProductCatalogItem[]) => {
-    const map = new Map<number, { productId: number; status: SupplierProductCatalogStatus; note?: string }>();
+const buildCatalogPayload = (items: SupplierProductCatalogItem[], flatItems: FlatVariantCatalogItem[]) => {
+    const payload: { productVariantId: number; status?: SupplierProductCatalogStatus; note?: string; version?: number; isDeleted?: boolean }[] = [];
 
-    items.forEach((item) => {
-        if (!shouldPersistCatalogItem(item)) {
-            return;
+    flatItems.forEach((flatItem) => {
+        const currentInState = items.find((c) => c.productVariantId === flatItem.productVariantId);
+        const status = currentInState?.status;
+        const note = currentInState?.note;
+
+        if (status) {
+            payload.push({
+                productVariantId: flatItem.productVariantId,
+                status: status,
+                note: note?.trim() || undefined,
+                version: flatItem.version || undefined,
+                isDeleted: false,
+            });
+        } else if (flatItem.id > 0) {
+            payload.push({
+                productVariantId: flatItem.productVariantId,
+                version: flatItem.version,
+                isDeleted: true,
+            });
         }
-
-        const normalizedNote = item.note?.trim() || "";
-        map.set(item.productId, {
-            productId: item.productId,
-            status: item.status || "CHECKING",
-            note: normalizedNote || undefined,
-        });
     });
 
-    return Array.from(map.values()).sort((a, b) => a.productId - b.productId);
+    return payload.sort((a, b) => a.productVariantId - b.productVariantId);
 };
 
 const formatCurrency = (amount: number) =>
@@ -131,34 +153,62 @@ const getHistoryStatusLabel = (status: string) => {
     }
 };
 
-const getCheckingAgeDays = (item: SupplierProductCatalogItem) => {
-    if (item.status !== "CHECKING") {
+const getCheckingAgeDays = (item: { status?: SupplierProductCatalogStatus; statusChangedAt?: string; checkingAgeDays?: number }) => {
+    if (!item.status || item.status !== "CHECKING") {
         return null;
     }
     if (typeof item.checkingAgeDays === "number") {
         return item.checkingAgeDays;
     }
-    if (!item.updatedAt) {
+    if (!item.statusChangedAt) {
         return null;
     }
-    const diff = Date.now() - new Date(item.updatedAt).getTime();
+    const diff = Date.now() - new Date(item.statusChangedAt).getTime();
     return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 };
 
-const buildCatalogFallbackProduct = (item: SupplierProductCatalogItem) =>
-    ({
-        id: item.productId,
-        name: item.productName || `Sản phẩm #${item.productId}`,
-        slug: item.productSlug || "",
-        description: "",
-        status: "ACTIVE",
-        brandName: item.brandName || "",
-        origin: item.origin || "",
-        categoryName: item.categoryName || "",
-        baseSku: "",
-        imageUrls: [],
-        variants: [],
-    } as ProductListItem);
+const formatDateForInput = (dateStr?: string | null): string => {
+    if (!dateStr) return "";
+    const cleaned = dateStr.trim();
+    if (!cleaned) return "";
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+        return cleaned;
+    }
+    if (/^\d{4}-\d{2}-\d{2}T/.test(cleaned)) {
+        return cleaned.substring(0, 10);
+    }
+    const slashMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (slashMatch) {
+        const day = slashMatch[1].padStart(2, "0");
+        const month = slashMatch[2].padStart(2, "0");
+        const year = slashMatch[3];
+        return `${year}-${month}-${day}`;
+    }
+
+    try {
+        const d = new Date(cleaned);
+        if (!Number.isNaN(d.getTime())) {
+            return d.toISOString().substring(0, 10);
+        }
+    } catch {
+        // ignore
+    }
+    return "";
+};
+
+const normalizePhone = (raw?: string | null): string => {
+    if (!raw) return "";
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+    const digits = trimmed.replace(/[^0-9]/g, "");
+    if (!digits) return trimmed;
+    const local = digits.startsWith("84") ? "0" + digits.slice(2) : digits;
+    // Số di động VN: 10 chữ số 03/05/07/08/09 → chuẩn hoá
+    if (/^(0)(3|5|7|8|9)[0-9]{8}$/.test(local)) return local;
+    // Số bàn hoặc khác → giữ nguyên raw (ví dụ: "02703 962736-2")
+    return trimmed;
+};
 
 export default function SupplierDetailPage() {
     const router = useRouter();
@@ -201,6 +251,7 @@ export default function SupplierDetailPage() {
         handleSubmit,
         reset,
         watch,
+        setValue,
         formState: { errors },
     } = useForm<SupplierFormValues>({
         resolver: zodResolver(SupplierSchema),
@@ -238,6 +289,9 @@ export default function SupplierDetailPage() {
             reset({
                 ...supplierInfo,
                 status: supplierInfo.status?.toLowerCase() as SupplierFormValues["status"],
+                issueDate: formatDateForInput(supplierInfo.issueDate),
+                taxAuthority: supplierInfo.taxAuthority || "",
+                mainBusinessSector: supplierInfo.mainBusinessSector || "",
             });
 
             const [historyResult, catalogResult, productsResult] = await Promise.allSettled([
@@ -270,7 +324,7 @@ export default function SupplierDetailPage() {
             if (productsResult.status === "fulfilled") {
                 setCatalogProducts(Array.isArray(productsResult.value) ? productsResult.value : []);
             } else {
-                setCatalogProducts(nextCatalogItems.map(buildCatalogFallbackProduct));
+                setCatalogProducts([]);
                 setProductLoadError("Không tải được danh mục sản phẩm tổng. Tab catalog chỉ hiển thị các sản phẩm đã có trong catalog hiện tại.");
                 toast.warning("Không tải được danh mục sản phẩm tổng cho tab catalog");
             }
@@ -286,49 +340,148 @@ export default function SupplierDetailPage() {
         void loadSupplierData();
     }, [loadSupplierData]);
 
-    const catalogPayload = useMemo(() => buildCatalogPayload(catalogItems), [catalogItems]);
-    const savedCatalogPayload = useMemo(() => buildCatalogPayload(savedCatalogItems), [savedCatalogItems]);
-    const catalogSourceProducts = useMemo(() => {
-        if (catalogProducts.length > 0) {
-            return catalogProducts;
+    const detectProvince = (fullAddress: string) => {
+        if (!fullAddress || provinces.length === 0) return "";
+        const addressLower = fullAddress.toLowerCase();
+        const foundProvince = provinces.find((p) => {
+            const cleanName = p.name.toLowerCase().replace("tỉnh ", "").replace("thành phố ", "");
+            return addressLower.includes(cleanName);
+        });
+        return foundProvince ? foundProvince.id : "";
+    };
+
+    const handleLookupTaxCode = async () => {
+        const taxCode = watch("taxCode");
+        if (!taxCode) { toast.error("Vui lòng nhập MST"); return; }
+        const loadingToast = toast.loading("Đang tra cứu từ tổng cục thuế...");
+        try {
+            const businessInfo = await supplierService.lookupTaxCode(taxCode);
+            if (businessInfo) {
+                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: false });
+                if (businessInfo.address) {
+                    setValue("addressDetail", businessInfo.address, { shouldValidate: false });
+                    const detectedId = detectProvince(businessInfo.address);
+                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: false });
+                }
+                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: false });
+                const normalizedPhone = normalizePhone(businessInfo.phone);
+                if (normalizedPhone) setValue("phone", normalizedPhone, { shouldValidate: false });
+                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: false });
+                if (businessInfo.issueDate) {
+                    const formatted = formatDateForInput(businessInfo.issueDate);
+                    if (formatted) setValue("issueDate", formatted, { shouldValidate: false });
+                }
+                if (businessInfo.taxAuthority) {
+                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: false });
+                }
+                if (businessInfo.mainBusinessSector) {
+                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: false });
+                }
+                const missingFields: string[] = [];
+                const statuses = businessInfo.fieldStatuses as Record<string, string> | undefined;
+                if (statuses) {
+                    if (statuses.name !== "FOUND") missingFields.push("Tên công ty");
+                    if (statuses.owner !== "FOUND") missingFields.push("Người đại diện");
+                    if (statuses.phone !== "FOUND") missingFields.push("SĐT");
+                    if (statuses.issueDate !== "FOUND") missingFields.push("Ngày thành lập");
+                    if (statuses.mainBusinessSector !== "FOUND") missingFields.push("Ngành nghề");
+                }
+                if (missingFields.length > 0) {
+                    toast.warning(`Tra cứu thành công. Một số thông tin chưa tìm được: ${missingFields.join(", ")}`);
+                } else {
+                    toast.success("Đã điền đầy đủ thông tin từ tra cứu MST!");
+                }
+            } else {
+                toast.error("Không tìm thấy doanh nghiệp với MST này.");
+            }
+        } catch {
+            toast.error("Không tìm thấy thông tin hoặc API lỗi.");
+        } finally {
+            toast.dismiss(loadingToast);
         }
-        return catalogItems.map(buildCatalogFallbackProduct);
+    };
+
+    const flatCatalogItems = useMemo(() => {
+        const list: FlatVariantCatalogItem[] = [];
+
+        if (catalogProducts.length > 0) {
+            catalogProducts.forEach((product) => {
+                if (product.variants && product.variants.length > 0) {
+                    product.variants.forEach((variant) => {
+                        const catalogRecord = catalogItems.find(
+                            (c) => c.productVariantId === variant.id
+                        );
+                        list.push({
+                            id: catalogRecord?.id || 0,
+                            productVariantId: variant.id!,
+                            sku: variant.sku,
+                            productName: product.name,
+                            productId: product.id,
+                            brandName: product.supplierName,
+                            origin: "",
+                            categoryName: product.categoryName,
+                            imageUrl: variant.imageUrl || product.imageUrls?.[0],
+                            status: catalogRecord?.status,
+                            note: catalogRecord?.note || "",
+                            updatedAt: catalogRecord?.updatedAt,
+                            statusChangedAt: catalogRecord?.statusChangedAt,
+                            updatedByName: catalogRecord?.updatedByName,
+                            version: catalogRecord?.version,
+                        });
+                    });
+                }
+            });
+        } else {
+            catalogItems.forEach((c) => {
+                list.push({
+                    id: c.id,
+                    productVariantId: c.productVariantId,
+                    sku: c.sku || `SKU-${c.productVariantId}`,
+                    productName: c.productName,
+                    productId: c.productId,
+                    brandName: c.brandName,
+                    origin: c.origin,
+                    categoryName: c.categoryName,
+                    imageUrl: undefined,
+                    status: c.status,
+                    note: c.note || "",
+                    updatedAt: c.updatedAt,
+                    statusChangedAt: c.statusChangedAt,
+                    updatedByName: c.updatedByName,
+                    version: c.version,
+                });
+            });
+        }
+        return list;
     }, [catalogItems, catalogProducts]);
 
-    const catalogByProductId = useMemo(() => {
-        const map = new Map<number, SupplierProductCatalogItem>();
-        catalogItems.forEach((item) => {
-            if (shouldPersistCatalogItem(item)) {
-                map.set(item.productId, {
-                    ...item,
-                    note: item.note?.trim() || "",
-                });
-            }
-        });
-        return map;
-    }, [catalogItems]);
+    const catalogPayload = useMemo(() => buildCatalogPayload(catalogItems, flatCatalogItems), [catalogItems, flatCatalogItems]);
+    const savedCatalogPayload = useMemo(() => buildCatalogPayload(savedCatalogItems, flatCatalogItems), [savedCatalogItems, flatCatalogItems]);
 
     const hasCatalogDraft = JSON.stringify(catalogPayload) !== JSON.stringify(savedCatalogPayload);
 
     const catalogSummary = useMemo(() => {
-        return catalogPayload.reduce(
+        return flatCatalogItems.reduce(
             (acc, item) => {
-                acc.total += 1;
-                if (item.status === "AVAILABLE") acc.available += 1;
-                if (item.status === "UNAVAILABLE") acc.unavailable += 1;
-                if (item.status === "CHECKING") acc.checking += 1;
+                if (item.status) {
+                    acc.total += 1;
+                    if (item.status === "AVAILABLE") acc.available += 1;
+                    if (item.status === "UNAVAILABLE") acc.unavailable += 1;
+                    if (item.status === "CHECKING") acc.checking += 1;
+                }
                 return acc;
             },
             { total: 0, available: 0, unavailable: 0, checking: 0 },
         );
-    }, [catalogPayload]);
+    }, [flatCatalogItems]);
 
     const checkingTooLongItems = useMemo(() => {
-        return Array.from(catalogByProductId.values()).filter((item) => {
-            const checkingAgeDays = getCheckingAgeDays(item);
-            return checkingAgeDays != null && checkingAgeDays >= STALE_CHECKING_DAYS;
+        return flatCatalogItems.filter((item) => {
+            if (!item.status || item.status !== "CHECKING") return false;
+            const age = getCheckingAgeDays(item);
+            return age != null && age >= STALE_CHECKING_DAYS;
         });
-    }, [catalogByProductId]);
+    }, [flatCatalogItems]);
 
     const filteredHistory = useMemo(() => {
         return importHistory.filter((item) => {
@@ -366,21 +519,20 @@ export default function SupplierDetailPage() {
         );
     }, [importHistory]);
 
-    const filteredCatalogProducts = useMemo(() => {
+    const filteredCatalogItems = useMemo(() => {
         const normalizedKeyword = catalogKeyword.trim().toLowerCase();
 
-        return catalogSourceProducts.filter((product) => {
-            const current = catalogByProductId.get(product.id);
-            const isTracked = Boolean(current);
-            const currentStatus = current?.status || "CHECKING";
+        return flatCatalogItems.filter((item) => {
+            const isTracked = Boolean(item.id > 0 || item.status);
+            const currentStatus = item.status || "NOT_IN_CATALOG";
 
             const keywordOk =
                 !normalizedKeyword ||
-                product.name?.toLowerCase().includes(normalizedKeyword) ||
-                product.brandName?.toLowerCase().includes(normalizedKeyword) ||
-                product.origin?.toLowerCase().includes(normalizedKeyword) ||
-                product.categoryName?.toLowerCase().includes(normalizedKeyword) ||
-                product.baseSku?.toLowerCase().includes(normalizedKeyword);
+                item.productName?.toLowerCase().includes(normalizedKeyword) ||
+                item.sku?.toLowerCase().includes(normalizedKeyword) ||
+                item.brandName?.toLowerCase().includes(normalizedKeyword) ||
+                item.origin?.toLowerCase().includes(normalizedKeyword) ||
+                item.categoryName?.toLowerCase().includes(normalizedKeyword);
 
             let filterOk = true;
             if (catalogFilter === "TRACKED") {
@@ -393,32 +545,32 @@ export default function SupplierDetailPage() {
 
             return keywordOk && filterOk;
         });
-    }, [catalogSourceProducts, catalogByProductId, catalogKeyword, catalogFilter]);
+    }, [flatCatalogItems, catalogKeyword, catalogFilter]);
 
-    const paginatedCatalogProducts = useMemo(() => {
+    const paginatedCatalogItems = useMemo(() => {
         const startIndex = (catalogCurrentPage - 1) * CATALOG_PAGE_SIZE;
-        return filteredCatalogProducts.slice(startIndex, startIndex + CATALOG_PAGE_SIZE);
-    }, [filteredCatalogProducts, catalogCurrentPage]);
+        return filteredCatalogItems.slice(startIndex, startIndex + CATALOG_PAGE_SIZE);
+    }, [filteredCatalogItems, catalogCurrentPage]);
 
     const paginatedHistory = useMemo(() => {
         const startIndex = (historyCurrentPage - 1) * HISTORY_PAGE_SIZE;
         return filteredHistory.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
     }, [filteredHistory, historyCurrentPage]);
 
-    const catalogTotalPages = Math.max(1, Math.ceil(filteredCatalogProducts.length / CATALOG_PAGE_SIZE));
+    const catalogTotalPages = Math.max(1, Math.ceil(filteredCatalogItems.length / CATALOG_PAGE_SIZE));
     const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE));
-    const filteredCatalogProductIds = filteredCatalogProducts.map((product) => product.id);
+    const filteredCatalogProductVariantIds = filteredCatalogItems.map((item) => item.productVariantId);
     const allFilteredSelected =
-        filteredCatalogProductIds.length > 0 &&
-        filteredCatalogProductIds.every((id) => selectedCatalogProductIds.includes(id));
+        filteredCatalogProductVariantIds.length > 0 &&
+        filteredCatalogProductVariantIds.every((id) => selectedCatalogProductIds.includes(id));
     const someFilteredSelected =
-        filteredCatalogProductIds.some((id) => selectedCatalogProductIds.includes(id)) && !allFilteredSelected;
+        filteredCatalogProductVariantIds.some((id) => selectedCatalogProductIds.includes(id)) && !allFilteredSelected;
 
     useEffect(() => {
         setSelectedCatalogProductIds((prev) =>
-            prev.filter((id) => catalogSourceProducts.some((product) => product.id === id)),
+            prev.filter((id) => flatCatalogItems.some((item) => item.productVariantId === id)),
         );
-    }, [catalogSourceProducts]);
+    }, [flatCatalogItems]);
 
     useEffect(() => {
         setCatalogCurrentPage(1);
@@ -467,56 +619,61 @@ export default function SupplierDetailPage() {
         return () => document.removeEventListener("click", handleDocumentLinkClick, true);
     }, [hasCatalogDraft]);
 
-    const updateCatalogItem = (productId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "note">>) => {
+    const updateCatalogItem = (productVariantId: number, patch: Partial<Pick<SupplierProductCatalogItem, "status" | "note">>) => {
         setCatalogItems((prev) => {
-            const existing = prev.find((item) => item.productId === productId);
-            if (existing) {
-                return prev.map((item) =>
-                    item.productId === productId
-                        ? {
-                            ...item,
-                            ...patch,
-                            note: patch.note ?? item.note ?? "",
-                        }
-                        : item,
-                );
+            const existingIndex = prev.findIndex((item) => item.productVariantId === productVariantId);
+            if (existingIndex >= 0) {
+                const updated = [...prev];
+                const oldItem = updated[existingIndex];
+                updated[existingIndex] = {
+                    ...oldItem,
+                    ...patch,
+                    status: ("status" in patch ? patch.status : oldItem.status) as SupplierProductCatalogStatus,
+                    note: "note" in patch ? (patch.note ?? "") : (oldItem.note ?? ""),
+                };
+                return updated;
             }
 
-            const product = catalogSourceProducts.find((item) => item.id === productId);
+            const flatItem = flatCatalogItems.find((item) => item.productVariantId === productVariantId);
+            if (!flatItem) return prev;
+
             return [
                 ...prev,
                 {
                     id: 0,
                     supplierId,
                     supplierCode: supplierRecord?.code || "",
-                    productId,
-                    productName: product?.name || "",
-                    productSlug: product?.slug || "",
-                    brandName: product?.brandName,
-                    origin: product?.origin,
-                    categoryName: product?.categoryName,
+                    productVariantId,
+                    sku: flatItem.sku,
+                    productId: flatItem.productId,
+                    productName: flatItem.productName,
+                    productSlug: "",
+                    brandName: flatItem.brandName,
+                    origin: flatItem.origin,
+                    categoryName: flatItem.categoryName,
                     status: patch.status || "CHECKING",
                     note: patch.note || "",
-                },
+                    version: 0,
+                } as SupplierProductCatalogItem,
             ];
         });
     };
 
-    const toggleCatalogSelection = (productId: number, checked: boolean) => {
+    const toggleCatalogSelection = (productVariantId: number, checked: boolean) => {
         setSelectedCatalogProductIds((prev) => {
             if (checked) {
-                return prev.includes(productId) ? prev : [...prev, productId];
+                return prev.includes(productVariantId) ? prev : [...prev, productVariantId];
             }
-            return prev.filter((id) => id !== productId);
+            return prev.filter((id) => id !== productVariantId);
         });
     };
 
     const toggleSelectAllCatalog = (checked: boolean) => {
         if (checked) {
-            setSelectedCatalogProductIds((prev) => Array.from(new Set([...prev, ...filteredCatalogProductIds])));
+            setSelectedCatalogProductIds((prev) => Array.from(new Set([...prev, ...filteredCatalogProductVariantIds])));
             return;
         }
-        setSelectedCatalogProductIds((prev) => prev.filter((id) => !filteredCatalogProductIds.includes(id)));
+        setSelectedCatalogProductIds((prev) => prev.filter((id) => !filteredCatalogProductVariantIds.includes(id)));
     };
 
     const applyBulkCatalogStatus = () => {
@@ -528,33 +685,38 @@ export default function SupplierDetailPage() {
         setCatalogItems((prev) => {
             const next = [...prev];
 
-            selectedCatalogProductIds.forEach((productId) => {
-                const existingIndex = next.findIndex((item) => item.productId === productId);
+            selectedCatalogProductIds.forEach((productVariantId) => {
+                const existingIndex = next.findIndex((item) => item.productVariantId === productVariantId);
                 if (existingIndex >= 0) {
                     next[existingIndex] = { ...next[existingIndex], status: bulkCatalogStatus };
                     return;
                 }
 
-                const product = catalogSourceProducts.find((item) => item.id === productId);
+                const flatItem = flatCatalogItems.find((item) => item.productVariantId === productVariantId);
+                if (!flatItem) return;
+
                 next.push({
                     id: 0,
                     supplierId,
                     supplierCode: supplierRecord?.code || "",
-                    productId,
-                    productName: product?.name || "",
-                    productSlug: product?.slug || "",
-                    brandName: product?.brandName,
-                    origin: product?.origin,
-                    categoryName: product?.categoryName,
+                    productVariantId,
+                    sku: flatItem.sku,
+                    productId: flatItem.productId,
+                    productName: flatItem.productName,
+                    productSlug: "",
+                    brandName: flatItem.brandName,
+                    origin: flatItem.origin,
+                    categoryName: flatItem.categoryName,
                     status: bulkCatalogStatus,
                     note: "",
+                    version: 0,
                 });
             });
 
             return next;
         });
 
-        toast.success(`Đã cập nhật trạng thái cho ${selectedCatalogProductIds.length} sản phẩm`);
+        toast.success(`Đã cập nhật trạng thái cho ${selectedCatalogProductIds.length} biến thể sản phẩm`);
     };
 
     const saveCatalog = async () => {
@@ -656,7 +818,6 @@ export default function SupplierDetailPage() {
     };
 
     const onError = () => {
-        toast.error("Vui lòng kiểm tra lại các trường bắt buộc");
     };
 
     const copyValue = async (label: string, value?: string) => {
@@ -730,109 +891,156 @@ export default function SupplierDetailPage() {
                                 <div className="mb-6 border-b border-slate-200 pb-4">
                                     <h2 className="text-[12px] font-semibold text-slate-900">1. Thông tin nhà cung cấp</h2>
                                 </div>
-                                <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tên nhà cung cấp *</Label>
-                                        <div className="relative">
-                                            <Input {...register("name")} className="h-[40px] pr-10 text-[13px]" />
-                                            {copyButton("Tên nhà cung cấp", supplierData.name)}
+                                <div className="space-y-5">
+                                    {/* Hàng 1 (2 cột) */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <Input {...register("taxCode")} className="h-[40px] pr-10 text-[13px]" />
+                                                    {copyButton("Mã số thuế", supplierData.taxCode)}
+                                                </div>
+                                                <Button type="button" variant="outline" onClick={handleLookupTaxCode} className="h-[40px] shrink-0 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-blue-600 hover:bg-blue-50">
+                                                    <Search size={14} className="mr-1" /> Tra cứu
+                                                </Button>
+                                            </div>
+                                            {errors.taxCode && <p className="text-[10px] text-red-500 mt-1">{errors.taxCode.message}</p>}
                                         </div>
-                                        {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name.message}</p>}
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
-                                        <div className="relative">
-                                            <Input {...register("taxCode")} className="h-[40px] pr-10 text-[13px]" />
-                                            {copyButton("Mã số thuế", supplierData.taxCode)}
-                                        </div>
-                                        {errors.taxCode && <p className="text-[10px] text-red-500 mt-1">{errors.taxCode.message}</p>}
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã nhà cung cấp</Label>
-                                        <div className="relative">
-                                            <Input value={supplierRecord?.code || `#${supplierId}`} disabled className="h-[40px] bg-slate-50 pr-10 text-[13px] text-slate-500" />
-                                            {copyButton("Mã nhà cung cấp", supplierRecord?.code || `#${supplierId}`)}
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tên nhà cung cấp *</Label>
+                                            <div className="relative">
+                                                <Input {...register("name")} className="h-[40px] pr-10 text-[13px]" />
+                                                {copyButton("Tên nhà cung cấp", supplierData.name)}
+                                            </div>
+                                            {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name.message}</p>}
                                         </div>
                                     </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tỉnh / thành *</Label>
-                                        <Controller
-                                            name="provinceId"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Select value={field.value || ""} onValueChange={field.onChange}>
-                                                    <SelectTrigger className="h-[40px] text-[13px] shadow-none">
-                                                        <SelectValue placeholder="Chọn tỉnh / thành phố" />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="max-h-[260px]">
-                                                        {provinces.map((province) => (
-                                                            <SelectItem key={province.id} value={province.id}>
-                                                                {province.full_name || province.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                        {errors.provinceId && <p className="text-[10px] text-red-500 mt-1">{errors.provinceId.message}</p>}
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Người đại diện *</Label>
-                                        <div className="relative">
-                                            <Input {...register("contactName")} className="h-[40px] pr-10 text-[13px]" />
-                                            {copyButton("Người đại diện", supplierData.contactName)}
+
+                                    {/* Hàng 2 (3 cột) */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Họ và tên người đại diện *</Label>
+                                            <div className="relative">
+                                                <Input {...register("contactName")} className="h-[40px] pr-10 text-[13px]" />
+                                                {copyButton("Người đại diện", supplierData.contactName)}
+                                            </div>
+                                            {errors.contactName && <p className="mt-1 text-[10px] text-red-500">{errors.contactName.message}</p>}
                                         </div>
-                                        {errors.contactName && <p className="mt-1 text-[10px] text-red-500">{errors.contactName.message}</p>}
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Điện thoại *</Label>
-                                        <div className="relative">
-                                            <Input {...register("phone")} className="h-[40px] pr-10 text-[13px]" />
-                                            {copyButton("Số điện thoại", supplierData.phone)}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
+                                                <Controller
+                                                    name="status"
+                                                    control={control}
+                                                    render={({ field }) => (
+                                                        <Select
+                                                            onValueChange={(value) => {
+                                                                if (value === "inactive" && field.value === "active") {
+                                                                    setPendingStatusValue("inactive");
+                                                                    setShowStatusConfirmModal(true);
+                                                                } else {
+                                                                    field.onChange(value);
+                                                                }
+                                                            }}
+                                                            value={field.value}
+                                                        >
+                                                            <SelectTrigger className="h-[40px] text-[13px] shadow-none">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="active">Đang giao dịch</SelectItem>
+                                                                <SelectItem value="inactive">Tạm ngừng</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập</Label>
+                                                <div className="relative">
+                                                    <Input type="date" {...register("issueDate")} className="h-[40px] pr-10 text-[13px]" />
+                                                    {copyButton("Ngày cấp / Thành lập", supplierData.issueDate || "")}
+                                                </div>
+                                                {errors.issueDate && <p className="text-[10px] text-red-500 mt-1">{errors.issueDate.message}</p>}
+                                            </div>
                                         </div>
-                                        {errors.phone && <p className="mt-1 text-[10px] text-red-500">{errors.phone.message}</p>}
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Email *</Label>
-                                        <div className="relative">
-                                            <Input {...register("email")} className="h-[40px] pr-10 text-[13px]" />
-                                            {copyButton("Email", supplierData.email)}
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">SĐT di động *</Label>
+                                            <div className="relative">
+                                                <Input {...register("phone")} className="h-[40px] pr-10 text-[13px]" />
+                                                {copyButton("Số điện thoại", supplierData.phone)}
+                                            </div>
+                                            {errors.phone && <p className="mt-1 text-[10px] text-red-500">{errors.phone.message}</p>}
                                         </div>
-                                        {errors.email && <p className="mt-1 text-[10px] text-red-500">{errors.email.message}</p>}
                                     </div>
+
+                                    {/* Hàng 3 (3 cột) */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý</Label>
+                                            <div className="relative">
+                                                <Input {...register("taxAuthority")} className="h-[40px] pr-10 text-[13px]" />
+                                                {copyButton("Cơ quan thuế quản lý", supplierData.taxAuthority || "")}
+                                            </div>
+                                            {errors.taxAuthority && <p className="text-[10px] text-red-500 mt-1">{errors.taxAuthority.message}</p>}
+                                        </div>
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính</Label>
+                                            <div className="relative">
+                                                <Input {...register("mainBusinessSector")} className="h-[40px] pr-10 text-[13px]" />
+                                                {copyButton("Ngành nghề kinh doanh chính", supplierData.mainBusinessSector || "")}
+                                            </div>
+                                            {errors.mainBusinessSector && <p className="text-[10px] text-red-500 mt-1">{errors.mainBusinessSector.message}</p>}
+                                        </div>
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Email liên hệ *</Label>
+                                            <div className="relative">
+                                                <Input {...register("email")} className="h-[40px] pr-10 text-[13px]" />
+                                                {copyButton("Email", supplierData.email)}
+                                            </div>
+                                            {errors.email && <p className="mt-1 text-[10px] text-red-500">{errors.email.message}</p>}
+                                        </div>
+                                    </div>
+
+                                    {/* Các thông tin phụ khác */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã nhà cung cấp</Label>
+                                            <div className="relative">
+                                                <Input value={supplierRecord?.code || `#${supplierId}`} disabled className="h-[40px] bg-slate-50 pr-10 text-[13px] text-slate-500" />
+                                                {copyButton("Mã nhà cung cấp", supplierRecord?.code || `#${supplierId}`)}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tỉnh / thành *</Label>
+                                            <Controller
+                                                name="provinceId"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select value={field.value || ""} onValueChange={field.onChange}>
+                                                        <SelectTrigger className="h-[40px] text-[13px] shadow-none">
+                                                            <SelectValue placeholder="Chọn tỉnh / thành phố" />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="max-h-[260px]">
+                                                            {provinces.map((province) => (
+                                                                <SelectItem key={province.id} value={province.id}>
+                                                                    {province.full_name || province.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                            {errors.provinceId && <p className="text-[10px] text-red-500 mt-1">{errors.provinceId.message}</p>}
+                                        </div>
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cập nhật gần nhất</Label>
+                                            <Input value={formatDate(supplierRecord?.updatedAt || supplierRecord?.createdAt)} disabled className="h-[40px] bg-slate-50 text-[13px] text-slate-500" />
+                                        </div>
+                                    </div>
+
                                     <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Trạng thái</Label>
-                                        <Controller
-                                            name="status"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Select
-                                                    onValueChange={(value) => {
-                                                        if (value === "inactive" && field.value === "active") {
-                                                            setPendingStatusValue("inactive");
-                                                            setShowStatusConfirmModal(true);
-                                                        } else {
-                                                            field.onChange(value);
-                                                        }
-                                                    }}
-                                                    value={field.value}
-                                                >
-                                                    <SelectTrigger className="h-[40px] text-[13px] shadow-none">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="active">Đang giao dịch</SelectItem>
-                                                        <SelectItem value="inactive">Tạm ngừng</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cập nhật gần nhất</Label>
-                                        <Input value={formatDate(supplierRecord?.updatedAt || supplierRecord?.createdAt)} disabled className="h-[40px] bg-slate-50 text-[13px] text-slate-500" />
-                                    </div>
-                                    <div className="sm:col-span-2 xl:col-span-3">
                                         <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Địa chỉ *</Label>
                                         <div className="relative">
                                             <Textarea {...register("addressDetail")} className="min-h-[84px] resize-none pr-10 text-[13px]" />
@@ -980,19 +1188,18 @@ export default function SupplierDetailPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {paginatedCatalogProducts.length > 0 ? (
-                                                paginatedCatalogProducts.map((product) => {
-                                                    const current = catalogByProductId.get(product.id);
-                                                    const previewImage = product.imageUrls?.[0] || product.variants?.find((variant) => variant.imageUrl)?.imageUrl;
-                                                    const isSelected = selectedCatalogProductIds.includes(product.id);
-                                                    const checkingAgeDays = current ? getCheckingAgeDays(current) : null;
+                                            {paginatedCatalogItems.length > 0 ? (
+                                                paginatedCatalogItems.map((item) => {
+                                                    const previewImage = item.imageUrl;
+                                                    const isSelected = selectedCatalogProductIds.includes(item.productVariantId);
+                                                    const checkingAgeDays = getCheckingAgeDays(item);
 
                                                     return (
-                                                        <TableRow key={product.id} className="border-b border-slate-100 align-top hover:bg-slate-50/70">
+                                                        <TableRow key={`${item.productId}-${item.productVariantId}`} className="border-b border-slate-100 align-middle hover:bg-slate-50/70">
                                                             <TableCell className="py-4 pl-3">
                                                                 <Checkbox
                                                                     checked={isSelected}
-                                                                    onCheckedChange={(checked) => toggleCatalogSelection(product.id, checked === true)}
+                                                                    onCheckedChange={(checked) => toggleCatalogSelection(item.productVariantId, checked === true)}
                                                                     disabled={Boolean(catalogLoadError)}
                                                                 />
                                                             </TableCell>
@@ -1002,7 +1209,7 @@ export default function SupplierDetailPage() {
                                                                         {previewImage ? (
                                                                             <img
                                                                                 src={previewImage}
-                                                                                alt={product.name}
+                                                                                alt={item.productName}
                                                                                 className="h-full w-full object-cover"
                                                                                 onError={(event) => {
                                                                                     event.currentTarget.style.display = "none";
@@ -1013,32 +1220,35 @@ export default function SupplierDetailPage() {
                                                                         )}
                                                                     </div>
                                                                     <div className="min-w-0">
-                                                                        <p className="line-clamp-2 text-[12.5px] font-semibold leading-5 text-slate-800">{product.name}</p>
-                                                                        <p className="mt-1 text-[10.5px] text-slate-400">SKU gốc: {product.baseSku || "---"}</p>
-                                                                        <p className="mt-1 text-[10.5px] text-slate-500">{product.categoryName || "---"} · {product.variants?.length || 0} biến thể</p>
+                                                                        <p className="line-clamp-2 text-[12.5px] font-semibold leading-5 text-slate-800">{item.productName}</p>
+                                                                        <p className="mt-1 text-[10.5px] text-slate-400">SKU: {item.sku || "---"}</p>
+                                                                        <p className="mt-1 text-[10.5px] text-slate-500">{item.categoryName || "---"}</p>
                                                                     </div>
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="py-3 pr-3">
-                                                                <p className="text-[11.5px] font-medium text-slate-700">{product.brandName || "---"}</p>
-                                                                <p className="mt-1 text-[10.5px] text-slate-500">{product.origin || "Chưa có xuất xứ"}</p>
+                                                                <p className="text-[11.5px] font-medium text-slate-700">{item.brandName || "---"}</p>
+                                                                {item.origin && (
+                                                                    <p className="mt-1 text-[10.5px] text-slate-500">{item.origin}</p>
+                                                                )}
                                                             </TableCell>
                                                             <TableCell className="py-3 pr-3">
                                                                 <Select
-                                                                    value={current?.status}
-                                                                    onValueChange={(value) => updateCatalogItem(product.id, { status: value as SupplierProductCatalogStatus })}
+                                                                    value={item.status || "NOT_IN_CATALOG"}
+                                                                    onValueChange={(value) => updateCatalogItem(item.productVariantId, { status: value === "NOT_IN_CATALOG" ? undefined : value as SupplierProductCatalogStatus })}
                                                                     disabled={Boolean(catalogLoadError)}
                                                                 >
                                                                     <SelectTrigger className="h-9 w-full text-[11.5px] font-normal shadow-none">
                                                                         <SelectValue placeholder="Chưa thiết lập" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
+                                                                        <SelectItem value="NOT_IN_CATALOG">Chưa thiết lập</SelectItem>
                                                                         <SelectItem value="AVAILABLE">Có thể đặt mua</SelectItem>
                                                                         <SelectItem value="CHECKING">Đang xác minh</SelectItem>
                                                                         <SelectItem value="UNAVAILABLE">Ngừng cung cấp</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
-                                                                {checkingAgeDays != null && current?.status === "CHECKING" && (
+                                                                {checkingAgeDays != null && item.status === "CHECKING" && (
                                                                     <p className={cn("mt-1.5 text-[10.5px]", checkingAgeDays >= STALE_CHECKING_DAYS ? "text-amber-700" : "text-slate-400")}>
                                                                         Xác minh {checkingAgeDays} ngày
                                                                     </p>
@@ -1046,16 +1256,16 @@ export default function SupplierDetailPage() {
                                                             </TableCell>
                                                             <TableCell className="py-3 pr-3">
                                                                 <Textarea
-                                                                    value={current?.note || ""}
-                                                                    onChange={(e) => updateCatalogItem(product.id, { note: e.target.value })}
+                                                                    value={item.note || ""}
+                                                                    onChange={(e) => updateCatalogItem(item.productVariantId, { note: e.target.value })}
                                                                     placeholder="Điều kiện giao hàng, thông tin xác minh..."
                                                                     className="min-h-[58px] w-full resize-none px-3 py-2 text-[11px]"
                                                                     maxLength={255}
                                                                     disabled={Boolean(catalogLoadError)}
                                                                 />
-                                                                {(current?.updatedAt || current?.updatedByName) && (
+                                                                {(item.updatedAt || item.updatedByName) && (
                                                                     <p className="mt-1.5 text-[10px] text-slate-400">
-                                                                        {current.updatedByName || "Đã cập nhật"} · {formatDate(current.updatedAt)}
+                                                                        {item.updatedByName || "Đã cập nhật"} · {formatDate(item.updatedAt)}
                                                                     </p>
                                                                 )}
                                                             </TableCell>
@@ -1085,10 +1295,10 @@ export default function SupplierDetailPage() {
                                     </Table>
                                 </div>
 
-                                {filteredCatalogProducts.length > 0 && (
+                                {filteredCatalogItems.length > 0 && (
                                     <div className="px-4 py-3 border-t border-slate-100 bg-[#fcfcfc] flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                         <p className="text-[11px] text-slate-500">
-                                            Hiển thị {(catalogCurrentPage - 1) * CATALOG_PAGE_SIZE + 1} - {Math.min(catalogCurrentPage * CATALOG_PAGE_SIZE, filteredCatalogProducts.length)} trong {filteredCatalogProducts.length}
+                                            Hiển thị {(catalogCurrentPage - 1) * CATALOG_PAGE_SIZE + 1} - {Math.min(catalogCurrentPage * CATALOG_PAGE_SIZE, filteredCatalogItems.length)} trong {filteredCatalogItems.length}
                                         </p>
                                         <div className="flex items-center gap-2">
                                             <Button

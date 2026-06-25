@@ -20,7 +20,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, cleanSupplierName } from "@/lib/utils";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -70,8 +70,7 @@ interface Product {
     slug: string;
     baseSku: string;
     categoryName: string;
-    brandName: string;
-    origin: string;
+    supplierName: string;
     status: string;
     image: string;
     imageUrls: string[];
@@ -203,13 +202,13 @@ export function AdminProductTable({
             <Table className="table-custom w-full table-fixed border-collapse">
                 <colgroup>
                     <col className="w-[5%]" />
-                    <col className="w-[3%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[31%]" />
-                    <col className="w-[16%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[30%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[8%]" />
                     <col className="w-[10%]" />
-                    <col className="w-[12%]" />
-                    {canAction && <col className="w-[12%]" />}
+                    {canAction && <col className="w-[7%]" />}
                 </colgroup>
                 <TableHeader>
                     <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
@@ -217,7 +216,7 @@ export function AdminProductTable({
                         <TableHead className="p-2" />
                         <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Ảnh</TableHead>
                         <TableHead className="p-2 pl-4 text-[10px] font-semibold text-[#1f1f1f]">Tên sản phẩm & danh mục</TableHead>
-                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Thương hiệu</TableHead>
+                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Nhà cung cấp</TableHead>
                         <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Tổng tồn</TableHead>
                         <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái</TableHead>
                         {canAction && (
@@ -257,11 +256,13 @@ export function AdminProductTable({
                                     {/* Ảnh */}
                                     <TableCell className="p-2">
                                         <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] flex items-center justify-center overflow-hidden shadow-sm">
-                                            {p.imageUrls && p.imageUrls.length > 0 ? (
-                                                <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-contain p-0.5" />
-                                            ) : (
-                                                <ImageIcon size={16} className="text-slate-200" />
-                                            )}
+                                             {p.imageUrls && p.imageUrls.length > 0 ? (
+                                                 <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-contain p-0.5" />
+                                             ) : p.variants?.[0]?.imageUrl ? (
+                                                 <img src={p.variants[0].imageUrl} alt={p.name} className="w-full h-full object-contain p-0.5" />
+                                             ) : (
+                                                 <ImageIcon size={16} className="text-slate-200" />
+                                             )}
                                         </div>
                                     </TableCell>
 
@@ -278,8 +279,8 @@ export function AdminProductTable({
 
                                     {/* Thương hiệu */}
                                     <TableCell className="p-2">
-                                        <span className="block truncate text-[11px] font-normal text-slate-500" title={p.brandName || ""}>
-                                            {p.brandName || "—"}
+                                        <span className="block truncate text-[11px] font-normal text-slate-500" title={p.supplierName || ""}>
+                                            {cleanSupplierName(p.supplierName) || "—"}
                                         </span>
                                     </TableCell>
 

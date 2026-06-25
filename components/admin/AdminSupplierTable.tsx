@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { AlertTriangle, Copy, Eye } from "lucide-react";
+import { AlertTriangle, Copy, Pencil } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -145,7 +145,7 @@ export function AdminSupplierTable({
                                 <TableCell className="p-2 text-right pr-4 align-top">
                                     <Link href={`/admin/suppliers/${supplier.id}`}>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-md">
-                                            <Eye size={16} />
+                                            <Pencil size={16} />
                                         </Button>
                                     </Link>
                                 </TableCell>

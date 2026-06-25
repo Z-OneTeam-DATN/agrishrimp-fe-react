@@ -77,6 +77,11 @@ export const ProductService = {
     return response.data;
   },
 
+  getSuppliers: async (): Promise<any[]> => {
+    const response = await apiJava.get(`${ProductService.PREFIX}/suppliers-list`);
+    return response.data;
+  },
+
   getAttributes: async (): Promise<Attribute[]> => {
     const response = await apiJava.get(`${ProductService.PREFIX}/attributes`);
     return response.data;

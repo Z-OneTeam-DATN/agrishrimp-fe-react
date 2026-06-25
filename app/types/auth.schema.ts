@@ -89,7 +89,7 @@ export const LoginSchema = z.object({
 
   password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
 
-  captchaToken: z.string().min(1, { message: "Vui lòng xác thực Captcha" }),
+  captchaToken: z.string().optional(),
 });
 
 export type LoginFormValues = z.infer<typeof LoginSchema>;

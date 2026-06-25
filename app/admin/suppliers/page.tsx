@@ -28,7 +28,7 @@ export default function SupplierListPage() {
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
-    const pageSize = 5;
+    const pageSize = 20;
 
     const fetchSuppliers = useCallback(async () => {
         setIsLoading(true);
@@ -141,63 +141,34 @@ export default function SupplierListPage() {
                 ) : suppliers.length > 0 ? (
                     <>
                         <AdminSupplierTable suppliers={suppliers} currentPage={currentPage} pageSize={pageSize} />
-                        <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-500">
-                                <span>Hiển thị {suppliers.length} / {totalElements} kết quả</span>
-                                {keyword.trim() && (
-                                    <span className="inline-flex items-center gap-1 text-blue-600">
-                                        <PackageSearch size={12} />
-                                        Từ khóa: {keyword.trim()}
-                                    </span>
-                                )}
-                            </div>
+                        <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#fcfcfc] px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+                            <p className="text-[11px] text-slate-500">
+                                Hiển thị {currentPage * pageSize + 1} - {Math.min((currentPage + 1) * pageSize, totalElements)} trong {totalElements}
+                            </p>
                             {totalPages > 0 && (
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-2">
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
+                                        className="h-8 text-[11px] font-medium bg-white"
                                         onClick={() => setCurrentPage(currentPage - 1)}
                                         disabled={currentPage === 0}
-                                        className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
                                     >
-                                        <ChevronLeft size={14} className="mr-1" /> Trước
+                                        ← Trước
                                     </Button>
-                                    <div className="flex items-center gap-1">
-                                        {Array.from({ length: totalPages }).map((_, index) => {
-                                            if (index === 0 || index === totalPages - 1 || (index >= currentPage - 1 && index <= currentPage + 1)) {
-                                                return (
-                                                    <Button
-                                                        key={index}
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setCurrentPage(index)}
-                                                        className={cn(
-                                                            "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all",
-                                                            currentPage === index
-                                                                ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
-                                                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50",
-                                                        )}
-                                                    >
-                                                        {index + 1}
-                                                    </Button>
-                                                );
-                                            }
-
-                                            if (index === currentPage - 2 || index === currentPage + 2) {
-                                                return <span key={index} className="text-slate-400 text-[10px] px-1 tracking-widest">...</span>;
-                                            }
-
-                                            return null;
-                                        })}
-                                    </div>
+                                    <span className="min-w-[50px] text-center text-[11px] text-slate-500 font-medium">
+                                        {currentPage + 1} / {totalPages}
+                                    </span>
                                     <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
+                                        className="h-8 text-[11px] font-medium bg-white"
                                         onClick={() => setCurrentPage(currentPage + 1)}
                                         disabled={currentPage >= totalPages - 1}
-                                        className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
                                     >
-                                        Sau <ChevronRight size={14} className="ml-1" />
+                                        Sau →
                                     </Button>
                                 </div>
                             )}

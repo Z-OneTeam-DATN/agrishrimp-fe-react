@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +27,63 @@ import {
 interface Province { id: string; name: string; full_name: string; }
 interface ErrorResponse { message: string; }
 
+const formatDateForInput = (dateStr?: string | null): string => {
+    if (!dateStr) return "";
+    const cleaned = dateStr.trim();
+    if (!cleaned) return "";
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+        return cleaned;
+    }
+    if (/^\d{4}-\d{2}-\d{2}T/.test(cleaned)) {
+        return cleaned.substring(0, 10);
+    }
+    const slashMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (slashMatch) {
+        const day = slashMatch[1].padStart(2, "0");
+        const month = slashMatch[2].padStart(2, "0");
+        const year = slashMatch[3];
+        return `${year}-${month}-${day}`;
+    }
+
+    try {
+        const d = new Date(cleaned);
+        if (!Number.isNaN(d.getTime())) {
+            return d.toISOString().substring(0, 10);
+        }
+    } catch {
+        // ignore
+    }
+    return "";
+};
+
+/**
+ * Chuẩn hoá số điện thoại:
+ * - Nếu là di động VN (03/05/07/08/09 + 8 số) → trả về 10 số chuẩn
+ * - Nếu là số bàn (bắt đầu 02x, có dấu gạch/khoảng trắng/số nội bộ) → giữ nguyên
+ * - Nếu không nhận ra → vẫn trả về raw để người dùng tự sửa
+ */
+const normalizePhone = (raw?: string | null): string => {
+    if (!raw) return "";
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+
+    // Lấy chỉ chữ số để thử nhận dạng di động
+    const digits = trimmed.replace(/[^0-9]/g, "");
+    if (!digits) return trimmed;
+
+    // Bỏ prefix quốc tế 84 → 0
+    const local = digits.startsWith("84") ? "0" + digits.slice(2) : digits;
+
+    // Số di động VN: 10 chữ số bắt đầu 03/05/07/08/09 → chuẩn hoá
+    if (/^(0)(3|5|7|8|9)[0-9]{8}$/.test(local)) {
+        return local;
+    }
+
+    // Số bàn hoặc định dạng khác → giữ nguyên raw (ví dụ: "02703 962736-2")
+    return trimmed;
+};
+
 export default function AddSupplierPage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,7 +101,13 @@ export default function AddSupplierPage() {
 
     const { register, handleSubmit, control, watch, setValue, trigger, reset, formState: { errors } } = useForm<SupplierFormValues>({
         resolver: zodResolver(SupplierSchema),
-        defaultValues: { status: "active", provinceId: "" },
+        defaultValues: {
+            status: "active",
+            provinceId: "",
+            issueDate: "",
+            taxAuthority: "",
+            mainBusinessSector: ""
+        },
     });
 
     const watchedValues = watch();
@@ -82,11 +145,51 @@ export default function AddSupplierPage() {
             .map((part) => part.trim())
             .filter(Boolean);
 
-        return {
-            houseNumber: chunks[0] || "",
-            street: chunks[1] || "",
-            ward: chunks.slice(2).join(", ") || "",
-        };
+        let houseNumber = "";
+        let street = "";
+        let ward = "";
+
+        if (chunks.length >= 3) {
+            const firstChunk = chunks[0];
+            // Check if first chunk is just a house number/lot number (no spaces, or starts with standard prefixes and has no street name afterward)
+            const isJustHouseNumber = /^(?:Số\s+)?\d+[a-zA-Z]?$/i.test(firstChunk) || 
+                                      /^(?:Lô|Căn|Tầng|Kiot|Kiot\s+)\s*\w+$/i.test(firstChunk) ||
+                                      /^[\d\-\/]+$/i.test(firstChunk);
+            if (isJustHouseNumber) {
+                houseNumber = firstChunk;
+                street = chunks[1];
+                ward = chunks[2];
+            } else {
+                const match = firstChunk.match(/^((?:Số\s+)?\d+[a-zA-Z]?|Lô\s+\w+|Căn\s+\w+|Tầng\s+\d+|[\w\d\-]+)\s+(.+)$/i);
+                if (match) {
+                    houseNumber = match[1];
+                    street = match[2];
+                } else {
+                    const spaceIndex = firstChunk.indexOf(" ");
+                    if (spaceIndex !== -1) {
+                        houseNumber = firstChunk.substring(0, spaceIndex);
+                        street = firstChunk.substring(spaceIndex + 1);
+                    } else {
+                        street = firstChunk;
+                    }
+                }
+                ward = chunks[1];
+            }
+        } else if (chunks.length === 2) {
+            const firstChunk = chunks[0];
+            const spaceIndex = firstChunk.indexOf(" ");
+            if (spaceIndex !== -1) {
+                houseNumber = firstChunk.substring(0, spaceIndex);
+                street = firstChunk.substring(spaceIndex + 1);
+            } else {
+                street = firstChunk;
+            }
+            ward = chunks[1];
+        } else {
+            street = chunks[0] || "";
+        }
+
+        return { houseNumber, street, ward };
     };
 
     const buildAddressDetail = (parts: { houseNumber: string; street: string; ward: string }) => {
@@ -130,40 +233,77 @@ export default function AddSupplierPage() {
         }
     }, []);
 
+    const [draftPromptOpen, setDraftPromptOpen] = useState(false);
+    const [pendingDraftData, setPendingDraftData] = useState<SupplierFormValues | null>(null);
+    const [pendingDraftSavedAt, setPendingDraftSavedAt] = useState<number | null>(null);
+
+    const hasLoadedDraftRef = useRef(false);
+
     useEffect(() => {
+        if (hasLoadedDraftRef.current) return;
         const savedDraftRaw = localStorage.getItem(DRAFT_KEY);
         if (!savedDraftRaw) return;
 
         try {
-            const savedDraft = JSON.parse(savedDraftRaw) as SupplierFormValues;
-            reset({
-                ...savedDraft,
-                status: savedDraft.status || "active",
-                provinceId: savedDraft.provinceId || "",
-            });
-            setAddressParts(parseAddressDetail(savedDraft.addressDetail || ""));
-            toast.info("Đã khôi phục bản nháp nhà cung cấp trước đó");
+            const parsed = JSON.parse(savedDraftRaw);
+            const draftData = parsed && typeof parsed === "object" && "formData" in parsed
+                ? (parsed.formData as SupplierFormValues)
+                : (parsed as SupplierFormValues);
+
+            setPendingDraftData(draftData);
+            setPendingDraftSavedAt(parsed && parsed.savedAt ? parsed.savedAt : null);
+            setDraftPromptOpen(true);
+            hasLoadedDraftRef.current = true;
         } catch {
             localStorage.removeItem(DRAFT_KEY);
         }
     }, [reset]);
 
+    const handleRestoreDraft = () => {
+        if (!pendingDraftData) {
+            setDraftPromptOpen(false);
+            return;
+        }
+
+        reset({
+            ...pendingDraftData,
+            status: pendingDraftData.status || "active",
+            provinceId: pendingDraftData.provinceId || "",
+        });
+        setAddressParts(parseAddressDetail(pendingDraftData.addressDetail || ""));
+        setDraftPromptOpen(false);
+        toast.success("Đã khôi phục bản nháp.");
+    };
+
+    const handleDiscardDraft = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        setPendingDraftData(null);
+        setPendingDraftSavedAt(null);
+        setDraftPromptOpen(false);
+    };
+
     useEffect(() => {
         const combinedAddress = buildAddressDetail(addressParts);
-        setValue("addressDetail", combinedAddress, { shouldValidate: true });
+        const hasAnyPart = !!(addressParts.houseNumber.trim() || addressParts.street.trim() || addressParts.ward.trim());
+        setValue("addressDetail", combinedAddress, { shouldValidate: hasAnyPart });
     }, [addressParts, setValue]);
 
     useEffect(() => {
+        if (pendingDraftData || draftPromptOpen) return;
+
         const timer = setTimeout(() => {
             const dataToSave = {
-                ...watchedValues,
-                addressDetail: buildAddressDetail(addressParts),
+                formData: {
+                    ...watchedValues,
+                    addressDetail: buildAddressDetail(addressParts),
+                },
+                savedAt: Date.now(),
             };
             localStorage.setItem(DRAFT_KEY, JSON.stringify(dataToSave));
         }, 700);
 
         return () => clearTimeout(timer);
-    }, [watchedValues, addressParts]);
+    }, [watchedValues, addressParts, pendingDraftData, draftPromptOpen]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -180,15 +320,50 @@ export default function AddSupplierPage() {
         try {
             const businessInfo = await supplierService.lookupTaxCode(taxCode);
             if (businessInfo) {
-                setValue("name", businessInfo.name, { shouldValidate: true });
-                setValue("addressDetail", businessInfo.address, { shouldValidate: true });
-                setAddressParts(parseAddressDetail(businessInfo.address));
-                const detectedId = detectProvince(businessInfo.address);
-                if (detectedId) setValue("provinceId", detectedId, { shouldValidate: true });
-                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: true });
-                if (businessInfo.phone) setValue("phone", businessInfo.phone, { shouldValidate: true });
-                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: true });
-                toast.success("Đã tìm thấy thông tin!");
+                // Dùng shouldValidate: false để dữ liệu luôn được điền vào form
+                // trước, người dùng có thể chỉnh sửa lại rồi mới submit.
+                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: false });
+                if (businessInfo.address) {
+                    setValue("addressDetail", businessInfo.address, { shouldValidate: false });
+                    setAddressParts(parseAddressDetail(businessInfo.address));
+                    const detectedId = detectProvince(businessInfo.address);
+                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: false });
+                }
+                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: false });
+
+                // Chuẩn hoá SĐT — chỉ điền khi normalize thành công
+                const normalizedPhone = normalizePhone(businessInfo.phone);
+                if (normalizedPhone) setValue("phone", normalizedPhone, { shouldValidate: false });
+
+                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: false });
+                
+                if (businessInfo.issueDate) {
+                    const formatted = formatDateForInput(businessInfo.issueDate);
+                    if (formatted) setValue("issueDate", formatted, { shouldValidate: false });
+                }
+                if (businessInfo.taxAuthority) {
+                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: false });
+                }
+                if (businessInfo.mainBusinessSector) {
+                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: false });
+                }
+                
+                const missingFields: string[] = [];
+                const statuses = businessInfo.fieldStatuses as Record<string, string> | undefined;
+                if (statuses) {
+                    if (statuses.name !== "FOUND") missingFields.push("Tên công ty");
+                    if (statuses.owner !== "FOUND") missingFields.push("Người đại diện");
+                    if (statuses.phone !== "FOUND") missingFields.push("SĐT");
+                    if (statuses.issueDate !== "FOUND") missingFields.push("Ngày thành lập");
+                    if (statuses.mainBusinessSector !== "FOUND") missingFields.push("Ngành nghề");
+                }
+                if (missingFields.length > 0) {
+                    toast.warning(`Tra cứu thành công. Một số thông tin chưa tìm được: ${missingFields.join(", ")}`);
+                } else {
+                    toast.success("Đã điền đầy đủ thông tin từ tra cứu MST!");
+                }
+            } else {
+                toast.error("Không tìm thấy doanh nghiệp với MST này.");
             }
         } catch {
             toast.error("Không tìm thấy thông tin hoặc API lỗi.");
@@ -222,7 +397,6 @@ export default function AddSupplierPage() {
     };
 
     const onError = () => {
-        toast.error("Vui lòng điền đầy đủ và đúng định dạng các trường bắt buộc!");
     };
 
     const handleOpenConfirm = async () => {
@@ -255,13 +429,8 @@ export default function AddSupplierPage() {
                                 1. Thông tin pháp nhân nhà cung cấp
                             </span>
                         </div>
-                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Tên công ty / Pháp nhân *</Label>
-                                <Input {...register("name")} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500" />
-                                {errors.name && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.name.message}</p>}
-                                {!errors.name && duplicateName && <p className="mt-1 text-[10px] font-medium text-amber-600">{duplicateName}</p>}
-                            </div>
+                        {/* Hàng 1 (2 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
                                 <div className="flex gap-2">
@@ -274,26 +443,59 @@ export default function AddSupplierPage() {
                                 {!errors.taxCode && duplicateTaxCode && <p className="mt-1 text-[10px] font-medium text-amber-600">{duplicateTaxCode}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
-                                <Controller name="status" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
-                                        <SelectContent className="rounded-md">
-                                            <SelectItem value="active" className="text-emerald-600">Đang giao dịch</SelectItem>
-                                            <SelectItem value="inactive" className="text-rose-600">Tạm ngừng</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )} />
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Tên công ty / Pháp nhân *</Label>
+                                <Input {...register("name")} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500" />
+                                {errors.name && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.name.message}</p>}
+                                {!errors.name && duplicateName && <p className="mt-1 text-[10px] font-medium text-amber-600">{duplicateName}</p>}
                             </div>
+                        </div>
+
+                        {/* Hàng 2 (3 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Họ và tên người đại diện *</Label>
                                 <Input {...register("contactName")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.contactName && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.contactName.message}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Số điện thoại di động *</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
+                                        <Controller name="status" control={control} render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
+                                                <SelectContent className="rounded-md">
+                                                    <SelectItem value="active" className="text-emerald-600">Đang giao dịch</SelectItem>
+                                                    <SelectItem value="inactive" className="text-rose-600">Tạm ngừng</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập</Label>
+                                        <Input type="date" {...register("issueDate")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                        {errors.issueDate && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.issueDate.message}</p>}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">SĐT di động *</Label>
                                 <Input {...register("phone")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.phone && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.phone.message}</p>}
+                            </div>
+                        </div>
+
+                        {/* Hàng 3 (3 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý</Label>
+                                <Input {...register("taxAuthority")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                {errors.taxAuthority && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.taxAuthority.message}</p>}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính</Label>
+                                <Input {...register("mainBusinessSector")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                {errors.mainBusinessSector && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.mainBusinessSector.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Email liên hệ</Label>
@@ -417,6 +619,30 @@ export default function AddSupplierPage() {
                         >
                             {isSubmitting ? "Đang lưu..." : "Xác nhận lưu"}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={draftPromptOpen} onOpenChange={setDraftPromptOpen}>
+                <DialogContent className="sm:max-w-[560px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">Khôi phục bản nháp gần nhất?</DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Hệ thống phát hiện bạn có bản nháp chưa hoàn tất cho form thêm nhà cung cấp.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[12px] text-slate-600">
+                                Nháp hiện tại: {pendingDraftSavedAt ? new Date(pendingDraftSavedAt).toLocaleString("vi-VN") : "Không rõ thời gian"}
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700 text-white">Khôi phục nháp</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

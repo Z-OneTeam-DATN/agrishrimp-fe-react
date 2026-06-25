@@ -435,7 +435,7 @@ export default function ProductDetailPage({
     const displayAverageRating = Number(reviewAverage ?? product.ratingAverage ?? 0);
     const soldCount = Number(product.soldCount ?? 0);
     const hasSpecsContent = Boolean(
-        product.brandName || product.category?.name || currentVariant || product.origin
+        product.supplierName || product.category?.name || currentVariant
     );
     const relatedCategories = categories.filter((c) => c.parentId !== null);
     const visibleCategories = relatedCategories.slice(0, 7);
@@ -557,21 +557,12 @@ export default function ProductDetailPage({
                                         <p className="mt-0.5 text-xs text-slate-400">Các thông tin ngắn gọn để xem nhanh ngay tại khu vực ảnh.</p>
                                     </div>
                                     <div className="grid gap-x-6 gap-y-4 grid-cols-2 sm:grid-cols-3">
-                                        {product.brandName && (
+                                        {product.supplierName && (
                                             <div className="min-w-0">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Thương hiệu</p>
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Nhà cung cấp</p>
                                                 <div className="flex items-center gap-1.5 text-sm">
                                                     <Tag size={14} className="shrink-0 text-emerald-500" />
-                                                    <span className="font-semibold text-slate-800">{product.brandName}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {product.origin && (
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Xuất xứ</p>
-                                                <div className="flex items-center gap-1.5 text-sm">
-                                                    <Globe size={14} className="shrink-0 text-emerald-500" />
-                                                    <span className="font-semibold text-slate-800">{product.origin}</span>
+                                                    <span className="font-semibold text-slate-800">{product.supplierName}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -633,7 +624,7 @@ export default function ProductDetailPage({
                             <div className="space-y-2">
                                 <h1 className="text-2xl font-bold leading-snug text-slate-950">{product.name}</h1>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-                                    {product.brandName && <span className="font-medium">{product.brandName}</span>}
+                                    {product.supplierName && <span className="font-medium">{product.supplierName}</span>}
                                     {product.category?.name && (
                                         <Link href={`/category/${product.category.id}`}
                                             className="text-emerald-600 font-medium transition-colors hover:text-emerald-700">
