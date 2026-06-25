@@ -56,7 +56,7 @@ export default function PurchaseRequestListPage() {
   const [search, setSearch]       = useState("");
   const [cancelTarget, setCancelTarget] = useState<PurchaseRequestResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 20;
   const isWarehouseUser =
     (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
     warehouseId === 1;
