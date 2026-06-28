@@ -161,10 +161,12 @@ export const SupplierSchema = z.object({
 
     status: z.enum(["active", "inactive"]).default("active"),
 
-    issueDate: z.string().optional().nullable().or(z.literal("")),
-    taxAuthority: z.string().optional().nullable().or(z.literal("")),
-    mainBusinessSector: z.string().optional().nullable().or(z.literal("")),
+    issueDate: z.string().min(1, "Vui lòng chọn Ngày thành lập"),
+    taxAuthority: z.string().min(1, "Vui lòng nhập Cơ quan thuế quản lý"),
+    mainBusinessSector: z.string().min(1, "Vui lòng nhập Ngành nghề kinh doanh chính"),
 });
+
+export const AddSupplierSchema = SupplierSchema;
 
 export type SupplierFormValues = z.infer<typeof SupplierSchema>;
 // Bắt lỗi Employee Form

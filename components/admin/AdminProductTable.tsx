@@ -296,7 +296,10 @@ export function AdminProductTable({
 
                                     {/* Trạng thái */}
                                     <TableCell className="p-2 text-center">
-                                        <span className={cn("whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-medium tracking-tight", statusInfo.className)}>
+                                        <span className={cn("whitespace-nowrap text-[11px] font-medium tracking-tight", 
+                                            p.status === "ACTIVE" ? "text-emerald-600 font-semibold" : 
+                                            p.status === "INACTIVE" ? "text-slate-400" : "text-amber-600"
+                                        )}>
                                             {statusInfo.label}
                                         </span>
                                     </TableCell>
@@ -309,17 +312,6 @@ export function AdminProductTable({
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-100" onClick={() => onEdit?.(p.id)} title="Chỉnh sửa">
                                                         <Pencil size={14} className="text-blue-600" />
                                                     </Button>
-                                                )}
-                                                {hasPermission(P.PRODUCT_UPDATE) && (
-                                                    isInactive ? (
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-50" onClick={() => openEnableConfirm(p.id)} title="Kinh doanh lại">
-                                                            <Play size={14} className="text-emerald-600" />
-                                                        </Button>
-                                                    ) : (
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-amber-50" onClick={() => openDisableConfirm(p.id)} title="Ngừng kinh doanh">
-                                                            <Ban size={14} className="text-amber-600" />
-                                                        </Button>
-                                                    )
                                                 )}
                                                 {hasPermission(P.PRODUCT_DELETE) && (
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => openDeleteConfirm(p.id)} title="Xóa vĩnh viễn">

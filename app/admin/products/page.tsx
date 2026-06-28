@@ -444,25 +444,40 @@ export default function ProductsPage() {
                     </h1>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                    {productOverviewCards.map((card) => (
-                        <div
-                            key={card.title}
-                            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
-                        >
-                            <p className="text-[11px] font-semibold text-slate-400">
-                                {card.title}
-                            </p>
-                            <div className="mt-3 space-y-1">
-                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
-                                    {card.value.toLocaleString("vi-VN")}
+                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                    {productOverviewCards.map((card) => {
+                        const statusMap: Record<string, string> = {
+                            "Tổng sản phẩm": "all",
+                            "Đang kinh doanh": "ACTIVE",
+                            "Ngừng kinh doanh": "INACTIVE",
+                            "Tổng SKU": "all"
+                        };
+                        const targetStatus = statusMap[card.title];
+
+                        return (
+                            <div
+                                key={card.title}
+                                className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm transition-all select-none cursor-pointer hover:bg-slate-50/60"
+                                onClick={() => {
+                                    if (targetStatus) {
+                                        setFilters((current) => ({ ...current, status: targetStatus }));
+                                    }
+                                }}
+                            >
+                                <p className="text-[11px] font-semibold text-slate-400">
+                                    {card.title}
                                 </p>
-                                <p className="text-[10px] leading-[18px] text-slate-500">
-                                    {card.description}
-                                </p>
+                                <div className="mt-3 space-y-1">
+                                    <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                                        {card.value.toLocaleString("vi-VN")}
+                                    </p>
+                                    <p className="text-[10px] leading-[18px] text-slate-500">
+                                        {card.description}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">

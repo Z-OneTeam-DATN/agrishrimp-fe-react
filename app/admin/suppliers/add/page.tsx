@@ -6,14 +6,14 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
 import {
-    Save, Search
+    Save, Search, CalendarIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { SupplierSchema, SupplierFormValues } from "@/app/types/admin.schema";
+import { AddSupplierSchema, SupplierFormValues } from "@/app/types/admin.schema";
 import { supplierService } from "@/app/services/supplier.service";
 import {
     Dialog,
@@ -23,6 +23,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Province { id: string; name: string; full_name: string; }
 interface ErrorResponse { message: string; }
@@ -91,22 +95,19 @@ export default function AddSupplierPage() {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [duplicateTaxCode, setDuplicateTaxCode] = useState<string | null>(null);
     const [duplicateName, setDuplicateName] = useState<string | null>(null);
-    const [addressParts, setAddressParts] = useState({
-        houseNumber: "",
-        street: "",
-        ward: "",
-    });
 
     const DRAFT_KEY = "supplier-add-draft-v1";
 
     const { register, handleSubmit, control, watch, setValue, trigger, reset, formState: { errors } } = useForm<SupplierFormValues>({
-        resolver: zodResolver(SupplierSchema),
+        resolver: zodResolver(AddSupplierSchema),
+        mode: "onChange",
         defaultValues: {
             status: "active",
             provinceId: "",
             issueDate: "",
             taxAuthority: "",
-            mainBusinessSector: ""
+            mainBusinessSector: "",
+            addressDetail: "",
         },
     });
 
@@ -135,69 +136,6 @@ export default function AddSupplierPage() {
         return foundProvince ? foundProvince.id : "";
     };
 
-    const parseAddressDetail = (fullAddress: string) => {
-        if (!fullAddress) {
-            return { houseNumber: "", street: "", ward: "" };
-        }
-
-        const chunks = fullAddress
-            .split(",")
-            .map((part) => part.trim())
-            .filter(Boolean);
-
-        let houseNumber = "";
-        let street = "";
-        let ward = "";
-
-        if (chunks.length >= 3) {
-            const firstChunk = chunks[0];
-            // Check if first chunk is just a house number/lot number (no spaces, or starts with standard prefixes and has no street name afterward)
-            const isJustHouseNumber = /^(?:Số\s+)?\d+[a-zA-Z]?$/i.test(firstChunk) || 
-                                      /^(?:Lô|Căn|Tầng|Kiot|Kiot\s+)\s*\w+$/i.test(firstChunk) ||
-                                      /^[\d\-\/]+$/i.test(firstChunk);
-            if (isJustHouseNumber) {
-                houseNumber = firstChunk;
-                street = chunks[1];
-                ward = chunks[2];
-            } else {
-                const match = firstChunk.match(/^((?:Số\s+)?\d+[a-zA-Z]?|Lô\s+\w+|Căn\s+\w+|Tầng\s+\d+|[\w\d\-]+)\s+(.+)$/i);
-                if (match) {
-                    houseNumber = match[1];
-                    street = match[2];
-                } else {
-                    const spaceIndex = firstChunk.indexOf(" ");
-                    if (spaceIndex !== -1) {
-                        houseNumber = firstChunk.substring(0, spaceIndex);
-                        street = firstChunk.substring(spaceIndex + 1);
-                    } else {
-                        street = firstChunk;
-                    }
-                }
-                ward = chunks[1];
-            }
-        } else if (chunks.length === 2) {
-            const firstChunk = chunks[0];
-            const spaceIndex = firstChunk.indexOf(" ");
-            if (spaceIndex !== -1) {
-                houseNumber = firstChunk.substring(0, spaceIndex);
-                street = firstChunk.substring(spaceIndex + 1);
-            } else {
-                street = firstChunk;
-            }
-            ward = chunks[1];
-        } else {
-            street = chunks[0] || "";
-        }
-
-        return { houseNumber, street, ward };
-    };
-
-    const buildAddressDetail = (parts: { houseNumber: string; street: string; ward: string }) => {
-        return [parts.houseNumber, parts.street, parts.ward]
-            .map((part) => part.trim())
-            .filter(Boolean)
-            .join(", ");
-    };
 
     const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
     const normalizeTaxCode = (value: string) => value.trim().replace(/\s+/g, "");
@@ -269,8 +207,8 @@ export default function AddSupplierPage() {
             ...pendingDraftData,
             status: pendingDraftData.status || "active",
             provinceId: pendingDraftData.provinceId || "",
+            addressDetail: pendingDraftData.addressDetail || "",
         });
-        setAddressParts(parseAddressDetail(pendingDraftData.addressDetail || ""));
         setDraftPromptOpen(false);
         toast.success("Đã khôi phục bản nháp.");
     };
@@ -282,11 +220,15 @@ export default function AddSupplierPage() {
         setDraftPromptOpen(false);
     };
 
+    const watchedAddressDetail = watchedValues.addressDetail || "";
     useEffect(() => {
-        const combinedAddress = buildAddressDetail(addressParts);
-        const hasAnyPart = !!(addressParts.houseNumber.trim() || addressParts.street.trim() || addressParts.ward.trim());
-        setValue("addressDetail", combinedAddress, { shouldValidate: hasAnyPart });
-    }, [addressParts, setValue]);
+        if (watchedAddressDetail) {
+            const detectedId = detectProvince(watchedAddressDetail);
+            if (detectedId) {
+                setValue("provinceId", detectedId, { shouldValidate: true });
+            }
+        }
+    }, [watchedAddressDetail, provinces, setValue]);
 
     useEffect(() => {
         if (pendingDraftData || draftPromptOpen) return;
@@ -295,7 +237,6 @@ export default function AddSupplierPage() {
             const dataToSave = {
                 formData: {
                     ...watchedValues,
-                    addressDetail: buildAddressDetail(addressParts),
                 },
                 savedAt: Date.now(),
             };
@@ -303,7 +244,7 @@ export default function AddSupplierPage() {
         }, 700);
 
         return () => clearTimeout(timer);
-    }, [watchedValues, addressParts, pendingDraftData, draftPromptOpen]);
+    }, [watchedValues, pendingDraftData, draftPromptOpen]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -317,35 +258,43 @@ export default function AddSupplierPage() {
         const taxCode = watch("taxCode");
         if (!taxCode) { toast.error("Vui lòng nhập MST"); return; }
         const loadingToast = toast.loading("Đang tra cứu từ tổng cục thuế...");
+        
+        // Clear các dữ liệu cũ trước khi bắt đầu tra cứu
+        setValue("name", "", { shouldValidate: false });
+        setValue("addressDetail", "", { shouldValidate: false });
+        setValue("provinceId", "", { shouldValidate: false });
+        setValue("contactName", "", { shouldValidate: false });
+        setValue("phone", "", { shouldValidate: false });
+        setValue("email", "", { shouldValidate: false });
+        setValue("issueDate", "", { shouldValidate: false });
+        setValue("taxAuthority", "", { shouldValidate: false });
+        setValue("mainBusinessSector", "", { shouldValidate: false });
+
         try {
             const businessInfo = await supplierService.lookupTaxCode(taxCode);
             if (businessInfo) {
-                // Dùng shouldValidate: false để dữ liệu luôn được điền vào form
-                // trước, người dùng có thể chỉnh sửa lại rồi mới submit.
-                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: false });
+                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: true });
                 if (businessInfo.address) {
-                    setValue("addressDetail", businessInfo.address, { shouldValidate: false });
-                    setAddressParts(parseAddressDetail(businessInfo.address));
+                    setValue("addressDetail", businessInfo.address, { shouldValidate: true });
                     const detectedId = detectProvince(businessInfo.address);
-                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: false });
+                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: true });
                 }
-                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: false });
+                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: true });
 
-                // Chuẩn hoá SĐT — chỉ điền khi normalize thành công
-                const normalizedPhone = normalizePhone(businessInfo.phone);
-                if (normalizedPhone) setValue("phone", normalizedPhone, { shouldValidate: false });
+                const normalizedPhoneVal = normalizePhone(businessInfo.phone);
+                if (normalizedPhoneVal) setValue("phone", normalizedPhoneVal, { shouldValidate: true });
 
-                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: false });
+                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: true });
                 
                 if (businessInfo.issueDate) {
                     const formatted = formatDateForInput(businessInfo.issueDate);
-                    if (formatted) setValue("issueDate", formatted, { shouldValidate: false });
+                    if (formatted) setValue("issueDate", formatted, { shouldValidate: true });
                 }
                 if (businessInfo.taxAuthority) {
-                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: false });
+                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: true });
                 }
                 if (businessInfo.mainBusinessSector) {
-                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: false });
+                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: true });
                 }
                 
                 const missingFields: string[] = [];
@@ -375,12 +324,7 @@ export default function AddSupplierPage() {
     const onSubmit = async (data: SupplierFormValues) => {
         setIsSubmitting(true);
         try {
-            const payload = {
-                ...data,
-                addressDetail: buildAddressDetail(addressParts),
-            };
-
-            const createdSupplier = await supplierService.create(payload);
+            const createdSupplier = await supplierService.create(data);
             if (createdSupplier.warnings?.length) {
                 toast.warning(createdSupplier.warnings[0].message);
             }
@@ -406,11 +350,6 @@ export default function AddSupplierPage() {
             return;
         }
 
-        if (duplicateTaxCode || duplicateName) {
-            toast.error("Vui lòng xử lý cảnh báo trùng dữ liệu trước khi lưu.");
-            return;
-        }
-
         setIsConfirmOpen(true);
     };
 
@@ -429,143 +368,149 @@ export default function AddSupplierPage() {
                                 1. Thông tin pháp nhân nhà cung cấp
                             </span>
                         </div>
-                        {/* Hàng 1 (2 cột) */}
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
+                        {/* Hàng 1 (3 cột: MST, Tên công ty, Họ tên đại diện) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
                                 <div className="flex gap-2">
-                                    <Input {...register("taxCode")} className="h-[38px] rounded-md border-slate-200 font-mono text-[13px] shadow-none focus:border-emerald-500" />
-                                    <Button type="button" variant="outline" onClick={handleLookupTaxCode} className="h-[38px] shrink-0 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-blue-600 hover:bg-blue-50">
-                                        <Search size={14} className="mr-1" /> Tra cứu
-                                    </Button>
+                                    <Input {...register("taxCode")} className="h-[38px] flex-1 rounded-md border-slate-200 font-mono text-[13px] shadow-none focus:border-emerald-500" />
+                                    {!duplicateTaxCode && (
+                                        <Button type="button" variant="outline" onClick={handleLookupTaxCode} className="h-[38px] shrink-0 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-blue-600 hover:bg-blue-50">
+                                            <Search size={14} className="mr-1" /> Tra cứu
+                                        </Button>
+                                    )}
                                 </div>
                                 {errors.taxCode && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.taxCode.message}</p>}
                                 {!errors.taxCode && duplicateTaxCode && <p className="mt-1 text-[10px] font-medium text-amber-600">{duplicateTaxCode}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Tên công ty / Pháp nhân *</Label>
-                                <Input {...register("name")} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500" />
+                                <Input {...register("name")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500" />
                                 {errors.name && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.name.message}</p>}
                                 {!errors.name && duplicateName && <p className="mt-1 text-[10px] font-medium text-amber-600">{duplicateName}</p>}
                             </div>
-                        </div>
-
-                        {/* Hàng 2 (3 cột) */}
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Họ và tên người đại diện *</Label>
-                                <Input {...register("contactName")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("contactName")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.contactName && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.contactName.message}</p>}
                             </div>
+                        </div>
+
+                        {/* Hàng 2 (3 cột: Trạng thái, Ngày thành lập, SĐT) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
-                                        <Controller name="status" control={control} render={({ field }) => (
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
-                                                <SelectContent className="rounded-md">
-                                                    <SelectItem value="active" className="text-emerald-600">Đang giao dịch</SelectItem>
-                                                    <SelectItem value="inactive" className="text-rose-600">Tạm ngừng</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        )} />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập</Label>
-                                        <Input type="date" {...register("issueDate")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
-                                        {errors.issueDate && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.issueDate.message}</p>}
-                                    </div>
-                                </div>
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
+                                <Controller name="status" control={control} render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:ring-0"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-md">
+                                            <SelectItem value="active" className="text-emerald-600">Đang giao dịch</SelectItem>
+                                            <SelectItem value="inactive" className="text-rose-600">Tạm ngừng</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )} />
+                            </div>
+                            <div className="space-y-1.5 flex flex-col">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập *</Label>
+                                <Controller
+                                    name="issueDate"
+                                    control={control}
+                                    render={({ field }) => {
+                                        let dateValue: Date | undefined = undefined;
+                                        if (field.value) {
+                                            try {
+                                                dateValue = parse(field.value, "yyyy-MM-dd", new Date());
+                                                if (isNaN(dateValue.getTime())) {
+                                                    dateValue = undefined;
+                                                }
+                                            } catch {
+                                                dateValue = undefined;
+                                            }
+                                        }
+                                        return (
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        disabled={!!duplicateTaxCode}
+                                                        className={cn(
+                                                            "w-full h-[38px] justify-between text-left font-normal border-slate-200 shadow-none rounded-md px-3 text-[13px] bg-white hover:bg-slate-50",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <span>
+                                                            {dateValue
+                                                                ? format(dateValue, "dd/MM/yyyy")
+                                                                : "dd/mm/yyyy"}
+                                                        </span>
+                                                        <CalendarIcon className="h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0 z-[1000]" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={dateValue}
+                                                        onSelect={(date) => {
+                                                            if (date) {
+                                                                field.onChange(format(date, "yyyy-MM-dd"));
+                                                            } else {
+                                                                field.onChange("");
+                                                            }
+                                                        }}
+                                                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                                        initialFocus
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                        );
+                                    }}
+                                />
+                                {errors.issueDate && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.issueDate.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">SĐT di động *</Label>
-                                <Input {...register("phone")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("phone")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.phone && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.phone.message}</p>}
                             </div>
                         </div>
 
-                        {/* Hàng 3 (3 cột) */}
+                        {/* Hàng 3 (3 cột: Cơ quan thuế, Ngành nghề chính, Email) */}
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý</Label>
-                                <Input {...register("taxAuthority")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý *</Label>
+                                <Input {...register("taxAuthority")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.taxAuthority && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.taxAuthority.message}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính</Label>
-                                <Input {...register("mainBusinessSector")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính *</Label>
+                                <Input {...register("mainBusinessSector")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.mainBusinessSector && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.mainBusinessSector.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Email liên hệ</Label>
-                                <Input {...register("email")} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("email")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
                                 {errors.email && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.email.message}</p>}
                             </div>
                         </div>
-                    </div>
 
-                    <div className="border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="border-b border-slate-200 pb-3">
-                            <span className="text-[11px] font-bold text-slate-800">2. Trụ sở / Kho bãi nhà cung cấp</span>
-                        </div>
-                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Tỉnh / Thành phố *</Label>
-                                <Controller name="provinceId" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:ring-0"><SelectValue placeholder="Chọn Tỉnh/TP" /></SelectTrigger>
-                                        <SelectContent className="max-h-[220px] rounded-md">
-                                            {provinces.map((p) => (<SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
-                                )} />
-                                {errors.provinceId && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.provinceId.message}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Số nhà / Tòa *</Label>
-                                <Input
-                                    value={addressParts.houseNumber}
-                                    onChange={(e) => setAddressParts((prev) => ({ ...prev, houseNumber: e.target.value }))}
-                                    className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500"
-                                    placeholder="Ví dụ: 123 hoặc Lô B2"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Tên đường *</Label>
-                                <Input
-                                    value={addressParts.street}
-                                    onChange={(e) => setAddressParts((prev) => ({ ...prev, street: e.target.value }))}
-                                    className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500"
-                                    placeholder="Ví dụ: Nguyễn Văn Linh"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Phường / Xã *</Label>
-                                <Input
-                                    value={addressParts.ward}
-                                    onChange={(e) => setAddressParts((prev) => ({ ...prev, ward: e.target.value }))}
-                                    className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500"
-                                    placeholder="Ví dụ: Phường An Lạc"
-                                />
-                            </div>
-                            <div className="space-y-1.5 md:col-span-4">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Địa chỉ chuẩn hóa</Label>
-                                <Input
-                                    value={buildAddressDetail(addressParts)}
-                                    readOnly
-                                    className="h-[38px] rounded-md border-slate-200 bg-slate-50 text-[13px] shadow-none"
-                                />
-                                <input type="hidden" {...register("addressDetail")} />
-                                {errors.addressDetail && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.addressDetail.message}</p>}
-                            </div>
+                        {/* Hàng 4 (Địa chỉ chi tiết / Trụ sở) */}
+                        <div className="space-y-1.5 mt-4">
+                            <Label className="text-[10.5px] font-semibold text-slate-500">Địa chỉ chi tiết / Trụ sở *</Label>
+                            <Input
+                                {...register("addressDetail")}
+                                disabled={!!duplicateTaxCode}
+                                className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500"
+                                placeholder="Ví dụ: Số 123, đường Nguyễn Văn Linh, Phường An Lạc, Quận Ninh Kiều, TP. Cần Thơ"
+                            />
+                            {errors.addressDetail && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.addressDetail.message}</p>}
                         </div>
                     </div>
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 z-[999] flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
                 <Button type="button" variant="outline" className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600" onClick={() => router.back()}>Hủy bỏ</Button>
-                <Button type="button" disabled={isSubmitting} onClick={handleOpenConfirm} className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700">
+                <Button type="button" disabled={isSubmitting || !!duplicateTaxCode || !!duplicateName} onClick={handleOpenConfirm} className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700">
                     <Save size={16} className="mr-2" /> {isSubmitting ? "Đang lưu..." : "Lưu nhà cung cấp"}
                 </Button>
             </div>
@@ -597,8 +542,10 @@ export default function AddSupplierPage() {
                             <p className="mt-1 font-semibold text-slate-700">{watchedValues.phone || "---"}</p>
                         </div>
                         <div className="rounded-[4px] border border-slate-200 p-3 col-span-2">
-                            <p className="text-[10px] uppercase font-bold text-slate-400">Địa chỉ chuẩn hóa</p>
-                            <p className="mt-1 font-semibold text-slate-700">{buildAddressDetail(addressParts) || "---"}</p>
+                            <p className="text-[10px] uppercase font-bold text-slate-400">Địa chỉ chi tiết / Trụ sở</p>
+                            <p className="mt-1 font-semibold text-slate-700">
+                                {watchedValues.addressDetail || "---"}
+                            </p>
                         </div>
                         <div className="rounded-[4px] border border-slate-200 p-3 col-span-2">
                             <p className="text-[10px] uppercase font-bold text-slate-400">Trạng thái vận hành</p>

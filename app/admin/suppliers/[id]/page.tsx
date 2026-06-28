@@ -13,6 +13,7 @@ import {
     RefreshCcw,
     Save,
     Search,
+    CalendarIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
@@ -24,11 +25,14 @@ import {
     SupplierProductCatalogStatus,
 } from "@/app/types/supplier.type";
 import { ProductListItem } from "@/app/types/product.schema";
-import { supplierService } from "@/app/services/supplier.service";
 import { ProductService } from "@/app/services/product.service";
+import { supplierService } from "@/app/services/supplier.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse } from "date-fns";
 import {
     Select,
     SelectContent,
@@ -76,7 +80,7 @@ interface Province {
 }
 
 type TabValue = "info" | "catalog" | "history";
-type CatalogFilterValue = "ALL" | "TRACKED" | "NOT_IN_CATALOG" | SupplierProductCatalogStatus;
+type CatalogFilterValue = "ALL" | SupplierProductCatalogStatus;
 
 const CATALOG_PAGE_SIZE = 20;
 const HISTORY_PAGE_SIZE = 20;
@@ -242,7 +246,6 @@ export default function SupplierDetailPage() {
     const [pendingStatusValue, setPendingStatusValue] = useState<"active" | "inactive" | null>(null);
     const [historyLoadError, setHistoryLoadError] = useState<string | null>(null);
     const [catalogLoadError, setCatalogLoadError] = useState<string | null>(null);
-    const [productLoadError, setProductLoadError] = useState<string | null>(null);
     const [provinces, setProvinces] = useState<Province[]>([]);
 
     const {
@@ -255,6 +258,7 @@ export default function SupplierDetailPage() {
         formState: { errors },
     } = useForm<SupplierFormValues>({
         resolver: zodResolver(SupplierSchema),
+        mode: "onChange",
     });
 
     const supplierData = watch();
@@ -281,7 +285,6 @@ export default function SupplierDetailPage() {
         try {
             setHistoryLoadError(null);
             setCatalogLoadError(null);
-            setProductLoadError(null);
 
             const supplierInfo = await supplierService.getById(supplierId);
 
@@ -294,13 +297,12 @@ export default function SupplierDetailPage() {
                 mainBusinessSector: supplierInfo.mainBusinessSector || "",
             });
 
+
             const [historyResult, catalogResult, productsResult] = await Promise.allSettled([
                 supplierService.getImportHistory(supplierId),
                 supplierService.getProductCatalog(supplierId),
                 ProductService.getAll({ status: "ACTIVE" }),
             ]);
-
-            let nextCatalogItems: SupplierProductCatalogItem[] = [];
 
             if (historyResult.status === "fulfilled") {
                 setImportHistory(Array.isArray(historyResult.value) ? historyResult.value : []);
@@ -311,9 +313,9 @@ export default function SupplierDetailPage() {
             }
 
             if (catalogResult.status === "fulfilled") {
-                nextCatalogItems = Array.isArray(catalogResult.value) ? catalogResult.value : [];
-                setCatalogItems(nextCatalogItems);
-                setSavedCatalogItems(nextCatalogItems);
+                const items = Array.isArray(catalogResult.value) ? catalogResult.value : [];
+                setCatalogItems(items);
+                setSavedCatalogItems(items);
             } else {
                 setCatalogItems([]);
                 setSavedCatalogItems([]);
@@ -325,8 +327,6 @@ export default function SupplierDetailPage() {
                 setCatalogProducts(Array.isArray(productsResult.value) ? productsResult.value : []);
             } else {
                 setCatalogProducts([]);
-                setProductLoadError("Không tải được danh mục sản phẩm tổng. Tab catalog chỉ hiển thị các sản phẩm đã có trong catalog hiện tại.");
-                toast.warning("Không tải được danh mục sản phẩm tổng cho tab catalog");
             }
         } catch (error) {
             toast.error(getErrorMessage(error as AxiosError));
@@ -350,32 +350,54 @@ export default function SupplierDetailPage() {
         return foundProvince ? foundProvince.id : "";
     };
 
+    const watchedAddressDetail = supplierData.addressDetail || "";
+    useEffect(() => {
+        if (watchedAddressDetail) {
+            const detectedId = detectProvince(watchedAddressDetail);
+            if (detectedId) {
+                setValue("provinceId", detectedId, { shouldValidate: true });
+            }
+        }
+    }, [watchedAddressDetail, provinces, setValue]);
+
     const handleLookupTaxCode = async () => {
         const taxCode = watch("taxCode");
         if (!taxCode) { toast.error("Vui lòng nhập MST"); return; }
         const loadingToast = toast.loading("Đang tra cứu từ tổng cục thuế...");
+
+        // Clear các dữ liệu cũ trước khi bắt đầu tra cứu
+        setValue("name", "", { shouldValidate: false });
+        setValue("addressDetail", "", { shouldValidate: false });
+        setValue("provinceId", "", { shouldValidate: false });
+        setValue("contactName", "", { shouldValidate: false });
+        setValue("phone", "", { shouldValidate: false });
+        setValue("email", "", { shouldValidate: false });
+        setValue("issueDate", "", { shouldValidate: false });
+        setValue("taxAuthority", "", { shouldValidate: false });
+        setValue("mainBusinessSector", "", { shouldValidate: false });
+
         try {
             const businessInfo = await supplierService.lookupTaxCode(taxCode);
             if (businessInfo) {
-                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: false });
+                if (businessInfo.name) setValue("name", businessInfo.name, { shouldValidate: true });
                 if (businessInfo.address) {
-                    setValue("addressDetail", businessInfo.address, { shouldValidate: false });
+                    setValue("addressDetail", businessInfo.address, { shouldValidate: true });
                     const detectedId = detectProvince(businessInfo.address);
-                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: false });
+                    if (detectedId) setValue("provinceId", detectedId, { shouldValidate: true });
                 }
-                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: false });
+                if (businessInfo.owner) setValue("contactName", businessInfo.owner, { shouldValidate: true });
                 const normalizedPhone = normalizePhone(businessInfo.phone);
-                if (normalizedPhone) setValue("phone", normalizedPhone, { shouldValidate: false });
-                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: false });
+                if (normalizedPhone) setValue("phone", normalizedPhone, { shouldValidate: true });
+                if (businessInfo.email) setValue("email", businessInfo.email, { shouldValidate: true });
                 if (businessInfo.issueDate) {
                     const formatted = formatDateForInput(businessInfo.issueDate);
-                    if (formatted) setValue("issueDate", formatted, { shouldValidate: false });
+                    if (formatted) setValue("issueDate", formatted, { shouldValidate: true });
                 }
                 if (businessInfo.taxAuthority) {
-                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: false });
+                    setValue("taxAuthority", businessInfo.taxAuthority, { shouldValidate: true });
                 }
                 if (businessInfo.mainBusinessSector) {
-                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: false });
+                    setValue("mainBusinessSector", businessInfo.mainBusinessSector, { shouldValidate: true });
                 }
                 const missingFields: string[] = [];
                 const statuses = businessInfo.fieldStatuses as Record<string, string> | undefined;
@@ -401,23 +423,31 @@ export default function SupplierDetailPage() {
         }
     };
 
+
     const flatCatalogItems = useMemo(() => {
         const list: FlatVariantCatalogItem[] = [];
 
-        if (catalogProducts.length > 0) {
-            catalogProducts.forEach((product) => {
+        // 1. Lọc các sản phẩm thuộc nhà cung cấp này
+        const supplierProducts = catalogProducts.filter((p) => p.supplierId === supplierId);
+
+        // Theo dõi các biến thể đã được thêm vào danh sách để tránh trùng lặp
+        const addedVariantIds = new Set<number>();
+
+        if (supplierProducts.length > 0) {
+            supplierProducts.forEach((product) => {
                 if (product.variants && product.variants.length > 0) {
                     product.variants.forEach((variant) => {
+                        if (variant.id == null) return;
                         const catalogRecord = catalogItems.find(
                             (c) => c.productVariantId === variant.id
                         );
                         list.push({
                             id: catalogRecord?.id || 0,
-                            productVariantId: variant.id!,
-                            sku: variant.sku,
+                            productVariantId: variant.id,
+                            sku: variant.sku || `SKU-${variant.id}`,
                             productName: product.name,
                             productId: product.id,
-                            brandName: product.supplierName,
+                            brandName: product.supplierName || supplierRecord?.name || "",
                             origin: "",
                             categoryName: product.categoryName,
                             imageUrl: variant.imageUrl || product.imageUrls?.[0],
@@ -428,32 +458,56 @@ export default function SupplierDetailPage() {
                             updatedByName: catalogRecord?.updatedByName,
                             version: catalogRecord?.version,
                         });
+                        addedVariantIds.add(variant.id);
                     });
                 }
             });
-        } else {
-            catalogItems.forEach((c) => {
-                list.push({
-                    id: c.id,
-                    productVariantId: c.productVariantId,
-                    sku: c.sku || `SKU-${c.productVariantId}`,
-                    productName: c.productName,
-                    productId: c.productId,
-                    brandName: c.brandName,
-                    origin: c.origin,
-                    categoryName: c.categoryName,
-                    imageUrl: undefined,
-                    status: c.status,
-                    note: c.note || "",
-                    updatedAt: c.updatedAt,
-                    statusChangedAt: c.statusChangedAt,
-                    updatedByName: c.updatedByName,
-                    version: c.version,
-                });
-            });
         }
+
+        // 2. Thêm các biến thể đã cấu hình trong catalogItems mà chưa được thêm ở trên (nếu có trường hợp đặc biệt)
+        catalogItems.forEach((c) => {
+            if (addedVariantIds.has(c.productVariantId)) return;
+
+            let matchedImg: string | undefined = undefined;
+            let pName = c.productName;
+            let pId = c.productId;
+            let cName = c.categoryName;
+            let bName = c.brandName;
+
+            const matchedProduct = catalogProducts.find((p) =>
+                p.variants?.some((v) => v.id === c.productVariantId)
+            );
+            if (matchedProduct) {
+                const matchedVariant = matchedProduct.variants?.find((v) => v.id === c.productVariantId);
+                matchedImg = matchedVariant?.imageUrl || matchedProduct.imageUrls?.[0];
+                pName = matchedProduct.name;
+                pId = matchedProduct.id;
+                cName = matchedProduct.categoryName;
+                bName = matchedProduct.supplierName;
+            }
+
+            list.push({
+                id: c.id,
+                productVariantId: c.productVariantId,
+                sku: c.sku || `SKU-${c.productVariantId}`,
+                productName: pName,
+                productId: pId,
+                brandName: bName || supplierRecord?.name || "",
+                origin: c.origin || "",
+                categoryName: cName,
+                imageUrl: matchedImg,
+                status: c.status,
+                note: c.note || "",
+                updatedAt: c.updatedAt,
+                statusChangedAt: c.statusChangedAt,
+                updatedByName: c.updatedByName,
+                version: c.version,
+            });
+            addedVariantIds.add(c.productVariantId);
+        });
+
         return list;
-    }, [catalogItems, catalogProducts]);
+    }, [catalogItems, catalogProducts, supplierId, supplierRecord]);
 
     const catalogPayload = useMemo(() => buildCatalogPayload(catalogItems, flatCatalogItems), [catalogItems, flatCatalogItems]);
     const savedCatalogPayload = useMemo(() => buildCatalogPayload(savedCatalogItems, flatCatalogItems), [savedCatalogItems, flatCatalogItems]);
@@ -463,12 +517,10 @@ export default function SupplierDetailPage() {
     const catalogSummary = useMemo(() => {
         return flatCatalogItems.reduce(
             (acc, item) => {
-                if (item.status) {
-                    acc.total += 1;
-                    if (item.status === "AVAILABLE") acc.available += 1;
-                    if (item.status === "UNAVAILABLE") acc.unavailable += 1;
-                    if (item.status === "CHECKING") acc.checking += 1;
-                }
+                acc.total += 1;
+                if (item.status === "AVAILABLE") acc.available += 1;
+                if (item.status === "UNAVAILABLE") acc.unavailable += 1;
+                if (item.status === "CHECKING") acc.checking += 1;
                 return acc;
             },
             { total: 0, available: 0, unavailable: 0, checking: 0 },
@@ -523,9 +575,6 @@ export default function SupplierDetailPage() {
         const normalizedKeyword = catalogKeyword.trim().toLowerCase();
 
         return flatCatalogItems.filter((item) => {
-            const isTracked = Boolean(item.id > 0 || item.status);
-            const currentStatus = item.status || "NOT_IN_CATALOG";
-
             const keywordOk =
                 !normalizedKeyword ||
                 item.productName?.toLowerCase().includes(normalizedKeyword) ||
@@ -534,14 +583,9 @@ export default function SupplierDetailPage() {
                 item.origin?.toLowerCase().includes(normalizedKeyword) ||
                 item.categoryName?.toLowerCase().includes(normalizedKeyword);
 
-            let filterOk = true;
-            if (catalogFilter === "TRACKED") {
-                filterOk = isTracked;
-            } else if (catalogFilter === "NOT_IN_CATALOG") {
-                filterOk = !isTracked;
-            } else if (catalogFilter !== "ALL") {
-                filterOk = isTracked && currentStatus === catalogFilter;
-            }
+            const filterOk =
+                catalogFilter === "ALL" ||
+                item.status === catalogFilter;
 
             return keywordOk && filterOk;
         });
@@ -892,8 +936,8 @@ export default function SupplierDetailPage() {
                                     <h2 className="text-[12px] font-semibold text-slate-900">1. Thông tin nhà cung cấp</h2>
                                 </div>
                                 <div className="space-y-5">
-                                    {/* Hàng 1 (2 cột) */}
-                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                    {/* Hàng 1 (3 cột: MST, Tên, Người đại diện) */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                                         <div>
                                             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
                                             <div className="flex gap-2">
@@ -915,10 +959,6 @@ export default function SupplierDetailPage() {
                                             </div>
                                             {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name.message}</p>}
                                         </div>
-                                    </div>
-
-                                    {/* Hàng 2 (3 cột) */}
-                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                                         <div>
                                             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Họ và tên người đại diện *</Label>
                                             <div className="relative">
@@ -927,43 +967,97 @@ export default function SupplierDetailPage() {
                                             </div>
                                             {errors.contactName && <p className="mt-1 text-[10px] text-red-500">{errors.contactName.message}</p>}
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div>
-                                                <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
+                                    </div>
+
+                                    {/* Hàng 2 (3 cột: Trạng thái, Ngày cấp, SĐT) */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Trạng thái vận hành</Label>
+                                            <Controller
+                                                name="status"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select
+                                                        onValueChange={(value) => {
+                                                            if (value === "inactive" && field.value === "active") {
+                                                                setPendingStatusValue("inactive");
+                                                                setShowStatusConfirmModal(true);
+                                                            } else {
+                                                                field.onChange(value);
+                                                            }
+                                                        }}
+                                                        value={field.value}
+                                                    >
+                                                        <SelectTrigger className="h-[40px] text-[13px] shadow-none">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="active">Đang giao dịch</SelectItem>
+                                                            <SelectItem value="inactive">Tạm ngừng</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập *</Label>
+                                            <div className="flex gap-2">
                                                 <Controller
-                                                    name="status"
+                                                    name="issueDate"
                                                     control={control}
-                                                    render={({ field }) => (
-                                                        <Select
-                                                            onValueChange={(value) => {
-                                                                if (value === "inactive" && field.value === "active") {
-                                                                    setPendingStatusValue("inactive");
-                                                                    setShowStatusConfirmModal(true);
-                                                                } else {
-                                                                    field.onChange(value);
+                                                    render={({ field }) => {
+                                                        let dateValue: Date | undefined = undefined;
+                                                        if (field.value) {
+                                                            try {
+                                                                dateValue = parse(field.value, "yyyy-MM-dd", new Date());
+                                                                if (isNaN(dateValue.getTime())) {
+                                                                    dateValue = undefined;
                                                                 }
-                                                            }}
-                                                            value={field.value}
-                                                        >
-                                                            <SelectTrigger className="h-[40px] text-[13px] shadow-none">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="active">Đang giao dịch</SelectItem>
-                                                                <SelectItem value="inactive">Tạm ngừng</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    )}
+                                                            } catch {
+                                                                dateValue = undefined;
+                                                            }
+                                                        }
+                                                        return (
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        className={cn(
+                                                                            "w-full h-[40px] justify-between text-left font-normal border-slate-200 shadow-none rounded-md px-3 text-[13px] bg-white hover:bg-slate-50",
+                                                                            !field.value && "text-muted-foreground"
+                                                                        )}
+                                                                    >
+                                                                        <span>
+                                                                            {dateValue
+                                                                                ? format(dateValue, "dd/MM/yyyy")
+                                                                                : "dd/mm/yyyy"}
+                                                                        </span>
+                                                                        <CalendarIcon className="h-4 w-4 opacity-50" />
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent className="w-auto p-0 z-[1000]" align="start">
+                                                                    <Calendar
+                                                                        mode="single"
+                                                                        selected={dateValue}
+                                                                        onSelect={(date) => {
+                                                                            if (date) {
+                                                                                field.onChange(format(date, "yyyy-MM-dd"));
+                                                                            } else {
+                                                                                field.onChange("");
+                                                                            }
+                                                                        }}
+                                                                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                                                        initialFocus
+                                                                    />
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                        );
+                                                    }}
                                                 />
+                                                {copyButton("Ngày cấp / Thành lập", supplierData.issueDate || "")}
                                             </div>
-                                            <div>
-                                                <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập</Label>
-                                                <div className="relative">
-                                                    <Input type="date" {...register("issueDate")} className="h-[40px] pr-10 text-[13px]" />
-                                                    {copyButton("Ngày cấp / Thành lập", supplierData.issueDate || "")}
-                                                </div>
-                                                {errors.issueDate && <p className="text-[10px] text-red-500 mt-1">{errors.issueDate.message}</p>}
-                                            </div>
+                                            {errors.issueDate && <p className="text-[10px] text-red-500 mt-1">{errors.issueDate.message}</p>}
                                         </div>
                                         <div>
                                             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">SĐT di động *</Label>
@@ -978,7 +1072,7 @@ export default function SupplierDetailPage() {
                                     {/* Hàng 3 (3 cột) */}
                                     <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                                         <div>
-                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý</Label>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý *</Label>
                                             <div className="relative">
                                                 <Input {...register("taxAuthority")} className="h-[40px] pr-10 text-[13px]" />
                                                 {copyButton("Cơ quan thuế quản lý", supplierData.taxAuthority || "")}
@@ -986,7 +1080,7 @@ export default function SupplierDetailPage() {
                                             {errors.taxAuthority && <p className="text-[10px] text-red-500 mt-1">{errors.taxAuthority.message}</p>}
                                         </div>
                                         <div>
-                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính</Label>
+                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính *</Label>
                                             <div className="relative">
                                                 <Input {...register("mainBusinessSector")} className="h-[40px] pr-10 text-[13px]" />
                                                 {copyButton("Ngành nghề kinh doanh chính", supplierData.mainBusinessSector || "")}
@@ -1003,8 +1097,18 @@ export default function SupplierDetailPage() {
                                         </div>
                                     </div>
 
-                                    {/* Các thông tin phụ khác */}
-                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                                    {/* Hàng 4 (Địa chỉ chi tiết / Trụ sở) */}
+                                    <div>
+                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Địa chỉ *</Label>
+                                        <div className="relative">
+                                            <Textarea {...register("addressDetail")} className="min-h-[84px] resize-none pr-10 text-[13px]" />
+                                            {copyButton("Địa chỉ", supplierData.addressDetail, true)}
+                                        </div>
+                                        {errors.addressDetail && <p className="mt-1 text-[10px] text-red-500">{errors.addressDetail.message}</p>}
+                                    </div>
+
+                                    {/* Hàng 5 (Thông tin hệ thống) */}
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                                         <div>
                                             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Mã nhà cung cấp</Label>
                                             <div className="relative">
@@ -1013,40 +1117,9 @@ export default function SupplierDetailPage() {
                                             </div>
                                         </div>
                                         <div>
-                                            <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Tỉnh / thành *</Label>
-                                            <Controller
-                                                name="provinceId"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select value={field.value || ""} onValueChange={field.onChange}>
-                                                        <SelectTrigger className="h-[40px] text-[13px] shadow-none">
-                                                            <SelectValue placeholder="Chọn tỉnh / thành phố" />
-                                                        </SelectTrigger>
-                                                        <SelectContent className="max-h-[260px]">
-                                                            {provinces.map((province) => (
-                                                                <SelectItem key={province.id} value={province.id}>
-                                                                    {province.full_name || province.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                            {errors.provinceId && <p className="text-[10px] text-red-500 mt-1">{errors.provinceId.message}</p>}
-                                        </div>
-                                        <div>
                                             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Cập nhật gần nhất</Label>
                                             <Input value={formatDate(supplierRecord?.updatedAt || supplierRecord?.createdAt)} disabled className="h-[40px] bg-slate-50 text-[13px] text-slate-500" />
                                         </div>
-                                    </div>
-
-                                    <div>
-                                        <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Địa chỉ *</Label>
-                                        <div className="relative">
-                                            <Textarea {...register("addressDetail")} className="min-h-[84px] resize-none pr-10 text-[13px]" />
-                                            {copyButton("Địa chỉ", supplierData.addressDetail, true)}
-                                        </div>
-                                        {errors.addressDetail && <p className="mt-1 text-[10px] text-red-500">{errors.addressDetail.message}</p>}
                                     </div>
                                 </div>
                                 <div className="mt-5 flex flex-wrap gap-x-6 gap-y-1 border-t border-slate-100 pt-4 text-[10.5px] text-slate-400">
@@ -1075,22 +1148,46 @@ export default function SupplierDetailPage() {
                                     </div>
 
                                     <div className="grid grid-cols-2 border border-slate-200 md:grid-cols-4">
-                                        <div className="border-b border-r border-slate-200 px-4 py-3 md:border-b-0">
-                                            <p className="text-[10.5px] text-slate-500">Đã khai báo</p>
-                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{catalogSummary.total}</p>
+                                        <div
+                                            className={cn(
+                                                "border-b border-r border-slate-200 px-4 py-3 md:border-b-0 cursor-pointer transition-all select-none",
+                                                catalogFilter === "ALL" ? "bg-blue-50/60" : "hover:bg-slate-50/70"
+                                            )}
+                                            onClick={() => setCatalogFilter("ALL")}
+                                        >
+                                            <p className={cn("text-[10.5px] font-medium", catalogFilter === "ALL" ? "text-blue-700" : "text-slate-500")}>Đã khai báo</p>
+                                            <p className={cn("mt-1 text-[16px] font-semibold", catalogFilter === "ALL" ? "text-blue-600 font-bold" : "text-slate-800")}>{catalogSummary.total}</p>
                                         </div>
-                                        <div className="border-b border-slate-200 px-4 py-3 md:border-b-0 md:border-r">
-                                            <p className="text-[10.5px] text-slate-500">Có cung cấp</p>
-                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{catalogSummary.available}</p>
+                                        <div
+                                            className={cn(
+                                                "border-b border-slate-200 px-4 py-3 md:border-b-0 md:border-r cursor-pointer transition-all select-none",
+                                                catalogFilter === "AVAILABLE" ? "bg-blue-50/60" : "hover:bg-slate-50/70"
+                                            )}
+                                            onClick={() => setCatalogFilter("AVAILABLE")}
+                                        >
+                                            <p className={cn("text-[10.5px] font-medium", catalogFilter === "AVAILABLE" ? "text-blue-700" : "text-slate-500")}>Có cung cấp</p>
+                                            <p className={cn("mt-1 text-[16px] font-semibold", catalogFilter === "AVAILABLE" ? "text-blue-600 font-bold" : "text-slate-800")}>{catalogSummary.available}</p>
                                         </div>
-                                        <div className="border-r border-slate-200 px-4 py-3">
-                                            <p className="text-[10.5px] text-slate-500">Không cung cấp</p>
-                                            <p className="mt-1 text-[16px] font-semibold text-slate-800">{catalogSummary.unavailable}</p>
+                                        <div
+                                            className={cn(
+                                                "border-r border-slate-200 px-4 py-3 cursor-pointer transition-all select-none",
+                                                catalogFilter === "UNAVAILABLE" ? "bg-blue-50/60" : "hover:bg-slate-50/70"
+                                            )}
+                                            onClick={() => setCatalogFilter("UNAVAILABLE")}
+                                        >
+                                            <p className={cn("text-[10.5px] font-medium", catalogFilter === "UNAVAILABLE" ? "text-blue-700" : "text-slate-500")}>Không cung cấp</p>
+                                            <p className={cn("mt-1 text-[16px] font-semibold", catalogFilter === "UNAVAILABLE" ? "text-blue-600 font-bold" : "text-slate-800")}>{catalogSummary.unavailable}</p>
                                         </div>
-                                        <div className="px-4 py-3">
-                                            <p className="text-[10.5px] text-slate-500">Đang kiểm tra</p>
+                                        <div
+                                            className={cn(
+                                                "px-4 py-3 cursor-pointer transition-all select-none",
+                                                catalogFilter === "CHECKING" ? "bg-blue-50/60" : "hover:bg-slate-50/70"
+                                            )}
+                                            onClick={() => setCatalogFilter("CHECKING")}
+                                        >
+                                            <p className={cn("text-[10.5px] font-medium", catalogFilter === "CHECKING" ? "text-blue-700" : "text-slate-500")}>Đang kiểm tra</p>
                                             <div className="mt-1 flex items-baseline gap-2">
-                                                <p className="text-[16px] font-semibold text-slate-800">{catalogSummary.checking}</p>
+                                                <p className={cn("text-[16px] font-semibold", catalogFilter === "CHECKING" ? "text-blue-600 font-bold" : "text-slate-800")}>{catalogSummary.checking}</p>
                                                 {checkingTooLongItems.length > 0 && (
                                                     <p className="text-[10.5px] text-amber-700">
                                                         Quá {STALE_CHECKING_DAYS} ngày
@@ -1106,11 +1203,6 @@ export default function SupplierDetailPage() {
                                         </div>
                                     )}
 
-                                    {productLoadError && !catalogLoadError && (
-                                        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[12px] text-amber-900">
-                                            {productLoadError}
-                                        </div>
-                                    )}
 
                                     <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
                                         <div className="relative flex-1">
@@ -1129,8 +1221,6 @@ export default function SupplierDetailPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="ALL">Tất cả sản phẩm</SelectItem>
-                                                    <SelectItem value="TRACKED">Đã thiết lập</SelectItem>
-                                                    <SelectItem value="NOT_IN_CATALOG">Chưa thiết lập</SelectItem>
                                                     <SelectItem value="AVAILABLE">Có thể đặt mua</SelectItem>
                                                     <SelectItem value="CHECKING">Đang xác minh</SelectItem>
                                                     <SelectItem value="UNAVAILABLE">Ngừng cung cấp</SelectItem>
@@ -1234,15 +1324,14 @@ export default function SupplierDetailPage() {
                                                             </TableCell>
                                                             <TableCell className="py-3 pr-3">
                                                                 <Select
-                                                                    value={item.status || "NOT_IN_CATALOG"}
-                                                                    onValueChange={(value) => updateCatalogItem(item.productVariantId, { status: value === "NOT_IN_CATALOG" ? undefined : value as SupplierProductCatalogStatus })}
+                                                                    value={item.status || "CHECKING"}
+                                                                    onValueChange={(value) => updateCatalogItem(item.productVariantId, { status: value as SupplierProductCatalogStatus })}
                                                                     disabled={Boolean(catalogLoadError)}
                                                                 >
                                                                     <SelectTrigger className="h-9 w-full text-[11.5px] font-normal shadow-none">
                                                                         <SelectValue placeholder="Chưa thiết lập" />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="NOT_IN_CATALOG">Chưa thiết lập</SelectItem>
                                                                         <SelectItem value="AVAILABLE">Có thể đặt mua</SelectItem>
                                                                         <SelectItem value="CHECKING">Đang xác minh</SelectItem>
                                                                         <SelectItem value="UNAVAILABLE">Ngừng cung cấp</SelectItem>
@@ -1564,7 +1653,7 @@ export default function SupplierDetailPage() {
                             Xác nhận ngừng giao dịch
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-[13px] text-slate-500 leading-relaxed">
-                            Bạn có chắc muốn chuyển supplier sang trạng thái "Tạm ngừng"? Thao tác này chỉ ảnh hưởng hồ sơ supplier, không thay đổi logic nhập kho, FIFO hay giá vốn.
+                            Bạn có chắc chắn muốn tạm dừng nhà cung cấp {supplierRecord?.name || supplierData.name || ""} không?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
