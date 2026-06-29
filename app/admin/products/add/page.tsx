@@ -49,6 +49,7 @@ import {
     CommandList,
 } from "@/components/ui/command";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/axios";
 import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
 import { updateAttribute } from "@/app/services/AttributeService";
@@ -86,7 +87,7 @@ const variantSchema = z.object({
 const productSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    supplierId: z.string().optional(),
+    supplierId: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -1398,8 +1399,7 @@ export default function AddProductPage() {
             toast.success("Tạo sản phẩm thành công!");
             router.push("/admin/products");
         } catch (error: any) {
-            const res = error.response?.data;
-            toast.error(res?.message || "Có lỗi khi lưu sản phẩm.");
+            toast.error(getErrorMessage(error));
         } finally {
             setIsLoading(false);
         }
@@ -1496,7 +1496,7 @@ export default function AddProductPage() {
                                         control={control}
                                         render={({ field }) => (
                                             <Select onValueChange={field.onChange} value={field.value || ""}>
-                                                <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none">
+                                                <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.supplierId && "border-rose-500")}>
                                                     <SelectValue placeholder="-- Chọn nhà cung cấp --" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-md">
@@ -1509,6 +1509,7 @@ export default function AddProductPage() {
                                             </Select>
                                         )}
                                     />
+                                    <ErrorMessage message={errors.supplierId?.message} />
                                 </div>
                                 <div ref={statusSectionRef} className="space-y-1.5">
                                     <Label className="text-[10.5px] font-semibold text-slate-500">
