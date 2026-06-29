@@ -12,6 +12,7 @@ import { Loader2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -48,11 +49,19 @@ export default function CustomerManagementPage() {
     const [customers, setCustomers] = useState<CustomerSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [keyword, setKeyword] = useState("");
+    const [debouncedKeyword, setDebouncedKeyword] = useState("");
     const [status, setStatus] = useState("all");
     const [page, setPage] = useState(0);
     const [pageSize] = useState(20);
     const [totalElements, setTotalElements] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedKeyword(keyword);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [keyword]);
 
     useEffect(() => {
         if (!isLoadingAuth && !hasPermission(P.CUSTOMER_VIEW)) {
@@ -64,7 +73,7 @@ export default function CustomerManagementPage() {
         setIsLoading(true);
         try {
             const data = await customerService.getAll(
-                keyword,
+                debouncedKeyword,
                 status,
                 page,
                 pageSize,
@@ -78,7 +87,7 @@ export default function CustomerManagementPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [keyword, page, pageSize, status]);
+    }, [debouncedKeyword, page, pageSize, status]);
 
     useEffect(() => {
         fetchCustomers();
@@ -210,17 +219,24 @@ export default function CustomerManagementPage() {
                 </div>
 
             <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
-                {isLoading ? (
+                {isLoading && customers.length === 0 ? (
                     <AdminDataSyncLoader />
                 ) : (
-                    <AdminCustomerTable
-                        customers={customers}
-                        currentPage={page}
-                        pageSize={pageSize}
-                        totalPages={totalPages}
-                        totalElements={totalElements}
-                        onPageChange={(newPage) => setPage(newPage)}
-                    />
+                    <div className={cn("relative transition-opacity duration-200", isLoading && "opacity-60 pointer-events-none")}>
+                        {isLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/20 z-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                            </div>
+                        )}
+                        <AdminCustomerTable
+                            customers={customers}
+                            currentPage={page}
+                            pageSize={pageSize}
+                            totalPages={totalPages}
+                            totalElements={totalElements}
+                            onPageChange={(newPage) => setPage(newPage)}
+                        />
+                    </div>
                 )}
             </div>
             </div>

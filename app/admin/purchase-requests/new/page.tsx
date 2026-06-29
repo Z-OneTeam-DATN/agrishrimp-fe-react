@@ -34,6 +34,8 @@ type SupplierCatalogVariant = {
   imageUrl?: string;
   quantity?: number;
   customSpecs?: string;
+  specs?: string;
+  unit?: string;
 };
 
 const AVAILABLE_CATALOG_STATUS = "AVAILABLE";
@@ -42,17 +44,16 @@ function buildSupplierCatalogVariants(
   products: ProductListItem[],
   catalogItems: SupplierProductCatalogItem[],
 ): SupplierCatalogVariant[] {
-  const availableProductIds = new Set(
+  const availableVariantIds = new Set(
     catalogItems
       .filter((item) => item.status === AVAILABLE_CATALOG_STATUS)
-      .map((item) => item.productId),
+      .map((item) => item.productVariantId),
   );
 
   return products
-    .filter((product) => availableProductIds.has(product.id))
     .flatMap((product) =>
       (product.variants || [])
-        .filter((variant) => String(variant.status || "").toUpperCase() === "ACTIVE")
+        .filter((variant) => variant.id && availableVariantIds.has(variant.id) && String(variant.status || "").toUpperCase() === "ACTIVE")
         .map((variant) => ({
           id: Number(variant.id ?? 0),
           productId: product.id,
@@ -60,12 +61,13 @@ function buildSupplierCatalogVariants(
           productName: product.name || "",
           imageUrl: variant.imageUrl || product.imageUrls?.[0],
           quantity: variant.quantity,
-          customSpecs:
+          specs:
             variant.attributeValues?.length
               ? variant.attributeValues
-                  .map((attribute) => `${attribute.attributeName}: ${attribute.value}`)
-                  .join(" • ")
-              : undefined,
+                  .map((v) => `${v.attributeName}: ${v.value}`)
+                  .join(", ")
+              : "",
+          unit: variant.unitConversions?.[0]?.fromUnit || "Cái",
         })),
     )
     .filter((variant) => Boolean(variant.id) && Boolean(variant.sku))

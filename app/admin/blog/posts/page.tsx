@@ -28,7 +28,7 @@ import {
   adminDeleteBlogPost,
 } from "@/app/services/blog.service";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 export default function BlogPostsPage() {
   const [posts, setPosts] = useState<BlogPostDTO[]>([]);

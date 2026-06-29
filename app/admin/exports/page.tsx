@@ -30,7 +30,7 @@ export default function AdminExportListPage() {
     { label: "Tất cả kho", value: "all" },
   ]);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 20;
 
   const fetchList = useCallback(async () => {
     setIsLoading(true);

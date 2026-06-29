@@ -186,10 +186,10 @@ export default function ProductCard({ product }: ProductCardProps) {
               {product.categoryName}
             </span>
           )}
-          {product.brandName && (
+          {product.supplierName && (
             <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-gray-400">
               <BadgeCheck size={9} className="text-blue-400" />
-              {product.brandName}
+              {product.supplierName}
             </span>
           )}
         </div>

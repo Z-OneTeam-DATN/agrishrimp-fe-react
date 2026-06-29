@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { SettingService } from "@/app/services/setting.service";
@@ -55,8 +55,7 @@ const variantSchema = z.object({
 const AdminProductSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    brand: z.string().optional(),
-    origin: z.string().optional(),
+    supplierId: z.string().optional(),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -247,7 +246,7 @@ export default function EditProductPage() {
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([]);
 
     const [categories, setCategories] = useState<any[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
+    const [suppliers, setSuppliers] = useState<any[]>([]);
     const [attributes, setAttributes] = useState<any[]>([]);
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
@@ -263,7 +262,7 @@ export default function EditProductPage() {
 
     const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors, isDirty } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),
-        defaultValues: { name: "", categoryId: "", brand: "", origin: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
+        defaultValues: { name: "", categoryId: "", supplierId: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
     });
     const nameWatch = watch("name");
     const categoryWatch = watch("categoryId");
@@ -399,14 +398,19 @@ export default function EditProductPage() {
     );
 
     const syncDraftIndex = useCallback((entry: DraftIndexEntry) => {
-        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
-        const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
-        const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
-            .sort((a, b) => b.savedAt - a.savedAt)
-            .slice(0, 8);
-        localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
-        setRecentDrafts(merged);
-    }, []);
+        try {
+            const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+            const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
+                .sort((a, b) => b.savedAt - a.savedAt)
+                .slice(0, 8);
+            localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
+            setRecentDrafts(merged.filter((item) => item.key === draftStorageKey));
+        } catch {
+            localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            setRecentDrafts([]);
+        }
+    }, [draftStorageKey]);
 
     const missingWarnings = useMemo(() => {
         const warnings: string[] = [];
@@ -451,35 +455,34 @@ export default function EditProductPage() {
         if (rawIndex) {
             try {
                 const list: DraftIndexEntry[] = JSON.parse(rawIndex);
-                setRecentDrafts(list.slice(0, 6));
+                setRecentDrafts(list.filter((item) => item.key === draftStorageKey).slice(0, 6));
             } catch {
                 localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
             }
         }
-    }, []);
+    }, [draftStorageKey]);
 
     useEffect(() => {
         if (!isLoadingAuth && isAuthenticated && id) {
             const fetchData = async () => {
                 try {
                     setIsFetching(true);
-                    const [catRes, brandRes, attrRes, productDetail] = await Promise.all([
+                    const [catRes, supplierRes, attrRes, productDetail] = await Promise.all([
                         ProductService.getCategories(),
-                        ProductService.getBrands(),
+                        ProductService.getSuppliers(),
                         ProductService.getAttributes(),
                         ProductService.getById(id),
                     ]);
 
                     setCategories(catRes || []);
-                    setBrands(Array.from(new Set(brandRes?.map((b: any) => b.name) || [])) as string[]);
+                    setSuppliers(supplierRes || []);
                     setAttributes(filterActiveAttributes(attrRes || []));
 
                     // Đổ dữ liệu
                     const mappedData: any = {
                         name: productDetail.name || "",
                         categoryId: productDetail.category?.id ? String(productDetail.category.id) : "",
-                        brand: productDetail.brand?.name || "",
-                        origin: productDetail.origin || "",
+                        supplierId: productDetail.supplierId ? String(productDetail.supplierId) : "",
                         baseSku: productDetail.baseSku || "",
                         description: productDetail.description || "",
                         status: productDetail.status || "ACTIVE",
@@ -733,8 +736,7 @@ export default function EditProductPage() {
         reset({
             name: draftData.name || fallbackData?.name || "",
             categoryId: draftData.categoryId || fallbackData?.categoryId || "",
-            brand: draftData.brand || fallbackData?.brand || "",
-            origin: draftData.origin || fallbackData?.origin || "",
+            supplierId: draftData.supplierId || fallbackData?.supplierId || "",
             baseSku: draftData.baseSku || fallbackData?.baseSku || "",
             description: draftData.description || fallbackData?.description || "",
             status: draftData.status || fallbackData?.status || "ACTIVE",
@@ -772,7 +774,7 @@ export default function EditProductPage() {
                 const list: DraftIndexEntry[] = JSON.parse(raw);
                 const next = list.filter((item) => item.key !== draftStorageKey);
                 localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(next));
-                setRecentDrafts(next.slice(0, 6));
+                setRecentDrafts(next.filter((item) => item.key === draftStorageKey).slice(0, 6));
             } catch {
                 localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
                 setRecentDrafts([]);
@@ -1096,8 +1098,11 @@ export default function EditProductPage() {
             const newFirstVariantImageFile = typeof firstVariantImage === 'string' ? null : firstVariantImage;
 
             const productData: any = {
-                name: data.name.trim(), categoryId: Number(data.categoryId), brand: data.brand?.trim() || "",
-                origin: data.origin?.trim() || "", description: data.description || "", status: data.status,
+                name: data.name.trim(),
+                categoryId: Number(data.categoryId),
+                ...(data.supplierId && { supplierId: Number(data.supplierId) }),
+                description: data.description || "",
+                status: data.status,
                 images: existingFirstVariantImage ? [existingFirstVariantImage] : [],
                 variants: rawVariants.map((v: any, vIdx: number) => {
                     const img = variantImageFiles[vIdx];
@@ -1160,13 +1165,25 @@ export default function EditProductPage() {
                 <div className="space-y-5">
                     <div ref={infoSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
                         <SectionHeader num="1" title="Thông tin sản phẩm chính" />
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {/* Hàng 1 (2 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
+                                    Mã SKU gốc
+                                    <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
+                                </Label>
+                                <Input {...register("baseSku")} readOnly className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0" />
+                            </div>
+
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Tên sản phẩm *</Label>
                                 <Input {...register("name")} className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500", errors.name && "border-rose-500")} />
                                 <ErrorMessage message={errors.name?.message} />
                             </div>
+                        </div>
 
+                        {/* Hàng 2 (3 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Danh mục *</Label>
                                 <Controller name="categoryId" control={control} render={({ field }) => (
@@ -1186,21 +1203,29 @@ export default function EditProductPage() {
                                 )} />
                                 <ErrorMessage message={errors.categoryId?.message} />
                             </div>
+
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Thương hiệu</Label>
-                                <Controller name="brand" control={control} render={({ field }) => <CreatableCombobox options={brands} value={field.value || ""} onSelect={field.onChange} placeholder="Chọn hoặc nhập..." />} />
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Nhà cung cấp</Label>
+                                <Controller
+                                    name="supplierId"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                                            <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none">
+                                                <SelectValue placeholder="-- Chọn nhà cung cấp --" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-md">
+                                                {suppliers.map((s: any) => (
+                                                    <SelectItem key={`supplier-${s.id}`} value={String(s.id)}>
+                                                        {cleanSupplierName(s.name)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Xuất xứ</Label>
-                                <Input {...register("origin")} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
-                                    Mã SKU gốc
-                                    <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
-                                </Label>
-                                <Input {...register("baseSku")} readOnly className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0" />
-                            </div>
+
                             <div ref={statusSectionRef} className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái phát hành</Label>
                                 <Controller name="status" control={control} render={({ field }) => (

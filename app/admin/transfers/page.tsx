@@ -65,7 +65,7 @@ export default function AdminTransferListPage() {
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 20;
 
   const fetchTransfers = async () => {
     setIsLoading(true);

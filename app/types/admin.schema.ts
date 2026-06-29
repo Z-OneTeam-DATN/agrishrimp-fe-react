@@ -138,11 +138,11 @@ export const SupplierSchema = z.object({
 
     phone: z
         .string()
-        .min(10, "Số điện thoại phải có ít nhất 10 số")
-        .max(11, "Số điện thoại không quá 11 số")
+        .min(9, "Số điện thoại phải có ít nhất 9 ký tự")
+        .max(20, "Số điện thoại quá dài (tối đa 20 ký tự)")
         .regex(
-            /^(0|84)(3|5|7|8|9)([0-9]{8})$/,
-            "Định dạng số điện thoại Việt Nam không đúng",
+            /^(0|84)(3|5|7|8|9)[0-9]{8}$|^0[\d\s\-]{8,19}$/,
+            "Số điện thoại không hợp lệ (di động: 0[3|5|7|8|9]xxxxxxxx hoặc số bàn: 0xxx xxxxxx)",
         ),
 
     email: z
@@ -160,7 +160,13 @@ export const SupplierSchema = z.object({
         .max(255, "Địa chỉ quá dài"),
 
     status: z.enum(["active", "inactive"]).default("active"),
+
+    issueDate: z.string().min(1, "Vui lòng chọn Ngày thành lập"),
+    taxAuthority: z.string().min(1, "Vui lòng nhập Cơ quan thuế quản lý"),
+    mainBusinessSector: z.string().min(1, "Vui lòng nhập Ngành nghề kinh doanh chính"),
 });
+
+export const AddSupplierSchema = SupplierSchema;
 
 export type SupplierFormValues = z.infer<typeof SupplierSchema>;
 // Bắt lỗi Employee Form
