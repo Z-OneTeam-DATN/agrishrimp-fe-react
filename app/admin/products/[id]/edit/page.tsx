@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/axios";
 import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
 import { updateAttribute } from "@/app/services/AttributeService";
@@ -55,7 +56,7 @@ const variantSchema = z.object({
 const AdminProductSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    supplierId: z.string().optional(),
+    supplierId: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -1145,7 +1146,7 @@ export default function EditProductPage() {
             toast.success("Cập nhật sản phẩm thành công!");
             router.push("/admin/products");
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Có lỗi khi cập nhật sản phẩm.");
+            toast.error(getErrorMessage(error));
         } finally {
             setIsLoading(false);
         }
@@ -1211,7 +1212,7 @@ export default function EditProductPage() {
                                     control={control}
                                     render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value || ""}>
-                                            <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none">
+                                            <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.supplierId && "border-rose-500")}>
                                                 <SelectValue placeholder="-- Chọn nhà cung cấp --" />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-md">
@@ -1224,6 +1225,7 @@ export default function EditProductPage() {
                                         </Select>
                                     )}
                                 />
+                                <ErrorMessage message={errors.supplierId?.message} />
                             </div>
 
                             <div ref={statusSectionRef} className="space-y-1.5">

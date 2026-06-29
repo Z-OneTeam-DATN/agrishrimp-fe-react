@@ -444,7 +444,72 @@ export default function ProductsPage() {
                     </h1>
                 </div>
 
-                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                 {/* 1. Thanh lọc (Đưa lên trên, không chứa nút hành động) */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                        value={filters.categoryId}
+                        onValueChange={(value) => setFilters((current) => ({ ...current, categoryId: value }))}
+                    >
+                        <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[220px]">
+                            <SelectValue placeholder="Tất cả danh mục" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map((category) => (
+                                <SelectItem key={category.value} value={category.value} className="text-[13px]">
+                                    {category.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={filters.status}
+                        onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+                    >
+                        <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[180px]">
+                            <SelectValue placeholder="Tất cả trạng thái" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all" className="text-[13px]">Tất cả trạng thái</SelectItem>
+                            <SelectItem value="ACTIVE" className="text-[13px]">Đang kinh doanh</SelectItem>
+                            <SelectItem value="INACTIVE" className="text-[13px]">Ngừng kinh doanh</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select
+                        value={selectedSupplier}
+                        onValueChange={(value) => {
+                            setSelectedSupplier(value);
+                        }}
+                    >
+                        <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
+                            <SelectValue placeholder="Tất cả nhà cung cấp" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all" className="text-[13px]">
+                                Tất cả nhà cung cấp
+                            </SelectItem>
+                            {suppliers.map((supplier) => (
+                                <SelectItem key={supplier} value={supplier} className="text-[13px]">
+                                    {supplier}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <div className="relative w-full lg:w-[300px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                        <Input
+                            value={filters.keyword}
+                            onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
+                            placeholder="Tìm tên sản phẩm, mã SKU..."
+                            className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                        />
+                    </div>
+                </div>
+
+                {/* 2. Card tổng quan */}
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                     {productOverviewCards.map((card) => {
                         const statusMap: Record<string, string> = {
                             "Tổng sản phẩm": "all",
@@ -480,208 +545,8 @@ export default function ProductsPage() {
                     })}
                 </div>
 
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                        <Select
-                            value={filters.categoryId}
-                            onValueChange={(value) => setFilters((current) => ({ ...current, categoryId: value }))}
-                        >
-                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[220px]">
-                                <SelectValue placeholder="Tất cả danh mục" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {categories.map((category) => (
-                                    <SelectItem key={category.value} value={category.value} className="text-[13px]">
-                                        {category.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.status}
-                            onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))}
-                        >
-                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[180px]">
-                                <SelectValue placeholder="Tất cả trạng thái" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all" className="text-[13px]">Tất cả trạng thái</SelectItem>
-                                <SelectItem value="ACTIVE" className="text-[13px]">Đang kinh doanh</SelectItem>
-                                <SelectItem value="INACTIVE" className="text-[13px]">Ngừng kinh doanh</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={selectedSupplier}
-                            onValueChange={(value) => {
-                                setSelectedSupplier(value);
-                            }}
-                        >
-                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
-                                <SelectValue placeholder="Tất cả nhà cung cấp" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all" className="text-[13px]">
-                                    Tất cả nhà cung cấp
-                                </SelectItem>
-                                {suppliers.map((supplier) => (
-                                    <SelectItem key={supplier} value={supplier} className="text-[13px]">
-                                        {supplier}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <div className="relative w-full lg:w-[300px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                            <Input
-                                value={filters.keyword}
-                                onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
-                                placeholder="Tìm tên sản phẩm, mã SKU..."
-                                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                    {isAdmin && (
-                        <Dialog open={isSettingOpen} onOpenChange={setIsSettingOpen}>
-                            <DialogContent className="sm:max-w-[560px] rounded-[4px]">
-                                <DialogHeader>
-                                    <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
-                                        <Percent size={18} className="text-emerald-600" /> Biên lợi nhuận (%)
-                                    </DialogTitle>
-                                    <DialogDescription className="text-[12px]">
-                                        Tỷ lệ cộng thêm vào giá vốn lô hàng để ra giá bán niêm yết.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="py-4">
-                                    <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
-                                    <div className="relative">
-                                        <Input
-                                            type="text"
-                                            min="0"
-                                            max="100"
-                                            value={profitMargin}
-                                            onChange={(e) => handleMarginInputChange(e.target.value)}
-                                            className="h-[45px] text-[16px] font-black pl-4 pr-10 rounded-[3px]"
-                                        />
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2 mt-3">
-                                        {[10, 20, 30, 40, 50].map((preset) => (
-                                            <Button
-                                                key={preset}
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setProfitMargin(String(preset))}
-                                                className={cn(
-                                                    "h-7 text-[11px] px-2 rounded-[3px]",
-                                                    Number(profitMargin) === preset
-                                                        ? "border-emerald-400 text-emerald-700 bg-emerald-50"
-                                                        : "border-slate-200 text-slate-600"
-                                                )}
-                                            >
-                                                {preset}%
-                                            </Button>
-                                        ))}
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Quy tắc làm tròn giá bán</Label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {[
-                                                { value: "NONE", label: "Không làm tròn" },
-                                                { value: "STEP_500", label: "Làm tròn bội 500" },
-                                                { value: "STEP_1000", label: "Làm tròn bội 1.000" },
-                                                { value: "TAIL_99000", label: "Đuôi 99.000 (gần nhất)" },
-                                            ].map((rule) => (
-                                                <Button
-                                                    key={rule.value}
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setRoundingRule(rule.value as PriceRoundingRule)}
-                                                    className={cn(
-                                                        "h-7 text-[11px] px-2 rounded-[3px]",
-                                                        roundingRule === rule.value
-                                                            ? "border-blue-400 text-blue-700 bg-blue-50"
-                                                            : "border-slate-200 text-slate-600"
-                                                    )}
-                                                >
-                                                    {rule.label}
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
-
-                                    <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
-                                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-                                            Xem trước nhanh theo nhiều mốc giá vốn
-                                        </p>
-                                        <div className="space-y-2">
-                                            <div className="grid grid-cols-4 gap-2 text-[11px] font-bold uppercase text-slate-500">
-                                                <p>Giá vốn</p>
-                                                <p>Giá bán gốc</p>
-                                                <p>Giá bán sau làm tròn</p>
-                                                <p>Lãi gộp</p>
-                                            </div>
-                                            {samplePreviewRows.length > 0 ? (
-                                                samplePreviewRows.map((row) => (
-                                                    <div key={row.importPrice} className="grid grid-cols-4 gap-2 text-[12px]">
-                                                        <p className="font-semibold text-slate-700">{row.importPrice.toLocaleString("vi-VN")} ₫</p>
-                                                        <p className="text-slate-600">{Math.round(row.rawSellingPrice).toLocaleString("vi-VN")} ₫</p>
-                                                        <p className="font-bold text-emerald-700">{row.roundedSellingPrice.toLocaleString("vi-VN")} ₫</p>
-                                                        <p className="font-bold text-blue-700">{row.grossProfit.toLocaleString("vi-VN")} ₫</p>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-[12px] text-slate-400">Nhập biên lợi nhuận hợp lệ để xem trước.</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setProfitMargin(originalProfitMargin);
-                                            setRoundingRule(originalRoundingRule);
-                                        }}
-                                        className="rounded-[3px] text-[12px]"
-                                        disabled={isSavingMargin || !isMarginDirty}
-                                    >
-                                        Khôi phục
-                                    </Button>
-                                    <Button variant="outline" onClick={() => setIsSettingOpen(false)} className="rounded-[3px] text-[12px]">Hủy</Button>
-                                    <Button onClick={handleSaveMargin} disabled={isSavingMargin || !isMarginInRange || !isMarginDirty} className="bg-emerald-600 text-white rounded-[3px] text-[12px]">
-                                        {isSavingMargin ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
-                                        Lưu thay đổi
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
-
-                    {/* Chỉ show nút Thêm sản phẩm nếu có quyền */}
-                    {hasPermission(P.PRODUCT_CREATE) && (
-                        <Button
-                            onClick={() => router.push("/admin/products/add")}
-                            className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
-                        >
-                            <Plus size={15} className="mr-2" />
-                            Thêm sản phẩm
-                        </Button>
-                    )}
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                {/* 3. Chế độ xem & Nút hành động (Nằm ngang dưới card tổng quan) */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                         <button
                             type="button"
@@ -709,17 +574,152 @@ export default function ProductsPage() {
                         </button>
                     </div>
 
-                    {isAdmin && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsSettingOpen(true)}
-                            className="h-[38px] rounded-md border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
-                        >
-                            <Settings size={15} className="mr-2" />
-                            Cấu hình giá bán
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        {isAdmin && (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsSettingOpen(true)}
+                                    className="h-[38px] rounded-md border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
+                                >
+                                    <Settings size={15} className="mr-2" />
+                                    Cấu hình giá bán
+                                </Button>
+
+                                <Dialog open={isSettingOpen} onOpenChange={setIsSettingOpen}>
+                                    <DialogContent className="sm:max-w-[560px] rounded-[4px]">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
+                                                <Percent size={18} className="text-emerald-600" /> Biên lợi nhuận (%)
+                                            </DialogTitle>
+                                            <DialogDescription className="text-[12px]">
+                                                Tỷ lệ cộng thêm vào giá vốn lô hàng để ra giá bán niêm yết.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="py-4">
+                                            <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    type="text"
+                                                    min="0"
+                                                    max="100"
+                                                    value={profitMargin}
+                                                    onChange={(e) => handleMarginInputChange(e.target.value)}
+                                                    className="h-[45px] text-[16px] font-black pl-4 pr-10 rounded-[3px]"
+                                                />
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2 mt-3">
+                                                {[10, 20, 30, 40, 50].map((preset) => (
+                                                    <Button
+                                                        key={preset}
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setProfitMargin(String(preset))}
+                                                        className={cn(
+                                                            "h-7 text-[11px] px-2 rounded-[3px]",
+                                                            Number(profitMargin) === preset
+                                                                ? "border-emerald-400 text-emerald-700 bg-emerald-50"
+                                                                : "border-slate-200 text-slate-600"
+                                                        )}
+                                                    >
+                                                        {preset}%
+                                                    </Button>
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-4">
+                                                <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Quy tắc làm tròn giá bán</Label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {[
+                                                        { value: "NONE", label: "Không làm tròn" },
+                                                        { value: "STEP_500", label: "Làm tròn bội 500" },
+                                                        { value: "STEP_1000", label: "Làm tròn bội 1.000" },
+                                                        { value: "TAIL_99000", label: "Đuôi 99.000 (gần nhất)" },
+                                                    ].map((rule) => (
+                                                        <Button
+                                                            key={rule.value}
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setRoundingRule(rule.value as PriceRoundingRule)}
+                                                            className={cn(
+                                                                "h-7 text-[11px] px-2 rounded-[3px]",
+                                                                roundingRule === rule.value
+                                                                    ? "border-blue-400 text-blue-700 bg-blue-50"
+                                                                    : "border-slate-200 text-slate-600"
+                                                            )}
+                                                        >
+                                                            {rule.label}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
+
+                                            <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                                                    Xem trước nhanh theo nhiều mốc giá vốn
+                                                </p>
+                                                <div className="space-y-2">
+                                                    <div className="grid grid-cols-4 gap-2 text-[11px] font-bold uppercase text-slate-500">
+                                                        <p>Giá vốn</p>
+                                                        <p>Giá bán gốc</p>
+                                                        <p>Giá bán sau làm tròn</p>
+                                                        <p>Lãi gộp</p>
+                                                    </div>
+                                                    {samplePreviewRows.length > 0 ? (
+                                                        samplePreviewRows.map((row) => (
+                                                            <div key={row.importPrice} className="grid grid-cols-4 gap-2 text-[12px]">
+                                                                <p className="font-semibold text-slate-700">{row.importPrice.toLocaleString("vi-VN")} ₫</p>
+                                                                <p className="text-slate-600">{Math.round(row.rawSellingPrice).toLocaleString("vi-VN")} ₫</p>
+                                                                <p className="font-bold text-emerald-700">{row.roundedSellingPrice.toLocaleString("vi-VN")} ₫</p>
+                                                                <p className="font-bold text-blue-700">{row.grossProfit.toLocaleString("vi-VN")} ₫</p>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-[12px] text-slate-400">Nhập biên lợi nhuận hợp lệ để xem trước.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setProfitMargin(originalProfitMargin);
+                                                    setRoundingRule(originalRoundingRule);
+                                                }}
+                                                className="rounded-[3px] text-[12px]"
+                                                disabled={isSavingMargin || !isMarginDirty}
+                                            >
+                                                Khôi phục
+                                            </Button>
+                                            <Button variant="outline" onClick={() => setIsSettingOpen(false)} className="rounded-[3px] text-[12px]">Hủy</Button>
+                                            <Button onClick={handleSaveMargin} disabled={isSavingMargin || !isMarginInRange || !isMarginDirty} className="bg-emerald-600 text-white rounded-[3px] text-[12px]">
+                                                {isSavingMargin ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+                                                Lưu thay đổi
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </>
+                        )}
+
+                        {hasPermission(P.PRODUCT_CREATE) && (
+                            <Button
+                                onClick={() => router.push("/admin/products/add")}
+                                className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                            >
+                                <Plus size={15} className="mr-2" />
+                                Thêm sản phẩm
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">

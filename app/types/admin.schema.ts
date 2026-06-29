@@ -37,8 +37,7 @@ export const AdminProductSchema = z
     .object({
         name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự").max(200, "Tên sản phẩm quá dài"),
         categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-        brand: z.string().optional().nullable(),
-        origin: z.string().optional().nullable(),
+        supplierId: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
         baseSku: z.string().min(1, "Mã SKU gốc không được để trống"),
         description: z.string().optional().nullable(),
         status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]).default("ACTIVE"),
