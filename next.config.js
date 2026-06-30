@@ -2,7 +2,7 @@
 const internalApiBaseUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
 
 const nextConfig = {
-  // output: "standalone",
+  output: "standalone",
   distDir: "dist",
   async rewrites() {
     return [
