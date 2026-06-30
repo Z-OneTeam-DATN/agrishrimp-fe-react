@@ -20,7 +20,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -121,6 +121,8 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 export default function AdminTopHeader() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const editingBranchId = searchParams.get("id");
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
@@ -183,7 +185,10 @@ export default function AdminTopHeader() {
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
 
-      const exactLabel = ADMIN_ROUTE_LABELS[currentPath];
+      const exactLabel =
+        currentPath === "/admin/branches/add" && editingBranchId
+          ? "Cập nhật chi nhánh"
+          : ADMIN_ROUTE_LABELS[currentPath];
       const isLast = index === segments.length - 1;
 
       if (pathname.startsWith("/admin/employees/roles") && HIDDEN_BREADCRUMB_PATHS.has(currentPath)) {
@@ -213,7 +218,7 @@ export default function AdminTopHeader() {
     });
 
     return items;
-  }, [pathname]);
+  }, [pathname, editingBranchId]);
 
   const getUserRoleName = () => {
     if (typeof user?.role === "object" && user.role !== null) {

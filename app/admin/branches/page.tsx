@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { AdminSearchFilter } from "@/components/admin/shared/AdminSearchFilter";
 import { AdminBranchTable } from "@/components/admin/AdminBranchTable";
 // Đã sửa: Viết thường chữ b
 import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
-import { Loader2, AlertTriangle, AlertCircle, Plus } from "lucide-react";
+import { AlertTriangle, AlertCircle, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +36,8 @@ export default function BranchManagementPage() {
   const router = useRouter();
   const [branches, setBranches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // State để quản lý AlertDialog xóa
   const [deleteBranch, setDeleteBranch] = useState<{id: number, name: string} | null>(null);
@@ -64,6 +66,41 @@ export default function BranchManagementPage() {
   useEffect(() => {
     fetchBranches();
   }, []);
+
+  const normalizeSearchText = (value: unknown) =>
+    String(value || "")
+      .toLocaleLowerCase("vi-VN")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+  const filteredBranches = useMemo(() => {
+    const keyword = normalizeSearchText(searchTerm);
+
+    return branches.filter((branch: any) => {
+      const matchesStatus =
+        statusFilter === "all" || branch.status === statusFilter;
+
+      if (!matchesStatus) return false;
+      if (!keyword) return true;
+
+      const searchable = [
+        branch.name,
+        branch.branchCode,
+        branch.phone,
+        branch.email,
+        branch.addressDetail,
+        branch.province,
+        branch.district,
+        branch.ward,
+        ...(Array.isArray(branch.managerNames) ? branch.managerNames : []),
+      ]
+        .map(normalizeSearchText)
+        .join(" ");
+
+      return searchable.includes(keyword);
+    });
+  }, [branches, searchTerm, statusFilter]);
 
   // Hàm xử lý khi người dùng đồng ý xóa trên Dialog
   const confirmDelete = async () => {
@@ -95,8 +132,13 @@ export default function BranchManagementPage() {
           placeholder="Tìm tên, mã chi nhánh, người phụ trách..."
           containerClassName="bg-transparent border-b-0 px-0 pt-0"
           hideFilter1
+          hideSort
+          hideRefreshButton
           filter2Placeholder="Trạng thái vận hành"
           filter2Options={statusFilters}
+          defaultFilter2Value={statusFilter}
+          onSearch={setSearchTerm}
+          onFilter2Change={setStatusFilter}
           onRefresh={fetchBranches}
           trailingContent={
             hasPermission(P.BRANCH_CREATE) ? (
@@ -113,15 +155,17 @@ export default function BranchManagementPage() {
         <div className="bg-white border border-[#dcdcdc] shadow-sm overflow-hidden">
           {isLoading ? (
             <AdminDataSyncLoader />
-          ) : branches.length > 0 ? (
+          ) : filteredBranches.length > 0 ? (
             <AdminBranchTable
-              branches={branches}
+              branches={filteredBranches}
               onDeleteClick={(id, name) => setDeleteBranch({id, name})}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
               <AlertTriangle className="mb-2 opacity-20" size={40} />
-              <p className="text-xs font-medium uppercase">Chưa có dữ liệu chi nhánh</p>
+              <p className="text-xs font-medium uppercase">
+                Không tìm thấy chi nhánh phù hợp
+              </p>
             </div>
           )}
         </div>

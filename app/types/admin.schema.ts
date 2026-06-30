@@ -262,12 +262,14 @@ export const AdminBranchSchema = z.object({
         .number({ invalid_type_error: "Vĩ độ phải là số" })
         .min(-90, "Vĩ độ không hợp lệ")
         .max(90, "Vĩ độ không hợp lệ")
+        .nullable()
         .optional(),
 
     lng: z
         .number({ invalid_type_error: "Kinh độ phải là số" })
         .min(-180, "Kinh độ không hợp lệ")
         .max(180, "Kinh độ không hợp lệ")
+        .nullable()
         .optional(),
 
     status: z
