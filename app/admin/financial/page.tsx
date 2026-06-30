@@ -195,7 +195,7 @@ export default function FinancialReportListPage() {
       badge: metrics.estimatedProfit < 0 ? "Âm" : "Dương",
       hint: "Tính theo dữ liệu chốt trong kỳ",
       valueClassName:
-        metrics.estimatedProfit < 0 ? "text-amber-600" : "text-emerald-600",
+        metrics.estimatedProfit < 0 ? "text-amber-600" : "text-blue-600",
     },
     {
       id: "debt",
@@ -279,7 +279,7 @@ export default function FinancialReportListPage() {
 
           <div className="flex items-center justify-end gap-2">
             <Button
-              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
               onClick={loadFinancialData}
               disabled={loading}
             >
@@ -464,3 +464,4 @@ export default function FinancialReportListPage() {
     </div>
   );
 }
+

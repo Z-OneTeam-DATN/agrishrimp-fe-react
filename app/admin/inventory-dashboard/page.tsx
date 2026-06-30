@@ -214,7 +214,7 @@ export default function WarehouseDashboard() {
       totalAction: `${dbData.receipts.pending} Cần làm`,
       href: "/admin/receipts",
       icon: ArrowDownToLine,
-      iconColor: "bg-emerald-50 text-emerald-600",
+      iconColor: "bg-blue-50 text-blue-600",
       time: currentTime || "Đang tải",
       stats: [
         {
@@ -227,8 +227,8 @@ export default function WarehouseDashboard() {
         {
           val: dbData.receipts.completed,
           label: "Đã Nhập Xong",
-          colorClass: "text-emerald-600",
-          bgClass: "bg-emerald-500",
+          colorClass: "text-blue-600",
+          bgClass: "bg-blue-500",
           width: getWidth(dbData.receipts.completed, totalReceipts),
         }
       ],
@@ -282,8 +282,8 @@ export default function WarehouseDashboard() {
         {
           val: dbData.transfers.completed,
           label: "Đã đến",
-          colorClass: "text-emerald-600",
-          bgClass: "bg-emerald-500",
+          colorClass: "text-blue-600",
+          bgClass: "bg-blue-500",
           width: getWidth(dbData.transfers.completed, totalTransfers),
         },
       ],
@@ -329,7 +329,7 @@ export default function WarehouseDashboard() {
             Bàn làm việc kho
           </h1>
           <p className="text-slate-500 text-[12px] mt-1 flex items-center gap-2 font-medium">
-            <span className={cn("flex h-2 w-2 rounded-full", isLoading ? "bg-amber-500" : "bg-emerald-500 animate-pulse")}></span>
+            <span className={cn("flex h-2 w-2 rounded-full", isLoading ? "bg-amber-500" : "bg-blue-500 animate-pulse")}></span>
             Hệ thống vận hành {isLoading ? "đang tải dữ liệu..." : "ổn định"}. Bạn có{" "}
             <b className="text-slate-800">{totalTasks} nhiệm vụ</b> cần xử lý.
           </p>
@@ -344,3 +344,4 @@ export default function WarehouseDashboard() {
     </div>
   );
 }
+

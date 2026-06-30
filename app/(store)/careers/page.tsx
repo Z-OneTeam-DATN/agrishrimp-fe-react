@@ -67,17 +67,17 @@ export default function CareersPage() {
       <StoreBanner />
 
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center container mx-auto px-4">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Tuyển dụng</span>
+        <span className="text-[#1965a2] font-bold">Tuyển dụng</span>
       </div>
 
       <div className="container mx-auto px-4 pb-12">
         <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
           <div className="border-b border-gray-200 pb-4 mb-8">
-            <h2 className="text-xl md:text-2xl font-bold text-[#329965] uppercase flex items-center">
+            <h2 className="text-xl md:text-2xl font-bold text-[#1965a2] uppercase flex items-center">
               <Briefcase className="mr-3" size={28} />
               Tuyển dụng
             </h2>
@@ -88,8 +88,8 @@ export default function CareersPage() {
           </div>
 
           {/* Perks */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-5 mb-8">
-            <h3 className="font-bold text-[#329965] mb-3 uppercase text-sm">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-8">
+            <h3 className="font-bold text-[#1965a2] mb-3 uppercase text-sm">
               Tại sao gia nhập AgriShrimp?
             </h3>
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -100,7 +100,7 @@ export default function CareersPage() {
                 >
                   <Arrow
                     size={14}
-                    className="text-[#329965] mt-0.5 shrink-0"
+                    className="text-[#1965a2] mt-0.5 shrink-0"
                   />
                   {perk}
                 </li>
@@ -109,7 +109,7 @@ export default function CareersPage() {
           </div>
 
           {/* Job listings */}
-          <h3 className="text-base font-bold text-[#329965] uppercase border-l-4 border-[#329965] pl-3 mb-5">
+          <h3 className="text-base font-bold text-[#1965a2] uppercase border-l-4 border-[#1965a2] pl-3 mb-5">
             Vị trí đang tuyển ({JOB_LISTINGS.length})
           </h3>
 
@@ -117,7 +117,7 @@ export default function CareersPage() {
             {JOB_LISTINGS.map((job) => (
               <div
                 key={job.title}
-                className="border border-gray-200 rounded-lg p-5 hover:border-[#329965] hover:shadow-sm transition-all"
+                className="border border-gray-200 rounded-lg p-5 hover:border-[#1965a2] hover:shadow-sm transition-all"
               >
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                   <div className="flex-1">
@@ -142,7 +142,7 @@ export default function CareersPage() {
                   <div className="shrink-0">
                     <Link
                       href="/support"
-                      className="inline-flex items-center px-4 py-2 border border-[#329965] text-[#329965] rounded-md text-sm font-semibold hover:bg-[#329965] hover:text-white transition-colors"
+                      className="inline-flex items-center px-4 py-2 border border-[#1965a2] text-[#1965a2] rounded-md text-sm font-semibold hover:bg-[#1965a2] hover:text-white transition-colors"
                     >
                       Ứng tuyển
                     </Link>
@@ -154,7 +154,7 @@ export default function CareersPage() {
 
           <div className="mt-8 p-5 bg-gray-50 border border-gray-200 rounded-lg text-center text-sm text-gray-600">
             Không tìm thấy vị trí phù hợp?{" "}
-            <Link href="/support" className="text-[#329965] font-semibold hover:underline">
+            <Link href="/support" className="text-[#1965a2] font-semibold hover:underline">
               Gửi CV tự ứng tuyển
             </Link>{" "}
             — chúng tôi luôn chào đón nhân tài.
@@ -164,3 +164,4 @@ export default function CareersPage() {
     </>
   );
 }
+

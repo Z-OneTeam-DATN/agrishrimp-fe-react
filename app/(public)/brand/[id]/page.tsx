@@ -85,9 +85,9 @@ export default function BrandPage() {
       <div className="container mx-auto px-4 py-6">
         {/* Breadcrumb */}
         <nav className="flex mb-6 text-sm text-gray-500 items-center">
-          <Link href="/" className="hover:text-[#329965] transition-colors">Trang chủ</Link>
+          <Link href="/" className="hover:text-[#1965a2] transition-colors">Trang chủ</Link>
           <ChevronRight size={14} className="mx-2" />
-          <Link href="/brands" className="hover:text-[#329965] transition-colors">Thương hiệu</Link>
+          <Link href="/brands" className="hover:text-[#1965a2] transition-colors">Thương hiệu</Link>
           <ChevronRight size={14} className="mx-2" />
           <span className="font-bold text-gray-800">{currentBrandName}</span>
         </nav>
@@ -97,7 +97,7 @@ export default function BrandPage() {
           <aside className="hidden lg:block lg:col-span-3">
             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 sticky top-24">
               <h6 className="font-bold text-gray-800 uppercase text-xs tracking-wider mb-4 flex items-center gap-2">
-                <LayoutGrid size={16} className="text-[#329965]" /> Các Thương Hiệu Khác
+                <LayoutGrid size={16} className="text-[#1965a2]" /> Các Thương Hiệu Khác
               </h6>
               <ul className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                 {allBrands.map((brand) => (
@@ -106,18 +106,18 @@ export default function BrandPage() {
                       href={`/brand/${brand.id}`}
                       className={`text-[13px] flex items-center gap-3 group py-2 px-3 rounded-xl transition-all ${
                         currentBrandId === brand.id.toString() 
-                          ? "bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 shadow-sm" 
-                          : "text-gray-600 hover:bg-gray-50 hover:text-emerald-600 border border-transparent"
+                          ? "bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-sm" 
+                          : "text-gray-600 hover:bg-gray-50 hover:text-blue-600 border border-transparent"
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden border ${
-                        currentBrandId === brand.id.toString() ? "bg-white border-emerald-200" : "bg-gray-50 border-gray-100 group-hover:bg-white transition-colors"
+                        currentBrandId === brand.id.toString() ? "bg-white border-blue-200" : "bg-gray-50 border-gray-100 group-hover:bg-white transition-colors"
                       }`}>
                         {brand.logoUrl ? (
                           <img src={brand.logoUrl} alt={brand.name} className="w-full h-full object-contain p-1" />
                         ) : (
                           <div className={`w-full h-full flex items-center justify-center text-[10px] font-black ${
-                            currentBrandId === brand.id.toString() ? "text-emerald-300" : "text-gray-300 group-hover:text-emerald-200"
+                            currentBrandId === brand.id.toString() ? "text-blue-300" : "text-gray-300 group-hover:text-blue-200"
                           }`}>
                             {brand.name[0].toUpperCase()}
                           </div>
@@ -135,7 +135,7 @@ export default function BrandPage() {
           <main className="lg:col-span-9">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6 flex justify-between items-center">
               <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                <span className="bg-[#329965] w-2 h-8 rounded-full"></span>
+                <span className="bg-[#1965a2] w-2 h-8 rounded-full"></span>
                 {currentBrandName}
                 <span className="ml-3 text-base font-normal text-gray-400">({products.length} sản phẩm)</span>
               </h1>
@@ -143,7 +143,7 @@ export default function BrandPage() {
 
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-gray-100 shadow-sm">
-                <Loader2 className="animate-spin text-[#329965] mb-4" size={40} />
+                <Loader2 className="animate-spin text-[#1965a2] mb-4" size={40} />
                 <span className="text-gray-500 font-medium">Đang tải danh sách sản phẩm...</span>
               </div>
             ) : products.length > 0 ? (
@@ -165,7 +165,7 @@ export default function BrandPage() {
                 <PackageX className="text-gray-300 mb-4" size={64} />
                 <h3 className="text-xl font-bold text-gray-700 mb-2">Chưa có sản phẩm nào</h3>
                 <p className="text-gray-500">Thương hiệu {currentBrandName} hiện chưa có sản phẩm nào được đăng bán.</p>
-                <Link href="/store" className="mt-6 text-[#329965] font-bold hover:underline flex items-center gap-1">
+                <Link href="/store" className="mt-6 text-[#1965a2] font-bold hover:underline flex items-center gap-1">
                   Xem các sản phẩm khác <ChevronRight size={16} />
                 </Link>
               </div>
@@ -176,3 +176,4 @@ export default function BrandPage() {
     </div>
   );
 }
+

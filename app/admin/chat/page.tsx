@@ -158,7 +158,7 @@ export default function AdminChatPage() {
       <div className="w-72 shrink-0 border-r border-gray-100 dark:border-slate-700 flex flex-col">
         <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-700">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-teal-600" />
+            <Users className="w-4 h-4 text-blue-600" />
             <h2 className="font-semibold text-gray-800 dark:text-white text-sm">Cuộc trò chuyện</h2>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function AdminChatPage() {
             <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900">
               <Avatar className="w-9 h-9">
                 <AvatarImage src={activeConv.customerAvatar} />
-                <AvatarFallback className="bg-teal-100 text-teal-700 font-semibold text-sm">
+                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-sm">
                   {activeConv.customerName?.charAt(0) ?? "K"}
                 </AvatarFallback>
               </Avatar>
@@ -199,7 +199,7 @@ export default function AdminChatPage() {
                   <select
                     value={activeConv.assignedStaffId ?? ""}
                     onChange={(e) => handleAssign(e.target.value ? Number(e.target.value) : null)}
-                    className="text-xs bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+                    className="text-xs bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
                     title="Phân công nhân viên"
                   >
                     <option value="">— Chưa phân công —</option>
@@ -210,7 +210,7 @@ export default function AdminChatPage() {
                 )}
                 <button
                   onClick={() => setIsPinModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-800/40 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/40 rounded-lg transition-colors"
                 >
                   <Pin className="w-3.5 h-3.5" />
                   Ghim sản phẩm
@@ -222,7 +222,7 @@ export default function AdminChatPage() {
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/40">
               {isLoadingMsgs ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="w-6 h-6 text-teal-500 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                 </div>
               ) : convMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
@@ -252,9 +252,9 @@ export default function AdminChatPage() {
                   <button
                     key={cr.id}
                     onClick={() => { setInput(cr.content); setCannedSuggestions([]); inputRef.current?.focus(); }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-teal-50 dark:hover:bg-teal-900/20 border-b border-gray-50 dark:border-slate-700/50 last:border-0"
+                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-50 dark:border-slate-700/50 last:border-0"
                   >
-                    <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 mr-2">/{cr.shortcut}</span>
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 mr-2">/{cr.shortcut}</span>
                     <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{cr.content}</span>
                   </button>
                 ))}
@@ -267,7 +267,7 @@ export default function AdminChatPage() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isSending}
-                className="text-gray-400 hover:text-teal-500 disabled:opacity-40 transition-colors shrink-0"
+                className="text-gray-400 hover:text-blue-500 disabled:opacity-40 transition-colors shrink-0"
                 title="Gửi ảnh"
               >
                 <ImageIcon className="w-5 h-5" />
@@ -278,12 +278,12 @@ export default function AdminChatPage() {
                 onChange={handleInputChange}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 placeholder={`Trả lời ${activeConv.customerName}...`}
-                className="flex-1 bg-gray-100 dark:bg-slate-700 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-teal-400 dark:text-gray-100 placeholder-gray-400"
+                className="flex-1 bg-gray-100 dark:bg-slate-700 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 dark:text-gray-100 placeholder-gray-400"
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isSending}
-                className="w-10 h-10 rounded-full bg-teal-500 hover:bg-teal-600 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
+                className="w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
               >
                 {isSending ? (
                   <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -312,3 +312,4 @@ export default function AdminChatPage() {
     </div>
   );
 }
+

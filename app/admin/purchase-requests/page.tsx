@@ -154,7 +154,7 @@ export default function PurchaseRequestListPage() {
           </h1>
           {canAccessPurchaseRequests && (
             <Link href="/admin/purchase-requests/new">
-              <Button className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700">
+              <Button className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
                 <Plus size={16} className="mr-2" />
                 Lập phiếu yêu cầu
               </Button>
@@ -195,7 +195,7 @@ export default function PurchaseRequestListPage() {
                   className={cn(
                     "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
                     activeTab === tab.id
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                   )}
                 >
@@ -219,7 +219,7 @@ export default function PurchaseRequestListPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm mã phiếu, nhà cung cấp..."
-                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-emerald-300"
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-blue-300"
               />
             </div>
           </div>
@@ -228,7 +228,7 @@ export default function PurchaseRequestListPage() {
         <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
+              <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
             </div>
           ) : displayData.length === 0 ? (
             <div className="py-20 text-center text-[12px] text-slate-400">
@@ -351,3 +351,4 @@ export default function PurchaseRequestListPage() {
     </div>
   );
 }
+

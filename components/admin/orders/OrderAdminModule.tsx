@@ -155,14 +155,14 @@ const STATUS_META: Record<
     tone: "text-indigo-700",
   },
   RECEIVED: {
-    dot: "bg-emerald-500",
+    dot: "bg-blue-500",
     label: "Đã giao",
-    tone: "text-emerald-700",
+    tone: "text-blue-700",
   },
   COMPLETED: {
-    dot: "bg-emerald-500",
+    dot: "bg-blue-500",
     label: "Đã giao",
-    tone: "text-emerald-700",
+    tone: "text-blue-700",
   },
   CANCELLED: {
     dot: "bg-red-500",
@@ -877,7 +877,7 @@ export function AdminOrdersListModule() {
             </Button>
             <Button
               onClick={() => router.push("/admin/orders/add")}
-              className="h-10 rounded-md bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
+              className="h-10 rounded-md bg-blue-600 px-4 text-[13px] font-semibold text-white hover:bg-blue-700"
             >
               <Plus className="h-4 w-4" />
               Thêm mới
@@ -931,7 +931,7 @@ export function AdminOrdersListModule() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   onClick={() => void handleBatchUpdate("CONFIRMED")}
-                  className="h-9 rounded-md bg-emerald-600 px-3 text-[12px] font-semibold text-white hover:bg-emerald-700"
+                  className="h-9 rounded-md bg-blue-600 px-3 text-[12px] font-semibold text-white hover:bg-blue-700"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   Duyệt hàng loạt
@@ -966,7 +966,7 @@ export function AdminOrdersListModule() {
                 <Checkbox
                   checked={allPageSelected}
                   onCheckedChange={(checked) => toggleSelectAllOnPage(Boolean(checked))}
-                  className="border-slate-300 data-[state=checked]:border-emerald-600 data-[state=checked]:bg-emerald-600"
+                  className="border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                 />
               </div>
               <div>Mã đơn hàng</div>
@@ -1023,7 +1023,7 @@ export function AdminOrdersListModule() {
                           onCheckedChange={(checked) =>
                             toggleOrderSelection(order.id, Boolean(checked))
                           }
-                          className="border-slate-300 data-[state=checked]:border-emerald-600 data-[state=checked]:bg-emerald-600"
+                          className="border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                         />
                       </div>
 
@@ -1031,7 +1031,7 @@ export function AdminOrdersListModule() {
                         <button
                           type="button"
                           onClick={() => router.push(`/admin/orders/${order.id}`)}
-                          className="text-left text-[12.5px] font-semibold text-slate-900 hover:text-emerald-700"
+                          className="text-left text-[12.5px] font-semibold text-slate-900 hover:text-blue-700"
                         >
                           {order.code}
                         </button>
@@ -1106,7 +1106,7 @@ export function AdminOrdersListModule() {
                         {action ? (
                           <Button
                             onClick={() => void handleRowAction(order)}
-                            className="h-9 rounded-md bg-emerald-600 px-3 text-[12px] font-semibold text-white hover:bg-emerald-700"
+                            className="h-9 rounded-md bg-blue-600 px-3 text-[12px] font-semibold text-white hover:bg-blue-700"
                           >
                             {action.label}
                           </Button>
@@ -1835,7 +1835,7 @@ export function AdminOrderEditorModule({
           <Button
             onClick={() => void handleSave()}
             disabled={isSaving}
-            className="h-10 rounded-md bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
+            className="h-10 rounded-md bg-blue-600 px-4 text-[13px] font-semibold text-white hover:bg-blue-700"
           >
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "create" ? "Thêm mới" : "Lưu"}
@@ -1891,3 +1891,4 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
     </FormField>
   );
 }
+

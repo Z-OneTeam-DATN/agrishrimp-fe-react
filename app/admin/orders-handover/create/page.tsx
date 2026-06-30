@@ -269,7 +269,7 @@ export default function CreateHandoverPage() {
                                                     <span className="text-[12px] text-slate-700 font-medium">{order.carrier || "Chưa chọn"}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-right pr-6 text-[13px] font-bold text-emerald-700">
+                                            <TableCell className="text-right pr-6 text-[13px] font-bold text-blue-700">
                                                 {/* Nếu đơn đã thanh toán thì COD = 0, ngược lại = subtotal */}
                                                 {order.paymentStatus === "PAID" ? "0đ" : formatCurrency(order.subtotal)}
                                             </TableCell>

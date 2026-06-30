@@ -99,7 +99,7 @@ export function AdminCategoryTable({
                     className={cn(
                       "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
                       cat.status === "Hiển thị"
-                        ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                        ? "bg-blue-50 text-blue-600 border-blue-100"
                         : "bg-slate-100 text-slate-400 border-slate-200",
                     )}
                   >
@@ -175,3 +175,4 @@ export function AdminCategoryTable({
     </div>
   );
 }
+

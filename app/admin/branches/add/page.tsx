@@ -957,7 +957,7 @@ export default function AddBranchPage() {
         <Button
           type="submit"
           disabled={isLoading}
-          className="h-9 px-10 text-[11px] font-medium bg-emerald-600 text-white shadow-xl hover:bg-emerald-700"
+          className="h-9 px-10 text-[11px] font-medium bg-blue-600 text-white shadow-xl hover:bg-blue-700"
         >
           {isLoading ? <Loader2 className="mr-2 animate-spin" /> : null}
           {isEditMode ? "Lưu thay đổi" : "Lưu chi nhánh"}
@@ -976,3 +976,4 @@ export default function AddBranchPage() {
     </>
   );
 }
+

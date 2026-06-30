@@ -45,13 +45,13 @@ export default function ReturnRequestPage({
     <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <nav className="mb-6 text-sm text-gray-500 flex items-center">
-          <Link href="/" className="hover:text-[#2d9f8d]">
+          <Link href="/" className="hover:text-[#1965a2]">
             Trang chủ
           </Link>{" "}
           <span className="mx-2">/</span>
           <Link
             href="/orders/list?status=COMPLETED"
-            className="hover:text-[#2d9f8d]"
+            className="hover:text-[#1965a2]"
           >
             Đơn hàng
           </Link>{" "}
@@ -76,7 +76,7 @@ export default function ReturnRequestPage({
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4 font-bold text-gray-800">
-                  <CheckCircle2 className="text-[#2d9f8d]" size={20} /> 1. Sản
+                  <CheckCircle2 className="text-[#1965a2]" size={20} /> 1. Sản
                   phẩm hoàn trả
                 </div>
                 <div className="flex items-center p-4 bg-[#fcfdfe] border border-gray-100 rounded-lg">
@@ -84,7 +84,7 @@ export default function ReturnRequestPage({
                     type="checkbox"
                     checked
                     readOnly
-                    className="w-5 h-5 accent-[#2d9f8d] mr-4 cursor-default"
+                    className="w-5 h-5 accent-[#1965a2] mr-4 cursor-default"
                   />
                   <img
                     src={product.image}
@@ -112,7 +112,7 @@ export default function ReturnRequestPage({
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Lý do hoàn trả <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full h-12 px-4 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#2d9f8d]">
+                  <select className="w-full h-12 px-4 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#1965a2]">
                     {" "}
                     {/* Changed p-2.5 to h-12 px-4 */}
                     <option value="">Vui lòng chọn lý do phù hợp</option>
@@ -126,7 +126,7 @@ export default function ReturnRequestPage({
                   </label>
                   <textarea
                     rows={4}
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#2d9f8d]"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-[#1965a2]"
                     placeholder="Mô tả cụ thể vấn đề..."
                   ></textarea>{" "}
                   {/* Changed p-3 to px-4 py-3, rows from 5 to 4 */}
@@ -181,7 +181,7 @@ export default function ReturnRequestPage({
                   {/* Added wrapper for sticky button */}
                   <button
                     type="submit"
-                    className="w-full bg-[#2d9f8d] hover:bg-[#248273] text-white font-bold h-12 rounded-lg shadow-md transition-colors uppercase text-sm"
+                    className="w-full bg-[#1965a2] hover:bg-[#248273] text-white font-bold h-12 rounded-lg shadow-md transition-colors uppercase text-sm"
                   >
                     GỬI YÊU CẦU
                   </button>{" "}
@@ -195,3 +195,4 @@ export default function ReturnRequestPage({
     </div>
   );
 }
+

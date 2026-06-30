@@ -412,7 +412,7 @@ export default function CashbookPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Tổng thu
             </p>
-            <p className="mt-2 text-[28px] font-semibold tracking-tight text-emerald-600">
+            <p className="mt-2 text-[28px] font-semibold tracking-tight text-blue-600">
               {formatNumber(summary.totalIncome)}
             </p>
           </div>
@@ -454,7 +454,7 @@ export default function CashbookPage() {
                 className={cn(
                   "h-[38px] px-4 text-[13px] font-medium shadow-none",
                   chartMode === "day"
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-600"
                 )}
                 onClick={() => setChartMode("day")}
@@ -466,7 +466,7 @@ export default function CashbookPage() {
                 className={cn(
                   "h-[38px] px-4 text-[13px] font-medium shadow-none",
                   chartMode === "month"
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-600"
                 )}
                 onClick={() => setChartMode("month")}
@@ -487,7 +487,7 @@ export default function CashbookPage() {
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-5 text-[11px] font-semibold text-slate-500">
                       <span className="inline-flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                         Thu
                       </span>
                       <span className="inline-flex items-center gap-2">
@@ -525,7 +525,7 @@ export default function CashbookPage() {
                             >
                               <div className="flex h-[220px] items-end gap-1.5">
                                 <div
-                                  className="w-4 rounded-t-[6px] bg-emerald-500 shadow-[0_8px_18px_rgba(16,185,129,0.18)]"
+                                  className="w-4 rounded-t-[6px] bg-blue-500 shadow-[0_8px_18px_rgba(16,185,129,0.18)]"
                                   style={{ height: `${incomeHeight}px` }}
                                 />
                                 <div
@@ -598,15 +598,15 @@ export default function CashbookPage() {
                           </p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-[10px] border border-emerald-100 bg-emerald-50/70 px-3 py-3">
-                            <p className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                          <div className="rounded-[10px] border border-blue-100 bg-blue-50/70 px-3 py-3">
+                            <p className="flex items-center gap-1 text-[11px] font-semibold text-blue-700">
                               <ArrowUpRight size={14} />
                               Thu
                             </p>
-                            <p className="mt-1 text-lg font-black text-emerald-600">
+                            <p className="mt-1 text-lg font-black text-blue-600">
                               {incomeRatio}%
                             </p>
-                            <p className="text-[11px] text-emerald-700/80">
+                            <p className="text-[11px] text-blue-700/80">
                               {formatNumber(summary.totalIncome)}
                             </p>
                           </div>
@@ -760,7 +760,7 @@ export default function CashbookPage() {
                         className={cn(
                           "border-none text-[10px] font-semibold",
                           entry.direction === "IN"
-                            ? "bg-emerald-50 text-emerald-600"
+                            ? "bg-blue-50 text-blue-600"
                             : "bg-rose-50 text-rose-600",
                         )}
                       >
@@ -787,7 +787,7 @@ export default function CashbookPage() {
                       className={cn(
                         "whitespace-nowrap p-3 text-right font-semibold",
                         entry.direction === "IN"
-                          ? "text-emerald-600"
+                          ? "text-blue-600"
                           : "text-rose-600",
                       )}
                     >
@@ -812,7 +812,7 @@ export default function CashbookPage() {
               <span>
                 Hiển thị {ledgerRows.length} / {filteredEntries.length} giao dịch
               </span>
-              <span className="text-emerald-600">
+              <span className="text-blue-600">
                 Thu hiển thị: {formatNumber(filteredTotals.income)}
               </span>
               <span className="text-rose-600">
@@ -884,3 +884,4 @@ export default function CashbookPage() {
     </div>
   );
 }
+

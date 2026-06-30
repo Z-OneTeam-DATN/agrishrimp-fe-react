@@ -25,7 +25,7 @@ const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: R
         val: "COD",
         label: "Thanh toán khi nhận hàng (COD)",
         sub: "Trả tiền mặt trực tiếp cho shipper",
-        icon: <Banknote size={20} className="text-emerald-500" />,
+        icon: <Banknote size={20} className="text-blue-500" />,
     },
     {
         val: "PAYOS",
@@ -325,7 +325,7 @@ export default function CheckoutPage() {
     if (isLoadingCart) {
         return (
             <div className="min-h-screen bg-[#f5f5f5] flex flex-col items-center justify-center gap-3 text-gray-400">
-                <Loader2 size={28} className="animate-spin text-teal-500" />
+                <Loader2 size={28} className="animate-spin text-blue-500" />
                 <span className="text-sm">Đang tải...</span>
             </div>
         )
@@ -335,20 +335,20 @@ export default function CheckoutPage() {
         <div className="min-h-screen bg-[#f5f5f5] pb-24 md:pb-10">
 
             {/* ── HEADER (Shopee-style) ── */}
-            <div className="bg-white border-b-2 border-teal-500 shadow-sm">
+            <div className="bg-white border-b-2 border-blue-500 shadow-sm">
                 <div className="container mx-auto px-4 max-w-6xl">
                     <div className="flex items-center gap-4 py-3.5">
                         {/* Logo + title */}
-                        <Link href="/" className="text-teal-600 font-extrabold text-xl tracking-tight">
+                        <Link href="/" className="text-blue-600 font-extrabold text-xl tracking-tight">
                             AgriShrimp
                         </Link>
-                        <span className="w-px h-6 bg-teal-300" />
+                        <span className="w-px h-6 bg-blue-300" />
                         <span className="text-base font-semibold text-gray-700">Thanh Toán</span>
                         {/* Breadcrumb (right) */}
                         <nav className="ml-auto hidden sm:flex items-center gap-1 text-xs text-gray-400">
-                            <Link href="/user/cart" className="hover:text-teal-600 transition-colors">Giỏ hàng</Link>
+                            <Link href="/user/cart" className="hover:text-blue-600 transition-colors">Giỏ hàng</Link>
                             <span className="mx-1">›</span>
-                            <span className="text-teal-600 font-medium">Thanh toán</span>
+                            <span className="text-blue-600 font-medium">Thanh toán</span>
                         </nav>
                     </div>
                 </div>
@@ -363,17 +363,17 @@ export default function CheckoutPage() {
                         {/* ── SECTION 1: ĐỊA CHỈ NHẬN HÀNG ── */}
                         <div className="bg-white border border-gray-200 overflow-hidden">
                             {/* Section title bar */}
-                            <div className="flex items-center justify-between px-5 py-3 bg-teal-50/60 border-b border-teal-100">
+                            <div className="flex items-center justify-between px-5 py-3 bg-blue-50/60 border-b border-blue-100">
                                 <div className="flex items-center gap-2">
-                                    <MapPin size={14} className="text-teal-600 shrink-0" />
-                                    <h2 className="text-xs font-bold text-teal-700 uppercase tracking-widest">
+                                    <MapPin size={14} className="text-blue-600 shrink-0" />
+                                    <h2 className="text-xs font-bold text-blue-700 uppercase tracking-widest">
                                         Địa chỉ nhận hàng
                                     </h2>
                                 </div>
                                 {addressConfirmed && (
                                     <button
                                         onClick={() => setIsAddressModalOpen(true)}
-                                        className="text-xs text-teal-600 font-semibold hover:underline"
+                                        className="text-xs text-blue-600 font-semibold hover:underline"
                                     >
                                         Thay đổi
                                     </button>
@@ -389,7 +389,7 @@ export default function CheckoutPage() {
                                                 <p className="text-sm">Bạn chưa có địa chỉ giao hàng nào.</p>
                                                 <button
                                                     onClick={() => { setIsAddressModalOpen(true); setIsAddingNewAddress(true) }}
-                                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white text-xs font-semibold rounded"
+                                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded"
                                                 >
                                                     <Plus size={13} /> Thêm địa chỉ mới
                                                 </button>
@@ -400,7 +400,7 @@ export default function CheckoutPage() {
                                                     <div
                                                         key={addr.id}
                                                         onClick={() => handleAddressSelect(addr)}
-                                                        className="flex items-start justify-between p-3.5 border border-gray-200 rounded cursor-pointer hover:border-teal-400 hover:bg-teal-50/20 transition-colors"
+                                                        className="flex items-start justify-between p-3.5 border border-gray-200 rounded cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition-colors"
                                                     >
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-1">
@@ -408,7 +408,7 @@ export default function CheckoutPage() {
                                                                 <span className="text-gray-300">|</span>
                                                                 <span className="text-sm text-gray-500">{addr.receiverPhone}</span>
                                                                 {addr.isDefault && (
-                                                                    <span className="text-[10px] text-teal-600 border border-teal-400 px-1.5 py-0.5 rounded-sm">
+                                                                    <span className="text-[10px] text-blue-600 border border-blue-400 px-1.5 py-0.5 rounded-sm">
                                     Mặc định
                                   </span>
                                                                 )}
@@ -420,14 +420,14 @@ export default function CheckoutPage() {
                                                 {addresses.length > 3 && (
                                                     <button
                                                         onClick={() => setIsAddressModalOpen(true)}
-                                                        className="w-full py-1.5 text-xs text-teal-600 hover:underline"
+                                                        className="w-full py-1.5 text-xs text-blue-600 hover:underline"
                                                     >
                                                         Xem thêm {addresses.length - 3} địa chỉ khác
                                                     </button>
                                                 )}
                                                 <button
                                                     onClick={() => { setIsAddressModalOpen(true); setIsAddingNewAddress(true) }}
-                                                    className="w-full py-2.5 border border-dashed border-gray-300 text-gray-500 text-sm hover:border-teal-500 hover:text-teal-600 transition-colors flex items-center justify-center gap-1.5 rounded"
+                                                    className="w-full py-2.5 border border-dashed border-gray-300 text-gray-500 text-sm hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5 rounded"
                                                 >
                                                     <Plus size={13} /> Thêm địa chỉ mới
                                                 </button>
@@ -436,7 +436,7 @@ export default function CheckoutPage() {
                                     </div>
                                 ) : (
                                     /* Confirmed address row — Shopee style */
-                                    <div className="flex items-start gap-3 pl-3 border-l-2 border-teal-500">
+                                    <div className="flex items-start gap-3 pl-3 border-l-2 border-blue-500">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-0.5">
                                                 <span className="font-bold text-sm text-gray-900">{deliveryInfo?.receiverName}</span>
@@ -469,7 +469,7 @@ export default function CheckoutPage() {
                                 {addressConfirmed && prepareMutation.isPending && (
                                     <div className="space-y-3 p-2">
                                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                                            <Loader2 size={14} className="animate-spin text-teal-500 shrink-0" />
+                                            <Loader2 size={14} className="animate-spin text-blue-500 shrink-0" />
                                             Đang tính phí vận chuyển...
                                         </div>
                                         {/* Skeleton */}
@@ -525,15 +525,15 @@ export default function CheckoutPage() {
                                         onClick={() => setPaymentMethod(pm.val)}
                                         className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all ${
                                             paymentMethod === pm.val
-                                                ? "border-teal-500 bg-teal-50/40 ring-1 ring-teal-400"
+                                                ? "border-blue-500 bg-blue-50/40 ring-1 ring-blue-400"
                                                 : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
                                         }`}
                                     >
                                         {/* Radio dot */}
                                         <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                                            paymentMethod === pm.val ? "border-teal-500" : "border-gray-300"
+                                            paymentMethod === pm.val ? "border-blue-500" : "border-gray-300"
                                         }`}>
-                                            {paymentMethod === pm.val && <div className="w-2 h-2 rounded-full bg-teal-500" />}
+                                            {paymentMethod === pm.val && <div className="w-2 h-2 rounded-full bg-blue-500" />}
                                         </div>
                                         {/* Icon */}
                                         <div className="shrink-0">{pm.icon}</div>
@@ -543,7 +543,7 @@ export default function CheckoutPage() {
                                             <p className="text-xs text-gray-400 mt-0.5">{pm.sub}</p>
                                         </div>
                                         {paymentMethod === pm.val && (
-                                            <CheckCircle2 size={16} className="text-teal-500 shrink-0" />
+                                            <CheckCircle2 size={16} className="text-blue-500 shrink-0" />
                                         )}
                                     </label>
                                 ))}
@@ -563,7 +563,7 @@ export default function CheckoutPage() {
                     onChange={(e) => setNote(e.target.value)}
                     rows={2}
                     placeholder="Giao giờ hành chính, gọi trước khi đến..."
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded text-sm focus:outline-none focus:border-teal-400 resize-none bg-gray-50/30 placeholder:text-gray-300"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded text-sm focus:outline-none focus:border-blue-400 resize-none bg-gray-50/30 placeholder:text-gray-300"
                 />
                             </div>
                         </div>
@@ -596,7 +596,7 @@ export default function CheckoutPage() {
                                                     Giáº£m giĂ¡
                                                     {prepareOrderDisplayResponse.voucherCode ? ` (${prepareOrderDisplayResponse.voucherCode})` : ""}
                                                 </span>
-                                                <span className="font-medium text-emerald-600">-{formatMoney(prepareOrderDisplayResponse.discountAmount)}</span>
+                                                <span className="font-medium text-blue-600">-{formatMoney(prepareOrderDisplayResponse.discountAmount)}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between items-center">
@@ -606,7 +606,7 @@ export default function CheckoutPage() {
                                         <div className="border-t border-dashed border-gray-200 pt-3">
                                             <div className="flex justify-between items-center">
                                                 <span className="font-semibold text-gray-800">Tổng thanh toán</span>
-                                                <span className="text-xl font-extrabold text-teal-600">
+                                                <span className="text-xl font-extrabold text-blue-600">
                           {formatMoney(prepareOrderDisplayResponse.totalAmount)}
                         </span>
                                             </div>
@@ -622,7 +622,7 @@ export default function CheckoutPage() {
                                 <button
                                     onClick={handleConfirm}
                                     disabled={!canPlaceOrder || confirmMutation.isPending || rateLimitCooldown > 0}
-                                    className="mt-5 w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold uppercase tracking-widest transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded"
+                                    className="mt-5 w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold uppercase tracking-widest transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded"
                                 >
                                     {confirmMutation.isPending ? (
                                         <><Loader2 size={15} className="animate-spin" /> Đang xử lý...</>
@@ -657,14 +657,14 @@ export default function CheckoutPage() {
                     <div className="flex items-center gap-3 px-4 py-3">
                         <div className="flex-1">
                             <p className="text-[10px] text-gray-400">Tổng thanh toán</p>
-                            <p className="text-base font-bold text-teal-600">
+                            <p className="text-base font-bold text-blue-600">
                                 {formatMoney(prepareOrderDisplayResponse.totalAmount)}
                             </p>
                         </div>
                         <button
                             onClick={handleConfirm}
                             disabled={confirmMutation.isPending || rateLimitCooldown > 0}
-                            className="px-7 py-3 bg-teal-600 text-white text-sm font-bold rounded uppercase tracking-wide transition-colors disabled:opacity-50"
+                            className="px-7 py-3 bg-blue-600 text-white text-sm font-bold rounded uppercase tracking-wide transition-colors disabled:opacity-50"
                         >
                             {confirmMutation.isPending
                                 ? <Loader2 size={14} className="animate-spin" />
@@ -712,7 +712,7 @@ export default function CheckoutPage() {
                                             onClick={() => handleAddressSelect(addr)}
                                             className={`p-4 border rounded-lg cursor-pointer transition-all ${
                                                 deliveryInfo?.address === addr.addressDetail
-                                                    ? "border-teal-500 bg-teal-50/30 ring-1 ring-teal-400"
+                                                    ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-400"
                                                     : "border-gray-200 hover:bg-gray-50"
                                             }`}
                                         >
@@ -725,20 +725,20 @@ export default function CheckoutPage() {
                                                     </div>
                                                     <p className="text-xs text-gray-500 leading-relaxed">{addr.addressDetail}</p>
                                                     {addr.isDefault && (
-                                                        <span className="mt-1.5 inline-block text-[10px] text-teal-600 border border-teal-400 px-1.5 py-0.5 rounded-sm">
+                                                        <span className="mt-1.5 inline-block text-[10px] text-blue-600 border border-blue-400 px-1.5 py-0.5 rounded-sm">
                               Mặc định
                             </span>
                                                     )}
                                                 </div>
                                                 {deliveryInfo?.address === addr.addressDetail && (
-                                                    <CheckCircle2 size={16} className="text-teal-500 shrink-0 mt-0.5" />
+                                                    <CheckCircle2 size={16} className="text-blue-500 shrink-0 mt-0.5" />
                                                 )}
                                             </div>
                                         </div>
                                     ))}
                                     <button
                                         onClick={() => setIsAddingNewAddress(true)}
-                                        className="w-full py-3 border border-dashed border-gray-300 text-gray-500 text-sm hover:border-teal-500 hover:text-teal-600 transition-colors flex items-center justify-center gap-1.5 rounded-lg mt-1"
+                                        className="w-full py-3 border border-dashed border-gray-300 text-gray-500 text-sm hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5 rounded-lg mt-1"
                                     >
                                         <Plus size={14} /> Thêm địa chỉ mới
                                     </button>
@@ -760,7 +760,7 @@ export default function CheckoutPage() {
                             <div className="px-4 py-3 border-t border-gray-100 shrink-0">
                                 <button
                                     onClick={() => setIsAddressModalOpen(false)}
-                                    className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded transition-colors"
+                                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded transition-colors"
                                 >
                                     Đóng
                                 </button>
@@ -784,7 +784,7 @@ export default function CheckoutPage() {
                             <p className="text-sm text-gray-500 mb-5">
                                 Một số sản phẩm vừa hết hàng hoặc không đủ số lượng.
                             </p>
-                            <button onClick={retryPrepare} className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-lg transition-colors">
+                            <button onClick={retryPrepare} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors">
                                 Kiểm tra lại đơn
                             </button>
                         </div>
@@ -806,7 +806,7 @@ export default function CheckoutPage() {
                             <p className="text-sm text-gray-500 mb-5">
                                 Thông tin đơn hàng đã hết hạn sau 30 phút. Vui lòng thực hiện lại.
                             </p>
-                            <button onClick={retryPrepare} className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-lg transition-colors">
+                            <button onClick={retryPrepare} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors">
                                 Thực hiện lại
                             </button>
                         </div>
@@ -816,3 +816,4 @@ export default function CheckoutPage() {
         </div>
     )
 }
+

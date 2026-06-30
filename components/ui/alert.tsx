@@ -56,7 +56,7 @@ const alertVariants = cva(
         variant: "success",
         appearance: "solid",
         className:
-          "bg-[var(--color-success,var(--color-green-500))] text-[var(--color-success-foreground,var(--color-white))]",
+          "bg-[var(--color-success,var(--color-blue-500))] text-[var(--color-success-foreground,var(--color-white))]",
       },
       {
         variant: "info",
@@ -100,7 +100,7 @@ const alertVariants = cva(
         variant: "success",
         appearance: "outline",
         className:
-          "border border-border bg-background text-[var(--color-success,var(--color-green-500))] [&_[data-slot=alert-close]]:text-foreground",
+          "border border-border bg-background text-[var(--color-success,var(--color-blue-500))] [&_[data-slot=alert-close]]:text-foreground",
       },
       {
         variant: "info",
@@ -143,7 +143,7 @@ const alertVariants = cva(
         variant: "success",
         appearance: "light",
         className:
-          "bg-[var(--color-success-soft,var(--color-green-50))] border border-[var(--color-success-alpha,var(--color-green-200))] text-foreground [&_[data-slot=alert-icon]]:text-[var(--color-success-foreground,var(--color-green-600))] dark:bg-[var(--color-success-soft,var(--color-green-950))] dark:border-[var(--color-success-alpha,var(--color-green-900))]",
+          "bg-[var(--color-success-soft,var(--color-blue-50))] border border-[var(--color-success-alpha,var(--color-blue-200))] text-foreground [&_[data-slot=alert-icon]]:text-[var(--color-success-foreground,var(--color-blue-600))] dark:bg-[var(--color-success-soft,var(--color-blue-950))] dark:border-[var(--color-success-alpha,var(--color-blue-900))]",
       },
       {
         variant: "info",
@@ -174,7 +174,7 @@ const alertVariants = cva(
         variant: "mono",
         icon: "success",
         className:
-          "[&_[data-slot=alert-icon]]:text-[var(--color-success-foreground,var(--color-green-600))]",
+          "[&_[data-slot=alert-icon]]:text-[var(--color-success-foreground,var(--color-blue-600))]",
       },
       {
         variant: "mono",
@@ -313,3 +313,4 @@ export {
   AlertTitle,
   AlertToolbar,
 };
+

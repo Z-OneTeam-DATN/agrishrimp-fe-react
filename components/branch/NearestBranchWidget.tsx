@@ -41,14 +41,14 @@ export function NearestBranchWidget({
     <div className={className}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-          <MapPin size={14} className="text-teal-600" />
+          <MapPin size={14} className="text-blue-600" />
           Cửa hàng gần bạn
         </h2>
         <button
           type="button"
           onClick={refetch}
           disabled={isAnyLoading}
-          className="text-xs text-teal-600 hover:text-teal-700 flex items-center gap-1 disabled:opacity-50"
+          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 disabled:opacity-50"
         >
           <RefreshCw size={11} className={isAnyLoading ? "animate-spin" : ""} />
           Cập nhật
@@ -71,7 +71,7 @@ export function NearestBranchWidget({
           <button
             type="button"
             onClick={refetch}
-            className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             Thử lại với GPS
           </button>
@@ -103,3 +103,4 @@ export function NearestBranchWidget({
     </div>
   )
 }
+

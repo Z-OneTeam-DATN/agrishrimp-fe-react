@@ -239,7 +239,7 @@ export default function BlogPostsPage() {
             </Button>
           </Link>
           <Link href="/admin/blog/posts/new">
-            <Button className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700">
+            <Button className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
               <Plus size={15} className="mr-1.5" />
               Viết bài mới
             </Button>
@@ -313,7 +313,7 @@ export default function BlogPostsPage() {
                           disabled={togglingId === post.id}
                           className={cn("h-7 w-7 rounded-[4px] text-slate-400", post.status === "PUBLISHED"
                             ? "hover:bg-amber-50 hover:text-amber-600"
-                            : "hover:bg-emerald-50 hover:text-emerald-600"
+                            : "hover:bg-blue-50 hover:text-blue-600"
                           )}
                           onClick={() => handleToggle(post)}
                         >
@@ -395,3 +395,4 @@ export default function BlogPostsPage() {
     </div>
   );
 }
+

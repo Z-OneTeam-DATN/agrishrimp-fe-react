@@ -19,10 +19,11 @@ export default function AdminDataSyncLoader({
         className,
       )}
     >
-      <Loader2 className="h-12 w-12 animate-spin text-emerald-600/80" />
+      <Loader2 className="h-12 w-12 animate-spin text-blue-600/80" />
       <p className="text-[12px] font-medium uppercase tracking-[0.28em] text-slate-400">
         {message}
       </p>
     </div>
   );
 }
+

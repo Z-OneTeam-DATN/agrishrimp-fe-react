@@ -147,6 +147,19 @@ export const adminGetBlogCategories = async (): Promise<BlogCategoryDTO[]> => {
   return res.data?.data ?? [];
 };
 
+export const adminGetBlogTags = async (): Promise<BlogTagDTO[]> => {
+  const res = await apiJava.get(buildJavaApiUrl("/blog/tags"));
+  return res.data?.data ?? [];
+};
+
+export const adminCreateBlogTag = async (data: {
+  name: string;
+  slug?: string;
+}): Promise<BlogTagDTO> => {
+  const res = await apiJava.post(buildJavaApiUrl("/blog/tags"), data);
+  return res.data?.data;
+};
+
 export const adminCreateBlogCategory = async (data: {
   name: string;
   slug?: string;

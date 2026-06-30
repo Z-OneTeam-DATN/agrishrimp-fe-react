@@ -204,7 +204,7 @@ export default function InventoryBelowMinReportPage() {
           <Button 
             onClick={handleExportExcel}
             disabled={isExporting || isLoading}
-            className="bg-green-600 hover:bg-green-700 text-white text-[12px] font-black uppercase h-9 rounded-none shadow-sm flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-black uppercase h-9 rounded-none shadow-sm flex items-center gap-2"
           >
             {isExporting ? <RefreshCw className="animate-spin" size={16} /> : <FileDown size={16} />}
             Xuất báo cáo
@@ -343,3 +343,4 @@ export default function InventoryBelowMinReportPage() {
     </div>
   );
 }
+

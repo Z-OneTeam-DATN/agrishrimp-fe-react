@@ -254,7 +254,7 @@ export default function AdminTransferListPage() {
 
           <div className="flex items-center justify-end gap-2">
             <Button
-              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
               onClick={() => window.location.assign("/admin/transfers/new")}
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -300,7 +300,7 @@ export default function AdminTransferListPage() {
                   className={cn(
                     "relative h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
                     activeTab === tab.id
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
                   )}
                 >
@@ -385,3 +385,4 @@ export default function AdminTransferListPage() {
     </div>
   );
 }
+

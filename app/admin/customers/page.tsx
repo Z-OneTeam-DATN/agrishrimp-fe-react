@@ -137,7 +137,7 @@ export default function CustomerManagementPage() {
     if (isLoadingAuth) {
         return (
             <div className="p-20 text-center flex flex-col items-center gap-2">
-                <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
+                <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
             </div>
         );
     }
@@ -210,7 +210,7 @@ export default function CustomerManagementPage() {
                     {hasPermission(P.CUSTOMER_CREATE) && (
                         <Button
                             onClick={() => router.push("/admin/customers/add")}
-                            className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                            className="h-[38px] rounded-md bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
                         >
                             <Plus size={15} className="mr-2" />
                             Thêm khách hàng
@@ -243,3 +243,4 @@ export default function CustomerManagementPage() {
         </div>
     );
 }
+

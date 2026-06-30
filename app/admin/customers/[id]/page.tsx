@@ -119,7 +119,7 @@ const translateOrderStatus = (status: string) => translateStatusLabel(status);
 
 const getOrderStatusColor = (status: string) => {
     switch (status) {
-        case 'COMPLETED': return 'text-emerald-700';
+        case 'COMPLETED': return 'text-blue-700';
         case 'CANCELLED':
         case 'RETURNED': return 'text-rose-600';
         case 'SHIPPING': return 'text-slate-700';
@@ -273,7 +273,7 @@ export default function CustomerDetailPage({
     if (isLoading)
         return (
             <div className="p-20 text-center flex flex-col items-center justify-center gap-4">
-                <div className="w-7 h-7 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-[12px] font-medium text-slate-400">
                     Đang tải hồ sơ khách hàng...
                 </p>
@@ -470,7 +470,7 @@ export default function CustomerDetailPage({
                                                 className={cn(
                                                     "text-[12px] font-medium",
                                                     customer?.userStatus === "ACTIVE"
-                                                        ? "text-emerald-700"
+                                                        ? "text-blue-700"
                                                         : "text-slate-600",
                                                 )}
                                             >
@@ -505,7 +505,7 @@ export default function CustomerDetailPage({
                                                 <p className="text-[10px] text-slate-500 mt-1">📞 {addr.receiverPhone}</p>
                                             </div>
                                             {addr.isDefault && (
-                                                <span className="text-[10px] font-medium text-emerald-700 whitespace-nowrap">
+                                                <span className="text-[10px] font-medium text-blue-700 whitespace-nowrap">
                                                     Mặc định
                                                 </span>
                                             )}
@@ -525,19 +525,19 @@ export default function CustomerDetailPage({
                         <TabsList className="bg-white border border-slate-200 rounded-[4px] p-1 w-full flex justify-start gap-1 h-auto shadow-sm overflow-x-auto">
                             <TabsTrigger
                                 value="history"
-                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap"
+                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <History size={13} className="mr-1.5" /> Nhật ký giao dịch
                             </TabsTrigger>
                             <TabsTrigger
                                 value="notes"
-                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap"
+                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <FileText size={13} className="mr-1.5" /> Ghi chú nội bộ
                             </TabsTrigger>
                             <TabsTrigger
                                 value="activity"
-                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-emerald-600 data-[state=active]:text-white whitespace-nowrap"
+                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
                             >
                                 <Activity size={13} className="mr-1.5" /> Lịch sử thay đổi
                             </TabsTrigger>
@@ -603,7 +603,7 @@ export default function CustomerDetailPage({
                                             <TableRow>
                                                 <TableCell colSpan={4} className="h-40 text-center">
                                                     <div className="flex flex-col items-center gap-2 opacity-50">
-                                                        <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                                                        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                                         <p className="text-[11px] font-medium">Đang tải lịch sử...</p>
                                                     </div>
                                                 </TableCell>
@@ -664,7 +664,7 @@ export default function CustomerDetailPage({
                                         <Button
                                             onClick={handleAddNote}
                                             size="sm"
-                                            className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium rounded-[4px]"
+                                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium rounded-[4px]"
                                         >
                                             <Plus size={12} className="mr-1" /> Thêm
                                         </Button>
@@ -769,7 +769,7 @@ export default function CustomerDetailPage({
                                     await handleAddNote();
                                     setShowNotesModal(false);
                                 }}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-medium h-9 rounded-[4px]"
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-medium h-9 rounded-[4px]"
                             >
                                 <Plus size={14} className="mr-1" /> Thêm ghi chú
                             </Button>
@@ -780,3 +780,4 @@ export default function CustomerDetailPage({
         </div>
     );
 }
+

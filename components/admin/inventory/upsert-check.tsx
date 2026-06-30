@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -151,7 +151,7 @@ const getItemBadge = (item: CheckItem) => {
   if (metrics.rejectedQty > 0) return { label: "Hư hại", className: "bg-rose-50 text-rose-700 border-rose-100" };
   if (metrics.suggestedImport > 0) return { label: "Cần nhập", className: "bg-amber-50 text-amber-700 border-amber-100" };
   if (metrics.diffQty !== 0) return { label: "Chênh lệch", className: "bg-sky-50 text-sky-700 border-sky-100" };
-  return { label: "Khớp kho", className: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+  return { label: "Khớp kho", className: "bg-blue-50 text-blue-700 border-blue-100" };
 };
 
 const getWorkflowStatusMeta = (status: CheckWorkflowStatus) => {
@@ -169,7 +169,7 @@ const getWorkflowStatusMeta = (status: CheckWorkflowStatus) => {
     case "COUNTING_COMPLETED":
       return {
         label: "Đã cân bằng",
-        className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+        className: "border-blue-100 bg-blue-50 text-blue-700",
       };
     default:
       return {
@@ -707,7 +707,7 @@ export default function InventoryUpsert({
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-slate-400">
-        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-blue-600" />
         <p className="text-[11px] uppercase tracking-widest text-slate-400">
           Đang đồng bộ dữ liệu...
         </p>
@@ -1046,7 +1046,7 @@ export default function InventoryUpsert({
                                 Sắp hết hàng
                               </Badge>
                             )}
-                            <Plus size={16} className="text-emerald-600" />
+                            <Plus size={16} className="text-blue-600" />
                           </div>
                         </button>
                       ))}
@@ -1227,7 +1227,7 @@ export default function InventoryUpsert({
                               className={cn(
                                 "h-7 w-7 rounded-md hover:bg-slate-100",
                                 item.reason
-                                  ? "text-emerald-600 hover:text-emerald-700"
+                                  ? "text-blue-600 hover:text-blue-700"
                                   : "text-slate-400 hover:text-slate-600",
                               )}
                               onClick={() => openNoteDialog(index)}
@@ -1295,7 +1295,7 @@ export default function InventoryUpsert({
               {mode !== "view" && (
                 <Button
                   type="button"
-                  className="h-9 rounded-md bg-emerald-600 px-4 text-[11px] font-medium text-white hover:bg-emerald-700"
+                  className="h-9 rounded-md bg-blue-600 px-4 text-[11px] font-medium text-white hover:bg-blue-700"
                   onClick={saveNoteDialog}
                 >
                   Lưu ghi chú
@@ -1333,7 +1333,7 @@ export default function InventoryUpsert({
             workflowStatus === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
             hasPermission(P.CHECK_APPROVE) && (
               <Button
-                className="h-9 bg-emerald-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700"
+                className="h-9 bg-blue-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
                 disabled={isSubmitting}
                 onClick={handleComplete}
               >
@@ -1363,7 +1363,7 @@ export default function InventoryUpsert({
               </Button>
               {hasPermission(P.CHECK_UPDATE) && (
                 <Button
-                  className="h-9 bg-emerald-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700"
+                  className="h-9 bg-blue-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
                   disabled={isSubmitting}
                   onClick={handleSubmitForApproval}
                 >
@@ -1382,3 +1382,4 @@ export default function InventoryUpsert({
     </div>
   );
 }
+

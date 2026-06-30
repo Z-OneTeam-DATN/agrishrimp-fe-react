@@ -355,7 +355,7 @@ export default function ReceiptDetailPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin text-emerald-600" size={30} />
+        <Loader2 className="animate-spin text-blue-600" size={30} />
       </div>
     );
   }
@@ -425,7 +425,7 @@ export default function ReceiptDetailPage() {
               <Button
                 onClick={handleApprove}
                 disabled={isProcessing}
-                className="h-10 bg-emerald-600 px-4 text-[12px] font-semibold hover:bg-emerald-700"
+                className="h-10 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
               >
                 Duyệt phiếu
               </Button>
@@ -443,7 +443,7 @@ export default function ReceiptDetailPage() {
             <Button
               onClick={openInspectModal}
               disabled={isProcessing}
-              className="h-10 bg-emerald-600 px-4 text-[12px] font-semibold hover:bg-emerald-700"
+              className="h-10 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
             >
               <CheckSquare size={14} className="mr-2" />
               Kiểm hàng và nhập kho
@@ -624,7 +624,7 @@ export default function ReceiptDetailPage() {
                 <Wallet size={13} className="mr-2" />
                 Thanh toán đủ
               </Button>
-              <Button className="h-9 bg-emerald-600 px-3 text-[11px] font-semibold hover:bg-emerald-700" onClick={() => openPaymentModal(false)}>
+              <Button className="h-9 bg-blue-600 px-3 text-[11px] font-semibold hover:bg-blue-700" onClick={() => openPaymentModal(false)}>
                 <PlusCircle size={13} className="mr-2" />
                 Ghi nhận thanh toán
               </Button>
@@ -670,7 +670,7 @@ export default function ReceiptDetailPage() {
            <div className="flex max-h-[92vh] w-full max-w-[1150px] flex-col rounded-md border border-slate-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-200 p-5">
                 <div className="flex flex-col">
-                   <h3 className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><CheckSquare size={18} className="text-emerald-600"/> Kiểm hàng và nhập kho</h3>
+                   <h3 className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><CheckSquare size={18} className="text-blue-600"/> Kiểm hàng và nhập kho</h3>
                    <p className="mt-1 text-[10.5px] text-slate-500">Xác nhận số lượng giao, số lượng đạt và hàng lỗi.</p>
                 </div>
                 <button onClick={() => setShowInspectModal(false)} className="text-slate-400 hover:text-slate-700"><X size={20}/></button>
@@ -792,7 +792,7 @@ export default function ReceiptDetailPage() {
               </div>
               <div className="flex justify-end gap-3 border-t bg-white p-5">
                  <Button variant="outline" onClick={() => setShowInspectModal(false)} className="h-10 px-6 text-[12px] font-medium">Hủy</Button>
-                 <Button onClick={submitInspect} disabled={isProcessing} className="flex h-10 items-center gap-2 bg-emerald-600 px-6 text-[12px] font-semibold text-white hover:bg-emerald-700"><CheckCircle2 size={16}/> Hoàn tất nhập kho</Button>
+                 <Button onClick={submitInspect} disabled={isProcessing} className="flex h-10 items-center gap-2 bg-blue-600 px-6 text-[12px] font-semibold text-white hover:bg-blue-700"><CheckCircle2 size={16}/> Hoàn tất nhập kho</Button>
               </div>
            </div>
         </div>
@@ -875,7 +875,7 @@ export default function ReceiptDetailPage() {
                 Hủy
               </Button>
               <Button
-                className="h-10 bg-emerald-600 px-5 text-[12px] font-semibold hover:bg-emerald-700"
+                className="h-10 bg-blue-600 px-5 text-[12px] font-semibold hover:bg-blue-700"
                 onClick={submitPayment}
                 disabled={isProcessing}
               >
@@ -891,7 +891,7 @@ export default function ReceiptDetailPage() {
         <AlertDialogContent className="rounded-md border border-slate-200 shadow-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-[15px] font-semibold text-slate-900">
-              <AlertCircle className={cn("h-5 w-5", confirmConfig.variant === "destructive" ? "text-rose-500" : "text-emerald-600")} />
+              <AlertCircle className={cn("h-5 w-5", confirmConfig.variant === "destructive" ? "text-rose-500" : "text-blue-600")} />
               {confirmConfig.title}
             </AlertDialogTitle>
             <AlertDialogDescription className="pt-2 text-[12px] font-normal leading-relaxed text-slate-500">
@@ -904,7 +904,7 @@ export default function ReceiptDetailPage() {
               onClick={confirmConfig.action}
               className={cn(
                 "h-10 rounded-md px-8 text-[12px] font-semibold transition-colors",
-                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
+                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
               )}
             >
               Xác nhận
@@ -915,3 +915,4 @@ export default function ReceiptDetailPage() {
     </div>
   );
 }
+

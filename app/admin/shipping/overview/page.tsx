@@ -134,7 +134,7 @@ export default function ShippingOverviewPage() {
             value="0"
             cod="0₫"
             icon={CheckCircle2}
-            color="text-emerald-500"
+            color="text-blue-500"
           />
           <StatCard
             title="Huỷ giao hàng"
@@ -197,3 +197,4 @@ function ChartPlaceholder({ title }: { title: string }) {
     </div>
   );
 }
+

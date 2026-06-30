@@ -113,7 +113,7 @@ export function CancelOrderModal({
                     {reasons.map((reason) => (
                       <FormItem
                         key={reason.code}
-                        className="flex items-center space-x-2 p-2 border rounded-md cursor-pointer has-[:checked]:border-green-600 has-[:checked]:bg-green-50"
+                        className="flex items-center space-x-2 p-2 border rounded-md cursor-pointer has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50"
                       >
                         <FormControl>
                           <RadioGroupItem
@@ -170,3 +170,4 @@ export function CancelOrderModal({
     </DialogContent>
   );
 }
+

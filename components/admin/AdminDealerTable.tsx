@@ -121,7 +121,7 @@ export function AdminDealerTable({ dealers }: AdminDealerTableProps) {
                 </div>
               </TableCell>
               <TableCell className="p-2 text-center">
-                <span className="text-[12px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                <span className="text-[12px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
                   {dl.discount}
                 </span>
               </TableCell>
@@ -130,7 +130,7 @@ export function AdminDealerTable({ dealers }: AdminDealerTableProps) {
                   className={cn(
                     "text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
                     dl.status === "Hoạt động"
-                      ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                      ? "bg-blue-50 text-blue-600 border-blue-100"
                       : "bg-slate-100 text-slate-400 border-slate-200",
                   )}
                 >
@@ -142,7 +142,7 @@ export function AdminDealerTable({ dealers }: AdminDealerTableProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-md"
+                    className="h-7 w-7 text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white transition-all rounded-md"
                   >
                     <Eye size={16} />
                   </Button>
@@ -184,3 +184,4 @@ export function AdminDealerTable({ dealers }: AdminDealerTableProps) {
     </div>
   );
 }
+

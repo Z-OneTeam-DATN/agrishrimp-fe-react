@@ -135,7 +135,7 @@ export default function ReturnListPage() {
                 </span>
               </div>
               <div className="flex gap-2">
-                <button className="px-3 py-1.5 border border-[#2d9f8d] text-[#2d9f8d] rounded text-xs font-bold hover:bg-[#eafef9] transition-colors">
+                <button className="px-3 py-1.5 border border-[#1965a2] text-[#1965a2] rounded text-xs font-bold hover:bg-[#eafef9] transition-colors">
                   Xem chi tiết
                 </button>
               </div>
@@ -146,3 +146,4 @@ export default function ReturnListPage() {
     </>
   );
 }
+

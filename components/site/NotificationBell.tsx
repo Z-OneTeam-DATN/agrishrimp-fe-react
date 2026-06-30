@@ -10,7 +10,7 @@ import { vi } from "date-fns/locale";
 import { toast } from "sonner";
 
 function NotificationIcon({ type }: { type: NotificationType }) {
-  if (type === "CHAT") return <MessageCircle className="w-4 h-4 text-teal-500" />;
+  if (type === "CHAT") return <MessageCircle className="w-4 h-4 text-blue-500" />;
   if (type === "ORDER") return <Package className="w-4 h-4 text-blue-500" />;
   return <Bell className="w-4 h-4 text-gray-400" />;
 }
@@ -89,7 +89,7 @@ export default function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAll}
-                className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 Đọc tất cả
@@ -110,7 +110,7 @@ export default function NotificationBell() {
                   key={n.id}
                   onClick={() => handleMarkOne(n)}
                   className={`flex items-start gap-3 px-4 py-3 w-full text-left hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors border-b border-gray-50 dark:border-slate-700/50 last:border-0 ${
-                    !n.isRead ? "bg-teal-50/50 dark:bg-teal-900/10" : ""
+                    !n.isRead ? "bg-blue-50/50 dark:bg-blue-900/10" : ""
                   }`}
                 >
                   <div className="mt-0.5 shrink-0">
@@ -126,7 +126,7 @@ export default function NotificationBell() {
                     </p>
                   </div>
                   {!n.isRead && (
-                    <span className="w-2 h-2 bg-teal-500 rounded-full shrink-0 mt-1.5" />
+                    <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1.5" />
                   )}
                 </button>
               ))
@@ -137,3 +137,4 @@ export default function NotificationBell() {
     </div>
   );
 }
+

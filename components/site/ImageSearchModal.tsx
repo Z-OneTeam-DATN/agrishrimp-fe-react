@@ -126,8 +126,8 @@ export default function ImageSearchModal({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-[#2d6a4f]/10 flex items-center justify-center">
-              <Camera size={18} className="text-[#2d6a4f]" />
+            <div className="w-9 h-9 rounded-full bg-[#1965a2]/10 flex items-center justify-center">
+              <Camera size={18} className="text-[#1965a2]" />
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-800 leading-tight">
@@ -157,12 +157,12 @@ export default function ImageSearchModal({ onClose }: Props) {
               onClick={() => inputRef.current?.click()}
               className={`cursor-pointer border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 py-14 transition-all select-none
                 ${dragOver
-                  ? "border-[#2d6a4f] bg-emerald-50"
-                  : "border-gray-200 bg-gray-50 hover:border-[#2d6a4f] hover:bg-emerald-50/40"
+                  ? "border-[#1965a2] bg-blue-50"
+                  : "border-gray-200 bg-gray-50 hover:border-[#1965a2] hover:bg-blue-50/40"
                 }`}
             >
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-[#2d6a4f]/15" : "bg-white shadow-sm"}`}>
-                <ImageIcon size={30} className={dragOver ? "text-[#2d6a4f]" : "text-gray-300"} />
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-[#1965a2]/15" : "bg-white shadow-sm"}`}>
+                <ImageIcon size={30} className={dragOver ? "text-[#1965a2]" : "text-gray-300"} />
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-700">
@@ -170,7 +170,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   hoặc{" "}
-                  <span className="text-[#2d6a4f] font-medium underline underline-offset-2">
+                  <span className="text-[#1965a2] font-medium underline underline-offset-2">
                     bấm để chọn ảnh
                   </span>
                 </p>
@@ -205,7 +205,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                 </button>
                 {isSearching && (
                   <div className="absolute inset-0 bg-white/70 flex flex-col items-center justify-center gap-2">
-                    <Loader2 size={28} className="animate-spin text-[#2d6a4f]" />
+                    <Loader2 size={28} className="animate-spin text-[#1965a2]" />
                     <p className="text-sm font-medium text-gray-600">Đang tìm sản phẩm...</p>
                   </div>
                 )}
@@ -213,7 +213,7 @@ export default function ImageSearchModal({ onClose }: Props) {
 
               <button
                 onClick={() => inputRef.current?.click()}
-                className="w-full text-xs text-gray-400 hover:text-[#2d6a4f] transition-colors underline underline-offset-2"
+                className="w-full text-xs text-gray-400 hover:text-[#1965a2] transition-colors underline underline-offset-2"
               >
                 Chọn ảnh khác
               </button>
@@ -264,7 +264,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                   <p className="text-xs text-gray-400">Thử tải lên ảnh khác rõ nét hơn</p>
                   <button
                     onClick={handleReset}
-                    className="mt-2 text-xs text-[#2d6a4f] underline underline-offset-2 hover:opacity-70"
+                    className="mt-2 text-xs text-[#1965a2] underline underline-offset-2 hover:opacity-70"
                   >
                     Chọn ảnh khác
                   </button>
@@ -274,7 +274,7 @@ export default function ImageSearchModal({ onClose }: Props) {
                   {results.map((product) => (
                     <div key={product.id} className="relative">
                       {product.similarity !== undefined && product.similarity > 0 && (
-                        <span className="absolute top-2 left-2 z-20 bg-[#2d6a4f] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
+                        <span className="absolute top-2 left-2 z-20 bg-[#1965a2] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm pointer-events-none">
                           {Math.round(product.similarity * 100)}% phù hợp
                         </span>
                       )}
@@ -290,3 +290,4 @@ export default function ImageSearchModal({ onClose }: Props) {
     </div>
   );
 }
+

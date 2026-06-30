@@ -595,7 +595,7 @@ const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   },
   READY_FOR_PICKUP: {
     label: "Cho lay hang",
-    styles: "bg-teal-50 text-teal-700 border-teal-200",
+    styles: "bg-blue-50 text-blue-700 border-blue-200",
   },
   SHIPPING: {
     label: "Đang giao",
@@ -603,7 +603,7 @@ const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   },
   RECEIVED: {
     label: "Đã nhận hàng",
-    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    styles: "bg-blue-50 text-blue-700 border-blue-200",
   },
   COMPLETED: {
     label: "Hoàn thành",
@@ -649,3 +649,4 @@ const PaymentBadge = ({ status }: { status: "PAID" | "UNPAID" }) => {
     </span>
   );
 };
+

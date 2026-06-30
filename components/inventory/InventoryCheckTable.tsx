@@ -30,7 +30,7 @@ export function InventoryCheckTable({
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "COMPLETED":
-        return "bg-emerald-50 text-emerald-600 border-emerald-100";
+        return "bg-blue-50 text-blue-600 border-blue-100";
       case "AUDITING":
         return "bg-blue-50 text-blue-600 border-blue-100";
       case "PENDING":
@@ -193,3 +193,4 @@ export function InventoryCheckTable({
     </div>
   );
 }
+

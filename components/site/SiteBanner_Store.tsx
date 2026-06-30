@@ -5,7 +5,7 @@ import { Search, Phone, MessageCircle } from "lucide-react";
 export default function StoreBanner() {
   return (
     <div
-      className="relative w-full mx-auto mb-8 py-12 px-5 text-white rounded-lg overflow-hidden shadow-lg bg-[#2d9f8d] bg-cover bg-center bg-no-repeat"
+      className="relative w-full mx-auto mb-8 py-12 px-5 text-white rounded-lg overflow-hidden shadow-lg bg-[#1965a2] bg-cover bg-center bg-no-repeat"
       style={{
         backgroundImage: `
           linear-gradient(135deg, rgba(45, 159, 141, 0.8) 0%, rgba(0, 121, 107, 0.85) 100%),
@@ -37,7 +37,7 @@ export default function StoreBanner() {
             {/* .search-btn-icon */}
             <button
               type="submit"
-              className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-transparent border-none text-[#329965] p-0 w-[35px] h-[35px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+              className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-transparent border-none text-[#1965a2] p-0 w-[35px] h-[35px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
               suppressHydrationWarning={true}
             >
               <Search size={20} />
@@ -53,7 +53,7 @@ export default function StoreBanner() {
             className="flex items-center cursor-pointer transition-transform duration-200 hover:scale-105 group"
           >
             {/* .icon-circle-white */}
-            <div className="w-[35px] h-[35px] bg-white rounded-full flex items-center justify-center text-[#329965] shadow-sm mr-2 flex-shrink-0">
+            <div className="w-[35px] h-[35px] bg-white rounded-full flex items-center justify-center text-[#1965a2] shadow-sm mr-2 flex-shrink-0">
               <Phone size={18} fill="currentColor" />
             </div>
             {/* .text-content */}
@@ -68,7 +68,7 @@ export default function StoreBanner() {
           {/* .contact-box 2 (Chat) */}
           <div className="flex items-center cursor-pointer transition-transform duration-200 hover:scale-105 group">
             {/* .icon-circle-white */}
-            <div className="w-[35px] h-[35px] bg-white rounded-full flex items-center justify-center text-[#329965] shadow-sm mr-2 flex-shrink-0">
+            <div className="w-[35px] h-[35px] bg-white rounded-full flex items-center justify-center text-[#1965a2] shadow-sm mr-2 flex-shrink-0">
               <MessageCircle size={18} fill="currentColor" />
             </div>
             {/* .text-content */}
@@ -81,3 +81,4 @@ export default function StoreBanner() {
     </div>
   );
 }
+

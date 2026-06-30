@@ -337,7 +337,7 @@ export function AdminOrderTable({ orders, onRefresh }: AdminOrderTableProps) {
                       <TableCell className="p-3 text-center">
                           <div className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border",
                               order.paymentStatus === 'Đã thanh toán'
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              ? "bg-blue-50 text-blue-600 border-blue-200"
                               : "bg-[#fff7e6] text-[#d97706] border-[#ffe58f]"
                           )}>
                               {order.paymentStatus === 'Chờ thanh toán' || order.paymentStatus === 'Chưa thanh toán' ? (

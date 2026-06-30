@@ -139,28 +139,28 @@ export default function ChatWindow() {
   return (
     <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-teal-600 dark:bg-teal-700">
+      <div className="flex items-center gap-3 px-4 py-3 bg-blue-600 dark:bg-blue-700">
         <div className="relative">
           <Avatar className="w-9 h-9">
             <AvatarImage src="/images/logo_arishrimp.jpg" alt="Shop" />
-            <AvatarFallback className="bg-white text-teal-600 text-sm font-bold">AS</AvatarFallback>
+            <AvatarFallback className="bg-white text-blue-600 text-sm font-bold">AS</AvatarFallback>
           </Avatar>
-          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-teal-600" />
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-400 rounded-full border-2 border-blue-600" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white truncate">AgriShrimp Shop</p>
-          <p className="text-xs text-teal-100">Thường trả lời trong vài phút</p>
+          <p className="text-xs text-blue-100">Thường trả lời trong vài phút</p>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsMinimized((v) => !v)}
-            className="text-teal-100 hover:text-white p-1 rounded-lg hover:bg-teal-500/50 transition-colors"
+            className="text-blue-100 hover:text-white p-1 rounded-lg hover:bg-blue-500/50 transition-colors"
           >
             <Minimize2 className="w-4 h-4" />
           </button>
           <button
             onClick={closeChat}
-            className="text-teal-100 hover:text-white p-1 rounded-lg hover:bg-teal-500/50 transition-colors"
+            className="text-blue-100 hover:text-white p-1 rounded-lg hover:bg-blue-500/50 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -173,7 +173,7 @@ export default function ChatWindow() {
           <div className="flex-1 h-[380px] overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
             {isLoadingConv ? (
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-6 h-6 text-teal-500 animate-spin" />
+                <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
               </div>
             ) : convMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
@@ -203,7 +203,7 @@ export default function ChatWindow() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isSending}
-              className="text-gray-400 hover:text-teal-500 disabled:opacity-40 transition-colors shrink-0"
+              className="text-gray-400 hover:text-blue-500 disabled:opacity-40 transition-colors shrink-0"
               title="Gửi ảnh"
             >
               <ImageIcon className="w-5 h-5" />
@@ -214,12 +214,12 @@ export default function ChatWindow() {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Nhập tin nhắn..."
-              className="flex-1 bg-gray-100 dark:bg-slate-700 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-teal-400 dark:text-gray-100 placeholder-gray-400"
+              className="flex-1 bg-gray-100 dark:bg-slate-700 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 dark:text-gray-100 placeholder-gray-400"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || isSending}
-              className="w-9 h-9 rounded-full bg-teal-500 hover:bg-teal-600 disabled:opacity-40 flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors"
             >
               {isSending ? (
                 <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -233,3 +233,4 @@ export default function ChatWindow() {
     </div>
   );
 }
+

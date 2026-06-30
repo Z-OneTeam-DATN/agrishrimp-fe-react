@@ -15,7 +15,7 @@ export default function PinnedProductCard({ product }: Props) {
       href={`/san-pham/${product.slug}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 p-2 mt-1 bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-700 rounded-xl hover:border-teal-400 transition-colors shadow-sm max-w-xs"
+      className="flex items-center gap-3 p-2 mt-1 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-xl hover:border-blue-400 transition-colors shadow-sm max-w-xs"
     >
       <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
         {product.imageUrl ? (
@@ -27,15 +27,16 @@ export default function PinnedProductCard({ product }: Props) {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1 text-xs text-teal-600 dark:text-teal-400 font-medium mb-0.5">
+        <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium mb-0.5">
           <Tag className="w-3 h-3" />
           <span>Sản phẩm được ghim</span>
         </div>
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 line-clamp-2 leading-tight">
           {product.name}
         </p>
-        <p className="text-xs text-teal-600 dark:text-teal-400 mt-0.5">Xem sản phẩm →</p>
+        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Xem sản phẩm →</p>
       </div>
     </Link>
   );
 }
+

@@ -345,7 +345,7 @@ export default function AddRolePage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="h-9 px-10 text-[11px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl"
+          className="h-9 px-10 text-[11px] font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-xl"
         >
           {saving ? <Loader2 className="animate-spin mr-2" /> : null}
           Lưu vai trò
@@ -354,3 +354,4 @@ export default function AddRolePage() {
     </div>
   );
 }
+

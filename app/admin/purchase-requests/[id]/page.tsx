@@ -56,7 +56,7 @@ function fmtDateTime(d?: string | null) {
 const RECEIPT_STATUS_MAP: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Chờ duyệt", cls: "bg-amber-100 text-amber-700" },
   APPROVED: { label: "Đã duyệt", cls: "bg-blue-100 text-blue-700" },
-  COMPLETED: { label: "Hoàn tất", cls: "bg-green-100 text-green-700" },
+  COMPLETED: { label: "Hoàn tất", cls: "bg-blue-100 text-blue-700" },
   REJECTED: { label: "Từ chối", cls: "bg-red-100 text-red-600" },
   CANCELLED: { label: "Đã hủy", cls: "bg-gray-100 text-gray-500" },
 };
@@ -251,7 +251,7 @@ export default function PurchaseRequestDetailPage() {
               </Link>
               <Button
                 size="sm"
-                className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+                className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
                 onClick={() =>
                   setConfirmAction({ type: "submit", label: "Gửi duyệt" })
                 }
@@ -278,7 +278,7 @@ export default function PurchaseRequestDetailPage() {
               </Button>
               <Button
                 size="sm"
-                className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+                className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
                 onClick={() =>
                   setConfirmAction({ type: "approve", label: "Duyệt phiếu" })
                 }
@@ -307,7 +307,7 @@ export default function PurchaseRequestDetailPage() {
           {canCreateReceipt && hasRemaining && (
             <Button
               size="sm"
-              className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+              className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
               onClick={handleCreateReceipt}
             >
               <Plus size={13} className="mr-1.5" />
@@ -451,7 +451,7 @@ export default function PurchaseRequestDetailPage() {
                         {fulfilled && (
                           <CheckCircle2
                             size={13}
-                            className="ml-1 text-emerald-500"
+                            className="ml-1 text-blue-500"
                           />
                         )}
                       </div>
@@ -518,7 +518,7 @@ export default function PurchaseRequestDetailPage() {
             {canCreateReceipt && (
               <Button
                 size="sm"
-                className="mt-3 h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+                className="mt-3 h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
                 onClick={handleCreateReceipt}
               >
                 <Plus size={13} className="mr-1.5" /> Tạo đợt nhập đầu tiên
@@ -557,7 +557,7 @@ export default function PurchaseRequestDetailPage() {
                             </span>
                             <Link
                               href={`/admin/receipts/${receipt.id}`}
-                              className="text-[13px] font-semibold text-slate-800 hover:text-emerald-700"
+                              className="text-[13px] font-semibold text-slate-800 hover:text-blue-700"
                             >
                               {receipt.code}
                             </Link>
@@ -724,3 +724,4 @@ export default function PurchaseRequestDetailPage() {
     </div>
   );
 }
+

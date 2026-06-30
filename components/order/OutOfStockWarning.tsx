@@ -49,7 +49,7 @@ export function OutOfStockWarning({ items, onOrderPartial }: OutOfStockWarningPr
           <button
             type="button"
             onClick={onOrderPartial}
-            className="flex items-center justify-center gap-2 flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-xl transition-colors"
+            className="flex items-center justify-center gap-2 flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
           >
             Đặt phần còn hàng
             <ArrowRight size={14} />
@@ -59,3 +59,4 @@ export function OutOfStockWarning({ items, onOrderPartial }: OutOfStockWarningPr
     </div>
   )
 }
+

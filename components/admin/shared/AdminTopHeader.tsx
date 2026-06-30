@@ -263,7 +263,7 @@ export default function AdminTopHeader() {
                           {item.label}
                         </BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink asChild className="truncate text-[13px] text-slate-500 hover:text-emerald-600">
+                        <BreadcrumbLink asChild className="truncate text-[13px] text-slate-500 hover:text-blue-600">
                           <Link href={item.href}>{item.label}</Link>
                         </BreadcrumbLink>
                       )}
@@ -291,19 +291,19 @@ export default function AdminTopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full">
-          <MapPin size={14} className="text-emerald-600" />
-          <span className="text-[12px] font-bold text-emerald-700">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
+          <MapPin size={14} className="text-blue-600" />
+          <span className="text-[12px] font-bold text-blue-700">
             {getUserBranchName()}
           </span>
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></div>
+          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse ml-1"></div>
         </div>
 
         <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
           <Button
             variant="ghost"
             size="icon"
-            className="relative text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+            className="relative text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
           >
             <Bell size={20} />
             <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
@@ -314,7 +314,7 @@ export default function AdminTopHeader() {
           <DropdownMenuTrigger asChild>
             <div className="flex items-center gap-3 cursor-pointer pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ml-2 group">
               <div className="text-right hidden sm:block">
-                <p className="text-[13px] font-black text-slate-800 leading-none group-hover:text-emerald-600 transition-colors">
+                <p className="text-[13px] font-black text-slate-800 leading-none group-hover:text-blue-600 transition-colors">
                   {getUserDisplayName()}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">
@@ -323,7 +323,7 @@ export default function AdminTopHeader() {
               </div>
               <Avatar className="h-9 w-9 border-2 border-white shadow-md ring-1 ring-slate-100">
                 <AvatarImage src={user?.avatar?.imageUrl ?? ""} />
-                <AvatarFallback className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white text-[11px] font-bold">
+                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[11px] font-bold">
                   {getUserDisplayName().charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -346,12 +346,12 @@ export default function AdminTopHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
-            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-emerald-50 focus:bg-emerald-50 group">
-              <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
+            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
+              <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
               <span className="text-[13px] font-medium">Hồ sơ cá nhân</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-emerald-50 focus:bg-emerald-50 group">
-              <SettingsIcon className="mr-3 h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
+            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
+              <SettingsIcon className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
               <span className="text-[13px] font-medium">Cài đặt hệ thống</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
@@ -371,3 +371,4 @@ export default function AdminTopHeader() {
     </header>
   );
 }
+

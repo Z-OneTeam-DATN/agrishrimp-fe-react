@@ -214,14 +214,14 @@ export default function EditEmployeePage() {
                                         <div className="relative cursor-pointer" onClick={handleAvatarClick}>
                                             <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-200 bg-white">
                                                 {uploading ? (
-                                                    <Loader2 className="animate-spin text-emerald-600" />
+                                                    <Loader2 className="animate-spin text-blue-600" />
                                                 ) : watch("avatarUrl") ? (
                                                     <img src={watch("avatarUrl") as string} alt="avatar" className="h-full w-full object-cover" />
                                                 ) : (
                                                     <UserCircle2 size={86} className="text-slate-200" />
                                                 )}
                                             </div>
-                                            <div className="absolute bottom-1 right-1 rounded-full bg-emerald-600 p-2 text-white shadow-lg">
+                                            <div className="absolute bottom-1 right-1 rounded-full bg-blue-600 p-2 text-white shadow-lg">
                                                 <Camera size={18} />
                                             </div>
                                         </div>
@@ -369,7 +369,7 @@ export default function EditEmployeePage() {
 
             <div className="fixed bottom-0 left-0 lg:left-[260px] right-0 bg-white border-t p-3 flex justify-end gap-3 z-[999] shadow-inner">
                 <Button type="button" variant="ghost" onClick={() => router.back()} className="font-medium text-[11px] text-slate-400">Hủy bỏ</Button>
-                <Button type="submit" disabled={saving} className="h-9 bg-emerald-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700">
+                <Button type="submit" disabled={saving} className="h-9 bg-blue-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700">
                     {saving ? <Loader2 className="animate-spin mr-2" /> : null}
                     Cập nhật nhân viên
                 </Button>
@@ -377,3 +377,4 @@ export default function EditEmployeePage() {
         </form>
     );
 }
+

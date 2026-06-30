@@ -18,10 +18,10 @@ export function AdminTransactionTable({ transactions }: any) {
     <div className="w-full">
       <div className="px-[15px] py-[10px] border-b border-[#eee] bg-[#f8f9fa] flex items-center justify-between">
         <h5 className="text-[12px] font-black text-slate-700 flex items-center gap-2 uppercase tracking-tight">
-          <History size={16} className="text-emerald-600" /> Danh sách giao dịch
+          <History size={16} className="text-blue-600" /> Danh sách giao dịch
           phát sinh
         </h5>
-        <button className="text-emerald-600 text-[11px] font-bold uppercase hover:underline">
+        <button className="text-blue-600 text-[11px] font-bold uppercase hover:underline">
           Xem toàn bộ nhật ký
         </button>
       </div>
@@ -71,7 +71,7 @@ export function AdminTransactionTable({ transactions }: any) {
                 <TableCell
                   className={cn(
                     "p-2 text-right font-black text-[12px]",
-                    item.type === "in" ? "text-emerald-600" : "text-rose-600",
+                    item.type === "in" ? "text-blue-600" : "text-rose-600",
                   )}
                 >
                   {item.amount}
@@ -81,7 +81,7 @@ export function AdminTransactionTable({ transactions }: any) {
                     className={cn(
                       "text-[9px] font-bold px-1.5 py-0.5 rounded border tracking-tight uppercase whitespace-nowrap",
                       item.status === "Hoàn thành"
-                        ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                        ? "bg-blue-50 text-blue-600 border-blue-100"
                         : item.status === "Chờ duyệt"
                           ? "bg-orange-50 text-orange-600 border-orange-100"
                           : "bg-slate-100 text-slate-400 border-slate-200",
@@ -111,7 +111,7 @@ export function AdminTransactionTable({ transactions }: any) {
           <Button
             variant="outline"
             size="sm"
-            className="h-6 w-6 p-0 text-[10px] bg-emerald-600 text-white border-emerald-600"
+            className="h-6 w-6 p-0 text-[10px] bg-blue-600 text-white border-blue-600"
           >
             1
           </Button>
@@ -127,3 +127,4 @@ export function AdminTransactionTable({ transactions }: any) {
     </div>
   );
 }
+

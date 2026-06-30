@@ -129,7 +129,7 @@ export default function HandoverDetailPage() {
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-widest">Nhân viên kho bàn giao</p>
                         <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
                                 <User size={18} />
                             </div>
                             <span className="text-[15px] font-black text-slate-800">{data.creatorName}</span>
@@ -181,7 +181,7 @@ export default function HandoverDetailPage() {
                                 <TableRow className="bg-slate-50 border-t-2 border-slate-900 font-black">
                                     <TableCell colSpan={3} className="text-right text-[12px] text-slate-800 uppercase pr-6">Tổng cộng bàn giao:</TableCell>
                                     <TableCell className="text-right text-[13px] text-blue-700">{data.totalWeight || 0} kg</TableCell>
-                                    <TableCell className="text-right text-[15px] text-emerald-700 pr-5">{formatCurrency(data.totalCod)}</TableCell>
+                                    <TableCell className="text-right text-[15px] text-blue-700 pr-5">{formatCurrency(data.totalCod)}</TableCell>
                                 </TableRow>
                             </TableBody>
                         </Table>

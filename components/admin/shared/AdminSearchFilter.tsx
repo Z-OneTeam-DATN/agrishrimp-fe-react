@@ -129,7 +129,7 @@ export function AdminSearchFilter({
                                 return (
                                     <SelectItem key={opt.value} value={opt.value} className={cn(
                                         "text-[13px] font-medium",
-                                        val === "ACTIVE" ? "text-emerald-600" : val === "INACTIVE" ? "text-rose-600" : val === "BANNED" ? "text-red-600" : ""
+                                        val === "ACTIVE" ? "text-blue-600" : val === "INACTIVE" ? "text-rose-600" : val === "BANNED" ? "text-red-600" : ""
                                     )}>
                                         {opt.label}
                                     </SelectItem>
@@ -182,3 +182,4 @@ export function AdminSearchFilter({
         </div>
     );
 }
+

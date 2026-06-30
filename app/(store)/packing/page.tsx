@@ -46,17 +46,17 @@ export default function PackingPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Quy cách đóng gói</span>
+        <span className="text-[#1965a2] font-bold">Quy cách đóng gói</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
         {/* Header */}
-        <h3 className="text-xl font-bold text-[#329965] uppercase border-b border-gray-200 pb-4 mb-8 flex items-center">
+        <h3 className="text-xl font-bold text-[#1965a2] uppercase border-b border-gray-200 pb-4 mb-8 flex items-center">
           <Package className="mr-3" size={24} />
           Quy chuẩn đóng gói hàng hóa AgriShrimp
         </h3>
@@ -67,8 +67,8 @@ export default function PackingPage() {
             return (
               <div key={index} className="group">
                 {/* Tiêu đề bước */}
-                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center group-hover:text-[#329965] transition-colors">
-                  <Icon className="mr-2 text-[#329965]" size={24} />
+                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center group-hover:text-[#1965a2] transition-colors">
+                  <Icon className="mr-2 text-[#1965a2]" size={24} />
                   {step.title}
                 </h4>
 
@@ -120,3 +120,4 @@ export default function PackingPage() {
     </>
   );
 }
+

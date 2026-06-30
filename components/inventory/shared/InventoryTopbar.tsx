@@ -118,7 +118,7 @@ export function InventoryTopbar() {
             Chi nhánh Hà Nội
           </span>
           <div
-            className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse ml-1"
+            className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse ml-1"
             title="Online"
           ></div>
         </div>
@@ -203,3 +203,4 @@ export function InventoryTopbar() {
     </header>
   );
 }
+

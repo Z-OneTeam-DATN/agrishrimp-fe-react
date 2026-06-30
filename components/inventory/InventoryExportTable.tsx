@@ -131,7 +131,7 @@ export function InventoryExportTable({
       case "APPROVED":
         return "text-blue-600";
       case "COMPLETED":
-        return "text-emerald-600";
+        return "text-blue-600";
       case "CANCELLED":
       case "REJECTED":
         return "text-slate-500";
@@ -222,7 +222,7 @@ export function InventoryExportTable({
                       )}
 
                       {status === "APPROVED" && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:text-emerald-600" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
                           <Check size={14} />
                         </Button>
                       )}
@@ -300,7 +300,7 @@ export function InventoryExportTable({
               onClick={confirmConfig.action}
               className={cn(
                 "h-[32px] rounded-[3px] px-6 text-[12px] font-bold text-white",
-                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
+                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
               )}
             >
               Xác nhận
@@ -311,3 +311,4 @@ export function InventoryExportTable({
     </div>
   );
 }
+

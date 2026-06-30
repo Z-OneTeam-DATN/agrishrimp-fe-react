@@ -64,11 +64,11 @@ export function AdminPageHeader({
                 className={cn(
                   "px-3 py-[6px] text-[13px] font-semibold rounded-[4px] transition-all",
                   activeTab === tab.id 
-                    ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100" 
-                    : "text-[#555] hover:bg-[#f8f9fa] hover:text-emerald-600"
+                    ? "bg-blue-50 text-blue-600 ring-1 ring-blue-100" 
+                    : "text-[#555] hover:bg-[#f8f9fa] hover:text-blue-600"
                 )}
               >
-                {tab.label} {tab.count !== null && <span className={cn("ml-1", tab.color || "text-emerald-600")}>({tab.count})</span>}
+                {tab.label} {tab.count !== null && <span className={cn("ml-1", tab.color || "text-blue-600")}>({tab.count})</span>}
               </button>
             ))}
           </div>
@@ -114,3 +114,4 @@ export function AdminPageHeader({
     </div>
   );
 }
+

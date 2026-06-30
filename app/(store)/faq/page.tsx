@@ -74,11 +74,11 @@ function FaqItem({ q, a }: { q: string; a: string }) {
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-4 text-left text-sm font-semibold text-gray-800 hover:bg-green-50 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 text-left text-sm font-semibold text-gray-800 hover:bg-blue-50 transition-colors"
       >
         <span>{q}</span>
         {open ? (
-          <ChevronUp size={18} className="text-[#329965] shrink-0 ml-3" />
+          <ChevronUp size={18} className="text-[#1965a2] shrink-0 ml-3" />
         ) : (
           <ChevronDown size={18} className="text-gray-400 shrink-0 ml-3" />
         )}
@@ -98,17 +98,17 @@ export default function FaqPage() {
       <StoreBanner />
 
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center container mx-auto px-4">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Câu hỏi thường gặp</span>
+        <span className="text-[#1965a2] font-bold">Câu hỏi thường gặp</span>
       </div>
 
       <div className="container mx-auto px-4 pb-12">
         <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
           <div className="border-b border-gray-200 pb-4 mb-8">
-            <h2 className="text-xl md:text-2xl font-bold text-[#329965] uppercase flex items-center">
+            <h2 className="text-xl md:text-2xl font-bold text-[#1965a2] uppercase flex items-center">
               <HelpCircle className="mr-3" size={28} />
               Câu hỏi thường gặp
             </h2>
@@ -120,7 +120,7 @@ export default function FaqPage() {
           <div className="space-y-8">
             {FAQ_ITEMS.map((section) => (
               <div key={section.category}>
-                <h3 className="text-base font-bold text-[#329965] uppercase mb-3 border-l-4 border-[#329965] pl-3">
+                <h3 className="text-base font-bold text-[#1965a2] uppercase mb-3 border-l-4 border-[#1965a2] pl-3">
                   {section.category}
                 </h3>
                 <div className="space-y-2">
@@ -132,13 +132,13 @@ export default function FaqPage() {
             ))}
           </div>
 
-          <div className="mt-10 p-5 bg-green-50 border border-green-200 rounded-lg text-center">
+          <div className="mt-10 p-5 bg-blue-50 border border-blue-200 rounded-lg text-center">
             <p className="text-gray-700 text-sm mb-3">
               Không tìm thấy câu trả lời bạn cần?
             </p>
             <Link
               href="/support"
-              className="inline-block px-6 py-2.5 bg-[#329965] text-white font-bold rounded-md hover:bg-[#268050] transition-colors text-sm"
+              className="inline-block px-6 py-2.5 bg-[#1965a2] text-white font-bold rounded-md hover:bg-[#268050] transition-colors text-sm"
             >
               Gửi yêu cầu hỗ trợ
             </Link>
@@ -148,3 +148,4 @@ export default function FaqPage() {
     </>
   );
 }
+

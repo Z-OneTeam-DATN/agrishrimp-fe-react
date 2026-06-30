@@ -197,7 +197,7 @@ export default function ReturnOrderDetailPage() {
           <div className="col-span-12 lg:col-span-9 space-y-4 text-slate-800">
               <div className="bg-white rounded-sm shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2 bg-white">
-                      <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-white transition-colors", receiveStatus === 'received' ? "bg-emerald-500" : "bg-blue-100 text-blue-600")}>
+                      <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-white transition-colors", receiveStatus === 'received' ? "bg-blue-500" : "bg-blue-100 text-blue-600")}>
                           {receiveStatus === 'received' ? <CheckCircle2 size={14}/> : <RotateCcw size={14} />}
                       </div>
                       <span className="font-bold text-[14px]">{receiveStatus === 'received' ? "Đã trả hàng" : "Đang trả hàng"}</span>
@@ -222,7 +222,7 @@ export default function ReturnOrderDetailPage() {
                                       {refundStatus === 'refunded' && <p className="text-[11px] text-slate-800 mt-0.5 font-medium">• Đã hoàn trả</p>}
                                       {/* [MỚI] Hiển thị dòng Đã nhận lại hàng */}
                                       {receiveStatus === 'received' && (
-                                          <p className="text-[11px] text-emerald-600 mt-0.5 font-bold flex items-center gap-1">• <Box size={10}/> Đã nhận lại hàng <ChevronDown size={12}/></p>
+                                          <p className="text-[11px] text-blue-600 mt-0.5 font-bold flex items-center gap-1">• <Box size={10}/> Đã nhận lại hàng <ChevronDown size={12}/></p>
                                       )}
                                   </div>
                               </div>

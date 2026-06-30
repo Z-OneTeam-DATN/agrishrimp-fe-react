@@ -147,7 +147,7 @@ export default function OrderManagementPage() {
               className={cn(
                 "flex items-center gap-2 px-5 py-2 rounded-md text-[13px] font-bold transition-all",
                 activeTab === tab.id
-                  ? "bg-emerald-600 text-white shadow-md"
+                  ? "bg-blue-600 text-white shadow-md"
                   : "text-slate-600 hover:bg-slate-100"
               )}
             >
@@ -165,7 +165,7 @@ export default function OrderManagementPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <Input
             placeholder="Tìm theo mã đơn hoặc tên khách hàng, nhấn Enter để tìm"
-            className="pl-9 h-[36px] text-[13px] border-slate-300 bg-white focus:ring-emerald-500 focus:border-emerald-500"
+            className="pl-9 h-[36px] text-[13px] border-slate-300 bg-white focus:ring-blue-500 focus:border-blue-500"
             value={search}
             onChange={e => setSearch(e.target.value)}
             onKeyDown={e => e.key === "Enter" && fetchOrders(activeTab, search)}
@@ -208,11 +208,11 @@ export default function OrderManagementPage() {
                   return (
                     <React.Fragment key={order.orderId}>
                       <TableRow
-                        className={cn("border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors", isExpanded && "bg-emerald-50/30")}
+                        className={cn("border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors", isExpanded && "bg-blue-50/30")}
                         onClick={() => handleToggleRow(order.orderId)}
                       >
                         <TableCell className="pl-4 text-center text-slate-400">
-                          {isExpanded ? <ChevronDown size={14} className="text-emerald-600" /> : <ChevronsRight size={14} />}
+                          {isExpanded ? <ChevronDown size={14} className="text-blue-600" /> : <ChevronsRight size={14} />}
                         </TableCell>
                         <TableCell><span className="text-[13px] font-bold text-blue-600">{order.orderCode}</span></TableCell>
                         <TableCell className="text-[13px] text-slate-700 whitespace-nowrap">
@@ -237,7 +237,7 @@ export default function OrderManagementPage() {
 
                       {isExpanded && (
                         <TableRow className="bg-[#fcfdfd] hover:bg-[#fcfdfd]">
-                          <TableCell colSpan={7} className="p-0 border-b border-emerald-100">
+                          <TableCell colSpan={7} className="p-0 border-b border-blue-100">
                             <div className="flex flex-col md:flex-row p-5 gap-8">
                               <div className="w-full md:w-[25%] space-y-4 border-r border-slate-100 pr-6">
                                 <div>
@@ -280,7 +280,7 @@ export default function OrderManagementPage() {
                                   ) : activeTab === "PENDING" ? (
                                     <Button
                                       size="sm"
-                                      className="h-[32px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold shadow-sm"
+                                      className="h-[32px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold shadow-sm"
                                       onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "READY_FOR_PICKUP")}
                                     >
                                       <CheckCircle size={15} className="mr-1.5" /> Xác nhận đơn
@@ -305,7 +305,7 @@ export default function OrderManagementPage() {
                                       </Button>
                                       <Button
                                         size="sm"
-                                        className="h-[32px] bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold shadow-sm"
+                                        className="h-[32px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold shadow-sm"
                                         onClick={(e) => handleUpdateStatus(e, order.orderId, order.orderCode, "SHIPPING")}
                                       >
                                         <Truck size={15} className="mr-1.5" /> Bàn giao vận chuyển
@@ -352,7 +352,7 @@ export default function OrderManagementPage() {
                                               )}
                                             </td>
                                             <td className="p-3 text-right text-[13px] text-slate-600">{formatCurrency(item.price)}</td>
-                                            <td className="p-3 text-right pr-4 text-[13px] font-bold text-emerald-700">{formatCurrency(item.totalPrice)}</td>
+                                            <td className="p-3 text-right pr-4 text-[13px] font-bold text-blue-700">{formatCurrency(item.totalPrice)}</td>
                                           </tr>
                                         ))
                                       ) : (
@@ -366,7 +366,7 @@ export default function OrderManagementPage() {
                             <div className="px-5 pb-3 pt-3 border-t border-slate-50 flex justify-end">
                               <button
                                 onClick={() => setExpandedId(null)}
-                                className="flex items-center text-[12px] font-bold text-slate-400 hover:text-emerald-600 transition-colors uppercase tracking-wider"
+                                className="flex items-center text-[12px] font-bold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-wider"
                               >
                                 <ChevronUp size={14} className="mr-1" /> Thu gọn thông tin
                               </button>
@@ -388,7 +388,7 @@ export default function OrderManagementPage() {
 
 const PaymentBadge = ({ status }: { status: "PAID" | "UNPAID" }) => {
   const styles = status === "PAID"
-    ? "bg-emerald-50 text-emerald-600 border-emerald-100 font-bold"
+    ? "bg-blue-50 text-blue-600 border-blue-100 font-bold"
     : "bg-amber-50 text-amber-600 border-amber-100 font-bold";
   return (
     <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] border uppercase tracking-tighter", styles)}>
@@ -396,3 +396,4 @@ const PaymentBadge = ({ status }: { status: "PAID" | "UNPAID" }) => {
     </span>
   );
 };
+

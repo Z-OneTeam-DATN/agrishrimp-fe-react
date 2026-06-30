@@ -370,7 +370,7 @@ export default function CheckoutPage() {
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 text-gray-400">
-        <Loader2 size={28} className="animate-spin text-teal-500" />
+        <Loader2 size={28} className="animate-spin text-blue-500" />
         <span className="text-sm">Đang thiết lập thanh toán...</span>
       </div>
     );
@@ -391,13 +391,13 @@ export default function CheckoutPage() {
             </h1>
           </div>
           <nav className="hidden md:flex items-center gap-1.5 py-4 text-sm text-gray-500">
-            <Link href="/" className="hover:text-teal-600 transition-colors">
+            <Link href="/" className="hover:text-blue-600 transition-colors">
               Trang chủ
             </Link>
             <ChevronRight size={13} className="text-gray-300" />
             <Link
               href="/user/cart"
-              className="hover:text-teal-600 transition-colors"
+              className="hover:text-blue-600 transition-colors"
             >
               Giỏ hàng
             </Link>
@@ -416,7 +416,7 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                   1
                 </span>
                 <h2 className="text-sm font-semibold text-gray-700">
@@ -428,7 +428,7 @@ export default function CheckoutPage() {
                   <div className="flex items-start gap-3">
                     <MapPin
                       size={15}
-                      className="text-teal-600 mt-0.5 shrink-0"
+                      className="text-blue-600 mt-0.5 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
@@ -440,7 +440,7 @@ export default function CheckoutPage() {
                           {selectedAddress.receiverPhone}
                         </span>
                         {selectedAddress.isDefault && (
-                          <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded font-medium">
+                          <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
                             Mặc định
                           </span>
                         )}
@@ -452,7 +452,7 @@ export default function CheckoutPage() {
                     <button
                       type="button"
                       onClick={() => setIsAddressModalOpen(true)}
-                      className="text-sm text-teal-600 hover:text-teal-700 font-medium shrink-0 transition-colors"
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium shrink-0 transition-colors"
                     >
                       Đổi
                     </button>
@@ -469,7 +469,7 @@ export default function CheckoutPage() {
                         setIsAddingNewAddress(true);
                         setIsAddressModalOpen(true);
                       }}
-                      className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                     >
                       <Plus size={15} /> Thêm địa chỉ
                     </button>
@@ -480,7 +480,7 @@ export default function CheckoutPage() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Ghi chú cho shipper (tùy chọn)..."
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm text-gray-700 placeholder:text-gray-400 bg-gray-50"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-sm text-gray-700 placeholder:text-gray-400 bg-gray-50"
                 />
               </div>
             </div>
@@ -490,10 +490,10 @@ export default function CheckoutPage() {
                 onClick={() => {
                   if (availableBranches.length > 1) setIsBranchModalOpen(true);
                 }}
-                className={`bg-white border rounded-xl overflow-hidden transition-all ${availableBranches.length > 1 && !isFindingBranch ? "cursor-pointer hover:border-teal-300" : ""} ${availableBranches.length === 0 && !isFindingBranch ? "border-red-200" : "border-gray-200"}`}
+                className={`bg-white border rounded-xl overflow-hidden transition-all ${availableBranches.length > 1 && !isFindingBranch ? "cursor-pointer hover:border-blue-300" : ""} ${availableBranches.length === 0 && !isFindingBranch ? "border-red-200" : "border-gray-200"}`}
               >
                 <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                  <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                     2
                   </span>
                   <h2 className="text-sm font-semibold text-gray-700">
@@ -505,7 +505,7 @@ export default function CheckoutPage() {
                     <div className="flex items-center gap-3 text-gray-400">
                       <Loader2
                         size={15}
-                        className="animate-spin text-teal-500 shrink-0"
+                        className="animate-spin text-blue-500 shrink-0"
                       />
                       <span className="text-sm">
                         Đang kiểm tra tồn kho tại các chi nhánh...
@@ -529,7 +529,7 @@ export default function CheckoutPage() {
                   ) : (
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
-                        <Store size={15} className="text-teal-600 shrink-0" />
+                        <Store size={15} className="text-blue-600 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {selectedBranch?.name}
@@ -540,7 +540,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       {availableBranches.length > 1 && (
-                        <span className="text-xs text-teal-600 font-medium flex items-center gap-0.5 shrink-0">
+                        <span className="text-xs text-blue-600 font-medium flex items-center gap-0.5 shrink-0">
                           Đổi <ChevronRight size={13} />
                         </span>
                       )}
@@ -554,7 +554,7 @@ export default function CheckoutPage() {
               className={`bg-white border border-gray-200 rounded-xl overflow-hidden transition-opacity ${!canCheckout ? "opacity-40 pointer-events-none" : ""}`}
             >
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                   3
                 </span>
                 <h2 className="text-sm font-semibold text-gray-700">
@@ -562,10 +562,10 @@ export default function CheckoutPage() {
                 </h2>
               </div>
               <div className="p-5">
-                <div className="flex items-center justify-between p-3.5 border border-teal-400 bg-teal-50/40 rounded-xl">
+                <div className="flex items-center justify-between p-3.5 border border-blue-400 bg-blue-50/40 rounded-xl">
                   <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full border-2 border-teal-600 flex items-center justify-center shrink-0">
-                      <div className="w-2 h-2 rounded-full bg-teal-600" />
+                    <div className="w-4 h-4 rounded-full border-2 border-blue-600 flex items-center justify-center shrink-0">
+                      <div className="w-2 h-2 rounded-full bg-blue-600" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
@@ -589,7 +589,7 @@ export default function CheckoutPage() {
               className={`bg-white border border-gray-200 rounded-xl overflow-hidden transition-opacity ${!canCheckout ? "opacity-40 pointer-events-none" : ""}`}
             >
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                   4
                 </span>
                 <h2 className="text-sm font-semibold text-gray-700">
@@ -614,13 +614,13 @@ export default function CheckoutPage() {
                   <label
                     key={pm.val}
                     onClick={() => setPaymentMethod(pm.val)}
-                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${paymentMethod === pm.val ? "border-teal-500 bg-teal-50/40 ring-1 ring-teal-400" : "border-gray-200 hover:border-gray-300"}`}
+                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${paymentMethod === pm.val ? "border-blue-500 bg-blue-50/40 ring-1 ring-blue-400" : "border-gray-200 hover:border-gray-300"}`}
                   >
                     <div
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${paymentMethod === pm.val ? "border-teal-600" : "border-gray-300"}`}
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${paymentMethod === pm.val ? "border-blue-600" : "border-gray-300"}`}
                     >
                       {paymentMethod === pm.val && (
-                        <div className="w-2 h-2 rounded-full bg-teal-600" />
+                        <div className="w-2 h-2 rounded-full bg-blue-600" />
                       )}
                     </div>
                     <div className="w-8 h-8 relative shrink-0">
@@ -690,11 +690,11 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={() => setIsVoucherModalOpen(true)}
                   disabled={!canCheckout}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 border border-dashed border-gray-200 rounded-lg hover:border-teal-400 hover:bg-teal-50 transition-all group disabled:opacity-40 disabled:pointer-events-none"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 border border-dashed border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all group disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  <Ticket size={14} className="text-teal-600 shrink-0" />
+                  <Ticket size={14} className="text-blue-600 shrink-0" />
                   <span
-                    className={`text-sm flex-1 text-left ${selectedVoucher ? "text-teal-700 font-medium" : "text-gray-400"}`}
+                    className={`text-sm flex-1 text-left ${selectedVoucher ? "text-blue-700 font-medium" : "text-gray-400"}`}
                   >
                     {selectedVoucher
                       ? `${selectedVoucher.code} · -${formatMoney(voucherDiscount)}`
@@ -702,7 +702,7 @@ export default function CheckoutPage() {
                   </span>
                   <ChevronRight
                     size={13}
-                    className="text-gray-300 group-hover:text-teal-500 transition-colors"
+                    className="text-gray-300 group-hover:text-blue-500 transition-colors"
                   />
                 </button>
               </div>
@@ -725,7 +725,7 @@ export default function CheckoutPage() {
                 {voucherDiscount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Giảm giá (Voucher)</span>
-                    <span className="text-teal-600 font-medium">
+                    <span className="text-blue-600 font-medium">
                       -{formatMoney(voucherDiscount)}
                     </span>
                   </div>
@@ -745,7 +745,7 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !canCheckout}
-                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -760,7 +760,7 @@ export default function CheckoutPage() {
                 </button>
                 <p className="text-center text-[11px] text-gray-400 mt-3 leading-relaxed">
                   Nhấn đặt hàng là bạn đồng ý với{" "}
-                  <span className="text-teal-600 cursor-pointer">
+                  <span className="text-blue-600 cursor-pointer">
                     điều khoản sử dụng
                   </span>{" "}
                   của AgriShrimp
@@ -784,7 +784,7 @@ export default function CheckoutPage() {
             type="submit"
             form="checkout-form"
             disabled={isSubmitting || !canCheckout}
-            className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <Loader2 size={14} className="animate-spin" />
@@ -825,12 +825,12 @@ export default function CheckoutPage() {
                   }
                   onKeyDown={(e) => e.key === "Enter" && applyVoucherByCode()}
                   placeholder="Nhập mã voucher..."
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-sm"
                 />
                 <button
                   type="button"
                   onClick={applyVoucherByCode}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
                   Áp dụng
                 </button>
@@ -869,14 +869,14 @@ export default function CheckoutPage() {
                     }}
                     className={`w-full flex items-center gap-4 p-4 border rounded-xl text-left transition-all ${
                       isSelected
-                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
+                        ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400"
                         : eligible
                           ? "border-gray-200 hover:border-gray-300"
                           : "border-gray-200 opacity-50"
                     }`}
                   >
                     <div className="shrink-0 text-center min-w-[60px]">
-                      <p className="text-base font-bold text-teal-600">
+                      <p className="text-base font-bold text-blue-600">
                         {discountString}
                       </p>
                       <p className="text-[10px] text-gray-400 font-mono mt-0.5">
@@ -901,7 +901,7 @@ export default function CheckoutPage() {
                       )}
                     </div>
                     {isSelected && (
-                      <span className="text-teal-600 shrink-0">
+                      <span className="text-blue-600 shrink-0">
                         <CheckCircle2 size={16} />
                       </span>
                     )}
@@ -963,7 +963,7 @@ export default function CheckoutPage() {
                   onClick={() => setSelectedBranchId(branch.id)}
                   className={`w-full text-left p-4 border rounded-xl transition-all ${
                     selectedBranchId === branch.id
-                      ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
+                      ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400"
                       : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
@@ -975,7 +975,7 @@ export default function CheckoutPage() {
                       <p className="text-xs text-gray-400 mb-2">
                         {branch.addressDetail}
                       </p>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
                         <Truck size={10} />{" "}
                         {getDeliveryDateText(branch.estimatedDays)}
                       </span>
@@ -983,12 +983,12 @@ export default function CheckoutPage() {
                     <div
                       className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
                         selectedBranchId === branch.id
-                          ? "border-teal-600"
+                          ? "border-blue-600"
                           : "border-gray-300"
                       }`}
                     >
                       {selectedBranchId === branch.id && (
-                        <div className="w-2 h-2 rounded-full bg-teal-600" />
+                        <div className="w-2 h-2 rounded-full bg-blue-600" />
                       )}
                     </div>
                   </div>
@@ -999,7 +999,7 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => setIsBranchModalOpen(false)}
-                className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl transition-colors"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
               >
                 Xác nhận
               </button>
@@ -1062,7 +1062,7 @@ export default function CheckoutPage() {
                       onClick={() => setSelectedAddressId(addr.id)}
                       className={`w-full text-left p-4 border rounded-xl transition-all ${
                         selectedAddressId === addr.id
-                          ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
+                          ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400"
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
@@ -1081,7 +1081,7 @@ export default function CheckoutPage() {
                             {addr.addressDetail}
                           </p>
                           {addr.isDefault && (
-                            <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-medium text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">
+                            <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
                               <CheckCircle2 size={9} /> Mặc định
                             </span>
                           )}
@@ -1089,12 +1089,12 @@ export default function CheckoutPage() {
                         <div
                           className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
                             selectedAddressId === addr.id
-                              ? "border-teal-600"
+                              ? "border-blue-600"
                               : "border-gray-300"
                           }`}
                         >
                           {selectedAddressId === addr.id && (
-                            <div className="w-2 h-2 rounded-full bg-teal-600" />
+                            <div className="w-2 h-2 rounded-full bg-blue-600" />
                           )}
                         </div>
                       </div>
@@ -1103,7 +1103,7 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setIsAddingNewAddress(true)}
-                    className="w-full mt-1 py-3.5 border-2 border-dashed border-gray-200 hover:border-teal-300 text-gray-500 hover:text-teal-600 font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition-all"
+                    className="w-full mt-1 py-3.5 border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-500 hover:text-blue-600 font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition-all"
                   >
                     <Plus size={16} /> Thêm địa chỉ mới
                   </button>
@@ -1122,7 +1122,7 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddressModalOpen(false)}
-                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl transition-colors"
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
                 >
                   Xác nhận
                 </button>
@@ -1134,3 +1134,4 @@ export default function CheckoutPage() {
     </div>
   );
 }
+

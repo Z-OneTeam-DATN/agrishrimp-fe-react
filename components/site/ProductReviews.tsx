@@ -282,7 +282,7 @@ export function ProductReviews({
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="mb-4 animate-spin text-teal-600" size={32} />
+          <Loader2 className="mb-4 animate-spin text-blue-600" size={32} />
           <p className="text-sm font-medium text-slate-500">Đang tải đánh giá...</p>
         </div>
       ) : reviews.length > 0 ? (
@@ -315,7 +315,7 @@ export function ProductReviews({
                           <h4 className="text-lg font-bold text-slate-950">
                             {review.userName || "Khách hàng"}
                           </h4>
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
                             <CheckCircle size={12} /> Đã mua hàng
                           </span>
                         </div>
@@ -415,3 +415,4 @@ export function ProductReviews({
     </div>
   );
 }
+

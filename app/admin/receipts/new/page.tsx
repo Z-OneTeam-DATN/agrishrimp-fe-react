@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -749,14 +749,14 @@ function AdminReceiptFormContent() {
   if (isInitialLoading)
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-600" size={32} />
+        <Loader2 className="animate-spin text-blue-600" size={32} />
       </div>
     );
 
   if (isMissingPurchaseRequestLink) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-600" size={32} />
+        <Loader2 className="animate-spin text-blue-600" size={32} />
       </div>
     );
   }
@@ -964,7 +964,7 @@ function AdminReceiptFormContent() {
                         <div className="p-10 text-center">
                           <Loader2
                             size={24}
-                            className="inline animate-spin text-emerald-600"
+                            className="inline animate-spin text-blue-600"
                           />
                         </div>
                       ) : products.length > 0 ? (
@@ -1197,7 +1197,7 @@ function AdminReceiptFormContent() {
                                 title={hasNote ? "Sửa ghi chú" : "Thêm ghi chú"}
                                 className={cn(
                                   "inline-flex h-7 w-7 items-center justify-center text-slate-400 transition-colors hover:text-slate-700",
-                                  hasNote && "text-emerald-600",
+                                  hasNote && "text-blue-600",
                                 )}
                                 onClick={() =>
                                   setNoteExpandedRows((prev) => ({
@@ -1307,7 +1307,7 @@ function AdminReceiptFormContent() {
 
           {!isReadOnly && (
             <Button
-              className="h-10 min-w-[190px] bg-emerald-600 px-6 text-[12px] font-semibold text-white hover:bg-emerald-700"
+              className="h-10 min-w-[190px] bg-blue-600 px-6 text-[12px] font-semibold text-white hover:bg-blue-700"
               onClick={handleSubmit(onSubmitWithConfirm)}
               disabled={isSubmitting || isMissingPurchaseRequestLink}
             >
@@ -1336,7 +1336,7 @@ function AdminReceiptFormContent() {
                   "w-5 h-5",
                   confirmConfig.variant === "destructive"
                     ? "text-rose-500"
-                    : "text-emerald-600",
+                    : "text-blue-600",
                 )}
               />
               {confirmConfig.title}
@@ -1355,7 +1355,7 @@ function AdminReceiptFormContent() {
                 "h-10 rounded-md px-8 text-[12px] font-semibold transition-colors",
                 confirmConfig.variant === "destructive"
                   ? "bg-rose-600 hover:bg-rose-700"
-                  : "bg-emerald-600 hover:bg-emerald-700",
+                  : "bg-blue-600 hover:bg-blue-700",
               )}
             >
               Xác nhận
@@ -1372,7 +1372,7 @@ export default function Page() {
     <Suspense
       fallback={
         <div className="flex h-screen items-center justify-center bg-slate-50">
-          <Loader2 className="animate-spin text-emerald-600" size={32} />
+          <Loader2 className="animate-spin text-blue-600" size={32} />
         </div>
       }
     >
@@ -1380,3 +1380,4 @@ export default function Page() {
     </Suspense>
   );
 }
+

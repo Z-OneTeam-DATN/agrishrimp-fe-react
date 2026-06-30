@@ -143,9 +143,9 @@ export function InventorySidebar() {
               icon={ClipboardCheck}
               label="Xác nhận nhập hàng"
               active={pathname.includes("/receipts/confirmation")}
-              color="text-emerald-500"
+              color="text-blue-500"
               badge={receiptPendingCount}
-              badgeColor="bg-emerald-500/20 text-emerald-500"
+              badgeColor="bg-blue-500/20 text-blue-500"
             />
             <SidebarLink
               href="/inventory/receipts"
@@ -266,3 +266,4 @@ function SidebarLink({
     </Link>
   );
 }
+

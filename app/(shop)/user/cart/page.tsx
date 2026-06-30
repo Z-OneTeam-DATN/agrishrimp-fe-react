@@ -348,7 +348,7 @@ export default function CartPage() {
           </p>
           <Link
             href="/san-pham"
-            className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
           >
             Mua sắm ngay <ArrowRight size={15} />
           </Link>
@@ -362,7 +362,7 @@ export default function CartPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 max-w-5xl">
           <nav className="flex items-center gap-1.5 py-4 text-sm text-gray-500">
-            <Link href="/" className="hover:text-teal-600 transition-colors">
+            <Link href="/" className="hover:text-blue-600 transition-colors">
               Trang chủ
             </Link>
             <ChevronRight size={13} className="text-gray-300" />
@@ -380,7 +380,7 @@ export default function CartPage() {
               <input
                 type="checkbox"
                 id="check-all"
-                className="w-4 h-4 accent-teal-600 cursor-pointer"
+                className="w-4 h-4 accent-blue-600 cursor-pointer"
                 checked={isAllChecked}
                 onChange={(e) => toggleCheckAll(e.target.checked)}
               />
@@ -439,7 +439,7 @@ export default function CartPage() {
                     >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 accent-teal-600 cursor-pointer"
+                        className="w-4 h-4 accent-blue-600 cursor-pointer"
                         checked={item.checked}
                         onChange={() => toggleCheck(item.id)}
                       />
@@ -475,7 +475,7 @@ export default function CartPage() {
                         {isUpdating ? (
                           <Loader2
                             size={16}
-                            className="animate-spin text-teal-600"
+                            className="animate-spin text-blue-600"
                           />
                         ) : (
                           <QtyInput
@@ -505,7 +505,7 @@ export default function CartPage() {
                     <div className="flex md:hidden gap-3">
                       <input
                         type="checkbox"
-                        className="w-4 h-4 accent-teal-600 cursor-pointer mt-0.5 shrink-0"
+                        className="w-4 h-4 accent-blue-600 cursor-pointer mt-0.5 shrink-0"
                         checked={item.checked}
                         onChange={() => toggleCheck(item.id)}
                       />
@@ -529,7 +529,7 @@ export default function CartPage() {
                             {isUpdating ? (
                               <Loader2
                                 size={14}
-                                className="animate-spin text-teal-600"
+                                className="animate-spin text-blue-600"
                               />
                             ) : (
                               <X size={15} />
@@ -575,7 +575,7 @@ export default function CartPage() {
             <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
               <Link
                 href="/san-pham"
-                className="text-sm text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1.5 transition-colors"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1.5 transition-colors"
               >
                 <ShoppingBag size={14} /> Tiếp tục mua sắm
               </Link>
@@ -585,13 +585,13 @@ export default function CartPage() {
           <div className="hidden md:flex items-center gap-5 bg-white border border-gray-200 rounded-xl px-5 py-4">
             <button
               onClick={() => setIsVoucherModalOpen(true)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-teal-600 transition-colors border border-gray-200 rounded-lg px-3 py-2 hover:border-teal-400"
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors border border-gray-200 rounded-lg px-3 py-2 hover:border-blue-400"
             >
               <Tag size={14} />
               {selectedVoucher ? (
                 <span className="font-medium">
                   {selectedVoucher.code} ·{" "}
-                  <span className="text-teal-600">
+                  <span className="text-blue-600">
                     -{formatMoney(discountValue)}
                   </span>
                 </span>
@@ -629,7 +629,7 @@ export default function CartPage() {
             {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
             <Link
               href={checkoutUrl}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-300 pointer-events-none"}`}
             >
               Thanh toán <ArrowRight size={15} />
             </Link>
@@ -648,7 +648,7 @@ export default function CartPage() {
           {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
           <Link
             href={checkoutUrl}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-300 pointer-events-none"}`}
           >
             Thanh toán ({totalCount}) <ArrowRight size={14} />
           </Link>
@@ -682,11 +682,11 @@ export default function CartPage() {
                   }
                   onKeyDown={(e) => e.key === "Enter" && applyVoucherByCode()}
                   placeholder="Nhập mã voucher..."
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-sm"
                 />
                 <button
                   onClick={applyVoucherByCode}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
                   Áp dụng
                 </button>
@@ -724,14 +724,14 @@ export default function CartPage() {
                     }}
                     className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
                       isSelected
-                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
+                        ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400"
                         : eligible
                           ? "border-gray-200 hover:border-gray-300"
                           : "border-gray-200 opacity-50"
                     }`}
                   >
                     <div className="shrink-0 text-center min-w-[60px]">
-                      <p className="text-base font-bold text-teal-600">
+                      <p className="text-base font-bold text-blue-600">
                         {discountString}
                       </p>
                       <p className="text-[10px] text-gray-400 font-mono mt-0.5">
@@ -758,7 +758,7 @@ export default function CartPage() {
                     {isSelected && (
                       <CheckCircle2
                         size={16}
-                        className="text-teal-600 shrink-0"
+                        className="text-blue-600 shrink-0"
                       />
                     )}
                   </button>
@@ -790,3 +790,4 @@ export default function CartPage() {
     </div>
   );
 }
+

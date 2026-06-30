@@ -116,7 +116,7 @@ export default function RolesManagementPage() {
           hideSettingsButton
           trailingContent={
             <Link href="/admin/employees/roles/add">
-              <Button className="h-[38px] px-4 text-[14px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition-all">
+              <Button className="h-[38px] px-4 text-[14px] font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-all">
                 <Plus className="mr-2 h-4 w-4" />
                 Thêm vai trò mới
               </Button>
@@ -142,3 +142,4 @@ export default function RolesManagementPage() {
     </div>
   );
 }
+

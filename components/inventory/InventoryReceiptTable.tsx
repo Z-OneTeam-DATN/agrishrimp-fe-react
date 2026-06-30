@@ -69,7 +69,7 @@ export function InventoryReceiptTable({
           variant="ghost"
           size="icon"
           aria-label={label}
-          className={`h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-emerald-600 ${className}`}
+          className={`h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-blue-600 ${className}`}
           onClick={onClick}
         >
           {icon}
@@ -189,3 +189,4 @@ export function InventoryReceiptTable({
     </TooltipProvider>
   );
 }
+

@@ -441,9 +441,9 @@ export default function AddCustomerPage() {
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Họ và tên khách hàng *</span>
-                                    {isNameValid && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                    {isNameValid && <CheckCircle2 size={14} className="text-blue-500" />}
                                 </Label>
-                                <Input {...register("name")} placeholder="Ví dụ: Nguyễn Văn Đại..." className="h-10 text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal focus:border-emerald-500" />
+                                <Input {...register("name")} placeholder="Ví dụ: Nguyễn Văn Đại..." className="h-10 text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal focus:border-blue-500" />
                                 {errors.name && <p className="text-[10px] text-red-500">{errors.name.message}</p>}
                             </div>
 
@@ -451,7 +451,7 @@ export default function AddCustomerPage() {
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Số điện thoại *</span>
-                                    {isPhoneValid && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                    {isPhoneValid && <CheckCircle2 size={14} className="text-blue-500" />}
                                 </Label>
                                 <div className="relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
@@ -460,7 +460,7 @@ export default function AddCustomerPage() {
                                         onChange={handlePhoneChange}
                                         onBlur={() => handleCheckDuplicate("phone")}
                                         value={phoneValue || ""}
-                                        className="h-10 pl-9 text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal focus:border-emerald-500"
+                                        className="h-10 pl-9 text-[13px] border-slate-200 rounded-[4px] shadow-none font-normal focus:border-blue-500"
                                     />
                                 </div>
                                 {errors.phone && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.phone.message}</p>}
@@ -470,7 +470,7 @@ export default function AddCustomerPage() {
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Email liên hệ *</span>
-                                    {isEmailValid && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                    {isEmailValid && <CheckCircle2 size={14} className="text-blue-500" />}
                                 </Label>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
@@ -478,7 +478,7 @@ export default function AddCustomerPage() {
                                         {...register("email")}
                                         onBlur={() => handleCheckDuplicate("email")}
                                         placeholder="customer@gmail.com"
-                                        className="h-10 pl-9 text-[13px] border-slate-200 rounded-[4px] shadow-none focus:border-emerald-500"
+                                        className="h-10 pl-9 text-[13px] border-slate-200 rounded-[4px] shadow-none focus:border-blue-500"
                                     />
                                 </div>
                                 {errors.email && <p className="text-[10px] text-red-500 flex items-center gap-1"><AlertCircle size={12} /> {errors.email.message}</p>}
@@ -535,7 +535,7 @@ export default function AddCustomerPage() {
                             <div className="space-y-1.5 flex flex-col">
                                 <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Tỉnh / Thành phố *</span>
-                                    {Boolean(selectedProvince) && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                    {Boolean(selectedProvince) && <CheckCircle2 size={14} className="text-blue-500" />}
                                 </Label>
                                 <Controller
                                     name="provinceId"
@@ -580,7 +580,7 @@ export default function AddCustomerPage() {
                             <div className="space-y-1.5 flex flex-col">
                                 <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Quận / Huyện *</span>
-                                    {Boolean(selectedDistrict) && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                    {Boolean(selectedDistrict) && <CheckCircle2 size={14} className="text-blue-500" />}
                                 </Label>
                                 <Controller
                                     name="districtId"
@@ -618,7 +618,7 @@ export default function AddCustomerPage() {
                             <div className="space-y-1.5 flex flex-col">
                                 <Label className="text-[10.5px] font-semibold text-slate-500 flex items-center justify-between">
                                     <span>Phường / Xã *</span>
-                                    {Boolean(selectedWard) && <CheckCircle2 size={14} className="text-emerald-500" />}
+                                    {Boolean(selectedWard) && <CheckCircle2 size={14} className="text-blue-500" />}
                                 </Label>
                                 <Controller
                                     name="wardId"
@@ -664,7 +664,7 @@ export default function AddCustomerPage() {
                                         onChange={handleAddressChange}
                                         onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                                         placeholder={selectedProvince ? "Gõ số nhà, tên đường để Geoapify gợi ý..." : "Vui lòng chọn Tỉnh/Thành trước khi nhập địa chỉ..."}
-                                        className="h-10 text-[13px] border-slate-200 rounded-[4px] focus:border-emerald-500 shadow-none bg-white"
+                                        className="h-10 text-[13px] border-slate-200 rounded-[4px] focus:border-blue-500 shadow-none bg-white"
                                         disabled={!selectedProvince}
                                         autoComplete="off"
                                     />
@@ -701,7 +701,7 @@ export default function AddCustomerPage() {
                                             onClick={copyAddressToClipboard}
                                             className="h-7 w-7 shrink-0 hover:bg-slate-200 rounded-[4px]"
                                         >
-                                            {copiedAddress ? <CheckCircle2 size={14} className="text-emerald-600" /> : <Copy size={14} className="text-slate-500" />}
+                                            {copiedAddress ? <CheckCircle2 size={14} className="text-blue-600" /> : <Copy size={14} className="text-slate-500" />}
                                         </Button>
                                     )}
                                 </div>
@@ -817,7 +817,7 @@ export default function AddCustomerPage() {
                                 <Textarea
                                     {...register("internalNotes")}
                                     placeholder="Thêm ghi chú về khách hàng này cho bộ phận nội bộ..."
-                                    className="min-h-[84px] text-[13px] border-slate-200 rounded-[4px] shadow-none focus:border-emerald-500 resize-none font-normal"
+                                    className="min-h-[84px] text-[13px] border-slate-200 rounded-[4px] shadow-none focus:border-blue-500 resize-none font-normal"
                                 />
                                 {errors.internalNotes && <p className="text-[10px] text-red-500">{errors.internalNotes.message}</p>}
                             </div>
@@ -834,7 +834,7 @@ export default function AddCustomerPage() {
                 <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="min-w-[180px] h-10 text-[13px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-none transition-all active:scale-[0.98] rounded-[4px]"
+                    className="min-w-[180px] h-10 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-none transition-all active:scale-[0.98] rounded-[4px]"
                 >
                     <Save size={16} className="mr-2" />
                     {isSubmitting ? "Đang lưu..." : "Thêm khách hàng"}
@@ -843,3 +843,4 @@ export default function AddCustomerPage() {
         </form>
     );
 }
+

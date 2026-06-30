@@ -16,9 +16,9 @@ const AccordionItem = ({
 }) => (
   <div className="border border-gray-200 rounded-lg mb-4 overflow-hidden shadow-sm transition-all hover:shadow-md">
     <details className="group" open={defaultOpen}>
-      <summary className="flex justify-between items-center font-medium cursor-pointer list-none p-4 bg-gray-50 text-gray-800 hover:text-[#329965] hover:bg-green-50 transition-colors">
+      <summary className="flex justify-between items-center font-medium cursor-pointer list-none p-4 bg-gray-50 text-gray-800 hover:text-[#1965a2] hover:bg-blue-50 transition-colors">
         <span className="flex items-center gap-3">
-          <HelpCircle size={18} className="text-[#329965]" />
+          <HelpCircle size={18} className="text-[#1965a2]" />
           {title}
         </span>
         <span className="transition-transform duration-300 group-open:rotate-180 text-gray-400">
@@ -40,16 +40,16 @@ export default function AccountPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Tài khoản</span>
+        <span className="text-[#1965a2] font-bold">Tài khoản</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
-        <h3 className="text-xl font-bold text-[#329965] uppercase border-b border-gray-200 pb-4 mb-6 flex items-center">
+        <h3 className="text-xl font-bold text-[#1965a2] uppercase border-b border-gray-200 pb-4 mb-6 flex items-center">
           Câu hỏi thường gặp về Tài khoản
         </h3>
 
@@ -155,3 +155,4 @@ export default function AccountPage() {
     </>
   );
 }
+

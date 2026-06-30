@@ -97,7 +97,7 @@ const percentText = (value?: number | null) => {
 
 const getTrendColor = (value?: number | null) => {
   const amount = Number(value || 0);
-  if (amount > 0) return "text-emerald-600";
+  if (amount > 0) return "text-blue-600";
   if (amount < 0) return "text-red-600";
   return "text-slate-400";
 };
@@ -348,7 +348,7 @@ export default function AdminDashboard() {
         </p>
         <Button
           onClick={() => window.location.reload()}
-          className="mt-6 h-10 rounded-[4px] bg-emerald-600 px-5 text-[13px] font-semibold hover:bg-emerald-700"
+          className="mt-6 h-10 rounded-[4px] bg-blue-600 px-5 text-[13px] font-semibold hover:bg-blue-700"
         >
           Thử lại
         </Button>
@@ -1046,3 +1046,4 @@ function EmptyText({
 }
 
 const donutColors = ["#059669", "#64748b", "#2563eb", "#d97706", "#dc2626"];
+

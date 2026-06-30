@@ -22,12 +22,12 @@ export function SubOrderCard({
       {/* Shop header — Shopee style */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <ShoppingBag size={15} className="text-teal-600 shrink-0" />
+          <ShoppingBag size={15} className="text-blue-600 shrink-0" />
           <span className="text-sm font-semibold text-gray-800">
             Cửa hàng AgriShrimp
           </span>
         </div>
-        <span className="text-[11px] text-teal-600 font-medium bg-teal-50 px-2 py-0.5 rounded-full">
+        <span className="text-[11px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded-full">
           Xử lý bởi cửa hàng
         </span>
       </div>
@@ -92,7 +92,7 @@ export function SubOrderCard({
 
             {/* Subtotal */}
             <div className="w-28 text-right shrink-0">
-              <span className="text-sm font-semibold text-teal-600">
+              <span className="text-sm font-semibold text-blue-600">
                 {formatMoney(item.subtotal)}
               </span>
             </div>
@@ -140,3 +140,4 @@ export function SubOrderCard({
     </div>
   )
 }
+

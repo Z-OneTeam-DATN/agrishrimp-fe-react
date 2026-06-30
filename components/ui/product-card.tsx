@@ -50,8 +50,8 @@ const animateFlyToCart = (e: React.MouseEvent) => {
 
   setTimeout(() => {
     if (document.body.contains(outer)) document.body.removeChild(outer);
-    cartTarget.classList.add("scale-125", "text-teal-500"); 
-    setTimeout(() => cartTarget.classList.remove("scale-125", "text-teal-500"), 200);
+    cartTarget.classList.add("scale-125", "text-blue-500"); 
+    setTimeout(() => cartTarget.classList.remove("scale-125", "text-blue-500"), 200);
   }, 800);
 };
 
@@ -141,10 +141,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/san-pham/${product.slug}`}
-      className="group relative flex flex-col h-full bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 hover:border-teal-400 hover:shadow-xl hover:-translate-y-1"
+      className="group relative flex flex-col h-full bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 hover:border-blue-400 hover:shadow-xl hover:-translate-y-1"
     >
       {/* Image */}
-      <div className="relative w-full pt-[90%] bg-gradient-to-br from-slate-50 via-teal-50/20 to-emerald-50/30 overflow-hidden">
+      <div className="relative w-full pt-[90%] bg-gradient-to-br from-slate-50 via-blue-50/20 to-blue-50/30 overflow-hidden">
         <Image
           src={displayImage}
           alt={product.name}
@@ -171,7 +171,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <button
           onClick={handleQuickAdd}
           disabled={isAdding}
-          className="hidden md:flex absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-teal-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 z-10 active:scale-90 disabled:opacity-50"
+          className="hidden md:flex absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-blue-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 z-10 active:scale-90 disabled:opacity-50"
         >
           {isAdding ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
         </button>
@@ -182,7 +182,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Category + Brand */}
         <div className="flex items-center gap-1.5 flex-wrap min-h-[18px]">
           {product.categoryName && (
-            <span className="inline-flex items-center text-[9px] uppercase font-bold tracking-widest text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center text-[9px] uppercase font-bold tracking-widest text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
               {product.categoryName}
             </span>
           )}
@@ -195,7 +195,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Name */}
-        <h3 className="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-teal-600 transition-colors min-h-[36px]">
+        <h3 className="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors min-h-[36px]">
           {product.name}
         </h3>
 
@@ -245,4 +245,5 @@ export default function ProductCard({ product }: ProductCardProps) {
     </Link>
   );
 }
+
 

@@ -29,7 +29,7 @@ export const PR_STATUS_COLOR: Record<PurchaseRequestStatus, string> = {
   APPROVED: "bg-blue-100 text-blue-700",
   SENT_TO_SUPPLIER: "bg-indigo-100 text-indigo-700",
   PARTIALLY_RECEIVED: "bg-orange-100 text-orange-700",
-  COMPLETED: "bg-green-100 text-green-700",
+  COMPLETED: "bg-blue-100 text-blue-700",
   CANCELLED: "bg-red-100 text-red-600",
   CLOSED: "bg-gray-100 text-gray-600",
 };
@@ -115,3 +115,4 @@ export interface PurchaseRequestResponse {
   items: PurchaseRequestItemResponse[];
   goodsReceipts: GoodsReceiptSummary[];
 }
+

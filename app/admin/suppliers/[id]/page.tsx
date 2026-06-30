@@ -889,7 +889,7 @@ export default function SupplierDetailPage() {
                     aria-label={`Sao chép ${label.toLowerCase()}`}
                     onClick={() => void copyValue(label, value)}
                     className={cn(
-                        "absolute right-1.5 z-10 h-7 w-7 text-slate-400 hover:bg-slate-100 hover:text-emerald-600",
+                        "absolute right-1.5 z-10 h-7 w-7 text-slate-400 hover:bg-slate-100 hover:text-blue-600",
                         multiline ? "top-1.5" : "top-1/2 -translate-y-1/2",
                     )}
                 >
@@ -903,7 +903,7 @@ export default function SupplierDetailPage() {
     if (isLoading) {
         return (
             <div className="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500">
-                <div className="w-8 h-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent"></div>
+                <div className="w-8 h-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
                 <p className="font-bold uppercase tracking-widest text-slate-400">Đang tải dữ liệu...</p>
             </div>
         );
@@ -919,13 +919,13 @@ export default function SupplierDetailPage() {
             <div className="space-y-5 px-1">
                     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                         <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-slate-200 bg-transparent p-0">
-                            <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
+                            <TabsTrigger value="info" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
                                 Thông tin
                             </TabsTrigger>
-                            <TabsTrigger value="catalog" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
+                            <TabsTrigger value="catalog" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
                                 Sản phẩm cung cấp ({catalogSummary.total})
                             </TabsTrigger>
-                            <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
+                            <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent px-0 py-3 text-[12px] font-medium text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none">
                                 Lịch sử nhập ({filteredHistory.length})
                             </TabsTrigger>
                         </TabsList>
@@ -1519,7 +1519,7 @@ export default function SupplierDetailPage() {
                                                             <TableCell className="py-3 pl-4">
                                                                 <button
                                                                     type="button"
-                                                                    className="text-[12px] font-semibold text-slate-800 hover:text-emerald-700"
+                                                                    className="text-[12px] font-semibold text-slate-800 hover:text-blue-700"
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
                                                                         router.push(`/admin/receipts/${item.id}`);
@@ -1548,7 +1548,7 @@ export default function SupplierDetailPage() {
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         aria-label="Xem chi tiết phiếu nhập"
-                                                                        className="h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-emerald-600"
+                                                                        className="h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-blue-600"
                                                                         onClick={(event) => {
                                                                             event.stopPropagation();
                                                                             router.push(`/admin/receipts/${item.id}`);
@@ -1618,7 +1618,7 @@ export default function SupplierDetailPage() {
                             Hủy
                         </Button>
                         {activeTab === "info" && (
-                        <Button type="submit" disabled={isSaving} className="h-10 min-w-[156px] bg-emerald-600 text-[12px] font-semibold hover:bg-emerald-700">
+                        <Button type="submit" disabled={isSaving} className="h-10 min-w-[156px] bg-blue-600 text-[12px] font-semibold hover:bg-blue-700">
                             <Save size={15} className="mr-2" />
                             {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
                         </Button>
@@ -1628,7 +1628,7 @@ export default function SupplierDetailPage() {
                                 type="button"
                                 disabled={isCatalogSaving || Boolean(catalogLoadError) || !hasCatalogDraft}
                                 onClick={() => void saveCatalog()}
-                                className="h-10 min-w-[156px] bg-emerald-600 text-[12px] font-semibold hover:bg-emerald-700"
+                                className="h-10 min-w-[156px] bg-blue-600 text-[12px] font-semibold hover:bg-blue-700"
                             >
                                 <Save size={15} className="mr-2" />
                                 {isCatalogSaving ? "Đang lưu..." : "Lưu catalog"}
@@ -1709,7 +1709,7 @@ export default function SupplierDetailPage() {
                                 event.preventDefault();
                                 void saveCatalogAndContinue();
                             }}
-                            className="h-9 text-[11px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700"
+                            className="h-9 text-[11px] font-bold uppercase bg-blue-600 hover:bg-blue-700"
                             disabled={isCatalogSaving}
                         >
                             {isCatalogSaving ? "Đang lưu..." : "Lưu và rời đi"}
@@ -1721,3 +1721,4 @@ export default function SupplierDetailPage() {
         </TooltipProvider>
     );
 }
+

@@ -207,7 +207,7 @@ export default function SupplierDebtReportPage() {
               Trợ giúp
             </Button>
             <Button
-              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
               onClick={handleExportExcel}
             >
               <Download size={16} className="mr-2" />
@@ -407,3 +407,4 @@ export default function SupplierDebtReportPage() {
     </div>
   );
 }
+

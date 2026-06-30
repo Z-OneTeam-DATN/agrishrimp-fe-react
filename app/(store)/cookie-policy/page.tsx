@@ -12,18 +12,18 @@ export default function CookiePolicyPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Chính sách cookie</span>
+        <span className="text-[#1965a2] font-bold">Chính sách cookie</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
         {/* Tiêu đề trang */}
         <div className="border-b border-gray-200 pb-4 mb-6">
-          <h2 className="text-xl md:text-2xl font-bold text-[#329965] uppercase flex items-center">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1965a2] uppercase flex items-center">
             <Cookie className="mr-3" size={28} />
             Chính sách cookie
           </h2>
@@ -57,7 +57,7 @@ export default function CookiePolicyPage() {
               <p className="mb-3">
                 AgriShrimp sử dụng cookie cho các mục đích sau:
               </p>
-              <ul className="list-disc pl-5 space-y-2 marker:text-[#329965]">
+              <ul className="list-disc pl-5 space-y-2 marker:text-[#1965a2]">
                 <li>
                   <strong>Cookie cần thiết:</strong> Giúp trang web hoạt động
                   bình thường, cho phép bạn điều hướng và sử dụng các tính năng
@@ -115,7 +115,7 @@ export default function CookiePolicyPage() {
                 liên hệ với chúng tôi qua email:{" "}
                 <a
                   href="mailto:support@arishrimp.com"
-                  className="text-[#329965] hover:underline font-medium"
+                  className="text-[#1965a2] hover:underline font-medium"
                 >
                   support@arishrimp.com
                 </a>
@@ -132,3 +132,4 @@ export default function CookiePolicyPage() {
     </>
   );
 }
+

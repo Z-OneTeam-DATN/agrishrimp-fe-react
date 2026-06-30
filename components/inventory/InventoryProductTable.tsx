@@ -86,7 +86,7 @@ export function InventoryProductTable({ products }: any) {
                 })}
               </TableCell>
               <TableCell className="p-[10px]">
-                <span className="text-emerald-600 font-black text-[11px] uppercase tracking-tighter">
+                <span className="text-blue-600 font-black text-[11px] uppercase tracking-tighter">
                   {product.status}
                 </span>
               </TableCell>
@@ -126,3 +126,4 @@ export function InventoryProductTable({ products }: any) {
     </>
   );
 }
+

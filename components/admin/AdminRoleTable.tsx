@@ -195,7 +195,7 @@ export function AdminRoleTable({
           >
             Trước
           </Button>
-          <Button variant="outline" size="sm" className="h-6 min-w-[24px] px-1 text-[10px] bg-emerald-600 text-white border-emerald-600 font-bold">
+          <Button variant="outline" size="sm" className="h-6 min-w-[24px] px-1 text-[10px] bg-blue-600 text-white border-blue-600 font-bold">
             {currentPage + 1} / {totalPages || 1}
           </Button>
           <Button 
@@ -212,3 +212,4 @@ export function AdminRoleTable({
     </div>
   );
 }
+

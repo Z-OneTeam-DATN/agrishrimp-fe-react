@@ -312,7 +312,7 @@ export default function NewTransferPage() {
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors",
                     step.status === "completed"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                      ? "border-blue-200 bg-blue-50 text-blue-600"
                       : step.status === "active"
                         ? "border-sky-200 bg-sky-50 text-sky-600"
                         : "border-slate-200 bg-slate-50 text-slate-300",
@@ -337,7 +337,7 @@ export default function NewTransferPage() {
                     className={cn(
                       "absolute inset-y-0 left-0 transition-all duration-500",
                       steps[idx].status === "completed"
-                        ? "w-full bg-emerald-300"
+                        ? "w-full bg-blue-300"
                         : "w-0 bg-transparent",
                     )}
                   />
@@ -714,7 +714,7 @@ export default function NewTransferPage() {
                         <Button
                           type="button"
                           size="sm"
-                          className="h-7 rounded-md bg-emerald-600 px-3 text-[11px] hover:bg-emerald-700"
+                          className="h-7 rounded-md bg-blue-600 px-3 text-[11px] hover:bg-blue-700"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={handleAddSelectedProducts}
                         >
@@ -764,7 +764,7 @@ export default function NewTransferPage() {
                               className={cn(
                                 "text-[11px] font-semibold",
                                 (variant.quantity || 0) > 0
-                                  ? "text-emerald-600"
+                                  ? "text-blue-600"
                                   : "text-rose-500",
                               )}
                             >
@@ -884,7 +884,7 @@ export default function NewTransferPage() {
                               type="number"
                               {...register(`items.${index}.receivedQuantity`)}
                               readOnly
-                              className="h-7 cursor-not-allowed rounded-md border-emerald-200 bg-emerald-50/40 px-2 text-right text-[11px] font-medium text-emerald-700 focus-visible:ring-0"
+                              className="h-7 cursor-not-allowed rounded-md border-blue-200 bg-blue-50/40 px-2 text-right text-[11px] font-medium text-blue-700 focus-visible:ring-0"
                             />
                           </TableCell>
                           {isInternalSale && (
@@ -1028,7 +1028,7 @@ export default function NewTransferPage() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700"
+              className="h-10 min-w-[180px] rounded-md bg-blue-600 px-6 font-semibold text-white hover:bg-blue-700"
             >
               {isSubmitting ? (
                 <Loader2 size={16} className="mr-2 animate-spin" />
@@ -1043,3 +1043,4 @@ export default function NewTransferPage() {
     </form>
   );
 }
+

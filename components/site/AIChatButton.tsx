@@ -8,9 +8,29 @@ import { usePathname } from "next/navigation";
 export default function AIChatButton() {
   const pathname = usePathname();
   const [dismissed, setDismissed] = useState(false);
+  const shouldHideOnPath = [
+    "/ai-doctor",
+    "/profile",
+    "/orders",
+    "/edit-profile",
+    "/password",
+    "/address",
+    "/voucher",
+    "/account",
+    "/about",
+    "/contact",
+    "/ordering",
+    "/packing",
+    "/privacy-policy",
+    "/return",
+    "/shipping-fee",
+    "/store-locator",
+    "/terms-of-use",
+    "/warranty-policy",
+    "/cookie-policy",
+  ].some((path) => pathname?.startsWith(path));
 
-  // Ẩn khi đang ở trang AI doctor
-  if (pathname?.startsWith("/ai-doctor")) return null;
+  if (shouldHideOnPath) return null;
   if (dismissed) return null;
 
   return (

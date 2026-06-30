@@ -91,7 +91,7 @@ export default function DailyBusinessResults({
                   <span
                     className={
                       stat.isPositive
-                        ? "text-[10.5px] font-medium text-emerald-600"
+                        ? "text-[10.5px] font-medium text-blue-600"
                         : "text-[10.5px] font-medium text-rose-600"
                     }
                   >
@@ -110,3 +110,4 @@ export default function DailyBusinessResults({
     </section>
   );
 }
+

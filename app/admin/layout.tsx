@@ -98,7 +98,7 @@ export default function AdminLayout({
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -131,3 +131,4 @@ export default function AdminLayout({
     </div>
   );
 }
+

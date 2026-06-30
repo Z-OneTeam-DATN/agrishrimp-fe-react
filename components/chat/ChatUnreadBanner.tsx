@@ -105,14 +105,15 @@ export default function ChatUnreadBanner() {
       className={`fixed top-[72px] right-4 z-[999] w-72 rounded-2xl shadow-2xl
         bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-600
         overflow-hidden cursor-pointer select-none
-        transition-[transform,opacity] ease-out duration-[380ms]
+        transition-[transform,opacity] ease-out
         ${isVisible ? "translate-x-0 opacity-100" : "translate-x-[120%] opacity-0"}`}
+      style={{ transitionDuration: "380ms" }}
     >
       {/* Body */}
       <div className="flex items-start gap-3 px-4 pt-3.5 pb-3">
         {/* Shop avatar */}
         <div className="relative shrink-0 mt-0.5">
-          <div className="w-11 h-11 rounded-full overflow-hidden bg-teal-100 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/logo_arishrimp.jpg"
@@ -120,7 +121,7 @@ export default function ChatUnreadBanner() {
               className="w-11 h-11 object-cover"
             />
           </div>
-          <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white dark:border-slate-800" />
+          <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-blue-400 rounded-full border-2 border-white dark:border-slate-800" />
         </div>
 
         {/* Text */}
@@ -142,7 +143,7 @@ export default function ChatUnreadBanner() {
             {preview}
           </p>
 
-          <p className="text-[11.5px] font-medium text-teal-600 dark:text-teal-400 mt-1.5">
+          <p className="text-[11.5px] font-medium text-blue-600 dark:text-blue-400 mt-1.5">
             {conv.unreadByCustomer} tin nhắn chưa đọc · Nhấn để xem
           </p>
         </div>
@@ -152,10 +153,11 @@ export default function ChatUnreadBanner() {
       <div className="h-[3px] bg-gray-100 dark:bg-slate-700">
         <div
           ref={progressRef}
-          className="h-full bg-teal-500"
+          className="h-full bg-blue-500"
           style={{ width: "100%" }}
         />
       </div>
     </div>
   );
 }
+

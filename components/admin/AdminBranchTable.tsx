@@ -148,7 +148,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                 <TableCell className="h-[108px] p-2 align-middle text-center">
                   <span className={cn(
                     "text-[11px] font-medium tracking-tight capitalize whitespace-nowrap",
-                    isActive ? "text-emerald-600" : "text-rose-600"
+                    isActive ? "text-blue-600" : "text-rose-600"
                   )}>
                     {isActive ? "Đang hoạt động" : "Ngừng hoạt động"}
                   </span>
@@ -208,7 +208,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
           <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd]">
             Trước
           </Button>
-          <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-[10px] bg-emerald-600 text-white border-emerald-600 font-bold">
+          <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-[10px] bg-blue-600 text-white border-blue-600 font-bold">
             1
           </Button>
           <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd]">
@@ -219,3 +219,4 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
     </div>
   );
 }
+

@@ -372,7 +372,7 @@ export default function AddEmployeePage() {
     if (loading || isLoadingAuth) {
         return (
             <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="animate-spin text-emerald-600" size={32} />
+                <Loader2 className="animate-spin text-blue-600" size={32} />
             </div>
         );
     }
@@ -402,7 +402,7 @@ export default function AddEmployeePage() {
                                         <div className="relative cursor-pointer" onClick={handleAvatarClick}>
                                             <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-200 bg-white">
                                                 {uploading ? (
-                                                    <Loader2 className="animate-spin text-emerald-600" />
+                                                    <Loader2 className="animate-spin text-blue-600" />
                                                 ) : currentAvatarUrl ? (
                                                     <img
                                                         src={currentAvatarUrl}
@@ -413,7 +413,7 @@ export default function AddEmployeePage() {
                                                     <UserCircle2 size={86} className="text-slate-200" />
                                                 )}
                                             </div>
-                                            <div className="absolute bottom-1 right-1 rounded-full bg-emerald-600 p-2 text-white shadow-lg">
+                                            <div className="absolute bottom-1 right-1 rounded-full bg-blue-600 p-2 text-white shadow-lg">
                                                 <Camera size={18} />
                                             </div>
                                         </div>
@@ -792,7 +792,7 @@ export default function AddEmployeePage() {
                 <Button
                     type="submit"
                     disabled={saving || uploading || branches.length === 0 || roles.length === 0}
-                    className="h-9 bg-emerald-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-emerald-700"
+                    className="h-9 bg-blue-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
                 >
                     {saving ? <Loader2 className="mr-2 animate-spin" /> : null}
                     Lưu nhân viên
@@ -801,3 +801,4 @@ export default function AddEmployeePage() {
         </form>
     );
 }
+

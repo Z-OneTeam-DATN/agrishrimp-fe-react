@@ -37,7 +37,7 @@ function CancelContent() {
         <div className="px-6 pb-6 space-y-2">
           <Link
             href="/checkout"
-            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-teal-600 hover:bg-teal-700 rounded-xl text-sm font-semibold text-white transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-colors"
           >
             <RotateCcw size={15} />
             Thử lại đặt hàng
@@ -64,3 +64,4 @@ export default function OrderCancelPage() {
     </div>
   )
 }
+

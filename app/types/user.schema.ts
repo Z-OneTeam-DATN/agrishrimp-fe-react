@@ -95,6 +95,7 @@ export type UserType = z.infer<typeof BaseUserSchema> & {
     name: string;
   };
   permissions?: string[];
+  provider?: string;
   mustChangePassword?: boolean;
 };
 

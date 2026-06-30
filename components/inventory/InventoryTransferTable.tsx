@@ -66,7 +66,7 @@ export function InventoryTransferTable({ transfers }: any) {
                     <span
                       className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-tighter ${
                         item.status === "COMPLETED"
-                          ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                          ? "bg-blue-50 text-blue-600 border-blue-100"
                           : item.status === "SHIPPING" || item.status === "TRANSIT"
                             ? "bg-blue-50 text-blue-600 border-blue-100"
                             : item.status === "PENDING"
@@ -133,3 +133,4 @@ export function InventoryTransferTable({ transfers }: any) {
     </>
   );
 }
+

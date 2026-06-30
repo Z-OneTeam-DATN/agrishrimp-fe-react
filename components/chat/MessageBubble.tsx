@@ -27,7 +27,7 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
         <div className="relative shrink-0">
           <Avatar className="w-7 h-7">
             <AvatarImage src={message.senderAvatar} />
-            <AvatarFallback className="text-xs bg-teal-100 text-teal-700">
+            <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
               {message.senderName?.charAt(0) ?? "?"}
             </AvatarFallback>
           </Avatar>
@@ -44,7 +44,7 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
           <div className="flex flex-col gap-1">
             {message.content && (
               <div className={`px-3 py-2 rounded-2xl text-sm ${
-                isOwn ? "bg-teal-500 text-white rounded-br-sm" : "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-bl-sm shadow-sm"
+                isOwn ? "bg-blue-500 text-white rounded-br-sm" : "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-bl-sm shadow-sm"
               }`}>
                 {message.content}
               </div>
@@ -65,7 +65,7 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
         ) : (
           <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
             isOwn
-              ? "bg-teal-500 text-white rounded-br-sm"
+              ? "bg-blue-500 text-white rounded-br-sm"
               : "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-bl-sm shadow-sm"
           }`}>
             {message.content}
@@ -77,7 +77,7 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
           <span className="text-[10px] text-gray-400">{time}</span>
           {isOwn && isLast && (
             message.isRead
-              ? <CheckCheck className="w-3.5 h-3.5 text-teal-400" />
+              ? <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
               : <Check className="w-3.5 h-3.5 text-gray-400" />
           )}
         </div>
@@ -91,7 +91,7 @@ export function TypingBubble({ name }: { name?: string }) {
   return (
     <div className="flex items-end gap-2">
       <Avatar className="w-7 h-7 shrink-0">
-        <AvatarFallback className="text-xs bg-teal-100 text-teal-700">
+        <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
           {name?.charAt(0) ?? "S"}
         </AvatarFallback>
       </Avatar>
@@ -103,3 +103,4 @@ export function TypingBubble({ name }: { name?: string }) {
     </div>
   );
 }
+

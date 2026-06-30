@@ -349,7 +349,7 @@ export default function NewPurchaseRequestPage() {
                   void handleSupplierChange(event.target.value)
                 }
                 className={cn(
-                  "h-10 w-full border px-3 text-[13px] shadow-none outline-none focus:border-emerald-300",
+                  "h-10 w-full border px-3 text-[13px] shadow-none outline-none focus:border-blue-300",
                   errors.supplierCode ? "border-red-400" : "border-slate-200",
                 )}
               >
@@ -384,7 +384,7 @@ export default function NewPurchaseRequestPage() {
                   },
                 })}
                 className={cn(
-                  "h-10 w-full border px-3 text-[13px] shadow-none outline-none focus:border-emerald-300",
+                  "h-10 w-full border px-3 text-[13px] shadow-none outline-none focus:border-blue-300",
                   errors.branchId ? "border-red-400" : "border-slate-200",
                 )}
                 value={watchedBranchId || ""}
@@ -423,7 +423,7 @@ export default function NewPurchaseRequestPage() {
                 type="text"
                 {...register("note")}
                 placeholder="Ghi chú nội bộ..."
-                className="h-10 w-full border border-slate-200 px-3 text-[13px] shadow-none outline-none focus:border-emerald-300"
+                className="h-10 w-full border border-slate-200 px-3 text-[13px] shadow-none outline-none focus:border-blue-300"
               />
             </div>
           </div>
@@ -528,7 +528,7 @@ export default function NewPurchaseRequestPage() {
                             min={1}
                             {...register(`items.${idx}.requestedQty`)}
                             className={cn(
-                              "h-9 w-full border px-2 text-center text-[12px] shadow-none outline-none focus:border-emerald-300",
+                              "h-9 w-full border px-2 text-center text-[12px] shadow-none outline-none focus:border-blue-300",
                               errors.items?.[idx]?.requestedQty
                                 ? "border-red-400"
                                 : "border-slate-200",
@@ -540,7 +540,7 @@ export default function NewPurchaseRequestPage() {
                             type="number"
                             min={0}
                             {...register(`items.${idx}.unitPrice`)}
-                            className="h-9 w-full border border-slate-200 px-2 text-right text-[12px] shadow-none outline-none focus:border-emerald-300"
+                            className="h-9 w-full border border-slate-200 px-2 text-right text-[12px] shadow-none outline-none focus:border-blue-300"
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-slate-700">
@@ -551,7 +551,7 @@ export default function NewPurchaseRequestPage() {
                             type="text"
                             {...register(`items.${idx}.note`)}
                             placeholder="Ghi chú..."
-                            className="h-9 w-full border border-slate-200 px-2 text-[12px] shadow-none outline-none focus:border-emerald-300"
+                            className="h-9 w-full border border-slate-200 px-2 text-[12px] shadow-none outline-none focus:border-blue-300"
                           />
                         </td>
                         <td className="px-3 py-2 text-center">
@@ -599,7 +599,7 @@ export default function NewPurchaseRequestPage() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="h-10 min-w-[160px] rounded-[4px] bg-emerald-600 text-[13px] font-medium text-white hover:bg-emerald-700"
+            className="h-10 min-w-[160px] rounded-[4px] bg-blue-600 text-[13px] font-medium text-white hover:bg-blue-700"
           >
             {isSubmitting ? (
               <>
@@ -625,7 +625,7 @@ export default function NewPurchaseRequestPage() {
           <div className="max-h-[60vh] overflow-y-auto p-5">
             {catalogLoading ? (
               <div className="py-12 flex items-center justify-center text-slate-400">
-                <Loader2 size={18} className="animate-spin mr-2 text-emerald-600" />
+                <Loader2 size={18} className="animate-spin mr-2 text-blue-600" />
                 Đang tải danh mục hàng hóa...
               </div>
             ) : supplierProducts.length === 0 ? (
@@ -642,7 +642,7 @@ export default function NewPurchaseRequestPage() {
                       className={cn(
                         "flex cursor-pointer items-center gap-3 rounded-[4px] border px-3 py-3 transition-colors",
                         checked
-                          ? "border-emerald-200 bg-emerald-50"
+                          ? "border-blue-200 bg-blue-50"
                           : "border-slate-200 hover:bg-slate-50",
                       )}
                     >
@@ -698,7 +698,7 @@ export default function NewPurchaseRequestPage() {
               </Button>
               <Button
                 type="button"
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                className="bg-blue-600 text-white hover:bg-blue-700"
                 onClick={applySelectedProducts}
               >
                 Áp dụng
@@ -710,3 +710,4 @@ export default function NewPurchaseRequestPage() {
     </div>
   );
 }
+

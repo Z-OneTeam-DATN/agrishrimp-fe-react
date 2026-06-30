@@ -230,7 +230,7 @@ function CreatableCombobox({
                         <CommandEmpty>
                             <Button
                                 variant="ghost"
-                                className="w-full justify-start h-8 text-emerald-600 text-[12px] font-bold px-2"
+                                className="w-full justify-start h-8 text-blue-600 text-[12px] font-bold px-2"
                                 onClick={() => {
                                     onSelect(inputValue);
                                     setOpen(false);
@@ -369,7 +369,7 @@ function AttributeValueCombobox({
                                     value={`create-${trimmedInput}`}
                                     onSelect={() => void createValue()}
                                     disabled={saving}
-                                    className="text-emerald-700"
+                                    className="text-blue-700"
                                 >
                                     {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <span className="mr-2">+</span>}
                                     Thêm “{trimmedInput}”
@@ -1443,7 +1443,7 @@ export default function AddProductPage() {
                                         {...register("name")}
                                         placeholder="VD: Thuốc trị nấm tôm ShrimpCare"
                                         className={cn(
-                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500",
+                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-blue-500",
                                             errors.name && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
                                         )}
                                     />
@@ -1465,7 +1465,7 @@ export default function AddProductPage() {
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <SelectTrigger
                                                         className={cn(
-                                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500",
+                                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-blue-500",
                                                             errors.categoryId && "border-rose-500 bg-rose-50/10"
                                                         )}
                                                     >
@@ -1524,7 +1524,7 @@ export default function AddProductPage() {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-md">
-                                                    <SelectItem value="ACTIVE" className="text-emerald-600">
+                                                    <SelectItem value="ACTIVE" className="text-blue-600">
                                                         Đang kinh doanh
                                                     </SelectItem>
                                                     <SelectItem value="INACTIVE" className="text-rose-500">
@@ -1572,7 +1572,7 @@ export default function AddProductPage() {
                                 type="button"
                                 variant="outline"
                                 onClick={handleAppendVariant}
-                                className="h-[34px] rounded-md border-emerald-200 bg-white px-4 text-[11px] font-medium text-emerald-600 shadow-none"
+                                className="h-[34px] rounded-md border-blue-200 bg-white px-4 text-[11px] font-medium text-blue-600 shadow-none"
                             >
                                 + Thêm biến thể
                             </Button>
@@ -1611,7 +1611,7 @@ export default function AddProductPage() {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-emerald-600 px-4 text-[11px] font-medium text-white hover:bg-emerald-700">
+                                    <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-blue-600 px-4 text-[11px] font-medium text-white hover:bg-blue-700">
                                         Áp dụng cho biến thể đã chọn
                                     </Button>
                                 </div>
@@ -1654,7 +1654,7 @@ export default function AddProductPage() {
                                                     type="checkbox"
                                                     checked={isSelected}
                                                     onChange={() => toggleSelectVariant(field.id)}
-                                                    className="h-4 w-4 shrink-0 accent-emerald-600"
+                                                    className="h-4 w-4 shrink-0 accent-blue-600"
                                                     aria-label={`Chọn biến thể ${idx + 1}`}
                                                 />
                                             )}
@@ -1700,7 +1700,7 @@ export default function AddProductPage() {
                                                     onClick={() =>
                                                         document.getElementById(`v-img-${idx}`)?.click()
                                                     }
-                                                    className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-emerald-500"
+                                                    className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-blue-500"
                                                 >
                                                     {variantImagePreviews[idx] ? (
                                                         <img
@@ -1852,7 +1852,7 @@ export default function AddProductPage() {
 
                     <DialogFooter className="gap-2">
                         <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
-                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700">Khôi phục nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-blue-600 hover:bg-blue-700">Khôi phục nháp</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1909,7 +1909,7 @@ export default function AddProductPage() {
                                         {attributeEditor.values.map((value) => (
                                             <span
                                                 key={value}
-                                                className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
+                                                className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
                                             >
                                                 {value}
                                             </span>
@@ -1942,7 +1942,7 @@ export default function AddProductPage() {
                                     type="button"
                                     variant="outline"
                                     onClick={addAttributeValueDraft}
-                                    className="h-9 shrink-0 border-emerald-200 text-emerald-700"
+                                    className="h-9 shrink-0 border-blue-200 text-blue-700"
                                 >
                                     Thêm vào danh sách
                                 </Button>
@@ -1966,7 +1966,7 @@ export default function AddProductPage() {
                             type="button"
                             onClick={handleSaveAttributeValues}
                             disabled={isSavingAttribute}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-blue-600 hover:bg-blue-700"
                         >
                             {isSavingAttribute ? <Loader2 size={16} className="mr-2 animate-spin" /> : null}
                             Lưu giá trị
@@ -1993,7 +1993,7 @@ export default function AddProductPage() {
                     <Button
                         type="submit"
                         disabled={isLoading}
-                        className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                        className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
                     >
                         {isLoading ? (
                             <Loader2 size={16} className="mr-2 animate-spin" />
@@ -2007,3 +2007,4 @@ export default function AddProductPage() {
         </form>
     );
 }
+

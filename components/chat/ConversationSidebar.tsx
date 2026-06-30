@@ -77,13 +77,13 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                   key={conv.id}
                   onClick={() => onSelect(conv)}
                   className={`flex items-center gap-3 px-4 py-3 w-full text-left transition-colors hover:bg-gray-50 dark:hover:bg-slate-700/50 ${
-                    isActive ? "bg-teal-50 dark:bg-teal-900/30" : ""
+                    isActive ? "bg-blue-50 dark:bg-blue-900/30" : ""
                   }`}
                 >
                   <div className="relative shrink-0">
                     <Avatar className="w-11 h-11">
                       <AvatarImage src={conv.customerAvatar} />
-                      <AvatarFallback className="bg-teal-100 text-teal-700 font-semibold text-sm">
+                      <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-sm">
                         {conv.customerName?.charAt(0) ?? "K"}
                       </AvatarFallback>
                     </Avatar>
@@ -106,7 +106,7 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                         {conv.lastMessage || "Bắt đầu cuộc trò chuyện"}
                       </p>
                       {conv.assignedStaffName && (
-                        <span className="text-[9px] bg-teal-100 dark:bg-teal-800/40 text-teal-700 dark:text-teal-300 px-1 py-0.5 rounded shrink-0 truncate max-w-[60px]">
+                        <span className="text-[9px] bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded shrink-0 truncate max-w-[60px]">
                           {conv.assignedStaffName}
                         </span>
                       )}
@@ -121,3 +121,4 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
     </div>
   );
 }
+

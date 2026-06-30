@@ -78,7 +78,7 @@ export function ChangePasswordForm({
           className={`w-full px-4 h-12 border rounded-md text-sm focus:outline-none !bg-white !text-gray-900 transition-colors ${
             errors.currentPassword
               ? "border-red-500 focus:border-red-500"
-              : "border-gray-300 focus:border-[#329965]"
+              : "border-gray-300 focus:border-[#1965a2]"
           }`}
         />
         {errors.currentPassword && (
@@ -100,7 +100,7 @@ export function ChangePasswordForm({
           className={`w-full px-4 h-12 border rounded-md text-sm focus:outline-none !bg-white !text-gray-900 transition-colors ${
             errors.newPassword
               ? "border-red-500 focus:border-red-500"
-              : "border-gray-300 focus:border-[#329965]"
+              : "border-gray-300 focus:border-[#1965a2]"
           }`}
         />
         {errors.newPassword && (
@@ -122,7 +122,7 @@ export function ChangePasswordForm({
           className={`w-full px-4 h-12 border rounded-md text-sm focus:outline-none !bg-white !text-gray-900 transition-colors ${
             errors.confirmPassword
               ? "border-red-500 focus:border-red-500"
-              : "border-gray-300 focus:border-[#329965]"
+              : "border-gray-300 focus:border-[#1965a2]"
           }`}
         />
         {errors.confirmPassword && (
@@ -145,7 +145,7 @@ export function ChangePasswordForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 h-12 text-sm text-white bg-[#329965] rounded-md font-bold hover:bg-[#268050] transition-colors disabled:opacity-70 flex items-center gap-2"
+          className="px-4 h-12 text-sm text-white bg-[#1965a2] rounded-md font-bold hover:bg-[#268050] transition-colors disabled:opacity-70 flex items-center gap-2"
         >
           {isSubmitting ? (
             <>

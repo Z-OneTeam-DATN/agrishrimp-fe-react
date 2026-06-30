@@ -406,7 +406,7 @@ export default function TransferDetailPage() {
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors",
                     step.status === "completed"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                      ? "border-blue-200 bg-blue-50 text-blue-600"
                       : step.status === "active"
                         ? status === "CANCELLED"
                           ? "border-rose-200 bg-rose-50 text-rose-600"
@@ -435,7 +435,7 @@ export default function TransferDetailPage() {
                     className={cn(
                       "absolute inset-y-0 left-0 transition-all duration-500",
                       steps[idx].status === "completed"
-                        ? "w-full bg-emerald-300"
+                        ? "w-full bg-blue-300"
                         : "w-0 bg-transparent",
                     )}
                   />
@@ -699,7 +699,7 @@ export default function TransferDetailPage() {
                       <td className="px-3 py-3 text-right text-[11px] font-semibold text-blue-600">
                         {item.quantityReal || 0}
                       </td>
-                      <td className="px-3 py-3 text-right text-[11px] font-semibold text-emerald-600">
+                      <td className="px-3 py-3 text-right text-[11px] font-semibold text-blue-600">
                         {item.quantityAccepted || 0}
                       </td>
                       <td className="px-3 py-3 text-right text-[11px] font-semibold text-rose-600">
@@ -817,7 +817,7 @@ export default function TransferDetailPage() {
                   )
                 }
                 disabled={isProcessing}
-                className="h-10 min-w-[120px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                className="h-10 min-w-[120px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
               >
                 <CheckSquare size={15} className="mr-2" />
                 Nhận đủ
@@ -936,7 +936,7 @@ export default function TransferDetailPage() {
                   <tr className="text-[10px] uppercase text-slate-500">
                     <th className="p-3">Sản phẩm</th>
                     <th className="p-3 text-center">Yêu cầu</th>
-                    <th className="p-3 text-center bg-emerald-50 text-emerald-700">
+                    <th className="p-3 text-center bg-blue-50 text-blue-700">
                       Đạt
                     </th>
                     <th className="p-3 text-center bg-rose-50 text-rose-700">
@@ -960,7 +960,7 @@ export default function TransferDetailPage() {
                       <td className="p-3 text-center font-black">
                         {item.quantityRequested}
                       </td>
-                      <td className="bg-emerald-50/30 p-3">
+                      <td className="bg-blue-50/30 p-3">
                         <Input
                           type="number"
                           min={0}
@@ -972,7 +972,7 @@ export default function TransferDetailPage() {
                               e.target.value,
                             )
                           }
-                          className="mx-auto h-8 w-24 rounded-none border-emerald-300 text-center font-black text-emerald-600"
+                          className="mx-auto h-8 w-24 rounded-none border-blue-300 text-center font-black text-blue-600"
                         />
                       </td>
                       <td className="bg-rose-50/30 p-3">
@@ -1019,7 +1019,7 @@ export default function TransferDetailPage() {
               <Button
                 onClick={() => void submitInspect()}
                 disabled={isProcessing}
-                className="rounded-none bg-emerald-600 text-[12px] font-black text-white hover:bg-emerald-700"
+                className="rounded-none bg-blue-600 text-[12px] font-black text-white hover:bg-blue-700"
               >
                 <CheckSquare size={16} className="mr-2" />
                 LƯU KIỂM ĐẾM VÀ NHẬP KHO
@@ -1031,3 +1031,4 @@ export default function TransferDetailPage() {
     </div>
   );
 }
+

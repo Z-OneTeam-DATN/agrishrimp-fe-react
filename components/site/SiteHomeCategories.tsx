@@ -9,6 +9,7 @@ import { CategoryDTO } from "@/app/types/category.type";
 
 const BACKEND_ORIGIN =
   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
+const CATEGORY_FALLBACK_IMAGE = "/placeholder.svg";
 
 export default function HomeCategories() {
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
@@ -81,7 +82,7 @@ export default function HomeCategories() {
   }, [visibleParentCategories.length, isLoading]);
 
   const getImageUrl = (imagePath?: string) => {
-      if (!imagePath) return "https://placehold.co/100x100/e2e8f0/1e293b?text=No+Image";
+      if (!imagePath) return CATEGORY_FALLBACK_IMAGE;
 
       if (imagePath.startsWith("data:image")) return imagePath;
 
@@ -117,7 +118,7 @@ export default function HomeCategories() {
               type="button"
               onClick={() => scrollCategories("left")}
               disabled={!canScrollLeft}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={18} />
             </button>
@@ -125,7 +126,7 @@ export default function HomeCategories() {
               type="button"
               onClick={() => scrollCategories("right")}
               disabled={!canScrollRight}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronRight size={18} />
             </button>
@@ -135,7 +136,7 @@ export default function HomeCategories() {
 
       {isLoading ? (
         <div className="flex justify-center items-center py-10">
-          <Loader2 className="animate-spin text-green-600" size={32} />
+          <Loader2 className="animate-spin text-blue-600" size={32} />
         </div>
       ) : (
         <div
@@ -150,20 +151,21 @@ export default function HomeCategories() {
               <Link
                 key={cat.id}
                 href={linkHref}
-                className="group flex w-[140px] shrink-0 flex-col items-center rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"
+                className="group flex w-[140px] shrink-0 flex-col items-center rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
               >
-                <div className="mb-3 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 transition-all group-hover:border-teal-300">
+                <div className="mb-3 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 transition-all group-hover:border-blue-300">
                   <img
                     src={imgSrc}
                     alt={cat.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = "https://placehold.co/100x100/e2e8f0/1e293b?text=Loi+Anh";
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = CATEGORY_FALLBACK_IMAGE;
                     }}
                   />
                 </div>
 
-                <span className="text-sm font-semibold text-slate-700 group-hover:text-teal-700 leading-tight">
+                <span className="text-sm font-semibold text-slate-700 group-hover:text-blue-700 leading-tight">
                   {cat.name}
                 </span>
               </Link>
@@ -174,3 +176,4 @@ export default function HomeCategories() {
     </section>
   );
 }
+
