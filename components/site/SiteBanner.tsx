@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/carousel";
 import { getPublicBanners } from "@/app/services/banner.service";
 
+const BANNER_HEIGHT_CLASS = "h-[420px]";
+
 export default function Banner() {
   const plugin = React.useRef(
     Autoplay({ delay: 3500, stopOnInteraction: false })
@@ -41,7 +43,7 @@ export default function Banner() {
   if (isLoading) {
     return (
       <div className="w-full">
-        <div className="h-[220px] w-full animate-pulse bg-slate-100 md:h-[300px] lg:h-[380px]" />
+        <div className={`${BANNER_HEIGHT_CLASS} w-full animate-pulse bg-slate-100`} />
       </div>
     );
   }
@@ -49,7 +51,7 @@ export default function Banner() {
   if (visibleBanners.length === 0) {
     return (
       <div className="w-full">
-        <div className="flex h-[220px] items-center justify-center bg-slate-50 text-sm text-slate-400 md:h-[300px] lg:h-[380px]">
+        <div className={`flex ${BANNER_HEIGHT_CLASS} items-center justify-center bg-slate-50 text-sm text-slate-400`}>
           Chưa có banner
         </div>
       </div>
@@ -64,37 +66,51 @@ export default function Banner() {
         opts={{ loop: true, align: "start" }}
         onMouseEnter={plugin.current.stop}
         onMouseLeave={plugin.current.reset}
-      >
+        >
         <CarouselContent>
           {visibleBanners.map((banner) => (
             <CarouselItem key={banner.id}>
-              <div className="relative h-[220px] w-full overflow-hidden bg-slate-100 md:h-[300px] lg:h-[380px]">
+              <div
+                className={`relative ${BANNER_HEIGHT_CLASS} w-full overflow-hidden bg-slate-100`}
+              >
                 {banner.linkUrl ? (
                   <a
                     href={banner.linkUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block h-full w-full"
+                    className="relative block h-full w-full"
                   >
-                    <img
-                      src={banner.imageUrl ?? ""}
-                      alt={banner.title ?? ""}
-                      className="h-full w-full object-cover"
-                    />
+                    <picture className="block h-full w-full">
+                      <source
+                        media="(max-width: 767px)"
+                        srcSet={banner.mobileImageUrl ?? banner.imageUrl ?? ""}
+                      />
+                      <img
+                        src={banner.imageUrl ?? banner.mobileImageUrl ?? ""}
+                        alt={banner.title ?? ""}
+                        className="h-full w-full object-cover object-center"
+                      />
+                    </picture>
                   </a>
                 ) : (
-                  <img
-                    src={banner.imageUrl ?? ""}
-                    alt={banner.title ?? ""}
-                    className="h-full w-full object-cover"
-                  />
+                  <picture className="block h-full w-full">
+                    <source
+                      media="(max-width: 767px)"
+                      srcSet={banner.mobileImageUrl ?? banner.imageUrl ?? ""}
+                    />
+                    <img
+                      src={banner.imageUrl ?? banner.mobileImageUrl ?? ""}
+                      alt={banner.title ?? ""}
+                      className="h-full w-full object-cover object-center"
+                    />
+                  </picture>
                 )}
               </div>
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious className="left-4 h-10 w-10 border-none bg-white/80 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover:opacity-100" />
-        <CarouselNext className="right-4 h-10 w-10 border-none bg-white/80 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover:opacity-100" />
+        <CarouselPrevious className="left-5 h-11 w-11 border-none bg-white/88 opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100" />
+        <CarouselNext className="right-5 h-11 w-11 border-none bg-white/88 opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100" />
       </Carousel>
     </div>
   );

@@ -125,13 +125,13 @@ export default function BlogCategoriesPage() {
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Tìm tên, slug, mô tả..."
+              placeholder="Tìm tên, mô tả..."
               className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
             />
           </div>
           <Button
             onClick={openCreate}
-            className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+            className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
           >
             <Plus size={15} className="mr-1.5" />
             Thêm danh mục
@@ -141,12 +141,11 @@ export default function BlogCategoriesPage() {
 
       <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="table-custom min-w-[920px] w-full border-collapse text-left">
+          <table className="table-custom min-w-[760px] w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-[#ccc] bg-[#f0f0f0]">
                 <th className="w-[56px] px-4 py-3 text-[10px] font-semibold text-[#1f1f1f]">STT</th>
                 <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">Tên danh mục</th>
-                <th className="w-[180px] px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">Slug</th>
                 <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">Mô tả</th>
                 <th className="w-[92px] px-2 py-3 text-center text-[10px] font-semibold text-[#1f1f1f]">Bài viết</th>
                 <th className="w-[104px] px-4 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">Thao tác</th>
@@ -158,7 +157,6 @@ export default function BlogCategoriesPage() {
                   <tr key={i} className="border-b border-[#eee]">
                     <td className="px-4 py-3"><div className="h-3.5 w-6 animate-pulse rounded bg-slate-100" /></td>
                     <td className="px-2 py-3"><div className="h-3.5 w-36 animate-pulse rounded bg-slate-100" /></td>
-                    <td className="px-2 py-3"><div className="h-3.5 w-28 animate-pulse rounded bg-slate-100" /></td>
                     <td className="px-2 py-3"><div className="h-3.5 w-48 animate-pulse rounded bg-slate-100" /></td>
                     <td className="px-2 py-3"><div className="mx-auto h-3.5 w-8 animate-pulse rounded bg-slate-100" /></td>
                     <td className="px-4 py-3" />
@@ -171,7 +169,6 @@ export default function BlogCategoriesPage() {
                     <td className="px-2 py-3">
                       <span className="text-[11px] font-semibold text-slate-800">{c.name}</span>
                     </td>
-                    <td className="px-2 py-3 font-mono text-[11px] text-slate-500">{c.slug}</td>
                     <td className="max-w-[320px] truncate px-2 py-3 text-[11px] text-slate-500">{c.description || "-"}</td>
                     <td className="px-2 py-3 text-center">
                       <span className="inline-flex h-6 min-w-8 items-center justify-center rounded-[4px] border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-600">
@@ -196,7 +193,7 @@ export default function BlogCategoriesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="h-[180px] text-center text-[12px] font-medium text-slate-400">
+                  <td colSpan={5} className="h-[180px] text-center text-[12px] font-medium text-slate-400">
                     {normalizedSearch ? "Không tìm thấy danh mục phù hợp." : "Chưa có danh mục nào."}
                   </td>
                 </tr>
@@ -246,7 +243,7 @@ export default function BlogCategoriesPage() {
                 Hủy
               </Button>
               <Button type="submit" disabled={saving}
-                className="h-10 w-full rounded-md bg-emerald-600 px-8 text-[13px] font-semibold text-white hover:bg-emerald-700 sm:w-auto">
+                className="h-10 w-full rounded-md bg-blue-600 px-8 text-[13px] font-semibold text-white hover:bg-blue-700 sm:w-auto">
                 {saving ? <Loader2 className="animate-spin mr-1.5" size={14} /> : null}
                 {editingId ? "Cập nhật danh mục" : "Tạo danh mục"}
               </Button>
@@ -274,3 +271,4 @@ export default function BlogCategoriesPage() {
     </div>
   );
 }
+

@@ -15,6 +15,11 @@ import { AuthService } from "@/app/services/auth.service";
 import { getErrorMessage } from "@/lib/axios";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 import { useAuthStore } from "@/stores/useAuthStore";
+import {
+  AUTH_ACCENT_RING,
+  AUTH_ACCENT_SOLID,
+  AUTH_ACCENT_TEXT,
+} from "@/components/auth/auth-theme";
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -104,7 +109,7 @@ export default function LoginForm() {
     `group flex items-center bg-[#f4f6f8] rounded-lg transition-all border ${
       hasError
         ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200"
-        : "border-transparent focus-within:ring-2 focus-within:ring-[#009688]/25"
+        : `border-transparent ${AUTH_ACCENT_RING}`
     }`;
 
   return (
@@ -137,7 +142,7 @@ export default function LoginForm() {
           <label className="text-sm font-semibold text-slate-700">Mật khẩu</label>
           <Link
             href="/reset-password"
-            className="text-xs font-bold text-[#009688] hover:underline"
+            className={`text-xs font-bold hover:underline ${AUTH_ACCENT_TEXT}`}
           >
             Quên mật khẩu?
           </Link>
@@ -200,7 +205,7 @@ export default function LoginForm() {
         className={`w-full py-3.5 font-bold rounded-xl transition-all shadow-lg active:scale-[0.98] ${
           mutation.isPending
             ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-            : "bg-[#009688] hover:bg-[#00796b] text-white shadow-[#009688]/20"
+            : `${AUTH_ACCENT_SOLID}`
         }`}
       >
         {mutation.isPending ? (
@@ -218,7 +223,7 @@ export default function LoginForm() {
         Chưa có tài khoản?{" "}
         <Link
           href="/signup"
-          className="text-[#009688] font-bold hover:underline"
+          className={`font-bold hover:underline ${AUTH_ACCENT_TEXT}`}
         >
           Đăng ký ngay
         </Link>
@@ -226,3 +231,4 @@ export default function LoginForm() {
     </form>
   );
 }
+

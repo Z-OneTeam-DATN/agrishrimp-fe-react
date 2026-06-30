@@ -8,6 +8,7 @@ import { Form } from "@/components/ui/form";
 import { toast } from "sonner";
 import { ResetPasswordSchema } from "@/app/types/auth.schema";
 import { FormTextField } from "../form-control/FormTextField";
+import { AUTH_ACCENT_SOLID } from "./auth-theme";
 
 type ResetPasswordFormValues = z.infer<typeof ResetPasswordSchema>;
 
@@ -44,7 +45,7 @@ export function ResetPasswordForm() {
 
         <Button
           type="submit"
-          className="w-full"
+          className={`w-full ${AUTH_ACCENT_SOLID}`}
           disabled={form.formState.isSubmitting}
         >
           {form.formState.isSubmitting ? "Đang gửi..." : "Gửi liên kết đặt lại"}

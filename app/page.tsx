@@ -3,27 +3,57 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Clock, Tag } from "lucide-react";
+import { ChevronRight, Tag } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import Banner from "@/components/site/SiteBanner";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
-import { getPublicBlogPosts } from "@/app/services/blog.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
 
-/* Short taglines for category bar — indexed by position */
-const CAT_TAGLINES = [
-  "Dinh dưỡng tối ưu",
-  "Phòng bệnh hiệu quả",
-  "Môi trường sạch",
-  "Thiết bị hiện đại",
-  "Giống chất lượng cao",
-  "Phụ kiện đầy đủ",
-  "Giải pháp toàn diện",
-];
+const BACKEND_ORIGIN =
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
+const CATEGORY_FALLBACK_IMAGE = "/placeholder.svg";
+
+const CATEGORY_SHOWCASE_STYLE = {
+  frameClass: "border-[#4c72b7]",
+  buttonClass:
+    "border-[#9db6e4] text-[#4c72b7] hover:bg-[#4c72b7] hover:text-white",
+};
+
+function CategoryShowcaseImage({
+  src,
+  alt,
+}: {
+  src: string | null;
+  alt: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-sm bg-slate-50">
+        <Tag size={30} className="text-primary/35" />
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 export default function Home() {
   const [productPage, setProductPage] = useState(0);
@@ -69,145 +99,31 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: newsPage, isLoading: loadingNews } = useQuery({
-    queryKey: ["home", "blog-news"],
-    queryFn: () => getPublicBlogPosts({ page: 0, size: 4 }),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const newsPosts = newsPage?.content ?? [];
-
   const parentCats: CategoryDTO[] = allCategories
     .filter((c: CategoryDTO) => !c.parentId || c.parentId === 0)
     .slice(0, 7);
+  const showcaseCategories = parentCats;
 
-  const formatNewsDate = (value?: string | null) =>
-    value
-      ? new Intl.DateTimeFormat("vi-VN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        }).format(new Date(value))
-      : "";
+  const resolveCategoryImage = (imagePath?: string | null) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith("http") || imagePath.startsWith("data:")) return imagePath;
+    return `${BACKEND_ORIGIN}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+  };
 
   return (
     <div className="bg-[#f5f5f5] pb-10">
 
       {/* ══ SECTION 1: Hero ══ */}
-      <div className="container mx-auto px-4 pt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_240px] gap-3">
-
-          {/* ── Category Sidebar ── */}
-          <aside className="hidden lg:flex flex-col bg-white border border-gray-200 rounded overflow-hidden">
-            <div className="bg-white px-4 py-2.5 border-b border-gray-200 shrink-0">
-              <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Danh Mục</h3>
-            </div>
-            <ul className="flex flex-col flex-1">
-              {loadingCats
-                ? Array.from({ length: 5 }).map((_, i) => (
-                    <li key={i} className="flex items-center gap-2.5 px-4 animate-pulse border-b border-gray-100 flex-1">
-                      <div className="w-4 h-4 bg-gray-100 rounded shrink-0" />
-                      <div className="h-3 bg-gray-100 rounded flex-1" />
-                    </li>
-                  ))
-                : parentCats.slice(0, 5).map((cat) => (
-                    <li key={cat.id} className="border-b border-gray-100 flex-1 flex items-center">
-                      <Link
-                        href={`/san-pham?categoryId=${cat.id}`}
-                        className="flex items-center gap-2.5 px-4 py-3 w-full hover:bg-gray-50 hover:text-primary transition-colors group text-[13px] text-gray-700"
-                      >
-                        {cat.imageUrl ? (
-                          <Image src={cat.imageUrl} alt={cat.name} width={18} height={18} className="object-contain shrink-0" />
-                        ) : (
-                          <Tag size={14} className="text-primary shrink-0" />
-                        )}
-                        <span className="flex-1 truncate">{cat.name}</span>
-                        <ChevronRight size={12} className="text-gray-300 group-hover:text-primary shrink-0" />
-                      </Link>
-                    </li>
-                  ))}
-              <li className="mt-auto border-t border-gray-100">
-                <Link
-                  href="/san-pham"
-                  className="flex items-center justify-center gap-1 px-4 py-3 text-[12px] text-primary font-semibold hover:bg-primary/5 transition-colors"
-                >
-                  Xem thêm <ChevronRight size={12} />
-                </Link>
-              </li>
-            </ul>
-          </aside>
-
-          {/* ── Banner ── */}
-          <div className="min-w-0">
-            <Banner />
-          </div>
-
-          {/* ── News Sidebar ── */}
-          <aside className="hidden lg:flex flex-col bg-white border border-gray-200 rounded overflow-hidden">
-            <div className="bg-white px-4 py-2.5 border-b border-gray-200 shrink-0">
-              <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-widest">Tin tức</h3>
-            </div>
-            <ul className="flex flex-col flex-1 divide-y divide-gray-100">
-              {loadingNews ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <li key={i} className="flex-1">
-                    <div className="flex gap-2.5 px-3 py-3 animate-pulse">
-                      <div className="w-[60px] h-[52px] rounded bg-gray-100 shrink-0" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 rounded bg-gray-100 w-full" />
-                        <div className="h-3 rounded bg-gray-100 w-4/5" />
-                        <div className="h-2.5 rounded bg-gray-100 w-1/3" />
-                      </div>
-                    </div>
-                  </li>
-                ))
-              ) : newsPosts.length > 0 ? (
-                newsPosts.map((news) => (
-                  <li key={news.id} className="flex-1">
-                    <Link
-                      href={`/blog/${news.slug}`}
-                      className="flex gap-2.5 px-3 py-3 w-full hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="w-[60px] h-[52px] bg-gray-100 rounded overflow-hidden flex items-center justify-center shrink-0 text-[9px] text-gray-400 font-medium">
-                        {news.thumbnailUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={news.thumbnailUrl}
-                            alt={news.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          "[Tin]"
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-gray-800 line-clamp-2 leading-snug">
-                          {news.title}
-                        </p>
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <Clock size={10} className="text-gray-400 shrink-0" />
-                          <span className="text-[10px] text-gray-400">
-                            {formatNewsDate(news.publishedAt ?? news.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  </li>
-                ))
-              ) : (
-                <li className="px-4 py-6 text-center text-[12px] text-gray-400">
-                  Chưa có bài viết mới.
-                </li>
-              )}
-            </ul>
-          </aside>
+      <div className="w-full pt-0">
+        <div className="overflow-hidden">
+          <Banner />
         </div>
       </div>
 
       {/* ══ SECTION 2: Brand Partners — 1-row marquee ══ */}
       {(loadingBrands || brands.length > 0) && (
-        <div className="container mx-auto px-4 mt-4">
-          <div className="bg-white border border-gray-200 rounded px-6 py-4 overflow-hidden">
+        <div className="mt-4 w-full">
+          <div className="w-full overflow-hidden border-y border-gray-200 bg-white px-4 py-4 md:px-6 lg:px-8">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 text-center mb-4">
               Đơn vị đồng hành cùng chúng tôi
             </p>
@@ -250,64 +166,47 @@ export default function Home() {
 
       {/* ══ SECTION 3: Category Showcase ══ */}
       <div className="container mx-auto px-4 mt-4">
-
-        {/* Dark green tagline bar */}
-        <div className="bg-primary rounded-t overflow-hidden">
-          {loadingCats ? (
-            <div className="h-10 animate-pulse bg-primary/80" />
-          ) : (
-            <div className="flex items-center justify-evenly h-10 px-4">
-              {parentCats.map((cat, i) => (
-                <span key={cat.id} className="text-[11px] font-semibold text-white/90 whitespace-nowrap uppercase tracking-wide">
-                  {CAT_TAGLINES[i] ?? cat.name}
-                </span>
-              ))}
+        {loadingCats ? (
+          <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-4 md:gap-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start animate-pulse sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:min-w-0 md:max-w-none md:w-auto">
+                <div className="aspect-square rounded-t-[14px] bg-gray-100 md:aspect-[1.08/1]" />
+                <div className="mt-2.5 h-10 rounded-[10px] bg-gray-100 md:mt-4 md:h-11" />
+              </div>
+            ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-4 md:gap-6">
+              {showcaseCategories.map((cat) => {
+                const style = CATEGORY_SHOWCASE_STYLE;
+                const imageSrc = resolveCategoryImage(cat.imageUrl);
 
-        {/* Category card grid */}
-        <div className="bg-white border border-t-0 border-gray-200 rounded-b p-4">
-          {loadingCats ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
-                  <div className="w-full aspect-square bg-gray-100 rounded-lg" />
-                  <div className="h-3 bg-gray-100 rounded w-3/4" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
-              {parentCats.map((cat) => (
+                return (
                 <Link
                   key={cat.id}
                   href={`/san-pham?categoryId=${cat.id}`}
-                  className="flex flex-col items-center gap-2 group"
+                  className="group block h-full w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:min-w-0 md:max-w-none md:w-auto"
                 >
-                  <div className="w-full aspect-[4/3] rounded-xl overflow-hidden shadow-sm border border-gray-100 group-hover:border-primary/30 transition-colors">
-                    {cat.imageUrl ? (
-                      <Image
-                        src={cat.imageUrl}
+                  <div className={`border-x-[6px] border-t-[6px] ${style.frameClass} bg-white px-2 pt-2.5 shadow-sm transition-transform duration-300 group-hover:-translate-y-1 sm:px-3 sm:pt-3 md:border-x-[10px] md:border-t-[10px] md:px-5 md:pt-6`}>
+                    <div className="flex aspect-square items-center justify-center overflow-hidden bg-white md:aspect-[1.14/1]">
+                      <CategoryShowcaseImage
+                        src={imageSrc ?? CATEGORY_FALLBACK_IMAGE}
                         alt={cat.name}
-                        width={160}
-                        height={120}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                    ) : (
-                      <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                        <Tag size={28} className="text-primary/40" />
-                      </div>
-                    )}
+                    </div>
                   </div>
-                  <span className="text-[11px] font-semibold text-gray-700 text-center leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                  <div className={`relative z-10 -mt-2 flex min-h-[42px] items-center justify-center rounded-[10px] border bg-white px-2 py-2 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight shadow-sm transition-colors sm:px-3 sm:text-[11px] md:-mt-3 md:min-h-[56px] md:py-2.5 md:text-[13px] ${style.buttonClass}`}>
                     {cat.name}
-                  </span>
+                  </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ══ SECTION 4: Khuyến Mãi / Best Sellers ══ */}

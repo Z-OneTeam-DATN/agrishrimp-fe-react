@@ -12,6 +12,11 @@ import { toast } from "sonner";
 import { RegisterSchema, RegisterFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
+import {
+  AUTH_ACCENT_RING,
+  AUTH_ACCENT_SOLID,
+  AUTH_ACCENT_TEXT,
+} from "@/components/auth/auth-theme";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -124,7 +129,7 @@ export default function SignupForm() {
     `group flex items-center bg-[#f4f6f8] rounded-lg transition-all border ${
       hasError
         ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200"
-        : "border-transparent focus-within:ring-2 focus-within:ring-[#009688]/25"
+        : `border-transparent ${AUTH_ACCENT_RING}`
     }`;
 
   return (
@@ -216,7 +221,7 @@ export default function SignupForm() {
         className={`w-full py-3 font-bold rounded-lg ${
           mutation.isPending
             ? "bg-slate-300 text-slate-500"
-            : "bg-[#009688] hover:bg-[#00796b] text-white"
+            : AUTH_ACCENT_SOLID
         }`}
       >
         {mutation.isPending ? "ĐANG XỬ LÝ..." : "ĐĂNG KÝ"}
@@ -226,7 +231,7 @@ export default function SignupForm() {
         Bạn đã có tài khoản?{" "}
         <Link
           href="/login"
-          className="text-[#009688] font-bold hover:underline"
+          className={`font-bold hover:underline ${AUTH_ACCENT_TEXT}`}
         >
           Đăng nhập ngay
         </Link>
@@ -292,3 +297,4 @@ function PasswordField({
     </div>
   );
 }
+

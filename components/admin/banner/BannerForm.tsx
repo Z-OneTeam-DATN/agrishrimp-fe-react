@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/axios";
 import {
   BannerDTO,
   adminCreateBanner,
@@ -41,6 +42,7 @@ export default function BannerForm({
 }: BannerFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mobileFileInputRef = useRef<HTMLInputElement>(null);
   const isEdit = !!initialData;
 
   const [form, setForm] = useState<FormState>({
@@ -55,6 +57,11 @@ export default function BannerForm({
     initialData?.imageUrl ?? null,
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [mobilePreviewUrl, setMobilePreviewUrl] = useState<string | null>(
+    initialData?.mobileImageUrl ?? null,
+  );
+  const [mobileImageFile, setMobileImageFile] = useState<File | null>(null);
+  const [mobileImageRemoved, setMobileImageRemoved] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
@@ -83,10 +90,25 @@ export default function BannerForm({
     setPreviewUrl(URL.createObjectURL(file));
   };
 
+  const handleMobileFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setMobileImageFile(file);
+    setMobilePreviewUrl(URL.createObjectURL(file));
+    setMobileImageRemoved(false);
+  };
+
   const removeImage = () => {
     setImageFile(null);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeMobileImage = () => {
+    setMobileImageFile(null);
+    setMobilePreviewUrl(null);
+    setMobileImageRemoved(true);
+    if (mobileFileInputRef.current) mobileFileInputRef.current.value = "";
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -121,11 +143,27 @@ export default function BannerForm({
         startDate: form.startDate ? `${form.startDate}:00` : null,
         endDate: form.endDate ? `${form.endDate}:00` : null,
         imageUrl: imageFile ? null : previewUrl,
+        publicId: imageFile ? null : initialData?.publicId ?? null,
+        mobileImageUrl: mobileImageFile
+          ? null
+          : mobilePreviewUrl
+            ? mobilePreviewUrl
+            : mobileImageRemoved
+              ? ""
+              : null,
+        mobilePublicId: mobileImageFile
+          ? null
+          : mobilePreviewUrl
+            ? initialData?.mobilePublicId ?? null
+            : mobileImageRemoved
+              ? ""
+              : null,
       };
 
       const fd = new FormData();
       fd.append("data", JSON.stringify(payload));
       if (imageFile) fd.append("file", imageFile);
+      if (mobileImageFile) fd.append("mobileFile", mobileImageFile);
 
       if (isEdit) {
         await adminUpdateBanner(initialData.id, fd);
@@ -137,8 +175,8 @@ export default function BannerForm({
 
       router.push("/admin/banners");
       router.refresh();
-    } catch {
-      toast.error("Lưu banner thất bại");
+    } catch (error) {
+      toast.error(getErrorMessage(error as any) || "Lưu banner thất bại");
     } finally {
       setSaving(false);
     }
@@ -165,9 +203,6 @@ export default function BannerForm({
               placeholder="Ví dụ: Khuyến mãi tháng 5"
               className={cn(fieldControlClass, "border-slate-200 bg-white")}
             />
-            <p className="text-[10px] text-slate-400">
-              Tên này chỉ dùng để quản lý nội bộ.
-            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -268,13 +303,9 @@ export default function BannerForm({
             />
           </div>
 
-          <p className="text-[10px] text-slate-400 md:col-span-2">
-            Có thể để trống nếu banner luôn được phép hiển thị.
-          </p>
-
           <div className="space-y-1.5">
             <Label className={fieldLabelClass}>
-              Ảnh banner <span className="text-rose-500">*</span>
+              Ảnh banner desktop <span className="text-rose-500">*</span>
             </Label>
             <input
               ref={fileInputRef}
@@ -289,7 +320,7 @@ export default function BannerForm({
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
                   fieldControlClass,
-                  "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-emerald-300 hover:text-emerald-600",
+                  "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-blue-300 hover:text-blue-600",
                 )}
               >
                 <Upload size={14} className="mr-2 shrink-0" />
@@ -310,24 +341,90 @@ export default function BannerForm({
               )}
             </div>
             <p className="text-[10px] text-slate-400">
-              Khuyến nghị ảnh ngang tỷ lệ 16:7, rõ nét và ít chữ.
+              Khuyến nghị 1920x560, ảnh ngang, rõ nét và ít chữ.
             </p>
           </div>
 
-          {previewUrl && (
-            <div className="space-y-1.5">
-              <Label className={fieldLabelClass}>Xem trước</Label>
+          <div className="space-y-1.5">
+            <Label className={fieldLabelClass}>Ảnh banner mobile</Label>
+            <input
+              ref={mobileFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleMobileFileChange}
+            />
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="relative flex h-[180px] w-full items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-white transition-colors md:h-[220px]"
+                onClick={() => mobileFileInputRef.current?.click()}
+                className={cn(
+                  fieldControlClass,
+                  "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-blue-300 hover:text-blue-600",
+                )}
               >
-                <img
-                  src={previewUrl}
-                  alt="Xem trước banner"
-                  className="h-full w-full object-cover"
-                />
+                <Upload size={14} className="mr-2 shrink-0" />
+                <span className="truncate">
+                  {mobileImageFile?.name ??
+                    (mobilePreviewUrl ? "Đã có ảnh mobile" : "Chọn ảnh mobile riêng...")}
+                </span>
               </button>
+              {mobilePreviewUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={removeMobileImage}
+                  className="h-[38px] shrink-0 rounded-[4px] border-slate-200 px-3 text-[12px] text-slate-500"
+                >
+                  <X size={12} />
+                </Button>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Tùy chọn. Khuyến nghị 1080x1350 hoặc 1080x1200 cho màn hình nhỏ.
+            </p>
+          </div>
+
+          {(previewUrl || mobilePreviewUrl) && (
+            <div className="space-y-1.5 md:col-span-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                {previewUrl && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="space-y-2 text-left"
+                  >
+                    <span className="block text-[10px] font-semibold text-slate-400">
+                      Desktop
+                    </span>
+                    <div className="relative flex h-[220px] w-full items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-50 p-3 transition-colors md:h-[260px] md:p-4">
+                      <img
+                        src={previewUrl}
+                        alt="Xem trước banner desktop"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  </button>
+                )}
+                {mobilePreviewUrl && (
+                  <button
+                    type="button"
+                    onClick={() => mobileFileInputRef.current?.click()}
+                    className="space-y-2 text-left"
+                  >
+                    <span className="block text-[10px] font-semibold text-slate-400">
+                      Mobile
+                    </span>
+                    <div className="relative flex h-[220px] w-full items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-50 p-3 transition-colors md:h-[260px] md:p-4">
+                      <img
+                        src={mobilePreviewUrl}
+                        alt="Xem trước banner mobile"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -346,7 +443,7 @@ export default function BannerForm({
           <Button
             type="submit"
             disabled={saving}
-            className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+            className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
           >
             {saving ? (
               <Loader2 className="mr-2 animate-spin" size={16} />
@@ -360,3 +457,4 @@ export default function BannerForm({
     </form>
   );
 }
+
