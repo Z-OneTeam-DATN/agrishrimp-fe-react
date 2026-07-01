@@ -66,8 +66,11 @@ export default function ImageSearchModal({ onClose }: Props) {
         : (data as any)?.data ?? [];
       setResults(list);
     } catch (err: any) {
+      const errorData = err.response?.data;
       setSearchError(
-        err.response?.data?.message || "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại."
+        errorData?.detail ||
+          errorData?.message ||
+          "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại."
       );
     } finally {
       setIsSearching(false);
