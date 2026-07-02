@@ -1,10 +1,13 @@
 import { apiJava, buildJavaApiUrl } from "@/lib/axios";
 
+export type BlogCategoryStatus = "ACTIVE" | "INACTIVE";
+
 export interface BlogCategoryDTO {
   id: number;
   name: string;
   slug: string;
   description: string | null;
+  status: BlogCategoryStatus;
   postCount: number;
 }
 
@@ -12,6 +15,7 @@ export interface BlogTagDTO {
   id: number;
   name: string;
   slug: string;
+  usageCount?: number;
 }
 
 export interface BlogAuthorDTO {
@@ -101,6 +105,7 @@ export const adminGetBlogPosts = async (params?: {
   keyword?: string;
   status?: string;
   categoryId?: number;
+  authorId?: number;
   page?: number;
   size?: number;
   sort?: string;
@@ -147,6 +152,11 @@ export const adminGetBlogCategories = async (): Promise<BlogCategoryDTO[]> => {
   return res.data?.data ?? [];
 };
 
+export const adminGetBlogAuthors = async (): Promise<BlogAuthorDTO[]> => {
+  const res = await apiJava.get(buildJavaApiUrl("/blog/authors"));
+  return res.data?.data ?? [];
+};
+
 export const adminGetBlogTags = async (): Promise<BlogTagDTO[]> => {
   const res = await apiJava.get(buildJavaApiUrl("/blog/tags"));
   return res.data?.data ?? [];
@@ -164,6 +174,7 @@ export const adminCreateBlogCategory = async (data: {
   name: string;
   slug?: string;
   description?: string;
+  status?: BlogCategoryStatus;
 }): Promise<BlogCategoryDTO> => {
   const res = await apiJava.post(buildJavaApiUrl("/blog/categories"), data);
   return res.data?.data;
@@ -171,7 +182,7 @@ export const adminCreateBlogCategory = async (data: {
 
 export const adminUpdateBlogCategory = async (
   id: number,
-  data: { name?: string; slug?: string; description?: string }
+  data: { name?: string; slug?: string; description?: string; status?: BlogCategoryStatus }
 ): Promise<BlogCategoryDTO> => {
   const res = await apiJava.put(buildJavaApiUrl(`/blog/categories/${id}` as any), data);
   return res.data?.data;

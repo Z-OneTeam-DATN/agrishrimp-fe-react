@@ -10,12 +10,14 @@ export default function EditBannerPage() {
   const { id } = useParams<{ id: string }>();
   const [banner, setBanner] = useState<BannerDTO | null>(null);
   const [bannerCount, setBannerCount] = useState(0);
+  const [allBanners, setAllBanners] = useState<BannerDTO[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     adminGetBanners()
       .then((banners) => {
         setBannerCount(banners.length);
+        setAllBanners(banners);
         setBanner(banners.find((item) => item.id === Number(id)) ?? null);
       })
       .catch(() => {})
@@ -46,7 +48,11 @@ export default function EditBannerPage() {
         </h1>
       </div>
 
-      <BannerForm initialData={banner} bannerCount={bannerCount} />
+      <BannerForm
+        initialData={banner}
+        bannerCount={bannerCount}
+        existingBanners={allBanners}
+      />
     </div>
   );
 }

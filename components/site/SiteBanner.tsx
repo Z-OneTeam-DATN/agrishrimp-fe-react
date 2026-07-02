@@ -16,7 +16,7 @@ const BANNER_HEIGHT_CLASS = "h-[420px]";
 
 export default function Banner() {
   const plugin = React.useRef(
-    Autoplay({ delay: 3500, stopOnInteraction: false })
+    Autoplay({ delay: 2200, stopOnInteraction: false })
   );
 
   const { data: banners = [], isLoading } = useQuery({

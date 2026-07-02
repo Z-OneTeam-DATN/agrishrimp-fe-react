@@ -69,9 +69,10 @@ function BlogContent() {
         getPublicBlogCategories(),
         getPublicBlogPosts({ page: 0, size: 5 }),
       ]);
+      const visibleCategories = (cats ?? []).filter((category) => category.status === "ACTIVE");
       setPosts(postsRes.content ?? []);
       setTotalPages(postsRes.totalPages ?? 0);
-      setCategories(cats);
+      setCategories(visibleCategories);
       setLatestPosts(latestRes.content ?? []);
     } finally {
       setLoading(false);

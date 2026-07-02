@@ -6,6 +6,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Save, X, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,8 +53,6 @@ interface Props {
   initialData?: BlogPostDTO;
 }
 
-const EMPTY_CATEGORY_VALUE = "__none__";
-
 export default function BlogPostForm({ categories, initialData }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,7 +60,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [excerpt, setExcerpt] = useState(initialData?.excerpt ?? "");
   const [content, setContent] = useState(initialData?.content ?? "");
-  const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">(initialData?.status ?? "DRAFT");
+  const [status, setStatus] = useState<"" | "DRAFT" | "PUBLISHED">(initialData?.status ?? "");
   const [categoryId, setCategoryId] = useState<string>(
     initialData?.category ? String(initialData.category.id) : ""
   );
@@ -86,12 +92,17 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   const [productResults, setProductResults] = useState<PublicProductListItem[]>([]);
   const [searchingProducts, setSearchingProducts] = useState(false);
   const [productFocused, setProductFocused] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [productPickerSearch, setProductPickerSearch] = useState("");
+  const [productPickerResults, setProductPickerResults] = useState<PublicProductListItem[]>([]);
+  const [searchingPickerProducts, setSearchingPickerProducts] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{
     title?: string;
     content?: string;
     thumbnail?: string;
+    status?: string;
     categoryId?: string;
   }>({});
   const isEdit = !!initialData;
@@ -142,10 +153,35 @@ export default function BlogPostForm({ categories, initialData }: Props) {
     }
   }, []);
 
+  const searchProductsForPicker = useCallback(async (kw: string) => {
+    setSearchingPickerProducts(true);
+    try {
+      const res = await PublicProductService.getList({
+        keyword: kw.trim() || undefined,
+        size: 12,
+      });
+      setProductPickerResults(res.content ?? []);
+    } catch {
+      setProductPickerResults([]);
+    } finally {
+      setSearchingPickerProducts(false);
+    }
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(() => searchProducts(productSearch), 350);
     return () => clearTimeout(t);
   }, [productSearch, searchProducts]);
+
+  useEffect(() => {
+    if (!productPickerOpen) return;
+
+    const t = setTimeout(() => {
+      void searchProductsForPicker(productPickerSearch);
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [productPickerOpen, productPickerSearch, searchProductsForPicker]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,11 +214,16 @@ export default function BlogPostForm({ categories, initialData }: Props) {
   const filteredTags = useMemo(() => {
     const keyword = tagSearch.trim().toLowerCase();
     const unselectedTags = availableTags.filter((tag) => !selectedTagIds.includes(tag.id));
-    if (!keyword) return unselectedTags;
+    const sortedTags = [...unselectedTags].sort((left, right) => {
+      const usageDiff = (right.usageCount ?? 0) - (left.usageCount ?? 0);
+      if (usageDiff !== 0) return usageDiff;
+      return left.name.localeCompare(right.name, "vi", { sensitivity: "base" });
+    });
+    if (!keyword) return sortedTags.slice(0, 5);
 
-    return unselectedTags.filter((tag) =>
+    return sortedTags.filter((tag) =>
       [tag.name, tag.slug].some((value) => value?.toLowerCase().includes(keyword))
-    );
+    ).slice(0, 5);
   }, [availableTags, selectedTagIds, tagSearch]);
 
   const exactMatchedTag = useMemo(() => {
@@ -270,6 +311,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
       title?: string;
       content?: string;
       thumbnail?: string;
+      status?: string;
       categoryId?: string;
     } = {};
 
@@ -283,6 +325,10 @@ export default function BlogPostForm({ categories, initialData }: Props) {
 
     if (!thumbnailFile && !thumbnailPreview) {
       nextErrors.thumbnail = "Vui lòng chọn ảnh bìa";
+    }
+
+    if (!status) {
+      nextErrors.status = "Vui lòng chọn trạng thái";
     }
 
     if (!categoryId) {
@@ -395,16 +441,34 @@ export default function BlogPostForm({ categories, initialData }: Props) {
           </div>
 
           <div className="space-y-1.5 md:col-span-6">
-            <Label className={fieldLabelClass}>Trạng thái</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as "DRAFT" | "PUBLISHED")}>
-              <SelectTrigger className={cn(fieldControlClass, "border-slate-200 bg-white")}>
-                <SelectValue />
+              <Label className={fieldLabelClass}>
+                Trạng thái <span className="text-rose-500 normal-case">*</span>
+              </Label>
+            <Select
+              value={status || undefined}
+              onValueChange={(value) => {
+                setStatus(value as "DRAFT" | "PUBLISHED");
+                if (errors.status) {
+                  setErrors((prev) => ({ ...prev, status: undefined }));
+                }
+              }}
+            >
+              <SelectTrigger
+                className={cn(
+                  fieldControlClass,
+                  errors.status
+                    ? "border-rose-300 bg-white focus-visible:ring-rose-100"
+                    : "border-slate-200 bg-white",
+                )}
+              >
+                <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="DRAFT" className="text-[13px]">Bản nháp</SelectItem>
                 <SelectItem value="PUBLISHED" className="text-[13px]">Xuất bản ngay</SelectItem>
               </SelectContent>
             </Select>
+            {errors.status && <p className={inlineErrorClass}>{errors.status}</p>}
           </div>
 
           <div className="space-y-1.5 md:col-span-6">
@@ -412,9 +476,9 @@ export default function BlogPostForm({ categories, initialData }: Props) {
               Danh mục <span className="text-rose-500 normal-case">*</span>
             </Label>
             <Select
-              value={categoryId || EMPTY_CATEGORY_VALUE}
+              value={categoryId || undefined}
               onValueChange={(value) => {
-                setCategoryId(value === EMPTY_CATEGORY_VALUE ? "" : value);
+                setCategoryId(value);
                 if (errors.categoryId) {
                   setErrors((prev) => ({ ...prev, categoryId: undefined }));
                 }
@@ -431,10 +495,11 @@ export default function BlogPostForm({ categories, initialData }: Props) {
                 <SelectValue placeholder="Chọn danh mục..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={EMPTY_CATEGORY_VALUE} className="text-[13px]">Không có danh mục</SelectItem>
-                {categories.map((c) => (
+                {categories.length > 0 ? categories.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)} className="text-[13px]">{c.name}</SelectItem>
-                ))}
+                )) : (
+                  <div className="px-2 py-1.5 text-[12px] text-slate-400">Chưa có danh mục khả dụng</div>
+                )}
               </SelectContent>
             </Select>
             {errors.categoryId && <p className={inlineErrorClass}>{errors.categoryId}</p>}
@@ -476,62 +541,56 @@ export default function BlogPostForm({ categories, initialData }: Props) {
               </div>
 
               {selectedTags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {selectedTags.map((tag) => (
                     <button
                       key={tag.id}
                       type="button"
                       onClick={() => toggleTag(tag.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                      className="inline-flex items-center gap-1 px-0 py-1 text-[11px] font-semibold text-blue-700 transition-colors hover:text-blue-800"
                     >
-                      <span>{tag.name}</span>
+                      <span className="truncate">#{tag.name}</span>
                       <X size={11} />
                     </button>
                   ))}
                 </div>
               )}
 
-              <div className="max-h-40 overflow-y-auto rounded-[4px] bg-white">
+              <div>
                 {tagSearch.trim() && !exactMatchedTag && (
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateTag()}
-                    className="flex w-full items-center justify-between gap-3 border-b border-dashed border-slate-200 bg-amber-50/70 px-3 py-2 text-left text-[12px] text-amber-800 transition-colors hover:bg-amber-100/80"
-                  >
-                    <span className="min-w-0 truncate font-medium">#{tagSearch.trim()}</span>
-                    <span className="shrink-0 text-[11px] font-semibold">Tạo</span>
-                  </button>
+                  <div className="mb-2 flex flex-wrap gap-x-4 gap-y-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateTag()}
+                      className="inline-flex max-w-full items-center gap-1 px-0 py-1 text-[11px] font-semibold text-amber-700 transition-colors hover:text-amber-800"
+                    >
+                      <span className="truncate">#{tagSearch.trim()}</span>
+                      <span className="shrink-0 text-[10px]">Tạo</span>
+                    </button>
+                  </div>
                 )}
                 {filteredTags.length > 0 ? (
-                  filteredTags.map((tag, index) => {
-                    const showDivider =
-                      index < filteredTags.length - 1 ||
-                      (tagSearch.trim() && !exactMatchedTag);
-
-                    return (
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {filteredTags.map((tag) => (
                       <button
                         key={tag.id}
                         type="button"
                         onClick={() => toggleTag(tag.id)}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12px] transition-colors",
-                          showDivider && "border-b border-slate-100",
-                          "text-slate-700 hover:bg-slate-50"
-                        )}
+                        className="inline-flex max-w-full items-center px-0 py-1 text-[11px] font-semibold text-slate-700 transition-colors hover:text-blue-700"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{tag.name}</p>
-                          <p className="truncate text-[10px] text-slate-400">{tag.slug}</p>
-                        </div>
-                        <span className="shrink-0 text-[11px] font-semibold">Chọn</span>
+                        <span className="truncate">#{tag.name}</span>
                       </button>
-                    );
-                  })
+                    ))}
+                  </div>
                 ) : loadingTags || creatingTag ? (
                   <p className="px-3 py-3 text-[12px] text-slate-400">
                     Đang tải tag...
                   </p>
-                ) : null}
+                ) : (
+                  <p className="px-1 py-2 text-[11px] text-slate-400">
+                    Không còn tag gợi ý phù hợp.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -583,51 +642,67 @@ export default function BlogPostForm({ categories, initialData }: Props) {
             <p className="text-[10px] text-slate-400">Gắn sản phẩm vào bài viết để người đọc tham khảo mua hàng</p>
 
             {/* Search box */}
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <Input
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                onFocus={() => setProductFocused(true)}
-                onBlur={() => setTimeout(() => setProductFocused(false), 200)}
-                placeholder="Tìm tên sản phẩm..."
-                className={cn(fieldControlClass, "border-slate-200 bg-white pl-8")}
-              />
-              {searchingProducts && (
-                <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
-              )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  onFocus={() => setProductFocused(true)}
+                  onBlur={() => setTimeout(() => setProductFocused(false), 200)}
+                  placeholder="Tìm tên sản phẩm..."
+                  className={cn(fieldControlClass, "border-slate-200 bg-white pl-8")}
+                />
+                {searchingProducts && (
+                  <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
+                )}
 
-              {/* Dropdown kết quả */}
-              {productFocused && productResults.length > 0 && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 divide-y divide-slate-50 overflow-y-auto rounded-[4px] border border-slate-200 bg-white shadow-lg">
-                  {productResults.map((p) => {
-                    const selected = selectedProducts.some((s) => s.id === p.id);
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onMouseDown={() => toggleProduct(p)}
-                        className={cn(
-                          "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors",
-                          selected ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50 text-slate-700"
-                        )}
-                      >
-                        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-[4px] border border-slate-100 bg-slate-100">
-                          {p.imageUrls?.[0] ? (
-                            <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-slate-200" />
+                {/* Dropdown kết quả */}
+                {productFocused && productResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 divide-y divide-slate-50 overflow-y-auto rounded-[4px] border border-slate-200 bg-white shadow-lg">
+                    {productResults.map((p) => {
+                      const selected = selectedProducts.some((s) => s.id === p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onMouseDown={() => toggleProduct(p)}
+                          className={cn(
+                            "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors",
+                            selected ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50 text-slate-700"
                           )}
-                        </div>
-                        <span className="flex-1 truncate font-medium">{p.name}</span>
-                        {selected && (
-                          <span className="text-[10px] font-semibold text-blue-600 shrink-0">✓</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                        >
+                          <div className="h-8 w-8 shrink-0 overflow-hidden rounded-[4px] border border-slate-100 bg-slate-100">
+                            {p.imageUrls?.[0] ? (
+                              <img src={p.imageUrls[0]} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-slate-200" />
+                            )}
+                          </div>
+                          <span className="flex-1 truncate font-medium">{p.name}</span>
+                          {selected && (
+                            <span className="text-[10px] font-semibold text-blue-600 shrink-0">✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setProductPickerOpen(true);
+                  if (productPickerResults.length === 0) {
+                    void searchProductsForPicker("");
+                  }
+                }}
+                className="h-[38px] shrink-0 rounded-[4px] border-slate-200 px-4 text-[12px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Chọn sản phẩm
+              </Button>
             </div>
 
             {/* Sản phẩm đã chọn */}
@@ -664,6 +739,103 @@ export default function BlogPostForm({ categories, initialData }: Props) {
             )}
           </div>
         </div>
+
+      <Dialog open={productPickerOpen} onOpenChange={setProductPickerOpen}>
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden rounded-[6px] border border-slate-200 bg-white p-0 shadow-xl">
+          <DialogHeader className="border-b border-slate-200 px-5 py-4">
+            <DialogTitle className="text-[16px] font-bold text-slate-900">
+              Chọn sản phẩm liên quan
+            </DialogTitle>
+            <DialogDescription className="pt-1 text-[12px] leading-relaxed text-slate-500">
+              Tìm và chọn sản phẩm để gắn vào bài viết. Bạn có thể chọn nhiều sản phẩm.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div className="relative flex-1">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={productPickerSearch}
+                  onChange={(e) => setProductPickerSearch(e.target.value)}
+                  placeholder="Tìm tên sản phẩm trong danh sách..."
+                  className={cn(fieldControlClass, "border-slate-200 bg-white pl-9")}
+                />
+                {searchingPickerProducts && (
+                  <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
+                )}
+              </div>
+              <span className="ml-3 shrink-0 text-[11px] font-semibold text-blue-600">
+                Đã chọn {selectedProducts.length}
+              </span>
+            </div>
+
+            <div className="max-h-[48vh] overflow-y-auto rounded-[4px] border border-slate-200 bg-white">
+              {productPickerResults.length > 0 ? (
+                <div className="divide-y divide-slate-100">
+                  {productPickerResults.map((product) => {
+                    const selected = selectedProducts.some((item) => item.id === product.id);
+                    return (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => toggleProduct(product)}
+                        className={cn(
+                          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+                          selected ? "bg-blue-50" : "hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[4px] border border-slate-200 bg-slate-100">
+                          {product.imageUrls?.[0] ? (
+                            <img src={product.imageUrls[0]} alt={product.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full bg-slate-200" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-semibold text-slate-800">
+                            {product.name}
+                          </p>
+                          <p className="truncate text-[11px] text-slate-400">
+                            {product.slug}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 text-[11px] font-semibold",
+                            selected ? "text-blue-600" : "text-slate-400"
+                          )}
+                        >
+                          {selected ? "Đã chọn" : "Chọn"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : searchingPickerProducts ? (
+                <div className="flex items-center justify-center px-4 py-10 text-[12px] text-slate-400">
+                  Đang tải sản phẩm...
+                </div>
+              ) : (
+                <div className="flex items-center justify-center px-4 py-10 text-[12px] text-slate-400">
+                  Không tìm thấy sản phẩm phù hợp.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-slate-200 px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setProductPickerOpen(false)}
+              className="h-10 rounded-[4px] border-slate-300 px-5 text-[12px] font-semibold text-slate-700"
+            >
+              Xong
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
         <div className="flex flex-wrap justify-end gap-3">

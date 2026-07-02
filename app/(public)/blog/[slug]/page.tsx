@@ -387,7 +387,7 @@ export default function BlogDetailPage() {
 
         const latest = latestRes.content ?? [];
         setPost(postData);
-        setCategories(categoriesData);
+        setCategories((categoriesData ?? []).filter((category) => category.status === "ACTIVE"));
         setLatestPosts(latest);
 
         if (!postData) {

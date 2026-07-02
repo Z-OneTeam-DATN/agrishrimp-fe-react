@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -42,14 +41,15 @@ import {
   adminToggleBanner,
 } from "@/app/services/banner.service";
 
+const PAGE_SIZE = 20;
+
 export default function BannersPage() {
   const [allBanners, setAllBanners] = useState<BannerDTO[]>([]);
-  const [banners, setBanners] = useState<BannerDTO[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("displayOrder,asc");
+  const [currentPage, setCurrentPage] = useState(0);
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [statusModal, setStatusModal] = useState<{
@@ -58,6 +58,7 @@ export default function BannersPage() {
     isActive: boolean;
   } | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const summary = useMemo(() => {
     const activeCount = allBanners.filter((banner) => banner.isActive).length;
@@ -111,68 +112,53 @@ export default function BannersPage() {
     }).format(date);
   }, []);
 
-  const sortBanners = useCallback((data: BannerDTO[], sortValue: string) => {
+  const sortBanners = useCallback((data: BannerDTO[]) => {
     const result = [...data];
 
     result.sort((a, b) => {
-      switch (sortValue) {
-        case "displayOrder,desc":
-          return (b.displayOrder ?? 0) - (a.displayOrder ?? 0);
-        case "title,asc":
-          return (a.title ?? "").localeCompare(b.title ?? "", "vi", {
-            sensitivity: "base",
-          });
-        case "title,desc":
-          return (b.title ?? "").localeCompare(a.title ?? "", "vi", {
-            sensitivity: "base",
-          });
-        case "createdAt,asc":
-          return (
-            new Date(a.createdAt ?? 0).getTime() -
-            new Date(b.createdAt ?? 0).getTime()
-          );
-        case "createdAt,desc":
-          return (
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime()
-          );
-        case "displayOrder,asc":
-        default:
-          return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      const displayOrderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      if (displayOrderDiff !== 0) {
+        return displayOrderDiff;
       }
+
+      return (
+        new Date(b.createdAt ?? 0).getTime() -
+        new Date(a.createdAt ?? 0).getTime()
+      );
     });
 
     return result;
   }, []);
 
-  const applyFilters = useCallback(
-    (
-      data: BannerDTO[],
-      kw = keyword,
-      status = statusFilter,
-      sortValue = sortBy,
-    ) => {
-      let result = [...data];
+  const banners = useMemo(() => {
+    let result = [...allBanners];
 
-      if (kw.trim()) {
-        const lower = kw.trim().toLowerCase();
-        result = result.filter(
-          (banner) =>
-            banner.title?.toLowerCase().includes(lower) ||
-            banner.linkUrl?.toLowerCase().includes(lower),
-        );
-      }
+    if (keyword.trim()) {
+      const lower = keyword.trim().toLowerCase();
+      result = result.filter(
+        (banner) =>
+          banner.title?.toLowerCase().includes(lower) ||
+          banner.linkUrl?.toLowerCase().includes(lower),
+      );
+    }
 
-      if (status !== "all") {
-        result = result.filter((banner) =>
-          status === "ACTIVE" ? banner.isActive : !banner.isActive,
-        );
-      }
+    if (statusFilter !== "all") {
+      result = result.filter((banner) =>
+        statusFilter === "ACTIVE" ? banner.isActive : !banner.isActive,
+      );
+    }
 
-      setBanners(sortBanners(result, sortValue));
-    },
-    [keyword, sortBy, sortBanners, statusFilter],
+    return sortBanners(result);
+  }, [allBanners, keyword, sortBanners, statusFilter]);
+
+  const totalItems = banners.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+  const paginatedBanners = useMemo(
+    () =>
+      banners.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
+    [banners, currentPage],
   );
+  const isDeleting = deleteId !== null && deletingId === deleteId;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -193,8 +179,14 @@ export default function BannersPage() {
   }, [loadData]);
 
   useEffect(() => {
-    applyFilters(allBanners, keyword, statusFilter, sortBy);
-  }, [allBanners, applyFilters, keyword, statusFilter, sortBy]);
+    setCurrentPage(0);
+  }, [keyword, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > 0 && currentPage >= totalPages) {
+      setCurrentPage(Math.max(totalPages - 1, 0));
+    }
+  }, [currentPage, totalPages]);
 
   const handleToggleStatus = async () => {
     if (!statusModal) return;
@@ -219,6 +211,7 @@ export default function BannersPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
 
+    setDeletingId(deleteId);
     try {
       await adminDeleteBanner(deleteId);
       toast.success("Đã xóa banner");
@@ -226,6 +219,7 @@ export default function BannersPage() {
     } catch (error) {
       toast.error(getErrorMessage(error as any) || "Xóa banner thất bại");
     } finally {
+      setDeletingId(null);
       setDeleteId(null);
     }
   };
@@ -291,31 +285,6 @@ export default function BannersPage() {
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[180px]">
-              <SelectValue placeholder="Sắp xếp" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="displayOrder,asc" className="text-[13px]">
-                Vị trí tăng dần
-              </SelectItem>
-              <SelectItem value="displayOrder,desc" className="text-[13px]">
-                Vị trí giảm dần
-              </SelectItem>
-              <SelectItem value="createdAt,desc" className="text-[13px]">
-                Mới nhất
-              </SelectItem>
-              <SelectItem value="createdAt,asc" className="text-[13px]">
-                Cũ nhất
-              </SelectItem>
-              <SelectItem value="title,asc" className="text-[13px]">
-                Tiêu đề A-Z
-              </SelectItem>
-              <SelectItem value="title,desc" className="text-[13px]">
-                Tiêu đề Z-A
-              </SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="flex flex-wrap justify-end gap-2">
@@ -380,14 +349,14 @@ export default function BannersPage() {
                     <td className="px-4 py-3" />
                   </tr>
                 ))
-              ) : banners.length > 0 ? (
-                banners.map((banner, index) => (
+              ) : paginatedBanners.length > 0 ? (
+                paginatedBanners.map((banner, index) => (
                   <tr
                     key={banner.id}
                     className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                   >
                     <td className="px-4 py-3 text-[11px] font-medium text-slate-500">
-                      {index + 1}
+                      {currentPage * PAGE_SIZE + index + 1}
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-100">
@@ -482,10 +451,15 @@ export default function BannersPage() {
                           variant="ghost"
                           size="icon"
                           title="Xóa"
+                          disabled={deletingId === banner.id}
                           className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                           onClick={() => setDeleteId(banner.id)}
                         >
-                          <Trash2 size={14} />
+                          {deletingId === banner.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
                         </Button>
                       </div>
                     </td>
@@ -504,9 +478,52 @@ export default function BannersPage() {
             </tbody>
           </table>
         </div>
+        {totalItems > 0 && (
+          <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#fcfcfc] px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-[11px] text-slate-500">
+              Hiển thị {currentPage * PAGE_SIZE + 1} -{" "}
+              {Math.min((currentPage + 1) * PAGE_SIZE, totalItems)} trong{" "}
+              {totalItems}
+            </p>
+            {totalPages > 0 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 bg-white text-[11px] font-medium"
+                  onClick={() => setCurrentPage((page) => page - 1)}
+                  disabled={currentPage === 0}
+                >
+                  ← Trước
+                </Button>
+                <span className="min-w-[50px] text-center text-[11px] font-medium text-slate-500">
+                  {currentPage + 1} / {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 bg-white text-[11px] font-medium"
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  disabled={currentPage >= totalPages - 1}
+                >
+                  Sau →
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDeleteId(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-bold text-rose-600">
@@ -517,15 +534,27 @@ export default function BannersPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-9 text-[13px] font-medium">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="h-9 text-[13px] font-medium"
+            >
               Hủy bỏ
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type="button"
               onClick={handleDelete}
+              disabled={isDeleting}
               className="h-9 bg-rose-600 text-[13px] font-medium text-white hover:bg-rose-700"
             >
-              Đồng ý xóa
-            </AlertDialogAction>
+              {isDeleting ? (
+                <>
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                "Đồng ý xóa"
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -550,12 +579,13 @@ export default function BannersPage() {
             <AlertDialogCancel className="h-9 text-[13px] font-medium">
               Hủy
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type="button"
               onClick={handleToggleStatus}
               className="h-9 bg-amber-500 text-[13px] font-medium text-white hover:bg-amber-600"
             >
               Xác nhận
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

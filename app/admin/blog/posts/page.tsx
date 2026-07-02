@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -21,7 +21,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  BlogAuthorDTO,
+  BlogCategoryDTO,
   BlogPostDTO,
+  adminGetBlogAuthors,
+  adminGetBlogCategories,
   adminGetBlogPosts,
   adminPublishBlogPost,
   adminDraftBlogPost,
@@ -38,16 +42,29 @@ export default function BlogPostsPage() {
 
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [authorFilter, setAuthorFilter] = useState("all");
+  const [categories, setCategories] = useState<BlogCategoryDTO[]>([]);
+  const [authors, setAuthors] = useState<BlogAuthorDTO[]>([]);
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const didInitKeywordEffect = useRef(false);
 
-  const loadData = async (kw = keyword, st = statusFilter, p = page) => {
+  const loadData = async (
+    kw = keyword,
+    st = statusFilter,
+    cat = categoryFilter,
+    author = authorFilter,
+    p = page,
+  ) => {
     setLoading(true);
     try {
       const res = await adminGetBlogPosts({
         keyword: kw || undefined,
         status: st === "all" ? undefined : st,
+        categoryId: cat === "all" ? undefined : Number(cat),
+        authorId: author === "all" ? undefined : Number(author),
         page: p,
         size: PAGE_SIZE,
       });
@@ -60,7 +77,37 @@ export default function BlogPostsPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, []); // eslint-disable-line
+  const loadFilterOptions = async () => {
+    try {
+      const [categoriesData, authorsData] = await Promise.all([
+        adminGetBlogCategories(),
+        adminGetBlogAuthors(),
+      ]);
+      setCategories(categoriesData);
+      setAuthors(authorsData);
+    } catch {
+      toast.error("Không thể tải bộ lọc blog");
+    }
+  };
+
+  useEffect(() => {
+    loadData("", "all", "all", "all", 0);
+    loadFilterOptions();
+  }, []);
+
+  useEffect(() => {
+    if (!didInitKeywordEffect.current) {
+      didInitKeywordEffect.current = true;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setPage(0);
+      loadData(keyword, statusFilter, categoryFilter, authorFilter, 0);
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
 
   const handleToggle = async (post: BlogPostDTO) => {
     setTogglingId(post.id);
@@ -72,7 +119,7 @@ export default function BlogPostsPage() {
         await adminPublishBlogPost(post.id);
         toast.success("Đã xuất bản bài viết");
       }
-      await loadData();
+      await loadData(keyword, statusFilter, categoryFilter, authorFilter, page);
     } catch {
       toast.error("Cập nhật trạng thái thất bại");
     } finally {
@@ -85,7 +132,7 @@ export default function BlogPostsPage() {
     try {
       await adminDeleteBlogPost(deleteId);
       toast.success("Đã xóa bài viết");
-      await loadData();
+      await loadData(keyword, statusFilter, categoryFilter, authorFilter, page);
     } catch {
       toast.error("Xóa bài viết thất bại");
     } finally {
@@ -108,34 +155,31 @@ export default function BlogPostsPage() {
   const handleStatusChange = (status: string) => {
     setStatusFilter(status);
     setPage(0);
-    loadData(keyword, status, 0);
+    loadData(keyword, status, categoryFilter, authorFilter, 0);
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setCategoryFilter(category);
+    setPage(0);
+    loadData(keyword, statusFilter, category, authorFilter, 0);
+  };
+
+  const handleAuthorChange = (author: string) => {
+    setAuthorFilter(author);
+    setPage(0);
+    loadData(keyword, statusFilter, categoryFilter, author, 0);
   };
 
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 0 || nextPage >= totalPages) return;
     setPage(nextPage);
-    loadData(keyword, statusFilter, nextPage);
+    loadData(keyword, statusFilter, categoryFilter, authorFilter, nextPage);
   };
 
   const visiblePublishedCount = posts.filter((post) => post.status === "PUBLISHED").length;
   const visibleDraftCount = posts.filter((post) => post.status !== "PUBLISHED").length;
   const visibleViewCount = posts.reduce((sum, post) => sum + (post.viewCount ?? 0), 0);
-  const isToday = (dateString: string | null) => {
-    if (!dateString) return false;
-    const date = new Date(dateString);
-    const today = new Date();
-    return (
-      date.getFullYear() === today.getFullYear()
-      && date.getMonth() === today.getMonth()
-      && date.getDate() === today.getDate()
-    );
-  };
-  const todayPosts = posts.filter((post) => isToday(post.publishedAt ?? post.createdAt));
   const mostViewedPost = posts.reduce<BlogPostDTO | null>((topPost, post) => {
-    if (!topPost) return post;
-    return (post.viewCount ?? 0) > (topPost.viewCount ?? 0) ? post : topPost;
-  }, null);
-  const mostViewedTodayPost = todayPosts.reduce<BlogPostDTO | null>((topPost, post) => {
     if (!topPost) return post;
     return (post.viewCount ?? 0) > (topPost.viewCount ?? 0) ? post : topPost;
   }, null);
@@ -151,11 +195,6 @@ export default function BlogPostsPage() {
       note: mostViewedPost?.title ?? "Chưa có dữ liệu",
     },
     {
-      label: "Chú ý nhất hôm nay",
-      value: mostViewedTodayPost ? `${(mostViewedTodayPost.viewCount ?? 0).toLocaleString("vi-VN")} lượt xem` : "0 lượt xem",
-      note: mostViewedTodayPost?.title ?? "Chưa có bài viết hôm nay",
-    },
-    {
       label: "Đã xuất bản",
       value: visiblePublishedCount.toLocaleString("vi-VN"),
       note: "Bài viết đang ở trạng thái công khai",
@@ -169,81 +208,103 @@ export default function BlogPostsPage() {
 
   return (
     <div className="space-y-3">
-      <div className="mt-2 mb-8 space-y-4 px-1">
+      <div className="mt-2 mb-8 px-1">
         <div>
           <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
             Bài viết blog
           </h1>
         </div>
 
-      </div>
+        <div className="mt-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+            <div className="relative w-full lg:max-w-[360px]">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+              />
+              <Input
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    setPage(0);
+                    loadData(keyword, statusFilter, categoryFilter, authorFilter, 0);
+                  }
+                }}
+                placeholder="Tìm từ khóa bài viết..."
+                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+              />
+            </div>
 
-      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-5">
-        {miniReports.map((report) => (
-          <div
-            key={report.label}
-            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
-          >
-            <p className="text-[11px] font-semibold text-slate-400">
-              {report.label}
-            </p>
-            <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
-              {report.value}
-            </p>
-            <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
-              {report.note}
-            </p>
+            <Select value={statusFilter} onValueChange={handleStatusChange}>
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 lg:w-[180px]">
+                <SelectValue placeholder="Tất cả trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusTabs.map((tab) => (
+                  <SelectItem key={tab.id} value={tab.id} className="text-[13px]">
+                    {tab.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={authorFilter} onValueChange={handleAuthorChange}>
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 lg:w-[200px]">
+                <SelectValue placeholder="Tất cả tác giả" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-[13px]">Tất cả tác giả</SelectItem>
+                {authors.map((author) => (
+                  <SelectItem key={author.id} value={String(author.id)} className="text-[13px]">
+                    {author.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 lg:w-[200px]">
+                <SelectValue placeholder="Tất cả danh mục" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-[13px]">Tất cả danh mục</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={String(category.id)} className="text-[13px]">
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ))}
-      </div>
 
-      <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-[360px]">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-            />
-            <Input
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  setPage(0);
-                  loadData(keyword, statusFilter, 0);
-                }
-              }}
-              placeholder="Tìm tiêu đề bài viết..."
-              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
-            />
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link href="/admin/blog/posts/new">
+              <Button className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
+                <Plus size={15} className="mr-1.5" />
+                Viết bài mới
+              </Button>
+            </Link>
           </div>
-
-          <Select value={statusFilter} onValueChange={handleStatusChange}>
-            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[180px]">
-              <SelectValue placeholder="Tất cả trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusTabs.map((tab) => (
-                <SelectItem key={tab.id} value={tab.id} className="text-[13px]">
-                  {tab.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2">
-          <Link href="/admin/blog/categories">
-            <Button variant="outline" className="h-[38px] rounded-[4px] px-4 text-[13px] font-medium">
-              Danh mục
-            </Button>
-          </Link>
-          <Link href="/admin/blog/posts/new">
-            <Button className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
-              <Plus size={15} className="mr-1.5" />
-              Viết bài mới
-            </Button>
-          </Link>
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          {miniReports.map((report) => (
+            <div
+              key={report.label}
+              className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <p className="text-[11px] font-semibold text-slate-400">
+                {report.label}
+              </p>
+              <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
+                {report.value}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                {report.note}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 
