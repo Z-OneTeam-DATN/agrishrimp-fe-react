@@ -45,6 +45,8 @@ export interface ProductListItem {
   categoryName?: string;
   supplierId?: number;
   supplierName?: string;
+  brandId?: number;
+  brandName?: string;
   category?: { id: number; name: string };
   imageUrls: string[];
   variants: ProductVariant[];
@@ -84,7 +86,7 @@ export interface ProductDetail extends ProductListItem {
 export interface CreateProductRequest {
   name: string;
   categoryId: number;
-  supplierId?: number;
+  brandId?: number;
   description: string;
   status: string;
   variants: Omit<ProductVariant, "id" | "quantity" | "attributeValues">[];
@@ -106,7 +108,7 @@ export interface UpdateProductVariantRequest {
 export interface UpdateProductRequest {
   name: string;
   categoryId: number;
-  supplierId?: number;
+  brandId?: number;
   description?: string;
   status?: string;
   images?: string[];
@@ -169,6 +171,7 @@ export interface PublicProductListItem {
   imageUrls: string[];
   isOutOfStock: boolean;
   supplierName?: string;
+  brandName?: string;
   categoryName?: string;
   category?: PublicProductCategory;
   variants: PublicProductVariant[];
@@ -186,6 +189,7 @@ export interface PublicProductDetail {
   imageUrls: string[];
   isOutOfStock: boolean;
   supplierName?: string;
+  brandName?: string;
   category: PublicProductCategory;
   variants: PublicProductVariant[];
   soldCount?: number;

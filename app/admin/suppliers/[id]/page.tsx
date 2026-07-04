@@ -427,8 +427,8 @@ export default function SupplierDetailPage() {
     const flatCatalogItems = useMemo(() => {
         const list: FlatVariantCatalogItem[] = [];
 
-        // 1. Lọc các sản phẩm thuộc nhà cung cấp này
-        const supplierProducts = catalogProducts.filter((p) => p.supplierId === supplierId);
+        // 1. Lấy toàn bộ sản phẩm hoạt động để có thể liên kết vào catalog của NCC này
+        const supplierProducts = catalogProducts;
 
         // Theo dõi các biến thể đã được thêm vào danh sách để tránh trùng lặp
         const addedVariantIds = new Set<number>();
@@ -447,7 +447,7 @@ export default function SupplierDetailPage() {
                             sku: variant.sku || `SKU-${variant.id}`,
                             productName: product.name,
                             productId: product.id,
-                            brandName: product.supplierName || supplierRecord?.name || "",
+                            brandName: product.brandName || "",
                             origin: "",
                             categoryName: product.categoryName,
                             imageUrl: variant.imageUrl || product.imageUrls?.[0],
@@ -483,7 +483,7 @@ export default function SupplierDetailPage() {
                 pName = matchedProduct.name;
                 pId = matchedProduct.id;
                 cName = matchedProduct.categoryName;
-                bName = matchedProduct.supplierName;
+                bName = matchedProduct.brandName;
             }
 
             list.push({

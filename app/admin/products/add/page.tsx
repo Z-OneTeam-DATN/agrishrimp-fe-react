@@ -52,6 +52,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { getPublicBrands } from "@/app/services/brand.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -87,7 +88,7 @@ const variantSchema = z.object({
 const productSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    supplierId: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
+    brandId: z.string().min(1, "Vui lòng chọn thương hiệu"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -476,7 +477,7 @@ export default function AddProductPage() {
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([""]);
 
     const [categories, setCategories] = useState<any[]>([]);
-    const [suppliers, setSuppliers] = useState<any[]>([]);
+    const [brands, setBrands] = useState<any[]>([]);
     const [attributes, setAttributes] = useState<any[]>([]);
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
@@ -491,12 +492,12 @@ export default function AddProductPage() {
         if (!isLoadingAuth && isAuthenticated) {
             Promise.all([
                 ProductService.getCategories(),
-                ProductService.getSuppliers(),
+                getPublicBrands(),
                 ProductService.getAttributes(),
             ])
-                .then(([catRes, supplierRes, attrRes]) => {
+                .then(([catRes, brandRes, attrRes]) => {
                     setCategories(catRes || []);
-                    setSuppliers(supplierRes || []);
+                    setBrands(brandRes || []);
                     setAttributes(filterActiveAttributes(attrRes || []));
                 })
                 .catch(console.error);
@@ -675,7 +676,7 @@ export default function AddProductPage() {
         defaultValues: {
             name: "",
             categoryId: "",
-            supplierId: "",
+            brandId: "",
             baseSku: generateBaseSku(),
             description: "",
             status: "ACTIVE",
@@ -1111,7 +1112,7 @@ export default function AddProductPage() {
         reset({
             name: draftData.name || "",
             categoryId: draftData.categoryId || "",
-            supplierId: draftData.supplierId || "",
+            brandId: draftData.brandId || "",
             baseSku: draftData.baseSku || generateBaseSku(),
             description: draftData.description || "",
             status: draftData.status || "ACTIVE",
@@ -1352,7 +1353,7 @@ export default function AddProductPage() {
             const productData: any = {
                 name: data.name.trim(),
                 categoryId: Number(data.categoryId),
-                ...(data.supplierId && { supplierId: Number(data.supplierId) }),
+                ...(data.brandId && { brandId: Number(data.brandId) }),
                 ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
                 ...(data.description?.trim() && { description: data.description }),
                 ...(data.status && { status: data.status }),
@@ -1489,27 +1490,27 @@ export default function AddProductPage() {
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[10.5px] font-semibold text-slate-500">
-                                        Nhà cung cấp
+                                        Thương hiệu
                                     </Label>
                                     <Controller
-                                        name="supplierId"
+                                        name="brandId"
                                         control={control}
                                         render={({ field }) => (
                                             <Select onValueChange={field.onChange} value={field.value || ""}>
-                                                <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.supplierId && "border-rose-500")}>
-                                                    <SelectValue placeholder="-- Chọn nhà cung cấp --" />
+                                                <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.brandId && "border-rose-500")}>
+                                                    <SelectValue placeholder="-- Chọn thương hiệu --" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-md">
-                                                    {suppliers.map((s: any) => (
-                                                        <SelectItem key={`supplier-${s.id}`} value={String(s.id)}>
-                                                            {cleanSupplierName(s.name)}
+                                                    {brands.map((b: any) => (
+                                                        <SelectItem key={`brand-${b.id}`} value={String(b.id)}>
+                                                            {b.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         )}
                                     />
-                                    <ErrorMessage message={errors.supplierId?.message} />
+                                    <ErrorMessage message={errors.brandId?.message} />
                                 </div>
                                 <div ref={statusSectionRef} className="space-y-1.5">
                                     <Label className="text-[10.5px] font-semibold text-slate-500">
