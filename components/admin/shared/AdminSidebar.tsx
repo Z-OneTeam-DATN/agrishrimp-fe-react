@@ -547,6 +547,14 @@ export default function AdminSidebar() {
                   badge={categoryCount}
                 />
               )}
+              {hasPermission(P.PRODUCT_VIEW) && !isBranchAccount && (
+                <SidebarLink
+                  href="/admin/brands"
+                  icon={Building2}
+                  label="Thương hiệu"
+                  active={isActive("/admin/brands")}
+                />
+              )}
               {hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount && (
                 <SidebarLink
                   href="/admin/variants"

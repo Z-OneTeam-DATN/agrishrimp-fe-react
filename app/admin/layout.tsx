@@ -49,6 +49,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/customers", permission: P.CUSTOMER_VIEW },
   { path: "/admin/products/add", permission: P.PRODUCT_CREATE },
   { path: "/admin/products", permission: P.PRODUCT_VIEW },
+  { path: "/admin/brands", permission: P.PRODUCT_VIEW },
   { path: "/admin/categories", permission: P.CATEGORY_VIEW },
   { path: "/admin/variants", permission: P.ATTRIBUTE_VIEW },
   { path: "/admin/receipts", permission: P.IMPORT_VIEW },

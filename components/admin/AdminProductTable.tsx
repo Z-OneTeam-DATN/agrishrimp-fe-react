@@ -72,6 +72,7 @@ interface Product {
     baseSku: string;
     categoryName: string;
     supplierName: string;
+    brandName?: string;
     status: string;
     image: string;
     imageUrls: string[];
@@ -217,7 +218,7 @@ export function AdminProductTable({
                         <TableHead className="p-2" />
                         <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Ảnh</TableHead>
                         <TableHead className="p-2 pl-4 text-[10px] font-semibold text-[#1f1f1f]">Tên sản phẩm & danh mục</TableHead>
-                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Nhà cung cấp</TableHead>
+                        <TableHead className="p-2 text-[10px] font-semibold text-[#1f1f1f]">Thương hiệu</TableHead>
                         <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Tổng tồn</TableHead>
                         <TableHead className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái</TableHead>
                         {canAction && (
@@ -297,8 +298,8 @@ export function AdminProductTable({
 
                                         {/* Thương hiệu */}
                                         <TableCell className="p-2">
-                                            <span className="block truncate text-[11px] font-normal text-slate-500" title={p.supplierName || ""}>
-                                                {cleanSupplierName(p.supplierName) || "—"}
+                                            <span className="block truncate text-[11px] font-normal text-slate-500" title={p.brandName || ""}>
+                                                {p.brandName || "—"}
                                             </span>
                                         </TableCell>
 

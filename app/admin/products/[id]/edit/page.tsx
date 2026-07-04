@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { getPublicBrands } from "@/app/services/brand.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { SettingService } from "@/app/services/setting.service";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -56,7 +57,7 @@ const variantSchema = z.object({
 const AdminProductSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    supplierId: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
+    brandId: z.string().min(1, "Vui lòng chọn thương hiệu"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -247,7 +248,7 @@ export default function EditProductPage() {
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([]);
 
     const [categories, setCategories] = useState<any[]>([]);
-    const [suppliers, setSuppliers] = useState<any[]>([]);
+    const [brands, setBrands] = useState<any[]>([]);
     const [attributes, setAttributes] = useState<any[]>([]);
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
@@ -263,7 +264,7 @@ export default function EditProductPage() {
 
     const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors, isDirty } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),
-        defaultValues: { name: "", categoryId: "", supplierId: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
+        defaultValues: { name: "", categoryId: "", brandId: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
     });
     const nameWatch = watch("name");
     const categoryWatch = watch("categoryId");
@@ -468,22 +469,22 @@ export default function EditProductPage() {
             const fetchData = async () => {
                 try {
                     setIsFetching(true);
-                    const [catRes, supplierRes, attrRes, productDetail] = await Promise.all([
+                    const [catRes, brandRes, attrRes, productDetail] = await Promise.all([
                         ProductService.getCategories(),
-                        ProductService.getSuppliers(),
+                        getPublicBrands(),
                         ProductService.getAttributes(),
                         ProductService.getById(id),
                     ]);
 
                     setCategories(catRes || []);
-                    setSuppliers(supplierRes || []);
+                    setBrands(brandRes || []);
                     setAttributes(filterActiveAttributes(attrRes || []));
 
                     // Đổ dữ liệu
                     const mappedData: any = {
                         name: productDetail.name || "",
                         categoryId: productDetail.category?.id ? String(productDetail.category.id) : "",
-                        supplierId: productDetail.supplierId ? String(productDetail.supplierId) : "",
+                        brandId: productDetail.brandId ? String(productDetail.brandId) : "",
                         baseSku: productDetail.baseSku || "",
                         description: productDetail.description || "",
                         status: productDetail.status || "ACTIVE",
@@ -737,7 +738,7 @@ export default function EditProductPage() {
         reset({
             name: draftData.name || fallbackData?.name || "",
             categoryId: draftData.categoryId || fallbackData?.categoryId || "",
-            supplierId: draftData.supplierId || fallbackData?.supplierId || "",
+            brandId: draftData.brandId || fallbackData?.brandId || "",
             baseSku: draftData.baseSku || fallbackData?.baseSku || "",
             description: draftData.description || fallbackData?.description || "",
             status: draftData.status || fallbackData?.status || "ACTIVE",
@@ -1101,7 +1102,7 @@ export default function EditProductPage() {
             const productData: any = {
                 name: data.name.trim(),
                 categoryId: Number(data.categoryId),
-                ...(data.supplierId && { supplierId: Number(data.supplierId) }),
+                ...(data.brandId && { brandId: Number(data.brandId) }),
                 description: data.description || "",
                 status: data.status,
                 images: existingFirstVariantImage ? [existingFirstVariantImage] : [],
@@ -1206,26 +1207,26 @@ export default function EditProductPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Nhà cung cấp</Label>
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Thương hiệu</Label>
                                 <Controller
-                                    name="supplierId"
+                                    name="brandId"
                                     control={control}
                                     render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value || ""}>
-                                            <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.supplierId && "border-rose-500")}>
-                                                <SelectValue placeholder="-- Chọn nhà cung cấp --" />
+                                            <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.brandId && "border-rose-500")}>
+                                                <SelectValue placeholder="-- Chọn thương hiệu --" />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-md">
-                                                {suppliers.map((s: any) => (
-                                                    <SelectItem key={`supplier-${s.id}`} value={String(s.id)}>
-                                                        {cleanSupplierName(s.name)}
+                                                {brands.map((b: any) => (
+                                                    <SelectItem key={`brand-${b.id}`} value={String(b.id)}>
+                                                        {b.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     )}
                                 />
-                                <ErrorMessage message={errors.supplierId?.message} />
+                                <ErrorMessage message={errors.brandId?.message} />
                             </div>
 
                             <div ref={statusSectionRef} className="space-y-1.5">

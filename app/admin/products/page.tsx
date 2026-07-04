@@ -7,6 +7,7 @@ import { ProductService } from "@/app/services/product.service";
 import { PriceRoundingRule, SettingService } from "@/app/services/setting.service";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
+import { getAdminBrands } from "@/app/services/brand.service";
 import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
+    const [brands, setBrands] = useState<{id: number, name: string}[]>([]);
     const [suppliers, setSuppliers] = useState<string[]>([]);
 
     // 0. Kiểm tra quyền truy cập route
@@ -63,6 +65,7 @@ export default function ProductsPage() {
     });
 
     const [sort, setSort] = useState("id,desc");
+    const [selectedBrand, setSelectedBrand] = useState("all");
     const [selectedSupplier, setSelectedSupplier] = useState("all");
     const [viewMode, setViewMode] = useState<"product" | "sku">("product");
 
@@ -91,27 +94,20 @@ export default function ProductsPage() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const [data, supplierData] = await Promise.all([
+                const [data, brandData] = await Promise.all([
                     ProductService.getCategories(),
-                    ProductService.getSuppliers(),
+                    getAdminBrands(),
                 ]);
                 const mapped = [
                     { label: "Tất cả danh mục", value: "all" },
                     ...data.map((c: any) => ({ label: c.name, value: String(c.id) }))
                 ];
                 setCategories(mapped);
-                setSuppliers(
-                    Array.from(
-                        new Set(
-                            (Array.isArray(supplierData) ? supplierData : [])
-                                .map((supplier: any) =>
-                                    typeof supplier === "string" ? supplier : supplier?.name,
-                                )
-                                .filter((name: unknown): name is string =>
-                                    typeof name === "string" && name.trim().length > 0,
-                                ),
-                        ),
-                    ).sort((left, right) => left.localeCompare(right, "vi")),
+                setBrands(
+                    (Array.isArray(brandData) ? brandData : [])
+                        .filter((b: any) => b?.name?.trim())
+                        .map((b: any) => ({ id: Number(b.id), name: String(b.name) }))
+                        .sort((a: any, b: any) => a.name.localeCompare(b.name, "vi"))
                 );
 
                 if (isAdmin) {
@@ -163,6 +159,8 @@ export default function ProductsPage() {
                 baseSku: p.baseSku || "",
                 categoryName: p.categoryName || "",
                 supplierName: p.supplierName || "",
+                brandName: p.brandName || "",
+                brandId: p.brandId ? Number(p.brandId) : null,
                 status: p.status,
                 image: p.imageUrls?.[0] || "",
                 imageUrls: p.imageUrls || [],
@@ -288,7 +286,7 @@ export default function ProductsPage() {
     const sortedProducts = useMemo(() => {
         const items = products.filter(
             (product) =>
-                selectedSupplier === "all" || product.supplierName === selectedSupplier,
+                selectedBrand === "all" || String(product.brandId) === selectedBrand,
         );
 
         items.sort((left, right) => {
@@ -311,11 +309,12 @@ export default function ProductsPage() {
         });
 
         return items;
-    }, [products, selectedSupplier, sort]);
+    }, [products, selectedBrand, sort]);
 
     useEffect(() => {
         setCurrentPage(0);
-    }, [selectedSupplier]);
+    }, [selectedBrand]);
+
 
     const totalPages = Math.ceil(sortedProducts.length / pageSize);
     const currentProducts = sortedProducts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
@@ -361,7 +360,7 @@ export default function ProductsPage() {
                     productId: product.id,
                     productName: product.name,
                     categoryName: product.categoryName,
-                    brandName: product.supplierName,
+                    brandName: product.brandName,
                     productStatus: product.status,
                     variantId: variant.id,
                     sku: variant.sku,
@@ -477,21 +476,21 @@ export default function ProductsPage() {
                     </Select>
 
                     <Select
-                        value={selectedSupplier}
+                        value={selectedBrand}
                         onValueChange={(value) => {
-                            setSelectedSupplier(value);
+                            setSelectedBrand(value);
                         }}
                     >
                         <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
-                            <SelectValue placeholder="Tất cả nhà cung cấp" />
+                            <SelectValue placeholder="Tất cả thương hiệu" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all" className="text-[13px]">
-                                Tất cả nhà cung cấp
+                                Tất cả thương hiệu
                             </SelectItem>
-                            {suppliers.map((supplier) => (
-                                <SelectItem key={supplier} value={supplier} className="text-[13px]">
-                                    {supplier}
+                            {brands.map((brand) => (
+                                <SelectItem key={brand.id} value={String(brand.id)} className="text-[13px]">
+                                    {brand.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -756,7 +755,7 @@ export default function ProductsPage() {
                                         <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Ảnh SKU</th>
                                         <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">SKU / Barcode</th>
                                         <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Sản phẩm</th>
-                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Nhà cung cấp</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Thương hiệu</th>
                                         <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Tồn kho</th>
                                         <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái SKU</th>
                                         <th className="p-2 text-right text-[10px] font-semibold text-[#1f1f1f] pr-4">Thao tác</th>
