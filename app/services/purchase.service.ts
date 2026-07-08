@@ -61,6 +61,30 @@ export const PurchaseRequestApiService = {
     return res.data;
   },
 
+  /** SENT_TO_SUPPLIER -> SENT_TO_SUPPLIER */
+  resendToSupplier: async (id: number | string): Promise<PurchaseRequestResponse> => {
+    const res = await apiJava.post(`${BASE}/${id}/resend-to-supplier`);
+    return res.data;
+  },
+
+  /** SENT_TO_SUPPLIER -> SUPPLIER_CONFIRMED */
+  confirmSupplier: async (id: number | string): Promise<PurchaseRequestResponse> => {
+    const res = await apiJava.post(`${BASE}/${id}/confirm-supplier`);
+    return res.data;
+  },
+
+  /** SUPPLIER_CONFIRMED -> PREPARING */
+  markPreparing: async (id: number | string): Promise<PurchaseRequestResponse> => {
+    const res = await apiJava.post(`${BASE}/${id}/mark-preparing`);
+    return res.data;
+  },
+
+  /** PREPARING -> DELIVERING */
+  markDelivering: async (id: number | string): Promise<PurchaseRequestResponse> => {
+    const res = await apiJava.post(`${BASE}/${id}/mark-delivering`);
+    return res.data;
+  },
+
   /** → CANCELLED */
   cancel: async (id: number | string): Promise<PurchaseRequestResponse> => {
     const res = await apiJava.post(`${BASE}/${id}/cancel`);

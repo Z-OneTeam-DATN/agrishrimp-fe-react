@@ -32,8 +32,11 @@ const statusLabel: Record<string, string> = {
   PENDING_APPROVAL: "Chờ duyệt",
   APPROVED: "Đã duyệt",
   SENT_TO_SUPPLIER: "Đã gửi NCC",
-  PARTIALLY_RECEIVED: "Nhập một phần",
-  COMPLETED: "Hoàn tất",
+  SUPPLIER_CONFIRMED: "NCC xác nhận",
+  PREPARING: "Đang chuẩn bị",
+  DELIVERING: "Đang giao hàng",
+  PARTIALLY_RECEIVED: "Đã nhận một phần",
+  COMPLETED: "Đã nhận đủ",
   REJECTED: "Từ chối",
   CANCELLED: "Đã hủy",
 };

@@ -150,6 +150,8 @@ function AdminReceiptFormContent() {
     handleSubmit,
     control,
     setValue,
+    setError,
+    clearErrors,
     watch,
     getValues,
     reset,
@@ -187,28 +189,6 @@ function AdminReceiptFormContent() {
       router.replace("/admin/forbidden");
     }
   }, [currentUser, isAdmin, isWarehouseBranch, router]);
-
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.log("Form Errors:", errors);
-      const firstError = Object.values(errors)[0] as any;
-
-      if (errors.items && Array.isArray(errors.items)) {
-        const itemError = errors.items.find(Boolean) as any;
-        if (itemError) {
-          const fieldName = Object.keys(itemError)[0];
-          const message = itemError[fieldName]?.message;
-          if (message) {
-            toast.error(`Lỗi sản phẩm: ${message}`);
-            return;
-          }
-        }
-      }
-
-      if (firstError?.message) toast.error(firstError.message);
-      else toast.error("Vui lòng kiểm tra lại thông tin các trường bắt buộc");
-    }
-  }, [errors]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -289,25 +269,45 @@ function AdminReceiptFormContent() {
   const targetBranchId = selectedDestBranch?.id?.toString() || "";
 
   const subTotal = watchItems.reduce((acc, item) => {
-    const qty = Number(item.plannedQuantity) || 0;
+    const qty = Number(item.quantityAccepted) || 0;
     const price = Number(item.importPrice) || 0;
     return acc + qty * price;
   }, 0);
+  const rejectedGoodsTotal = watchItems.reduce((acc, item) => {
+    const qty = Number(item.quantityRejected) || 0;
+    const price = Number(item.importPrice) || 0;
+    return acc + qty * price;
+  }, 0);
+  const batchTotalValue = subTotal + rejectedGoodsTotal;
 
   const debtAmount = subTotal;
 
   const validateReceiptItems = (items: Receipt["items"]) => {
-    for (const item of items) {
+    clearErrors("items");
+    for (const [index, item] of items.entries()) {
       const plannedQty = Number(item.plannedQuantity) || 0;
       if (plannedQty <= 0) continue;
 
       const acceptedQty = Number(item.quantityAccepted) || 0;
       const rejectedQty = Number(item.quantityRejected) || 0;
 
+      if (plannedQty < 0 || acceptedQty < 0 || rejectedQty < 0) {
+        setError(`items.${index}.quantityAccepted`, {
+          type: "manual",
+          message: "So luong giao, dat va loi khong duoc am.",
+        });
+        return false;
+      }
+
       if (acceptedQty + rejectedQty !== plannedQty) {
-        toast.error(
-          `${item.productName}: Số đạt + số lỗi phải đúng bằng số NCC giao đợt này.`,
-        );
+        setError(`items.${index}.quantityAccepted`, {
+          type: "manual",
+          message: "Số đạt + số lỗi phải đúng bằng số NCC giao đợt này.",
+        });
+        setError(`items.${index}.quantityRejected`, {
+          type: "manual",
+          message: "Số đạt + số lỗi phải đúng bằng số NCC giao đợt này.",
+        });
         return false;
       }
     }
@@ -522,18 +522,13 @@ function AdminReceiptFormContent() {
                 0,
               ),
             quantityReal:
-              i.quantityReal ||
-              i.quantityActual ||
-              i.quantity ||
-              i.plannedQuantity ||
+              i.quantityReal ??
+              i.quantityActual ??
               0,
             quantityAccepted:
-              i.quantityAccepted ||
-              i.quantityReal ||
-              i.quantity ||
-              i.plannedQuantity ||
+              i.quantityAccepted ??
               0,
-            quantityRejected: i.quantityRejected || 0,
+            quantityRejected: i.quantityRejected ?? 0,
             importPrice: i.importPrice || i.price || i.unitPrice || i.cost || 0,
             note: i.note || "",
           }));
@@ -793,7 +788,10 @@ function AdminReceiptFormContent() {
               size={16}
             />
             <Input
-              className="h-10 border-slate-200 pl-10 text-[13px] shadow-none"
+              className={cn(
+                "h-10 border-slate-200 pl-10 text-[13px] shadow-none",
+                errors.supplierCode && "border-rose-500",
+              )}
               placeholder="Tìm theo tên hoặc mã nhà cung cấp..."
               value={searchSupplierText}
               onChange={(e) => {
@@ -828,6 +826,11 @@ function AdminReceiptFormContent() {
               </div>
             )}
           </div>
+          {errors.supplierCode && (
+            <p className="mt-1 text-[10px] font-medium text-rose-500">
+              {errors.supplierCode.message}
+            </p>
+          )}
         </div>
 
           <div>
@@ -1039,7 +1042,7 @@ function AdminReceiptFormContent() {
                     Kiểm nhận
                   </TableHead>
                   <TableHead className="w-[13%] text-right text-[11px] font-medium text-slate-500">
-                    Giá trị
+                    Đơn giá / tiền hàng
                   </TableHead>
                   <TableHead className="w-[72px]">
                     <span className="sr-only">Thao tác</span>
@@ -1059,13 +1062,16 @@ function AdminReceiptFormContent() {
                 ) : (
                   fields.map((field, idx) => {
                     const item = watchItems[idx];
-                    const actualReceived =
+                    const deliveredQty =
                       (Number(item.quantityAccepted) || 0) +
                       (Number(item.quantityRejected) || 0);
+                    const acceptedQty = Number(item.quantityAccepted) || 0;
+                    const rejectedQty = Number(item.quantityRejected) || 0;
                     const plannedQty = Number(item.plannedQuantity) || 0;
                     const hasQuantityMismatch =
-                      plannedQty > 0 && actualReceived !== plannedQty;
+                      plannedQty > 0 && deliveredQty !== plannedQty;
                     const isNoteOpen = !!noteExpandedRows[field.id];
+                    const itemErrors = errors.items?.[idx];
                     const hasNote = Boolean((item.note || "").trim());
                     const acceptedBeforeQty =
                       Number(item.acceptedBeforeQuantity) || 0;
@@ -1077,10 +1083,12 @@ function AdminReceiptFormContent() {
                       ? Math.max(
                           (Number(item.requestedQuantity) || 0) -
                             acceptedBeforeQty -
-                            (Number(item.quantityAccepted) || 0),
+                            acceptedQty,
                           0,
                         )
                       : 0;
+                    const receivedAfterReceipt = acceptedBeforeQty + acceptedQty;
+                    const acceptedLineTotal = acceptedQty * (Number(item.importPrice) || 0);
                     return (
                       <React.Fragment key={field.id}>
                         <TableRow className="border-b border-slate-100 hover:bg-slate-50/60">
@@ -1099,7 +1107,7 @@ function AdminReceiptFormContent() {
                                 {isLinkedPurchaseRequest ? (
                                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-slate-500">
                                     <span>Yêu cầu {formatNumber(Number(item.requestedQuantity) || 0)}</span>
-                                    <span>Đã đạt {formatNumber(acceptedBeforeQty)}</span>
+                                    <span>Đã nhập trước {formatNumber(acceptedBeforeQty)}</span>
                                     <span>Lỗi trước {formatNumber(defectiveBeforeQty)}</span>
                                   </div>
                                 ) : null}
@@ -1125,7 +1133,7 @@ function AdminReceiptFormContent() {
                           <TableCell className="px-2 py-3 align-top">
                             <div className="grid grid-cols-3 gap-3">
                               <div className="space-y-1">
-                                <span className="block text-[10.5px] font-medium text-slate-500">Giao</span>
+                                <span className="block text-[10.5px] font-medium text-slate-500">SL giao</span>
                                 <Input
                                   type="number"
                                   min={0}
@@ -1135,13 +1143,21 @@ function AdminReceiptFormContent() {
                                   })}
                                   disabled={isInfoReadOnly}
                                 />
+                                {itemErrors?.plannedQuantity && (
+                                  <p className="mt-1 text-[10px] font-medium text-rose-500">
+                                    {itemErrors.plannedQuantity.message}
+                                  </p>
+                                )}
                               </div>
                               <div className="space-y-1">
-                                <span className="block text-[10.5px] font-medium text-slate-500">Đạt</span>
+                                <span className="block text-[10.5px] font-medium text-slate-500">SL đạt</span>
                                 <Input
                                   type="number"
                                   min={0}
-                                  className="h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none"
+                                  className={cn(
+                                    "h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none",
+                                    itemErrors?.quantityAccepted && "border-rose-500",
+                                  )}
                                   {...register(`items.${idx}.quantityAccepted`, {
                                     valueAsNumber: true,
                                   })}
@@ -1149,11 +1165,14 @@ function AdminReceiptFormContent() {
                                 />
                               </div>
                               <div className="space-y-1">
-                                <span className="block text-[10.5px] font-medium text-slate-500">Lỗi</span>
+                                <span className="block text-[10.5px] font-medium text-slate-500">SL lỗi</span>
                                 <Input
                                   type="number"
                                   min={0}
-                                  className="h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none"
+                                  className={cn(
+                                    "h-9 min-w-0 border-slate-200 px-2 text-right text-[11.5px] shadow-none",
+                                    itemErrors?.quantityRejected && "border-rose-500",
+                                  )}
                                   {...register(`items.${idx}.quantityRejected`, {
                                     valueAsNumber: true,
                                   })}
@@ -1161,18 +1180,28 @@ function AdminReceiptFormContent() {
                                 />
                               </div>
                             </div>
-                            <div className="mt-2 flex items-center justify-between text-[10.5px] text-slate-500">
-                              <span>Còn nhập {formatNumber(remainingAfterReceipt)}</span>
-                              <span>
-                              Thực nhận{" "}
-                              <span className={cn("text-slate-800", hasQuantityMismatch && "text-rose-600")}>
-                                {formatNumber(actualReceived)}
-                              </span>
+                            {(itemErrors?.quantityAccepted || itemErrors?.quantityRejected) && (
+                              <p className="mt-2 text-[10px] font-medium text-rose-500">
+                                {itemErrors.quantityAccepted?.message ||
+                                  itemErrors.quantityRejected?.message}
+                              </p>
+                            )}
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-[10.5px] text-slate-500">
+                              <span>Còn thiếu {formatNumber(remainingAfterReceipt)}</span>
+                              <span>Đã nhận {formatNumber(receivedAfterReceipt)}</span>
+                              <span className="text-right">
+                                Thực nhập kho{" "}
+                                <span className={cn("text-slate-800", hasQuantityMismatch && "text-rose-600")}>
+                                  {formatNumber(acceptedQty)}
+                                </span>
                               </span>
                             </div>
                           </TableCell>
                           <TableCell className="px-2 py-3 align-top">
                             <div className="space-y-2">
+                              <div className="text-right text-[10.5px] font-medium text-slate-500">
+                                Đơn giá
+                              </div>
                               <Input
                                 type="number"
                                 readOnly
@@ -1182,11 +1211,9 @@ function AdminReceiptFormContent() {
                                 })}
                                 disabled={isReadOnly}
                               />
-                              <div className="text-right text-[11.5px] font-semibold text-slate-800">
-                                {formatNumber(
-                                  (Number(item.plannedQuantity) || 0) *
-                                    (Number(item.importPrice) || 0),
-                                )}
+                              <div className="flex items-center justify-between gap-2 text-[11.5px] font-semibold text-slate-800">
+                                <span className="text-[10.5px] font-medium text-slate-500">Thành tiền</span>
+                                <span>{formatNumber(acceptedLineTotal)}</span>
                               </div>
                             </div>
                           </TableCell>
@@ -1270,9 +1297,23 @@ function AdminReceiptFormContent() {
             <div className="w-full space-y-3 md:w-80">
               <div className="flex justify-between text-[12px] text-slate-500">
                 <span>Tổng tiền hàng:</span>
-                <span className="text-slate-900">
+                <span className="font-semibold text-slate-900">
                   {formatNumber(subTotal)} VND
                 </span>
+              </div>
+              <div className="space-y-1 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+                <div className="flex justify-between">
+                  <span>Giá trị hàng đạt</span>
+                  <span className="text-slate-700">{formatNumber(subTotal)} VND</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Giá trị hàng lỗi</span>
+                  <span className="text-rose-600">{formatNumber(rejectedGoodsTotal)} VND</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tổng giá trị đợt nhập</span>
+                  <span className="font-semibold text-slate-800">{formatNumber(batchTotalValue)} VND</span>
+                </div>
               </div>
               <div className="flex justify-between border-t border-slate-200 pt-3 text-[13px] font-semibold text-slate-900">
                 <span>Công nợ dự kiến:</span>
