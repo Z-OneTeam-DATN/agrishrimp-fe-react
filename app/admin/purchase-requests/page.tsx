@@ -31,6 +31,9 @@ const TABS = [
   { id: "PENDING_APPROVAL", label: "Chờ duyệt" },
   { id: "APPROVED",         label: "Đã duyệt" },
   { id: "SENT_TO_SUPPLIER", label: "Gửi NCC" },
+  { id: "SUPPLIER_CONFIRMED", label: "NCC xác nhận" },
+  { id: "PREPARING", label: "Đang chuẩn bị" },
+  { id: "DELIVERING", label: "Đang giao" },
   { id: "PARTIALLY_RECEIVED", label: "Nhận một phần" },
   { id: "COMPLETED",        label: "Hoàn tất" },
   { id: "CANCELLED",        label: "Đã hủy" },
@@ -118,8 +121,13 @@ export default function PurchaseRequestListPage() {
     },
     {
       title: "Đang nhập",
-      value: (counts.SENT_TO_SUPPLIER ?? 0) + (counts.PARTIALLY_RECEIVED ?? 0),
-      description: "Đã gửi NCC hoặc đang nhận một phần",
+      value:
+        (counts.SENT_TO_SUPPLIER ?? 0) +
+        (counts.SUPPLIER_CONFIRMED ?? 0) +
+        (counts.PREPARING ?? 0) +
+        (counts.DELIVERING ?? 0) +
+        (counts.PARTIALLY_RECEIVED ?? 0),
+      description: "Đã gửi NCC, đang xử lý hoặc đang nhận hàng",
     },
     {
       title: "Tổng giá trị",

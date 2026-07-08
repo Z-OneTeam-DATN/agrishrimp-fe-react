@@ -55,11 +55,6 @@ export default function NewTransferPage() {
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const onError = (errors: any) => {
-    console.log("Lỗi Validation của Zod:", errors);
-    toast.error("Dữ liệu chưa hợp lệ! Vui lòng kiểm tra các ô báo lỗi màu đỏ.");
-  };
-
   useEffect(() => {
     const fetchBranches = async () => {
       try {
@@ -78,6 +73,8 @@ export default function NewTransferPage() {
     handleSubmit,
     control,
     setValue,
+    setError,
+    clearErrors,
     watch,
     formState: { errors },
   } = useForm<any>({
@@ -201,7 +198,10 @@ export default function NewTransferPage() {
 
   const openProductDropdown = () => {
     if (!currentSourceBranch) {
-      toast.error("Vui lòng chọn 'Chi nhánh xuất hàng' trước khi thêm hàng hóa!");
+      setError("sourceBranch", {
+        type: "manual",
+        message: "Vui lòng chọn chi nhánh xuất hàng trước khi thêm hàng hóa",
+      });
       return;
     }
     if (searchInputRef.current) {
@@ -292,7 +292,7 @@ export default function NewTransferPage() {
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit, onError)}
+      onSubmit={handleSubmit(onSubmit)}
       className="space-y-3 pb-[100px] text-slate-800"
     >
       <div className="mt-2 mb-8 space-y-4 px-1">
@@ -398,6 +398,7 @@ export default function NewTransferPage() {
                       value={field.value}
                       onValueChange={(val) => {
                         field.onChange(val);
+                        clearErrors("sourceBranch");
                         remove();
                         const selectedBranch = branches.find(
                           (b) => b.id.toString() === val,

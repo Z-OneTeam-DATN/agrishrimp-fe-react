@@ -187,6 +187,19 @@ export const ReceiptSchema = z.object({
     });
   }
 
+  data.items.forEach((item, index) => {
+    if (item.plannedQuantity <= 0) return;
+    const acceptedQty = Number(item.quantityAccepted) || 0;
+    const rejectedQty = Number(item.quantityRejected) || 0;
+    if (acceptedQty + rejectedQty !== item.plannedQuantity) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SL đạt + SL lỗi phải đúng bằng SL giao",
+        path: ["items", index, "quantityAccepted"],
+      });
+    }
+  });
+
   // Validate điều kiện Chọn nguồn
   if (data.importType === "SUPPLIER") {
     if (!data.supplierCode || !data.supplierName) {

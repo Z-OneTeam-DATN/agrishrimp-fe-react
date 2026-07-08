@@ -213,6 +213,10 @@ export default function InventoryUpsert({
   const [stockFilter, setStockFilter] = useState("ALL");
   const [noteDialogIndex, setNoteDialogIndex] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
+  const [formErrors, setFormErrors] = useState<{
+    branchId?: string;
+    items?: string;
+  }>({});
 
   const [formData, setFormData] = useState({
     type: initialData?.type || "PERIODIC",
@@ -386,6 +390,7 @@ export default function InventoryUpsert({
       },
       ...prev,
     ]);
+    setFormErrors((prev) => ({ ...prev, items: undefined }));
   };
 
   const toggleSelectedProduct = (productId: number | string) => {
@@ -581,13 +586,20 @@ export default function InventoryUpsert({
 
   const handleSubmit = async () => {
     if (!formData.branchId) {
-      toast.error("Vui lòng chọn kho kiểm kê");
+      setFormErrors((prev) => ({
+        ...prev,
+        branchId: "Vui lòng chọn kho kiểm kê",
+      }));
       return;
     }
     if (items.length === 0) {
-      toast.error("Vui lòng thêm ít nhất một sản phẩm");
+      setFormErrors((prev) => ({
+        ...prev,
+        items: "Vui lòng thêm ít nhất một sản phẩm",
+      }));
       return;
     }
+    setFormErrors({});
 
     setIsSubmitting(true);
     try {
@@ -629,13 +641,20 @@ export default function InventoryUpsert({
       let checkId = currentCheckId;
       if (!checkId) {
         if (!formData.branchId) {
-          toast.error("Vui lòng chọn kho kiểm kê");
+          setFormErrors((prev) => ({
+            ...prev,
+            branchId: "Vui lòng chọn kho kiểm kê",
+          }));
           return;
         }
         if (items.length === 0) {
-          toast.error("Không có dữ liệu snapshot để gửi duyệt");
+          setFormErrors((prev) => ({
+            ...prev,
+            items: "Không có dữ liệu snapshot để gửi duyệt",
+          }));
           return;
         }
+        setFormErrors({});
         const payload: any = {
           branchId: Number(formData.branchId),
           type: formData.type,
@@ -792,11 +811,17 @@ export default function InventoryUpsert({
               <Select
                 disabled={mode !== "create"}
                 value={formData.branchId}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, branchId: value }))
-                }
+                onValueChange={(value) => {
+                  setFormData((prev) => ({ ...prev, branchId: value }));
+                  setFormErrors((prev) => ({ ...prev, branchId: undefined }));
+                }}
               >
-                <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-[13px]">
+                <SelectTrigger
+                  className={cn(
+                    "h-9 rounded-md border-slate-200 bg-white text-[13px]",
+                    formErrors.branchId && "border-rose-500",
+                  )}
+                >
                   <SelectValue placeholder="Chọn kho kiểm kê" />
                 </SelectTrigger>
                 <SelectContent>
@@ -807,6 +832,11 @@ export default function InventoryUpsert({
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.branchId && (
+                <p className="mt-1 text-[10px] font-medium text-rose-500">
+                  {formErrors.branchId}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5 xl:col-span-4">
@@ -1254,6 +1284,11 @@ export default function InventoryUpsert({
                 )}
               </TableBody>
             </Table>
+            {formErrors.items && (
+              <div className="border-t border-rose-100 bg-rose-50 p-3 text-center text-[11px] font-semibold text-rose-500">
+                {formErrors.items}
+              </div>
+            )}
           </div>
         </div>
 

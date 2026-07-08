@@ -92,7 +92,7 @@ function AdminExportFormContent() {
   };
 
   const {
-    register, handleSubmit, control, watch, setValue, reset, formState: { errors }
+    register, handleSubmit, control, watch, setValue, reset, setError, clearErrors, formState: { errors }
   } = useForm<ExportCommandFormValues>({
     resolver: zodResolver(ExportCommandSchema),
     mode: "onTouched",
@@ -149,14 +149,20 @@ function AdminExportFormContent() {
     if (!showDropdown) return;
     const fetchProducts = async () => {
       if (!watchBranchId) {
-        toast.warning("Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm");
+        setError("branchId", {
+          type: "manual",
+          message: "Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm",
+        });
         setShowDropdown(false);
         return;
       }
       setIsLoadingSearch(true);
       try {
         if (!watchTargetId) {
-          toast.warning("Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi");
+          setError("targetId", {
+            type: "manual",
+            message: "Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi",
+          });
           setShowDropdown(false);
           return;
         }
@@ -390,9 +396,14 @@ function AdminExportFormContent() {
   const onSubmit = async (data: ExportCommandFormValues) => {
     if (isReadOnly) return;
 
-    const invalidItems = data.items.filter(item => item.quantity > item.stock);
+    clearErrors("items");
+    const invalidIndex = data.items.findIndex(item => item.quantity > item.stock);
+    const invalidItems = invalidIndex >= 0 ? [data.items[invalidIndex]] : [];
     if (invalidItems.length > 0) {
-      toast.error(`Sản phẩm ${invalidItems[0].name} có số lượng xuất vượt quá tồn kho hiện tại.`);
+      setError(`items.${invalidIndex}.quantity`, {
+        type: "manual",
+        message: `Số lượng xuất không được vượt quá tồn kho hiện tại (${invalidItems[0].stock}).`,
+      });
       return;
     }
 
@@ -499,7 +510,14 @@ function AdminExportFormContent() {
                   name="branchId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        clearErrors("branchId");
+                      }}
+                      value={field.value}
+                      disabled={isReadOnly}
+                    >
                       <SelectTrigger className={cn(selectTriggerClass, errors.branchId ? "border-rose-500" : "border-slate-200", "bg-slate-50")}>
                         <SelectValue placeholder="-- KHO TỔNG --" />
                       </SelectTrigger>
@@ -529,7 +547,14 @@ function AdminExportFormContent() {
                   name="targetId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        clearErrors("targetId");
+                      }}
+                      value={field.value}
+                      disabled={isReadOnly || isEditMode || returnSourceLocked}
+                    >
                       <SelectTrigger className={cn(selectTriggerClass, errors.targetId ? "border-rose-500" : "border-slate-200")}>
                         <SelectValue placeholder="-- Chọn đối tượng --" />
                       </SelectTrigger>

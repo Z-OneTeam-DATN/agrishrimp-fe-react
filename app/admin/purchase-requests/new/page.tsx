@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { FileUp, Plus, Search, Trash2, Loader2 } from "lucide-react";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -40,36 +40,67 @@ type SupplierCatalogVariant = {
 
 const AVAILABLE_CATALOG_STATUS = "AVAILABLE";
 
+function normalizeBranchText(value?: string | null) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isWarehouseBranchOption(branch: BranchDTO) {
+  const code = String(branch.branchCode || "").trim().toUpperCase();
+  const type = String(branch.branchType || "").trim().toUpperCase();
+  const name = normalizeBranchText(branch.name);
+
+  if (code === "SYSTEM_DEFECT") return false;
+  if (code === "MAIN_WH") return true;
+  if (type === "WAREHOUSE") return true;
+
+  return (
+    code.includes("WH") ||
+    code.includes("WAREHOUSE") ||
+    name.includes("kho") ||
+    name.includes("warehouse")
+  );
+}
+
 function buildSupplierCatalogVariants(
   products: ProductListItem[],
   catalogItems: SupplierProductCatalogItem[],
 ): SupplierCatalogVariant[] {
-  const availableVariantIds = new Set(
-    catalogItems
-      .filter((item) => item.status === AVAILABLE_CATALOG_STATUS)
-      .map((item) => item.productVariantId),
-  );
-
-  return products
-    .flatMap((product) =>
-      (product.variants || [])
-        .filter((variant) => variant.id && availableVariantIds.has(variant.id) && String(variant.status || "").toUpperCase() === "ACTIVE")
-        .map((variant) => ({
-          id: Number(variant.id ?? 0),
-          productId: product.id,
-          sku: variant.sku || "",
-          productName: product.name || "",
-          imageUrl: variant.imageUrl || product.imageUrls?.[0],
-          quantity: variant.quantity,
-          specs:
-            variant.attributeValues?.length
-              ? variant.attributeValues
-                  .map((v) => `${v.attributeName}: ${v.value}`)
-                  .join(", ")
-              : "",
-          unit: variant.unitConversions?.[0]?.fromUnit || "Cái",
-        })),
+  return catalogItems
+    .filter(
+      (item) =>
+        String(item.status || "").toUpperCase() === AVAILABLE_CATALOG_STATUS,
     )
+    .map((item) => {
+      const product = products.find((product) =>
+        product.variants?.some(
+          (variant) => Number(variant.id) === Number(item.productVariantId),
+        ),
+      );
+      const variant = product?.variants?.find(
+        (variant) => Number(variant.id) === Number(item.productVariantId),
+      );
+      const specs = variant?.attributeValues?.length
+        ? variant.attributeValues
+            .map((value) => `${value.attributeName}: ${value.value}`)
+            .join(", ")
+        : "";
+
+      return {
+        id: Number(item.productVariantId),
+        productId: Number(item.productId || product?.id || 0),
+        sku: item.sku || variant?.sku || `SKU-${item.productVariantId}`,
+        productName: product?.name || item.productName || "",
+        imageUrl: variant?.imageUrl || product?.imageUrls?.[0],
+        quantity: variant?.quantity,
+        customSpecs: specs,
+        specs,
+        unit: variant?.unitConversions?.[0]?.fromUnit || "Cái",
+      };
+    })
     .filter((variant) => Boolean(variant.id) && Boolean(variant.sku))
     .sort(
       (a, b) =>
@@ -80,6 +111,28 @@ function buildSupplierCatalogVariants(
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
+}
+
+function getPurchaseRequestErrorMessage(error: unknown) {
+  const message = getErrorMessage(error as any);
+  const supplierCatalogMatch = message.match(
+    /^SKU\s+(.+?)\s+is not available in supplier catalog\s+(.+)$/i,
+  );
+
+  if (supplierCatalogMatch) {
+    const [, sku, supplierCode] = supplierCatalogMatch;
+    return `SKU ${sku} không nằm trong catalog đang bán của nhà cung cấp ${supplierCode}. Vui lòng chọn lại sản phẩm từ danh sách của nhà cung cấp.`;
+  }
+
+  if (/invalid supplier or product data/i.test(message)) {
+    return "Dữ liệu nhà cung cấp hoặc sản phẩm không hợp lệ. Vui lòng tải lại trang và chọn lại sản phẩm.";
+  }
+
+  if (/timeout/i.test(message)) {
+    return "Máy chủ phản hồi quá lâu. Vui lòng kiểm tra kết nối backend/cơ sở dữ liệu rồi thử lại.";
+  }
+
+  return message;
 }
 
 export default function NewPurchaseRequestPage() {
@@ -100,6 +153,8 @@ export default function NewPurchaseRequestPage() {
     SupplierCatalogVariant[]
   >([]);
   const [selectedProductSkus, setSelectedProductSkus] = useState<string[]>([]);
+  const [catalogSearchTerm, setCatalogSearchTerm] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isWarehouseUser =
     currentUserBranch?.branchType === "WAREHOUSE" || warehouseId === 1;
@@ -135,6 +190,15 @@ export default function NewPurchaseRequestPage() {
   const watchedItems = watch("items");
   const selectedSupplierCode = watch("supplierCode");
   const watchedBranchId = watch("branchId");
+  const filteredSupplierProducts = useMemo(() => {
+    const keyword = catalogSearchTerm.trim().toLowerCase();
+    if (!keyword) return supplierProducts;
+    return supplierProducts.filter((product) =>
+      [product.productName, product.sku, product.customSpecs, product.specs]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword)),
+    );
+  }, [catalogSearchTerm, supplierProducts]);
 
   useEffect(() => {
     if (!isWarehouseUser && !isAdminRole(currentUser?.role)) {
@@ -147,18 +211,8 @@ export default function NewPurchaseRequestPage() {
         const allBranches = Array.isArray(branchData)
           ? branchData
           : (branchData?.content ?? []);
-        const warehouseOnly: BranchDTO[] = allBranches.filter(
-          (branch: BranchDTO) => {
-            const code = String(branch.branchCode || "").toUpperCase();
-            const type = String(branch.branchType || "").toUpperCase();
-            const name = String(branch.name || "").toLowerCase();
-
-            if (code === "SYSTEM_DEFECT") return false;
-            if (code === "MAIN_WH") return true;
-
-            return type === "WAREHOUSE" && name.includes("kho tổng");
-          },
-        );
+        const warehouseOnly: BranchDTO[] =
+          allBranches.filter(isWarehouseBranchOption);
 
         setWarehouseBranches(warehouseOnly);
 
@@ -168,6 +222,11 @@ export default function NewPurchaseRequestPage() {
           ) ??
           warehouseOnly.find(
             (branch: BranchDTO) => branch.id === warehouseId,
+          ) ??
+          warehouseOnly.find(
+            (branch: BranchDTO) =>
+              String(branch.branchCode || "").trim().toUpperCase() ===
+              "MAIN_WH",
           ) ??
           warehouseOnly[0];
 
@@ -187,7 +246,11 @@ export default function NewPurchaseRequestPage() {
         setSuppliers(
           Array.isArray(suppData) ? suppData : (suppData?.content ?? []),
         );
-        setAllProducts(Array.isArray(productData) ? productData : []);
+        setAllProducts(
+          Array.isArray(productData)
+            ? productData
+            : (productData as any)?.content ?? [],
+        );
       } catch (error) {
         console.error("Failed to load purchase request dependencies", error);
       }
@@ -206,14 +269,14 @@ export default function NewPurchaseRequestPage() {
     );
   }, 0);
 
-  const openSupplierCatalog = async (supplierCode: string) => {
+  const loadSupplierCatalog = async (supplierCode: string) => {
     const selectedSupplier = suppliers.find(
       (supplier) => supplier.code === supplierCode,
     );
 
     if (!supplierCode || !selectedSupplier?.id) {
       toast.error("Vui lòng chọn nhà cung cấp trước");
-      return;
+      return [];
     }
 
     setCatalogLoading(true);
@@ -221,19 +284,38 @@ export default function NewPurchaseRequestPage() {
       const catalogItems = await supplierService.getProductCatalog(
         selectedSupplier.id,
       );
-      const variants = buildSupplierCatalogVariants(allProducts, catalogItems);
-      setSupplierProducts(variants);
+      const catalogVariants = buildSupplierCatalogVariants(
+        allProducts,
+        catalogItems,
+      );
+      setSupplierProducts(catalogVariants);
+
+      if (catalogVariants.length === 0) {
+        toast.warning(
+          "Nhà cung cấp này chưa có sản phẩm đang bán trong catalog. Vui lòng cập nhật catalog nhà cung cấp trước khi tạo phiếu.",
+        );
+      }
+
+      return catalogVariants;
+    } catch (error) {
+      setSupplierProducts([]);
+      toast.error(getPurchaseRequestErrorMessage(error));
+      return [];
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const openSupplierCatalog = async (supplierCode: string) => {
+    const variants = await loadSupplierCatalog(supplierCode);
+    if (variants.length > 0 || supplierCode) {
       setSelectedProductSkus(
         watchedItems
           .map((item) => item.productCode)
           .filter((sku): sku is string => Boolean(sku)),
       );
+      setCatalogSearchTerm("");
       setShowProductModal(true);
-    } catch (error) {
-      setSupplierProducts([]);
-      toast.error(getErrorMessage(error as any));
-    } finally {
-      setCatalogLoading(false);
     }
   };
 
@@ -290,12 +372,140 @@ export default function NewPurchaseRequestPage() {
     setShowProductModal(false);
   };
 
+  const handleImportExcel = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedSupplierCode) {
+      toast.error("Vui lòng chọn nhà cung cấp trước khi nhập Excel");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const catalog =
+      supplierProducts.length > 0
+        ? supplierProducts
+        : await loadSupplierCatalog(selectedSupplierCode);
+    const catalogBySku = new Map(
+      catalog.map((product) => [product.sku.trim().toLowerCase(), product]),
+    );
+
+    try {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+      const currentBySku = new Map<string, any>(
+        watchedItems
+          .filter((item) => item.productCode)
+          .map((item) => [String(item.productCode).trim().toLowerCase(), item]),
+      );
+      const unmatchedSkus: string[] = [];
+
+      rows.forEach((row) => {
+        const sku = String(
+          row["SKU"] ||
+            row["Mã sản phẩm"] ||
+            row["Ma san pham"] ||
+            row["Mã SKU"] ||
+            row["ProductCode"] ||
+            "",
+        ).trim();
+        if (!sku) return;
+
+        const catalogItem = catalogBySku.get(sku.toLowerCase());
+        if (!catalogItem) {
+          unmatchedSkus.push(sku);
+          return;
+        }
+
+        const qty = Number(
+          row["Số lượng"] ||
+            row["So luong"] ||
+            row["SL"] ||
+            row["Quantity"] ||
+            1,
+        );
+        const unitPrice = Number(
+          row["Đơn giá"] ||
+            row["Don gia"] ||
+            row["Giá"] ||
+            row["Gia"] ||
+            row["UnitPrice"] ||
+            0,
+        );
+        const note = String(row["Ghi chú"] || row["Ghi chu"] || row["Note"] || "");
+
+        currentBySku.set(sku.toLowerCase(), {
+          ...currentBySku.get(sku.toLowerCase()),
+          productCode: catalogItem.sku,
+          productName: catalogItem.productName,
+          imageUrl: catalogItem.imageUrl,
+          requestedQty: Number.isFinite(qty) && qty > 0 ? qty : 1,
+          unitPrice: Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0,
+          note,
+        });
+      });
+
+      const nextItems = Array.from(currentBySku.values());
+      replace(nextItems);
+      setSelectedProductSkus(
+        nextItems
+          .map((item) => item.productCode)
+          .filter((sku): sku is string => Boolean(sku)),
+      );
+
+      if (unmatchedSkus.length > 0) {
+        toast.warning(
+          `Có ${unmatchedSkus.length} SKU không thuộc catalog NCC: ${unmatchedSkus
+            .slice(0, 5)
+            .join(", ")}`,
+        );
+      } else {
+        toast.success("Đã nhập dữ liệu yêu cầu từ Excel");
+      }
+    } catch (error) {
+      toast.error("Không thể đọc file Excel yêu cầu nhập hàng");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const onSubmit = async (data: PurchaseRequestForm) => {
     setIsSubmitting(true);
     try {
       const selectedBranch = warehouseBranches.find(
         (branch) => branch.id === Number(data.branchId),
       );
+      const catalogSkus = new Set(
+        supplierProducts.map((product) => product.sku.trim().toLowerCase()),
+      );
+      const invalidCatalogSkus = data.items
+        .map((item) => item.productCode?.trim())
+        .filter((sku): sku is string => Boolean(sku))
+        .filter((sku) => !catalogSkus.has(sku.toLowerCase()));
+
+      if (catalogSkus.size === 0) {
+        toast.error(
+          "Chưa tải được catalog sản phẩm của nhà cung cấp. Vui lòng chọn lại nhà cung cấp hoặc cập nhật catalog trước khi lưu phiếu.",
+        );
+        return;
+      }
+
+      if (invalidCatalogSkus.length > 0) {
+        toast.error(
+          `Không thể tạo phiếu vì ${invalidCatalogSkus.length} SKU không nằm trong catalog đang bán của nhà cung cấp: ${invalidCatalogSkus
+            .slice(0, 5)
+            .join(", ")}. Vui lòng xóa các dòng này và chọn lại sản phẩm từ danh sách nhà cung cấp.`,
+        );
+        return;
+      }
+
       const created = await PurchaseRequestApiService.create({
         ...data,
         branchName: selectedBranch?.name ?? data.branchName,
@@ -303,7 +513,7 @@ export default function NewPurchaseRequestPage() {
       toast.success(`Đã tạo phiếu yêu cầu "${created.code}"`);
       router.push(`/admin/purchase-requests/${created.id}`);
     } catch (error) {
-      toast.error(getErrorMessage(error as any));
+      toast.error(getPurchaseRequestErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -430,10 +640,28 @@ export default function NewPurchaseRequestPage() {
         </div>
 
         <div className="border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-4">
             <h2 className="text-[12px] font-semibold text-slate-900">
               2. Hàng hóa yêu cầu ({fields.length} mặt hàng)
             </h2>
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-[4px] border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!selectedSupplierCode || catalogLoading}
+              >
+                <FileUp size={12} className="mr-1" />
+                Nhập Excel
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImportExcel}
+              />
             <Button
               type="button"
               variant="outline"
@@ -444,6 +672,7 @@ export default function NewPurchaseRequestPage() {
               <Plus size={12} className="mr-1" />
               Chọn sản phẩm
             </Button>
+            </div>
           </div>
 
           {errors.items?.root && (
@@ -534,6 +763,11 @@ export default function NewPurchaseRequestPage() {
                                 : "border-slate-200",
                             )}
                           />
+                          {errors.items?.[idx]?.requestedQty && (
+                            <p className="mt-1 text-[10px] text-red-500">
+                              {errors.items[idx]?.requestedQty?.message}
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-2">
                           <input
@@ -617,9 +851,22 @@ export default function NewPurchaseRequestPage() {
       <Dialog open={showProductModal} onOpenChange={setShowProductModal}>
         <DialogContent className="max-w-3xl rounded-[6px] border border-slate-200 p-0">
           <div className="border-b border-slate-200 p-5">
-            <h3 className="text-[16px] font-semibold text-slate-900">
+            <DialogTitle className="text-[16px] font-semibold text-slate-900">
               Danh sách hàng hóa nhà cung cấp đang bán
-            </h3>
+            </DialogTitle>
+            <div className="relative mt-4">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                value={catalogSearchTerm}
+                onChange={(event) => setCatalogSearchTerm(event.target.value)}
+                placeholder="Tìm theo tên sản phẩm hoặc SKU..."
+                className="h-9 w-full border border-slate-200 pl-9 pr-3 text-[12px] outline-none focus:border-emerald-300"
+              />
+            </div>
           </div>
 
           <div className="max-h-[60vh] overflow-y-auto p-5">
@@ -634,7 +881,12 @@ export default function NewPurchaseRequestPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {supplierProducts.map((product) => {
+                {filteredSupplierProducts.length === 0 && (
+                  <div className="py-12 text-center text-slate-400">
+                    Không tìm thấy sản phẩm phù hợp.
+                  </div>
+                )}
+                {filteredSupplierProducts.map((product) => {
                   const checked = selectedProductSkus.includes(product.sku);
                   return (
                     <label

@@ -317,8 +317,8 @@ export default function ReceiptDetailPage() {
         toast.error(`SP ${item.productName}: Đạt QC + Lỗi phải đúng bằng số NCC giao`);
         return;
       }
-      if (accepted < 0 || rejected < 0) {
-        toast.error(`SP ${item.productName}: Số lượng đạt/lỗi không được âm`);
+      if (delivered < 0 || accepted < 0 || rejected < 0) {
+        toast.error(`SP ${item.productName}: Số lượng giao/đạt/lỗi không được âm`);
         return;
       }
 
@@ -557,9 +557,9 @@ export default function ReceiptDetailPage() {
                 <th className="w-[8%] px-3 py-3 text-right font-medium">Dự kiến</th>
                 {isQCMode ? (
                   <>
-                    <th className="w-[8%] px-3 py-3 text-right font-medium">NCC giao</th>
-                    <th className="w-[8%] px-3 py-3 text-right font-medium">Đạt QC</th>
-                    <th className="w-[7%] px-3 py-3 text-right font-medium">Lỗi</th>
+                    <th className="w-[8%] px-3 py-3 text-right font-medium">SL giao</th>
+                    <th className="w-[8%] px-3 py-3 text-right font-medium">SL đạt</th>
+                    <th className="w-[7%] px-3 py-3 text-right font-medium">SL lỗi</th>
                   </>
                 ) : null}
                 <th className="w-[12%] px-3 py-3 text-right font-medium">Giá nhập</th>
@@ -683,18 +683,19 @@ export default function ReceiptDetailPage() {
                           <th className="p-4 border-r w-[240px]">Sản phẩm / SKU</th>
                           <th className="p-4 text-center border-r w-[140px]">Số lô / hạn dùng</th>
                           <th className="p-4 text-center border-r w-[90px]">Dự kiến</th>
-                          <th className="p-4 text-center border-r w-[120px]">NCC giao</th>
-                          <th className="p-4 text-center border-r w-[120px]">Đạt QC</th>
-                          <th className="p-4 text-center border-r w-[100px]">Lỗi</th>
+                          <th className="p-4 text-center border-r w-[120px]">SL giao</th>
+                          <th className="p-4 text-center border-r w-[120px]">SL đạt</th>
+                          <th className="p-4 text-center border-r w-[100px]">SL lỗi</th>
                           <th className="p-4 text-left">Lý do lỗi / Ghi chú</th>
                        </tr>
                     </thead>
                     <tbody>
                        {inspectItems.map((item, idx) => {
-                          const planned = item.plannedQuantity || 0;
-                          const delivered = Number(item.quantityDelivered) || 0;
-                          const rejected = Number(item.quantityRejected) || 0;
-                          const isNoteRequired = rejected > 0 || delivered < planned;
+                           const planned = item.plannedQuantity || 0;
+                           const delivered = Number(item.quantityDelivered) || 0;
+                           const accepted = Number(item.quantityAccepted) || 0;
+                           const rejected = Number(item.quantityRejected) || 0;
+                           const isNoteRequired = rejected > 0 || delivered < planned;
 
                           return (
                          <tr key={idx} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
@@ -738,9 +739,9 @@ export default function ReceiptDetailPage() {
                                    newItems[idx].quantityDelivered = e.target.value;
                                    setInspectItems(newItems);
                                  }}
-                                 className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                               />
-                            </td>
+                                  className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
+                                />
+                             </td>
 
                             <td className="border-r p-2">
                                <Input 
@@ -754,7 +755,10 @@ export default function ReceiptDetailPage() {
                                  }}
                                  className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
                                />
-                            </td>
+                               <div className="mt-1 text-right text-[10.5px] text-slate-500">
+                                 Thực nhập kho <span className="font-semibold text-slate-700">{formatNumber(accepted)}</span>
+                               </div>
+                             </td>
 
                             <td className="border-r p-2">
                                <Input
