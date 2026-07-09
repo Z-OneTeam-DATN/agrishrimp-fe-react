@@ -1,5 +1,7 @@
-import { AdminOrderEditorModule } from "@/components/admin/orders/OrderAdminModule";
+import { LegacyOrderRouteRedirect } from "@/components/admin/orders/LegacyOrderRouteRedirect";
 
 export default function AdminOrderCreatePage() {
-  return <AdminOrderEditorModule mode="create" />;
+  return (
+    <LegacyOrderRouteRedirect message="Tạo đơn bằng màn quản trị cũ đã được khóa. Đang chuyển sang luồng đơn hàng mới..." />
+  );
 }

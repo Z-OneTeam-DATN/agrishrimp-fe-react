@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft,
     Search,
@@ -41,6 +41,7 @@ const formatCurrency = (amount: number) =>
 
 export default function CreateHandoverPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     // --- STATE DỮ LIỆU THẬT ---
     const [orders, setOrders] = useState<BranchOrder[]>([]);
@@ -50,6 +51,14 @@ export default function CreateHandoverPage() {
     const [selectedCarrier, setSelectedCarrier] = useState<string>("all");
     const [selectedOrders, setSelectedOrders] = useState<number[]>([]); // Lưu subOrderId (number)
     const [searchTerm, setSearchTerm] = useState("");
+    const requestedSubOrderIds = useMemo(
+        () =>
+            (searchParams.get("subOrderIds") || "")
+                .split(",")
+                .map((value) => Number(value))
+                .filter((value) => Number.isFinite(value) && value > 0),
+        [searchParams],
+    );
 
     // 1. LOAD DỮ LIỆU TỪ BACKEND
     const fetchReadyOrders = async () => {
@@ -68,6 +77,31 @@ export default function CreateHandoverPage() {
     useEffect(() => {
         fetchReadyOrders();
     }, []);
+
+    useEffect(() => {
+        if (!orders.length || !requestedSubOrderIds.length) {
+            return;
+        }
+
+        const matchedOrders = orders.filter((order) => requestedSubOrderIds.includes(order.subOrderId));
+        if (!matchedOrders.length) {
+            return;
+        }
+
+        setSelectedOrders(matchedOrders.map((order) => order.subOrderId));
+
+        const carriers = Array.from(
+            new Set(
+                matchedOrders
+                    .map((order) => order.carrier)
+                    .filter((carrier): carrier is string => Boolean(carrier)),
+            ),
+        );
+
+        if (carriers.length === 1) {
+            setSelectedCarrier(carriers[0]);
+        }
+    }, [orders, requestedSubOrderIds]);
 
     // 2. LỌC DỮ LIỆU TRÊN UI
     const filteredOrders = useMemo(() => {

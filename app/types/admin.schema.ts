@@ -80,10 +80,7 @@ export const AdminAttributeSchema = z.object({
         )
         .max(50, "Mã định danh quá dài"),
 
-    description: z
-        .string()
-        .min(1, "Vui lòng nhập mô tả cho thuộc tính này")
-        .max(500, "Mô tả tối đa 500 ký tự"),
+    description: z.string().optional(),
 
     status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 

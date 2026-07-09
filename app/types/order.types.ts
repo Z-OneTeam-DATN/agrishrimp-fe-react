@@ -27,6 +27,8 @@ export interface OrderItemDetail {
   variantName: string;
   variantSku?: string;
   quantity: number;
+  allocatedQuantity?: number;
+  missingQuantity?: number;
   unitPrice: number;
   subtotal: number;
 }

@@ -344,13 +344,13 @@ export default function AddCategoryPage() {
               </div>
 
               {imageUrl && (
-                <div className="mt-3 flex h-28 w-28 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-white">
+                <div className="mt-3 flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
                   <Image
                     src={imageUrl}
                     alt="Ảnh danh mục"
                     width={112}
                     height={112}
-                    className="h-full w-full object-contain p-1"
+                    className="h-full w-full object-cover"
                   />
                 </div>
               )}

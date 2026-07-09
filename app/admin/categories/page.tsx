@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   getCategories,
@@ -11,7 +11,7 @@ import {
   type CategoryPayload
 } from "@/app/services/CategoryService";
 import { toast } from "sonner";
-import { Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff, XCircle, Search } from "lucide-react";
+import { Tag, ChevronDown, ChevronLeft, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff, XCircle, Search } from "lucide-react";
 
 import {
   AlertDialog,
@@ -34,7 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { usePermissions } from "@/hooks/usePermissions";
@@ -77,13 +77,20 @@ export default function CategoryManagementPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId] = useState<number | null>(null);
   const [parentList, setParentList] = useState<Category[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentKeyword, setCurrentKeyword] = useState("");
   const [currentStatus, setCurrentStatus] = useState("all");
-  const [currentSort, setCurrentSort] = useState("id,desc");
+  const currentSort = "id,desc";
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageSize = 20;
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [currentKeyword, currentStatus]);
+
   const [nameError, setNameError] = useState<string>("");
   const [nameTouched, setNameTouched] = useState(false);
   const [imageFileName, setImageFileName] = useState("");
@@ -111,13 +118,6 @@ export default function CategoryManagementPage() {
     }
 
     return "";
-  }, []);
-
-  const getDisplayFileNameFromUrl = useCallback((url?: string) => {
-    if (!url) return "";
-    const parts = url.split("/");
-    const lastPart = parts[parts.length - 1] || "";
-    return decodeURIComponent(lastPart).split("?")[0] || "Ảnh hiện tại";
   }, []);
 
   const getStatusLabel = (status: string) =>
@@ -217,33 +217,6 @@ export default function CategoryManagementPage() {
 
   const toggleExpand = (id: number) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleEdit = (id: number) => {
-    const findInTree = (list: Category[]): Category | undefined => {
-      for (const item of list) {
-        if (item.id === id) return item;
-        if (item.children) {
-          const found = findInTree(item.children);
-          if (found) return found;
-        }
-      }
-    };
-
-    const cat = allCategories.find((item) => item.id === id) ?? findInTree(categories);
-    if (cat) {
-      setEditingId(id);
-      setFormData({
-        name: cat.name,
-        parentId: cat.parentId ? String(cat.parentId) : "none",
-        status: isActiveStatus(cat.status) ? "ACTIVE" : "INACTIVE",
-        imageUrl: cat.imageUrl || "", 
-      });
-      setNameError("");
-      setNameTouched(false);
-      setImageFileName(getDisplayFileNameFromUrl(cat.imageUrl));
-      setIsModalOpen(true);
-    }
   };
 
   const handleToggleStatus = async () => {
@@ -366,23 +339,18 @@ export default function CategoryManagementPage() {
     }
   };
 
-  const handleSortChange = (val: string) => {
-    if (val === "fullName,asc") {
-      setCurrentSort("name,asc");
-      return;
-    }
-
-    if (val === "fullName,desc") {
-      setCurrentSort("name,desc");
-      return;
-    }
-
-    setCurrentSort(val);
-  };
+  const handleSortChange = () => undefined;
 
   const canAction = hasPermission(P.CATEGORY_UPDATE) || hasPermission(P.CATEGORY_DELETE);
+  const showSortFilter = false;
 
-  let categoryRowIndex = 0;
+  let categoryRowIndex = currentPage * pageSize;
+
+  const paginatedCategories = useMemo(() => {
+    return categories.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  }, [categories, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(categories.length / pageSize);
 
   const renderCategoryRow = (category: Category, level = 0) => {
     const isExpanded = expandedRows[category.id];
@@ -395,29 +363,35 @@ export default function CategoryManagementPage() {
           <td className="px-4 py-3 text-[11px] font-medium text-slate-500">
             {rowNumber}
           </td>
-          <td className="px-2 py-3">
-            <div className="flex items-center gap-2" style={{ paddingLeft: `${level * 24}px` }}>
+          <td className="px-4 py-3">
+            <div className="flex min-h-[44px] items-center gap-3" style={{ paddingLeft: `${level * 20}px` }}>
               {hasChildren ? (
-                <button onClick={() => toggleExpand(category.id)} className="rounded-[4px] p-1 transition-colors hover:bg-slate-100">
+                <button
+                  onClick={() => toggleExpand(category.id)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] transition-colors hover:bg-slate-100"
+                >
                   {isExpanded ? <ChevronDown size={14} className="text-blue-600" /> : <ChevronRight size={14} />}
                 </button>
-              ) : (
-                <div className="w-6" />
-              )}
-              {category.imageUrl && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
+              ) : null}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
+                {category.imageUrl ? (
                   <Image
                     src={category.imageUrl}
                     alt={category.name}
-                    width={32}
-                    height={32}
-                    className="object-contain p-0.5"
+                    width={40}
+                    height={40}
+                    className="h-full w-full object-cover"
                   />
-                </div>
+                ) : (
+                  <ImageIcon size={16} className="text-slate-300" />
                 )}
-              <span className={cn("text-[11px] tracking-tight", level === 0 ? "font-semibold text-slate-800" : "font-medium text-slate-600")}>
-                {category.name}
-              </span>
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                {level > 0 && <span className="shrink-0 text-sm leading-none text-slate-400">&bull;</span>}
+                <span className={cn("truncate text-[12px] tracking-tight", level === 0 ? "font-semibold text-slate-800" : "font-medium text-slate-600")}>
+                  {category.name}
+                </span>
+              </div>
             </div>
           </td>
           <td className="px-2 py-3 text-center">
@@ -429,11 +403,6 @@ export default function CategoryManagementPage() {
           {canAction && (
             <td className="px-4 py-3 text-right">
               <div className="flex justify-end gap-1">
-                {hasPermission(P.CATEGORY_UPDATE) && (
-                  <Button variant="ghost" size="icon" title="Ẩn/Hiện" className={cn("h-7 w-7 rounded-[4px] text-slate-400", isActiveStatus(category.status) ? "hover:bg-emerald-50 hover:text-emerald-600" : "hover:bg-amber-50 hover:text-amber-500")} onClick={() => setStatusModal({ id: category.id, name: category.name, currentStatus: category.status })}>
-                    {isActiveStatus(category.status) ? <Eye size={14} /> : <EyeOff size={14} />}
-                  </Button>
-                )}
                 {hasPermission(P.CATEGORY_UPDATE) && (
                   <Button variant="ghost" size="icon" title="Chỉnh sửa" className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600" onClick={() => router.push(`/admin/categories/add?id=${category.id}`)}><Edit size={14} /></Button>
                 )}
@@ -450,8 +419,6 @@ export default function CategoryManagementPage() {
   };
 
   const renderParentList = Array.isArray(parentList) ? parentList : [];
-  const trimmedNameLength = formData.name.trim().length;
-  const remainingNameChars = CATEGORY_NAME_MAX - trimmedNameLength;
   const realtimeNameError = nameTouched ? validateCategoryName(formData.name) : "";
 
   return (
@@ -495,7 +462,8 @@ export default function CategoryManagementPage() {
               </SelectContent>
             </Select>
 
-            <Select value={currentSort} onValueChange={handleSortChange}>
+            {showSortFilter && (
+              <Select value={currentSort} onValueChange={handleSortChange}>
               <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 lg:w-[150px]">
                 <SelectValue placeholder="Sắp xếp" />
               </SelectTrigger>
@@ -513,7 +481,8 @@ export default function CategoryManagementPage() {
                   Tên Z-A
                 </SelectItem>
               </SelectContent>
-            </Select>
+              </Select>
+            )}
           </div>
 
           {hasPermission(P.CATEGORY_CREATE) && (
@@ -537,7 +506,7 @@ export default function CategoryManagementPage() {
                 <th className="w-[80px] px-4 py-3 text-[10px] font-semibold text-[#1f1f1f]">
                   STT
                 </th>
-                <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">
+                <th className="px-4 py-3 text-[10px] font-semibold text-[#1f1f1f]">
                   Tên danh mục
                 </th>
                 <th className="w-[120px] px-2 py-3 text-center text-[10px] font-semibold text-[#1f1f1f]">
@@ -547,15 +516,15 @@ export default function CategoryManagementPage() {
                   Trạng thái
                 </th>
                 {canAction && (
-                  <th className="w-[132px] px-4 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                  <th className="w-[96px] px-4 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">
                     Thao tác
                   </th>
                 )}
               </tr>
             </thead>
             <tbody>
-              {categories.length > 0 ? (
-                categories.map((cat) => renderCategoryRow(cat))
+              {paginatedCategories.length > 0 ? (
+                paginatedCategories.map((cat) => renderCategoryRow(cat))
               ) : (
                 <tr><td colSpan={canAction ? 5 : 4} className="h-[180px] text-center text-[12px] font-medium text-slate-400">Chưa có dữ liệu.</td></tr>
               )}
@@ -567,6 +536,42 @@ export default function CategoryManagementPage() {
           <p className="text-[12px] font-semibold text-slate-500">
             Tổng số: {allCategories.length} danh mục
           </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                className="h-7 px-2 text-[11px] font-medium"
+              >
+                <ChevronLeft size={14} className="mr-0.5" /> Trước
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <Button
+                  key={i}
+                  variant={currentPage === i ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(i)}
+                  className={cn(
+                    "h-7 w-7 p-0 text-[11px] font-semibold",
+                    currentPage === i && "bg-blue-600 text-white hover:bg-blue-700"
+                  )}
+                >
+                  {i + 1}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages - 1}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                className="h-7 px-2 text-[11px] font-medium"
+              >
+                Sau <ChevronRight size={14} className="ml-0.5" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -601,8 +606,8 @@ export default function CategoryManagementPage() {
                   )}
                 </div>
                 {formData.imageUrl && (
-                  <div className="relative h-28 w-28 overflow-hidden rounded-[4px] border border-slate-200 bg-white">
-                      <Image src={formData.imageUrl} alt="Preview" fill className="object-contain p-1" />
+                  <div className="relative h-28 w-28 overflow-hidden rounded-full border border-slate-200 bg-white">
+                      <Image src={formData.imageUrl} alt="Preview" fill className="object-cover" />
                   </div>
                 )}
               </div>

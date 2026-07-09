@@ -41,7 +41,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
         };
       case "AWAITING_REPLENISHMENT":
         return {
-          label: "Chờ lấy hàng",
+          label: "Chờ điều chuyển",
           className: "text-[#2d9f8d]",
           icon: <Package size={14} className="mr-1" />,
         };
@@ -145,7 +145,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                 </div>
                 {(item.missingQuantity ?? 0) > 0 && (
                   <div className="mt-1 text-[11px] font-semibold text-[#2d9f8d]">
-                    Đang bổ sung thêm {item.missingQuantity} sản phẩm
+                    Đang gom hoặc điều chuyển thêm {item.missingQuantity} sản phẩm từ chi nhánh khác
                   </div>
                 )}
                 <div className={`mt-1.5 text-sm font-bold sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}>

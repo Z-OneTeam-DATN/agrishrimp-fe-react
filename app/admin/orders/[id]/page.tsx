@@ -1,11 +1,7 @@
-import { AdminOrderEditorModule } from "@/components/admin/orders/OrderAdminModule";
+import { LegacyOrderRouteRedirect } from "@/components/admin/orders/LegacyOrderRouteRedirect";
 
-export default async function AdminOrderDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-
-  return <AdminOrderEditorModule mode="edit" orderId={id} />;
+export default function AdminOrderDetailPage() {
+  return (
+    <LegacyOrderRouteRedirect message="Chi tiết đơn hàng ở màn cũ đã được khóa. Đang chuyển sang danh sách đơn hàng theo luồng mới..." />
+  );
 }

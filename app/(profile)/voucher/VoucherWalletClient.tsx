@@ -14,144 +14,115 @@ import {
   Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
-import { voucherService, Voucher } from "@/app/services/voucher.service";
-import VoucherWalletClient from "./VoucherWalletClient";
-
-const SAVED_VOUCHERS_KEY = "agrishrimp.savedVoucherCodes";
+import {
+  UserVoucher,
+  voucherService,
+} from "@/app/services/voucher.service";
 
 const formatMoney = (value: number | string | null | undefined) => {
   const numeric = Number(value || 0);
-  return `${numeric.toLocaleString("vi-VN")}đ`;
+  return `${numeric.toLocaleString("vi-VN")} VND`;
 };
 
-const getVoucherLabel = (voucher: Voucher) => {
+const getVoucherLabel = (voucher: UserVoucher) => {
   if (voucher.title?.trim()) return voucher.title;
 
   const value = Number(voucher.value ?? voucher.discountValue ?? 0);
   if (voucher.discountType === "PERCENT") {
     const maxDiscount = voucher.maxDiscount
-      ? ` tối đa ${formatMoney(voucher.maxDiscount)}`
+      ? ` toi da ${formatMoney(voucher.maxDiscount)}`
       : "";
-    return `Giảm ${value}%${maxDiscount}`;
+    return `Giam ${value}%${maxDiscount}`;
   }
 
-  return `Giảm ${formatMoney(value)}`;
+  return `Giam ${formatMoney(value)}`;
 };
 
-const loadSavedVoucherCodes = () => {
-  if (typeof window === "undefined") return [] as string[];
+const sortByNewest = (vouchers: UserVoucher[]) =>
+  [...vouchers].sort((left, right) => (right.id || 0) - (left.id || 0));
 
-  try {
-    const raw = window.localStorage.getItem(SAVED_VOUCHERS_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.map((code) => String(code).trim().toUpperCase()).filter(Boolean)
-      : [];
-  } catch {
-    return [];
-  }
-};
-
-const persistSavedVoucherCodes = (codes: string[]) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(SAVED_VOUCHERS_KEY, JSON.stringify(codes));
-};
-
-const isVoucherVisible = (voucher: Voucher) => {
-  const now = Date.now();
-  const startOk = !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
-  const endOk = !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
-  return voucher.status === "ACTIVE" && startOk && endOk;
-};
-
-function LegacyVoucherWalletPage() {
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [savedCodes, setSavedCodes] = useState<string[]>([]);
+export default function VoucherWalletClient() {
+  const [savedVouchers, setSavedVouchers] = useState<UserVoucher[]>([]);
+  const [availableVouchers, setAvailableVouchers] = useState<UserVoucher[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submittingCode, setSubmittingCode] = useState<string | null>(null);
 
-  const savedCodeSet = useMemo(() => new Set(savedCodes), [savedCodes]);
+  const availableToSave = useMemo(
+    () => availableVouchers.filter((voucher) => !voucher.saved),
+    [availableVouchers],
+  );
+
+  const loadWallet = async () => {
+    try {
+      setLoading(true);
+      const [saved, available] = await Promise.all([
+        voucherService.getSavedForMe(),
+        voucherService.getAvailableForMe(),
+      ]);
+
+      setSavedVouchers(sortByNewest(saved));
+      setAvailableVouchers(sortByNewest(available));
+    } catch {
+      toast.error("Khong the tai du lieu voucher luc nay");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setSavedCodes(loadSavedVoucherCodes());
-  }, []);
-
-  useEffect(() => {
-    const fetchPublicVouchers = async () => {
-      try {
-        setLoading(true);
-        const res = await voucherService.getPublicVouchers();
-        const validVouchers = (Array.isArray(res) ? res : [])
-          .filter((voucher: Voucher) => isVoucherVisible(voucher))
-          .sort(
-            (left: Voucher, right: Voucher) => (right.id || 0) - (left.id || 0),
-          );
-
-        setVouchers(validVouchers);
-      } catch {
-        toast.error("Không thể tải danh sách voucher khả dụng");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPublicVouchers();
+    void loadWallet();
   }, []);
 
   const handleCopy = (code: string) => {
     void navigator.clipboard.writeText(code);
-    toast.success(`Đã sao chép mã: ${code}`);
+    toast.success(`Da sao chep ma: ${code}`);
   };
 
-  const handleSave = (code: string) => {
-    const normalized = code.trim().toUpperCase();
-    if (!normalized) return;
-
-    if (savedCodeSet.has(normalized)) {
-      toast.success("Voucher đã có trong ví");
-      return;
+  const handleSave = async (code: string) => {
+    try {
+      setSubmittingCode(code);
+      await voucherService.saveToWallet(code);
+      toast.success(`Da luu voucher ${code} vao vi`);
+      await loadWallet();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Khong the luu voucher vao vi",
+      );
+    } finally {
+      setSubmittingCode(null);
     }
-
-    const nextCodes = [...savedCodes, normalized];
-    setSavedCodes(nextCodes);
-    persistSavedVoucherCodes(nextCodes);
-    toast.success(`Đã lưu voucher ${normalized} vào ví`);
   };
 
-  const handleRemoveSaved = (code: string) => {
-    const normalized = code.trim().toUpperCase();
-    const nextCodes = savedCodes.filter(
-      (savedCode) => savedCode !== normalized,
-    );
-    setSavedCodes(nextCodes);
-    persistSavedVoucherCodes(nextCodes);
-    toast.success(`Đã gỡ voucher ${normalized} khỏi ví`);
+  const handleRemoveSaved = async (code: string) => {
+    try {
+      setSubmittingCode(code);
+      await voucherService.removeFromWallet(code);
+      toast.success(`Da go voucher ${code} khoi vi`);
+      await loadWallet();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Khong the xoa voucher khoi vi",
+      );
+    } finally {
+      setSubmittingCode(null);
+    }
   };
-
-  const savedVouchers = vouchers.filter((voucher) =>
-    savedCodeSet.has(voucher.code.toUpperCase()),
-  );
-
-  const availableToSave = vouchers.filter(
-    (voucher) => !savedCodeSet.has(voucher.code.toUpperCase()),
-  );
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-b border-gray-100">
         <div>
           <h5 className="font-bold text-lg text-gray-800 m-0">
-            Ví Voucher & Ưu đãi
+            Vi Voucher va Uu dai
           </h5>
           <small className="text-gray-500 text-xs">
-            Danh sách voucher đang khả dụng từ hệ thống
+            Voucher duoc luu tren backend va dong bo theo tai khoan
           </small>
         </div>
 
         <Link href="/voucher/create">
           <button className="bg-[#2d9f8d] hover:bg-[#248273] text-white text-sm font-bold px-4 h-12 rounded-md flex items-center gap-2 transition-colors shadow-sm">
-            <Ticket size={18} /> Nhập mã Voucher
+            <Ticket size={18} /> Nhap ma Voucher
           </button>
         </Link>
       </div>
@@ -172,10 +143,10 @@ function LegacyVoucherWalletPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h6 className="text-sm font-bold text-gray-800">
-                    Voucher đã lưu
+                    Voucher da luu
                   </h6>
                   <p className="text-xs text-gray-500">
-                    {savedVouchers.length} mã đang nằm trong ví của bạn
+                    {savedVouchers.length} ma dang nam trong vi cua ban
                   </p>
                 </div>
               </div>
@@ -187,7 +158,7 @@ function LegacyVoucherWalletPage() {
                       voucher.value ?? voucher.discountValue ?? 0,
                     );
                     const isPercent = voucher.discountType === "PERCENT";
-                    const isSaved = true;
+                    const isBusy = submittingCode === voucher.code;
 
                     return (
                       <div
@@ -218,32 +189,41 @@ function LegacyVoucherWalletPage() {
                                 </span>
                                 <span className="text-gray-300">|</span>
                                 <span className="flex items-center gap-1">
-                                  <Tag size={12} /> Mã:
+                                  <Tag size={12} /> Ma:
                                   <span className="font-bold text-red-500">
                                     {voucher.code}
                                   </span>
                                 </span>
                               </div>
 
-                              {voucher.description && (
-                                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                                  {voucher.description}
-                                </p>
-                              )}
+                              <div className="mt-2 text-xs text-gray-500">
+                                Don toi thieu: {formatMoney(voucher.minOrderValue)}
+                                {isPercent
+                                  ? ` · Giam ${value}%${voucher.maxDiscount ? `, toi da ${formatMoney(voucher.maxDiscount)}` : ""}`
+                                  : ` · Giam ${formatMoney(value)}`}
+                              </div>
 
                               <div className="mt-2 text-xs text-gray-500">
-                                Đơn tối thiểu:{" "}
-                                {formatMoney(voucher.minOrderValue)}
-                                {isPercent
-                                  ? ` · Giảm ${value}%${voucher.maxDiscount ? `, tối đa ${formatMoney(voucher.maxDiscount)}` : ""}`
-                                  : ` · Giảm ${formatMoney(value)}`}
+                                Luot con lai: {voucher.remainingUsageCount ?? 0}
                               </div>
+
+                              {!voucher.canApply && voucher.availabilityReason && (
+                                <p className="mt-2 text-xs text-amber-700">
+                                  {voucher.availabilityReason}
+                                </p>
+                              )}
                             </div>
                           </div>
 
                           <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
-                            <span className="text-[10px] font-extrabold uppercase px-2 py-1 rounded border bg-green-50 text-green-600 border-green-200">
-                              Đang dùng được
+                            <span
+                              className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded border ${
+                                voucher.canApply
+                                  ? "bg-green-50 text-green-600 border-green-200"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}
+                            >
+                              {voucher.canApply ? "Co the dung" : "Can kiem tra"}
                             </span>
 
                             <div className="flex flex-wrap gap-3">
@@ -251,19 +231,20 @@ function LegacyVoucherWalletPage() {
                                 onClick={() => handleCopy(voucher.code)}
                                 className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                               >
-                                <Copy size={12} /> Sao chép
+                                <Copy size={12} /> Sao chep
                               </button>
                               <Link
                                 href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
                                 className="text-xs font-bold text-green-600 hover:underline flex items-center gap-1"
                               >
-                                <ShoppingCart size={12} /> Dùng ngay
+                                <ShoppingCart size={12} /> Dung ngay
                               </Link>
                               <button
-                                onClick={() => handleRemoveSaved(voucher.code)}
-                                className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1"
+                                onClick={() => void handleRemoveSaved(voucher.code)}
+                                disabled={isBusy}
+                                className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 disabled:opacity-50"
                               >
-                                <BookmarkCheck size={12} /> Đã lưu
+                                <BookmarkCheck size={12} /> Da luu
                               </button>
                             </div>
                           </div>
@@ -275,9 +256,9 @@ function LegacyVoucherWalletPage() {
               ) : (
                 <div className="text-center py-10 text-gray-500 border border-dashed border-gray-200 rounded-2xl bg-gray-50/30">
                   <Ticket size={40} className="mx-auto text-gray-300 mb-3" />
-                  <p className="text-sm font-medium">Chưa có mã nào trong ví</p>
+                  <p className="text-sm font-medium">Chua co ma nao trong vi</p>
                   <p className="text-[11px] mt-1">
-                    Hãy lưu các mã bên dưới để sử dụng nhanh khi thanh toán.
+                    Hay luu ma o ben duoi de dung nhanh khi thanh toan.
                   </p>
                 </div>
               )}
@@ -287,10 +268,10 @@ function LegacyVoucherWalletPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h6 className="text-sm font-bold text-gray-800">
-                    Voucher khả dụng từ hệ thống
+                    Voucher kha dung tu he thong
                   </h6>
                   <p className="text-xs text-gray-500">
-                    {availableToSave.length} mã mới có thể lưu vào ví
+                    {availableToSave.length} ma moi co the luu vao vi
                   </p>
                 </div>
               </div>
@@ -302,6 +283,7 @@ function LegacyVoucherWalletPage() {
                       voucher.value ?? voucher.discountValue ?? 0,
                     );
                     const isPercent = voucher.discountType === "PERCENT";
+                    const isBusy = submittingCode === voucher.code;
 
                     return (
                       <div
@@ -323,14 +305,15 @@ function LegacyVoucherWalletPage() {
                                 {getVoucherLabel(voucher)}
                               </h3>
                               <button
-                                onClick={() => handleSave(voucher.code)}
-                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap px-2 py-1 bg-emerald-50 rounded-md transition-colors"
+                                onClick={() => void handleSave(voucher.code)}
+                                disabled={isBusy}
+                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap px-2 py-1 bg-emerald-50 rounded-md transition-colors disabled:opacity-50"
                               >
                                 <BookmarkPlus
                                   size={12}
                                   className="inline mr-1"
                                 />{" "}
-                                Lưu mã
+                                Luu ma
                               </button>
                             </div>
 
@@ -346,11 +329,15 @@ function LegacyVoucherWalletPage() {
                               </span>
                             </div>
 
-                            <p className="text-[11px] text-gray-500 mt-2 line-clamp-1">
-                              Đơn tối thiểu {formatMoney(voucher.minOrderValue)}
+                            <p className="text-[11px] text-gray-500 mt-2 line-clamp-2">
+                              Don toi thieu {formatMoney(voucher.minOrderValue)}
                               {isPercent && voucher.maxDiscount
-                                ? ` · Giảm tối đa ${formatMoney(voucher.maxDiscount)}`
+                                ? ` · Giam toi da ${formatMoney(voucher.maxDiscount)}`
                                 : ""}
+                            </p>
+
+                            <p className="text-[11px] text-gray-500 mt-1">
+                              Luot moi user: {voucher.maxUsagePerUser ?? 1}
                             </p>
                           </div>
                         </div>
@@ -360,7 +347,7 @@ function LegacyVoucherWalletPage() {
                 </div>
               ) : (
                 <div className="text-center py-10 text-gray-400 bg-gray-50/30 rounded-2xl border border-gray-100">
-                  <p className="text-sm">Hiện chưa có thêm mã giảm giá mới.</p>
+                  <p className="text-sm">Hien chua co them ma giam gia moi.</p>
                 </div>
               )}
             </div>
@@ -370,7 +357,8 @@ function LegacyVoucherWalletPage() {
                 href="/checkout"
                 className="text-xs font-semibold text-[#2d9f8d] hover:underline inline-flex items-center gap-1 py-2 px-4 rounded-full bg-emerald-50 border border-emerald-100 transition-all hover:bg-emerald-100"
               >
-                Đi tới trang thanh toán để áp dụng mã <ChevronRight size={12} />
+                Di toi trang thanh toan de ap dung ma{" "}
+                <ChevronRight size={12} />
               </Link>
             </div>
           </>
@@ -378,8 +366,4 @@ function LegacyVoucherWalletPage() {
       </div>
     </div>
   );
-}
-
-export default function VoucherWalletPage() {
-  return <VoucherWalletClient />;
 }

@@ -47,8 +47,8 @@ const statusConfig: Record<
     icon: <CreditCard size={28} />,
   },
   AWAITING_REPLENISHMENT: {
-    label: "Chờ xác nhận",
-    subLabel: "Đơn hàng của bạn đã được ghi nhận và đang được xử lý. Cửa hàng sẽ sớm xác nhận và chuẩn bị hàng cho bạn.",
+    label: "Chờ điều chuyển",
+    subLabel: "Đơn hàng đang được gom hoặc điều chuyển nội bộ để bổ sung đủ hàng trước khi giao.",
     bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
@@ -66,7 +66,7 @@ const statusConfig: Record<
   },
   READY_FOR_PICKUP: {
     label: "Chờ lấy hàng",
-    subLabel: "Đơn hàng đã được xác nhận và đang chờ chuẩn bị để bàn giao vận chuyển.",
+    subLabel: "Đơn hàng đã chuẩn bị xong và đang chờ bàn giao cho đơn vị vận chuyển.",
     bannerBg: "from-[#329965] to-[#2d9f8d]",
     icon: <Package size={28} />,
   },
@@ -111,6 +111,7 @@ const paymentLabel: Record<string, string> = {
 
 const steps = [
   { icon: Clock, label: "Chờ xác nhận", status: "PENDING" },
+  { icon: Package, label: "Chờ điều chuyển", status: "AWAITING_REPLENISHMENT" },
   { icon: Package, label: "Chờ lấy hàng", status: "READY_FOR_PICKUP" },
   { icon: Truck, label: "Chờ giao hàng", status: "SHIPPING" },
   { icon: CheckCircle2, label: "Đã giao", status: "COMPLETED" },
@@ -198,10 +199,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const activeStep = (() => {
     if (order.status === "CANCELLED" || order.status === "RETURNED") return -1;
-    if (order.status === "AWAITING_PAYMENT") return 0;
+    if (order.status === "AWAITING_PAYMENT" || order.status === "PENDING") return 0;
     if (order.status === "AWAITING_REPLENISHMENT") return 1;
-    if (order.status === "CONFIRMED" || order.status === "PROCESSING") return 1;
-    if (order.status === "RECEIVED") return 3;
+    if (order.status === "CONFIRMED" || order.status === "PROCESSING" || order.status === "READY_FOR_PICKUP") {
+      return 2;
+    }
+    if (order.status === "SHIPPING") return 3;
+    if (order.status === "RECEIVED" || order.status === "COMPLETED") return 4;
     const idx = steps.findIndex((step) => step.status === order.status);
     return idx === -1 ? 0 : idx;
   })();
@@ -361,7 +365,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <p className="mt-0.5 text-xs text-gray-400">Phân loại: {item.sku}</p>
                   {(item.missingQuantity ?? 0) > 0 && (
                     <p className="mt-1 text-[11px] font-semibold text-[#2d9f8d]">
-                      Cửa hàng đang bổ sung thêm {item.missingQuantity} sản phẩm
+                      Cửa hàng đang gom hoặc điều chuyển thêm {item.missingQuantity} sản phẩm
                     </p>
                   )}
                   <div className="mt-2 flex items-center justify-between">

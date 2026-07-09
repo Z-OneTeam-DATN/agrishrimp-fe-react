@@ -1,5 +1,5 @@
-import { AdminOrdersListModule } from "@/components/admin/orders/OrderAdminModule";
+import { LegacyOrderRouteRedirect } from "@/components/admin/orders/LegacyOrderRouteRedirect";
 
 export default function AdminOrdersPage() {
-  return <AdminOrdersListModule />;
+  return <LegacyOrderRouteRedirect />;
 }

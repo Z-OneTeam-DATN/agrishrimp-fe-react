@@ -495,10 +495,9 @@ export default function CheckoutPage() {
 
                                 {addressConfirmed && !prepareMutation.isPending && prepareOrderDisplayResponse && (
                                     <div className="space-y-3">
-                                        {!prepareOrderDisplayResponse.canFulfill && prepareOrderDisplayResponse.subOrders.length === 0 && (
+                                        {prepareOrderDisplayResponse.outOfStockItems.length > 0 && (
                                             <OutOfStockWarning
                                                 items={prepareOrderDisplayResponse.outOfStockItems}
-                                                onOrderPartial={prepareOrderDisplayResponse.subOrders.length > 0 ? () => {} : undefined}
                                             />
                                         )}
                                         <PrepareOrderSummary

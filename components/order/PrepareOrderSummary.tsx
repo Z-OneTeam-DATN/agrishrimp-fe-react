@@ -16,6 +16,9 @@ export function PrepareOrderSummary({
   const { subOrders } = prepareResponse
   const hasMultipleBranches = subOrders.length > 1
   const hasEstimatingFee = subOrders.some((o) => o.shippingEstimate)
+  const hasReplenishmentItems = subOrders.some((subOrder) =>
+    subOrder.items.some((item) => (item.missingQuantity ?? 0) > 0)
+  )
 
   return (
     <div className="space-y-3">
@@ -35,6 +38,15 @@ export function PrepareOrderSummary({
         <div className="flex items-center gap-2.5 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
           <Info size={13} className="shrink-0 text-blue-400" />
           Phí vận chuyển là ước tính (GHN đang bảo trì).
+        </div>
+      )}
+
+      {hasReplenishmentItems && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <Info size={14} className="mt-0.5 shrink-0 text-amber-500" />
+          <p>
+            Một phần đơn hàng sẽ được gom hoặc điều chuyển nội bộ về chi nhánh giao gần bạn trước khi bàn giao vận chuyển.
+          </p>
         </div>
       )}
 

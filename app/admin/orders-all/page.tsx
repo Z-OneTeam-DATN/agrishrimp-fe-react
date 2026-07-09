@@ -36,14 +36,17 @@ import { formatDate } from "@/lib/dateUtils";
 
 const TABS = [
   { id: "all", label: "Tất cả" },
+  { id: "PENDING", label: "Chờ xác nhận" },
+  { id: "AWAITING_PAYMENT", label: "Chờ thanh toán" },
   { id: "AWAITING_REPLENISHMENT", label: "Chờ điều chuyển" },
   { id: "CONFIRMED", label: "Đã xác nhận" },
+  { id: "PROCESSING", label: "Đang chuẩn bị" },
+  { id: "READY_FOR_PICKUP", label: "Chờ bàn giao" },
   { id: "SHIPPING", label: "Đang giao hàng" },
   { id: "RECEIVED", label: "Đã nhận hàng" },
   { id: "COMPLETED", label: "Hoàn thành" },
   { id: "CANCELLED", label: "Đã hủy" },
   { id: "RETURNED", label: "Trả hàng" },
-  { id: "AWAITING_PAYMENT", label: "Chờ thanh toán" },
 ];
 
 const formatCurrency = (amount: number) =>
@@ -301,6 +304,12 @@ export default function AllOrdersPage() {
                   const isExpanded = expandedId === orderId;
                   const detail = detailCache[orderId];
                   const isLoadingDetail = loadingDetailId === orderId;
+                  const orderDetail = detail ?? order;
+                  const isBranchWorkflowOrder = (orderDetail.subOrders?.length ?? 0) > 0;
+                  const allowDirectShip =
+                    hasPermission(P.ORDER_UPDATE) &&
+                    Boolean(detail) &&
+                    canApprovePackedAndShip(order, detail);
 
                   return (
                     <React.Fragment key={orderId}>
@@ -410,8 +419,7 @@ export default function AllOrdersPage() {
                                   <h3 className="text-[12px] font-bold text-slate-800">
                                     Chi tiết sản phẩm
                                   </h3>
-                                  {canApprovePackedAndShip(order.status) &&
-                                    hasPermission(P.ORDER_UPDATE) && (
+                                  {allowDirectShip && (
                                       <Button
                                         size="sm"
                                         className="h-[28px] bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold"
@@ -426,8 +434,8 @@ export default function AllOrdersPage() {
                                       >
                                         <Truck size={14} className="mr-1.5" />
                                         {shippingOrderId === orderId
-                                          ? "Dang chuyen..."
-                                          : "Duyet dong goi & chuyen giao"}
+                                          ? "Đang chuyển..."
+                                          : "Duyệt đóng gói & chuyển giao"}
                                       </Button>
                                     )}
                                   {order.status === "AWAITING_REPLENISHMENT" &&
@@ -448,6 +456,14 @@ export default function AllOrdersPage() {
                                       </Button>
                                     )}
                                 </div>
+
+                                {isBranchWorkflowOrder && (
+                                  <div className="mb-3 rounded-[3px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+                                    Đơn này đang chạy theo luồng chi nhánh/sub-order. Muốn sang
+                                    <span className="font-semibold"> SHIPPING </span>
+                                    thì cần bàn giao qua phiếu handover thay vì chuyển thẳng từ màn admin.
+                                  </div>
+                                )}
 
                                 <div className="border border-slate-200 rounded-[3px] overflow-hidden bg-white">
                                   <table className="w-full text-left">
@@ -569,8 +585,18 @@ export default function AllOrdersPage() {
   );
 }
 
-const canApprovePackedAndShip = (status: string) =>
-  ["CONFIRMED", "PROCESSING", "READY_FOR_PICKUP"].includes(status);
+const canApprovePackedAndShip = (order: MyOrder, detail?: MyOrder) => {
+  const orderDetail = detail ?? order;
+  const hasActiveSubOrders =
+    (orderDetail.subOrders ?? []).filter(
+      (subOrder) => !["CANCELLED", "RETURNED"].includes(subOrder.status),
+    ).length > 0;
+
+  return (
+    !hasActiveSubOrders &&
+    ["CONFIRMED", "PROCESSING", "READY_FOR_PICKUP"].includes(order.status)
+  );
+};
 
 const STATUS_MAP: Record<string, { label: string; styles: string }> = {
   AWAITING_REPLENISHMENT: {
@@ -590,11 +616,11 @@ const STATUS_MAP: Record<string, { label: string; styles: string }> = {
     styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]",
   },
   PROCESSING: {
-    label: "Đang đóng gói",
+    label: "Đang chuẩn bị",
     styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]",
   },
   READY_FOR_PICKUP: {
-    label: "Cho lay hang",
+    label: "Chờ bàn giao",
     styles: "bg-teal-50 text-teal-700 border-teal-200",
   },
   SHIPPING: {

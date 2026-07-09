@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { cartService } from "@/app/services/cart.service";
 import {
   voucherService,
-  Voucher as VoucherApi,
+  UserVoucher as UserVoucherApi,
 } from "@/app/services/voucher.service";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/stores/useCartStore";
@@ -45,15 +45,12 @@ interface CartItem {
   productForm?: string;
 }
 
-type Voucher = VoucherApi;
+type Voucher = UserVoucherApi;
 
 const formatMoney = (amount: number | undefined | null) => {
   if (amount === undefined || amount === null) return "0₫";
   return Number(amount).toLocaleString("vi-VN") + "₫";
 };
-
-const toVoucherAmount = (value: string | number | null | undefined) =>
-  Number(value ?? 0);
 
 function CartSkeleton() {
   return (
@@ -195,15 +192,10 @@ export default function CartPage() {
     }
   }, [router]);
 
-  const fetchPublicVouchers = useCallback(async () => {
+  const fetchAvailableVouchers = useCallback(async (orderSubtotal: number) => {
     try {
-      const res = await voucherService.getPublicVouchers();
-      let arr = Array.isArray(res) ? res : [];
-
-      const now = new Date().getTime();
-      arr = arr.filter((v: Voucher) => !v.endDate || new Date(v.endDate).getTime() >= now);
-
-      setAvailableVouchers(arr);
+      const vouchers = await voucherService.getAvailableForMe(orderSubtotal);
+      setAvailableVouchers(Array.isArray(vouchers) ? vouchers : []);
     } catch (error: unknown) {
       console.error("Lỗi tải voucher", error);
     }
@@ -211,8 +203,7 @@ export default function CartPage() {
 
   useEffect(() => {
     fetchCart();
-    fetchPublicVouchers();
-  }, [fetchCart, fetchPublicVouchers]);
+  }, [fetchCart]);
 
   const updateQuantity = async (
     variantId: number,
@@ -271,29 +262,29 @@ export default function CartPage() {
   const totalCount = checkedItems.reduce((s, i) => s + i.quantity, 0);
   const isAllChecked = items.length > 0 && items.every((i) => i.checked);
 
-  let discountValue = 0;
-  if (
-    selectedVoucher &&
-    subTotal >= toVoucherAmount(selectedVoucher.minOrderValue)
-  ) {
-    const actualValue = Number(
-      selectedVoucher.value || selectedVoucher.discountValue || 0,
+  useEffect(() => {
+    if (loading) return;
+    void fetchAvailableVouchers(subTotal);
+  }, [fetchAvailableVouchers, loading, subTotal]);
+
+  useEffect(() => {
+    if (!selectedVoucher) return;
+
+    const refreshedVoucher = availableVouchers.find(
+      (voucher) => voucher.code === selectedVoucher.code,
     );
 
-    if (selectedVoucher.discountType === "PERCENT") {
-      const calculatedDiscount = (subTotal * actualValue) / 100;
-      discountValue = selectedVoucher.maxDiscount
-        ? Math.min(calculatedDiscount, Number(selectedVoucher.maxDiscount))
-        : calculatedDiscount;
-    } else {
-      discountValue = actualValue;
+    if (!refreshedVoucher || !refreshedVoucher.canApply) {
+      setSelectedVoucher(null);
+      return;
     }
-  } else if (
-    selectedVoucher &&
-    subTotal < toVoucherAmount(selectedVoucher.minOrderValue)
-  ) {
-    setSelectedVoucher(null);
-  }
+
+    if (refreshedVoucher !== selectedVoucher) {
+      setSelectedVoucher(refreshedVoucher);
+    }
+  }, [availableVouchers, selectedVoucher]);
+
+  const discountValue = Number(selectedVoucher?.previewDiscountAmount ?? 0);
 
   const finalTotal = Math.max(0, subTotal - discountValue);
 
@@ -305,13 +296,14 @@ export default function CartPage() {
       toast.error("Mã voucher không hợp lệ hoặc đã hết hạn");
       return;
     }
-    const minOrderValue = toVoucherAmount(found.minOrderValue);
-    if (subTotal < minOrderValue) {
-      toast.error(`Đơn chưa đạt ${formatMoney(minOrderValue)}`);
-      return;
+    if (!found.canApply) {
+      return void toast.error(
+        found.availabilityReason || "Voucher chua du dieu kien",
+      );
     }
     setSelectedVoucher(found);
     setIsVoucherModalOpen(false);
+    setVoucherInput(found.code);
     toast.success("Áp dụng voucher thành công!");
   };
 
@@ -695,8 +687,7 @@ export default function CartPage() {
 
             <div className="overflow-y-auto flex-1 p-4 space-y-2">
               {availableVouchers.map((voucher) => {
-                const minOrderValue = toVoucherAmount(voucher.minOrderValue);
-                const eligible = subTotal >= minOrderValue;
+                const eligible = Boolean(voucher.canApply);
                 const isSelected = selectedVoucher?.code === voucher.code;
 
                 const actualValue = Number(
@@ -713,6 +704,17 @@ export default function CartPage() {
                     key={voucher.code}
                     onClick={() => {
                       if (!eligible) {
+                        return void toast.error(
+                          voucher.availabilityReason ||
+                            "Voucher chua du dieu kien ap dung",
+                        );
+                      }
+                      setSelectedVoucher(voucher);
+                      setIsVoucherModalOpen(false);
+                      setVoucherInput(voucher.code);
+                      return void toast.success("Ap dung voucher thanh cong!");
+                      /*
+                      if (!eligible) {
                         toast.error(
                           `Đơn chưa đạt ${formatMoney(minOrderValue)}`,
                         );
@@ -721,6 +723,7 @@ export default function CartPage() {
                       setSelectedVoucher(voucher);
                       setIsVoucherModalOpen(false);
                       toast.success("Áp dụng voucher thành công!");
+                      */
                     }}
                     className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
                       isSelected

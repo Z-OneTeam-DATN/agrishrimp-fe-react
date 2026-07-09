@@ -3,31 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { voucherService, Voucher } from "@/app/services/voucher.service";
+import { voucherService } from "@/app/services/voucher.service";
 import VoucherForm from "@/components/voucher/VoucherForm";
-
-const SAVED_VOUCHERS_KEY = "agrishrimp.savedVoucherCodes";
-
-const loadSavedVoucherCodes = () => {
-  if (typeof window === "undefined") return [] as string[];
-
-  try {
-    const raw = window.localStorage.getItem(SAVED_VOUCHERS_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.map((code) => String(code).trim().toUpperCase()).filter(Boolean)
-      : [];
-  } catch {
-    return [];
-  }
-};
-
-const persistSavedVoucherCodes = (codes: string[]) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(SAVED_VOUCHERS_KEY, JSON.stringify(codes));
-};
 
 export default function CreateVoucherPage() {
   const router = useRouter();
@@ -39,14 +16,11 @@ export default function CreateVoucherPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await voucherService.getPublicVouchers();
-      const vouchers = Array.isArray(res) ? res : [];
+      await voucherService.saveToWallet(normalized);
+      toast.success(`Da luu ma ${normalized} vao vi`);
 
-      const matchedVoucher = vouchers.find(
-        (voucher: Voucher) => voucher.code?.toUpperCase() === normalized,
-      );
-
-      if (!matchedVoucher) {
+      router.push("/voucher");
+      /*
         toast.error("Voucher không tồn tại hoặc chưa được kích hoạt");
         return;
       }
@@ -59,7 +33,8 @@ export default function CreateVoucherPage() {
 
       toast.success(`Đã lưu mã ${normalized} vào ví`);
       router.push("/voucher");
-    } catch {
+      */
+    } catch (error: any) {
       toast.error("Không thể kiểm tra voucher lúc này");
     } finally {
       setIsSubmitting(false);

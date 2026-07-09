@@ -186,23 +186,7 @@ export default function AddVariantPage() {
 
           <input type="hidden" {...register("code")} />
 
-          <div className="space-y-1.5">
-            <Label className={fieldLabelClass}>
-              Ghi chú / Mô tả <span className="text-rose-500">*</span>
-            </Label>
-            <Input
-              {...register("description")}
-              placeholder="Mục đích sử dụng..."
-              className={cn(fieldControlClass, "border-slate-200 bg-white")}
-            />
-            {errors.description && (
-              <p className="text-[10px] font-medium text-rose-500">
-                {errors.description.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 md:col-span-2">
             <Label className={fieldLabelClass}>Trạng thái sử dụng</Label>
             <Controller
               name="status"
