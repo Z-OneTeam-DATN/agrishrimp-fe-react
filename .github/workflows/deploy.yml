@@ -36,7 +36,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_WRITE_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -78,8 +78,6 @@ jobs:
     steps:
       - name: Pull & restart webapp
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_WRITE_TOKEN }}
-          ACTOR: ${{ github.actor }}
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
           set -e
@@ -87,7 +85,7 @@ jobs:
 
           CURRENT_IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' agrishrimp-webapp 2>/dev/null || echo "none")
 
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
           docker pull "$IMAGE:latest"
 
