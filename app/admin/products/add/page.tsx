@@ -49,8 +49,10 @@ import {
     CommandList,
 } from "@/components/ui/command";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/axios";
+import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { getPublicBrands } from "@/app/services/brand.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -86,8 +88,7 @@ const variantSchema = z.object({
 const productSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    brand: z.string().trim().min(1, "Vui lòng nhập thương hiệu").max(100, "Thương hiệu không được vượt quá 100 ký tự"),
-    origin: z.string().trim().min(1, "Vui lòng nhập xuất xứ").max(100, "Xuất xứ không được vượt quá 100 ký tự"),
+    brandId: z.string().min(1, "Vui lòng chọn thương hiệu"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -230,7 +231,7 @@ function CreatableCombobox({
                         <CommandEmpty>
                             <Button
                                 variant="ghost"
-                                className="w-full justify-start h-8 text-emerald-600 text-[12px] font-bold px-2"
+                                className="w-full justify-start h-8 text-blue-600 text-[12px] font-bold px-2"
                                 onClick={() => {
                                     onSelect(inputValue);
                                     setOpen(false);
@@ -369,7 +370,7 @@ function AttributeValueCombobox({
                                     value={`create-${trimmedInput}`}
                                     onSelect={() => void createValue()}
                                     disabled={saving}
-                                    className="text-emerald-700"
+                                    className="text-blue-700"
                                 >
                                     {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <span className="mr-2">+</span>}
                                     Thêm “{trimmedInput}”
@@ -476,7 +477,7 @@ export default function AddProductPage() {
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([""]);
 
     const [categories, setCategories] = useState<any[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
+    const [brands, setBrands] = useState<any[]>([]);
     const [attributes, setAttributes] = useState<any[]>([]);
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
@@ -491,12 +492,12 @@ export default function AddProductPage() {
         if (!isLoadingAuth && isAuthenticated) {
             Promise.all([
                 ProductService.getCategories(),
-                ProductService.getBrands(),
+                getPublicBrands(),
                 ProductService.getAttributes(),
             ])
                 .then(([catRes, brandRes, attrRes]) => {
                     setCategories(catRes || []);
-                    setBrands(brandRes?.map((b: any) => b.name) || []);
+                    setBrands(brandRes || []);
                     setAttributes(filterActiveAttributes(attrRes || []));
                 })
                 .catch(console.error);
@@ -675,8 +676,7 @@ export default function AddProductPage() {
         defaultValues: {
             name: "",
             categoryId: "",
-            brand: "",
-            origin: "",
+            brandId: "",
             baseSku: generateBaseSku(),
             description: "",
             status: "ACTIVE",
@@ -819,13 +819,18 @@ export default function AddProductPage() {
     );
 
     const syncDraftIndex = useCallback((entry: DraftIndexEntry) => {
-        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
-        const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
-        const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
-            .sort((a, b) => b.savedAt - a.savedAt)
-            .slice(0, 8);
-        localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
-        setRecentDrafts(merged);
+        try {
+            const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+            const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
+                .sort((a, b) => b.savedAt - a.savedAt)
+                .slice(0, 8);
+            localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
+            setRecentDrafts(merged.filter((item) => item.key === ADD_PRODUCT_DRAFT_KEY));
+        } catch {
+            localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            setRecentDrafts([]);
+        }
     }, []);
 
     const missingWarnings = useMemo(() => {
@@ -871,7 +876,7 @@ export default function AddProductPage() {
         if (rawIndex) {
             try {
                 const list: DraftIndexEntry[] = JSON.parse(rawIndex);
-                setRecentDrafts(list.slice(0, 6));
+                setRecentDrafts(list.filter((item) => item.key === ADD_PRODUCT_DRAFT_KEY).slice(0, 6));
             } catch {
                 localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
             }
@@ -1107,8 +1112,7 @@ export default function AddProductPage() {
         reset({
             name: draftData.name || "",
             categoryId: draftData.categoryId || "",
-            brand: draftData.brand || "",
-            origin: draftData.origin || "",
+            brandId: draftData.brandId || "",
             baseSku: draftData.baseSku || generateBaseSku(),
             description: draftData.description || "",
             status: draftData.status || "ACTIVE",
@@ -1349,8 +1353,7 @@ export default function AddProductPage() {
             const productData: any = {
                 name: data.name.trim(),
                 categoryId: Number(data.categoryId),
-                brand: data.brand.trim(),
-                origin: data.origin.trim(),
+                ...(data.brandId && { brandId: Number(data.brandId) }),
                 ...(data.baseSku?.trim() && { baseSku: data.baseSku.trim() }),
                 ...(data.description?.trim() && { description: data.description }),
                 ...(data.status && { status: data.status }),
@@ -1397,8 +1400,7 @@ export default function AddProductPage() {
             toast.success("Tạo sản phẩm thành công!");
             router.push("/admin/products");
         } catch (error: any) {
-            const res = error.response?.data;
-            toast.error(res?.message || "Có lỗi khi lưu sản phẩm.");
+            toast.error(getErrorMessage(error));
         } finally {
             setIsLoading(false);
         }
@@ -1421,7 +1423,19 @@ export default function AddProductPage() {
                     <div ref={infoSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
                         <SectionHeader num="1" title="Thông tin sản phẩm chính" />
                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            {/* Hàng 1 (2 cột) */}
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
+                                        Mã SKU gốc
+                                        <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
+                                    </Label>
+                                    <Input
+                                        {...register("baseSku")}
+                                        readOnly
+                                        className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0"
+                                    />
+                                </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-[10.5px] font-semibold text-slate-500">
                                         Tên sản phẩm *
@@ -1430,12 +1444,16 @@ export default function AddProductPage() {
                                         {...register("name")}
                                         placeholder="VD: Thuốc trị nấm tôm ShrimpCare"
                                         className={cn(
-                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500",
+                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-blue-500",
                                             errors.name && "border-rose-500 bg-rose-50/10 focus:border-rose-500"
                                         )}
                                     />
                                     <ErrorMessage message={errors.name?.message} />
                                 </div>
+                            </div>
+
+                            {/* Hàng 2 (3 cột) */}
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                                 <div className="space-y-1.5">
                                     <Label className="text-[10.5px] font-semibold text-slate-500">
                                         Danh mục *
@@ -1448,7 +1466,7 @@ export default function AddProductPage() {
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <SelectTrigger
                                                         className={cn(
-                                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500",
+                                                            "h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-blue-500",
                                                             errors.categoryId && "border-rose-500 bg-rose-50/10"
                                                         )}
                                                     >
@@ -1475,37 +1493,24 @@ export default function AddProductPage() {
                                         Thương hiệu
                                     </Label>
                                     <Controller
-                                        name="brand"
+                                        name="brandId"
                                         control={control}
                                         render={({ field }) => (
-                                            <CreatableCombobox
-                                                options={brands}
-                                                value={field.value || ""}
-                                                onSelect={field.onChange}
-                                                placeholder="Chọn hoặc nhập..."
-                                            />
+                                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                                                <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.brandId && "border-rose-500")}>
+                                                    <SelectValue placeholder="-- Chọn thương hiệu --" />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-md">
+                                                    {brands.map((b: any) => (
+                                                        <SelectItem key={`brand-${b.id}`} value={String(b.id)}>
+                                                            {b.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         )}
                                     />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10.5px] font-semibold text-slate-500">
-                                        Xuất xứ
-                                    </Label>
-                                    <Input
-                                        {...register("origin")}
-                                        className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none"
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
-                                        Mã SKU gốc
-                                        <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
-                                    </Label>
-                                    <Input
-                                        {...register("baseSku")}
-                                        readOnly
-                                        className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0"
-                                    />
+                                    <ErrorMessage message={errors.brandId?.message} />
                                 </div>
                                 <div ref={statusSectionRef} className="space-y-1.5">
                                     <Label className="text-[10.5px] font-semibold text-slate-500">
@@ -1520,7 +1525,7 @@ export default function AddProductPage() {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-md">
-                                                    <SelectItem value="ACTIVE" className="text-emerald-600">
+                                                    <SelectItem value="ACTIVE" className="text-blue-600">
                                                         Đang kinh doanh
                                                     </SelectItem>
                                                     <SelectItem value="INACTIVE" className="text-rose-500">
@@ -1568,7 +1573,7 @@ export default function AddProductPage() {
                                 type="button"
                                 variant="outline"
                                 onClick={handleAppendVariant}
-                                className="h-[34px] rounded-md border-emerald-200 bg-white px-4 text-[11px] font-medium text-emerald-600 shadow-none"
+                                className="h-[34px] rounded-md border-blue-200 bg-white px-4 text-[11px] font-medium text-blue-600 shadow-none"
                             >
                                 + Thêm biến thể
                             </Button>
@@ -1607,7 +1612,7 @@ export default function AddProductPage() {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-emerald-600 px-4 text-[11px] font-medium text-white hover:bg-emerald-700">
+                                    <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-blue-600 px-4 text-[11px] font-medium text-white hover:bg-blue-700">
                                         Áp dụng cho biến thể đã chọn
                                     </Button>
                                 </div>
@@ -1650,7 +1655,7 @@ export default function AddProductPage() {
                                                     type="checkbox"
                                                     checked={isSelected}
                                                     onChange={() => toggleSelectVariant(field.id)}
-                                                    className="h-4 w-4 shrink-0 accent-emerald-600"
+                                                    className="h-4 w-4 shrink-0 accent-blue-600"
                                                     aria-label={`Chọn biến thể ${idx + 1}`}
                                                 />
                                             )}
@@ -1696,7 +1701,7 @@ export default function AddProductPage() {
                                                     onClick={() =>
                                                         document.getElementById(`v-img-${idx}`)?.click()
                                                     }
-                                                    className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-emerald-500"
+                                                    className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-blue-500"
                                                 >
                                                     {variantImagePreviews[idx] ? (
                                                         <img
@@ -1848,7 +1853,7 @@ export default function AddProductPage() {
 
                     <DialogFooter className="gap-2">
                         <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
-                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700">Khôi phục nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-blue-600 hover:bg-blue-700">Khôi phục nháp</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1905,7 +1910,7 @@ export default function AddProductPage() {
                                         {attributeEditor.values.map((value) => (
                                             <span
                                                 key={value}
-                                                className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
+                                                className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
                                             >
                                                 {value}
                                             </span>
@@ -1938,7 +1943,7 @@ export default function AddProductPage() {
                                     type="button"
                                     variant="outline"
                                     onClick={addAttributeValueDraft}
-                                    className="h-9 shrink-0 border-emerald-200 text-emerald-700"
+                                    className="h-9 shrink-0 border-blue-200 text-blue-700"
                                 >
                                     Thêm vào danh sách
                                 </Button>
@@ -1962,7 +1967,7 @@ export default function AddProductPage() {
                             type="button"
                             onClick={handleSaveAttributeValues}
                             disabled={isSavingAttribute}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-blue-600 hover:bg-blue-700"
                         >
                             {isSavingAttribute ? <Loader2 size={16} className="mr-2 animate-spin" /> : null}
                             Lưu giá trị
@@ -1989,7 +1994,7 @@ export default function AddProductPage() {
                     <Button
                         type="submit"
                         disabled={isLoading}
-                        className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                        className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
                     >
                         {isLoading ? (
                             <Loader2 size={16} className="mr-2 animate-spin" />
@@ -2003,3 +2008,4 @@ export default function AddProductPage() {
         </form>
     );
 }
+

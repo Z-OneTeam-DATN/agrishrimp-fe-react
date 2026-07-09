@@ -124,7 +124,7 @@ export default function BrandsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-emerald-50/80 mb-8 text-lg"
+              className="text-blue-50/80 mb-8 text-lg"
             >
               Khám phá các thương hiệu thuốc thủy sản, máy móc và vật tư chất lượng hàng đầu cho ngành tôm Việt Nam.
             </motion.p>
@@ -141,7 +141,7 @@ export default function BrandsPage() {
               <input 
                 type="text" 
                 placeholder="Tìm tên thương hiệu bà con đang cần..."
-                className="w-full h-16 pl-14 pr-6 rounded-2xl bg-white text-gray-800 shadow-xl focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all text-lg font-medium"
+                className="w-full h-16 pl-14 pr-6 rounded-2xl bg-white text-gray-800 shadow-xl focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-lg font-medium"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -157,7 +157,7 @@ export default function BrandsPage() {
             <button
               key={letter}
               onClick={() => scrollToLetter(letter)}
-              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all hover:bg-emerald-50 hover:text-emerald-700 text-gray-500"
+              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all hover:bg-blue-50 hover:text-blue-700 text-gray-500"
             >
               {letter}
             </button>
@@ -166,7 +166,7 @@ export default function BrandsPage() {
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl shadow-sm border border-gray-100">
-            <Loader2 className="animate-spin mb-4 text-emerald-600" size={48} />
+            <Loader2 className="animate-spin mb-4 text-blue-600" size={48} />
             <span className="text-gray-500 font-bold uppercase tracking-widest text-sm">Đang kết nối đối tác...</span>
           </div>
         ) : error ? (
@@ -195,10 +195,10 @@ export default function BrandsPage() {
                     id={`letter-${letter}`}
                   >
                     <div className="flex items-center gap-4 mb-6">
-                      <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-emerald-200">
+                      <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-blue-200">
                         {letter}
                       </div>
-                      <div className="h-0.5 flex-1 bg-gradient-to-r from-emerald-200 to-transparent"></div>
+                      <div className="h-0.5 flex-1 bg-gradient-to-r from-blue-200 to-transparent"></div>
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
@@ -206,7 +206,7 @@ export default function BrandsPage() {
                         <Link
                           key={brand.id}
                           href={`/brand/${brand.id}`}
-                          className="group bg-white rounded-2xl p-4 md:p-6 border border-gray-100 hover:border-emerald-300 hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 flex flex-col items-center text-center"
+                          className="group bg-white rounded-2xl p-4 md:p-6 border border-gray-100 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-900/5 transition-all duration-300 flex flex-col items-center text-center"
                         >
                           <div className="w-full aspect-square bg-gray-50 rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-gray-50 group-hover:bg-white transition-colors">
                             {brand.logoUrl ? (
@@ -217,10 +217,10 @@ export default function BrandsPage() {
                                 loading="lazy"
                               />
                             ) : (
-                              <Bookmark size={32} className="text-gray-200 group-hover:text-emerald-100 transition-colors" />
+                              <Bookmark size={32} className="text-gray-200 group-hover:text-blue-100 transition-colors" />
                             )}
                           </div>
-                          <h3 className="text-sm md:text-base font-bold text-gray-700 group-hover:text-emerald-700 transition-colors line-clamp-1">
+                          <h3 className="text-sm md:text-base font-bold text-gray-700 group-hover:text-blue-700 transition-colors line-clamp-1">
                             {brand.name}
                           </h3>
                         </Link>
@@ -237,7 +237,7 @@ export default function BrandsPage() {
                   <p className="text-gray-400">Bà con hãy thử tìm với từ khóa khác nhé.</p>
                   <button 
                     onClick={() => setSearchTerm("")}
-                    className="mt-6 text-emerald-600 font-bold hover:underline"
+                    className="mt-6 text-blue-600 font-bold hover:underline"
                   >
                     Xóa tìm kiếm
                   </button>
@@ -256,7 +256,7 @@ export default function BrandsPage() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="fixed bottom-8 right-8 w-14 h-14 bg-emerald-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-emerald-700 transition-colors z-[60]"
+            className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-colors z-[60]"
           >
             <ArrowUp size={24} />
           </motion.button>
@@ -265,3 +265,4 @@ export default function BrandsPage() {
     </div>
   );
 }
+

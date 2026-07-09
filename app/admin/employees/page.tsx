@@ -14,6 +14,7 @@ import { P } from "@/lib/permissions";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { cn } from "@/lib/utils";
 
 export default function EmployeeManagementPage() {
   const { user: currentUser, isAuthenticated, isLoadingAuth } = useAuthStore();
@@ -22,6 +23,7 @@ export default function EmployeeManagementPage() {
   const [employees, setEmployees] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalElements, setTotalElements] = useState(0);
+  const [debouncedKeyword, setDebouncedKeyword] = useState("");
 
   const roleSlug = typeof currentUser?.role === "object" ? currentUser.role?.slug : currentUser?.role;
   const isAdmin = roleSlug?.toLowerCase() === "admin" || roleSlug?.toLowerCase() === "super_admin";
@@ -36,6 +38,13 @@ export default function EmployeeManagementPage() {
   });
 
   const [branches, setBranches] = useState<{label: string, value: string}[]>([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
 
   useEffect(() => {
     if (isLoadingAuth || !currentUser) return;
@@ -73,7 +82,7 @@ export default function EmployeeManagementPage() {
     try {
       setLoading(true);
       const queryParams = {
-        keyword: filters.keyword || undefined,
+        keyword: debouncedKeyword || undefined,
         branchId: filters.branchId === "all" ? undefined : Number(filters.branchId),
         status: filters.status === "all" ? undefined : filters.status,
         page: filters.page,
@@ -95,7 +104,7 @@ export default function EmployeeManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, isAuthenticated]);
+  }, [debouncedKeyword, filters.branchId, filters.status, filters.page, filters.size, filters.sort, isAuthenticated]);
 
   useEffect(() => {
     if (!isLoadingAuth) fetchInitData();
@@ -139,7 +148,7 @@ export default function EmployeeManagementPage() {
             <>
               {hasPermission(P.STAFF_CREATE) && (
                 <Link href="/admin/employees/add">
-                  <Button className="h-[38px] px-4 text-[14px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition-all">
+                  <Button className="h-[38px] px-4 text-[14px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-all">
                     <Plus className="mr-2 h-4 w-4" />
                     Thêm nhân viên mới
                   </Button>
@@ -149,21 +158,29 @@ export default function EmployeeManagementPage() {
           }
         />
         
-        {loading ? (
-          <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+        <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          {loading && employees.length === 0 ? (
             <AdminDataSyncLoader />
-          </div>
-        ) : (
-          <AdminEmployeeTable 
-            employees={employees} 
-            onRefresh={fetchEmployees}
-            totalElements={totalElements}
-            currentPage={filters.page}
-            pageSize={filters.size}
-            onPageChange={(p) => setFilters(f => ({...f, page: p}))}
-          />
-        )}
+          ) : (
+            <div className={cn("relative transition-opacity duration-200", loading && "opacity-60 pointer-events-none")}>
+              {loading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/20 z-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                </div>
+              )}
+              <AdminEmployeeTable 
+                employees={employees} 
+                onRefresh={fetchEmployees}
+                totalElements={totalElements}
+                currentPage={filters.page}
+                pageSize={filters.size}
+                onPageChange={(p) => setFilters(f => ({...f, page: p}))}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+

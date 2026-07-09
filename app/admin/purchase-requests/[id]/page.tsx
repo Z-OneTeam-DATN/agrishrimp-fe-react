@@ -11,6 +11,7 @@ import {
   Truck,
   Plus,
   RefreshCcw,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,7 +57,7 @@ function fmtDateTime(d?: string | null) {
 const RECEIPT_STATUS_MAP: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Chờ duyệt", cls: "bg-amber-100 text-amber-700" },
   APPROVED: { label: "Đã duyệt", cls: "bg-blue-100 text-blue-700" },
-  COMPLETED: { label: "Hoàn tất", cls: "bg-green-100 text-green-700" },
+  COMPLETED: { label: "Hoàn tất", cls: "bg-blue-100 text-blue-700" },
   REJECTED: { label: "Từ chối", cls: "bg-red-100 text-red-600" },
   CANCELLED: { label: "Đã hủy", cls: "bg-gray-100 text-gray-500" },
 };
@@ -79,6 +80,10 @@ export default function PurchaseRequestDetailPage() {
       | "approve"
       | "reject"
       | "sendToSupplier"
+      | "resendToSupplier"
+      | "confirmSupplier"
+      | "markPreparing"
+      | "markDelivering"
       | "cancel"
       | "close";
     label: string;
@@ -152,6 +157,18 @@ export default function PurchaseRequestDetailPage() {
         case "sendToSupplier":
           await PurchaseRequestApiService.sendToSupplier(pr.id);
           break;
+        case "resendToSupplier":
+          await PurchaseRequestApiService.resendToSupplier(pr.id);
+          break;
+        case "confirmSupplier":
+          await PurchaseRequestApiService.confirmSupplier(pr.id);
+          break;
+        case "markPreparing":
+          await PurchaseRequestApiService.markPreparing(pr.id);
+          break;
+        case "markDelivering":
+          await PurchaseRequestApiService.markDelivering(pr.id);
+          break;
         case "cancel":
           await PurchaseRequestApiService.cancel(pr.id);
           break;
@@ -161,7 +178,11 @@ export default function PurchaseRequestDetailPage() {
         default:
           return;
       }
-      toast.success("Cập nhật thành công");
+      toast.success(
+        confirmAction.type === "resendToSupplier"
+          ? "Đã gửi lại email cho NCC"
+          : "Cập nhật thành công",
+      );
       await load();
     } catch (err) {
       toast.error(getErrorMessage(err as any));
@@ -195,7 +216,7 @@ export default function PurchaseRequestDetailPage() {
     );
   }
 
-  const canCreateReceipt = ["SENT_TO_SUPPLIER", "PARTIALLY_RECEIVED"].includes(
+  const canCreateReceipt = ["DELIVERING", "PARTIALLY_RECEIVED"].includes(
     pr.status,
   );
   const hasRemaining = pr.items?.some((i) => (i.remainingQty ?? 0) > 0);
@@ -251,7 +272,7 @@ export default function PurchaseRequestDetailPage() {
               </Link>
               <Button
                 size="sm"
-                className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+                className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
                 onClick={() =>
                   setConfirmAction({ type: "submit", label: "Gửi duyệt" })
                 }
@@ -278,7 +299,7 @@ export default function PurchaseRequestDetailPage() {
               </Button>
               <Button
                 size="sm"
-                className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+                className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
                 onClick={() =>
                   setConfirmAction({ type: "approve", label: "Duyệt phiếu" })
                 }
@@ -304,10 +325,71 @@ export default function PurchaseRequestDetailPage() {
             </Button>
           )}
 
-          {canCreateReceipt && hasRemaining && (
+          {pr.status === "SENT_TO_SUPPLIER" && (
+            <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-[4px] border-indigo-200 text-[12px] font-medium text-indigo-600 hover:bg-indigo-50"
+              onClick={() =>
+                setConfirmAction({
+                  type: "resendToSupplier",
+                  label: "Gửi lại email cho nhà cung cấp",
+                })
+              }
+            >
+              <Mail size={13} className="mr-1.5" />
+              Gửi lại mail
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 rounded-[4px] bg-cyan-600 text-[12px] font-medium text-white hover:bg-cyan-700"
+              onClick={() =>
+                setConfirmAction({
+                  type: "confirmSupplier",
+                  label: "Ghi nhận xác nhận của nhà cung cấp",
+                })
+              }
+            >
+              Ghi nhận NCC
+            </Button>
+            </>
+          )}
+
+          {pr.status === "SUPPLIER_CONFIRMED" && (
+            <Button
+              size="sm"
+              className="h-8 rounded-[4px] bg-violet-600 text-[12px] font-medium text-white hover:bg-violet-700"
+              onClick={() =>
+                setConfirmAction({
+                  type: "markPreparing",
+                  label: "Cập nhật đang chuẩn bị hàng",
+                })
+              }
+            >
+              Đang chuẩn bị
+            </Button>
+          )}
+
+          {pr.status === "PREPARING" && (
             <Button
               size="sm"
               className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+              onClick={() =>
+                setConfirmAction({
+                  type: "markDelivering",
+                  label: "Cập nhật đang giao hàng",
+                })
+              }
+            >
+              Đang giao
+            </Button>
+          )}
+
+          {canCreateReceipt && hasRemaining && (
+            <Button
+              size="sm"
+              className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
               onClick={handleCreateReceipt}
             >
               <Plus size={13} className="mr-1.5" />
@@ -315,7 +397,7 @@ export default function PurchaseRequestDetailPage() {
             </Button>
           )}
 
-          {["SENT_TO_SUPPLIER", "PARTIALLY_RECEIVED"].includes(pr.status) && (
+          {["PARTIALLY_RECEIVED", "COMPLETED"].includes(pr.status) && (
             <Button
               variant="outline"
               size="sm"
@@ -331,7 +413,15 @@ export default function PurchaseRequestDetailPage() {
             </Button>
           )}
 
-          {["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(pr.status) && (
+          {[
+            "DRAFT",
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "SENT_TO_SUPPLIER",
+            "SUPPLIER_CONFIRMED",
+            "PREPARING",
+            "DELIVERING",
+          ].includes(pr.status) && (pr.totalReceiptCount ?? 0) === 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -451,7 +541,7 @@ export default function PurchaseRequestDetailPage() {
                         {fulfilled && (
                           <CheckCircle2
                             size={13}
-                            className="ml-1 text-emerald-500"
+                            className="ml-1 text-blue-500"
                           />
                         )}
                       </div>
@@ -518,7 +608,7 @@ export default function PurchaseRequestDetailPage() {
             {canCreateReceipt && (
               <Button
                 size="sm"
-                className="mt-3 h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
+                className="mt-3 h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
                 onClick={handleCreateReceipt}
               >
                 <Plus size={13} className="mr-1.5" /> Tạo đợt nhập đầu tiên
@@ -557,7 +647,7 @@ export default function PurchaseRequestDetailPage() {
                             </span>
                             <Link
                               href={`/admin/receipts/${receipt.id}`}
-                              className="text-[13px] font-semibold text-slate-800 hover:text-emerald-700"
+                              className="text-[13px] font-semibold text-slate-800 hover:text-blue-700"
                             >
                               {receipt.code}
                             </Link>
@@ -724,3 +814,4 @@ export default function PurchaseRequestDetailPage() {
     </div>
   );
 }
+

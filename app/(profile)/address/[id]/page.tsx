@@ -83,7 +83,7 @@ export default function EditAddressPage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center bg-white rounded-lg shadow-sm border border-gray-100">
-        <Loader2 className="animate-spin text-[#329965]" size={32} />
+        <Loader2 className="animate-spin text-[#1965a2]" size={32} />
       </div>
     );
   }

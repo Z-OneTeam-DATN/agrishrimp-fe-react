@@ -42,8 +42,6 @@ export default function CreateVoucherPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto">
-      <VoucherForm onSubmit={handleAddVoucher} isSubmitting={isSubmitting} />
-    </div>
+    <VoucherForm onSubmit={handleAddVoucher} isSubmitting={isSubmitting} />
   );
 }

@@ -18,16 +18,16 @@ export default function ShippingFeePage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Phí vận chuyển</span>
+        <span className="text-[#1965a2] font-bold">Phí vận chuyển</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
-        <h3 className="text-xl font-bold text-[#329965] uppercase border-b border-gray-200 pb-4 mb-6 flex items-center">
+        <h3 className="text-xl font-bold text-[#1965a2] uppercase border-b border-gray-200 pb-4 mb-6 flex items-center">
           <Coins className="mr-3" size={24} />
           Phí vận chuyển khi đặt hàng tại AgriShrimp
         </h3>
@@ -43,7 +43,7 @@ export default function ShippingFeePage() {
               (Xem{" "}
               <Link
                 href="/store-locator"
-                className="text-[#329965] font-bold hover:underline"
+                className="text-[#1965a2] font-bold hover:underline"
               >
                 Hệ thống cửa hàng AgriShrimp
               </Link>
@@ -80,12 +80,12 @@ export default function ShippingFeePage() {
               </thead>
               <tbody className="text-sm divide-y divide-gray-200">
                 {/* Nhóm 1: Có cửa hàng */}
-                <tr className="bg-white hover:bg-green-50/50 transition-colors">
+                <tr className="bg-white hover:bg-blue-50/50 transition-colors">
                   <td
                     rowSpan={2}
                     className="px-4 py-4 border-r border-gray-200 align-top"
                   >
-                    <div className="font-bold text-[#329965] flex items-start gap-2 mb-1">
+                    <div className="font-bold text-[#1965a2] flex items-start gap-2 mb-1">
                       <Store size={18} className="mt-0.5 flex-shrink-0" />
                       Có cửa hàng/kho AgriShrimp
                     </div>
@@ -96,11 +96,11 @@ export default function ShippingFeePage() {
                   <td className="px-4 py-3 border-r border-gray-200 font-medium">
                     ≥ 90.000đ
                   </td>
-                  <td className="px-4 py-3 font-bold text-[#329965]">
+                  <td className="px-4 py-3 font-bold text-[#1965a2]">
                     Miễn phí
                   </td>
                 </tr>
-                <tr className="bg-white hover:bg-green-50/50 transition-colors">
+                <tr className="bg-white hover:bg-blue-50/50 transition-colors">
                   {/* Cột 1 bị merge bởi rowSpan */}
                   <td className="px-4 py-3 border-r border-gray-200 font-medium">
                     &lt; 90.000đ
@@ -125,7 +125,7 @@ export default function ShippingFeePage() {
                   <td className="px-4 py-3 border-r border-gray-200 font-medium">
                     ≥ 249.000đ
                   </td>
-                  <td className="px-4 py-3 font-bold text-[#329965]">
+                  <td className="px-4 py-3 font-bold text-[#1965a2]">
                     Miễn phí
                   </td>
                 </tr>
@@ -158,3 +158,4 @@ export default function ShippingFeePage() {
     </>
   );
 }
+

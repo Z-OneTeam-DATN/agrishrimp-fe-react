@@ -119,7 +119,7 @@ export default function AddressSuggestionInput({
               }}
               className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-[#f0fdf9] cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
             >
-              <MapPin size={14} className="text-[#329965] mt-0.5 shrink-0" />
+              <MapPin size={14} className="text-[#1965a2] mt-0.5 shrink-0" />
               <span className="text-sm text-gray-700 leading-snug">{s.label}</span>
             </li>
           ))}
@@ -128,3 +128,4 @@ export default function AddressSuggestionInput({
     </div>
   )
 }
+

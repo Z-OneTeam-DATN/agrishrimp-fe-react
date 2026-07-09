@@ -323,7 +323,7 @@ export default function AddCategoryPage() {
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
                     fieldControlClass,
-                    "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-emerald-300 hover:text-emerald-600",
+                    "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-blue-300 hover:text-blue-600",
                   )}
                 >
                   <Upload size={14} className="mr-2 shrink-0" />
@@ -363,7 +363,7 @@ export default function AddCategoryPage() {
                   className={cn(
                     fieldControlClass,
                     "border-slate-200 bg-white font-semibold",
-                    status === "ACTIVE" ? "text-emerald-600" : "text-amber-600",
+                    status === "ACTIVE" ? "text-blue-600" : "text-amber-600",
                   )}
                 >
                   <SelectValue />
@@ -394,7 +394,7 @@ export default function AddCategoryPage() {
             <Button
               type="submit"
               disabled={saving || loadingData || !modeResolved}
-              className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+              className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
             >
               {saving || loadingData ? (
                 <Loader2 className="mr-2 animate-spin" size={16} />
@@ -409,3 +409,4 @@ export default function AddCategoryPage() {
     </div>
   );
 }
+

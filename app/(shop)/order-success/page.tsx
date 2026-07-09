@@ -94,7 +94,7 @@ function OrderSuccessContent() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 text-gray-400 py-16">
-        <Loader2 size={28} className="animate-spin text-teal-500" />
+        <Loader2 size={28} className="animate-spin text-blue-500" />
         <p className="text-sm">
           {isOfflinePayment ? "Đang xác nhận đơn hàng..." : "Đang xác nhận thanh toán..."}
         </p>
@@ -110,7 +110,7 @@ function OrderSuccessContent() {
         <div
           className={`border-b px-6 py-8 text-center ${
             isPaid
-              ? "bg-teal-50 border-teal-100"
+              ? "bg-blue-50 border-blue-100"
               : isFailed
               ? "bg-red-50 border-red-100"
               : "bg-amber-50 border-amber-100"
@@ -118,7 +118,7 @@ function OrderSuccessContent() {
         >
           <div className="flex justify-center mb-3">
             {isPaid ? (
-              <CheckCircle2 size={52} className="text-teal-600" />
+              <CheckCircle2 size={52} className="text-blue-600" />
             ) : isFailed ? (
               <AlertCircle size={52} className="text-red-500" />
             ) : (
@@ -145,7 +145,7 @@ function OrderSuccessContent() {
 
           {/* Trạng thái phương thức thanh toán */}
           {isPaid && isOfflinePayment && (
-            <p className="text-xs text-teal-600 mt-1">
+            <p className="text-xs text-blue-600 mt-1">
               {order?.paymentMethod === "COD"
                 ? "Thanh toán khi nhận hàng"
                 : order?.paymentMethod === "TRANSFER"
@@ -225,7 +225,7 @@ function OrderSuccessContent() {
           {idForApi && (
             <Link
               href={`/orders/${idForApi}`}
-              className="flex items-center justify-between w-full px-4 py-3 border border-teal-200 bg-teal-50 rounded-xl text-sm font-medium text-teal-700 hover:bg-teal-100 transition-colors"
+              className="flex items-center justify-between w-full px-4 py-3 border border-blue-200 bg-blue-50 rounded-xl text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
             >
               Xem chi tiết đơn hàng <ChevronRight size={15} />
             </Link>
@@ -248,7 +248,7 @@ export default function PayOSSuccessPage() {
       <Suspense
         fallback={
           <div className="flex flex-col items-center gap-3 text-gray-400">
-            <Loader2 size={28} className="animate-spin text-teal-500" />
+            <Loader2 size={28} className="animate-spin text-blue-500" />
             <span className="text-sm">Đang tải...</span>
           </div>
         }
@@ -258,3 +258,4 @@ export default function PayOSSuccessPage() {
     </div>
   )
 }
+

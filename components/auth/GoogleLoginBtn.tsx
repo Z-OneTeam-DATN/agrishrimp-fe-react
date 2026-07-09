@@ -76,12 +76,12 @@ export default function GoogleLoginBtn() {
         googleLogin();
       }}
       disabled={isLoading}
-      className={`w-full group relative flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl font-semibold text-slate-700 transition-all duration-300 shadow-sm hover:shadow-md hover:border-teal-500 hover:bg-teal-50/20 active:scale-[0.98] ${
+      className={`w-full group relative flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl font-semibold text-slate-700 transition-all duration-300 shadow-sm hover:shadow-md hover:border-blue-500 hover:bg-blue-50/20 active:scale-[0.98] ${
         isLoading ? "opacity-70 cursor-not-allowed bg-slate-50" : "bg-white"
       }`}
     >
       {isLoading ? (
-        <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
+        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
       ) : (
         <img
           src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
@@ -95,8 +95,9 @@ export default function GoogleLoginBtn() {
 
       {/* Hiệu ứng tia sáng khi hover */}
       {!isLoading && (
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-500/0 via-teal-500/5 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
       )}
     </button>
   );
 }
+

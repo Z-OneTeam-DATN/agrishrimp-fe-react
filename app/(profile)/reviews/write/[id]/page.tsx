@@ -161,7 +161,7 @@ export default function WriteReviewPage({ params }: { params: Promise<{ id: stri
                   />
                 </div>
                 <div className="space-y-1 text-left">
-                  <span className="text-[10px] font-bold text-teal-600 uppercase tracking-tighter">
+                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">
                     {product.category?.name}
                   </span>
                   <h2 className="text-sm font-bold leading-snug line-clamp-2">
@@ -277,3 +277,4 @@ export default function WriteReviewPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 }
+

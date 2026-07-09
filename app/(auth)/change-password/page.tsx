@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { apiJava, getErrorMessage } from "@/lib/axios";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "next/navigation";
+import { AUTH_ACCENT_SOLID, AUTH_CARD, AUTH_PAGE_SURFACE } from "@/components/auth/auth-theme";
 
 const ChangePasswordSchema = z.object({
   newPassword: z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự")
@@ -68,27 +69,27 @@ export default function MustChangePasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl text-center space-y-6">
+      <div className={`min-h-screen flex items-center justify-center p-4 ${AUTH_PAGE_SURFACE}`}>
+        <div className={`max-w-md w-full p-8 text-center space-y-6 ${AUTH_CARD}`}>
           <div className="flex justify-center">
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 animate-bounce">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 animate-bounce">
               <CheckCircle2 size={48} />
             </div>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Đổi mật khẩu thành công!</h1>
           <p className="text-slate-500 font-medium">Hệ thống đang chuyển hướng bạn về trang chủ...</p>
-          <Loader2 className="animate-spin mx-auto text-emerald-600" />
+          <Loader2 className="animate-spin mx-auto text-blue-600" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-8">
+    <div className={`min-h-screen flex items-center justify-center p-4 ${AUTH_PAGE_SURFACE}`}>
+      <div className={`max-w-md w-full p-8 space-y-8 ${AUTH_CARD}`}>
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
               <ShieldAlert size={32} />
             </div>
           </div>
@@ -128,7 +129,7 @@ export default function MustChangePasswordPage() {
           <Button 
             type="submit" 
             disabled={loading} 
-            className="w-full h-12 rounded-xl bg-[#009688] hover:bg-[#00796b] text-white font-bold text-base shadow-lg shadow-[#009688]/20"
+            className={`w-full h-12 rounded-xl text-base font-bold shadow-lg ${AUTH_ACCENT_SOLID}`}
           >
             {loading ? <Loader2 className="animate-spin mr-2" /> : "XÁC NHẬN ĐỔI MẬT KHẨU"}
           </Button>
@@ -137,3 +138,4 @@ export default function MustChangePasswordPage() {
     </div>
   );
 }
+

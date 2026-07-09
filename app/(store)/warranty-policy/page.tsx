@@ -19,17 +19,17 @@ export default function WarrantyPolicyPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Chính sách bảo hành</span>
+        <span className="text-[#1965a2] font-bold">Chính sách bảo hành</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
         {/* Header */}
-        <h3 className="text-xl font-bold text-[#329965] uppercase border-b border-gray-200 pb-4 mb-8 flex items-center">
+        <h3 className="text-xl font-bold text-[#1965a2] uppercase border-b border-gray-200 pb-4 mb-8 flex items-center">
           <ShieldCheck className="mr-3" size={24} />
           Chính sách bảo hành Thiết bị AgriShrimp
         </h3>
@@ -37,7 +37,7 @@ export default function WarrantyPolicyPage() {
         <div className="text-gray-700 text-sm md:text-base leading-relaxed space-y-10">
           {/* I. CHÍNH SÁCH BẢO HÀNH */}
           <section>
-            <h5 className="text-lg font-bold text-gray-900 border-l-4 border-[#329965] pl-3 mb-4 uppercase">
+            <h5 className="text-lg font-bold text-gray-900 border-l-4 border-[#1965a2] pl-3 mb-4 uppercase">
               I. CHÍNH SÁCH BẢO HÀNH
             </h5>
 
@@ -72,7 +72,7 @@ export default function WarrantyPolicyPage() {
               {/* 2. Chính sách */}
               <div>
                 <h6 className="font-bold text-gray-800 mb-2 flex items-center">
-                  <Wrench className="w-4 h-4 mr-2 text-[#329965]" /> 2. Chính
+                  <Wrench className="w-4 h-4 mr-2 text-[#1965a2]" /> 2. Chính
                   sách bảo hành
                 </h6>
                 <p className="mb-2">
@@ -80,11 +80,11 @@ export default function WarrantyPolicyPage() {
                   ăn tự động mang thương hiệu AgriShrimp hoặc được phân phối
                   chính hãng:
                 </p>
-                <div className="bg-green-50 border border-green-100 rounded p-3">
+                <div className="bg-blue-50 border border-blue-100 rounded p-3">
                   <ul className="list-disc pl-5 space-y-2">
                     <li>
                       <strong>Bảo hành 1 đổi 1:</strong> Có hiệu lực trong vòng{" "}
-                      <strong className="text-[#329965]">2 năm</strong> tính từ
+                      <strong className="text-[#1965a2]">2 năm</strong> tính từ
                       ngày mua hàng (thể hiện trên hóa đơn) hoặc ngày nhận hàng
                       thành công.
                     </li>
@@ -142,7 +142,7 @@ export default function WarrantyPolicyPage() {
 
           {/* II. KÍCH HOẠT BẢO HÀNH */}
           <section>
-            <h5 className="text-lg font-bold text-gray-900 border-l-4 border-[#329965] pl-3 mb-4 uppercase flex items-center">
+            <h5 className="text-lg font-bold text-gray-900 border-l-4 border-[#1965a2] pl-3 mb-4 uppercase flex items-center">
               II. KÍCH HOẠT BẢO HÀNH ĐIỆN TỬ{" "}
               <QrCode className="ml-2 w-5 h-5 text-gray-400" />
             </h5>
@@ -164,12 +164,12 @@ export default function WarrantyPolicyPage() {
 
           {/* III. QUY TRÌNH THỰC HIỆN */}
           <section>
-            <h5 className="text-lg font-bold text-gray-900 border-l-4 border-[#329965] pl-3 mb-4 uppercase">
+            <h5 className="text-lg font-bold text-gray-900 border-l-4 border-[#1965a2] pl-3 mb-4 uppercase">
               III. QUY TRÌNH THỰC HIỆN BẢO HÀNH
             </h5>
             <div className="pl-4 border-l-2 border-gray-200 ml-2 space-y-6">
               <div className="relative">
-                <div className="absolute -left-[25px] bg-[#329965] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                <div className="absolute -left-[25px] bg-[#1965a2] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                   1
                 </div>
                 <h6 className="font-bold text-gray-800">
@@ -182,7 +182,7 @@ export default function WarrantyPolicyPage() {
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[25px] bg-[#329965] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                <div className="absolute -left-[25px] bg-[#1965a2] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                   2
                 </div>
                 <h6 className="font-bold text-gray-800">
@@ -195,7 +195,7 @@ export default function WarrantyPolicyPage() {
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[25px] bg-[#329965] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                <div className="absolute -left-[25px] bg-[#1965a2] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                   3
                 </div>
                 <h6 className="font-bold text-gray-800">
@@ -208,13 +208,13 @@ export default function WarrantyPolicyPage() {
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[25px] bg-[#329965] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                <div className="absolute -left-[25px] bg-[#1965a2] text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                   4
                 </div>
                 <h6 className="font-bold text-gray-800">Bước 4: Hoàn tất</h6>
                 <ul className="list-disc pl-5 mt-1 text-sm text-gray-600">
                   <li>
-                    <span className="font-semibold text-green-600">
+                    <span className="font-semibold text-blue-600">
                       Chấp nhận:
                     </span>{" "}
                     Gửi máy mới cho khách trong 5-7 ngày làm việc.
@@ -229,12 +229,12 @@ export default function WarrantyPolicyPage() {
           </section>
 
           {/* Footer Hotline */}
-          <div className="flex items-center p-4 bg-green-50 rounded-lg border border-green-200">
-            <div className="bg-white p-3 rounded-full shadow-sm text-[#329965] mr-4">
+          <div className="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="bg-white p-3 rounded-full shadow-sm text-[#1965a2] mr-4">
               <Headphones size={32} />
             </div>
             <div>
-              <h5 className="font-bold text-[#329965] text-lg">
+              <h5 className="font-bold text-[#1965a2] text-lg">
                 TỔNG ĐÀI HỖ TRỢ
               </h5>
               <p className="text-gray-700">
@@ -248,3 +248,4 @@ export default function WarrantyPolicyPage() {
     </>
   );
 }
+

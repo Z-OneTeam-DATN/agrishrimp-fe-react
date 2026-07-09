@@ -148,11 +148,11 @@ export default function CategoryPage() {
                 <button
                   onClick={() => router.push(`/category/${cat.id}`)}
                   className={`w-full text-left text-sm flex items-center justify-between group py-1 ${
-                    Number(currentCategoryId) === cat.id ? "text-teal-600 font-bold" : "text-gray-600 hover:text-teal-600"
+                    Number(currentCategoryId) === cat.id ? "text-blue-600 font-bold" : "text-gray-600 hover:text-blue-600"
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${Number(currentCategoryId) === cat.id ? "bg-teal-600" : "bg-gray-300 group-hover:bg-teal-400"}`}></span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${Number(currentCategoryId) === cat.id ? "bg-blue-600" : "bg-gray-300 group-hover:bg-blue-400"}`}></span>
                     {cat.name}
                   </span>
                 </button>
@@ -178,11 +178,11 @@ export default function CategoryPage() {
               <button
                 onClick={() => router.push(`/category/${cat.id}`)}
                 className={`w-full text-left text-sm flex items-center justify-between group py-1 ${
-                  Number(currentCategoryId) === cat.id ? "text-teal-600 font-bold" : "text-gray-600 hover:text-teal-600"
+                  Number(currentCategoryId) === cat.id ? "text-blue-600 font-bold" : "text-gray-600 hover:text-blue-600"
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${Number(currentCategoryId) === cat.id ? "bg-teal-600" : "bg-gray-300 group-hover:bg-teal-400"}`}></span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${Number(currentCategoryId) === cat.id ? "bg-blue-600" : "bg-gray-300 group-hover:bg-blue-400"}`}></span>
                   {cat.name}
                 </span>
               </button>
@@ -207,7 +207,7 @@ export default function CategoryPage() {
 
       <div className="container mx-auto px-4 py-4">
         <nav className="text-sm text-gray-500 flex items-center gap-2">
-          <Link href="/" className="hover:text-teal-600">Trang chủ</Link>
+          <Link href="/" className="hover:text-blue-600">Trang chủ</Link>
           <span>/</span>
           <span className="font-bold text-gray-800 truncate">{currentCategoryName}</span>
         </nav>
@@ -227,14 +227,14 @@ export default function CategoryPage() {
                 {currentCategoryName}
                 <span className="ml-2 text-sm font-normal text-gray-400">({filteredProducts.length} kết quả)</span>
               </h1>
-              <button onClick={() => setShowMobileFilter(true)} className="lg:hidden bg-teal-50 text-teal-700 px-4 py-2 rounded-full font-bold flex items-center gap-2 border border-teal-100">
+              <button onClick={() => setShowMobileFilter(true)} className="lg:hidden bg-blue-50 text-blue-700 px-4 py-2 rounded-full font-bold flex items-center gap-2 border border-blue-100">
                 <SlidersHorizontal size={16} /> Lọc
               </button>
             </div>
 
             {isLoadingProducts ? (
               <div className="flex justify-center items-center py-20 bg-white rounded-xl border border-gray-100">
-                <Loader2 className="animate-spin text-teal-600" size={32} />
+                <Loader2 className="animate-spin text-blue-600" size={32} />
                 <span className="ml-3 text-gray-500 font-medium">Đang tìm sản phẩm...</span>
               </div>
             ) : filteredProducts.length > 0 ? (
@@ -267,3 +267,4 @@ export default function CategoryPage() {
     </div>
   );
 }
+

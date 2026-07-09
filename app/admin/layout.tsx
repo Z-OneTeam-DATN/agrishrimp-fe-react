@@ -49,6 +49,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/customers", permission: P.CUSTOMER_VIEW },
   { path: "/admin/products/add", permission: P.PRODUCT_CREATE },
   { path: "/admin/products", permission: P.PRODUCT_VIEW },
+  { path: "/admin/brands", permission: P.PRODUCT_VIEW },
   { path: "/admin/categories", permission: P.CATEGORY_VIEW },
   { path: "/admin/variants", permission: P.ATTRIBUTE_VIEW },
   { path: "/admin/receipts", permission: P.IMPORT_VIEW },
@@ -97,7 +98,7 @@ export default function AdminLayout({
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -130,3 +131,4 @@ export default function AdminLayout({
     </div>
   );
 }
+

@@ -40,7 +40,7 @@ export function AddressItem({ address, onEdit, onRefresh }: AddressItemProps) {
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start hover:border-[#329965] transition-colors bg-white">
+    <div className="border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start hover:border-[#1965a2] transition-colors bg-white">
       <div className="flex-1 mb-3 md:mb-0 pr-4">
         <div className="flex items-center mb-1">
           <h6 className="font-bold text-gray-900 text-sm">
@@ -56,7 +56,7 @@ export function AddressItem({ address, onEdit, onRefresh }: AddressItemProps) {
         </div>
         
         {address.isDefault && (
-          <span className="inline-flex items-center text-xs font-bold text-[#329965] border border-[#329965] px-2 py-0.5 rounded bg-green-50">
+          <span className="inline-flex items-center text-xs font-bold text-[#1965a2] border border-[#1965a2] px-2 py-0.5 rounded bg-blue-50">
             <CheckCircle2 size={12} className="mr-1" /> Mặc định
           </span>
         )}
@@ -96,7 +96,7 @@ export function AddressItem({ address, onEdit, onRefresh }: AddressItemProps) {
           className={`text-sm border px-4 h-10 rounded transition-colors ${
             address.isDefault
               ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-              : "bg-white text-gray-600 border-gray-300 hover:border-[#329965] hover:text-[#329965]"
+              : "bg-white text-gray-600 border-gray-300 hover:border-[#1965a2] hover:text-[#1965a2]"
           }`}
         >
           {address.isDefault ? "Đã là mặc định" : "Thiết lập mặc định"}

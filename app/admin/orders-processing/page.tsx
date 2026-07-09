@@ -573,7 +573,6 @@ function PaymentBadge({ status }: { status: "PAID" | "UNPAID" }) {
     status === "PAID"
       ? "border-emerald-100 bg-emerald-50 text-emerald-600 font-bold"
       : "border-amber-100 bg-amber-50 text-amber-600 font-bold";
-
   return (
     <span className={cn("rounded-full border px-2.5 py-0.5 text-[10px] uppercase", styles)}>
       ● {status === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}

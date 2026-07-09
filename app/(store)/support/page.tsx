@@ -73,10 +73,10 @@ export default function SupportPage() {
   };
 
   const inputClass = (field: string) =>
-    `w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#329965]/20 ${
+    `w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#1965a2]/20 ${
       errors[field]
         ? "border-red-500 focus:border-red-500"
-        : "border-gray-300 focus:border-[#329965]"
+        : "border-gray-300 focus:border-[#1965a2]"
     }`;
 
   return (
@@ -84,17 +84,17 @@ export default function SupportPage() {
       <StoreBanner />
 
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center container mx-auto px-4">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Gửi yêu cầu hỗ trợ</span>
+        <span className="text-[#1965a2] font-bold">Gửi yêu cầu hỗ trợ</span>
       </div>
 
       <div className="container mx-auto px-4 pb-12">
         <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
           <div className="border-b border-gray-200 pb-4 mb-8">
-            <h2 className="text-xl md:text-2xl font-bold text-[#329965] uppercase flex items-center">
+            <h2 className="text-xl md:text-2xl font-bold text-[#1965a2] uppercase flex items-center">
               <Headphones className="mr-3" size={28} />
               Gửi yêu cầu hỗ trợ
             </h2>
@@ -108,7 +108,7 @@ export default function SupportPage() {
             {/* FORM */}
             <div className="lg:col-span-2">
               {isSuccess && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md flex items-center text-green-700">
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md flex items-center text-blue-700">
                   <CheckCircle2 className="mr-2 shrink-0" size={20} />
                   <span className="text-sm font-medium">
                     Yêu cầu đã được gửi thành công! Chúng tôi sẽ liên hệ bạn
@@ -216,7 +216,7 @@ export default function SupportPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-[#329965] text-white font-bold rounded-md hover:bg-[#268050] transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="px-6 py-2.5 bg-[#1965a2] text-white font-bold rounded-md hover:bg-[#268050] transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <span>Đang gửi...</span>
@@ -231,29 +231,29 @@ export default function SupportPage() {
 
             {/* SIDEBAR */}
             <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-5">
-                <h4 className="font-bold text-[#329965] mb-3 text-sm uppercase">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                <h4 className="font-bold text-[#1965a2] mb-3 text-sm uppercase">
                   Liên hệ trực tiếp
                 </h4>
                 <ul className="space-y-3 text-sm text-gray-700">
                   <li className="flex items-center gap-2">
-                    <Phone size={16} className="text-[#329965] shrink-0" />
+                    <Phone size={16} className="text-[#1965a2] shrink-0" />
                     <span>
                       Hotline:{" "}
                       <a
                         href="tel:18006324"
-                        className="font-bold text-[#329965]"
+                        className="font-bold text-[#1965a2]"
                       >
                         1800 6324
                       </a>
                     </span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Mail size={16} className="text-[#329965] shrink-0" />
+                    <Mail size={16} className="text-[#1965a2] shrink-0" />
                     <span>support@agrishrimp.vn</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Clock size={16} className="text-[#329965] shrink-0" />
+                    <Clock size={16} className="text-[#1965a2] shrink-0" />
                     <span>08:00 – 22:00 (T2 – CN)</span>
                   </li>
                 </ul>
@@ -276,3 +276,4 @@ export default function SupportPage() {
     </>
   );
 }
+

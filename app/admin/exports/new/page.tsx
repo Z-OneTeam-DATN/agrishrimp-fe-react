@@ -218,10 +218,10 @@ export default function NewExportReceiptPage() {
           <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
             <div className="bg-slate-50/80 px-5 py-2.5 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                <Truck size={14} className="text-emerald-600" /> Thông tin vận
+                <Truck size={14} className="text-blue-600" /> Thông tin vận
                 chuyển
               </h3>
-              <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">
+              <span className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">
                 Thủ kho nhập
               </span>
             </div>
@@ -481,3 +481,4 @@ export default function NewExportReceiptPage() {
     </div>
   );
 }
+

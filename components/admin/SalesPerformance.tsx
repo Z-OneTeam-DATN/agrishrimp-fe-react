@@ -147,7 +147,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
             onClick={() => setActiveTab("revenue")}
             className={`inline-flex h-9 items-center rounded-[4px] border px-3 text-[12px] font-semibold transition-all ${
               activeTab === "revenue"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                ? "border-blue-200 bg-blue-50 text-blue-700"
                 : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -157,7 +157,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
             onClick={() => setActiveTab("proportion")}
             className={`inline-flex h-9 items-center rounded-[4px] border px-3 text-[12px] font-semibold transition-all ${
               activeTab === "proportion"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                ? "border-blue-200 bg-blue-50 text-blue-700"
                 : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -170,7 +170,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
             Thời gian
           </span>
           <Select value={days} onValueChange={setDays}>
-            <SelectTrigger className="h-9 w-36 rounded-[4px] border-slate-200 bg-white text-[12px] font-medium shadow-none focus:ring-emerald-500">
+            <SelectTrigger className="h-9 w-36 rounded-[4px] border-slate-200 bg-white text-[12px] font-medium shadow-none focus:ring-blue-500">
               <SelectValue placeholder="7 ngày qua" />
             </SelectTrigger>
             <SelectContent>
@@ -323,3 +323,4 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
     </div>
   );
 }
+

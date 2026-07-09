@@ -196,7 +196,7 @@ export default function HandoverPage() {
                                                 <TableCell className="text-[13px] text-center font-bold text-slate-800">
                                                     {item.totalOrders}
                                                 </TableCell>
-                                                <TableCell className="text-[13px] text-right font-black text-emerald-700">
+                                                <TableCell className="text-[13px] text-right font-black text-blue-700">
                                                     {formatCurrency(item.totalCod)}
                                                 </TableCell>
                                                 <TableCell className="text-center">
@@ -261,7 +261,7 @@ const FilterButton = ({ label }: { label: string }) => (
 const StatusBadge = ({ status }: { status: string }) => {
     const config: any = {
         WAITING: { label: "Chờ bàn giao", class: "bg-amber-50 text-amber-600 border-amber-100" },
-        COMPLETED: { label: "Đã bàn giao", class: "bg-emerald-50 text-emerald-600 border-emerald-100" }
+        COMPLETED: { label: "Đã bàn giao", class: "bg-blue-50 text-blue-600 border-blue-100" }
     };
 
     const style = config[status] || { label: status, class: "bg-slate-50 text-slate-500 border-slate-200" };

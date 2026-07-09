@@ -26,9 +26,9 @@ export function CheckoutStepper({ currentStep }: CheckoutStepperProps) {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
                   isCompleted
-                    ? "bg-teal-600 border-teal-600 text-white"
+                    ? "bg-blue-600 border-blue-600 text-white"
                     : isActive
-                    ? "bg-white border-teal-600 text-teal-600"
+                    ? "bg-white border-blue-600 text-blue-600"
                     : "bg-white border-gray-200 text-gray-400"
                 }`}
               >
@@ -37,9 +37,9 @@ export function CheckoutStepper({ currentStep }: CheckoutStepperProps) {
               <span
                 className={`text-[10px] mt-1 font-medium whitespace-nowrap ${
                   isActive
-                    ? "text-teal-600"
+                    ? "text-blue-600"
                     : isCompleted
-                    ? "text-teal-500"
+                    ? "text-blue-500"
                     : "text-gray-400"
                 }`}
               >
@@ -51,7 +51,7 @@ export function CheckoutStepper({ currentStep }: CheckoutStepperProps) {
             {idx < STEPS.length - 1 && (
               <div
                 className={`w-16 sm:w-24 h-0.5 mb-4 mx-1 transition-colors ${
-                  currentStep > step.id ? "bg-teal-600" : "bg-gray-200"
+                  currentStep > step.id ? "bg-blue-600" : "bg-gray-200"
                 }`}
               />
             )}
@@ -61,3 +61,4 @@ export function CheckoutStepper({ currentStep }: CheckoutStepperProps) {
     </div>
   )
 }
+

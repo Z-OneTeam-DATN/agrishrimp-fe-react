@@ -15,8 +15,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/axios";
+import { cn, cleanSupplierName } from "@/lib/utils";
 import { ProductService } from "@/app/services/product.service";
+import { getPublicBrands } from "@/app/services/brand.service";
 import { updateAttribute } from "@/app/services/AttributeService";
 import { SettingService } from "@/app/services/setting.service";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -55,8 +57,7 @@ const variantSchema = z.object({
 const AdminProductSchema = z.object({
     name: z.string().min(5, "Tên sản phẩm phải có ít nhất 5 ký tự"),
     categoryId: z.string().min(1, "Vui lòng chọn danh mục"),
-    brand: z.string().optional(),
-    origin: z.string().optional(),
+    brandId: z.string().min(1, "Vui lòng chọn thương hiệu"),
     baseSku: z.string().optional(),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "DRAFT"]),
@@ -153,7 +154,7 @@ function CreatableCombobox({ options, value, onSelect, placeholder = "Chọn..."
                     }} />
                     <CommandList>
                         <CommandEmpty>
-                            <Button variant="ghost" className="w-full justify-start h-8 text-emerald-600 text-[12px] font-bold px-2" onClick={() => { onSelect(inputValue); setOpen(false); setInputValue(""); }}>
+                            <Button variant="ghost" className="w-full justify-start h-8 text-blue-600 text-[12px] font-bold px-2" onClick={() => { onSelect(inputValue); setOpen(false); setInputValue(""); }}>
                                 + Thêm &quot;{inputValue}&quot;
                             </Button>
                         </CommandEmpty>
@@ -247,7 +248,7 @@ export default function EditProductPage() {
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([]);
 
     const [categories, setCategories] = useState<any[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
+    const [brands, setBrands] = useState<any[]>([]);
     const [attributes, setAttributes] = useState<any[]>([]);
     const [attributeEditor, setAttributeEditor] = useState<AttributeEditorState | null>(null);
     const [newAttributeValue, setNewAttributeValue] = useState("");
@@ -263,7 +264,7 @@ export default function EditProductPage() {
 
     const { register, handleSubmit, control, setValue, watch, getValues, reset, formState: { errors, isDirty } } = useForm<ProductFormData>({
         resolver: zodResolver(AdminProductSchema),
-        defaultValues: { name: "", categoryId: "", brand: "", origin: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
+        defaultValues: { name: "", categoryId: "", brandId: "", baseSku: "", description: "", status: "ACTIVE", variants: [DEFAULT_VARIANT] },
     });
     const nameWatch = watch("name");
     const categoryWatch = watch("categoryId");
@@ -399,14 +400,19 @@ export default function EditProductPage() {
     );
 
     const syncDraftIndex = useCallback((entry: DraftIndexEntry) => {
-        const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
-        const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
-        const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
-            .sort((a, b) => b.savedAt - a.savedAt)
-            .slice(0, 8);
-        localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
-        setRecentDrafts(merged);
-    }, []);
+        try {
+            const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+            const merged = [entry, ...list.filter((item) => item.key !== entry.key)]
+                .sort((a, b) => b.savedAt - a.savedAt)
+                .slice(0, 8);
+            localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(merged));
+            setRecentDrafts(merged.filter((item) => item.key === draftStorageKey));
+        } catch {
+            localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            setRecentDrafts([]);
+        }
+    }, [draftStorageKey]);
 
     const missingWarnings = useMemo(() => {
         const warnings: string[] = [];
@@ -451,12 +457,12 @@ export default function EditProductPage() {
         if (rawIndex) {
             try {
                 const list: DraftIndexEntry[] = JSON.parse(rawIndex);
-                setRecentDrafts(list.slice(0, 6));
+                setRecentDrafts(list.filter((item) => item.key === draftStorageKey).slice(0, 6));
             } catch {
                 localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
             }
         }
-    }, []);
+    }, [draftStorageKey]);
 
     useEffect(() => {
         if (!isLoadingAuth && isAuthenticated && id) {
@@ -465,21 +471,20 @@ export default function EditProductPage() {
                     setIsFetching(true);
                     const [catRes, brandRes, attrRes, productDetail] = await Promise.all([
                         ProductService.getCategories(),
-                        ProductService.getBrands(),
+                        getPublicBrands(),
                         ProductService.getAttributes(),
                         ProductService.getById(id),
                     ]);
 
                     setCategories(catRes || []);
-                    setBrands(Array.from(new Set(brandRes?.map((b: any) => b.name) || [])) as string[]);
+                    setBrands(brandRes || []);
                     setAttributes(filterActiveAttributes(attrRes || []));
 
                     // Đổ dữ liệu
                     const mappedData: any = {
                         name: productDetail.name || "",
                         categoryId: productDetail.category?.id ? String(productDetail.category.id) : "",
-                        brand: productDetail.brand?.name || "",
-                        origin: productDetail.origin || "",
+                        brandId: productDetail.brandId ? String(productDetail.brandId) : "",
                         baseSku: productDetail.baseSku || "",
                         description: productDetail.description || "",
                         status: productDetail.status || "ACTIVE",
@@ -733,8 +738,7 @@ export default function EditProductPage() {
         reset({
             name: draftData.name || fallbackData?.name || "",
             categoryId: draftData.categoryId || fallbackData?.categoryId || "",
-            brand: draftData.brand || fallbackData?.brand || "",
-            origin: draftData.origin || fallbackData?.origin || "",
+            brandId: draftData.brandId || fallbackData?.brandId || "",
             baseSku: draftData.baseSku || fallbackData?.baseSku || "",
             description: draftData.description || fallbackData?.description || "",
             status: draftData.status || fallbackData?.status || "ACTIVE",
@@ -772,7 +776,7 @@ export default function EditProductPage() {
                 const list: DraftIndexEntry[] = JSON.parse(raw);
                 const next = list.filter((item) => item.key !== draftStorageKey);
                 localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(next));
-                setRecentDrafts(next.slice(0, 6));
+                setRecentDrafts(next.filter((item) => item.key === draftStorageKey).slice(0, 6));
             } catch {
                 localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
                 setRecentDrafts([]);
@@ -1096,8 +1100,11 @@ export default function EditProductPage() {
             const newFirstVariantImageFile = typeof firstVariantImage === 'string' ? null : firstVariantImage;
 
             const productData: any = {
-                name: data.name.trim(), categoryId: Number(data.categoryId), brand: data.brand?.trim() || "",
-                origin: data.origin?.trim() || "", description: data.description || "", status: data.status,
+                name: data.name.trim(),
+                categoryId: Number(data.categoryId),
+                ...(data.brandId && { brandId: Number(data.brandId) }),
+                description: data.description || "",
+                status: data.status,
                 images: existingFirstVariantImage ? [existingFirstVariantImage] : [],
                 variants: rawVariants.map((v: any, vIdx: number) => {
                     const img = variantImageFiles[vIdx];
@@ -1140,13 +1147,13 @@ export default function EditProductPage() {
             toast.success("Cập nhật sản phẩm thành công!");
             router.push("/admin/products");
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Có lỗi khi cập nhật sản phẩm.");
+            toast.error(getErrorMessage(error));
         } finally {
             setIsLoading(false);
         }
     };
 
-    if (isFetching) return (<div className="flex flex-col items-center justify-center min-h-[400px] gap-3"><Loader2 className="h-10 w-10 animate-spin text-emerald-600" /><p className="text-sm text-slate-500 font-medium">Đang tải thông tin sản phẩm...</p></div>);
+    if (isFetching) return (<div className="flex flex-col items-center justify-center min-h-[400px] gap-3"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /><p className="text-sm text-slate-500 font-medium">Đang tải thông tin sản phẩm...</p></div>);
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 pb-[100px] text-slate-800">
@@ -1160,13 +1167,25 @@ export default function EditProductPage() {
                 <div className="space-y-5">
                     <div ref={infoSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
                         <SectionHeader num="1" title="Thông tin sản phẩm chính" />
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {/* Hàng 1 (2 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Tên sản phẩm *</Label>
-                                <Input {...register("name")} className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500", errors.name && "border-rose-500")} />
-                                <ErrorMessage message={errors.name?.message} />
+                                <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
+                                    Mã SKU gốc
+                                    <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
+                                </Label>
+                                <Input {...register("baseSku")} readOnly className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0" />
                             </div>
 
+                            <div className="space-y-1.5">
+                                <Label className="text-[10.5px] font-semibold text-slate-500">Tên sản phẩm *</Label>
+                                <Input {...register("name")} className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-blue-500", errors.name && "border-rose-500")} />
+                                <ErrorMessage message={errors.name?.message} />
+                            </div>
+                        </div>
+
+                        {/* Hàng 2 (3 cột) */}
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Danh mục *</Label>
                                 <Controller name="categoryId" control={control} render={({ field }) => (
@@ -1186,28 +1205,37 @@ export default function EditProductPage() {
                                 )} />
                                 <ErrorMessage message={errors.categoryId?.message} />
                             </div>
+
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Thương hiệu</Label>
-                                <Controller name="brand" control={control} render={({ field }) => <CreatableCombobox options={brands} value={field.value || ""} onSelect={field.onChange} placeholder="Chọn hoặc nhập..." />} />
+                                <Controller
+                                    name="brandId"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                                            <SelectTrigger className={cn("h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none", errors.brandId && "border-rose-500")}>
+                                                <SelectValue placeholder="-- Chọn thương hiệu --" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-md">
+                                                {brands.map((b: any) => (
+                                                    <SelectItem key={`brand-${b.id}`} value={String(b.id)}>
+                                                        {b.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                <ErrorMessage message={errors.brandId?.message} />
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10.5px] font-semibold text-slate-500">Xuất xứ</Label>
-                                <Input {...register("origin")} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
-                                    Mã SKU gốc
-                                    <span title="Hệ thống tự động sinh, không được sửa"><Info size={11} className="text-slate-400" /></span>
-                                </Label>
-                                <Input {...register("baseSku")} readOnly className="h-[38px] cursor-not-allowed rounded-md border-slate-200 bg-slate-50 font-mono text-[13px] font-medium text-slate-400 shadow-none focus-visible:ring-0" />
-                            </div>
+
                             <div ref={statusSectionRef} className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Trạng thái phát hành</Label>
                                 <Controller name="status" control={control} render={({ field }) => (
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <SelectTrigger className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none"><SelectValue /></SelectTrigger>
                                         <SelectContent className="rounded-md">
-                                            <SelectItem value="ACTIVE" className="text-emerald-600">Đang kinh doanh</SelectItem>
+                                            <SelectItem value="ACTIVE" className="text-blue-600">Đang kinh doanh</SelectItem>
                                             <SelectItem value="INACTIVE" className="text-rose-500">Tạm ngừng bán</SelectItem>
                                             <SelectItem value="DRAFT" className="text-slate-500">Lưu nháp</SelectItem>
                                         </SelectContent>
@@ -1241,7 +1269,7 @@ export default function EditProductPage() {
                     <div ref={variantsSectionRef} className="overflow-hidden border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                             <h3 className="text-[11px] font-bold text-slate-800">3. Danh sách biến thể sản phẩm (SKUs)</h3>
-                            <Button type="button" variant="outline" onClick={handleAppendVariant} className="h-[34px] rounded-md border-emerald-200 bg-white px-4 text-[11px] font-medium text-emerald-600 shadow-none">+ Thêm biến thể</Button>
+                            <Button type="button" variant="outline" onClick={handleAppendVariant} className="h-[34px] rounded-md border-blue-200 bg-white px-4 text-[11px] font-medium text-blue-600 shadow-none">+ Thêm biến thể</Button>
                         </div>
 
                         {(fields.length > 1 || variantWindow.virtual) && (
@@ -1275,7 +1303,7 @@ export default function EditProductPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-emerald-600 px-4 text-[11px] font-medium text-white hover:bg-emerald-700">Áp dụng cho biến thể đã chọn</Button>
+                                <Button type="button" onClick={handleBulkAssignAttribute} className="h-[38px] rounded-md bg-blue-600 px-4 text-[11px] font-medium text-white hover:bg-blue-700">Áp dụng cho biến thể đã chọn</Button>
                             </div>
                             )}
                             {variantWindow.virtual && (
@@ -1312,7 +1340,7 @@ export default function EditProductPage() {
                                                 )}
                                             </div>
                                             {fields.length > 1 && (
-                                                <input type="checkbox" checked={isSelected} onChange={() => toggleSelectVariant(field.id)} className="h-4 w-4 shrink-0 accent-emerald-600" aria-label={`Chọn biến thể ${idx + 1}`} />
+                                                <input type="checkbox" checked={isSelected} onChange={() => toggleSelectVariant(field.id)} className="h-4 w-4 shrink-0 accent-blue-600" aria-label={`Chọn biến thể ${idx + 1}`} />
                                             )}
                                             <button type="button" onClick={() => handleToggleVariant(field.id)} className="min-w-0 flex-1 text-left">
                                                 <div className="flex items-center gap-3">
@@ -1339,7 +1367,7 @@ export default function EditProductPage() {
                                         {!isCollapsed && (
                                         <div className="flex flex-col gap-5 border-t border-slate-100 px-6 py-5 xl:flex-row">
                                             <div className="flex flex-col items-center shrink-0">
-                                                <div onClick={() => document.getElementById(`v-img-${idx}`)?.click()} className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-emerald-500">
+                                                <div onClick={() => document.getElementById(`v-img-${idx}`)?.click()} className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-blue-500">
                                                     {variantImagePreviews[idx] ? <img src={variantImagePreviews[idx]} className="w-full h-full object-cover" alt="Variant" /> : <><Camera size={26} className="text-slate-300" /><span className="mt-1 text-[9px] font-normal text-slate-300">Chọn ảnh</span></>}
                                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Upload size={15} className="text-white" /></div>
                                                 </div>
@@ -1398,7 +1426,7 @@ export default function EditProductPage() {
                                                                                             <SelectSeparator className="my-1 bg-slate-200" />
                                                                                             <SelectItem
                                                                                                 value={`manage-${attr.id}`}
-                                                                                                className="mt-1 bg-emerald-50 text-emerald-700 font-semibold focus:bg-emerald-100 focus:text-emerald-800"
+                                                                                                className="mt-1 bg-blue-50 text-blue-700 font-semibold focus:bg-blue-100 focus:text-blue-800"
                                                                                             >
                                                                                                 + Thêm giá trị mới cho {attr.name}
                                                                                             </SelectItem>
@@ -1423,7 +1451,7 @@ export default function EditProductPage() {
                                                 <div className="mt-4 overflow-hidden rounded-[4px] border border-slate-200">
                                                     <div className="flex items-center justify-between border-b bg-slate-50 px-3 py-2">
                                                         <span className="text-[11px] font-medium text-slate-600">Lô hàng hiện tại</span>
-                                                        <span className="text-[11px] font-medium text-emerald-600">Tổng tồn: {currentStock}</span>
+                                                        <span className="text-[11px] font-medium text-blue-600">Tổng tồn: {currentStock}</span>
                                                     </div>
 
                                                     {batches.length > 0 ? (
@@ -1454,7 +1482,7 @@ export default function EditProductPage() {
                                                                                     {importPrice != null ? `${importPrice.toLocaleString('vi-VN')} ₫` : "—"}
                                                                                 </td>
                                                                             )}
-                                                                            <td className="p-2 text-[11px] font-black text-emerald-600 text-right">{sellingPrice.toLocaleString('vi-VN')} ₫</td>
+                                                                            <td className="p-2 text-[11px] font-black text-blue-600 text-right">{sellingPrice.toLocaleString('vi-VN')} ₫</td>
                                                                         </tr>
                                                                     );
                                                                 })}
@@ -1520,7 +1548,7 @@ export default function EditProductPage() {
 
                     <DialogFooter className="gap-2">
                         <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
-                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700">Khôi phục nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-blue-600 hover:bg-blue-700">Khôi phục nháp</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1577,7 +1605,7 @@ export default function EditProductPage() {
                                         {attributeEditor.values.map((value) => (
                                             <span
                                                 key={value}
-                                                className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
+                                                className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[12px] font-semibold text-slate-700"
                                             >
                                                 {value}
                                             </span>
@@ -1610,7 +1638,7 @@ export default function EditProductPage() {
                                     type="button"
                                     variant="outline"
                                     onClick={addAttributeValueDraft}
-                                    className="h-9 shrink-0 border-emerald-200 text-emerald-700"
+                                    className="h-9 shrink-0 border-blue-200 text-blue-700"
                                 >
                                     Thêm vào danh sách
                                 </Button>
@@ -1634,7 +1662,7 @@ export default function EditProductPage() {
                             type="button"
                             onClick={handleSaveAttributeValues}
                             disabled={isSavingAttribute}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-blue-600 hover:bg-blue-700"
                         >
                             {isSavingAttribute ? <Loader2 size={16} className="mr-2 animate-spin" /> : null}
                             Lưu giá trị
@@ -1653,7 +1681,7 @@ export default function EditProductPage() {
                     }} className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50">
                         Hủy bỏ
                     </Button>
-                    <Button type="submit" disabled={isLoading} className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700">
+                    <Button type="submit" disabled={isLoading} className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700">
                         {isLoading ? <Loader2 className="mr-2 animate-spin" size={16} /> : <Save className="mr-2" size={16} />}
                         {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
                     </Button>
@@ -1662,3 +1690,4 @@ export default function EditProductPage() {
         </form>
     );
 }
+

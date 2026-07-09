@@ -437,7 +437,7 @@ export default function ProfitLossReportPage() {
             </Button>
             <Button
               onClick={handleExportExcel}
-              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
             >
               <Download className="mr-2 h-4 w-4" />
               Xuất file
@@ -448,7 +448,7 @@ export default function ProfitLossReportPage() {
         <div className="mt-4 relative overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
           {loading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70">
-              <Loader2 className="mb-2 animate-spin text-emerald-600" size={32} />
+              <Loader2 className="mb-2 animate-spin text-blue-600" size={32} />
               <span className="text-[12px] font-medium text-slate-500">
                 Đang tổng hợp số liệu...
               </span>
@@ -490,7 +490,7 @@ export default function ProfitLossReportPage() {
                     className={cn(
                       "h-[56px] border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]",
                       row.isBold && "bg-slate-50/60",
-                      row.isResult && "bg-emerald-50/40 hover:bg-emerald-50/50"
+                      row.isResult && "bg-blue-50/40 hover:bg-blue-50/50"
                     )}
                   >
                     <TableCell
@@ -499,7 +499,7 @@ export default function ProfitLossReportPage() {
                         row.padding || "pl-6",
                         row.isBold ? "font-semibold text-slate-800" : "text-slate-600",
                         row.isItalic && "italic",
-                        row.isResult && "font-semibold text-emerald-700"
+                        row.isResult && "font-semibold text-blue-700"
                       )}
                     >
                       {row.label}
@@ -516,7 +516,7 @@ export default function ProfitLossReportPage() {
                       className={cn(
                         "border-r border-[#f3f3f3] p-2 text-center text-[13px]",
                         row.isBold ? "font-semibold text-slate-800" : "text-slate-600",
-                        row.isResult && "font-semibold text-emerald-700"
+                        row.isResult && "font-semibold text-blue-700"
                       )}
                     >
                       {formatNumber(row.current)}
@@ -528,7 +528,7 @@ export default function ProfitLossReportPage() {
                           ? "text-slate-400"
                           : row.change.includes("-")
                             ? "text-rose-500"
-                            : "text-emerald-600"
+                            : "text-blue-600"
                       )}
                     >
                       {row.change}
@@ -593,3 +593,4 @@ export default function ProfitLossReportPage() {
     </div>
   );
 }
+

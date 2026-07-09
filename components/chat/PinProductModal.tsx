@@ -71,7 +71,7 @@ export default function PinProductModal({ conversationId, open, onClose, onPinne
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Pin className="w-4 h-4 text-teal-600" />
+            <Pin className="w-4 h-4 text-blue-600" />
             Ghim sản phẩm vào cuộc trò chuyện
           </DialogTitle>
         </DialogHeader>
@@ -82,12 +82,12 @@ export default function PinProductModal({ conversationId, open, onClose, onPinne
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="Tìm kiếm sản phẩm..."
-            className="flex-1 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-400 dark:bg-slate-700 dark:text-white"
+            className="flex-1 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:text-white"
           />
           <button
             onClick={handleSearch}
             disabled={isSearching}
-            className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
             {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           </button>
@@ -117,7 +117,7 @@ export default function PinProductModal({ conversationId, open, onClose, onPinne
                 <button
                   onClick={() => handlePin(product)}
                   disabled={isPinning === product.id}
-                  className="shrink-0 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1"
+                  className="shrink-0 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1"
                 >
                   {isPinning === product.id ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -134,3 +134,4 @@ export default function PinProductModal({ conversationId, open, onClose, onPinne
     </Dialog>
   );
 }
+

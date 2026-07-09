@@ -200,8 +200,8 @@ export default function AddressForm({
 
   const inputClass = (hasError: boolean) => `
     w-full px-3 border rounded-lg text-sm outline-none transition-all bg-white text-gray-900 placeholder:text-gray-400
-    ${compact ? "h-9" : "h-12"}
-    ${hasError ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-gray-300 focus:border-[#329965] focus:ring-2 focus:ring-[#329965]/20"}
+    ${compact ? "h-9" : "h-10"}
+    ${hasError ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-gray-300 focus:border-[#1965a2] focus:ring-2 focus:ring-[#1965a2]/20"}
   `;
 
   const labelClass = `block text-xs font-bold text-gray-700 ${compact ? "mb-1" : "mb-2"}`;
@@ -212,11 +212,11 @@ export default function AddressForm({
       {!compact && (
         <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 bg-gray-50">
           {onCancel ? (
-            <button type="button" onClick={onCancel} className="text-gray-500 hover:text-[#329965] transition-colors">
+            <button type="button" onClick={onCancel} className="text-gray-500 hover:text-[#1965a2] transition-colors">
               <ChevronLeft size={24} />
             </button>
           ) : (
-            <Link href="/address" className="text-gray-500 hover:text-[#329965] transition-colors">
+            <Link href="/address" className="text-gray-500 hover:text-[#1965a2] transition-colors">
               <ChevronLeft size={24} />
             </Link>
           )}
@@ -239,29 +239,10 @@ export default function AddressForm({
           </div>
         </div>
 
-        {/* Địa chỉ cụ thể với autocomplete */}
-        <div>
-          <label className={labelClass}>
-            Địa chỉ cụ thể <span className="text-red-500">*</span>
-            <span className="ml-1 text-[10px] text-[#329965] font-normal">(gõ để gợi ý tự động)</span>
-          </label>
-          <AddressSuggestionInput
-            value={specificAddress ?? ""}
-            onChange={(val) => setValue("specificAddress", val, { shouldValidate: true })}
-            onSelect={handleSelectSuggestion}
-            hasError={!!errors.specificAddress}
-            className={inputClass(!!errors.specificAddress)}
-            placeholder="Số nhà, tên đường..."
-          />
-          {errors.specificAddress && (
-            <span className="text-xs text-red-500 mt-0.5 block">{errors.specificAddress.message}</span>
-          )}
-        </div>
-
         {/* Tỉnh / Quận / Phường */}
         <div className="grid grid-cols-3 gap-2 relative">
           {loadingLoc && (
-            <div className="absolute -top-5 right-0 flex items-center text-xs text-[#329965]">
+            <div className="absolute -top-5 right-0 flex items-center text-xs text-[#1965a2]">
               <Loader2 size={12} className="animate-spin mr-1" /> Đang tải...
             </div>
           )}
@@ -325,22 +306,41 @@ export default function AddressForm({
           </div>
         </div>
 
+        {/* Địa chỉ cụ thể với autocomplete */}
+        <div>
+          <label className={labelClass}>
+            Địa chỉ cụ thể <span className="text-red-500">*</span>
+            <span className="ml-1 text-[10px] text-[#1965a2] font-normal">(gõ để gợi ý tự động)</span>
+          </label>
+          <AddressSuggestionInput
+            value={specificAddress ?? ""}
+            onChange={(val) => setValue("specificAddress", val, { shouldValidate: true })}
+            onSelect={handleSelectSuggestion}
+            hasError={!!errors.specificAddress}
+            className={inputClass(!!errors.specificAddress)}
+            placeholder="Số nhà, tên đường..."
+          />
+          {errors.specificAddress && (
+            <span className="text-xs text-red-500 mt-0.5 block">{errors.specificAddress.message}</span>
+          )}
+        </div>
+
         {/* Loại địa chỉ & Mặc định */}
         <div className={`flex flex-wrap gap-2 ${compact ? "" : "flex-col"}`}>
           <div className="flex gap-2 flex-1">
             {["Home", "Office"].map((type) => (
               <label
                 key={type}
-                className={`flex-1 text-center py-1.5 px-3 rounded-lg border cursor-pointer transition-colors text-sm flex items-center justify-center
-                  ${watch("addressType") === type ? "bg-[#eafef9] border-[#2d9f8d] text-[#2d9f8d] font-bold" : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"}`}
+                className={`flex-1 text-center px-3 rounded-lg border cursor-pointer transition-colors text-sm flex h-11 items-center justify-center
+                  ${watch("addressType") === type ? "bg-[#eafef9] border-[#1965a2] text-[#1965a2] font-bold" : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"}`}
               >
                 <input type="radio" value={type} {...register("addressType")} className="hidden" />
                 {type === "Home" ? "Nhà riêng" : "Văn phòng"}
               </label>
             ))}
           </div>
-          <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-1.5 bg-white border border-gray-300 rounded-lg">
-            <input type="checkbox" {...register("isDefault")} className="w-4 h-4 cursor-pointer accent-[#329965] rounded" />
+          <label className="flex items-center gap-2 cursor-pointer select-none py-1">
+            <input type="checkbox" {...register("isDefault")} className="w-4 h-4 cursor-pointer accent-[#1965a2] rounded" />
             <span className="text-sm text-gray-700">Đặt làm mặc định</span>
           </label>
         </div>
@@ -366,7 +366,7 @@ export default function AddressForm({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-1 text-sm font-bold text-white bg-[#329965] hover:bg-[#268050] rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${compact ? "py-2" : "h-12"}`}
+              className={`flex-1 text-sm font-bold text-white bg-[#1965a2] hover:bg-[#268050] rounded-lg shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${compact ? "py-2" : "h-12"}`}
             >
               {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
               {isSubmitting ? "Đang lưu..." : "Lưu địa chỉ"}
@@ -377,3 +377,4 @@ export default function AddressForm({
     </div>
   );
 }
+

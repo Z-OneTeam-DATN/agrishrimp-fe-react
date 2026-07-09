@@ -32,8 +32,11 @@ const statusLabel: Record<string, string> = {
   PENDING_APPROVAL: "Chờ duyệt",
   APPROVED: "Đã duyệt",
   SENT_TO_SUPPLIER: "Đã gửi NCC",
-  PARTIALLY_RECEIVED: "Nhập một phần",
-  COMPLETED: "Hoàn tất",
+  SUPPLIER_CONFIRMED: "NCC xác nhận",
+  PREPARING: "Đang chuẩn bị",
+  DELIVERING: "Đang giao hàng",
+  PARTIALLY_RECEIVED: "Đã nhận một phần",
+  COMPLETED: "Đã nhận đủ",
   REJECTED: "Từ chối",
   CANCELLED: "Đã hủy",
 };
@@ -253,7 +256,7 @@ export default function SelectPurchaseRequestForReceiptPage() {
                       <td className="px-5 py-3 text-right">
                         <Button
                           type="button"
-                          className="h-8 bg-emerald-600 px-3 text-[11px] font-medium hover:bg-emerald-700"
+                          className="h-8 bg-blue-600 px-3 text-[11px] font-medium hover:bg-blue-700"
                           onClick={() => handleSelect(request)}
                         >
                           <Check size={13} className="mr-1.5" />
@@ -302,3 +305,4 @@ export default function SelectPurchaseRequestForReceiptPage() {
     </div>
   );
 }
+

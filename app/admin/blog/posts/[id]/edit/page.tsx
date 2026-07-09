@@ -29,7 +29,7 @@ export default function EditBlogPostPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
-        <Loader2 className="animate-spin text-emerald-600" size={28} />
+        <Loader2 className="animate-spin text-blue-600" size={28} />
       </div>
     );
   }
@@ -46,7 +46,7 @@ export default function EditBlogPostPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-1.5 text-sm text-slate-400 mb-3">
-          <Link href="/admin/blog/posts" className="hover:text-emerald-600 transition-colors font-medium">
+          <Link href="/admin/blog/posts" className="hover:text-blue-600 transition-colors font-medium">
             Bài viết blog
           </Link>
           <ChevronRight size={14} />
@@ -59,3 +59,4 @@ export default function EditBlogPostPage() {
     </div>
   );
 }
+

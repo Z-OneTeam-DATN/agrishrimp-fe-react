@@ -171,7 +171,7 @@ export function AdminEmployeeTable({
               </TableCell>
               <TableCell className="p-2">
                 <div className="flex flex-col">
-                  <span className="text-[12px] font-medium text-emerald-600">{toReadableText(emp.branch?.name)}</span>
+                  <span className="text-[12px] font-medium text-blue-600">{toReadableText(emp.branch?.name)}</span>
                   <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> {emp.createdAt ? new Date(emp.createdAt).toLocaleDateString('vi-VN') : "N/A"}</span>
                 </div>
               </TableCell>
@@ -224,7 +224,7 @@ export function AdminEmployeeTable({
         </p>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd] disabled:opacity-50" disabled={currentPage === 0} onClick={() => onPageChange?.(currentPage - 1)}>Trước</Button>
-          <Button variant="outline" size="sm" className="h-6 min-w-[24px] px-1 text-[10px] bg-emerald-600 text-white border-emerald-600 font-bold">
+          <Button variant="outline" size="sm" className="h-6 min-w-[24px] px-1 text-[10px] bg-blue-600 text-white border-blue-600 font-bold">
             {currentPage + 1} / {totalPages || 1}
           </Button>
           <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd] disabled:opacity-50" disabled={currentPage >= totalPages - 1} onClick={() => onPageChange?.(currentPage + 1)}>Sau</Button>
@@ -241,7 +241,7 @@ export function AdminEmployeeTable({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9 text-[11px] font-bold uppercase">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete(); }} className={cn("h-9 text-[11px] font-bold uppercase text-white", selectedEmployee?.status === "INACTIVE" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700")} disabled={isDeleting}>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete(); }} className={cn("h-9 text-[11px] font-bold uppercase text-white", selectedEmployee?.status === "INACTIVE" ? "bg-blue-600 hover:bg-blue-700" : "bg-rose-600 hover:bg-rose-700")} disabled={isDeleting}>
               {isDeleting ? "Đang xử lý..." : getButtonText()}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -250,3 +250,4 @@ export function AdminEmployeeTable({
     </div>
   );
 }
+

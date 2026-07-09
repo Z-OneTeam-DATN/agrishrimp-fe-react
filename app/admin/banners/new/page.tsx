@@ -2,14 +2,18 @@
 
 import React, { useEffect, useState } from "react";
 import BannerForm from "@/components/admin/banner/BannerForm";
-import { adminGetBanners } from "@/app/services/banner.service";
+import { BannerDTO, adminGetBanners } from "@/app/services/banner.service";
 
 export default function NewBannerPage() {
   const [bannerCount, setBannerCount] = useState(0);
+  const [banners, setBanners] = useState<BannerDTO[]>([]);
 
   useEffect(() => {
     adminGetBanners()
-      .then((banners) => setBannerCount(banners.length))
+      .then((bannerList) => {
+        setBannerCount(bannerList.length);
+        setBanners(bannerList);
+      })
       .catch(() => {});
   }, []);
 
@@ -20,7 +24,7 @@ export default function NewBannerPage() {
           Thêm banner mới
         </h1>
       </div>
-      <BannerForm bannerCount={bannerCount} />
+      <BannerForm bannerCount={bannerCount} existingBanners={banners} />
     </div>
   );
 }

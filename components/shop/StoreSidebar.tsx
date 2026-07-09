@@ -65,14 +65,14 @@ export default function StoreSidebar({
                 flex items-center px-3 py-2.5 mb-1 rounded-md text-sm transition-all
                 ${
                   isActive
-                    ? "bg-green-50 text-[#329965] font-bold"
-                    : "text-gray-800 hover:bg-gray-50 hover:text-[#329965]"
+                    ? "bg-blue-50 text-[#1965a2] font-bold"
+                    : "text-gray-800 hover:bg-gray-50 hover:text-[#1965a2]"
                 }
               `}
             >
               <Icon
                 size={20}
-                className={`mr-3 ${isActive ? "text-[#329965]" : "text-[#329965]"}`}
+                className={`mr-3 ${isActive ? "text-[#1965a2]" : "text-[#1965a2]"}`}
               />
               {item.label}
             </Link>
@@ -100,8 +100,8 @@ export default function StoreSidebar({
                     flex items-center px-2 py-2 rounded-md text-sm transition-all
                     ${
                       isActive
-                        ? "bg-green-50 text-[#329965] font-bold"
-                        : "text-gray-500 hover:text-[#329965] hover:bg-gray-50"
+                        ? "bg-blue-50 text-[#1965a2] font-bold"
+                        : "text-gray-500 hover:text-[#1965a2] hover:bg-gray-50"
                     }
                   `}
                 >
@@ -109,13 +109,13 @@ export default function StoreSidebar({
                   {item.icon ? (
                     <MapPin
                       size={24}
-                      className={`mr-1 ${isActive ? "text-[#329965]" : "text-gray-400"}`}
+                      className={`mr-1 ${isActive ? "text-[#1965a2]" : "text-gray-400"}`}
                     />
                   ) : (
                     <Dot
                       size={32}
                       strokeWidth={3}
-                      className={`mr-0 -ml-1 ${isActive ? "text-[#329965]" : "text-gray-300"}`}
+                      className={`mr-0 -ml-1 ${isActive ? "text-[#1965a2]" : "text-gray-300"}`}
                     />
                   )}
 
@@ -129,3 +129,4 @@ export default function StoreSidebar({
     </div>
   );
 }
+

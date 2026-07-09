@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const district = request.nextUrl.searchParams.get("district")?.trim() ?? ""
   const ward = request.nextUrl.searchParams.get("ward")?.trim() ?? ""
 
-  if (input.length < 3) return NextResponse.json([])
+  if (input.length < 1) return NextResponse.json([])
 
   try {
     const params = new URLSearchParams({ input })

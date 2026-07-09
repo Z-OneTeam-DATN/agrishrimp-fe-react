@@ -2,25 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { LayoutGrid, ChevronRight, Image as ImageIcon, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { getPublicCategories } from "@/app/services/CategoryService";
-import { getPublicBrands } from "@/app/services/brand.service";
 import { CategoryDTO } from "@/app/types/category.type";
-import { BrandDTO } from "@/app/types/brand.type";
 import { motion, AnimatePresence } from "framer-motion";
 
-const BACKEND_ORIGIN = process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
+function formatCategoryLabel(label?: string | null) {
+  if (!label) return "";
 
-function resolveImgUrl(path?: string | null) {
-  if (!path) return null;
-  if (path.startsWith("http") || path.startsWith("data:")) return path;
-  return `${BACKEND_ORIGIN}${path.startsWith("/") ? "" : "/"}${path}`;
+  const normalized = label.trim().toLowerCase();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 export default function MegaMenuDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
-  const [brands, setBrands] = useState<BrandDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [activeParentId, setActiveParentId] = useState<number | null>(null);
@@ -31,9 +27,8 @@ export default function MegaMenuDropdown() {
     if (hasLoaded) return;
     setLoading(true);
     try {
-      const [cats, brnds] = await Promise.all([getPublicCategories(), getPublicBrands()]);
+      const cats = await getPublicCategories();
       setCategories(cats);
-      setBrands(brnds);
       const parents = cats.filter((c: CategoryDTO) => !c.parentId || c.parentId === 0);
       if (parents.length > 0) setActiveParentId(parents[0].id);
       setHasLoaded(true);
@@ -65,24 +60,20 @@ export default function MegaMenuDropdown() {
 
   const parents = categories.filter((c) => !c.parentId || c.parentId === 0);
   const getChildren = (pid: number) => categories.filter((c) => c.parentId === pid && c.parentId !== 0);
-  const activeParent = parents.find((p) => p.id === activeParentId);
-  const activeChildren = activeParentId ? getChildren(activeParentId) : [];
-
   return (
     <div ref={wrapperRef} className="relative flex h-full items-center" onMouseLeave={scheduleClose}>
-      {/* Trigger — same style as other nav links */}
       <button
         type="button"
         onMouseEnter={open}
         onClick={() => { fetchData(); setIsOpen((v) => !v); }}
-        className={`flex items-center gap-1.5 px-3 h-8 rounded text-[13px] font-semibold whitespace-nowrap shrink-0 transition-colors ${
+        className={`flex items-center gap-1 py-4 text-[12px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap transition-colors ${
           isOpen
-            ? "bg-primary/10 text-primary"
-            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            ? "text-[#2f5f98]"
+            : "text-[#1f1f1f] hover:text-[#2f5f98]"
         }`}
       >
-        <LayoutGrid size={15} />
         <span>Danh mục</span>
+        <ChevronDown size={12} strokeWidth={2.2} />
       </button>
 
       <AnimatePresence>
@@ -94,139 +85,65 @@ export default function MegaMenuDropdown() {
             transition={{ duration: 0.15 }}
             onMouseEnter={() => { if (closeTimer.current) clearTimeout(closeTimer.current); }}
             onMouseLeave={scheduleClose}
-            className="absolute top-full left-0 z-[100] mt-1 w-[860px] rounded-xl border border-gray-200 bg-white shadow-[0_16px_48px_rgba(0,0,0,0.14)] overflow-hidden"
+            className="absolute top-full left-0 z-[100] mt-0.5 w-[300px] overflow-visible border border-gray-200 bg-white shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
           >
-            <div className="flex" style={{ height: "440px" }}>
+            <div className="bg-white">
+              {loading ? (
+                <div className="flex min-h-[320px] items-center justify-center">
+                  <Loader2 size={20} className="animate-spin text-primary" />
+                </div>
+              ) : (
+                parents.map((cat) => {
+                  const children = getChildren(cat.id);
+                  const isActive = activeParentId === cat.id;
 
-              {/* ── LEFT: Parent Categories ── */}
-              <div className="w-[220px] shrink-0 border-r border-gray-100 bg-gray-50 overflow-y-auto py-2">
-                {loading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 size={20} className="animate-spin text-primary" />
-                  </div>
-                ) : (
-                  parents.map((cat) => (
-                    <Link
+                  return (
+                    <div
                       key={cat.id}
-                      href={`/san-pham?categoryId=${cat.id}`}
+                      className="relative"
                       onMouseEnter={() => setActiveParentId(cat.id)}
-                      onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-2.5 px-3 py-2.5 mx-2 rounded-lg transition-colors ${
-                        activeParentId === cat.id
-                          ? "bg-white text-primary shadow-sm"
-                          : "text-gray-700 hover:bg-white hover:text-gray-900"
-                      }`}
                     >
-                      {cat.imageUrl ? (
-                        <img
-                          src={resolveImgUrl(cat.imageUrl) ?? ""}
-                          alt={cat.name}
-                          className="w-6 h-6 object-contain shrink-0"
-                        />
-                      ) : (
-                        <ImageIcon size={16} className="text-gray-300 shrink-0" />
-                      )}
-                      <span className="flex-1 text-[13px] font-semibold truncate">{cat.name}</span>
-                      <ChevronRight size={12} className={activeParentId === cat.id ? "text-primary" : "text-gray-300"} />
-                    </Link>
-                  ))
-                )}
-              </div>
+                      <Link
+                        href={`/san-pham?categoryId=${cat.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3 transition-colors ${
+                          isActive
+                            ? "bg-slate-50 text-[#1f1f1f]"
+                            : "text-gray-700 hover:bg-slate-50 hover:text-[#1f1f1f]"
+                        }`}
+                      >
+                        <span className="truncate pr-2 text-[12px] font-medium normal-case">
+                          {formatCategoryLabel(cat.name)}
+                        </span>
+                        {children.length > 0 ? (
+                          <ChevronRight
+                            size={13}
+                            className={isActive ? "text-[#2f5f98]" : "text-gray-300"}
+                          />
+                        ) : null}
+                      </Link>
 
-              {/* ── RIGHT: Subcategories + Brands ── */}
-              <div className="flex-1 overflow-y-auto bg-white">
-                {activeParent && (
-                  <motion.div
-                    key={activeParentId}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.1 }}
-                    className="p-5"
-                  >
-                    {/* Brand logos row */}
-                    {brands.length > 0 && (
-                      <div className="mb-5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
-                          Thương hiệu
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {brands.slice(0, 10).map((brand) => (
+                      {children.length > 0 && isActive ? (
+                        <div className="absolute left-full top-2 ml-2 min-w-[220px] overflow-hidden border border-gray-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
+                          {children.map((child) => (
                             <Link
-                              key={brand.id}
-                              href={`/san-pham?brandId=${brand.id}`}
+                              key={child.id}
+                              href={`/san-pham?categoryId=${child.id}`}
                               onClick={() => setIsOpen(false)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-full text-[12px] font-semibold text-gray-700 hover:border-primary hover:text-primary transition-colors bg-white"
+                              className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 text-[12px] text-gray-700 transition-colors last:border-b-0 hover:bg-slate-50 hover:text-[#2f5f98]"
                             >
-                              {brand.logoUrl ? (
-                                <img src={brand.logoUrl} alt={brand.name} className="h-4 object-contain max-w-[40px]" />
-                              ) : (
-                                brand.name
-                              )}
+                              <span className="truncate pr-2 normal-case">
+                                {formatCategoryLabel(child.name)}
+                              </span>
+                              <ChevronRight size={12} className="text-gray-300" />
                             </Link>
                           ))}
-                          <Link
-                            href="/san-pham"
-                            onClick={() => setIsOpen(false)}
-                            className="flex items-center gap-1 px-3 py-1.5 border border-dashed border-gray-300 rounded-full text-[11px] text-gray-400 hover:text-primary hover:border-primary transition-colors"
-                          >
-                            Xem tất cả <ChevronRight size={11} />
-                          </Link>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Category header */}
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-                      <div className="flex items-center gap-2">
-                        <span className="w-0.5 h-4 bg-primary rounded-full" />
-                        <Link
-                          href={`/san-pham?categoryId=${activeParent.id}`}
-                          onClick={() => setIsOpen(false)}
-                          className="text-[14px] font-bold text-gray-900 hover:text-primary transition-colors"
-                        >
-                          {activeParent.name}
-                        </Link>
-                      </div>
-                      <Link
-                        href={`/san-pham?categoryId=${activeParent.id}`}
-                        onClick={() => setIsOpen(false)}
-                        className="text-[12px] text-primary font-semibold hover:underline flex items-center gap-1"
-                      >
-                        Xem tất cả <ChevronRight size={12} />
-                      </Link>
+                      ) : null}
                     </div>
-
-                    {/* Child categories grid */}
-                    {activeChildren.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-2 lg:grid-cols-4">
-                        {activeChildren.map((child) => (
-                          <Link
-                            key={child.id}
-                            href={`/san-pham?categoryId=${child.id}`}
-                            onClick={() => setIsOpen(false)}
-                            className="group flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/60 hover:border-primary/20 hover:bg-primary/5 transition-colors"
-                          >
-                            {child.imageUrl ? (
-                              <img
-                                src={resolveImgUrl(child.imageUrl) ?? ""}
-                                alt={child.name}
-                                className="w-7 h-7 object-contain shrink-0"
-                              />
-                            ) : (
-                              <ImageIcon size={14} className="text-gray-300 shrink-0" />
-                            )}
-                            <span className="text-[12px] font-medium text-gray-700 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
-                              {child.name}
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[13px] text-gray-400 py-6 text-center">Chưa có danh mục con</p>
-                    )}
-                  </motion.div>
-                )}
-              </div>
+                  );
+                })
+              )}
             </div>
           </motion.div>
         )}

@@ -39,7 +39,7 @@ export default function ChatWidget() {
         className={`fixed bottom-36 right-4 md:bottom-24 md:right-6 z-50 w-13 h-13 rounded-full shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${
           isOpen
             ? "bg-gray-600 hover:bg-gray-700"
-            : "bg-teal-500 hover:bg-teal-600"
+            : "bg-blue-500 hover:bg-blue-600"
         }`}
         style={{ width: "52px", height: "52px" }}
       >
@@ -49,9 +49,10 @@ export default function ChatWidget() {
           <MessageCircle className="w-6 h-6 text-white" />
         )}
         {!isOpen && (
-          <span className="absolute inset-0 rounded-full bg-teal-400 opacity-30 animate-ping" />
+          <span className="absolute inset-0 rounded-full bg-blue-400 opacity-30 animate-ping" />
         )}
       </button>
     </>
   );
 }
+

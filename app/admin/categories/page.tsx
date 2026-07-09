@@ -402,10 +402,15 @@ export default function CategoryManagementPage() {
           </td>
           {canAction && (
             <td className="px-4 py-3 text-right">
-              <div className="flex justify-end gap-1">
-                {hasPermission(P.CATEGORY_UPDATE) && (
-                  <Button variant="ghost" size="icon" title="Chỉnh sửa" className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600" onClick={() => router.push(`/admin/categories/add?id=${category.id}`)}><Edit size={14} /></Button>
-                )}
+                <div className="flex justify-end gap-1">
+                  {hasPermission(P.CATEGORY_UPDATE) && (
+                    <Button variant="ghost" size="icon" title="Ẩn/Hiện" className={cn("h-7 w-7 rounded-[4px] text-slate-400", isActiveStatus(category.status) ? "hover:bg-blue-50 hover:text-blue-600" : "hover:bg-amber-50 hover:text-amber-500")} onClick={() => setStatusModal({ id: category.id, name: category.name, currentStatus: category.status })}>
+                      {isActiveStatus(category.status) ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </Button>
+                  )}
+                  {hasPermission(P.CATEGORY_UPDATE) && (
+                    <Button variant="ghost" size="icon" title="Chỉnh sửa" className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600" onClick={() => router.push(`/admin/categories/add?id=${category.id}`)}><Edit size={14} /></Button>
+                  )}
                 {hasPermission(P.CATEGORY_DELETE) && (
                   <Button variant="ghost" size="icon" title="Xóa" className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-rose-50 hover:text-rose-600" onClick={() => setDeleteId(category.id)}><Trash2 size={14} /></Button>
                 )}
@@ -488,7 +493,7 @@ export default function CategoryManagementPage() {
           {hasPermission(P.CATEGORY_CREATE) && (
             <Button
               onClick={() => router.push("/admin/categories/add")}
-              className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
             >
               <Plus size={15} className="mr-1.5" />
               Thêm danh mục
@@ -579,7 +584,7 @@ export default function CategoryManagementPage() {
         <DialogContent className="w-[95vw] max-w-[640px] max-h-[92vh] p-0 overflow-hidden bg-white flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
           <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b bg-slate-50">
             <DialogTitle className="text-[16px] font-bold text-slate-800 flex items-center gap-2">
-              <Tag className="text-emerald-600" />
+              <Tag className="text-blue-600" />
               {editingId ? "Cập nhật danh mục" : "Thêm danh mục mới"}
             </DialogTitle>
           </DialogHeader>
@@ -646,7 +651,7 @@ export default function CategoryManagementPage() {
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-slate-500 uppercase">Trạng thái</Label>
                   <Select value={formData.status} onValueChange={(val) => setFormData({ ...formData, status: val })}>
-                    <SelectTrigger className={cn("h-11 font-semibold bg-white", formData.status === "ACTIVE" ? "text-emerald-600" : "text-amber-600")}><SelectValue /></SelectTrigger>
+                    <SelectTrigger className={cn("h-11 font-semibold bg-white", formData.status === "ACTIVE" ? "text-blue-600" : "text-amber-600")}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ACTIVE">Đang hiển thị</SelectItem>
                       <SelectItem value="INACTIVE">Tạm ẩn</SelectItem>
@@ -658,7 +663,7 @@ export default function CategoryManagementPage() {
 
             <DialogFooter className="sticky bottom-0 bg-white pt-4 pb-1 mt-2 border-t flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="h-11 w-full sm:w-auto px-6 text-xs font-bold">Hủy</Button>
-              <Button type="submit" disabled={isSaving} className="h-11 w-full sm:w-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs">
+              <Button type="submit" disabled={isSaving} className="h-11 w-full sm:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" size={16} />}
                 {editingId ? "Cập nhật ngay" : "Thêm danh mục"}
               </Button>
@@ -695,3 +700,4 @@ export default function CategoryManagementPage() {
     </div>
   );
 }
+

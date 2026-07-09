@@ -3,6 +3,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import SignupForm from "@/components/auth/SignupForm";
 import GoogleLoginBtn from "@/components/auth/GoogleLoginBtn";
+import { AUTH_MOBILE_LOGO_SHADOW } from "@/components/auth/auth-theme";
 export const metadata = {
   title: "Đăng ký tài khoản - AgriShrimp",
   description: "Tạo tài khoản mới để bắt đầu quản lý trại tôm.",
@@ -10,7 +11,7 @@ export const metadata = {
 
 export default function SignupPage() {
   return (
-    <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900 overflow-hidden bg-white">
+    <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 overflow-hidden bg-white">
       <div className="hidden lg:flex w-1/2 relative bg-zinc-900 overflow-hidden group">
         <div className="absolute inset-0 transition-transform [transition-duration:20s] ease-in-out group-hover:scale-105">
           <Image
@@ -22,12 +23,12 @@ export default function SignupPage() {
             sizes="50vw"
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-teal-950/95 via-teal-900/70 to-teal-900/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-blue-950/95 via-blue-900/70 to-blue-900/30" />
 
         <div className="relative z-10 w-full h-full flex flex-col justify-between p-12 text-white">
           <div className="flex items-center gap-5">
             <div className="relative group/logo cursor-default">
-              <div className="absolute -inset-1 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-2xl blur-md opacity-50 group-hover/logo:opacity-100 transition duration-500"></div>
+              <div className="absolute -inset-1 bg-gradient-to-br from-blue-400 to-blue-500 rounded-2xl blur-md opacity-50 group-hover/logo:opacity-100 transition duration-500"></div>
               <div className="relative w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.2)]">
                 <Image
                   src="/images/logo_arishrimp.jpg"
@@ -40,48 +41,48 @@ export default function SignupPage() {
             </div>
             <div className="flex flex-col">
               <h1 className="text-2xl font-bold tracking-wide text-white drop-shadow-md">
-                Agri<span className="text-teal-300">Shrimp</span>
+                Agri<span className="text-blue-300">Shrimp</span>
               </h1>
-              <span className="text-[10px] text-teal-100 uppercase tracking-[0.2em] font-medium border-l-2 border-teal-400 pl-2 opacity-80">
+              <span className="text-[10px] text-blue-100 uppercase tracking-[0.2em] font-medium border-l-2 border-blue-400 pl-2 opacity-80">
                 Join The Future
               </span>
             </div>
           </div>
           <div className="mb-4 relative">
-            <div className="w-16 h-1.5 bg-gradient-to-r from-teal-400 to-transparent mb-6 rounded-full"></div>
+            <div className="w-16 h-1.5 bg-gradient-to-r from-blue-400 to-transparent mb-6 rounded-full"></div>
             <h2 className="text-4xl lg:text-[3rem] font-extrabold tracking-tight mb-4 leading-[1.1]">
               Kiến tạo <br />{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-white to-teal-200">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-blue-200">
                 Thành công mới
               </span>
             </h2>
-            <p className="text-teal-50/80 text-base max-w-lg leading-relaxed font-light border-l border-white/20 pl-6">
+            <p className="text-blue-50/80 text-base max-w-lg leading-relaxed font-light border-l border-white/20 pl-6">
               "Người nuôi tôm thông minh không chỉ làm việc chăm chỉ, mà còn
               biết tận dụng công nghệ để bứt phá."
             </p>
             <div className="mt-8 flex gap-8 border-t border-white/10 pt-6">
               <div>
                 <p className="text-xl font-bold text-white">2.5k+</p>
-                <p className="text-[10px] text-teal-200/60 uppercase tracking-widest font-semibold">
+                <p className="text-[10px] text-blue-200/60 uppercase tracking-widest font-semibold">
                   Trang trại
                 </p>
               </div>
               <div>
                 <p className="text-xl font-bold text-white">98%</p>
-                <p className="text-[10px] text-teal-200/60 uppercase tracking-widest font-semibold">
+                <p className="text-[10px] text-blue-200/60 uppercase tracking-widest font-semibold">
                   Hài lòng
                 </p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-6 text-xs text-teal-200/50 font-medium tracking-wide">
+          <div className="flex items-center gap-6 text-xs text-blue-200/50 font-medium tracking-wide">
             <span>© 2024 AGRISHRIMP INC.</span>
           </div>
         </div>
       </div>
 
       <div className="w-full lg:w-1/2 bg-white relative overflow-y-auto h-screen">
-        <div className="fixed top-0 right-0 w-64 h-64 bg-teal-50 rounded-bl-full opacity-50 pointer-events-none z-0" />
+        <div className="fixed top-0 right-0 w-64 h-64 bg-blue-50 rounded-bl-full opacity-50 pointer-events-none z-0" />
 
         <Link
           href="/"
@@ -93,7 +94,7 @@ export default function SignupPage() {
         <div className="min-h-full flex flex-col justify-center items-center py-8 px-6">
           <div className="w-full max-w-[420px] relative z-10">
             <div className="lg:hidden flex flex-col items-center mb-6">
-              <div className="relative w-16 h-16 rounded-xl shadow-[0_10px_25px_-5px_rgba(20,184,166,0.4)] overflow-hidden border-4 border-white mb-3">
+              <div className={`relative w-16 h-16 rounded-xl ${AUTH_MOBILE_LOGO_SHADOW} overflow-hidden border-4 border-white mb-3`}>
                 <Image
                   src="/images/logo_arishrimp.jpg"
                   alt="Logo"
@@ -103,7 +104,7 @@ export default function SignupPage() {
                 />
               </div>
               <h1 className="text-xl font-bold text-slate-800">
-                Agri<span className="text-teal-600">Shrimp</span>
+                Agri<span className="text-blue-600">Shrimp</span>
               </h1>
             </div>
 
@@ -133,3 +134,4 @@ export default function SignupPage() {
     </div>
   );
 }
+

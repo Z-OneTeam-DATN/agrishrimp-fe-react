@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react"; // Import useState
+import { useEffect, useState } from "react"; // Import useState
 import ProfileSidebar from "@/components/profile/ProfileSidebar";
 import Link from "next/link";
 import { ChevronRight, ChevronLeft, Menu } from "lucide-react"; // Added Menu icon
@@ -14,11 +14,13 @@ export default function ProfileLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State for sidebar visibility
+  const [mobileSiteHeaderHeight, setMobileSiteHeaderHeight] = useState(156);
 
   // Map path to breadcrumb name
   const getBreadcrumbName = (path: string) => {
-    if (path === "/profile") return "Hồ sơ của tôi";
+    if (path === "/profile") return "Đơn hàng của tôi";
     if (path.includes("/edit-profile")) return "Thiết lập tài khoản";
+    if (path.includes("/password")) return "Đổi mật khẩu";
     if (path.includes("/address/create")) return "Thêm địa chỉ mới";
     if (path.includes("/address")) return "Sổ địa chỉ";
     if (path.includes("/orders/list")) return "Đơn hàng của tôi";
@@ -30,6 +32,21 @@ export default function ProfileLayout({
     if (path.includes("/ponds/")) return "Cập nhật ao nuôi";
     return "Tài khoản của tôi";
   };
+
+  useEffect(() => {
+    const syncHeaderHeight = () => {
+      const mobileHeader = document.querySelector<HTMLElement>("[data-mobile-site-header]");
+      if (!mobileHeader) return;
+      setMobileSiteHeaderHeight(mobileHeader.offsetHeight);
+    };
+
+    syncHeaderHeight();
+    window.addEventListener("resize", syncHeaderHeight);
+
+    return () => {
+      window.removeEventListener("resize", syncHeaderHeight);
+    };
+  }, []);
 
   return (
     <div className="bg-[#f8f9fa] min-h-screen pb-10 font-sans">
@@ -65,14 +82,14 @@ export default function ProfileLayout({
         <nav className="hidden lg:flex mb-6 text-sm text-gray-500 items-center">
           <Link
             href="/"
-            className="hover:text-[#329965] hover:underline transition-colors"
+            className="hover:text-[#1965a2] hover:underline transition-colors"
           >
             Trang chủ
           </Link>
           <ChevronRight size={14} className="mx-2" />
           <Link
-            href="/profile"
-            className="hover:text-[#329965] hover:underline transition-colors"
+            href="/orders/list"
+            className="hover:text-[#1965a2] hover:underline transition-colors"
           >
             Tài khoản
           </Link>
@@ -83,16 +100,21 @@ export default function ProfileLayout({
         </nav>
         {/* Sidebar as Navigation Drawer (Mobile Only) */}
         <div
-          className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300
+          className={`fixed bottom-0 left-0 z-50 w-64 overflow-y-auto bg-white shadow-xl transform transition-transform duration-300
                        lg:hidden /* Hidden on large screens */
                        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          style={{
+            top: `${mobileSiteHeaderHeight}px`,
+            height: `calc(100dvh - ${mobileSiteHeaderHeight}px)`,
+          }}
         >
           <ProfileSidebar onLinkClick={() => setIsSidebarOpen(false)} />
         </div>
         {/* Backdrop for mobile sidebar */}
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            className="fixed inset-x-0 bottom-0 bg-black/50 z-40 lg:hidden"
+            style={{ top: `${mobileSiteHeaderHeight}px` }}
             onClick={() => setIsSidebarOpen(false)}
           ></div>
         )}
@@ -112,3 +134,4 @@ export default function ProfileLayout({
     </div>
   );
 }
+

@@ -5,6 +5,8 @@ export interface BannerDTO {
   title: string | null;
   imageUrl: string | null;
   publicId: string | null;
+  mobileImageUrl: string | null;
+  mobilePublicId: string | null;
   linkUrl: string | null;
   displayOrder: number;
   isActive: boolean;

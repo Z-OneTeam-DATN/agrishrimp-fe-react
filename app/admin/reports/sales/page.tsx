@@ -334,7 +334,7 @@ export default function SalesReportPage() {
       value: loading ? "..." : String(summary?.delivery.totalShipments || 0),
       hint: `${summary?.delivery.breakdown.length || 0} trạng thái theo dõi`,
       icon: Package,
-      tone: "from-emerald-600/12 to-teal-500/10 text-emerald-700",
+      tone: "from-blue-600/12 to-blue-500/10 text-blue-700",
     },
     {
       label: "Đã thu",
@@ -466,7 +466,7 @@ export default function SalesReportPage() {
             </Button>
 
             <Button
-              className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
               onClick={() => void handleViewDetail()}
             >
               Xem chi tiết
@@ -505,7 +505,7 @@ export default function SalesReportPage() {
               </p>
             </div>
             <div className="text-right">
-              <div className="text-[28px] font-semibold tracking-tight text-emerald-600">
+              <div className="text-[28px] font-semibold tracking-tight text-blue-600">
                 {loading ? "..." : formatNumber(summary?.revenue.totalRevenue || 0)}
               </div>
               <p className="text-[11px] text-slate-400">
@@ -522,7 +522,7 @@ export default function SalesReportPage() {
             >
               {DETAIL_OPTIONS[revenueReportType]} <ChevronDown size={14} />
             </button>
-            <span className="text-[11px] text-emerald-600">
+            <span className="text-[11px] text-blue-600">
               Lợi nhuận: {formatNumber(summary?.revenue.totalProfit || 0)}
             </span>
           </div>
@@ -545,7 +545,7 @@ export default function SalesReportPage() {
                 <SelectItem value="revenue_employee">Báo cáo doanh thu theo nhân viên</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-[38px] w-full bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => void handleViewDetail(revenueReportType)}>
+            <Button className="h-[38px] w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail(revenueReportType)}>
               Xem chi tiết báo cáo này
             </Button>
           </div>
@@ -561,7 +561,7 @@ export default function SalesReportPage() {
                 Tổng số đơn cần theo dõi trong kỳ
               </p>
             </div>
-            <div className="text-[28px] font-semibold tracking-tight text-emerald-600">
+            <div className="text-[28px] font-semibold tracking-tight text-blue-600">
               {loading ? "..." : summary?.delivery.totalShipments || 0}
             </div>
           </div>
@@ -606,7 +606,7 @@ export default function SalesReportPage() {
                 <SelectItem value="delivery_detail">Báo cáo giao hàng chi tiết</SelectItem>
               </SelectContent>
             </Select>
-            <Button className="h-[38px] w-full bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => void handleViewDetail("delivery_detail")}>
+            <Button className="h-[38px] w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail("delivery_detail")}>
               Xem tiến độ giao hàng
             </Button>
           </div>
@@ -620,7 +620,7 @@ export default function SalesReportPage() {
               <h2 className="text-[14px] font-semibold uppercase tracking-wider text-slate-700">Trả hàng</h2>
               <p className="text-[11px] text-slate-400">Theo đơn và theo sản phẩm</p>
             </div>
-            <div className="text-[24px] font-semibold tracking-tight text-emerald-600">
+            <div className="text-[24px] font-semibold tracking-tight text-blue-600">
               {loading ? "..." : summary?.returns.totalReturnedOrders || 0}
             </div>
           </div>
@@ -640,7 +640,7 @@ export default function SalesReportPage() {
               <p className="text-[11px] text-slate-400">Theo thời gian, nhân viên, phương thức, chi nhánh</p>
             </div>
             <div className="text-right">
-              <div className="text-[24px] font-semibold tracking-tight text-emerald-600">
+              <div className="text-[24px] font-semibold tracking-tight text-blue-600">
                 {loading ? "..." : formatNumber(summary?.payment.paidAmount || 0)}
               </div>
               <p className="text-[11px] text-slate-400">
@@ -663,7 +663,7 @@ export default function SalesReportPage() {
               <p className="text-[11px] text-slate-400">Thống kê tổng hợp và chi tiết bán hàng</p>
             </div>
             <div className="text-right">
-              <div className="text-[24px] font-semibold tracking-tight text-emerald-600">
+              <div className="text-[24px] font-semibold tracking-tight text-blue-600">
                 {loading ? "..." : summary?.orders.totalOrders || 0}
               </div>
               <p className="text-[11px] text-slate-400">
@@ -671,7 +671,7 @@ export default function SalesReportPage() {
               </p>
             </div>
           </div>
-          <div className="px-6 pt-3 text-[12px] text-emerald-600">
+          <div className="px-6 pt-3 text-[12px] text-blue-600">
             Sản phẩm bán ra: {summary?.orders.totalProductsSold || 0}
           </div>
           <div className="space-y-1 p-5">
@@ -771,3 +771,4 @@ export default function SalesReportPage() {
     </div>
   );
 }
+

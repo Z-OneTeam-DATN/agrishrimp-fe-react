@@ -70,7 +70,7 @@ export default function RevenueChart() {
     <div className="bg-white border border-[#dcdcdc] rounded-[4px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
       <div className="px-[15px] py-[10px] border-b border-[#eee] bg-[#f8f9fa] flex justify-between items-center">
         <h5 className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-          <BarChart3 size={14} className="text-emerald-600" /> Xu hướng tăng
+          <BarChart3 size={14} className="text-blue-600" /> Xu hướng tăng
           trưởng doanh thu
         </h5>
         <div className="flex items-center gap-2">
@@ -86,3 +86,4 @@ export default function RevenueChart() {
     </div>
   );
 }
+

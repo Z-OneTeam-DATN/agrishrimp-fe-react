@@ -92,9 +92,11 @@ export const supplierService = {
     saveProductCatalog: async (
         id: number,
         items: Array<{
-            productId: number;
-            status: SupplierProductCatalogStatus;
+            productVariantId: number;
+            status?: SupplierProductCatalogStatus;
             note?: string;
+            version?: number;
+            isDeleted?: boolean;
         }>,
     ): Promise<SupplierProductCatalogItem[]> => {
         const response = await apiJava.put(`${supplierService.PREFIX}/${id}/product-catalog`, items);

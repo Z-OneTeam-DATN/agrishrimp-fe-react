@@ -388,7 +388,7 @@ export default function AdminSidebar() {
           </div>
           <div className="flex flex-col">
             <h1 className="font-black text-white text-[18px] tracking-[0.15em] leading-none uppercase">
-              AGRI<span className="text-emerald-500">SHRIMP</span>
+              AGRI<span className="text-blue-500">SHRIMP</span>
             </h1>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em] mt-1">
               {isAdmin ? "Quản trị viên" : isManager ? "Quản lý" : "Người dùng"}
@@ -410,7 +410,7 @@ export default function AdminSidebar() {
                   icon={LayoutDashboard}
                   label="Tổng quan"
                   active={pathname === "/admin"}
-                  color="text-emerald-500"
+                  color="text-blue-500"
                 />
               )}
               {hasPermission(P.WORKSPACE_VIEW) && (
@@ -482,7 +482,7 @@ export default function AdminSidebar() {
                   icon={MessageCircle}
                   label="Chat khách hàng"
                   active={isActive("/admin/chat")}
-                  color="text-teal-400"
+                  color="text-blue-400"
                 />
               )}
             </div>
@@ -512,7 +512,7 @@ export default function AdminSidebar() {
                   label="Phiếu nhập hàng"
                   active={isActive("/admin/receipts")}
                   badge={receiptPendingCount}
-                  color="text-emerald-400"
+                  color="text-blue-400"
                 />
               )}
               {hasPermission(P.SUPPLIER_VIEW) && !isBranchAccount && (
@@ -552,6 +552,14 @@ export default function AdminSidebar() {
                   label="Danh mục"
                   active={isActive("/admin/categories")}
                   badge={categoryCount}
+                />
+              )}
+              {hasPermission(P.PRODUCT_VIEW) && !isBranchAccount && (
+                <SidebarLink
+                  href="/admin/brands"
+                  icon={Building2}
+                  label="Thương hiệu"
+                  active={isActive("/admin/brands")}
                 />
               )}
               {hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount && (
@@ -647,7 +655,7 @@ export default function AdminSidebar() {
                 icon={FileBarChart}
                 label="Tổng quan tài chính"
                 active={pathname === "/admin/financial"}
-                color="text-emerald-500"
+                color="text-blue-500"
               />
               {!isBranchAccount && (
                 <SidebarLink
@@ -670,7 +678,7 @@ export default function AdminSidebar() {
                 icon={TrendingUp}
                 label="Lãi lỗ"
                 active={isActive("/admin/financial/profit-loss")}
-                color="text-emerald-400"
+                color="text-blue-400"
               />
             </div>
           </section>
@@ -794,7 +802,7 @@ function SidebarLink({
       )}
     >
       {active && !isChild && (
-        <div className="absolute left-0 w-1 h-4 bg-emerald-500 rounded-r-full" />
+        <div className="absolute left-0 w-1 h-4 bg-blue-500 rounded-r-full" />
       )}
       <div className="flex items-center gap-3">
         <div
@@ -810,7 +818,7 @@ function SidebarLink({
             size={isChild ? 14 : 16}
             className={cn(
               active
-                ? color || "text-emerald-400"
+                ? color || "text-blue-400"
                 : "text-slate-500 group-hover:text-slate-400",
             )}
           />
@@ -822,8 +830,8 @@ function SidebarLink({
           className={cn(
             "border-none text-[10px] h-4.5 px-1.5 font-black",
             active
-              ? "bg-white text-emerald-600"
-              : "bg-emerald-500/10 text-emerald-400",
+              ? "bg-white text-blue-600"
+              : "bg-blue-500/10 text-blue-400",
           )}
         >
           {badge}
@@ -848,7 +856,7 @@ function SidebarGroup({
         className={cn(
           "w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative select-none",
           active
-            ? "text-emerald-400 bg-slate-800/20"
+            ? "text-blue-400 bg-slate-800/20"
             : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200",
         )}
       >
@@ -865,7 +873,7 @@ function SidebarGroup({
               size={16}
               className={cn(
                 active
-                  ? "text-emerald-400"
+                  ? "text-blue-400"
                   : "text-slate-500 group-hover:text-slate-400",
               )}
             />
@@ -895,3 +903,4 @@ function SidebarGroup({
     </div>
   );
 }
+

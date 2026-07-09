@@ -55,7 +55,7 @@ export function InventoryExportReceiptTable({ receipts }: any) {
                     <TableCell className="p-2" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
                       <div className="flex flex-col">
                         <span className="text-[13px] font-black text-slate-800 uppercase tracking-tighter flex items-center gap-1.5">
-                          <FileText size={14} className={isInternal ? "text-emerald-500" : "text-blue-500"} />
+                          <FileText size={14} className={isInternal ? "text-blue-500" : "text-blue-500"} />
                           {item.code}
                         </span>
                         <span className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
@@ -87,7 +87,7 @@ export function InventoryExportReceiptTable({ receipts }: any) {
                     </TableCell>
 
                     <TableCell className="p-2 text-center" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase text-emerald-600 bg-emerald-50 border-emerald-100">
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded border tracking-tight uppercase text-blue-600 bg-blue-50 border-blue-100">
                         Đã xuất
                       </span>
                     </TableCell>

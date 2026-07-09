@@ -273,7 +273,7 @@ export default function AiDoctorChatPage() {
   return (
     <div className="min-h-screen bg-[#e9efeb]">
       <div className="flex min-h-screen w-full flex-col bg-[#f6f8f7] shadow-[0_24px_80px_rgba(28,55,46,0.12)]">
-        <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-emerald-900/10 bg-[#376E60] px-4 py-3 shadow-md">
+        <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-blue-900/10 bg-[#376E60] px-4 py-3 shadow-md">
           <Link href="/" className="text-white transition-opacity hover:opacity-80">
             <ChevronLeft size={28} />
           </Link>
@@ -292,7 +292,7 @@ export default function AiDoctorChatPage() {
               Bác sĩ Tôm AgriShrimp
             </h1>
             <div className="flex items-center gap-1.5 text-[11px] text-white/90">
-              <span className="block h-2 w-2 rounded-full bg-green-400" />
+              <span className="block h-2 w-2 rounded-full bg-blue-400" />
               Tư vấn chẩn đoán bệnh tôm 24/7
             </div>
           </div>
@@ -330,14 +330,14 @@ export default function AiDoctorChatPage() {
           </div>
 
           {!previewUrl && !submittedMessage && !result && !assistantMessage && (
-            <div className="ml-auto max-w-[88%] rounded-[22px] rounded-br-md border border-dashed border-emerald-700/30 bg-emerald-50 px-5 py-6 text-center shadow-sm">
+            <div className="ml-auto max-w-[88%] rounded-[22px] rounded-br-md border border-dashed border-blue-700/30 bg-blue-50 px-5 py-6 text-center shadow-sm">
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#376E60] shadow-sm">
                 <ImageIcon size={24} />
               </div>
-              <p className="mb-2 text-sm font-bold text-emerald-900">
+              <p className="mb-2 text-sm font-bold text-blue-900">
                 Gửi ảnh tôm để bác sĩ khám bệnh
               </p>
-              <p className="mb-4 text-xs text-emerald-800/70">
+              <p className="mb-4 text-xs text-blue-800/70">
                 Bà con hãy chọn ảnh chụp tôm rõ nét để bác sĩ nhìn được chuẩn xác nhất.
               </p>
               <button
@@ -353,7 +353,7 @@ export default function AiDoctorChatPage() {
           {submittedMessage && (
             <div className="ml-auto flex max-w-[88%] flex-col items-end gap-2">
               {submittedMessage.previewUrl && (
-                <div className="overflow-hidden rounded-2xl border-[3px] border-emerald-100 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-2xl border-[3px] border-blue-100 bg-white shadow-sm">
                   <div className="relative w-[260px] max-w-full">
                     <Image
                       src={submittedMessage.previewUrl}
@@ -441,15 +441,15 @@ export default function AiDoctorChatPage() {
               </div>
 
               {result.status === "HEALTHY" ? (
-                <div className="max-w-[78%] overflow-hidden rounded-2xl border border-green-200 bg-white shadow-lg">
-                  <div className="flex items-center gap-2 border-b border-green-100 bg-green-50 px-4 py-2.5">
+                <div className="max-w-[78%] overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-lg">
+                  <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2.5">
                     <span className="text-xl">🦐</span>
-                    <span className="text-[13px] font-bold text-green-700">
+                    <span className="text-[13px] font-bold text-blue-700">
                       TÔM KHỎE MẠNH
                     </span>
                   </div>
                   {(result.imageUrl || result.clientImageUrl) && (
-                    <div className="relative h-[220px] w-full bg-green-50">
+                    <div className="relative h-[220px] w-full bg-blue-50">
                       <Image
                         src={result.imageUrl || result.clientImageUrl || ""}
                         alt="Ảnh tôm đã được AI phân tích"
@@ -538,7 +538,7 @@ export default function AiDoctorChatPage() {
                 <button
                   key={s}
                   onClick={() => handleQuickSymptom(s)}
-                  className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
+                  className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[11px] font-medium text-blue-800 transition-colors hover:bg-blue-100"
                 >
                   {s}
                 </button>
@@ -547,7 +547,7 @@ export default function AiDoctorChatPage() {
           )}
 
           {previewUrl && (
-            <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+            <div className="mb-3 rounded-2xl border border-blue-200 bg-blue-50 p-3">
               <div className="mb-2 flex items-center justify-between">
                 <div>
                   <div className="text-xs font-bold uppercase tracking-wide text-[#376E60]">
@@ -631,3 +631,4 @@ export default function AiDoctorChatPage() {
     </div>
   );
 }
+

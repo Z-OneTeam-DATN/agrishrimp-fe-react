@@ -216,7 +216,7 @@ export default function AdminVoucherPage() {
         {canManageVoucher && (
           <Link
             href="/admin/vouchers/add"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-emerald-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-blue-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700"
           >
             <Plus size={16} />
             Thêm voucher
@@ -250,14 +250,14 @@ export default function AdminVoucherPage() {
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           placeholder="Tìm mã voucher, tên chương trình..."
-          className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] outline-none placeholder:text-slate-400 focus:border-emerald-500 lg:max-w-[420px]"
+          className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] outline-none placeholder:text-slate-400 focus:border-blue-500 lg:max-w-[420px]"
         />
         <select
           value={statusFilter}
           onChange={(event) =>
             setStatusFilter(event.target.value as "ALL" | Voucher["status"])
           }
-          className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500 lg:w-[220px]"
+          className="h-10 w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500 lg:w-[220px]"
         >
           <option value="ALL">Tất cả trạng thái</option>
           <option value="ACTIVE">Đang hoạt động</option>
@@ -484,3 +484,4 @@ export default function AdminVoucherPage() {
     </div>
   );
 }
+

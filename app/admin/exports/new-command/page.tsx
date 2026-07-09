@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -92,7 +92,7 @@ function AdminExportFormContent() {
   };
 
   const {
-    register, handleSubmit, control, watch, setValue, reset, formState: { errors }
+    register, handleSubmit, control, watch, setValue, reset, setError, clearErrors, formState: { errors }
   } = useForm<ExportCommandFormValues>({
     resolver: zodResolver(ExportCommandSchema),
     mode: "onTouched",
@@ -149,14 +149,20 @@ function AdminExportFormContent() {
     if (!showDropdown) return;
     const fetchProducts = async () => {
       if (!watchBranchId) {
-        toast.warning("Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm");
+        setError("branchId", {
+          type: "manual",
+          message: "Vui lòng chọn Kho xuất hàng trước khi tìm sản phẩm",
+        });
         setShowDropdown(false);
         return;
       }
       setIsLoadingSearch(true);
       try {
         if (!watchTargetId) {
-          toast.warning("Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi");
+          setError("targetId", {
+            type: "manual",
+            message: "Vui lòng chọn nhà cung cấp trước khi tìm lô lỗi",
+          });
           setShowDropdown(false);
           return;
         }
@@ -390,9 +396,14 @@ function AdminExportFormContent() {
   const onSubmit = async (data: ExportCommandFormValues) => {
     if (isReadOnly) return;
 
-    const invalidItems = data.items.filter(item => item.quantity > item.stock);
+    clearErrors("items");
+    const invalidIndex = data.items.findIndex(item => item.quantity > item.stock);
+    const invalidItems = invalidIndex >= 0 ? [data.items[invalidIndex]] : [];
     if (invalidItems.length > 0) {
-      toast.error(`Sản phẩm ${invalidItems[0].name} có số lượng xuất vượt quá tồn kho hiện tại.`);
+      setError(`items.${invalidIndex}.quantity`, {
+        type: "manual",
+        message: `Số lượng xuất không được vượt quá tồn kho hiện tại (${invalidItems[0].stock}).`,
+      });
       return;
     }
 
@@ -440,7 +451,7 @@ function AdminExportFormContent() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-slate-400">
         <div className="text-center">
-          <Loader2 className="mx-auto mb-3 animate-spin text-emerald-600" size={30} />
+          <Loader2 className="mx-auto mb-3 animate-spin text-blue-600" size={30} />
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Đang tải dữ liệu...</p>
         </div>
       </div>
@@ -499,7 +510,14 @@ function AdminExportFormContent() {
                   name="branchId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        clearErrors("branchId");
+                      }}
+                      value={field.value}
+                      disabled={isReadOnly}
+                    >
                       <SelectTrigger className={cn(selectTriggerClass, errors.branchId ? "border-rose-500" : "border-slate-200", "bg-slate-50")}>
                         <SelectValue placeholder="-- KHO TỔNG --" />
                       </SelectTrigger>
@@ -529,7 +547,14 @@ function AdminExportFormContent() {
                   name="targetId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly || isEditMode || returnSourceLocked}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        clearErrors("targetId");
+                      }}
+                      value={field.value}
+                      disabled={isReadOnly || isEditMode || returnSourceLocked}
+                    >
                       <SelectTrigger className={cn(selectTriggerClass, errors.targetId ? "border-rose-500" : "border-slate-200")}>
                         <SelectValue placeholder="-- Chọn đối tượng --" />
                       </SelectTrigger>
@@ -708,7 +733,7 @@ function AdminExportFormContent() {
                               <TableCell className="px-1.5 py-2 font-mono text-[11px] text-slate-500">{currentItem?.sku}</TableCell>
                               <TableCell className="px-1.5 py-2 text-[11px] font-semibold text-slate-700">
                                 {currentItem?.name}
-                                <div className="mt-0.5 text-[10px] font-medium text-emerald-600">
+                                <div className="mt-0.5 text-[10px] font-medium text-blue-600">
                                   SL lỗi hiện có: {currentItem?.stock || 0}
                                 </div>
                               </TableCell>
@@ -777,14 +802,14 @@ function AdminExportFormContent() {
                {watchItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)}
             </span></span>
             <div className="hidden h-4 w-px bg-slate-300 md:block"></div>
-            <span>Tổng giá trị: <span className="text-[14px] font-semibold tracking-normal text-emerald-600">
+            <span>Tổng giá trị: <span className="text-[14px] font-semibold tracking-normal text-blue-600">
                {formatNumber(watchItems.reduce((acc, i) => acc + ((Number(i.quantity) || 0) * (Number(i.price) || 0)), 0))} VND
             </span></span>
          </div>
          <div className="flex flex-wrap justify-end gap-3">
            <Button type="button" variant="outline" className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-slate-600 hover:bg-slate-50" onClick={() => router.back()}>{isReadOnly ? "Quay lại" : "Hủy bỏ"}</Button>
            {!isReadOnly && (
-             <Button type="submit" disabled={isSubmitting} className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700">
+             <Button type="submit" disabled={isSubmitting} className="h-10 min-w-[180px] rounded-md bg-blue-600 px-6 font-semibold text-white hover:bg-blue-700">
                {isSubmitting ? (
                  <Loader2 className="animate-spin mr-2" />
                ) : (
@@ -804,8 +829,9 @@ function AdminExportFormContent() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-emerald-600" size={30} /></div>}>
+    <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={30} /></div>}>
       <AdminExportFormContent />
     </Suspense>
   );
 }
+

@@ -24,7 +24,7 @@ export function BranchCard({ branch, isNearest = false }: BranchCardProps) {
         <div className="flex items-center gap-1.5 min-w-0">
           <h3 className="text-sm font-semibold text-gray-900 truncate">{branch.name}</h3>
           {isNearest && (
-            <span className="shrink-0 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded">
+            <span className="shrink-0 text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded">
               Gần nhất
             </span>
           )}
@@ -40,11 +40,11 @@ export function BranchCard({ branch, isNearest = false }: BranchCardProps) {
       {/* Distance + Duration */}
       <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
         <span className="flex items-center gap-1">
-          <Clock size={11} className="text-teal-500" />
+          <Clock size={11} className="text-blue-500" />
           {branch.durationMinutes} phút
         </span>
         <span className="flex items-center gap-1">
-          <MapPin size={11} className="text-teal-500" />
+          <MapPin size={11} className="text-blue-500" />
           {branch.distanceKm.toFixed(1)} km
         </span>
       </div>
@@ -60,7 +60,7 @@ export function BranchCard({ branch, isNearest = false }: BranchCardProps) {
         <button
           type="button"
           onClick={openMaps}
-          className="flex items-center gap-1.5 flex-1 py-1.5 bg-teal-600 hover:bg-teal-700 rounded-lg text-xs text-white font-medium transition-colors justify-center"
+          className="flex items-center gap-1.5 flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white font-medium transition-colors justify-center"
         >
           <Navigation size={12} /> Chỉ đường
         </button>
@@ -68,3 +68,4 @@ export function BranchCard({ branch, isNearest = false }: BranchCardProps) {
     </div>
   )
 }
+

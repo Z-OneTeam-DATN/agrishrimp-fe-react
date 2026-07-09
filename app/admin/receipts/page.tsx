@@ -175,7 +175,7 @@ export default function AdminReceiptListPage() {
             />
           </div>
           <Button
-            className="h-[38px] bg-emerald-600 px-4 text-[13px] font-medium hover:bg-emerald-700"
+            className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700"
             onClick={() => router.push("/admin/receipts/select-request")}
           >
             <Plus size={16} className="mr-2" />
@@ -210,7 +210,7 @@ export default function AdminReceiptListPage() {
                 className={cn(
                   "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
                   selectedStatus === tab.id
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
                     : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                 )}
               >
@@ -279,3 +279,4 @@ export default function AdminReceiptListPage() {
     </div>
   );
 }
+

@@ -7,6 +7,9 @@ export type PurchaseRequestStatus =
   | "PENDING_APPROVAL"
   | "APPROVED"
   | "SENT_TO_SUPPLIER"
+  | "SUPPLIER_CONFIRMED"
+  | "PREPARING"
+  | "DELIVERING"
   | "PARTIALLY_RECEIVED"
   | "COMPLETED"
   | "CANCELLED"
@@ -17,8 +20,11 @@ export const PR_STATUS_LABEL: Record<PurchaseRequestStatus, string> = {
   PENDING_APPROVAL: "Chờ duyệt",
   APPROVED: "Đã duyệt",
   SENT_TO_SUPPLIER: "Đã gửi NCC",
-  PARTIALLY_RECEIVED: "Nhận một phần",
-  COMPLETED: "Hoàn tất",
+  SUPPLIER_CONFIRMED: "NCC xác nhận",
+  PREPARING: "Đang chuẩn bị",
+  DELIVERING: "Đang giao hàng",
+  PARTIALLY_RECEIVED: "Đã nhận một phần",
+  COMPLETED: "Đã nhận đủ",
   CANCELLED: "Đã hủy",
   CLOSED: "Đã đóng",
 };
@@ -28,8 +34,11 @@ export const PR_STATUS_COLOR: Record<PurchaseRequestStatus, string> = {
   PENDING_APPROVAL: "bg-amber-100 text-amber-700",
   APPROVED: "bg-blue-100 text-blue-700",
   SENT_TO_SUPPLIER: "bg-indigo-100 text-indigo-700",
+  SUPPLIER_CONFIRMED: "bg-cyan-100 text-cyan-700",
+  PREPARING: "bg-violet-100 text-violet-700",
+  DELIVERING: "bg-emerald-100 text-emerald-700",
   PARTIALLY_RECEIVED: "bg-orange-100 text-orange-700",
-  COMPLETED: "bg-green-100 text-green-700",
+  COMPLETED: "bg-blue-100 text-blue-700",
   CANCELLED: "bg-red-100 text-red-600",
   CLOSED: "bg-gray-100 text-gray-600",
 };
@@ -115,3 +124,4 @@ export interface PurchaseRequestResponse {
   items: PurchaseRequestItemResponse[];
   goodsReceipts: GoodsReceiptSummary[];
 }
+

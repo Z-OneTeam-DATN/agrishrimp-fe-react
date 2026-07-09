@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Copy, Eye } from "lucide-react";
+import { AlertTriangle, Copy, Pencil, Trash2, Loader2 } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -15,18 +15,49 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Supplier } from "@/app/types/supplier.type";
 import { toast } from "sonner";
+import { supplierService } from "@/app/services/supplier.service";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AdminSupplierTableProps {
     suppliers: Supplier[];
     currentPage?: number;
     pageSize?: number;
+    onRefresh?: () => void;
 }
 
 export function AdminSupplierTable({
     suppliers,
     currentPage = 0,
     pageSize = 5,
+    onRefresh,
 }: AdminSupplierTableProps) {
+    const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        if (!supplierToDelete) return;
+        setIsDeleting(true);
+        try {
+            await supplierService.delete(supplierToDelete.id);
+            toast.success("Xóa nhà cung cấp thành công!");
+            setSupplierToDelete(null);
+            onRefresh?.();
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || "Lỗi khi xóa nhà cung cấp";
+            toast.error(msg);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
     const getStatusInfo = (status: Supplier["status"]) => {
         if (status === "ACTIVE") {
             return { label: "Đang giao dịch", class: "text-emerald-600" };
@@ -143,17 +174,59 @@ export function AdminSupplierTable({
                                     </span>
                                 </TableCell>
                                 <TableCell className="p-2 text-right pr-4 align-top">
-                                    <Link href={`/admin/suppliers/${supplier.id}`}>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-md">
-                                            <Eye size={16} />
+                                    <div className="flex justify-end gap-1.5">
+                                        <Link href={`/admin/suppliers/${supplier.id}`}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-md">
+                                                <Pencil size={14} />
+                                            </Button>
+                                        </Link>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white transition-all rounded-md"
+                                            onClick={() => setSupplierToDelete(supplier)}
+                                        >
+                                            <Trash2 size={14} />
                                         </Button>
-                                    </Link>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         );
                     })}
                 </TableBody>
             </Table>
+
+            <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Xóa nhà cung cấp</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bạn có chắc chắn muốn xóa nhà cung cấp <span className="font-semibold text-slate-800">{supplierToDelete?.name}</span> không? Hành động này không thể hoàn tác.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault();
+                                void handleDelete();
+                            }}
+                            className="bg-rose-600 text-white hover:bg-rose-700"
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Đang xóa...
+                                </>
+                            ) : (
+                                "Xác nhận xóa"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

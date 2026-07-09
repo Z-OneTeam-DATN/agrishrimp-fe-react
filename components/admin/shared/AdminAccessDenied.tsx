@@ -52,7 +52,7 @@ export default function AdminAccessDenied({
             Quay lại
           </Button>
           <Link href="/admin">
-            <Button type="button" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+            <Button type="button" className="gap-2 bg-blue-600 hover:bg-blue-700">
               <Home size={16} />
               Về trang chủ
             </Button>
@@ -62,3 +62,4 @@ export default function AdminAccessDenied({
     </div>
   );
 }
+

@@ -1,12 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Pencil,
-  Trash2,
-  Phone,
-  Mail,
-} from "lucide-react";
+import { Pencil, Trash2, Phone, Mail } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -44,10 +39,21 @@ interface AdminBranchTableProps {
   onDeleteClick: (id: number, name: string) => void;
 }
 
-export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTableProps) {
+export function AdminBranchTable({
+  branches,
+  onDeleteClick,
+}: AdminBranchTableProps) {
   const router = useRouter();
   const { hasPermission } = usePermissions();
-  const canAction = hasPermission(P.BRANCH_UPDATE) || hasPermission(P.BRANCH_DELETE);
+  const canAction =
+    hasPermission(P.BRANCH_UPDATE) || hasPermission(P.BRANCH_DELETE);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const pageSize = 20;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [branches]);
+
   const sortedBranches = React.useMemo(
     () =>
       [...branches].sort((a, b) => {
@@ -60,8 +66,13 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
 
         return a.name.localeCompare(b.name, "vi-VN");
       }),
-    [branches]
+    [branches],
   );
+
+  const paginatedBranches = React.useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedBranches.slice(start, start + pageSize);
+  }, [sortedBranches, currentPage]);
 
   const formatBranchName = (value?: string) => {
     const source = (value || "").trim();
@@ -75,12 +86,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
   };
 
   const formatBranchAddress = (branch: Branch) => {
-    return [
-      branch.addressDetail,
-      branch.ward,
-      branch.district,
-      branch.province,
-    ]
+    return [branch.addressDetail, branch.ward, branch.district, branch.province]
       .filter(Boolean)
       .join(", ");
   };
@@ -90,18 +96,30 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
       <Table className="table-custom border-collapse min-w-[1120px]">
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] border-b border-[#ccc] hover:bg-[#f0f0f0]">
-            <TableHead className="w-[70px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">STT</TableHead>
-            <TableHead className="w-[100px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">Mã CN</TableHead>
-            <TableHead className="w-[420px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Thông tin chi nhánh</TableHead>
-            <TableHead className="w-[320px] font-semibold text-[12px] p-2 text-[#1f1f1f]">Quản lý</TableHead>
-            <TableHead className="w-[130px] font-semibold text-[12px] p-2 text-center text-[#1f1f1f]">Trạng thái</TableHead>
+            <TableHead className="w-[70px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">
+              STT
+            </TableHead>
+            <TableHead className="w-[100px] font-semibold text-[12px] p-2 pl-6 text-[#1f1f1f]">
+              Mã CN
+            </TableHead>
+            <TableHead className="w-[420px] font-semibold text-[12px] p-2 text-[#1f1f1f]">
+              Thông tin chi nhánh
+            </TableHead>
+            <TableHead className="w-[320px] font-semibold text-[12px] p-2 text-[#1f1f1f]">
+              Quản lý
+            </TableHead>
+            <TableHead className="w-[130px] font-semibold text-[12px] p-2 text-center text-[#1f1f1f]">
+              Trạng thái
+            </TableHead>
             {canAction && (
-              <TableHead className="w-[100px] text-right font-semibold text-[12px] p-2 pr-6 text-[#1f1f1f]">Thao tác</TableHead>
+              <TableHead className="w-[100px] text-right font-semibold text-[12px] p-2 pr-6 text-[#1f1f1f]">
+                Thao tác
+              </TableHead>
             )}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedBranches.map((branch, index) => {
+          {paginatedBranches.map((branch, index) => {
             const isWarehouse = branch.branchType === "WAREHOUSE";
             const isActive = branch.status === "ACTIVE";
 
@@ -110,13 +128,15 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                 key={branch.id}
                 className={cn(
                   "h-[108px] hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer",
-                  isWarehouse && "bg-amber-50/40"
+                  isWarehouse && "bg-amber-50/40",
                 )}
               >
                 <TableCell className="h-[108px] p-2 pl-6 align-middle text-[12px] font-semibold text-slate-600">
-                  {index + 1}
+                  {(currentPage - 1) * pageSize + index + 1}
                 </TableCell>
-                <TableCell className="h-[108px] p-2 pl-6 align-middle text-[12px] font-semibold text-slate-600">#{branch.branchCode}</TableCell>
+                <TableCell className="h-[108px] p-2 pl-6 align-middle text-[12px] font-semibold text-slate-600">
+                  #{branch.branchCode}
+                </TableCell>
 
                 <TableCell className="h-[108px] p-2 align-middle">
                   <div className="flex items-center gap-3">
@@ -125,7 +145,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                         {formatBranchName(branch.name)}
                       </span>
                       <span className="max-w-[280px] line-clamp-2 text-[11px] font-normal leading-5 text-slate-500">
-                      {formatBranchAddress(branch)}
+                        {formatBranchAddress(branch)}
                       </span>
                     </div>
                   </div>
@@ -137,19 +157,23 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                       {branch.managerNames?.[0] || "Chưa có"}
                     </span>
                     <div className="flex items-center gap-1.5 text-[11px] font-normal text-slate-600 whitespace-nowrap">
-                      <Phone size={10} className="text-slate-400" /> {branch.phone}
+                      <Phone size={10} className="text-slate-400" />{" "}
+                      {branch.phone}
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] font-normal text-slate-400 truncate">
-                      <Mail size={10} className="text-slate-400" /> {branch.email}
+                      <Mail size={10} className="text-slate-400" />{" "}
+                      {branch.email}
                     </div>
                   </div>
                 </TableCell>
 
                 <TableCell className="h-[108px] p-2 align-middle text-center">
-                  <span className={cn(
-                    "text-[11px] font-medium tracking-tight capitalize whitespace-nowrap",
-                    isActive ? "text-emerald-600" : "text-rose-600"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-[11px] font-medium tracking-tight capitalize whitespace-nowrap",
+                      isActive ? "text-blue-600" : "text-rose-600",
+                    )}
+                  >
                     {isActive ? "Đang hoạt động" : "Ngừng hoạt động"}
                   </span>
                 </TableCell>
@@ -162,18 +186,20 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 hover:bg-slate-100"
-                          onClick={() => router.push(`/admin/branches/add?id=${branch.id}`)}
+                          onClick={() =>
+                            router.push(`/admin/branches/add?id=${branch.id}`)
+                          }
                         >
                           <Pencil size={14} className="text-blue-600" />
                         </Button>
                       )}
-                      
+
                       {hasPermission(P.BRANCH_DELETE) && (
                         isWarehouse ? (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 opacity-20 cursor-not-allowed"
+                            className="h-7 w-7 cursor-not-allowed opacity-20"
                             disabled
                             title="Không thể xóa kho tổng"
                           >
@@ -185,6 +211,7 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
                             size="icon"
                             className="h-7 w-7 hover:bg-rose-50"
                             onClick={() => onDeleteClick(branch.id, branch.name)}
+                            title="Xóa chi nhánh"
                           >
                             <Trash2 size={14} className="text-rose-600" />
                           </Button>
@@ -200,22 +227,50 @@ export function AdminBranchTable({ branches, onDeleteClick }: AdminBranchTablePr
       </Table>
 
       {/* Footer Pagination */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
-        <p className="text-[11px] text-gray-400 font-bold tracking-wide">
-          Tổng số {branches.length} chi nhánh & kho hàng
-        </p>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd]">
-            Trước
-          </Button>
-          <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-[10px] bg-emerald-600 text-white border-emerald-600 font-bold">
-            1
-          </Button>
-          <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd]">
-            Sau
-          </Button>
-        </div>
-      </div>
+      {(() => {
+        const totalItems = branches.length;
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+        const to = Math.min(currentPage * pageSize, totalItems);
+
+        return (
+          <div className="flex items-center justify-between px-3 py-2 border-t border-[#eee] bg-[#f8f9fa]">
+            <p className="text-[11px] text-gray-500 font-bold tracking-wide">
+              Hiển thị {from} - {to} trong {totalItems}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd] disabled:opacity-50 disabled:pointer-events-none"
+                disabled={currentPage === 1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentPage((prev) => prev - 1);
+                }}
+              >
+                ← Trước
+              </Button>
+              <span className="text-[11px] text-gray-600 font-bold px-2 select-none">
+                {currentPage}/{totalPages || 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px] font-bold bg-white border-[#ddd] disabled:opacity-50 disabled:pointer-events-none"
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentPage((prev) => prev + 1);
+                }}
+              >
+                Sau →
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
+

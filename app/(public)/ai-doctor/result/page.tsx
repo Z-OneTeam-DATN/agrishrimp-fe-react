@@ -375,11 +375,11 @@ export default function TreatmentResultPage() {
             </p>
           </div>
         ) : diagnosis?.status === "HEALTHY" ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-green-200 bg-white py-20 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-5xl shadow-inner">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-blue-200 bg-white py-20 text-center">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-5xl shadow-inner">
               🦐
             </div>
-            <h2 className="mb-2 text-2xl font-extrabold text-green-700">Tôm khỏe mạnh!</h2>
+            <h2 className="mb-2 text-2xl font-extrabold text-blue-700">Tôm khỏe mạnh!</h2>
             <p className="mb-6 text-sm text-slate-500">
               Bác sĩ không thấy dấu hiệu bệnh gì lạ. Bà con cứ yên tâm chăm sóc ao nhé.
             </p>
@@ -587,3 +587,4 @@ export default function TreatmentResultPage() {
     </div>
   );
 }
+

@@ -246,7 +246,7 @@ const validateVoucherForm = (
 const fieldLabelClass =
   "mb-1.5 block text-[10.5px] font-semibold text-slate-500";
 const fieldClass =
-  "h-10 w-full rounded-[4px] border px-3 text-[13px] font-normal text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500";
+  "h-10 w-full rounded-[4px] border px-3 text-[13px] font-normal text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500";
 const errorClass = "mt-1 text-[11px] font-medium text-red-500";
 
 export default function VoucherForm({ initialData }: VoucherFormProps) {
@@ -640,7 +640,7 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex h-10 min-w-[170px] items-center justify-center gap-2 rounded-[4px] bg-emerald-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-10 min-w-[170px] items-center justify-center gap-2 rounded-[4px] bg-blue-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <Loader2 className="animate-spin" size={16} />
@@ -654,3 +654,4 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
     </form>
   );
 }
+

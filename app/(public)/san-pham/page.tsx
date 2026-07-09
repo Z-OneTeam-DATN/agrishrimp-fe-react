@@ -49,7 +49,7 @@ export default function ProductListingPage() {
     <Suspense
       fallback={
         <div className="flex h-64 items-center justify-center">
-          <Loader2 className="animate-spin text-teal-600" size={32} />
+          <Loader2 className="animate-spin text-blue-600" size={32} />
         </div>
       }
     >
@@ -215,15 +215,15 @@ function ProductListingInner() {
           onClick={() => handleCategoryChange("")}
           className={`w-full text-left text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between gap-2 group ${
             !categoryId
-              ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
-              : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+              ? "bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-sm"
+              : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-700"
           }`}
         >
           <span className="flex items-center gap-2">
-            <LayoutGrid size={14} className={!categoryId ? "text-teal-600" : "text-gray-400"} />
+            <LayoutGrid size={14} className={!categoryId ? "text-blue-600" : "text-gray-400"} />
             Tất cả sản phẩm
           </span>
-          {!categoryId && <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+          {!categoryId && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
         </button>
 
         {parentCategories.map((parent) => {
@@ -239,13 +239,13 @@ function ProductListingInner() {
                 onClick={() => handleCategoryChange(String(parent.id))}
                 className={`w-full text-left text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between gap-2 group ${
                   isActive
-                    ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
-                    : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+                    ? "bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-sm"
+                    : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-700"
                 }`}
               >
                 <span className="truncate">{parent.name}</span>
                 {hasChildren && (
-                   <ChevronRight size={13} className={`transition-transform duration-300 ${isActive ? "rotate-90 text-teal-600" : "text-gray-300 group-hover:translate-x-0.5"}`} />
+                   <ChevronRight size={13} className={`transition-transform duration-300 ${isActive ? "rotate-90 text-blue-600" : "text-gray-300 group-hover:translate-x-0.5"}`} />
                 )}
               </button>
 
@@ -258,15 +258,15 @@ function ProductListingInner() {
                     transition={{ duration: 0.3, ease: "easeInOut" }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-4 pl-2 border-l border-teal-100 space-y-1 my-1">
+                    <div className="ml-4 pl-2 border-l border-blue-100 space-y-1 my-1">
                       {children.map((child) => (
                         <button
                           key={child.id}
                           onClick={() => handleCategoryChange(String(child.id))}
                           className={`w-full text-left text-xs px-3 py-2 rounded-lg transition-all ${
                             String(child.id) === categoryId
-                              ? "bg-teal-100/50 text-teal-700 font-bold"
-                              : "text-gray-500 hover:text-teal-600 hover:bg-gray-50"
+                              ? "bg-blue-100/50 text-blue-700 font-bold"
+                              : "text-gray-500 hover:text-blue-600 hover:bg-gray-50"
                           }`}
                         >
                           {child.name}
@@ -290,12 +290,12 @@ function ProductListingInner() {
             onClick={() => handleBrandChange("")}
             className={`w-full text-left text-sm px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-2 group ${
               !brandId
-                ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
-                : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+                ? "bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-sm"
+                : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-700"
             }`}
           >
             <span>Tất cả thương hiệu</span>
-            {!brandId && <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+            {!brandId && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
           </button>
           {brands.map((brand) => (
             <button
@@ -303,12 +303,12 @@ function ProductListingInner() {
               onClick={() => handleBrandChange(String(brand.id))}
               className={`w-full text-left text-sm px-3 py-2 rounded-xl transition-all flex items-center justify-between gap-2 group ${
                 String(brand.id) === brandId
-                  ? "bg-teal-50 text-teal-700 font-bold border border-teal-100 shadow-sm"
-                  : "text-gray-600 hover:bg-teal-50/50 hover:text-teal-700"
+                  ? "bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-sm"
+                  : "text-gray-600 hover:bg-blue-50/50 hover:text-blue-700"
               }`}
             >
               <span className="truncate">{brand.name}</span>
-              {String(brand.id) === brandId && <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />}
+              {String(brand.id) === brandId && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
             </button>
           ))}
         </div>
@@ -332,7 +332,7 @@ function ProductListingInner() {
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
           <span className="font-bold text-sm text-gray-800 uppercase tracking-wide flex items-center gap-2">
-            <SlidersHorizontal size={15} className="text-teal-600" />
+            <SlidersHorizontal size={15} className="text-blue-600" />
             Lọc sản phẩm
           </span>
           <button
@@ -360,10 +360,10 @@ function ProductListingInner() {
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 md:items-center justify-between">
               <div className="space-y-1">
                 <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <Search size={20} className="text-teal-600" />
+                  <Search size={20} className="text-blue-600" />
                   {keyword ? (
                     <>
-                      Kết quả tìm kiếm cho: <span className="text-teal-600">&ldquo;{keyword}&rdquo;</span>
+                      Kết quả tìm kiếm cho: <span className="text-blue-600">&ldquo;{keyword}&rdquo;</span>
                     </>
                   ) : (
                     "Tất cả sản phẩm"
@@ -371,7 +371,7 @@ function ProductListingInner() {
                 </h2>
                 {!loading && (
                    <p className="text-xs text-gray-500 font-medium">
-                    Tìm thấy <span className="text-teal-600 font-bold">{totalElements}</span> sản phẩm trùng khớp
+                    Tìm thấy <span className="text-blue-600 font-bold">{totalElements}</span> sản phẩm trùng khớp
                   </p>
                 )}
               </div>
@@ -381,7 +381,7 @@ function ProductListingInner() {
                   {loading ? (
                     <Loader2
                       size={16}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-teal-600 animate-spin"
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-600 animate-spin"
                     />
                   ) : (
                     <Search
@@ -394,13 +394,13 @@ function ProductListingInner() {
                     value={inputValue}
                     onChange={(e) => handleInputChange(e.target.value)}
                     placeholder="Tìm sản phẩm khác..."
-                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all bg-gray-50/50"
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50/50"
                   />
                 </div>
                 
                 <button
                   onClick={() => setShowMobileFilter(true)}
-                  className="lg:hidden flex items-center gap-2 bg-teal-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm whitespace-nowrap"
+                  className="lg:hidden flex items-center gap-2 bg-blue-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm whitespace-nowrap"
                 >
                   <SlidersHorizontal size={14} /> Lọc
                 </button>
@@ -411,7 +411,7 @@ function ProductListingInner() {
             {(keyword || categoryId || brandId) && (
               <div className="flex flex-wrap gap-2">
                 {keyword && (
-                  <span className="inline-flex items-center gap-1.5 bg-white text-teal-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-200 shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 bg-white text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-200 shadow-sm">
                     <Search size={11} />
                     &ldquo;{keyword}&rdquo;
                     <button
@@ -425,7 +425,7 @@ function ProductListingInner() {
                   </span>
                 )}
                 {categoryId && activeCategory && (
-                  <span className="inline-flex items-center gap-1.5 bg-white text-teal-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-200 shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 bg-white text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-200 shadow-sm">
                     <Tag size={11} />
                     {activeCategory.name}
                     <button
@@ -437,7 +437,7 @@ function ProductListingInner() {
                   </span>
                 )}
                 {brandId && activeBrand && (
-                  <span className="inline-flex items-center gap-1.5 bg-white text-teal-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-200 shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 bg-white text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-200 shadow-sm">
                     <BadgeCheck size={11} />
                     {activeBrand.name}
                     <button
@@ -502,7 +502,7 @@ function ProductListingInner() {
                       setCategoryId("");
                       setBrandId("");
                     }}
-                    className="mt-5 text-sm text-white bg-teal-600 hover:bg-teal-700 font-semibold px-5 py-2 rounded-xl transition-colors"
+                    className="mt-5 text-sm text-white bg-blue-600 hover:bg-blue-700 font-semibold px-5 py-2 rounded-xl transition-colors"
                   >
                     Xóa bộ lọc
                   </button>
@@ -515,3 +515,4 @@ function ProductListingInner() {
     </div>
   );
 }
+

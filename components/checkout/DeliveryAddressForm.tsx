@@ -158,7 +158,7 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "XÃ
           type="button"
           onClick={handleUseCurrentLocation}
           disabled={isGettingLocation}
-          className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 font-semibold disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold disabled:opacity-50"
         >
           {isGettingLocation ? (
             <Loader2 size={12} className="animate-spin" />
@@ -189,7 +189,7 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "XÃ
             <select
               {...register("districtId", { valueAsNumber: true })}
               disabled={isLoadingDistricts}
-              className={`w-full px-3 py-2 border rounded-sm text-sm focus:outline-none focus:border-teal-400 appearance-none bg-white font-medium ${
+              className={`w-full px-3 py-2 border rounded-sm text-sm focus:outline-none focus:border-blue-400 appearance-none bg-white font-medium ${
                 errors.districtId ? "border-red-300 bg-red-50" : "border-gray-200"
               } ${isLoadingDistricts ? "opacity-60" : ""}`}
             >
@@ -220,7 +220,7 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "XÃ
             <select
               {...register("wardCode")}
               disabled={isLoadingWards || !selectedDistrictId}
-              className={`w-full px-3 py-2 border rounded-sm text-sm focus:outline-none focus:border-teal-400 appearance-none bg-white font-medium ${
+              className={`w-full px-3 py-2 border rounded-sm text-sm focus:outline-none focus:border-blue-400 appearance-none bg-white font-medium ${
                 errors.wardCode ? "border-red-300 bg-red-50" : "border-gray-200"
               } ${isLoadingWards || !selectedDistrictId ? "opacity-60" : ""}`}
             >
@@ -258,7 +258,7 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "XÃ
             {...register("address")}
             type="text"
             placeholder="Sá»‘ nhÃ , tÃªn Ä‘Æ°á»ng..."
-            className={`w-full pl-9 pr-3 py-2.5 border rounded-sm text-sm focus:outline-none focus:border-teal-400 font-medium ${
+            className={`w-full pl-9 pr-3 py-2.5 border rounded-sm text-sm focus:outline-none focus:border-blue-400 font-medium ${
               errors.address ? "border-red-300 bg-red-50" : "border-gray-200"
             }`}
           />
@@ -273,7 +273,7 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "XÃ
         <button
           type="submit"
           disabled={isSubmitting || submitDisabled}
-          className="px-8 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-sm transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
+          className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-sm transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
         >
           {submitLabel}
         </button>
@@ -281,3 +281,4 @@ export function DeliveryAddressForm({ onSubmit, defaultValues, submitLabel = "XÃ
     </form>
   )
 }
+

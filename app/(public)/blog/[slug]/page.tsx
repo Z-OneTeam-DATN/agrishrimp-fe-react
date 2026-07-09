@@ -6,19 +6,14 @@ import { useParams, useRouter } from "next/navigation";
 import {
   CalendarDays,
   Check,
-  ChevronRight,
   Copy,
   Eye,
-  Hash,
   Loader2,
-  Newspaper,
   Package,
-  Search,
   ShoppingCart,
   Tag,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { cartService } from "@/app/services/cart.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import {
@@ -31,6 +26,7 @@ import {
 import { PublicProductDetail, PublicProductVariant } from "@/app/types/product.schema";
 import { useCartStore } from "@/stores/useCartStore";
 import { cn } from "@/lib/utils";
+import LatestBlogPostsCard from "@/components/site/LatestBlogPostsCard";
 
 const RELATED_POST_LIMIT = 2;
 const SIDEBAR_POST_LIMIT = 8;
@@ -43,14 +39,6 @@ const formatDate = (value: string | null) =>
         year: "numeric",
       }).format(new Date(value))
     : "";
-
-const getInitials = (name?: string | null) =>
-  (name ?? "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("") || "AG";
 
 const normalizeDisplayTitle = (title: string) => {
   const trimmed = title.trim();
@@ -356,8 +344,8 @@ const animateFlyToCart = (event: React.MouseEvent) => {
       document.body.removeChild(outer);
     }
 
-    cartTarget.classList.add("scale-125", "text-teal-500");
-    setTimeout(() => cartTarget.classList.remove("scale-125", "text-teal-500"), 200);
+    cartTarget.classList.add("scale-125", "text-blue-500");
+    setTimeout(() => cartTarget.classList.remove("scale-125", "text-blue-500"), 200);
   }, 800);
 };
 
@@ -372,7 +360,6 @@ export default function BlogDetailPage() {
   const [relatedPosts, setRelatedPosts] = useState<BlogPostDTO[]>([]);
   const [relatedProductDetails, setRelatedProductDetails] = useState<Record<number, PublicProductDetail | null>>({});
   const [loading, setLoading] = useState(true);
-  const [searchInput, setSearchInput] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
@@ -400,7 +387,7 @@ export default function BlogDetailPage() {
 
         const latest = latestRes.content ?? [];
         setPost(postData);
-        setCategories(categoriesData);
+        setCategories((categoriesData ?? []).filter((category) => category.status === "ACTIVE"));
         setLatestPosts(latest);
 
         if (!postData) {
@@ -488,44 +475,8 @@ export default function BlogDetailPage() {
 
   const normalizedContentHtml = useMemo(() => normalizeBlogContentHtml(post?.content), [post?.content]);
 
-  const popularPosts = useMemo(
-    () =>
-      [...latestPosts]
-        .filter((item) => item.slug !== slug)
-        .sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
-        .slice(0, 3),
-    [latestPosts, slug]
-  );
-
-  const featuredTags = useMemo(() => {
-    const tagMap = new Map<number, { id: number; name: string; count: number }>();
-    const sources = [post, ...latestPosts, ...relatedPosts].filter(Boolean) as BlogPostDTO[];
-
-    sources.forEach((entry) => {
-      entry.tags.forEach((tag) => {
-        const current = tagMap.get(tag.id);
-        if (current) {
-          current.count += 1;
-        } else {
-          tagMap.set(tag.id, { id: tag.id, name: tag.name, count: 1 });
-        }
-      });
-    });
-
-    return Array.from(tagMap.values())
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-      .slice(0, 8);
-  }, [post, latestPosts, relatedPosts]);
-
   const resolvedShareUrl = shareUrl || `https://agrishrimp.io.vn/blog/${slug}`;
   const encodedShareUrl = encodeURIComponent(resolvedShareUrl);
-
-  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const keyword = searchInput.trim();
-    router.push(keyword ? `/blog?keyword=${encodeURIComponent(keyword)}` : "/blog");
-  };
 
   const handleCopyLink = async () => {
     try {
@@ -581,7 +532,7 @@ export default function BlogDetailPage() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#fcfcfc]">
-        <Loader2 className="animate-spin text-emerald-600" size={32} />
+        <Loader2 className="animate-spin text-blue-600" size={32} />
       </div>
     );
   }
@@ -591,7 +542,7 @@ export default function BlogDetailPage() {
       <div className="bg-[#fcfcfc]">
         <div className="mx-auto max-w-[1440px] px-4 py-20 text-center sm:px-6 lg:px-8">
           <p className="text-lg font-medium text-slate-400">Không tìm thấy bài viết.</p>
-          <Link href="/blog" className="mt-4 inline-block text-sm font-medium text-emerald-700 hover:underline">
+          <Link href="/blog" className="mt-4 inline-block text-sm font-medium text-blue-700 hover:underline">
             ← Quay về trang blog
           </Link>
         </div>
@@ -600,65 +551,49 @@ export default function BlogDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfc]">
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center gap-1.5 px-4 py-3 text-[13px] text-slate-500 sm:px-6 lg:px-8">
-          <Link href="/" className="transition-colors hover:text-emerald-700">
-            Trang chủ
-          </Link>
-          <ChevronRight size={12} className="text-slate-300" />
-          <Link href="/blog" className="transition-colors hover:text-emerald-700">
-            Tin tức & Blog
-          </Link>
-          <ChevronRight size={12} className="text-slate-300" />
-          <span className="max-w-[220px] truncate font-medium text-emerald-700 md:max-w-none">{normalizeDisplayTitle(post.title)}</span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-white">
+      <section className="w-full bg-[linear-gradient(135deg,#eff8f1_0%,#f2fbf7_28%,#f4f9ff_62%,#eef4ff_100%)]">
+        <div className="mx-auto w-full max-w-[1440px] px-4 pb-8 pt-10 sm:px-6 lg:px-8 lg:pb-10 lg:pt-12">
+          <div className="max-w-[1260px]">
+            {post.category && (
+              <Link
+                href={`/blog?categoryId=${post.category.id}`}
+                className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-blue-700"
+              >
+                {normalizeDisplayTitle(post.category.name)}
+              </Link>
+            )}
 
-      <main className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+            <h1 className="mt-2.5 max-w-[1240px] text-[16px] font-bold leading-[1.34] tracking-[-0.005em] text-slate-950 [text-wrap:pretty] md:text-[21px] lg:text-[24px] xl:text-[28px]">
+              {normalizeDisplayTitle(post.title)}
+            </h1>
+
+            <div className="mt-3.5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+              <span className="flex items-center gap-2">
+                <CalendarDays size={16} />
+                {formatDate(post.publishedAt ?? post.createdAt)}
+              </span>
+              <span className="flex items-center gap-2">
+                <Eye size={16} />
+                {(post.viewCount ?? 0).toLocaleString("vi-VN")} lượt xem
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <main className="mx-auto w-full max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
           <div className="min-w-0 flex-1">
-            <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-6 shadow-[0_16px_50px_-28px_rgba(15,23,42,0.25)] md:px-8 md:py-8">
-              <div className="mb-6">
-                {post.category && (
-                  <Link
-                    href={`/blog?categoryId=${post.category.id}`}
-                    className="mb-4 inline-block rounded bg-emerald-700 px-3 py-1 text-[11px] font-bold tracking-[0.02em] text-white transition-colors hover:bg-emerald-800"
-                  >
-                    {normalizeDisplayTitle(post.category.name)}
-                  </Link>
-                )}
-
-                <h1 className="max-w-[980px] break-words text-[22px] font-bold leading-[1.22] tracking-[-0.015em] text-slate-900 [text-wrap:balance] md:text-[28px] lg:text-[32px]">
-                  {normalizeDisplayTitle(post.title)}
-                </h1>
-
-                <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 pb-4 text-[13px] text-slate-500">
-                  <span className="flex items-center gap-2 font-medium text-slate-700">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold uppercase text-emerald-700">
-                      {getInitials(post.author?.fullName)}
-                    </span>
-                    {post.author?.fullName ?? "AgriShrimp"}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <CalendarDays size={14} />
-                    {formatDate(post.publishedAt ?? post.createdAt)}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Eye size={14} />
-                    {(post.viewCount ?? 0).toLocaleString("vi-VN")} lượt xem
-                  </span>
-                </div>
-              </div>
-
+            <article>
               {post.thumbnailUrl && (
-                <div className="mb-8 overflow-hidden rounded-xl bg-slate-100 shadow-sm">
+                <div className="mb-8 overflow-hidden rounded-[24px] bg-slate-100">
                   <img src={post.thumbnailUrl} alt={post.title} className="aspect-[16/9] w-full object-cover" />
                 </div>
               )}
 
               {post.excerpt && (
-                <p className="mb-8 rounded-xl border border-emerald-100 bg-emerald-50/70 px-5 py-4 text-[14px] font-medium leading-7 text-slate-700 md:text-[15px]">
+                <p className="mb-8 text-[15px] font-medium leading-8 text-slate-700 md:text-[16px]">
                   {post.excerpt}
                 </p>
               )}
@@ -669,11 +604,11 @@ export default function BlogDetailPage() {
                   "prose-headings:mt-6 prose-headings:mb-3 prose-headings:font-bold prose-headings:leading-[1.3] prose-headings:text-slate-900",
                   "prose-p:my-3 prose-p:text-[13.5px] prose-p:leading-[1.85] prose-p:text-slate-700 md:prose-p:text-[14.5px]",
                   "prose-h1:text-[1.32rem] md:prose-h1:text-[1.55rem] prose-h2:text-[1.18rem] md:prose-h2:text-[1.32rem] prose-h3:text-[1.02rem] md:prose-h3:text-[1.12rem]",
-                  "prose-a:font-semibold prose-a:text-emerald-700 prose-a:break-all",
+                  "prose-a:font-semibold prose-a:text-blue-700 prose-a:break-all",
                   "prose-strong:font-semibold prose-strong:text-slate-900",
                   "prose-img:mx-auto prose-img:h-auto prose-img:w-full prose-img:rounded-xl prose-img:object-contain prose-img:shadow-sm",
                   "prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1 prose-li:text-[13.5px] prose-li:leading-[1.85] prose-li:text-slate-700 md:prose-li:text-[14.5px]",
-                  "prose-blockquote:rounded-r-xl prose-blockquote:border-l-4 prose-blockquote:border-emerald-700 prose-blockquote:bg-emerald-50 prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:text-slate-700 prose-blockquote:not-italic",
+                  "prose-blockquote:rounded-r-xl prose-blockquote:border-l-4 prose-blockquote:border-blue-700 prose-blockquote:bg-blue-50 prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:text-slate-700 prose-blockquote:not-italic",
                   "[overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:normal-case [&_h1]:[text-wrap:balance] [&_h2]:[text-wrap:balance] [&_h3]:[text-wrap:balance]",
                   "[&_b]:font-semibold [&_strong]:font-semibold [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold",
                   "[&_span]:text-inherit [&_p]:normal-case [&_h1]:normal-case [&_h2]:normal-case [&_h3]:normal-case",
@@ -686,9 +621,9 @@ export default function BlogDetailPage() {
               />
 
               {post.relatedProducts.length > 0 && (
-                <section className="mt-10">
+                <section className="mt-12 border-t border-slate-200 pt-8">
                   <div className="mb-5 flex items-center gap-2">
-                    <Package size={18} className="text-emerald-700" />
+                    <Package size={18} className="text-blue-700" />
                     <h2 className="text-lg font-bold text-slate-900">Sản phẩm được nhắc đến trong bài</h2>
                   </div>
 
@@ -705,7 +640,7 @@ export default function BlogDetailPage() {
                       return (
                         <article
                           key={product.id}
-                          className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+                          className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
                         >
                           <Link
                             href={`/san-pham/${product.slug}`}
@@ -726,7 +661,7 @@ export default function BlogDetailPage() {
 
                           <div className="flex flex-1 flex-col p-4">
                             <Link href={`/san-pham/${product.slug}`} className="group">
-                              <h3 className="line-clamp-2 min-h-[44px] text-[15px] font-bold leading-[1.45] text-slate-800 transition-colors group-hover:text-emerald-700">
+                              <h3 className="line-clamp-2 min-h-[44px] text-[15px] font-bold leading-[1.45] text-slate-800 transition-colors group-hover:text-blue-700">
                                 {detail?.name ?? product.name}
                               </h3>
                             </Link>
@@ -735,7 +670,7 @@ export default function BlogDetailPage() {
                               type="button"
                               onClick={(event) => handleQuickAddProduct(event, product)}
                               disabled={addingProductId === product.id || !detailLoaded || !variant}
-                              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 text-sm font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                               {addingProductId === product.id ? (
                                 <Loader2 size={16} className="animate-spin" />
@@ -752,7 +687,7 @@ export default function BlogDetailPage() {
                 </section>
               )}
 
-              <div className="mt-10 flex flex-col gap-4 border-t border-slate-100 pt-6 md:flex-row md:items-center md:justify-between">
+              <div className="mt-12 flex flex-col gap-4 border-t border-slate-200 pt-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="mr-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-800">
                     <Tag size={14} className="text-slate-400" />
@@ -764,7 +699,7 @@ export default function BlogDetailPage() {
                         key={tag.id}
                         type="button"
                         onClick={() => router.push(`/blog?keyword=${encodeURIComponent(tag.name)}`)}
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-emerald-700 hover:text-white"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-blue-700 hover:text-white"
                       >
                         {tag.name}
                       </button>
@@ -780,7 +715,7 @@ export default function BlogDetailPage() {
                     href={`https://www.facebook.com/sharer/sharer.php?u=${encodedShareUrl}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     Facebook
                   </a>
@@ -788,7 +723,7 @@ export default function BlogDetailPage() {
                     href={`https://twitter.com/intent/tweet?url=${encodedShareUrl}&text=${encodeURIComponent(post.title)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     X
                   </a>
@@ -796,14 +731,14 @@ export default function BlogDetailPage() {
                     href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedShareUrl}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     LinkedIn
                   </a>
                   <button
                     type="button"
                     onClick={handleCopyLink}
-                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {copied ? <Check size={13} /> : <Copy size={13} />}
                     {copied ? "Đã copy" : "Copy link"}
@@ -812,80 +747,29 @@ export default function BlogDetailPage() {
               </div>
             </article>
 
-            {relatedPosts.length > 0 && (
-              <section className="mt-10">
-                <div className="mb-6 flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-                  <h2 className="text-xl font-bold text-slate-900">Bài viết liên quan</h2>
-                  <Link href="/blog" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-                    Xem tất cả
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {relatedPosts.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/blog/${item.slug}`}
-                      className="group flex gap-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      <div className="relative h-24 w-28 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
-                        {item.thumbnailUrl ? (
-                          <img
-                            src={item.thumbnailUrl}
-                            alt={item.title}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-slate-300">
-                            <Newspaper size={20} />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <h3 className="line-clamp-2 text-sm font-semibold leading-6 text-slate-800 transition-colors group-hover:text-emerald-700">
-                          {item.title}
-                        </h3>
-                        <p className="mt-2 text-[11px] text-slate-400">
-                          <CalendarDays size={12} className="mr-1 inline" />
-                          {formatDate(item.publishedAt ?? item.createdAt)}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
 
-          <aside className="w-full flex-shrink-0 space-y-6 lg:w-[320px]">
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 inline-flex border-b-2 border-emerald-700 pb-1 text-[15px] font-bold uppercase tracking-wide text-slate-800">
-                Tìm kiếm bài viết
-              </h3>
-              <form onSubmit={handleSearch} className="relative">
-                <Input
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Nhập từ khóa..."
-                  className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-4 pr-10 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="absolute right-0 top-0 flex h-full px-3 text-slate-400 transition-colors hover:text-emerald-700"
+          <aside className="w-full flex-shrink-0 space-y-6 lg:sticky lg:top-52 lg:self-start lg:h-fit lg:w-[320px]">
+            <LatestBlogPostsCard
+              posts={latestPosts}
+              currentSlug={slug}
+              formatDate={formatDate}
+              normalizeTitle={normalizeDisplayTitle}
+            />
+
+            <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-5 py-4">
+                <h3 className="text-[14px] font-bold text-slate-900">Danh mục bài viết</h3>
+              </div>
+              <div className="px-5 py-2">
+                <Link
+                  href="/blog"
+                  className="block w-full border-b border-dashed border-slate-200 py-4 text-left text-[12px] transition-colors text-slate-800 hover:text-blue-700"
                 >
-                  <Search size={15} className="my-auto" />
-                </button>
-              </form>
-            </div>
+                  Tất cả bài viết
+                </Link>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 inline-flex border-b-2 border-emerald-700 pb-1 text-[15px] font-bold uppercase tracking-wide text-slate-800">
-                Chủ đề nổi bật
-              </h3>
-
-              <div className="flex flex-col space-y-2">
-                {categories.map((category) => {
+                {categories.map((category, index) => {
                   const isActive = post.category?.id === category.id;
 
                   return (
@@ -893,23 +777,17 @@ export default function BlogDetailPage() {
                       key={category.id}
                       href={`/blog?categoryId=${category.id}`}
                       className={cn(
-                        "group flex items-center justify-between py-1.5 text-left transition-colors",
-                        isActive ? "text-emerald-700" : "text-slate-600 hover:text-emerald-700"
+                        "block w-full text-left text-[12px] transition-colors",
+                        isActive ? "text-blue-700" : "text-slate-800 hover:text-blue-700"
                       )}
                     >
-                      <span className="text-[14px] font-medium">
-                        <span className="mr-2 text-[10px] text-slate-400 group-hover:text-emerald-700">›</span>
-                        {category.name}
-                      </span>
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px]",
-                          isActive
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-500 group-hover:bg-emerald-50 group-hover:text-emerald-700"
+                          "block py-4",
+                          index < categories.length - 1 && "border-b border-dashed border-slate-200"
                         )}
                       >
-                        {category.postCount}
+                        {category.name}
                       </span>
                     </Link>
                   );
@@ -917,84 +795,14 @@ export default function BlogDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="mb-4 inline-flex border-b-2 border-emerald-700 pb-1 text-[15px] font-bold uppercase tracking-wide text-slate-800">
-                Xem nhiều nhất
-              </h3>
-
-              <div className="flex flex-col gap-4">
-                {popularPosts.length > 0 ? (
-                  popularPosts.map((item, index) => (
-                    <Link
-                      key={item.id}
-                      href={`/blog/${item.slug}`}
-                      className={cn("group flex gap-3", index > 0 && "border-t border-slate-100 pt-3")}
-                    >
-                      <div className="relative h-[60px] w-[80px] flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                        {item.thumbnailUrl ? (
-                          <img
-                            src={item.thumbnailUrl}
-                            alt={item.title}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-slate-300">
-                            <Newspaper size={18} />
-                          </div>
-                        )}
-
-                        <div
-                          className={cn(
-                            "absolute left-0 top-0 flex h-4 w-4 items-center justify-center rounded-br text-[9px] font-bold text-white",
-                            index === 0 ? "bg-emerald-700" : index === 1 ? "bg-slate-500" : "bg-slate-400"
-                          )}
-                        >
-                          {index + 1}
-                        </div>
-                      </div>
-
-                      <div className="min-w-0">
-                        <h4 className="line-clamp-2 text-[13px] font-semibold leading-snug text-slate-800 transition-colors group-hover:text-emerald-700">
-                          {item.title}
-                        </h4>
-                        <span className="mt-1 inline-block text-[10px] text-slate-400">
-                          <CalendarDays size={10} className="mr-1 inline" />
-                          {formatDate(item.publishedAt ?? item.createdAt)}
-                        </span>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="text-sm text-slate-400">Chưa có dữ liệu nổi bật.</p>
-                )}
-              </div>
-            </div>
-
-            {featuredTags.length > 0 && (
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="mb-4 inline-flex border-b-2 border-emerald-700 pb-1 text-[15px] font-bold uppercase tracking-wide text-slate-800">
-                  Thẻ tags nổi bật
-                </h3>
-
-                <div className="flex flex-wrap gap-2">
-                  {featuredTags.map((tag, index) => (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => router.push(`/blog?keyword=${encodeURIComponent(tag.name)}`)}
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
-                        index === 0
-                          ? "bg-emerald-700 text-white shadow-sm"
-                          : "bg-slate-100 text-slate-600 hover:bg-emerald-700 hover:text-white"
-                      )}
-                    >
-                      <Hash size={11} />
-                      {tag.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {relatedPosts.length > 0 && (
+              <LatestBlogPostsCard
+                title="Bài viết liên quan"
+                posts={relatedPosts}
+                currentSlug={slug}
+                formatDate={formatDate}
+                normalizeTitle={normalizeDisplayTitle}
+              />
             )}
           </aside>
         </div>
@@ -1002,3 +810,4 @@ export default function BlogDetailPage() {
     </div>
   );
 }
+

@@ -105,10 +105,10 @@ export default function StorePage() {
                     <li key={cat.id}>
                       <Link
                         href={`/store?categoryId=${cat.id}`}
-                        className="text-sm flex items-center justify-between group text-gray-600 hover:text-[#329965] transition-colors"
+                        className="text-sm flex items-center justify-between group text-gray-600 hover:text-[#1965a2] transition-colors"
                       >
                         <span className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-[#329965]"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-[#1965a2]"></span>
                           {cat.name}
                         </span>
                       </Link>
@@ -134,15 +134,15 @@ export default function StorePage() {
                     step={10000}
                     value={priceRange}
                     onChange={handleSliderChange}
-                    trackStyle={[{ backgroundColor: "#329965" }]}
+                    trackStyle={[{ backgroundColor: "#1965a2" }]}
                     handleStyle={[
                       {
-                        borderColor: "#329965",
+                        borderColor: "#1965a2",
                         backgroundColor: "#fff",
                         opacity: 1,
                       },
                       {
-                        borderColor: "#329965",
+                        borderColor: "#1965a2",
                         backgroundColor: "#fff",
                         opacity: 1,
                       },
@@ -159,7 +159,7 @@ export default function StorePage() {
                       type="number"
                       value={minInput}
                       onChange={(e) => handleInputChange(e, "min")}
-                      className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#329965]"
+                      className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#1965a2]"
                       placeholder="Từ"
                     />
                   </div>
@@ -172,14 +172,14 @@ export default function StorePage() {
                       type="number"
                       value={maxInput}
                       onChange={(e) => handleInputChange(e, "max")}
-                      className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#329965]"
+                      className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-[#1965a2]"
                       placeholder="Đến"
                     />
                   </div>
                 </div>
                 <button
                   onClick={applyPriceFilter}
-                  className="w-full py-2 bg-[#329965] text-white text-xs font-bold rounded hover:bg-[#2a8558] transition-colors uppercase"
+                  className="w-full py-2 bg-[#1965a2] text-white text-xs font-bold rounded hover:bg-[#2a8558] transition-colors uppercase"
                 >
                   Áp dụng
                 </button>
@@ -202,9 +202,9 @@ export default function StorePage() {
                     >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 text-[#329965] focus:ring-[#329965] cursor-pointer"
+                        className="w-4 h-4 rounded border-gray-300 text-[#1965a2] focus:ring-[#1965a2] cursor-pointer"
                       />
-                      <span className="text-sm text-gray-600 group-hover:text-[#329965] transition-colors flex-1">
+                      <span className="text-sm text-gray-600 group-hover:text-[#1965a2] transition-colors flex-1">
                         {brand.name}
                       </span>
                     </label>
@@ -233,7 +233,7 @@ export default function StorePage() {
                 <div className="text-gray-400 mb-2">Không tìm thấy sản phẩm nào</div>
                 <button 
                   onClick={() => window.location.reload()}
-                  className="text-[#329965] font-bold hover:underline"
+                  className="text-[#1965a2] font-bold hover:underline"
                 >
                   Thử lại
                 </button>
@@ -242,19 +242,19 @@ export default function StorePage() {
 
             <div className="flex justify-center md:justify-end">
               <nav className="flex gap-1">
-                <button className="w-9 h-9 flex items-center justify-center rounded border border-[#329965] bg-[#329965] text-white font-bold text-sm">
+                <button className="w-9 h-9 flex items-center justify-center rounded border border-[#1965a2] bg-[#1965a2] text-white font-bold text-sm">
                   1
                 </button>
-                <button className="w-9 h-9 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-[#329965] hover:text-[#329965] bg-white transition-colors text-sm">
+                <button className="w-9 h-9 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-[#1965a2] hover:text-[#1965a2] bg-white transition-colors text-sm">
                   2
                 </button>
-                <button className="w-9 h-9 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-[#329965] hover:text-[#329965] bg-white transition-colors text-sm">
+                <button className="w-9 h-9 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-[#1965a2] hover:text-[#1965a2] bg-white transition-colors text-sm">
                   3
                 </button>
                 <span className="w-9 h-9 flex items-center justify-center text-gray-400">
                   ...
                 </span>
-                <button className="px-3 h-9 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-[#329965] hover:text-[#329965] bg-white transition-colors text-sm">
+                <button className="px-3 h-9 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:border-[#1965a2] hover:text-[#1965a2] bg-white transition-colors text-sm">
                   Cuối
                 </button>
               </nav>
@@ -265,3 +265,4 @@ export default function StorePage() {
     </div>
   );
 }
+

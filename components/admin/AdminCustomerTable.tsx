@@ -130,7 +130,7 @@ export function AdminCustomerTable({
                                         <span
                                             className={cn(
                                                 "text-[12px] font-medium whitespace-nowrap",
-                                                cus.userStatus === "ACTIVE" ? "text-emerald-700" : "text-slate-500",
+                                                cus.userStatus === "ACTIVE" ? "text-blue-700" : "text-slate-500",
                                             )}
                                         >
                                             {cus.userStatus === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
@@ -200,7 +200,7 @@ export function AdminCustomerTable({
                                             className={cn(
                                                 "h-8 min-w-[30px] px-2 p-0 text-[11px] font-medium transition-all rounded-[4px]",
                                                 currentPage === index
-                                                    ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
+                                                    ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white"
                                                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                                             )}
                                         >
@@ -232,3 +232,4 @@ export function AdminCustomerTable({
         </div>
     );
 }
+

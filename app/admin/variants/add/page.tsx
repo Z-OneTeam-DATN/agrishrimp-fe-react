@@ -241,7 +241,7 @@ export default function AddVariantPage() {
             <Button
               type="button"
               onClick={addValue}
-              className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white hover:bg-emerald-700"
+              className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white hover:bg-blue-700"
             >
               Thêm
             </Button>
@@ -300,7 +300,7 @@ export default function AddVariantPage() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="h-10 min-w-[160px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+            className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
           >
             {isSubmitting ? (
               <Loader2 className="mr-2 animate-spin" size={16} />
@@ -314,3 +314,4 @@ export default function AddVariantPage() {
     </form>
   );
 }
+

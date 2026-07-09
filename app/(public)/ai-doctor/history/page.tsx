@@ -48,7 +48,7 @@ const getSeverityBadge = (disease?: AiDoctorDiseaseInfo) => {
 
   if (label.includes("khỏe")) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-700">
+      <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-700">
         <CheckCircle2 size={12} />
         Khỏe mạnh
       </span>
@@ -109,11 +109,11 @@ export default function AiHistoryPage() {
 
       <div className="w-full px-4 py-4 lg:px-6 lg:py-6 2xl:px-10">
         <nav className="mb-6 hidden items-center text-sm text-gray-500 lg:flex">
-          <Link href="/" className="hover:text-[#329965] hover:underline">
+          <Link href="/" className="hover:text-[#1965a2] hover:underline">
             Trang chủ
           </Link>
           <ChevronRight size={14} className="mx-2" />
-          <Link href="/profile" className="hover:text-[#329965] hover:underline">
+          <Link href="/profile" className="hover:text-[#1965a2] hover:underline">
             Tài khoản
           </Link>
           <ChevronRight size={14} className="mx-2" />
@@ -131,7 +131,7 @@ export default function AiHistoryPage() {
 
             <Link
               href="/ai-doctor"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#329965] px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#268050]"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#1965a2] px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#268050]"
             >
               <Activity size={18} />
               Hỏi bác sĩ ca mới
@@ -148,13 +148,13 @@ export default function AiHistoryPage() {
                 placeholder="Tìm theo tên bệnh hoặc mã số..."
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className="h-12 w-full rounded-md border border-gray-200 bg-gray-50 pl-9 pr-4 text-sm transition-all focus:border-[#329965] focus:outline-none"
+                className="h-12 w-full rounded-md border border-gray-200 bg-gray-50 pl-9 pr-4 text-sm transition-all focus:border-[#1965a2] focus:outline-none"
               />
             </div>
 
             {historyQuery.isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                <Loader2 size={28} className="mb-3 animate-spin text-[#329965]" />
+                <Loader2 size={28} className="mb-3 animate-spin text-[#1965a2]" />
                 Đang tìm sổ khám bệnh...
               </div>
             ) : historyQuery.isError ? (
@@ -169,7 +169,7 @@ export default function AiHistoryPage() {
                 {filteredHistory.map((item) => (
                   <div
                     key={item.diagnosisId}
-                    className="group flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-[#329965] md:flex-row md:items-start"
+                    className="group flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-[#1965a2] md:flex-row md:items-start"
                   >
                     <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-md border border-gray-100 bg-gray-100 md:w-20">
                       {item.imageUrl ? (
@@ -198,7 +198,7 @@ export default function AiHistoryPage() {
                         </span>
                       </div>
 
-                      <h6 className="mb-2 truncate text-base font-bold text-gray-800 transition-colors group-hover:text-[#329965]">
+                      <h6 className="mb-2 truncate text-base font-bold text-gray-800 transition-colors group-hover:text-[#1965a2]">
                         {item.disease?.nameVi || "Đang chờ bác sĩ kết luận..."}
                       </h6>
 
@@ -218,7 +218,7 @@ export default function AiHistoryPage() {
                     <div className="mt-2 flex w-full flex-col justify-center md:mt-0 md:w-auto">
                       <Link
                         href={`/ai-doctor/result?id=${item.diagnosisId}`}
-                        className="flex h-12 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-[#329965] px-4 text-xs font-bold text-[#329965] transition-colors hover:bg-[#eaf7f4]"
+                        className="flex h-12 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-[#1965a2] px-4 text-xs font-bold text-[#1965a2] transition-colors hover:bg-[#eaf7f4]"
                       >
                         <FileText size={14} />
                         Xem kết quả
@@ -244,3 +244,4 @@ export default function AiHistoryPage() {
     </div>
   );
 }
+

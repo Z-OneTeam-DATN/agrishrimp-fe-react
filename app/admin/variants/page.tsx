@@ -480,7 +480,7 @@ export default function AttributeManagementPage() {
           {hasPermission(P.ATTRIBUTE_CREATE) && (
             <Button
               onClick={() => router.push("/admin/variants/add")}
-              className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
             >
               <Plus size={15} className="mr-1.5" />
               Thêm thuộc tính
@@ -651,7 +651,7 @@ export default function AttributeManagementPage() {
         <DialogContent className="w-[95vw] max-w-[680px] max-h-[92vh] bg-white p-0 overflow-hidden flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-bottom-3 data-[state=closed]:slide-out-to-bottom-3 duration-200">
           <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b bg-slate-50">
             <DialogTitle className="text-lg font-black uppercase text-slate-800 flex items-center gap-2">
-              <Settings2 size={20} className="text-emerald-600" />
+              <Settings2 size={20} className="text-blue-600" />
               {editingId ? "Cập nhật Thuộc Tính" : "Thêm Thuộc Tính Mới"}
             </DialogTitle>
             <p className="text-sm text-slate-500 font-medium mt-1">
@@ -802,7 +802,7 @@ export default function AttributeManagementPage() {
                       className={cn(
                         "h-11 font-black bg-white",
                         field.value === "ACTIVE"
-                          ? "text-emerald-600"
+                          ? "text-blue-600"
                           : "text-amber-600",
                       )}
                     >
@@ -819,7 +819,7 @@ export default function AttributeManagementPage() {
                 className={cn(
                   "inline-flex items-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide",
                   statusValue === "ACTIVE"
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    ? "bg-blue-50 border-blue-200 text-blue-700"
                     : "bg-amber-50 border-amber-200 text-amber-700",
                 )}
               >
@@ -827,7 +827,7 @@ export default function AttributeManagementPage() {
                   className={cn(
                     "mr-2 h-1.5 w-1.5 rounded-full",
                     statusValue === "ACTIVE"
-                      ? "bg-emerald-500"
+                      ? "bg-blue-500"
                       : "bg-amber-500",
                   )}
                 />
@@ -847,7 +847,7 @@ export default function AttributeManagementPage() {
               <Button
                 type="submit"
                 disabled={isSaving}
-                className="h-11 w-full sm:w-auto text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white min-w-[140px] uppercase tracking-wide"
+                className="h-11 w-full sm:w-auto text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] uppercase tracking-wide"
               >
                 {isSaving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -889,3 +889,4 @@ export default function AttributeManagementPage() {
     </div>
   );
 }
+

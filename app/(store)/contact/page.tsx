@@ -64,16 +64,16 @@ export default function ContactPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Liên hệ</span>
+        <span className="text-[#1965a2] font-bold">Liên hệ</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
-        <h3 className="text-xl font-bold text-[#329965] uppercase border-b border-gray-200 pb-4 mb-4">
+        <h3 className="text-xl font-bold text-[#1965a2] uppercase border-b border-gray-200 pb-4 mb-4">
           Chúng tôi trân trọng ý kiến của bà con
         </h3>
 
@@ -86,7 +86,7 @@ export default function ContactPage() {
           {/* FORM LIÊN HỆ */}
           <div>
             {isSuccess && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md flex items-center text-green-700 animate-fadeIn">
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md flex items-center text-blue-700 animate-fadeIn">
                 <CheckCircle2 className="mr-2" size={20} />
                 <span className="text-sm font-medium">
                   Gửi yêu cầu thành công! Chúng tôi sẽ liên hệ sớm nhất.
@@ -104,7 +104,7 @@ export default function ContactPage() {
                   {...register("title")}
                   type="text"
                   placeholder="VD: Cần tư vấn thuốc trị gan tụy..."
-                  className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#329965]/20 ${errors.title ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#329965]"}`}
+                  className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#1965a2]/20 ${errors.title ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#1965a2]"}`}
                 />
                 {errors.title && (
                   <p className="text-red-500 text-xs mt-1">
@@ -122,7 +122,7 @@ export default function ContactPage() {
                   {...register("content")}
                   rows={4}
                   placeholder="Hãy mô tả chi tiết vấn đề ao nuôi của bà con..."
-                  className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#329965]/20 ${errors.content ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#329965]"}`}
+                  className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#1965a2]/20 ${errors.content ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#1965a2]"}`}
                 ></textarea>
                 {errors.content && (
                   <p className="text-red-500 text-xs mt-1">
@@ -140,7 +140,7 @@ export default function ContactPage() {
                   {...register("fullname")}
                   type="text"
                   placeholder="Nhập đầy đủ họ tên"
-                  className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#329965]/20 ${errors.fullname ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#329965]"}`}
+                  className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#1965a2]/20 ${errors.fullname ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#1965a2]"}`}
                 />
                 {errors.fullname && (
                   <p className="text-red-500 text-xs mt-1">
@@ -159,7 +159,7 @@ export default function ContactPage() {
                     {...register("phone")}
                     type="tel"
                     placeholder="SĐT liên hệ"
-                    className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#329965]/20 ${errors.phone ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#329965]"}`}
+                    className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#1965a2]/20 ${errors.phone ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#1965a2]"}`}
                   />
                   {errors.phone && (
                     <p className="text-red-500 text-xs mt-1">
@@ -177,7 +177,7 @@ export default function ContactPage() {
                     {...register("email")}
                     type="email"
                     placeholder="Email liên hệ"
-                    className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#329965]/20 ${errors.email ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#329965]"}`}
+                    className={`w-full p-2.5 bg-white text-gray-900 border rounded-md text-sm outline-none transition-all focus:ring-2 focus:ring-[#1965a2]/20 ${errors.email ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#1965a2]"}`}
                   />
                   {errors.email && (
                     <p className="text-red-500 text-xs mt-1">
@@ -190,7 +190,7 @@ export default function ContactPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-4 px-6 py-2.5 bg-[#329965] text-white font-bold rounded-md hover:bg-[#268050] transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed w-full md:w-auto"
+                className="mt-4 px-6 py-2.5 bg-[#1965a2] text-white font-bold rounded-md hover:bg-[#268050] transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed w-full md:w-auto"
               >
                 {isSubmitting ? (
                   <span>Đang gửi...</span>
@@ -220,13 +220,13 @@ export default function ContactPage() {
 
         {/* HỆ THỐNG CHI NHÁNH */}
         <div className="border-t border-gray-100 pt-8">
-          <h3 className="text-center text-xl font-bold text-[#329965] uppercase mb-8">
+          <h3 className="text-center text-xl font-bold text-[#1965a2] uppercase mb-8">
             Hệ thống Chi nhánh AgriShrimp
           </h3>
 
           {isLoadingBranches ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-[#329965] animate-spin mb-2" />
+              <Loader2 className="w-8 h-8 text-[#1965a2] animate-spin mb-2" />
               <p className="text-gray-500 text-sm">Đang tải danh sách chi nhánh...</p>
             </div>
           ) : branches.length > 0 ? (
@@ -237,7 +237,7 @@ export default function ContactPage() {
                   className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className="bg-white p-6 flex items-center justify-center border-b border-gray-100 h-40">
-                    <div className="text-[#329965] flex flex-col items-center opacity-50">
+                    <div className="text-[#1965a2] flex flex-col items-center opacity-50">
                       <MapPin size={48} strokeWidth={1} />
                       <span className="text-xs mt-2 uppercase tracking-widest text-center">
                         AgriShrimp<br/>{branch.branchType}
@@ -245,14 +245,14 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="bg-gray-50 p-4 text-center">
-                    <h5 className="font-bold text-[#329965] mb-2">
+                    <h5 className="font-bold text-[#1965a2] mb-2">
                       {branch.name}
                     </h5>
                     <p className="text-xs text-gray-500 mb-3 min-h-[48px]">
                       {branch.addressDetail}, {branch.wardName}, {branch.districtName}, {branch.provinceName}
                     </p>
                     <div className="inline-flex items-center text-sm font-bold text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200">
-                      <Phone size={14} className="mr-2 text-[#329965]" /> {branch.phone}
+                      <Phone size={14} className="mr-2 text-[#1965a2]" /> {branch.phone}
                     </div>
                   </div>
                 </div>
@@ -268,3 +268,4 @@ export default function ContactPage() {
     </>
   );
 }
+

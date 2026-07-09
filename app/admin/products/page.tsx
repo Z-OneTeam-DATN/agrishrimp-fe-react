@@ -7,12 +7,13 @@ import { ProductService } from "@/app/services/product.service";
 import { PriceRoundingRule, SettingService } from "@/app/services/setting.service";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
-import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search } from "lucide-react";
+import { getAdminBrands } from "@/app/services/brand.service";
+import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { cn } from "@/lib/utils";
+import { cn, cleanSupplierName } from "@/lib/utils";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import {
     Select,
@@ -46,7 +47,8 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [categories, setCategories] = useState<{label: string, value: string}[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
+    const [brands, setBrands] = useState<{id: number, name: string}[]>([]);
+    const [suppliers, setSuppliers] = useState<string[]>([]);
 
     // 0. Kiểm tra quyền truy cập route
     useEffect(() => {
@@ -64,13 +66,14 @@ export default function ProductsPage() {
 
     const [sort, setSort] = useState("id,desc");
     const [selectedBrand, setSelectedBrand] = useState("all");
+    const [selectedSupplier, setSelectedSupplier] = useState("all");
     const [viewMode, setViewMode] = useState<"product" | "sku">("product");
 
     const [debouncedKeyword, setDebouncedKeyword] = useState("");
 
     // Phân trang
     const [currentPage, setCurrentPage] = useState(0);
-    const pageSize = 10;
+    const pageSize = 20;
 
     // State Cấu hình Lợi nhuận
     const [isSettingOpen, setIsSettingOpen] = useState(false);
@@ -93,7 +96,7 @@ export default function ProductsPage() {
             try {
                 const [data, brandData] = await Promise.all([
                     ProductService.getCategories(),
-                    ProductService.getBrands(),
+                    getAdminBrands(),
                 ]);
                 const mapped = [
                     { label: "Tất cả danh mục", value: "all" },
@@ -101,17 +104,10 @@ export default function ProductsPage() {
                 ];
                 setCategories(mapped);
                 setBrands(
-                    Array.from(
-                        new Set(
-                            (Array.isArray(brandData) ? brandData : [])
-                                .map((brand: any) =>
-                                    typeof brand === "string" ? brand : brand?.name,
-                                )
-                                .filter((name: unknown): name is string =>
-                                    typeof name === "string" && name.trim().length > 0,
-                                ),
-                        ),
-                    ).sort((left, right) => left.localeCompare(right, "vi")),
+                    (Array.isArray(brandData) ? brandData : [])
+                        .filter((b: any) => b?.name?.trim())
+                        .map((b: any) => ({ id: Number(b.id), name: String(b.name) }))
+                        .sort((a: any, b: any) => a.name.localeCompare(b.name, "vi"))
                 );
 
                 if (isAdmin) {
@@ -162,8 +158,9 @@ export default function ProductsPage() {
                 slug: p.slug || "",
                 baseSku: p.baseSku || "",
                 categoryName: p.categoryName || "",
+                supplierName: p.supplierName || "",
                 brandName: p.brandName || "",
-                origin: p.origin || "",
+                brandId: p.brandId ? Number(p.brandId) : null,
                 status: p.status,
                 image: p.imageUrls?.[0] || "",
                 imageUrls: p.imageUrls || [],
@@ -289,7 +286,7 @@ export default function ProductsPage() {
     const sortedProducts = useMemo(() => {
         const items = products.filter(
             (product) =>
-                selectedBrand === "all" || product.brandName === selectedBrand,
+                selectedBrand === "all" || String(product.brandId) === selectedBrand,
         );
 
         items.sort((left, right) => {
@@ -317,6 +314,7 @@ export default function ProductsPage() {
     useEffect(() => {
         setCurrentPage(0);
     }, [selectedBrand]);
+
 
     const totalPages = Math.ceil(sortedProducts.length / pageSize);
     const currentProducts = sortedProducts.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
@@ -445,229 +443,109 @@ export default function ProductsPage() {
                     </h1>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                    {productOverviewCards.map((card) => (
-                        <div
-                            key={card.title}
-                            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
-                        >
-                            <p className="text-[11px] font-semibold text-slate-400">
-                                {card.title}
-                            </p>
-                            <div className="mt-3 space-y-1">
-                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
-                                    {card.value.toLocaleString("vi-VN")}
-                                </p>
-                                <p className="text-[10px] leading-[18px] text-slate-500">
-                                    {card.description}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                        <Select
-                            value={filters.categoryId}
-                            onValueChange={(value) => setFilters((current) => ({ ...current, categoryId: value }))}
-                        >
-                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[220px]">
-                                <SelectValue placeholder="Tất cả danh mục" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {categories.map((category) => (
-                                    <SelectItem key={category.value} value={category.value} className="text-[13px]">
-                                        {category.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={filters.status}
-                            onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))}
-                        >
-                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[180px]">
-                                <SelectValue placeholder="Tất cả trạng thái" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all" className="text-[13px]">Tất cả trạng thái</SelectItem>
-                                <SelectItem value="ACTIVE" className="text-[13px]">Đang kinh doanh</SelectItem>
-                                <SelectItem value="INACTIVE" className="text-[13px]">Ngừng kinh doanh</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select
-                            value={selectedBrand}
-                            onValueChange={(value) => {
-                                setSelectedBrand(value);
-                            }}
-                        >
-                            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
-                                <SelectValue placeholder="Tất cả thương hiệu" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all" className="text-[13px]">
-                                    Tất cả thương hiệu
+                 {/* 1. Thanh lọc (Đưa lên trên, không chứa nút hành động) */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                        value={filters.categoryId}
+                        onValueChange={(value) => setFilters((current) => ({ ...current, categoryId: value }))}
+                    >
+                        <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[220px]">
+                            <SelectValue placeholder="Tất cả danh mục" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map((category) => (
+                                <SelectItem key={category.value} value={category.value} className="text-[13px]">
+                                    {category.label}
                                 </SelectItem>
-                                {brands.map((brand) => (
-                                    <SelectItem key={brand} value={brand} className="text-[13px]">
-                                        {brand}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                        <div className="relative w-full lg:w-[300px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                            <Input
-                                value={filters.keyword}
-                                onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
-                                placeholder="Tìm tên sản phẩm, mã SKU..."
-                                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
-                            />
-                        </div>
-                    </div>
+                    <Select
+                        value={filters.status}
+                        onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+                    >
+                        <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[180px]">
+                            <SelectValue placeholder="Tất cả trạng thái" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all" className="text-[13px]">Tất cả trạng thái</SelectItem>
+                            <SelectItem value="ACTIVE" className="text-[13px]">Đang kinh doanh</SelectItem>
+                            <SelectItem value="INACTIVE" className="text-[13px]">Ngừng kinh doanh</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                    {isAdmin && (
-                        <Dialog open={isSettingOpen} onOpenChange={setIsSettingOpen}>
-                            <DialogContent className="sm:max-w-[560px] rounded-[4px]">
-                                <DialogHeader>
-                                    <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
-                                        <Percent size={18} className="text-emerald-600" /> Biên lợi nhuận (%)
-                                    </DialogTitle>
-                                    <DialogDescription className="text-[12px]">
-                                        Tỷ lệ cộng thêm vào giá vốn lô hàng để ra giá bán niêm yết.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="py-4">
-                                    <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
-                                    <div className="relative">
-                                        <Input
-                                            type="text"
-                                            min="0"
-                                            max="100"
-                                            value={profitMargin}
-                                            onChange={(e) => handleMarginInputChange(e.target.value)}
-                                            className="h-[45px] text-[16px] font-black pl-4 pr-10 rounded-[3px]"
-                                        />
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
-                                    </div>
+                    <Select
+                        value={selectedBrand}
+                        onValueChange={(value) => {
+                            setSelectedBrand(value);
+                        }}
+                    >
+                        <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-normal shadow-none focus:ring-0 lg:w-[190px]">
+                            <SelectValue placeholder="Tất cả thương hiệu" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all" className="text-[13px]">
+                                Tất cả thương hiệu
+                            </SelectItem>
+                            {brands.map((brand) => (
+                                <SelectItem key={brand.id} value={String(brand.id)} className="text-[13px]">
+                                    {brand.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                                    <div className="flex flex-wrap gap-2 mt-3">
-                                        {[10, 20, 30, 40, 50].map((preset) => (
-                                            <Button
-                                                key={preset}
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setProfitMargin(String(preset))}
-                                                className={cn(
-                                                    "h-7 text-[11px] px-2 rounded-[3px]",
-                                                    Number(profitMargin) === preset
-                                                        ? "border-emerald-400 text-emerald-700 bg-emerald-50"
-                                                        : "border-slate-200 text-slate-600"
-                                                )}
-                                            >
-                                                {preset}%
-                                            </Button>
-                                        ))}
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Quy tắc làm tròn giá bán</Label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {[
-                                                { value: "NONE", label: "Không làm tròn" },
-                                                { value: "STEP_500", label: "Làm tròn bội 500" },
-                                                { value: "STEP_1000", label: "Làm tròn bội 1.000" },
-                                                { value: "TAIL_99000", label: "Đuôi 99.000 (gần nhất)" },
-                                            ].map((rule) => (
-                                                <Button
-                                                    key={rule.value}
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setRoundingRule(rule.value as PriceRoundingRule)}
-                                                    className={cn(
-                                                        "h-7 text-[11px] px-2 rounded-[3px]",
-                                                        roundingRule === rule.value
-                                                            ? "border-blue-400 text-blue-700 bg-blue-50"
-                                                            : "border-slate-200 text-slate-600"
-                                                    )}
-                                                >
-                                                    {rule.label}
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
-
-                                    <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
-                                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-                                            Xem trước nhanh theo nhiều mốc giá vốn
-                                        </p>
-                                        <div className="space-y-2">
-                                            <div className="grid grid-cols-4 gap-2 text-[11px] font-bold uppercase text-slate-500">
-                                                <p>Giá vốn</p>
-                                                <p>Giá bán gốc</p>
-                                                <p>Giá bán sau làm tròn</p>
-                                                <p>Lãi gộp</p>
-                                            </div>
-                                            {samplePreviewRows.length > 0 ? (
-                                                samplePreviewRows.map((row) => (
-                                                    <div key={row.importPrice} className="grid grid-cols-4 gap-2 text-[12px]">
-                                                        <p className="font-semibold text-slate-700">{row.importPrice.toLocaleString("vi-VN")} ₫</p>
-                                                        <p className="text-slate-600">{Math.round(row.rawSellingPrice).toLocaleString("vi-VN")} ₫</p>
-                                                        <p className="font-bold text-emerald-700">{row.roundedSellingPrice.toLocaleString("vi-VN")} ₫</p>
-                                                        <p className="font-bold text-blue-700">{row.grossProfit.toLocaleString("vi-VN")} ₫</p>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-[12px] text-slate-400">Nhập biên lợi nhuận hợp lệ để xem trước.</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setProfitMargin(originalProfitMargin);
-                                            setRoundingRule(originalRoundingRule);
-                                        }}
-                                        className="rounded-[3px] text-[12px]"
-                                        disabled={isSavingMargin || !isMarginDirty}
-                                    >
-                                        Khôi phục
-                                    </Button>
-                                    <Button variant="outline" onClick={() => setIsSettingOpen(false)} className="rounded-[3px] text-[12px]">Hủy</Button>
-                                    <Button onClick={handleSaveMargin} disabled={isSavingMargin || !isMarginInRange || !isMarginDirty} className="bg-emerald-600 text-white rounded-[3px] text-[12px]">
-                                        {isSavingMargin ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
-                                        Lưu thay đổi
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
-
-                    {/* Chỉ show nút Thêm sản phẩm nếu có quyền */}
-                    {hasPermission(P.PRODUCT_CREATE) && (
-                        <Button
-                            onClick={() => router.push("/admin/products/add")}
-                            className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
-                        >
-                            <Plus size={15} className="mr-2" />
-                            Thêm sản phẩm
-                        </Button>
-                    )}
+                    <div className="relative w-full lg:w-[300px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                        <Input
+                            value={filters.keyword}
+                            onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
+                            placeholder="Tìm tên sản phẩm, mã SKU..."
+                            className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                        />
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                {/* 2. Card tổng quan */}
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                    {productOverviewCards.map((card) => {
+                        const statusMap: Record<string, string> = {
+                            "Tổng sản phẩm": "all",
+                            "Đang kinh doanh": "ACTIVE",
+                            "Ngừng kinh doanh": "INACTIVE",
+                            "Tổng SKU": "all"
+                        };
+                        const targetStatus = statusMap[card.title];
+
+                        return (
+                            <div
+                                key={card.title}
+                                className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm transition-all select-none cursor-pointer hover:bg-slate-50/60"
+                                onClick={() => {
+                                    if (targetStatus) {
+                                        setFilters((current) => ({ ...current, status: targetStatus }));
+                                    }
+                                }}
+                            >
+                                <p className="text-[11px] font-semibold text-slate-400">
+                                    {card.title}
+                                </p>
+                                <div className="mt-3 space-y-1">
+                                    <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                                        {card.value.toLocaleString("vi-VN")}
+                                    </p>
+                                    <p className="text-[10px] leading-[18px] text-slate-500">
+                                        {card.description}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* 3. Chế độ xem & Nút hành động (Nằm ngang dưới card tổng quan) */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                         <button
                             type="button"
@@ -695,17 +573,152 @@ export default function ProductsPage() {
                         </button>
                     </div>
 
-                    {isAdmin && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsSettingOpen(true)}
-                            className="h-[38px] rounded-md border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
-                        >
-                            <Settings size={15} className="mr-2" />
-                            Cấu hình giá bán
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        {isAdmin && (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsSettingOpen(true)}
+                                    className="h-[38px] rounded-md border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none"
+                                >
+                                    <Settings size={15} className="mr-2" />
+                                    Cấu hình giá bán
+                                </Button>
+
+                                <Dialog open={isSettingOpen} onOpenChange={setIsSettingOpen}>
+                                    <DialogContent className="sm:max-w-[560px] rounded-[4px]">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
+                                                <Percent size={18} className="text-emerald-600" /> Biên lợi nhuận (%)
+                                            </DialogTitle>
+                                            <DialogDescription className="text-[12px]">
+                                                Tỷ lệ cộng thêm vào giá vốn lô hàng để ra giá bán niêm yết.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="py-4">
+                                            <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Phần trăm mong muốn</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    type="text"
+                                                    min="0"
+                                                    max="100"
+                                                    value={profitMargin}
+                                                    onChange={(e) => handleMarginInputChange(e.target.value)}
+                                                    className="h-[45px] text-[16px] font-black pl-4 pr-10 rounded-[3px]"
+                                                />
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2 mt-3">
+                                                {[10, 20, 30, 40, 50].map((preset) => (
+                                                    <Button
+                                                        key={preset}
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setProfitMargin(String(preset))}
+                                                        className={cn(
+                                                            "h-7 text-[11px] px-2 rounded-[3px]",
+                                                            Number(profitMargin) === preset
+                                                                ? "border-emerald-400 text-emerald-700 bg-emerald-50"
+                                                                : "border-slate-200 text-slate-600"
+                                                        )}
+                                                    >
+                                                        {preset}%
+                                                    </Button>
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-4">
+                                                <Label className="text-[11px] font-bold text-slate-600 mb-2 block uppercase">Quy tắc làm tròn giá bán</Label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {[
+                                                        { value: "NONE", label: "Không làm tròn" },
+                                                        { value: "STEP_500", label: "Làm tròn bội 500" },
+                                                        { value: "STEP_1000", label: "Làm tròn bội 1.000" },
+                                                        { value: "TAIL_99000", label: "Đuôi 99.000 (gần nhất)" },
+                                                    ].map((rule) => (
+                                                        <Button
+                                                            key={rule.value}
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setRoundingRule(rule.value as PriceRoundingRule)}
+                                                            className={cn(
+                                                                "h-7 text-[11px] px-2 rounded-[3px]",
+                                                                roundingRule === rule.value
+                                                                    ? "border-blue-400 text-blue-700 bg-blue-50"
+                                                                    : "border-slate-200 text-slate-600"
+                                                            )}
+                                                        >
+                                                            {rule.label}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
+
+                                            <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
+                                                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                                                    Xem trước nhanh theo nhiều mốc giá vốn
+                                                </p>
+                                                <div className="space-y-2">
+                                                    <div className="grid grid-cols-4 gap-2 text-[11px] font-bold uppercase text-slate-500">
+                                                        <p>Giá vốn</p>
+                                                        <p>Giá bán gốc</p>
+                                                        <p>Giá bán sau làm tròn</p>
+                                                        <p>Lãi gộp</p>
+                                                    </div>
+                                                    {samplePreviewRows.length > 0 ? (
+                                                        samplePreviewRows.map((row) => (
+                                                            <div key={row.importPrice} className="grid grid-cols-4 gap-2 text-[12px]">
+                                                                <p className="font-semibold text-slate-700">{row.importPrice.toLocaleString("vi-VN")} ₫</p>
+                                                                <p className="text-slate-600">{Math.round(row.rawSellingPrice).toLocaleString("vi-VN")} ₫</p>
+                                                                <p className="font-bold text-emerald-700">{row.roundedSellingPrice.toLocaleString("vi-VN")} ₫</p>
+                                                                <p className="font-bold text-blue-700">{row.grossProfit.toLocaleString("vi-VN")} ₫</p>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-[12px] text-slate-400">Nhập biên lợi nhuận hợp lệ để xem trước.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setProfitMargin(originalProfitMargin);
+                                                    setRoundingRule(originalRoundingRule);
+                                                }}
+                                                className="rounded-[3px] text-[12px]"
+                                                disabled={isSavingMargin || !isMarginDirty}
+                                            >
+                                                Khôi phục
+                                            </Button>
+                                            <Button variant="outline" onClick={() => setIsSettingOpen(false)} className="rounded-[3px] text-[12px]">Hủy</Button>
+                                            <Button onClick={handleSaveMargin} disabled={isSavingMargin || !isMarginInRange || !isMarginDirty} className="bg-emerald-600 text-white rounded-[3px] text-[12px]">
+                                                {isSavingMargin ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+                                                Lưu thay đổi
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </>
+                        )}
+
+                        {hasPermission(P.PRODUCT_CREATE) && (
+                            <Button
+                                onClick={() => router.push("/admin/products/add")}
+                                className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                            >
+                                <Plus size={15} className="mr-2" />
+                                Thêm sản phẩm
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
@@ -726,16 +739,26 @@ export default function ProductsPage() {
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[980px] border-collapse table-fixed">
+                                    <colgroup>
+                                        <col className="w-[5%]" />
+                                        <col className="w-[5%]" />
+                                        <col className="w-[15%]" />
+                                        <col className="w-[30%]" />
+                                        <col className="w-[20%]" />
+                                        <col className="w-[8%]" />
+                                        <col className="w-[10%]" />
+                                        <col className="w-[7%]" />
+                                    </colgroup>
                                     <thead>
                                     <tr className="bg-[#f0f0f0] border-b border-[#ccc]">
-                                        <th className="w-[56px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">STT</th>
-                                        <th className="w-[74px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">Ảnh SKU</th>
-                                        <th className="w-[220px] p-2 text-left text-[11px] font-bold uppercase text-[#1f1f1f]">SKU / Barcode</th>
-                                        <th className="p-2 text-left text-[11px] font-bold uppercase text-[#1f1f1f]">Sản phẩm</th>
-                                        <th className="w-[150px] p-2 text-left text-[11px] font-bold uppercase text-[#1f1f1f]">Thương hiệu</th>
-                                        <th className="w-[100px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">Tồn kho</th>
-                                        <th className="w-[130px] p-2 text-center text-[11px] font-bold uppercase text-[#1f1f1f]">Trạng thái SKU</th>
-                                        <th className="w-[110px] p-2 text-right text-[11px] font-bold uppercase text-[#1f1f1f] pr-4">Hành động</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Stt</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Ảnh SKU</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">SKU / Barcode</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Sản phẩm</th>
+                                        <th className="p-2 text-left text-[10px] font-semibold text-[#1f1f1f]">Thương hiệu</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Tồn kho</th>
+                                        <th className="p-2 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái SKU</th>
+                                        <th className="p-2 text-right text-[10px] font-semibold text-[#1f1f1f] pr-4">Thao tác</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -744,7 +767,7 @@ export default function ProductsPage() {
                                         const skuStatusLabel = variant.variantStatus === "ACTIVE" ? "Đang bán" : variant.variantStatus || "Không rõ";
                                         return (
                                             <tr key={`${variant.variantId}-${variant.sku}-${index}`} className="border-b border-[#eee] hover:bg-[#f8fbff] transition-colors">
-                                                <td className="p-2 text-center text-[12px] font-bold text-slate-500">{stt}</td>
+                                                <td className="p-2 text-center text-[11px] font-bold text-slate-500">{stt}</td>
                                                 <td className="p-2">
                                                     <div className="w-10 h-10 mx-auto bg-white border border-[#ddd] rounded-[3px] overflow-hidden flex items-center justify-center">
                                                         {variant.imageUrl ? (
@@ -755,22 +778,26 @@ export default function ProductsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[12px] font-black text-blue-700 font-mono">{variant.sku || "—"}</span>
-                                                        <span className="text-[10px] text-slate-400 font-mono">{variant.barcode || "Không có barcode"}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="block truncate text-[11px] font-bold text-blue-700 font-mono" title={variant.sku || ""}>{variant.sku || "—"}</span>
+                                                        <span className="block truncate text-[10px] text-slate-400 font-mono" title={variant.barcode || ""}>{variant.barcode || "Không có barcode"}</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[12px] font-bold text-[#1f1f1f]">{variant.productName}</span>
-                                                        <span className="text-[10px] text-slate-400">{variant.categoryName || "—"}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="block truncate text-[11px] font-bold text-[#1f1f1f]" title={variant.productName}>{variant.productName}</span>
+                                                        <span className="block truncate text-[10px] text-slate-400" title={variant.categoryName || ""}>{variant.categoryName || "—"}</span>
                                                     </div>
                                                 </td>
-                                                <td className="p-2 text-[11px] font-bold text-slate-500 uppercase">{variant.brandName || "—"}</td>
-                                                <td className="p-2 text-center text-[12px] font-black text-slate-700">{variant.quantity.toLocaleString("vi-VN")}</td>
+                                                <td className="p-2">
+                                                    <span className="block truncate text-[11px] font-normal text-slate-500" title={variant.brandName || ""}>
+                                                        {cleanSupplierName(variant.brandName) || "—"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-2 text-center text-[11px] font-bold text-slate-700">{variant.quantity.toLocaleString("vi-VN")}</td>
                                                 <td className="p-2 text-center">
                                                         <span className={cn(
-                                                            "text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase",
+                                                            "text-[10px] font-semibold px-1.5 py-0.5 rounded border",
                                                             variant.variantStatus === "ACTIVE"
                                                                 ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                                                                 : "bg-slate-100 text-slate-400 border-slate-200"
@@ -780,15 +807,18 @@ export default function ProductsPage() {
                                                 </td>
                                                 <td className="p-2 text-right pr-4">
                                                     {hasPermission(P.PRODUCT_UPDATE) ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50"
-                                                            onClick={() => handleEdit(variant.productId)}
-                                                        >
-                                                            Sửa SP
-                                                        </Button>
+                                                        <div className="flex justify-end gap-1">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 hover:bg-slate-100"
+                                                                onClick={() => handleEdit(variant.productId)}
+                                                                title="Chỉnh sửa"
+                                                            >
+                                                                <Pencil size={14} className="text-blue-600" />
+                                                            </Button>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-[10px] text-slate-300">—</span>
                                                     )}
@@ -802,59 +832,34 @@ export default function ProductsPage() {
                         )}
 
                         {totalItems > 0 && (
-                            <div className="flex items-center justify-between px-5 py-3 border-t border-[#eee] bg-[#f8f9fa]">
-                                <p className="text-[11px] text-slate-500 font-bold uppercase tracking-tight">
-                                    {viewMode === "product"
-                                        ? `Đang hiển thị ${paginatedProducts.length} / Tổng số ${sortedProducts.length} sản phẩm (${totalSkuCount} SKU)`
-                                        : `Đang hiển thị ${paginatedVariants.length} / Tổng số ${sortedVariants.length} SKU thuộc ${sortedProducts.length} sản phẩm`}
+                            <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#fcfcfc] px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+                                <p className="text-[11px] text-slate-500">
+                                    Hiển thị {currentPage * pageSize + 1} - {Math.min((currentPage + 1) * pageSize, totalItems)} trong {totalItems}
                                 </p>
                                 {effectiveTotalPages > 0 && (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-2">
                                         <Button
+                                            type="button"
                                             variant="outline"
                                             size="sm"
+                                            className="h-8 text-[11px] font-medium bg-white"
                                             onClick={() => setCurrentPage(currentPage - 1)}
                                             disabled={currentPage === 0}
-                                            className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
                                         >
-                                            <ChevronLeft size={14} className="mr-1" /> Trước
+                                            ← Trước
                                         </Button>
-
-                                        <div className="flex items-center gap-1">
-                                            {Array.from({ length: effectiveTotalPages }).map((_, index) => {
-                                                if (index === 0 || index === effectiveTotalPages - 1 || (index >= currentPage - 1 && index <= currentPage + 1)) {
-                                                    return (
-                                                        <Button
-                                                            key={index}
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => setCurrentPage(index)}
-                                                            className={cn(
-                                                                "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all",
-                                                                currentPage === index
-                                                                    ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
-                                                                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                            )}
-                                                        >
-                                                            {index + 1}
-                                                        </Button>
-                                                    );
-                                                }
-                                                if (index === currentPage - 2 || index === currentPage + 2) {
-                                                    return <span key={index} className="text-slate-400 text-[10px] px-1 tracking-widest">...</span>;
-                                                }
-                                                return null;
-                                            })}
-                                        </div>
-
+                                        <span className="min-w-[50px] text-center text-[11px] text-slate-500 font-medium">
+                                            {currentPage + 1} / {effectiveTotalPages}
+                                        </span>
                                         <Button
+                                            type="button"
                                             variant="outline"
                                             size="sm"
+                                            className="h-8 text-[11px] font-medium bg-white"
                                             onClick={() => setCurrentPage(currentPage + 1)}
                                             disabled={currentPage >= effectiveTotalPages - 1}
-                                            className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
                                         >
-                                            Sau <ChevronRight size={14} className="ml-1" />
+                                            Sau →
                                         </Button>
                                     </div>
                                 )}

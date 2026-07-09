@@ -19,14 +19,14 @@ export function FinancialStatsCards() {
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Tổng doanh thu hệ thống
           </p>
-          <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-[4px] flex items-center justify-center border border-emerald-100">
+          <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-[4px] flex items-center justify-center border border-blue-100">
             <DollarSign size={18} />
           </div>
         </div>
         <h3 className="text-2xl font-black text-slate-800 tracking-tight">
           2.854.200.000 ₫
         </h3>
-        <div className="flex items-center gap-1.5 text-emerald-600 text-[11px] font-bold mt-3 bg-emerald-50 w-fit px-2 py-0.5 rounded">
+        <div className="flex items-center gap-1.5 text-blue-600 text-[11px] font-bold mt-3 bg-blue-50 w-fit px-2 py-0.5 rounded">
           <TrendingUp size={12} /> +12.5%{" "}
           <span className="font-medium text-slate-400">so với tháng trước</span>
         </div>
@@ -61,7 +61,7 @@ export function FinancialStatsCards() {
             <Landmark size={18} />
           </div>
         </div>
-        <h3 className="text-2xl font-black text-emerald-600 tracking-tight">
+        <h3 className="text-2xl font-black text-blue-600 tracking-tight">
           1.733.700.000 ₫
         </h3>
         <div className="flex items-center gap-1.5 text-blue-600 text-[11px] font-bold mt-3 bg-blue-50 w-fit px-2 py-0.5 rounded">
@@ -72,3 +72,4 @@ export function FinancialStatsCards() {
     </div>
   );
 }
+

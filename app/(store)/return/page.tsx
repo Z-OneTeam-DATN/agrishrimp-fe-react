@@ -21,16 +21,16 @@ export default function ReturnPolicyPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Chính sách đổi trả</span>
+        <span className="text-[#1965a2] font-bold">Chính sách đổi trả</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-gray-100">
-        <h3 className="text-xl font-bold text-[#329965] uppercase border-b border-gray-200 pb-4 mb-6 flex items-center">
+        <h3 className="text-xl font-bold text-[#1965a2] uppercase border-b border-gray-200 pb-4 mb-6 flex items-center">
           <RotateCcw className="mr-3" size={24} />
           Chính sách Đổi trả Hàng hóa AgriShrimp
         </h3>
@@ -38,17 +38,17 @@ export default function ReturnPolicyPage() {
         {/* BẢNG CHÍNH SÁCH */}
         <div className="overflow-x-auto mb-8 border border-gray-200 rounded-lg">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-white uppercase bg-[#329965]">
+            <thead className="text-xs text-white uppercase bg-[#1965a2]">
               <tr>
                 <th
                   scope="col"
-                  className="px-6 py-4 w-[30%] border-r border-green-600"
+                  className="px-6 py-4 w-[30%] border-r border-blue-600"
                 >
                   Trường hợp
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-4 w-[35%] border-r border-green-600 text-center"
+                  className="px-6 py-4 w-[35%] border-r border-blue-600 text-center"
                 >
                   1 – 30 ngày
                 </th>
@@ -65,7 +65,7 @@ export default function ReturnPolicyPage() {
                     (Do nhà sản xuất/vận chuyển)
                   </div>
                 </td>
-                <td className="px-6 py-4 text-center font-bold text-[#329965] border-r border-gray-200">
+                <td className="px-6 py-4 text-center font-bold text-[#1965a2] border-r border-gray-200">
                   Đổi mới - Trả không thu phí
                 </td>
                 <td className="px-6 py-4 text-center text-gray-400">
@@ -124,10 +124,10 @@ export default function ReturnPolicyPage() {
           {/* 1. Các trường hợp nhận đổi trả */}
           <section>
             <h5 className="font-bold text-gray-900 text-lg mb-3 flex items-center">
-              <CheckCircle2 className="text-[#329965] mr-2" size={20} />
+              <CheckCircle2 className="text-[#1965a2] mr-2" size={20} />
               1. Các trường hợp nhận đổi trả
             </h5>
-            <ul className="list-disc pl-9 space-y-2 text-gray-600 marker:text-[#329965]">
+            <ul className="list-disc pl-9 space-y-2 text-gray-600 marker:text-[#1965a2]">
               <li>
                 Sản phẩm mắc lỗi từ phía nhà sản xuất: Thuốc bị vón cục, biến
                 đổi màu sắc, bao bì bị rách hở seal, thiết bị không hoạt động.
@@ -175,7 +175,7 @@ export default function ReturnPolicyPage() {
               <Truck className="text-blue-600 mr-2" size={20} />
               3. Cách thức đổi trả
             </h5>
-            <div className="pl-5 border-l-4 border-green-200 ml-2 space-y-3">
+            <div className="pl-5 border-l-4 border-blue-200 ml-2 space-y-3">
               <p>
                 <strong>Bước 1:</strong> Khách hàng thông báo cho nhân viên
                 AgriShrimp qua Hotline hoặc Zalo về lý do đổi trả.
@@ -249,11 +249,11 @@ export default function ReturnPolicyPage() {
 
           {/* Footer Contact Box */}
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-8 flex items-start gap-4">
-            <div className="bg-white p-2 rounded-full shadow-sm text-[#329965]">
+            <div className="bg-white p-2 rounded-full shadow-sm text-[#1965a2]">
               <Headphones size={24} />
             </div>
             <div>
-              <h6 className="font-bold text-[#329965] uppercase text-sm mb-1">
+              <h6 className="font-bold text-[#1965a2] uppercase text-sm mb-1">
                 Trung tâm dịch vụ khách hàng
               </h6>
               <p className="text-gray-600 text-sm mb-2">
@@ -280,3 +280,4 @@ export default function ReturnPolicyPage() {
     </>
   );
 }
+

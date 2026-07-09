@@ -111,22 +111,22 @@ export default function StoreLocatorPage() {
 
       {/* Breadcrumb */}
       <div className="py-2 mb-6 text-sm text-gray-500 flex items-center">
-        <Link href="/" className="hover:text-[#329965] transition-colors">
+        <Link href="/" className="hover:text-[#1965a2] transition-colors">
           Trang chủ
         </Link>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-[#329965] font-bold">Hệ thống cửa hàng</span>
+        <span className="text-[#1965a2] font-bold">Hệ thống cửa hàng</span>
       </div>
 
       {/* Nội dung chính */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b pb-4 border-gray-100">
-          <h3 className="text-xl font-bold text-[#329965] uppercase flex items-center mb-2 md:mb-0">
+          <h3 className="text-xl font-bold text-[#1965a2] uppercase flex items-center mb-2 md:mb-0">
             <MapPin className="mr-2" />
             Tìm Cửa hàng & Phòng Lab gần bạn
           </h3>
-          <span className="bg-green-100 text-[#329965] text-xs font-bold px-3 py-1 rounded-full border border-green-200">
+          <span className="bg-blue-100 text-[#1965a2] text-xs font-bold px-3 py-1 rounded-full border border-blue-200">
             Toàn quốc: {STORES.length} Cửa hàng
           </span>
         </div>
@@ -139,7 +139,7 @@ export default function StoreLocatorPage() {
             </label>
             <select
               // Đã thêm text-gray-900
-              className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#329965] focus:border-transparent outline-none text-sm transition-all"
+              className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1965a2] focus:border-transparent outline-none text-sm transition-all"
               value={selectedProvince}
               onChange={handleProvinceChange}
             >
@@ -158,7 +158,7 @@ export default function StoreLocatorPage() {
             </label>
             <select
               // Đã thêm text-gray-900
-              className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#329965] outline-none text-sm disabled:bg-gray-100 disabled:text-gray-400"
+              className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1965a2] outline-none text-sm disabled:bg-gray-100 disabled:text-gray-400"
               disabled={selectedProvince === "0"}
             >
               <option value="0">Chọn Quận/Huyện</option>
@@ -177,7 +177,7 @@ export default function StoreLocatorPage() {
             </label>
             <select
               // Đã thêm text-gray-900
-              className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#329965] outline-none text-sm"
+              className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1965a2] outline-none text-sm"
             >
               <option value="0">Tất cả chi nhánh</option>
               <option value="1">Có Phòng Lab xét nghiệm</option>
@@ -190,7 +190,7 @@ export default function StoreLocatorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 border border-gray-200 rounded-lg overflow-hidden h-[500px]">
           {/* Store List (Left Side) */}
           <div className="lg:col-span-5 flex flex-col h-full border-r border-gray-200 bg-gray-50">
-            <div className="bg-[#329965] text-white p-3 font-bold text-sm flex items-center shadow-sm z-10">
+            <div className="bg-[#1965a2] text-white p-3 font-bold text-sm flex items-center shadow-sm z-10">
               <List size={18} className="mr-2" /> Danh sách cửa hàng
             </div>
             <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
@@ -199,12 +199,12 @@ export default function StoreLocatorPage() {
                   key={store.id}
                   onClick={() => handleStoreClick(store)}
                   className={`
-                    p-4 border-b border-gray-200 cursor-pointer transition-all hover:bg-green-50
-                    ${activeStoreId === store.id ? "bg-white border-l-4 border-l-[#329965] shadow-inner" : "bg-transparent border-l-4 border-l-transparent"}
+                    p-4 border-b border-gray-200 cursor-pointer transition-all hover:bg-blue-50
+                    ${activeStoreId === store.id ? "bg-white border-l-4 border-l-[#1965a2] shadow-inner" : "bg-transparent border-l-4 border-l-transparent"}
                   `}
                 >
                   <h6
-                    className={`font-bold text-sm mb-1 ${activeStoreId === store.id ? "text-[#329965]" : "text-gray-800"}`}
+                    className={`font-bold text-sm mb-1 ${activeStoreId === store.id ? "text-[#1965a2]" : "text-gray-800"}`}
                   >
                     {store.name}
                   </h6>
@@ -248,3 +248,4 @@ export default function StoreLocatorPage() {
     </>
   );
 }
+
