@@ -126,6 +126,12 @@ export default function AttributeManagementPage() {
   const [currentStatusFilter, setCurrentStatusFilter] = useState("all");
   const [currentCountFilter, setCurrentCountFilter] = useState("all");
   const [currentSort, setCurrentSort] = useState("id,desc");
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageSize = 20;
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [currentKeyword, currentStatusFilter, currentCountFilter]);
 
   const {
     register,
@@ -377,6 +383,10 @@ export default function AttributeManagementPage() {
     currentStatusFilter,
   ]);
 
+  const paginatedAttributes = useMemo(() => {
+    return displayedAttributes.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  }, [displayedAttributes, currentPage, pageSize]);
+
   return (
     <div className="space-y-3">
       <div className="mt-2 mb-8 space-y-4 px-1">
@@ -491,9 +501,6 @@ export default function AttributeManagementPage() {
                   <th className="w-[200px] px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">
                     Tên thuộc tính
                   </th>
-                  <th className="w-[150px] px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">
-                    Mã code
-                  </th>
                   <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">
                     Các giá trị
                   </th>
@@ -508,22 +515,19 @@ export default function AttributeManagementPage() {
                 </tr>
               </thead>
               <tbody>
-                {displayedAttributes.length > 0 ? (
-                  displayedAttributes.map((attr, index) => (
+                {paginatedAttributes.length > 0 ? (
+                  paginatedAttributes.map((attr, index) => (
                     <tr
                       key={attr.id}
                       className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                     >
                       <td className="px-4 py-3 text-[11px] font-medium text-slate-500">
-                        {index + 1}
+                        {currentPage * pageSize + index + 1}
                       </td>
                       <td className="px-2 py-3">
                         <span className="text-[11px] font-semibold text-slate-800">
                           {attr.name}
                         </span>
-                      </td>
-                      <td className="px-2 py-3 font-mono text-[11px] text-slate-500">
-                        {attr.code}
                       </td>
                       <td className="max-w-[360px] px-2 py-3 text-[11px] text-slate-500">
                         <Tooltip>
@@ -584,7 +588,7 @@ export default function AttributeManagementPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={canAction ? 6 : 5}
+                      colSpan={canAction ? 5 : 4}
                       className="h-[180px] text-center text-[12px] font-medium text-slate-400"
                     >
                       Chưa có dữ liệu.
@@ -595,10 +599,50 @@ export default function AttributeManagementPage() {
             </table>
           </div>
         </TooltipProvider>
-        <div className="flex min-w-full shrink-0 items-center justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
+        <div className="flex min-w-full shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
           <p className="text-[12px] font-semibold text-slate-500">
-            Tổng số: {displayedAttributes.length} thuộc tính
+            Tổng số: {displayedAttributes.length} thuộc tính (Trang {currentPage + 1}/{Math.ceil(displayedAttributes.length / pageSize) || 1})
           </p>
+          {Math.ceil(displayedAttributes.length / pageSize) > 1 && (
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 0}
+                className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Trước
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.ceil(displayedAttributes.length / pageSize) }).map((_, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(index)}
+                    className={cn(
+                      "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all",
+                      currentPage === index
+                        ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    {index + 1}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= Math.ceil(displayedAttributes.length / pageSize) - 1}
+                className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Sau
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -621,36 +665,21 @@ export default function AttributeManagementPage() {
             className="flex-1 min-h-0 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6 space-y-5"
           >
             <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-500 uppercase">
-                    Tên thuộc tính *
-                  </Label>
-                  <Input
-                    {...register("name", { required: "Vui lòng nhập tên" })}
-                    placeholder="VD: Khối lượng, Màu sắc..."
-                    className="h-11 text-sm bg-white"
-                  />
-                  {errors.name && (
-                    <p className="text-xs text-red-500 font-bold">
-                      {errors.name.message as string}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-500 uppercase">
-                    Mã Code *
-                  </Label>
-                  <Input
-                    {...register("code", { required: "Vui lòng nhập mã" })}
-                    readOnly={!!editingId}
-                    className={cn(
-                      "h-11 text-sm font-mono uppercase bg-white",
-                      editingId && "bg-slate-100 text-slate-500",
-                    )}
-                  />
-                </div>
+              <input type="hidden" {...register("code")} />
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-500 uppercase">
+                  Tên thuộc tính *
+                </Label>
+                <Input
+                  {...register("name", { required: "Vui lòng nhập tên" })}
+                  placeholder="VD: Khối lượng, Màu sắc..."
+                  className="h-11 text-sm bg-white"
+                />
+                {errors.name && (
+                  <p className="text-xs text-red-500 font-bold">
+                    {errors.name.message as string}
+                  </p>
+                )}
               </div>
             </div>
 
