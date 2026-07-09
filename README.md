@@ -2,10 +2,6 @@
 
 Dự án frontend của nền tảng AgriShrimp, xây dựng bằng Next.js 15 (App Router), phục vụ đồng thời website bán hàng, trang quản trị và các luồng AI dành cho người nuôi tôm.
 
-## Team Workflow
-
-Táº¥t cáº£ thĂ nh viĂªn trong team nĂªn lĂ m theo tĂ i liá»‡u Git vĂ  Pull Request táº¡i [docs/git-workflow-pr-guide.md](docs/git-workflow-pr-guide.md).
-
 ## Description
 
 AgriShrimp Web không chỉ là website bán thuốc, thức ăn và vật tư thủy sản, mà còn là lớp giao diện để người dùng tương tác trực tiếp với các dịch vụ AI của hệ thống.
