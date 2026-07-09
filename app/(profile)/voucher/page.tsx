@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { voucherService, Voucher } from "@/app/services/voucher.service";
+import VoucherWalletClient from "./VoucherWalletClient";
 
 const SAVED_VOUCHERS_KEY = "agrishrimp.savedVoucherCodes";
 
@@ -60,7 +61,7 @@ const isVoucherVisible = (voucher: Voucher) => {
   return voucher.status === "ACTIVE" && startOk && endOk;
 };
 
-export default function VoucherWalletPage() {
+function LegacyVoucherWalletPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [savedCodes, setSavedCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -317,3 +318,6 @@ export default function VoucherWalletPage() {
   );
 }
 
+export default function VoucherWalletPage() {
+  return <VoucherWalletClient />;
+}

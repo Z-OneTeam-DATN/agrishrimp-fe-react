@@ -30,7 +30,9 @@ export function getOrderListPath(
   user: OrderRouteUser,
   status?: string | null,
 ): string {
-  const basePath = isAdminRole(user?.role) ? "/admin/orders-all" : "/admin/orders";
+  const basePath = isAdminRole(user?.role)
+    ? "/admin/orders-all"
+    : "/admin/orders-processing";
 
   if (!status) return basePath;
 

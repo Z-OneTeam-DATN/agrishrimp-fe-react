@@ -64,12 +64,16 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       icon: FileSearch,
       href: getOrderListPath(user, "PENDING"),
     },
-    {
-      label: "Chờ thanh toán",
-      count: data?.pendingPayment ?? 0,
-      icon: CreditCard,
-      href: getOrderListPath(user, "AWAITING_PAYMENT"),
-    },
+    ...(isAdmin
+      ? [
+          {
+            label: "Chờ thanh toán",
+            count: data?.pendingPayment ?? 0,
+            icon: CreditCard,
+            href: getOrderListPath(user, "AWAITING_PAYMENT"),
+          },
+        ]
+      : []),
     {
       label: "Chờ đóng gói",
       count: data?.pendingPacking ?? 0,
@@ -77,7 +81,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       href: getOrderListPath(user, "PROCESSING"),
     },
     {
-      label: "Chờ lấy hàng",
+      label: "Chờ bàn giao",
       count: data?.pendingPickup ?? 0,
       icon: Truck,
       href: getOrderListPath(user, "READY_FOR_PICKUP"),

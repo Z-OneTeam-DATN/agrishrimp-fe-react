@@ -14,6 +14,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number"
@@ -71,6 +72,13 @@ export default function AdminVoucherPage() {
     useState<Voucher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageSize = 5;
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [keyword, statusFilter]);
+
   const fetchVouchers = useCallback(async () => {
     if (!canViewVoucher) return;
 
@@ -114,6 +122,20 @@ export default function AdminVoucherPage() {
       return matchesKeyword && matchesStatus;
     });
   }, [keyword, statusFilter, vouchers]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredVouchers.length / pageSize)),
+    [filteredVouchers.length, pageSize],
+  );
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages - 1));
+  }, [totalPages]);
+
+  const paginatedVouchers = useMemo(() => {
+    const startIndex = currentPage * pageSize;
+    return filteredVouchers.slice(startIndex, startIndex + pageSize);
+  }, [filteredVouchers, currentPage, pageSize]);
 
   const counts = useMemo(
     () => ({
@@ -281,7 +303,7 @@ export default function AdminVoucherPage() {
                     <Loader2 className="mx-auto animate-spin text-slate-400" />
                   </td>
                 </tr>
-              ) : filteredVouchers.length === 0 ? (
+              ) : paginatedVouchers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={canManageVoucher ? 6 : 5}
@@ -291,7 +313,7 @@ export default function AdminVoucherPage() {
                   </td>
                 </tr>
               ) : (
-                filteredVouchers.map((voucher) => (
+                paginatedVouchers.map((voucher) => (
                   <tr
                     key={voucher.id ?? voucher.code}
                     className="border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50"
@@ -351,6 +373,48 @@ export default function AdminVoucherPage() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex min-w-full shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
+          <p className="text-[12px] font-semibold text-slate-500">
+            Tổng số: {filteredVouchers.length} voucher (Trang {currentPage + 1}/{totalPages})
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 0}
+                className="inline-flex h-7 items-center justify-center rounded border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Trước
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setCurrentPage(index)}
+                    className={cn(
+                      "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all rounded",
+                      currentPage === index
+                        ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1}
+                className="inline-flex h-7 items-center justify-center rounded border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Sau
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

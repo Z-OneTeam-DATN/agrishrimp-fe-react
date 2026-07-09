@@ -83,9 +83,8 @@ export default function AdminLayout({
 
   const isAllowed = useMemo(() => {
     const isBranchOrderRoute =
-      pathname.startsWith("/admin/orders") &&
-      !pathname.startsWith("/admin/orders-all") &&
-      !pathname.startsWith("/admin/orders/add");
+      pathname.startsWith("/admin/orders-processing") ||
+      pathname.startsWith("/admin/orders-handover");
 
     if (isBranchScopedOrderUser && isBranchOrderRoute) {
       return true;

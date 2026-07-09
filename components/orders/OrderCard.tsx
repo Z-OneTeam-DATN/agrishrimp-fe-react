@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { Store, Truck, CheckCircle2, RotateCcw, XCircle, CreditCard, Clock, Package } from "lucide-react";
@@ -36,19 +36,19 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       case "AWAITING_PAYMENT":
         return {
           label: "Chờ thanh toán",
-          className: "text-[#1965a2]",
+          className: "text-[#2d9f8d]",
           icon: <CreditCard size={14} className="mr-1" />,
         };
       case "AWAITING_REPLENISHMENT":
         return {
-          label: "Chờ lấy hàng",
-          className: "text-[#1965a2]",
+          label: "Chờ điều chuyển",
+          className: "text-[#2d9f8d]",
           icon: <Package size={14} className="mr-1" />,
         };
       case "PENDING":
         return {
           label: "Chờ xác nhận",
-          className: "text-[#1965a2]",
+          className: "text-[#2d9f8d]",
           icon: <Clock size={14} className="mr-1" />,
         };
       case "CONFIRMED":
@@ -56,25 +56,25 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       case "READY_FOR_PICKUP":
         return {
           label: "Chờ lấy hàng",
-          className: "text-[#1965a2]",
+          className: "text-[#2d9f8d]",
           icon: <Package size={14} className="mr-1" />,
         };
       case "SHIPPING":
         return {
           label: "Chờ giao hàng",
-          className: "text-[#1965a2]",
+          className: "text-[#2d9f8d]",
           icon: <Truck size={14} className="mr-1" />,
         };
       case "RECEIVED":
         return {
           label: "Đã nhận hàng",
-          className: "text-[#1965a2]",
+          className: "text-[#2d9f8d]",
           icon: <CheckCircle2 size={14} className="mr-1" />,
         };
       case "COMPLETED":
         return {
           label: "Đã giao",
-          className: "text-[#1965a2]",
+          className: "text-[#2d9f8d]",
           icon: <CheckCircle2 size={14} className="mr-1" />,
         };
       case "CANCELLED":
@@ -97,14 +97,14 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
   const statusConfig = getStatusConfig(order.status);
 
   const btnMainClass =
-    "h-8 rounded-none border border-[#1965a2] bg-[#1965a2] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#145486]";
+    "h-8 border border-[#2d9f8d] bg-[#2d9f8d] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#248273]";
   const btnOutlineClass =
-    "h-8 rounded-none border border-gray-300 bg-white px-4 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-800";
+    "h-8 border border-gray-300 bg-white px-4 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-800";
   const btnPayClass =
-    "h-8 rounded-none border border-red-500 bg-red-500 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-red-600";
+    "h-8 border border-red-500 bg-red-500 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-red-600";
 
   return (
-    <div className="mb-3 overflow-hidden border border-gray-100 bg-white transition-all duration-200 hover:shadow-sm">
+    <div className="mb-3 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm transition-all duration-200 hover:shadow-md">
       <div className="flex items-center justify-between border-b border-gray-50 bg-gray-50/30 px-4 py-3">
         <div className="flex flex-col">
           <div className="font-bold text-gray-800 flex items-center text-sm">
@@ -126,7 +126,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             })}
           >
             <Link href={`/orders/${order.id}`} className="group flex min-w-0 flex-1 cursor-pointer gap-3">
-              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 transition-colors group-hover:border-[#1965a2]/30">
+              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 transition-colors group-hover:border-[#2d9f8d]/30">
                 <Image
                   src={item.image || "/placeholder.png"}
                   alt={item.productName}
@@ -135,7 +135,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                 />
               </div>
               <div className="min-w-0 flex-1 py-0.5">
-                <div className="truncate text-sm font-semibold text-gray-800 transition-colors group-hover:text-[#1965a2]">
+                <div className="truncate text-sm font-semibold text-gray-800 transition-colors group-hover:text-[#2d9f8d]">
                   {item.productName}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
@@ -144,8 +144,8 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <span>SKU: {item.sku}</span>
                 </div>
                 {(item.missingQuantity ?? 0) > 0 && (
-                  <div className="mt-1 text-[11px] font-semibold text-[#1965a2]">
-                    Đang bổ sung thêm {item.missingQuantity} sản phẩm
+                  <div className="mt-1 text-[11px] font-semibold text-[#2d9f8d]">
+                    Đang gom hoặc điều chuyển thêm {item.missingQuantity} sản phẩm từ chi nhánh khác
                   </div>
                 )}
                 <div className={`mt-1.5 text-sm font-bold sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}>
@@ -172,7 +172,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <Link href={`/reviews/write/${item.productId}?orderId=${order.id}`}>
                     <Button
                       variant="outline"
-                      className={cn(btnOutlineClass, "h-7 border-[#1965a2] px-3 text-[10px] text-[#1965a2] hover:bg-blue-50 hover:text-[#1965a2]")}
+                      className={cn(btnOutlineClass, "h-7 border-[#2d9f8d] px-3 text-[10px] text-[#2d9f8d] hover:bg-teal-50 hover:text-[#2d9f8d]")}
                     >
                       Viết đánh giá
                     </Button>
@@ -196,7 +196,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             <span
               className={cn(
                 "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase",
-                order.paymentStatus === "PAID" ? "bg-blue-100 text-blue-600" : "bg-orange-100 text-orange-600",
+                order.paymentStatus === "PAID" ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600",
               )}
             >
               {order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
@@ -243,4 +243,3 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
     </div>
   );
 }
-

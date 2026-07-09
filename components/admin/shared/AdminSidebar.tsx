@@ -93,10 +93,13 @@ export default function AdminSidebar() {
         isManager ||
         isManagerRole(user?.role)));
   const orderListHref = getOrderListPath(user);
+  const orderListBasePath = orderListHref.split("?")[0];
   const isOrderListActive =
-    pathname === "/admin/orders" ||
-    pathname === "/admin/orders-all" ||
-    (pathname.startsWith("/admin/orders/") && !pathname.includes("return"));
+    pathname === orderListBasePath ||
+    (pathname.startsWith("/admin/orders-processing") &&
+      orderListBasePath === "/admin/orders-processing") ||
+    (pathname.startsWith("/admin/orders-all") &&
+      orderListBasePath === "/admin/orders-all");
   const canViewSystemSection = hasAnyPermission([
     P.DASHBOARD_VIEW,
     P.WORKSPACE_VIEW,
@@ -166,7 +169,11 @@ export default function AdminSidebar() {
   }, []);
 
   useEffect(() => {
-    if (pathname.startsWith("/admin/orders")) {
+    if (
+      pathname.startsWith("/admin/orders") ||
+      pathname.startsWith("/admin/orders-processing") ||
+      pathname.startsWith("/admin/orders-handover")
+    ) {
       setOpenGroups((prev) =>
         prev.includes("orders") ? prev : [...prev, "orders"],
       );
