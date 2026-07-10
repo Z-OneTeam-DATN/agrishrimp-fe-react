@@ -73,6 +73,7 @@ export default function AdminLayout({
   const normalizedRole = normalizeRoleSlug(user?.role);
   const isBlockedAdminRole = normalizedRole === "USER" || normalizedRole === "CUSTOMER";
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
+  const shouldMountWebSocket = pathname.startsWith("/admin/chat");
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
@@ -115,7 +116,7 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-[#f1f5f9]">
-      <WebSocketProvider />
+      {shouldMountWebSocket ? <WebSocketProvider /> : null}
       <AdminSidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <AdminTopHeader />

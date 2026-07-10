@@ -30,7 +30,7 @@ export function InventorySidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
-  const { user, isLoadingAuth } = useAuthStore();
+  const { user, accessToken, isLoadingAuth } = useAuthStore();
   const [productCount, setProductCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
   const [receiptPendingCount, setReceiptPendingCount] = useState(0);
@@ -40,7 +40,7 @@ export function InventorySidebar() {
   const [dashboardTaskCount, setDashboardTaskCount] = useState(0);
 
   useEffect(() => {
-    if (!user || isLoadingAuth) {
+    if (!accessToken || !user || isLoadingAuth) {
       return;
     }
 
@@ -90,7 +90,7 @@ export function InventorySidebar() {
     };
 
     fetchCounts();
-  }, [user, isLoadingAuth]);
+  }, [accessToken, isLoadingAuth, user]);
 
   const isActive = (path: string, tab?: string) => {
     if (tab) return pathname === path && currentTab === tab;

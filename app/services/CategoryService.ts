@@ -1,6 +1,12 @@
 import { apiJava, buildJavaApiUrl } from "@/lib/axios";
+import { CategoryDTO } from "@/app/types/category.type";
 
 const PREFIX = "/categories";
+const PUBLIC_CATEGORIES_RETRY_DELAY_MS = 30_000;
+
+let publicCategoriesCache: CategoryDTO[] | null = null;
+let publicCategoriesInFlight: Promise<CategoryDTO[]> | null = null;
+let publicCategoriesLastFailedAt = 0;
 
 type CategoryStatus = "ACTIVE" | "INACTIVE";
 
@@ -92,15 +98,37 @@ export const toggleCategoryStatus = async (
 };
 
 // Lấy danh mục công khai cho trang chủ
-export const getPublicCategories = async () => {
-  try {
-    const response = await apiJava.get(
-      buildJavaApiUrl("/public/categories"),
-      { isPublic: true } as any,
-    );
-    return response.data || [];
-  } catch (e) {
-    console.error("Không thể tải danh mục công khai:", e);
+export const getPublicCategories = async (): Promise<CategoryDTO[]> => {
+  if (publicCategoriesCache) {
+    return publicCategoriesCache;
+  }
+
+  if (publicCategoriesInFlight) {
+    return publicCategoriesInFlight;
+  }
+
+  if (
+    publicCategoriesLastFailedAt > 0 &&
+    Date.now() - publicCategoriesLastFailedAt < PUBLIC_CATEGORIES_RETRY_DELAY_MS
+  ) {
     return [];
   }
+
+  publicCategoriesInFlight = apiJava
+    .get<CategoryDTO[]>(buildJavaApiUrl("/public/categories"), { isPublic: true } as any)
+    .then((response) => {
+      const data = Array.isArray(response.data) ? response.data : [];
+      publicCategoriesCache = data;
+      publicCategoriesLastFailedAt = 0;
+      return data;
+    })
+    .catch(() => {
+      publicCategoriesLastFailedAt = Date.now();
+      return [];
+    })
+    .finally(() => {
+      publicCategoriesInFlight = null;
+    });
+
+  return publicCategoriesInFlight;
 };

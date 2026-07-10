@@ -52,9 +52,30 @@ import { P } from "@/lib/permissions";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 
+const SIDEBAR_COUNTS_CACHE_KEY = "admin_sidebar_counts_v1";
+const SIDEBAR_COUNTS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type SidebarCountsCache = {
+  fetchedAt: number;
+  supplierCount: number;
+  customerCount: number;
+  productCount: number;
+  categoryCount: number;
+  brandCount: number;
+  attributeCount: number;
+  employeeCount: number;
+  branchCount: number;
+  voucherCount: number;
+  purchaseRequestPendingCount: number;
+  receiptPendingCount: number;
+  exportPendingCount: number;
+  transferPendingCount: number;
+  checkPendingCount: number;
+};
+
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { user, isLoadingAuth } = useAuthStore();
+  const { user, accessToken, isLoadingAuth } = useAuthStore();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
   const role = normalizeRoleSlug(user?.role) || "USER";
@@ -127,6 +148,23 @@ export default function AdminSidebar() {
   const [checkPendingCount, setCheckPendingCount] = useState(0);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
+  const applyCounts = useCallback((snapshot: SidebarCountsCache) => {
+    setSupplierCount(snapshot.supplierCount);
+    setCustomerCount(snapshot.customerCount);
+    setProductCount(snapshot.productCount);
+    setCategoryCount(snapshot.categoryCount);
+    setBrandCount(snapshot.brandCount);
+    setAttributeCount(snapshot.attributeCount);
+    setEmployeeCount(snapshot.employeeCount);
+    setBranchCount(snapshot.branchCount);
+    setVoucherCount(snapshot.voucherCount);
+    setPurchaseRequestPendingCount(snapshot.purchaseRequestPendingCount);
+    setReceiptPendingCount(snapshot.receiptPendingCount);
+    setExportPendingCount(snapshot.exportPendingCount);
+    setTransferPendingCount(snapshot.transferPendingCount);
+    setCheckPendingCount(snapshot.checkPendingCount);
+  }, []);
+
   useEffect(() => {
     if (pathname.startsWith("/admin/orders")) {
       setOpenGroups((prev) =>
@@ -136,7 +174,7 @@ export default function AdminSidebar() {
   }, [pathname]);
 
   const fetchCounts = useCallback(async () => {
-    if (!user || isLoadingAuth) {
+    if (!accessToken || !user || isLoadingAuth) {
       return;
     }
 
@@ -240,28 +278,24 @@ export default function AdminSidebar() {
           ? (voucherResult.value as any)
           : null;
 
-      setSupplierCount(supplierValue?.totalElements || 0);
-      setCustomerCount(customerValue?.totalElements || 0);
-      setProductCount(
+      const nextSupplierCount = supplierValue?.totalElements || 0;
+      const nextCustomerCount = customerValue?.totalElements || 0;
+      const nextProductCount =
         Array.isArray(productValue)
           ? productValue.length
-          : productValue?.totalProducts || 0,
-      );
-      setCategoryCount(Array.isArray(categoryValue) ? categoryValue.length : 0);
-      setBrandCount(Array.isArray(brandValue) ? brandValue.length : 0);
-      setAttributeCount(
-        Array.isArray(attributeValue) ? attributeValue.length : 0,
-      );
-      setEmployeeCount(employeeValue?.totalElements || 0);
-      setBranchCount(
+            : productValue?.totalProducts || 0;
+      const nextCategoryCount = Array.isArray(categoryValue) ? categoryValue.length : 0;
+      const nextBrandCount = Array.isArray(brandValue) ? brandValue.length : 0;
+      const nextAttributeCount =
+        Array.isArray(attributeValue) ? attributeValue.length : 0;
+      const nextEmployeeCount = employeeValue?.totalElements || 0;
+      const nextBranchCount =
         Array.isArray(branchValue)
           ? branchValue.length
-          : branchValue?.totalElements || 0,
-      );
-      setVoucherCount(
+          : branchValue?.totalElements || 0;
+      const nextVoucherCount =
         voucherValue?.totalElements ||
-          (Array.isArray(voucherValue) ? voucherValue.length : 0),
-      );
+        (Array.isArray(voucherValue) ? voucherValue.length : 0);
 
       const purchaseRequests =
         purchaseRequestResult.status === "fulfilled"
@@ -269,11 +303,10 @@ export default function AdminSidebar() {
             ? purchaseRequestResult.value
             : []
           : [];
-      setPurchaseRequestPendingCount(
+      const nextPurchaseRequestPendingCount =
         purchaseRequests.filter(
           (item: any) => item.status === "PENDING_APPROVAL",
-        ).length,
-      );
+        ).length;
 
       const receipts =
         receiptResult.status === "fulfilled"
@@ -281,11 +314,10 @@ export default function AdminSidebar() {
             ? receiptResult.value
             : receiptResult.value?.data || receiptResult.value?.content || []
           : [];
-      setReceiptPendingCount(
+      const nextReceiptPendingCount =
         receipts.filter(
           (item: any) => item.status === "PENDING" || item.status === "PO",
-        ).length,
-      );
+        ).length;
 
       const exportsList =
         exportResult.status === "fulfilled"
@@ -293,17 +325,15 @@ export default function AdminSidebar() {
             ? exportResult.value
             : exportResult.value?.data || exportResult.value?.content || []
           : [];
-      setExportPendingCount(
+      const nextExportPendingCount =
         exportsList.filter(
           (item: any) => item.status === "PENDING" || item.status === "DRAFT",
-        ).length,
-      );
+        ).length;
 
-      setTransferPendingCount(
+      const nextTransferPendingCount =
         transferResult.status === "fulfilled"
           ? transferResult.value?.totalElements || 0
-          : 0,
-      );
+          : 0;
 
       const checks =
         checkResult.status === "fulfilled"
@@ -311,36 +341,87 @@ export default function AdminSidebar() {
             ? checkResult.value
             : checkResult.value?.data || checkResult.value?.content || []
           : [];
-      setCheckPendingCount(
-        checks.filter((item: any) => item.status === "PENDING").length,
-      );
+      const nextCheckPendingCount = checks.filter(
+        (item: any) => item.status === "PENDING",
+      ).length;
+
+      const snapshot: SidebarCountsCache = {
+        fetchedAt: Date.now(),
+        supplierCount: nextSupplierCount,
+        customerCount: nextCustomerCount,
+        productCount: nextProductCount,
+        categoryCount: nextCategoryCount,
+        brandCount: nextBrandCount,
+        attributeCount: nextAttributeCount,
+        employeeCount: nextEmployeeCount,
+        branchCount: nextBranchCount,
+        voucherCount: nextVoucherCount,
+        purchaseRequestPendingCount: nextPurchaseRequestPendingCount,
+        receiptPendingCount: nextReceiptPendingCount,
+        exportPendingCount: nextExportPendingCount,
+        transferPendingCount: nextTransferPendingCount,
+        checkPendingCount: nextCheckPendingCount,
+      };
+
+      applyCounts(snapshot);
+
+      try {
+        sessionStorage.setItem(SIDEBAR_COUNTS_CACHE_KEY, JSON.stringify(snapshot));
+      } catch {}
     } catch (error) {
       console.warn("Sidebar counts sync failed");
     }
-  }, [canAccessPurchaseRequests, hasPermission, isBranchAccount, isLoadingAuth, user]);
+  }, [accessToken, applyCounts, canAccessPurchaseRequests, hasPermission, isBranchAccount, isLoadingAuth, user]);
 
   useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let idleId: number | null = null;
     const browserWindow = window;
-    const scheduleFetch = () => {
-      if ("requestIdleCallback" in browserWindow) {
-        idleId = browserWindow.requestIdleCallback(
-          () => {
-            void fetchCounts();
-          },
-          { timeout: 1500 },
-        );
-        return;
-      }
+    let hasFreshCache = false;
 
+    try {
+      const rawCache = sessionStorage.getItem(SIDEBAR_COUNTS_CACHE_KEY);
+      if (rawCache) {
+        const parsed = JSON.parse(rawCache) as SidebarCountsCache;
+        if (parsed && typeof parsed.fetchedAt === "number") {
+          applyCounts(parsed);
+
+          if (Date.now() - parsed.fetchedAt < SIDEBAR_COUNTS_CACHE_TTL_MS) {
+            hasFreshCache = true;
+          }
+        }
+      }
+    } catch {}
+
+    const scheduleFetch = () => {
       timeoutId = globalThis.setTimeout(() => {
+        if ("requestIdleCallback" in browserWindow) {
+          idleId = browserWindow.requestIdleCallback(
+            () => {
+              void fetchCounts();
+            },
+            { timeout: 3000 },
+          );
+          return;
+        }
+
         void fetchCounts();
-      }, 500);
+      }, 2500);
     };
 
-    scheduleFetch();
-    const handleUpdate = () => fetchCounts();
+    if (!hasFreshCache) {
+      scheduleFetch();
+    }
+    const handleUpdate = () => {
+      try {
+        sessionStorage.removeItem(SIDEBAR_COUNTS_CACHE_KEY);
+      } catch {}
+      void fetchCounts();
+    };
     window.addEventListener("supplierUpdated", handleUpdate);
     window.addEventListener("customerUpdated", handleUpdate);
     window.addEventListener("orderUpdated", handleUpdate);
@@ -358,7 +439,7 @@ export default function AdminSidebar() {
       window.removeEventListener("orderUpdated", handleUpdate);
       window.removeEventListener("brandUpdated", handleUpdate);
     };
-  }, [fetchCounts]);
+  }, [accessToken, fetchCounts]);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";

@@ -123,7 +123,7 @@ const BusinessCard = ({
 };
 
 export default function WarehouseDashboard() {
-  const { user } = useAuthStore();
+  const { user, accessToken, isLoadingAuth } = useAuthStore();
   const [currentTime, setCurrentTime] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -142,6 +142,11 @@ export default function WarehouseDashboard() {
   };
 
   const fetchDashboardData = async () => {
+    if (!accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Gọi song song 5 API để lấy dữ liệu nhanh nhất
@@ -195,8 +200,12 @@ export default function WarehouseDashboard() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (isLoadingAuth) {
+      return;
+    }
+
+    void fetchDashboardData();
+  }, [accessToken, isLoadingAuth]);
 
   // Tổng số lượng "cần xử lý" (Pending của tất cả các phiếu)
   const totalTasks = dbData.receipts.pending + dbData.exports.pending + dbData.transfers.pending + dbData.orders.pending;
