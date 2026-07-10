@@ -1,35 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  BarChart3,
-  PieChart as PieChartIcon,
-  ShoppingCart,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar as RechartsBar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { AlertTriangle, BarChart3, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { branchService } from "@/app/services/branchService";
 import { orderService } from "@/app/services/order.service";
-import { customerService } from "@/app/services/customer.service";
 import {
   CategoryDistribution,
+  CustomerInsights,
   DailyResults,
   DashboardStats,
   InventoryInfo,
@@ -50,6 +32,32 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
+import { useAuthStore } from "@/stores/useAuthStore";
+
+const AdminDashboardCharts = dynamic(
+  () => import("@/components/admin/AdminDashboardCharts"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
+        <Panel title="Doanh thu theo ngày">
+          <div className="h-[300px] rounded-[4px] bg-slate-50" />
+        </Panel>
+        <Panel title="Cơ cấu doanh thu nhóm hàng">
+          <div className="h-[300px] rounded-[4px] bg-slate-50" />
+        </Panel>
+      </div>
+    ),
+  },
+);
+
+const AdminDashboardOrderChart = dynamic(
+  () => import("@/components/admin/AdminDashboardOrderChart"),
+  {
+    ssr: false,
+    loading: () => <div className="h-[220px] rounded-[4px] bg-slate-50" />,
+  },
+);
 
 type BranchOption = {
   id: number;
@@ -59,18 +67,6 @@ type BranchOption = {
 type OrderRisk = {
   totalMissingQuantity?: number;
 };
-
-type CustomerSummary = {
-  createdAt?: string;
-  userStatus?: string;
-};
-
-type CustomerResponse =
-  | CustomerSummary[]
-  | {
-      content?: CustomerSummary[];
-      totalElements?: number;
-    };
 
 const currency = (value?: number | null) =>
   `${Number(value || 0).toLocaleString("vi-VN")} đ`;
@@ -135,28 +131,26 @@ const orderStatusRows = (pending?: PendingOrdersSummary) => [
   },
 ];
 
-const getCustomerItems = (response?: CustomerResponse) => {
-  if (!response) return [];
-  return Array.isArray(response) ? response : response.content ?? [];
-};
-
-const getCustomerTotal = (response?: CustomerResponse) => {
-  if (!response) return 0;
-  return Array.isArray(response) ? response.length : response.totalElements ?? 0;
-};
-
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
-  const { data: user, isLoading: isUserLoading, error: userError } =
-    useCurrentUser();
+  const {
+    data: user,
+    isLoading: isUserLoading,
+    error: userError,
+  } = useCurrentUser();
   const { hasPermission, isLoadingAuth } = usePermissions();
-  const [selectedBranchId, setSelectedBranchId] = useState<string | undefined>();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [selectedBranchId, setSelectedBranchId] = useState<
+    string | undefined
+  >();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const roleSlug = normalizeRoleSlug(user?.role);
   const isAdmin = isAdminRole(user?.role);
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
   const isRestricted = ["MANAGER", "STAFF", "EMPLOYEE"].includes(roleSlug);
+  const canRunProtectedQueries =
+    !isLoadingAuth && !!user && !!accessToken && canViewDashboard;
 
   useEffect(() => {
     if (user && isRestricted && user.branch?.id) {
@@ -167,62 +161,62 @@ export default function AdminDashboard() {
   const { data: branches = [] } = useQuery<BranchOption[]>({
     queryKey: ["branches-list"],
     queryFn: () => branchService.getAll(),
-    enabled: isAdmin && canViewDashboard && hasPermission(P.BRANCH_VIEW),
+    enabled: canRunProtectedQueries && isAdmin && hasPermission(P.BRANCH_VIEW),
   });
 
-  const { data: customerSnapshot } = useQuery<CustomerResponse>({
-    queryKey: ["dashboard-customers-snapshot"],
-    queryFn: () => customerService.getAll("", "all", 0, 500),
-    enabled: !!user && canViewDashboard && hasPermission(P.CUSTOMER_VIEW),
+  const { data: customerInsights } = useQuery<CustomerInsights>({
+    queryKey: ["customer-insights", selectedBranchId],
+    queryFn: () => dashboardService.getCustomerInsights(selectedBranchId),
+    enabled: canRunProtectedQueries && hasPermission(P.CUSTOMER_VIEW),
   });
 
   const { data: stats, isLoading: isStatsLoading } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats", selectedBranchId],
     queryFn: () => dashboardService.getStats(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: canRunProtectedQueries,
   });
 
   const { data: dailyResults, isLoading: isDailyLoading } =
     useQuery<DailyResults>({
       queryKey: ["daily-results", selectedBranchId],
       queryFn: () => dashboardService.getDailyResults(selectedBranchId),
-      enabled: !!user && canViewDashboard,
+      enabled: canRunProtectedQueries,
     });
 
   const { data: pendingSummary } = useQuery<PendingOrdersSummary>({
     queryKey: ["pending-orders-summary", selectedBranchId],
     queryFn: () => dashboardService.getPendingOrdersSummary(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: canRunProtectedQueries,
   });
 
   const { data: inventoryInfo } = useQuery<InventoryInfo>({
     queryKey: ["inventory-info", selectedBranchId],
     queryFn: () => dashboardService.getInventoryInfo(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: canRunProtectedQueries,
   });
 
   const { data: topProducts = [] } = useQuery<TopProduct[]>({
     queryKey: ["top-products", selectedBranchId],
     queryFn: () => dashboardService.getTopProducts(5, selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: canRunProtectedQueries,
   });
 
   const { data: salesPerformance } = useQuery({
     queryKey: ["sales-performance", selectedBranchId],
     queryFn: () => dashboardService.getSalesPerformance(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: canRunProtectedQueries,
   });
 
   const { data: categoryDistribution = [] } = useQuery<CategoryDistribution[]>({
     queryKey: ["category-distribution", selectedBranchId],
     queryFn: () => dashboardService.getCategoryDistribution(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: canRunProtectedQueries,
   });
 
   const { data: backorders = [] } = useQuery<OrderRisk[]>({
     queryKey: ["backorder-report", isAdmin],
     queryFn: () => orderService.getBackorderReport(),
-    enabled: !!user && canViewDashboard && isAdmin,
+    enabled: canRunProtectedQueries && isAdmin,
     refetchInterval: 60000,
   });
 
@@ -258,25 +252,29 @@ export default function AdminDashboard() {
   const urgentWork = orderWorkload + inventoryRisk + backorderCount;
 
   const salesRows = salesPerformance?.data ?? [];
-  const categoryRows = categoryDistribution.slice(0, 5);
+  const categoryRows = categoryDistribution.slice(0, 5).map((item) => ({
+    ...item,
+    percentage: Number.isFinite(Number(item.percentage))
+      ? Number(item.percentage)
+      : 0,
+    totalRevenue: Number.isFinite(Number(item.totalRevenue))
+      ? Number(item.totalRevenue)
+      : 0,
+    totalQuantity: Number.isFinite(Number(item.totalQuantity))
+      ? Number(item.totalQuantity)
+      : 0,
+  }));
   const categoryTotalPercent = categoryRows.reduce(
     (sum, item) => sum + Number(item.percentage || 0),
     0,
   );
-  const customerRows = getCustomerItems(customerSnapshot);
-  const customerTotal = getCustomerTotal(customerSnapshot);
-  const now = new Date();
-  const newCustomersThisMonth = customerRows.filter((customer) => {
-    if (!customer.createdAt) return false;
-    const createdAt = new Date(customer.createdAt);
-    return (
-      createdAt.getMonth() === now.getMonth() &&
-      createdAt.getFullYear() === now.getFullYear()
-    );
-  }).length;
-  const activeCustomers = customerRows.filter(
-    (customer) => customer.userStatus === "ACTIVE",
-  ).length;
+  const customerTotal = Number(
+    customerInsights?.totalCustomers ?? stats?.totalCustomers ?? 0,
+  );
+  const newCustomersThisMonth = Number(
+    customerInsights?.newCustomersThisMonth ?? 0,
+  );
+  const activeCustomers = Number(customerInsights?.activeCustomers ?? 0);
   const averageOrderValue =
     stats?.totalOrders && stats.totalOrders > 0
       ? Number(stats.totalRevenue || 0) / Number(stats.totalOrders)
@@ -285,15 +283,23 @@ export default function AdminDashboard() {
     customerTotal > 0
       ? (Number(stats?.totalOrders || 0) / customerTotal) * 100
       : 0;
-  const revenueChartRows = salesRows.map((item: SalesPerformanceData) => ({
-    date: new Date(item.date).toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-    }),
-    revenue: Number(item.revenue || 0),
-    profit: Number(item.profit || 0),
-    orders: Number(item.orderCount || 0),
-  }));
+  const revenueChartRows = salesRows.map((item: SalesPerformanceData) => {
+    const parsedDate = new Date(item.date);
+
+    return {
+      date: Number.isNaN(parsedDate.getTime())
+        ? "--/--"
+        : parsedDate.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+          }),
+      revenue: Number.isFinite(Number(item.revenue)) ? Number(item.revenue) : 0,
+      profit: Number.isFinite(Number(item.profit)) ? Number(item.profit) : 0,
+      orders: Number.isFinite(Number(item.orderCount))
+        ? Number(item.orderCount)
+        : 0,
+    };
+  });
   const hasRevenueChartData = revenueChartRows.some(
     (item) => item.revenue > 0 || item.profit > 0 || item.orders > 0,
   );
@@ -317,6 +323,7 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ["top-products"] }),
         queryClient.invalidateQueries({ queryKey: ["sales-performance"] }),
         queryClient.invalidateQueries({ queryKey: ["category-distribution"] }),
+        queryClient.invalidateQueries({ queryKey: ["customer-insights"] }),
         queryClient.invalidateQueries({ queryKey: ["pending-orders-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["backorder-report"] }),
       ]);
@@ -502,209 +509,21 @@ export default function AdminDashboard() {
         </div>
       </Panel>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
-        <Panel title="Doanh thu theo ngày">
-          <div className="h-[300px]">
-            {!hasRevenueChartData ? (
-              <EmptyText
-                className="min-h-[300px]"
-                icon={BarChart3}
-                text="Chưa có dữ liệu doanh thu."
-                hint="Biểu đồ sẽ xuất hiện khi hệ thống có doanh thu hoặc lợi nhuận trong giai đoạn này."
-              />
-            ) : (
-              <ChartViewport className="h-[300px] w-full">
-                {({ height, width }) => (
-                  <AreaChart
-                    width={width}
-                    height={height}
-                    data={revenueChartRows}
-                    margin={{ left: 0, right: 8, top: 10, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#059669" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#059669" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#64748b" stopOpacity={0.16} />
-                        <stop offset="95%" stopColor="#64748b" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="#f1f5f9" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                    />
-                    <YAxis
-                      width={48}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      tickFormatter={(value) =>
-                        Number(value) >= 1_000_000
-                          ? `${Math.round(Number(value) / 1_000_000)}tr`
-                          : `${Math.round(Number(value) / 1000)}k`
-                      }
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 4,
-                        boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-                        fontSize: 12,
-                      }}
-                      formatter={(value: number, name: string) => [
-                        currency(value),
-                        name === "revenue" ? "Doanh thu" : "Lợi nhuận",
-                      ]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#059669"
-                      strokeWidth={2}
-                      fill="url(#revenueFill)"
-                      name="Doanh thu"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="profit"
-                      stroke="#64748b"
-                      strokeWidth={2}
-                      fill="url(#profitFill)"
-                      name="Lợi nhuận"
-                    />
-                  </AreaChart>
-                )}
-              </ChartViewport>
-            )}
-          </div>
-        </Panel>
-
-        <Panel title="Cơ cấu doanh thu nhóm hàng">
-          {!hasCategoryChartData ? (
-            <EmptyText
-              icon={PieChartIcon}
-              text="Chưa có dữ liệu nhóm hàng."
-              hint="Khi có doanh thu phát sinh theo nhóm sản phẩm, sơ đồ tròn sẽ hiển thị ở đây."
-            />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-[150px_minmax(0,1fr)] xl:grid-cols-1">
-              <div className="relative mx-auto h-[180px] w-[180px]">
-                <ChartViewport className="h-[180px] w-[180px]">
-                  {({ height, width }) => (
-                    <PieChart width={width} height={height}>
-                      <Pie
-                        data={categoryRows}
-                        dataKey="percentage"
-                        nameKey="categoryName"
-                        innerRadius={58}
-                        outerRadius={82}
-                        paddingAngle={2}
-                        stroke="#ffffff"
-                        strokeWidth={3}
-                      >
-                        {categoryRows.map((item, index) => (
-                          <Cell
-                            key={item.categoryId}
-                            fill={donutColors[index % donutColors.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 4,
-                          fontSize: 12,
-                        }}
-                        formatter={(value: number) => [
-                          `${Number(value || 0).toFixed(1)}%`,
-                          "Tỷ trọng",
-                        ]}
-                      />
-                    </PieChart>
-                  )}
-                </ChartViewport>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[20px] font-semibold text-slate-900">
-                    {Math.round(categoryTotalPercent)}%
-                  </span>
-                  <span className="text-[10px] text-slate-400">top nhóm</span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {categoryRows.map((item, index) => (
-                  <NumberBar
-                    key={item.categoryId}
-                    label={item.categoryName}
-                    value={`${Number(item.percentage || 0).toFixed(1)}%`}
-                    percent={Number(item.percentage || 0)}
-                    tone={donutColors[index % donutColors.length]}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </Panel>
-      </div>
+      <AdminDashboardCharts
+        revenueChartRows={revenueChartRows}
+        hasRevenueChartData={hasRevenueChartData}
+        categoryRows={categoryRows}
+        hasCategoryChartData={hasCategoryChartData}
+        categoryTotalPercent={categoryTotalPercent}
+      />
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Panel title="Đơn hàng đang kẹt">
           <div className="space-y-4">
-            <div className="h-[220px]">
-              {!hasOrderChartData ? (
-                <EmptyText
-                  className="min-h-[220px]"
-                  icon={ShoppingCart}
-                  text="Chưa có đơn hàng cần xử lý."
-                  hint="Khi xuất hiện đơn chờ duyệt, đóng gói hoặc giao hàng, biểu đồ sẽ hiển thị tại đây."
-                />
-              ) : (
-                <ChartViewport className="h-[220px] w-full">
-                  {({ height, width }) => (
-                    <BarChart
-                      width={width}
-                      height={height}
-                      data={orderChartRows}
-                      layout="vertical"
-                      margin={{ left: 6, right: 12, top: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid stroke="#f1f5f9" horizontal={false} />
-                      <XAxis type="number" hide />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        width={92}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 11, fill: "#64748b" }}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "#f8fafc" }}
-                        contentStyle={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 4,
-                          fontSize: 12,
-                        }}
-                        formatter={(value: number) => [
-                          numberText(value),
-                          "Số đơn",
-                        ]}
-                      />
-                      <RechartsBar
-                        dataKey="value"
-                        minPointSize={0}
-                        radius={[0, 4, 4, 0]}
-                        fill="#64748b"
-                      />
-                    </BarChart>
-                  )}
-                </ChartViewport>
-              )}
-            </div>
+            <AdminDashboardOrderChart
+              orderChartRows={orderChartRows}
+              hasOrderChartData={hasOrderChartData}
+            />
             <div className="grid gap-2">
               {orderRows.map((item) => (
                 <Link
@@ -892,48 +711,6 @@ function Panel({
   );
 }
 
-function ChartViewport({
-  children,
-  className,
-}: {
-  children: (size: { height: number; width: number }) => React.ReactNode;
-  className: string;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ height: 0, width: 0 });
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-
-    const updateSize = () => {
-      const nextWidth = Math.floor(element.clientWidth);
-      const nextHeight = Math.floor(element.clientHeight);
-
-      setSize((current) =>
-        current.width === nextWidth && current.height === nextHeight
-          ? current
-          : { width: nextWidth, height: nextHeight },
-      );
-    };
-
-    updateSize();
-
-    const observer = new ResizeObserver(() => {
-      updateSize();
-    });
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={ref} className={className}>
-      {size.width > 0 && size.height > 0 ? children(size) : null}
-    </div>
-  );
-}
-
 function NumberBar({
   label,
   percent,
@@ -1010,9 +787,7 @@ function PriorityCard({
       <p className="mt-3 text-[22px] font-semibold text-slate-900">
         {valueText || numberText(value)}
       </p>
-      <p className="mt-2 text-[11px] leading-5 text-slate-500">
-        {description}
-      </p>
+      <p className="mt-2 text-[11px] leading-5 text-slate-500">{description}</p>
     </Link>
   );
 }
@@ -1038,12 +813,11 @@ function EmptyText({
         </div>
         <div className="space-y-1">
           <p className="text-[12px] font-medium text-slate-600">{text}</p>
-          {hint && <p className="text-[11px] leading-5 text-slate-400">{hint}</p>}
+          {hint && (
+            <p className="text-[11px] leading-5 text-slate-400">{hint}</p>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
-const donutColors = ["#059669", "#64748b", "#2563eb", "#d97706", "#dc2626"];
-
