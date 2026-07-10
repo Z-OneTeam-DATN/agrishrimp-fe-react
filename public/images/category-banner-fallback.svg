@@ -1,0 +1,47 @@
+<svg width="720" height="1600" viewBox="0 0 720 1600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="720" height="1600" fill="#EAF4FF"/>
+  <rect width="720" height="1600" fill="url(#bg)"/>
+  <circle cx="104" cy="118" r="42" fill="#FFFFFF" fill-opacity="0.55"/>
+  <circle cx="198" cy="186" r="18" fill="#FFFFFF" fill-opacity="0.48"/>
+  <circle cx="612" cy="152" r="28" fill="#FFFFFF" fill-opacity="0.4"/>
+  <circle cx="552" cy="264" r="14" fill="#FFFFFF" fill-opacity="0.28"/>
+  <path d="M0 1110C114 1048 216 1038 310 1086C404 1134 520 1140 720 1040V1600H0V1110Z" fill="url(#pond)"/>
+  <path d="M0 1270C108 1218 238 1206 344 1248C466 1298 576 1302 720 1236V1600H0V1270Z" fill="url(#water)"/>
+  <path d="M46 1300C112 1240 214 1200 312 1214C424 1230 516 1292 624 1298C676 1302 710 1290 720 1282V1600H0V1326C10 1338 24 1320 46 1300Z" fill="#6BB6FF" fill-opacity="0.24"/>
+  <rect x="74" y="124" width="572" height="170" rx="52" fill="#1F67D7" fill-opacity="0.14"/>
+  <rect x="102" y="400" width="246" height="312" rx="16" transform="rotate(-12 102 400)" fill="white"/>
+  <rect x="120" y="418" width="210" height="194" rx="10" fill="#B8E3FF"/>
+  <rect x="136" y="632" width="176" height="16" rx="8" fill="#007A57"/>
+  <rect x="136" y="658" width="132" height="12" rx="6" fill="#4A8A72" fill-opacity="0.72"/>
+  <rect x="322" y="316" width="256" height="292" rx="16" transform="rotate(10 322 316)" fill="white"/>
+  <rect x="340" y="336" width="220" height="186" rx="10" fill="#9FE0AF"/>
+  <rect x="356" y="540" width="192" height="16" rx="8" fill="#007A57"/>
+  <rect x="356" y="566" width="142" height="12" rx="6" fill="#4A8A72" fill-opacity="0.72"/>
+  <rect x="330" y="666" width="222" height="264" rx="16" transform="rotate(8 330 666)" fill="white"/>
+  <rect x="348" y="686" width="186" height="166" rx="10" fill="#D7EDF9"/>
+  <rect x="364" y="870" width="178" height="16" rx="8" fill="#007A57"/>
+  <rect x="364" y="896" width="128" height="12" rx="6" fill="#4A8A72" fill-opacity="0.72"/>
+  <ellipse cx="252" cy="1378" rx="210" ry="168" fill="#FFFFFF" fill-opacity="0.24"/>
+  <ellipse cx="268" cy="1386" rx="174" ry="132" fill="#9DD6FF" fill-opacity="0.38"/>
+  <ellipse cx="268" cy="1384" rx="150" ry="118" fill="#EF5B3E"/>
+  <ellipse cx="268" cy="1378" rx="132" ry="102" fill="#FF6B4D"/>
+  <ellipse cx="268" cy="1290" rx="160" ry="34" fill="#E94122"/>
+  <rect x="366" y="1318" width="258" height="158" rx="28" fill="white" fill-opacity="0.92"/>
+  <rect x="382" y="1334" width="226" height="126" rx="22" stroke="#2D8B57" stroke-width="10"/>
+  <rect x="404" y="1422" width="180" height="22" rx="11" fill="#2D8B57"/>
+  <defs>
+    <linearGradient id="bg" x1="360" y1="0" x2="360" y2="1600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FBFF"/>
+      <stop offset="0.48" stop-color="#EDF7FF"/>
+      <stop offset="1" stop-color="#E1F0FF"/>
+    </linearGradient>
+    <linearGradient id="pond" x1="350" y1="1040" x2="350" y2="1600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D2F2E4"/>
+      <stop offset="1" stop-color="#95DCC8"/>
+    </linearGradient>
+    <linearGradient id="water" x1="360" y1="1236" x2="360" y2="1600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#95D4FF"/>
+      <stop offset="1" stop-color="#3B92EA"/>
+    </linearGradient>
+  </defs>
+</svg>

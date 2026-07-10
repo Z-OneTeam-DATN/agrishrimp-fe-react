@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/carousel";
 import { getPublicBanners } from "@/app/services/banner.service";
 
-const BANNER_HEIGHT_CLASS = "h-[420px]";
+const BANNER_HEIGHT_CLASS = "h-[320px] sm:h-[380px] md:h-[480px] lg:h-[560px]";
 
 export default function Banner() {
   const plugin = React.useRef(

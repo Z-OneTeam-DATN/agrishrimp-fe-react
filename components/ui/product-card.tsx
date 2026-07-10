@@ -3,9 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ShoppingCart,
-  Layers,
-  BadgeCheck,
+  ShoppingBag,
   Loader2,
 } from "lucide-react";
 
@@ -61,18 +59,18 @@ interface ProductCardProps {
 
 export function ProductCardSkeleton() {
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
-      <div className="relative w-full pt-[90%] bg-gray-100"></div>
-      <div className="flex flex-col flex-1 p-3.5 gap-2.5">
-        <div className="flex gap-2">
-          <div className="h-4 bg-gray-100 rounded-full w-16"></div>
-          <div className="h-4 bg-gray-100 rounded-full w-12"></div>
-        </div>
-        <div className="h-5 bg-gray-100 rounded-lg w-full"></div>
-        <div className="h-4 bg-gray-100 rounded-lg w-2/3"></div>
-        <div className="mt-auto pt-2.5 border-t border-dashed border-gray-100 flex flex-col gap-2">
-          <div className="h-6 bg-gray-100 rounded-lg w-24"></div>
-          <div className="h-4 bg-gray-100 rounded-lg w-20"></div>
+    <div className="flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] animate-pulse">
+      <div className="relative mx-auto w-full max-w-[220px] bg-gray-100 pt-[84%]"></div>
+      <div className="mt-4 flex flex-1 flex-col items-center text-center">
+        <div className="h-5 w-28 rounded-full bg-gray-100" />
+        <div className="mt-3 h-4 w-full rounded-lg bg-gray-100" />
+        <div className="mt-2 h-4 w-5/6 rounded-lg bg-gray-100" />
+        <div className="mt-4 h-8 w-32 rounded-lg bg-gray-100" />
+        <div className="mt-auto w-full pt-5">
+          <div className="flex items-center justify-between rounded-full border border-gray-100 px-4 py-2">
+            <div className="h-4 w-24 rounded-lg bg-gray-100" />
+            <div className="h-9 w-9 rounded-full bg-gray-100" />
+          </div>
         </div>
       </div>
     </div>
@@ -90,18 +88,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const displayImage =
     firstVariant?.imageUrl ?? product.imageUrls?.[0] ?? "/placeholder.svg";
 
-  const variantCount = product.variants?.length ?? 0;
-  const hasAttributes = product.variants?.some(
-    (v) => v.attributeValues && v.attributeValues.length > 0
-  );
-
-  // ✅ HÀM STRIP HTML
-  const stripHtml = (html: string) => {
-    return html.replace(/<[^>]*>?/gm, "").replace(/&nbsp;/g, " ").trim();
-  };
-
-  const shortDescription = product.shortDesc ? stripHtml(product.shortDesc) : (product.description ? stripHtml(product.description) : "");
-  const soldCount = Number(product.soldCount ?? 0);
+  const brandLabel = product.brandName || product.supplierName || product.categoryName || "";
 
   const prices = product.variants?.map((v) => v.price).filter(Boolean) ?? [];
   const minPrice = prices.length > 0 ? Math.min(...prices) : null;
@@ -141,104 +128,74 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/san-pham/${product.slug}`}
-      className="group relative flex flex-col h-full bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 hover:border-blue-400 hover:shadow-xl hover:-translate-y-1"
+      className="group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
     >
-      {/* Image */}
-      <div className="relative w-full pt-[90%] bg-gradient-to-br from-slate-50 via-blue-50/20 to-blue-50/30 overflow-hidden">
+      <div className="relative mx-auto w-full max-w-[220px] overflow-hidden bg-white pt-[84%]">
         <Image
           src={displayImage}
           alt={product.name}
           fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className={`object-contain p-4 transition-transform duration-500 group-hover:scale-[1.06] ${
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+          className={`object-contain p-0 transition-transform duration-500 group-hover:scale-[1.04] ${
             product.isOutOfStock ? "opacity-50 grayscale" : ""
           }`}
           onError={(e) => {
             (e.target as HTMLImageElement).src = "/placeholder.svg";
           }}
         />
-
-        {/* Badges */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10">
-          {product.isOutOfStock && (
-            <span className="bg-gray-700/85 backdrop-blur-sm text-white text-[9px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wide">
-              Hết hàng
-            </span>
-          )}
-        </div>
-
-        {/* Cart hover button */}
-        <button
-          onClick={handleQuickAdd}
-          disabled={isAdding}
-          className="hidden md:flex absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-blue-600 text-white items-center justify-center shadow-lg opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 z-10 active:scale-90 disabled:opacity-50"
-        >
-          {isAdding ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
-        </button>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-3.5 gap-1.5">
-        {/* Category + Brand */}
-        <div className="flex items-center gap-1.5 flex-wrap min-h-[18px]">
-          {product.categoryName && (
-            <span className="inline-flex items-center text-[9px] uppercase font-bold tracking-widest text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-              {product.categoryName}
-            </span>
-          )}
-          {product.supplierName && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-gray-400">
-              <BadgeCheck size={9} className="text-blue-400" />
-              {product.supplierName}
-            </span>
-          )}
-        </div>
+      <div className="mt-4 flex flex-1 flex-col items-center text-center">
+        {brandLabel ? (
+          <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#a5a5a5]">
+            {brandLabel}
+          </p>
+        ) : (
+          <div className="h-[19px]" />
+        )}
 
-        {/* Name */}
-        <h3 className="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors min-h-[36px]">
+        <h3 className="mt-3 min-h-[46px] text-[14px] font-medium leading-[1.25] text-[#171717] line-clamp-2 transition-colors group-hover:text-[#1965a2]">
           {product.name}
         </h3>
 
-        {/* Short description */}
-        {shortDescription && (
-          <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed min-h-[32px]">
-            {shortDescription}
-          </p>
-        )}
-
-        {/* Variant info */}
-        {variantCount > 1 ? (
-          <div className="flex items-center gap-1 text-[10px] text-gray-400">
-            <Layers size={10} />
-            <span>
-              {variantCount} tùy chọn
-            </span>
-          </div>
-        ) : firstVariant?.unit ? (
-          <div className="text-[10px] text-gray-400">
-            Đơn vị:{" "}
-            <span className="font-medium text-gray-600">
-              {firstVariant.unit}
-            </span>
-          </div>
-        ) : null}
-
-        {/* Price */}
-        <div className="mt-auto pt-2.5 border-t border-dashed border-gray-100">
+        <div className="mt-4">
           {minPrice !== null ? (
-            <div className="flex items-baseline gap-2 mb-1.5">
-              <span className="text-base font-extrabold text-orange-500">
+            <div className="flex items-baseline justify-center gap-2">
+              <span className="text-[18px] font-semibold text-[#3f3f3f]">
                 {hasPriceRange
-                  ? `${formatNumber(minPrice!)} – ${formatNumber(maxPrice!)} ₫`
-                  : `${formatNumber(minPrice!)} ₫`}
+                  ? `${formatNumber(minPrice!)}đ - ${formatNumber(maxPrice!)}đ`
+                  : `${formatNumber(minPrice!)}đ`}
               </span>
             </div>
           ) : (
-            <span className="text-sm text-gray-400 italic block mb-1.5">Liên hệ</span>
+            <span className="block text-sm italic text-gray-400">Liên hệ</span>
           )}
+        </div>
 
-          <div className="text-[10px] font-medium text-gray-500">
-            {`Đã mua ${formatNumber(soldCount)}`}
+        <div className="mt-auto w-full pt-5">
+          <div className="flex items-center justify-between gap-3 rounded-full border border-transparent px-4 py-2 transition-colors duration-300 group-hover:border-[#4c72b7]">
+            <button
+              type="button"
+              onClick={handleQuickAdd}
+              disabled={isAdding || !firstVariant || product.isOutOfStock}
+              className="min-w-0 flex-1 whitespace-nowrap text-left text-[12px] font-semibold uppercase tracking-[0.02em] text-[#111111] transition-colors hover:text-[#1965a2] disabled:cursor-not-allowed disabled:text-gray-400"
+            >
+              {isAdding ? "ĐANG THÊM..." : "THÊM VÀO GIỎ"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleQuickAdd}
+              disabled={isAdding || !firstVariant || product.isOutOfStock}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4c72b7] text-white shadow-[0_10px_20px_rgba(76,114,183,0.2)] transition-all hover:bg-[#3f63a4] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300"
+              aria-label={`Thêm ${product.name} vào giỏ`}
+            >
+              {isAdding ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <ShoppingBag size={15} strokeWidth={2} />
+              )}
+            </button>
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { ChevronRight, Tag } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import Banner from "@/components/site/SiteBanner";
+import HomeLatestBlogSection from "@/components/site/HomeLatestBlogSection";
 import ProductCard, { ProductCardSkeleton } from "@/components/ui/product-card";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
@@ -16,6 +17,7 @@ import { CategoryDTO } from "@/app/types/category.type";
 const BACKEND_ORIGIN =
   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 const CATEGORY_FALLBACK_IMAGE = "/placeholder.svg";
+const HOME_FEATURE_BANNER = "/images/category-banner-fallback.svg";
 
 const CATEGORY_SHOWCASE_STYLE = {
   frameClass: "border-[#4c72b7]",
@@ -99,6 +101,27 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   });
 
+  const partnerBrands = Object.values(
+    brands.reduce<Record<string, (typeof brands)[number]>>((acc, brand) => {
+      const normalizedName = brand.name.trim().toLowerCase();
+      const key = normalizedName || String(brand.id);
+      const current = acc[key];
+
+      if (!current || (!current.logoUrl && brand.logoUrl)) {
+        acc[key] = brand;
+      }
+
+      return acc;
+    }, {})
+  ).sort((a, b) => {
+    const logoPriority = Number(Boolean(b.logoUrl)) - Number(Boolean(a.logoUrl));
+    if (logoPriority !== 0) {
+      return logoPriority;
+    }
+
+    return a.name.localeCompare(b.name, "vi");
+  });
+
   const parentCats: CategoryDTO[] = allCategories
     .filter((c: CategoryDTO) => !c.parentId || c.parentId === 0)
     .slice(0, 7);
@@ -109,6 +132,14 @@ export default function Home() {
     if (imagePath.startsWith("http") || imagePath.startsWith("data:")) return imagePath;
     return `${BACKEND_ORIGIN}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
   };
+
+  const featuredDesktopProducts = allProducts.slice(0, 10);
+  const featuredFirstRowProducts = featuredDesktopProducts.slice(
+    0,
+    Math.min(featuredDesktopProducts.length, 5)
+  );
+  const featuredSecondRowProducts = featuredDesktopProducts.slice(5, 10);
+  const shouldUseFeaturedShowcase = featuredDesktopProducts.length >= 10;
 
   return (
     <div className="bg-[#f5f5f5] pb-10">
@@ -134,30 +165,28 @@ export default function Home() {
                 ))}
               </div>
             ) : (
-              <div className="overflow-hidden">
-                <div className="animate-marquee">
-                  {[...brands, ...brands].map((brand, idx) => (
-                    <Link
-                      key={`${brand.id}-${idx}`}
-                      href={`/san-pham?brandId=${brand.id}`}
-                      className="flex items-center justify-center px-8 hover:opacity-60 transition-opacity shrink-0"
-                    >
-                      {brand.logoUrl ? (
-                        <Image
-                          src={brand.logoUrl}
-                          alt={brand.name}
-                          width={90}
-                          height={36}
-                          className="object-contain max-h-9"
-                        />
-                      ) : (
-                        <span className="text-[13px] font-extrabold text-gray-700 uppercase tracking-tight whitespace-nowrap">
-                          {brand.name}
-                        </span>
-                      )}
-                    </Link>
-                  ))}
-                </div>
+              <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-5 md:gap-x-14">
+                {partnerBrands.map((brand) => (
+                  <Link
+                    key={brand.id}
+                    href={`/san-pham?brandId=${brand.id}`}
+                    className="flex min-h-14 items-center justify-center px-2 transition-opacity hover:opacity-60"
+                  >
+                    {brand.logoUrl ? (
+                      <Image
+                        src={brand.logoUrl}
+                        alt={brand.name}
+                        width={140}
+                        height={64}
+                        className="h-12 w-auto object-contain md:h-14"
+                      />
+                    ) : (
+                      <span className="whitespace-nowrap text-[15px] font-extrabold uppercase tracking-tight text-gray-700">
+                        {brand.name}
+                      </span>
+                    )}
+                  </Link>
+                ))}
               </div>
             )}
           </div>
@@ -165,21 +194,21 @@ export default function Home() {
       )}
 
       {/* ══ SECTION 3: Category Showcase ══ */}
-      <div className="container mx-auto px-4 mt-4">
+      <div className="mx-auto mt-4 w-full max-w-[1880px] px-3 sm:px-4 md:px-6 xl:px-8">
         {loadingCats ? (
           <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-4 md:gap-6">
+            <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-4 md:gap-5 xl:gap-6">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start animate-pulse sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:min-w-0 md:max-w-none md:w-auto">
-                <div className="aspect-square rounded-t-[14px] bg-gray-100 md:aspect-[1.08/1]" />
-                <div className="mt-2.5 h-10 rounded-[10px] bg-gray-100 md:mt-4 md:h-11" />
+              <div key={i} className="w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start animate-pulse sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:w-full md:max-w-[360px] md:justify-self-center">
+                <div className="aspect-square rounded-t-[14px] bg-gray-100 md:aspect-[1.18/0.86]" />
+                <div className="mt-2.5 h-10 rounded-[10px] bg-gray-100 md:mt-3 md:h-10" />
               </div>
             ))}
             </div>
           </div>
         ) : (
           <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-4 md:gap-6">
+            <div className="flex snap-x snap-mandatory gap-3 md:grid md:grid-cols-4 md:gap-5 xl:gap-6">
               {showcaseCategories.map((cat) => {
                 const style = CATEGORY_SHOWCASE_STYLE;
                 const imageSrc = resolveCategoryImage(cat.imageUrl);
@@ -188,17 +217,17 @@ export default function Home() {
                 <Link
                   key={cat.id}
                   href={`/san-pham?categoryId=${cat.id}`}
-                  className="group block h-full w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:min-w-0 md:max-w-none md:w-auto"
+                  className="group block h-full w-[38vw] min-w-[138px] max-w-[158px] shrink-0 snap-start sm:w-[30vw] sm:min-w-[150px] sm:max-w-[176px] md:w-full md:max-w-[360px] md:justify-self-center"
                 >
-                  <div className={`border-x-[6px] border-t-[6px] ${style.frameClass} bg-white px-2 pt-2.5 shadow-sm transition-transform duration-300 group-hover:-translate-y-1 sm:px-3 sm:pt-3 md:border-x-[10px] md:border-t-[10px] md:px-5 md:pt-6`}>
-                    <div className="flex aspect-square items-center justify-center overflow-hidden bg-white md:aspect-[1.14/1]">
+                  <div className={`border-x-[6px] border-t-[6px] ${style.frameClass} bg-white px-2 pt-2.5 shadow-sm transition-transform duration-300 group-hover:-translate-y-1 sm:px-3 sm:pt-3 md:border-x-[8px] md:border-t-[8px] md:px-4 md:pt-4`}>
+                    <div className="flex aspect-square items-center justify-center overflow-hidden bg-white md:aspect-[1.18/0.86]">
                       <CategoryShowcaseImage
                         src={imageSrc ?? CATEGORY_FALLBACK_IMAGE}
                         alt={cat.name}
                       />
                     </div>
                   </div>
-                  <div className={`relative z-10 -mt-2 flex min-h-[42px] items-center justify-center rounded-[10px] border bg-white px-2 py-2 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight shadow-sm transition-colors sm:px-3 sm:text-[11px] md:-mt-3 md:min-h-[56px] md:py-2.5 md:text-[13px] ${style.buttonClass}`}>
+                  <div className={`relative z-10 -mt-2 flex min-h-[42px] items-center justify-center rounded-[10px] border bg-white px-2 py-2 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight shadow-sm transition-colors sm:px-3 sm:text-[11px] md:-mt-2 md:min-h-[48px] md:py-2 md:text-[12px] ${style.buttonClass}`}>
                     {cat.name}
                   </div>
                 </Link>
@@ -210,7 +239,7 @@ export default function Home() {
       </div>
 
       {/* ══ SECTION 4: Khuyến Mãi / Best Sellers ══ */}
-      <div className="container mx-auto px-4 mt-4">
+      <div className="mx-auto mt-4 w-full max-w-[1880px] px-3 sm:px-4 md:px-6 xl:px-8">
 
         {/* Section header */}
         <div className="flex items-center justify-between mb-3">
@@ -229,9 +258,79 @@ export default function Home() {
           </div>
         ) : allProducts.length > 0 ? (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {allProducts.map((p) => <ProductCard key={p.id} product={p} />)}
+            {shouldUseFeaturedShowcase ? (
+              <div className="hidden xl:flex xl:items-stretch xl:gap-4">
+                <div className="relative row-span-2 min-h-[760px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                  <Image
+                    src={HOME_FEATURE_BANNER}
+                    alt="Banner san pham noi bat"
+                    fill
+                    sizes="(min-width: 1280px) 320px, 100vw"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-slate-950/50" />
+                  <div className="absolute inset-x-0 top-0 p-5">
+                    <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-700 backdrop-blur">
+                      Banner noi bat
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 p-5">
+                    <div className="rounded-[24px] border border-white/40 bg-white/88 p-4 shadow-lg backdrop-blur-md">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">
+                        San pham noi bat
+                      </p>
+                      <h2 className="mt-2 text-2xl font-bold leading-tight text-slate-900">
+                        Bo cuc 5 san pham moi hang
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        Desktop hien thi 1 banner dung va 10 san pham dau tien theo
+                        dung bo cuc 2 hang x 5 cot.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 flex-1 flex-col gap-4">
+                  <div
+                    className="grid gap-4"
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.max(
+                        featuredFirstRowProducts.length,
+                        1
+                      )}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {featuredFirstRowProducts.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+
+                  {featuredSecondRowProducts.length > 0 && (
+                    <div
+                      className="grid gap-4"
+                      style={{
+                        gridTemplateColumns: `repeat(${featuredSecondRowProducts.length}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {featuredSecondRowProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              className={`grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 ${
+                shouldUseFeaturedShowcase ? "xl:hidden" : "xl:grid"
+              }`}
+            >
+              {allProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
+
             {hasMore && (
               <div className="text-center mt-5">
                 <button
@@ -250,6 +349,8 @@ export default function Home() {
           <p className="text-center py-10 text-sm text-gray-400">Chưa có sản phẩm</p>
         )}
       </div>
+
+      <HomeLatestBlogSection />
 
     </div>
   );

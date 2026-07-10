@@ -87,7 +87,7 @@ export default function StorePage() {
 
   return (
     <div className="bg-[#f8f9fa] min-h-screen pb-12">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-2 sm:px-3 md:px-4">
         <StoreBanner />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
