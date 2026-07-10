@@ -107,7 +107,9 @@ export default function AdminDashboardCharts({
     0,
   );
   const shouldRenderCategoryChart =
-    hasCategoryChartData && chartCategoryRows.length > 0;
+    hasCategoryChartData &&
+    chartCategoryRows.length > 0 &&
+    safeCategoryTotalPercent > 0;
   const shouldRenderRevenueChart =
     hasRevenueChartData && normalizedRevenueRows.length > 0;
 

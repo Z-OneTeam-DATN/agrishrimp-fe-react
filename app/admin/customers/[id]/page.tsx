@@ -8,23 +8,16 @@ import {
     Mail,
     MapPin,
     User,
-    History,
     ShoppingCart,
     Wallet,
     PackageCheck,
     Clock,
     Send,
-    FileText,
-    Activity,
-    Download,
     AlertTriangle,
     Plus,
-    Trash2,
     MapPinCheck,
-    X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Table,
     TableBody,
@@ -92,8 +85,6 @@ interface CustomerData {
     lastOrderDate?: string;
     averageOrderValue?: number;
     addresses?: AddressData[];
-    internalNotes?: InternalNote[];
-    statusLogs?: CustomerStatusLog[];
 }
 
 const translateStatusLabel = (status: string) => {
@@ -144,16 +135,11 @@ export default function CustomerDetailPage({
     const [isOrdersLoading, setIsOrdersLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
 
-    // New states for enhancements
+    // Filter/sort states for orders
     const [orderSort, setOrderSort] = useState<'newest' | 'oldest' | 'highest'>('newest');
     const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
     const [orderDateFrom, setOrderDateFrom] = useState<string>('');
     const [orderDateTo, setOrderDateTo] = useState<string>('');
-    const [showNotesModal, setShowNotesModal] = useState(false);
-    const [newNote, setNewNote] = useState('');
-    const [notes, setNotes] = useState<InternalNote[]>([]);
-    const [statusLogs, setStatusLogs] = useState<CustomerStatusLog[]>([]);
-    const [activeTab, setActiveTab] = useState('history');
 
     useEffect(() => {
         setMounted(true);
@@ -177,8 +163,6 @@ export default function CustomerDetailPage({
         try {
             const data = await customerService.getDetailById(Number(customerIdentifier));
             setCustomer(data);
-            setNotes(data.internalNotes || []);
-            setStatusLogs(data.statusLogs || []);
             if (data?.userId) {
                 fetchOrders(data.userId);
             } else {
@@ -244,30 +228,6 @@ export default function CustomerDetailPage({
         return customer?.riskLevel === 'HIGH';
     };
 
-    const handleAddNote = async () => {
-        if (!newNote.trim() || !customer?.userId) return;
-        try {
-            const created = await customerService.addInternalNote(customer.userId, { content: newNote });
-            setNotes([created, ...notes]);
-            setNewNote('');
-            toast.success('Ghi chú đã được thêm!');
-        } catch (error) {
-            console.error('Lỗi thêm ghi chú:', error);
-            toast.error('Không thể thêm ghi chú nội bộ');
-        }
-    };
-
-    const handleDeleteNote = async (noteId: number) => {
-        try {
-            await customerService.deleteInternalNote(noteId);
-            setNotes(notes.filter(n => n.id !== noteId));
-            toast.success('Ghi chú đã xóa!');
-        } catch (error) {
-            console.error('Lỗi xóa ghi chú:', error);
-            toast.error('Không thể xóa ghi chú nội bộ');
-        }
-    };
-
     if (!mounted) return null;
 
     if (isLoading)
@@ -295,7 +255,7 @@ export default function CustomerDetailPage({
                 <div className="flex flex-col flex-1">
                     <div className="flex items-center justify-between">
                         <h1 className="text-[20px] font-semibold text-slate-900">
-                            CẬP NHẬT KHÁCH HÀNG
+                            CHI TIẾT KHÁCH HÀNG
                         </h1>
                         {customer?.onlinePaymentOnly && (
                             <div className="text-[11px] font-medium px-3 py-1.5 bg-white text-rose-700 border border-rose-200 rounded-[4px]">
@@ -306,34 +266,6 @@ export default function CustomerDetailPage({
                     <p className="text-[10.5px] text-slate-500 font-normal">
                         Mã khách hàng: {customerIdentifier}
                     </p>
-                </div>
-            </div>
-
-            {/* Quick Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-white border border-slate-200 p-4 rounded-[4px] shadow-sm">
-                    <div>
-                        <p className="text-[10.5px] font-medium text-slate-500">Ngày đặt hàng gần nhất</p>
-                        <p className="text-[14px] font-semibold text-slate-900 mt-1">
-                            {customer?.lastOrderDate ? new Date(customer.lastOrderDate).toLocaleDateString('vi-VN') : 'Chưa có'}
-                        </p>
-                    </div>
-                </div>
-                <div className="bg-white border border-slate-200 p-4 rounded-[4px] shadow-sm">
-                    <div>
-                        <p className="text-[10.5px] font-medium text-slate-500">Giá trị đơn trung bình</p>
-                        <p className="text-[14px] font-semibold text-slate-900 mt-1">
-                            {customer?.averageOrderValue ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer.averageOrderValue) : '---'}
-                        </p>
-                    </div>
-                </div>
-                <div className="bg-white border border-slate-200 p-4 rounded-[4px] shadow-sm">
-                    <div>
-                        <p className="text-[10.5px] font-medium text-slate-500">Ngày tham gia</p>
-                        <p className="text-[14px] font-semibold text-slate-900 mt-1">
-                            {calculateDaysSinceSignup()} ngày trước
-                        </p>
-                    </div>
                 </div>
             </div>
 
@@ -352,33 +284,6 @@ export default function CustomerDetailPage({
                     }}
                 >
                     <Send size={14} /> Email
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
-                    onClick={() => {
-                        setActiveTab('notes');
-                        setShowNotesModal(true);
-                    }}
-                >
-                    <FileText size={14} /> Ghi chú
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
-                    onClick={() => setActiveTab('activity')}
-                >
-                    <Activity size={14} /> Lịch sử
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-2 text-[11px] font-medium rounded-[4px] border-slate-200"
-                    onClick={() => window.print()}
-                >
-                    <Download size={14} /> PDF
                 </Button>
                 {isRiskAccount() && (
                     <div className="flex items-center gap-2 ml-auto px-3 py-2 bg-rose-50 border border-rose-200 rounded text-[11px]">
@@ -455,141 +360,116 @@ export default function CustomerDetailPage({
                             </div>
                             <div className="flex items-start gap-3">
                                 <MapPin size={14} className="text-slate-300 mt-0.5 flex-shrink-0" />
-                                <div className="flex flex-col">
+                                <div className="flex flex-col w-full min-w-0">
                                     <span className="text-[10.5px] font-medium text-slate-500">Địa chỉ</span>
                                     <span className="text-[11px] font-medium text-slate-600 leading-snug">{customer?.addressDetail || "Chưa cập nhật địa chỉ"}</span>
+                                    
+                                    {/* Danh sách địa chỉ giao hàng nằm dưới địa chỉ chính */}
+                                    <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Địa chỉ giao hàng</span>
+                                        </div>
+                                        {customer?.addresses && customer.addresses.length > 0 ? (
+                                            <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                                {customer.addresses.map(addr => (
+                                                    <div key={addr.id} className="p-2 border border-slate-100 rounded-[3px] bg-slate-50/50 text-[10px]">
+                                                        <div className="flex items-start justify-between gap-1">
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-bold text-slate-800 truncate">
+                                                                    {addr.receiverName}
+                                                                    {addr.isDefault && (
+                                                                        <span className="text-[8px] font-semibold text-blue-700 bg-blue-50 px-1 py-0.5 rounded ml-1.5">
+                                                                            Mặc định
+                                                                        </span>
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-slate-600 mt-0.5 font-normal">{addr.addressDetail}</p>
+                                                                <p className="text-slate-500 mt-0.5 font-normal">📞 {addr.receiverPhone}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-slate-400 font-normal">Chưa có địa chỉ giao hàng</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="pt-3 border-t border-slate-50 flex justify-between items-center">
-                <span className="text-[10.5px] font-medium text-slate-500">
-                  Trạng thái vận hành
-                </span>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <span
-                                                className={cn(
-                                                    "text-[12px] font-medium",
-                                                    customer?.userStatus === "ACTIVE"
-                                                        ? "text-blue-700"
-                                                        : "text-slate-600",
-                                                )}
-                                            >
-                                              {customer?.userStatus === "ACTIVE" ? "Đang hoạt động" : "Tạm ngưng"}
-                                            </span>
-                                            {customer?.onlinePaymentOnly && (
-                                                <span className="text-[11px] font-medium text-rose-600">PayOS bắt buộc</span>
-                                            )}
-                                        </div>
+                                <span className="text-[10.5px] font-medium text-slate-500">
+                                  Trạng thái vận hành
+                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span
+                                        className={cn(
+                                            "text-[12px] font-medium",
+                                            customer?.userStatus === "ACTIVE"
+                                                ? "text-blue-700"
+                                                : "text-slate-600",
+                                        )}
+                                    >
+                                      {customer?.userStatus === "ACTIVE" ? "Đang hoạt động" : "Tạm ngưng"}
+                                    </span>
+                                    {customer?.onlinePaymentOnly && (
+                                        <span className="text-[11px] font-medium text-rose-600">PayOS bắt buộc</span>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Addresses Section */}
-                    <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="text-[12px] font-semibold text-slate-900 flex items-center gap-2">
-                                <MapPinCheck size={14} /> Địa chỉ giao hàng
-                            </h3>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-500 hover:bg-slate-100 rounded-[4px]">
-                                <Plus size={14} />
-                            </Button>
-                        </div>
-                        <div className="p-4 space-y-2">
-                            {customer?.addresses && customer.addresses.length > 0 ? (
-                                customer.addresses.map(addr => (
-                                    <div key={addr.id} className="p-3 border border-slate-100 rounded bg-slate-50/30">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="flex-1">
-                                                <p className="text-[11px] font-bold text-slate-800">{addr.receiverName}</p>
-                                                <p className="text-[10px] text-slate-600 mt-1">{addr.addressDetail}</p>
-                                                <p className="text-[10px] text-slate-500 mt-1">📞 {addr.receiverPhone}</p>
-                                            </div>
-                                            {addr.isDefault && (
-                                                <span className="text-[10px] font-medium text-blue-700 whitespace-nowrap">
-                                                    Mặc định
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-center text-[10px] text-slate-400 py-4">Chưa có địa chỉ</p>
-                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* Cột phải: Tabs chi tiết */}
+                {/* Cột phải: Tab giao dịch */}
                 <div className="lg:col-span-3">
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="bg-white border border-slate-200 rounded-[4px] p-1 w-full flex justify-start gap-1 h-auto shadow-sm overflow-x-auto">
-                            <TabsTrigger
-                                value="history"
-                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                    <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden min-h-[400px]">
+                        {/* Filter & Sort Controls */}
+                        <div className="p-3 border-b border-slate-100 flex items-center gap-2 flex-wrap bg-slate-50">
+                            <span className="text-[11px] font-semibold text-slate-700 mr-1">Nhật ký giao dịch</span>
+                            <select
+                                value={orderStatusFilter}
+                                onChange={(e) => setOrderStatusFilter(e.target.value)}
+                                className="text-[11px] font-medium px-2 py-1.5 border border-slate-200 rounded-[4px] bg-white"
                             >
-                                <History size={13} className="mr-1.5" /> Nhật ký giao dịch
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="notes"
-                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
+                                <option value="all">Tất cả trạng thái</option>
+                                <option value="PENDING">Chờ xử lý</option>
+                                <option value="CONFIRMED">Đã xác nhận</option>
+                                <option value="AWAITING_REPLENISHMENT">Chờ bổ sung hàng</option>
+                                <option value="PROCESSING">Đang xử lý</option>
+                                <option value="SHIPPING">Đang giao</option>
+                                <option value="COMPLETED">Hoàn thành</option>
+                                <option value="CANCELLED">Đã hủy</option>
+                                <option value="RETURNED">Hoàn trả</option>
+                            </select>
+                            <select
+                                value={orderSort}
+                                onChange={(e) => setOrderSort(e.target.value as 'newest' | 'oldest' | 'highest')}
+                                className="text-[11px] font-medium px-2 py-1.5 border border-slate-200 rounded-[4px] bg-white"
                             >
-                                <FileText size={13} className="mr-1.5" /> Ghi chú nội bộ
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="activity"
-                                className="text-[11px] font-medium py-2 px-4 rounded-[4px] data-[state=active]:bg-blue-600 data-[state=active]:text-white whitespace-nowrap"
-                            >
-                                <Activity size={13} className="mr-1.5" /> Lịch sử thay đổi
-                            </TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="history" className="mt-0">
-                            <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden min-h-[400px] mt-3">
-                                {/* Filter & Sort Controls */}
-                                <div className="p-3 border-b border-slate-100 flex items-center gap-2 flex-wrap bg-slate-50">
-                                    <select
-                                        value={orderStatusFilter}
-                                        onChange={(e) => setOrderStatusFilter(e.target.value)}
-                                        className="text-[11px] font-medium px-2 py-1.5 border border-slate-200 rounded-[4px] bg-white"
-                                    >
-                                        <option value="all">Tất cả trạng thái</option>
-                                        <option value="PENDING">Chờ xử lý</option>
-                                        <option value="CONFIRMED">Đã xác nhận</option>
-                                        <option value="AWAITING_REPLENISHMENT">Chờ bổ sung hàng</option>
-                                        <option value="PROCESSING">Đang xử lý</option>
-                                        <option value="SHIPPING">Đang giao</option>
-                                        <option value="COMPLETED">Hoàn thành</option>
-                                        <option value="CANCELLED">Đã hủy</option>
-                                        <option value="RETURNED">Hoàn trả</option>
-                                    </select>
-                                    <select
-                                        value={orderSort}
-                                        onChange={(e) => setOrderSort(e.target.value as 'newest' | 'oldest' | 'highest')}
-                                        className="text-[11px] font-medium px-2 py-1.5 border border-slate-200 rounded-[4px] bg-white"
-                                    >
-                                        <option value="newest">Mới nhất</option>
-                                        <option value="oldest">Cũ nhất</option>
-                                        <option value="highest">Giá cao nhất</option>
-                                    </select>
-                                    <input
-                                        type="date"
-                                        value={orderDateFrom}
-                                        onChange={(e) => setOrderDateFrom(e.target.value)}
-                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
-                                    />
-                                    <input
-                                        type="date"
-                                        value={orderDateTo}
-                                        onChange={(e) => setOrderDateTo(e.target.value)}
-                                        className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
-                                    />
-                                    {getCancellationStats() > 0 && (
-                                        <div className="ml-auto text-[11px] font-medium text-amber-700 px-2 py-1">
-                                            {getCancellationStats()} đơn hủy/hoàn trả
-                                        </div>
-                                    )}
+                                <option value="newest">Mới nhất</option>
+                                <option value="oldest">Cũ nhất</option>
+                                <option value="highest">Giá cao nhất</option>
+                            </select>
+                            <input
+                                type="date"
+                                value={orderDateFrom}
+                                onChange={(e) => setOrderDateFrom(e.target.value)}
+                                className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
+                            />
+                            <input
+                                type="date"
+                                value={orderDateTo}
+                                onChange={(e) => setOrderDateTo(e.target.value)}
+                                className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
+                            />
+                            {getCancellationStats() > 0 && (
+                                <div className="ml-auto text-[11px] font-medium text-amber-700 px-2 py-1">
+                                    {getCancellationStats()} đơn hủy/hoàn trả
                                 </div>
-                                <Table>
+                            )}
+                        </div>
+                        <Table>
                                     <TableHeader className="bg-slate-50/80">
                                         <TableRow className="hover:bg-transparent">
                                             <TableHead className="w-[120px] text-[11px] font-medium text-slate-500 p-3">Mã đơn</TableHead>
@@ -646,137 +526,8 @@ export default function CustomerDetailPage({
                                     </TableBody>
                                 </Table>
                             </div>
-                        </TabsContent>
-
-                        <TabsContent value="notes" className="mt-0">
-                            <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden mt-3">
-                                {/* Add Note Form */}
-                                <div className="p-4 border-b border-slate-100 bg-slate-50">
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Thêm ghi chú nội bộ..."
-                                            value={newNote}
-                                            onChange={(e) => setNewNote(e.target.value)}
-                                            className="flex-1 text-[11px] px-3 py-2 border border-slate-300 rounded bg-white"
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                                        />
-                                        <Button
-                                            onClick={handleAddNote}
-                                            size="sm"
-                                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium rounded-[4px]"
-                                        >
-                                            <Plus size={12} className="mr-1" /> Thêm
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* Notes List */}
-                                <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto">
-                                    {notes.length > 0 ? (
-                                        notes.map(note => (
-                                            <div key={note.id} className="p-3 border border-slate-100 bg-slate-50 rounded">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex-1">
-                                                        <p className="text-[11px] text-slate-800">{note.content}</p>
-                                                        <p className="text-[9px] text-slate-500 mt-1.5">
-                                                            <strong>{note.authorName}</strong> • {new Date(note.createdAt).toLocaleDateString('vi-VN')} {new Date(note.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6 text-rose-600 hover:bg-rose-50"
-                                                        onClick={() => handleDeleteNote(note.id)}
-                                                    >
-                                                        <Trash2 size={12} />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-center text-[10px] text-slate-400 py-8">Chưa có ghi chú nào</p>
-                                    )}
-                                </div>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="activity" className="mt-0">
-                            <div className="bg-white border border-slate-200 rounded-[4px] shadow-sm overflow-hidden mt-3">
-                                <div className="p-4 border-b border-slate-100 bg-slate-50">
-                                    <h3 className="text-[12px] font-semibold text-slate-900">Lịch sử thay đổi trạng thái</h3>
-                                </div>
-                                <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto">
-                                    {statusLogs.length > 0 ? (
-                                        statusLogs.map((log) => (
-                                            <div key={log.id} className="p-3 border border-slate-100 bg-slate-50 rounded">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div>
-                                                        <p className="text-[11px] font-bold text-slate-800">
-                                                            {translateStatusLabel(log.fromStatus)} → {translateStatusLabel(log.toStatus)}
-                                                        </p>
-                                                        <p className="text-[10px] text-slate-600 mt-1">{log.reason || 'Cập nhật trạng thái'}</p>
-                                                        <p className="text-[9px] text-slate-500 mt-1.5">
-                                                            <strong>{log.changedByName}</strong> • {new Date(log.createdAt).toLocaleDateString('vi-VN')} {new Date(log.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-center text-[10px] text-slate-400 py-8">Chưa có lịch sử thay đổi</p>
-                                    )}
-                                </div>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
-                </div>
-            </div>
-
-            {/* Notes Modal */}
-            {showNotesModal && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-[4px] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="text-[14px] font-semibold text-slate-900 flex items-center gap-2">
-                                <FileText size={18} /> Thêm ghi chú nội bộ
-                            </h3>
-                            <button
-                                onClick={() => setShowNotesModal(false)}
-                                className="text-slate-400 hover:text-slate-600"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-5">
-                            <textarea
-                                placeholder="Nhập ghi chú (VD: khách hàng VIP, khiếu nại, lưu ý đặc biệt...)"
-                                value={newNote}
-                                onChange={(e) => setNewNote(e.target.value)}
-                                className="w-full text-[12px] px-3 py-2 border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] resize-none"
-                            />
-                        </div>
-                        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowNotesModal(false)}
-                                className="text-[12px] font-medium h-9 rounded-[4px]"
-                            >
-                                Hủy
-                            </Button>
-                            <Button
-                                onClick={async () => {
-                                    await handleAddNote();
-                                    setShowNotesModal(false);
-                                }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-medium h-9 rounded-[4px]"
-                            >
-                                <Plus size={14} className="mr-1" /> Thêm ghi chú
-                            </Button>
-                        </div>
                     </div>
-                </div>
-            )}
+            </div>
         </div>
     );
 }

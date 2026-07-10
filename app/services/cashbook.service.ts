@@ -94,4 +94,11 @@ export const CashbookService = {
 
     return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
   },
+
+  async getRiskAnalysis(branchId: string | number, windowDays?: number): Promise<any> {
+    const response = await apiJava.get(`/cashbook/${branchId}/risk-analysis`, {
+      params: windowDays ? { windowDays } : {}
+    });
+    return response.data;
+  }
 };

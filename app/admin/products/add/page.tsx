@@ -833,6 +833,20 @@ export default function AddProductPage() {
         }
     }, []);
 
+    const removeDraftFromIndex = useCallback((key: string) => {
+        try {
+            const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+            const filtered = list.filter((item) => item.key !== key);
+            localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(filtered));
+            setRecentDrafts(filtered.filter((item) => item.key === ADD_PRODUCT_DRAFT_KEY));
+        } catch {
+            localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            setRecentDrafts([]);
+        }
+    }, []);
+
+
     const missingWarnings = useMemo(() => {
         const warnings: string[] = [];
         if (!nameWatch?.trim()) warnings.push("Thiếu tên sản phẩm");
@@ -898,8 +912,22 @@ export default function AddProductPage() {
     useEffect(() => {
         if (allowUnload) return;
         const timer = window.setTimeout(() => {
+            const formValues = getValues();
+            const hasInput = isDirty || !!(
+                formValues.name?.trim() ||
+                (formValues.categoryId && formValues.categoryId !== "") ||
+                (formValues.brandId && formValues.brandId !== "") ||
+                (formValues.description && formValues.description.replace(/<[^>]+>/g, "").trim().length > 0)
+            );
+
+            if (!hasInput) {
+                localStorage.removeItem(ADD_PRODUCT_DRAFT_KEY);
+                removeDraftFromIndex(ADD_PRODUCT_DRAFT_KEY);
+                return;
+            }
+
             const payload = {
-                formData: getValues(),
+                formData: formValues,
                 savedAt: Date.now(),
             };
             localStorage.setItem(ADD_PRODUCT_DRAFT_KEY, JSON.stringify(payload));
@@ -912,7 +940,8 @@ export default function AddProductPage() {
         }, 900);
 
         return () => window.clearTimeout(timer);
-    }, [allowUnload, getValues, nameWatch, categoryWatch, statusWatch, descriptionWatch, fields.length, variantsWatch, mediaDirty, syncDraftIndex]);
+    }, [allowUnload, getValues, isDirty, nameWatch, categoryWatch, statusWatch, descriptionWatch, fields.length, variantsWatch, mediaDirty, syncDraftIndex, removeDraftFromIndex]);
+
 
     useEffect(() => {
         fields.forEach((_, idx) => {

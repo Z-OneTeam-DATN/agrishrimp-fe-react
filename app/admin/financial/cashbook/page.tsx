@@ -107,6 +107,10 @@ export default function CashbookPage() {
   });
   const [isExplainOpen, setIsExplainOpen] = useState(false);
 
+  const [riskData, setRiskData] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [analyzingRisk, setAnalyzingRisk] = useState(false);
+
   useEffect(() => {
     const fetchInitial = async () => {
       try {
@@ -157,6 +161,45 @@ export default function CashbookPage() {
       setLoading(false);
     }
   }, [endDate, selectedBranchId, startDate]);
+
+  const fetchRiskAnalysis = useCallback(async () => {
+    try {
+      setAnalyzingRisk(true);
+      const branchIdParam = selectedBranchId === "all" ? "ALL" : selectedBranchId;
+      const data = await CashbookService.getRiskAnalysis(branchIdParam);
+      setRiskData(data);
+
+      if (data && !data.insufficientData) {
+        const geminiRes = await fetch("/api/cashflow-analysis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cashflowRisk: data })
+        });
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          if (geminiData.success) {
+            setAiAnalysis(geminiData);
+          } else {
+            setAiAnalysis(null);
+          }
+        } else {
+          setAiAnalysis(null);
+        }
+      } else {
+        setAiAnalysis(null);
+      }
+    } catch (e) {
+      console.error("Lỗi khi phân tích rủi ro dòng tiền:", e);
+      setRiskData(null);
+      setAiAnalysis(null);
+    } finally {
+      setAnalyzingRisk(false);
+    }
+  }, [selectedBranchId]);
+
+  useEffect(() => {
+    void fetchRiskAnalysis();
+  }, [fetchRiskAnalysis]);
 
   useEffect(() => {
     void fetchCashbook();
@@ -432,6 +475,178 @@ export default function CashbookPage() {
               {formatNumber(summary.closingBalance)}
             </p>
           </div>
+        </div>
+
+        {/* AI Cashflow Risk Panel */}
+        <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse" />
+              <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-700">
+                Trợ lý Cảnh báo dòng tiền & Phân tích rủi ro AI
+              </h3>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+              onClick={() => fetchRiskAnalysis()}
+              disabled={analyzingRisk}
+            >
+              <RefreshCw size={12} className={cn("mr-1.5", analyzingRisk && "animate-spin")} />
+              {analyzingRisk ? "Đang phân tích..." : "Phân tích lại"}
+            </Button>
+          </div>
+
+          {analyzingRisk ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3">
+              <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
+              <p className="text-xs text-slate-500 font-medium">AI đang lập mô hình dự báo và quét rủi ro công nợ...</p>
+            </div>
+          ) : riskData?.insufficientData ? (
+            <div className="rounded-[6px] bg-amber-50/55 border border-amber-100 p-4 text-center">
+              <p className="text-xs text-amber-700 font-medium">
+                {aiAnalysis?.reasoning || "Không có đủ dữ liệu dòng tiền trong hệ thống để thực hiện phân tích rủi ro."}
+              </p>
+            </div>
+          ) : riskData ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Left panel: metrics & risk status */}
+              <div className="lg:col-span-4 space-y-4">
+                {/* Risk Badge */}
+                <div className={cn(
+                  "rounded-[6px] p-4 text-center border",
+                  riskData.riskLevel === "SAFE" && "bg-emerald-50/80 border-emerald-200 text-emerald-800",
+                  riskData.riskLevel === "WARNING" && "bg-amber-50/80 border-amber-200 text-amber-800",
+                  riskData.riskLevel === "CRITICAL" && "bg-rose-50/80 border-rose-200 text-rose-800"
+                )}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider opacity-85">Mức độ rủi ro</p>
+                  <p className="text-xl font-black mt-1">
+                    {riskData.riskLevel === "SAFE" && "AN TOÀN"}
+                    {riskData.riskLevel === "WARNING" && "CẢNH BÁO"}
+                    {riskData.riskLevel === "CRITICAL" && "NGUY CƠ THIẾU HỤT"}
+                  </p>
+                  {riskData.shortfallAmount > 0 && (
+                    <p className="text-xs font-semibold mt-1">
+                      Hụt dòng tiền: {formatNumber(riskData.shortfallAmount)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Breakdown table */}
+                <div className="border border-slate-100 rounded-[6px] overflow-hidden text-xs">
+                  <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 font-semibold text-slate-600">
+                    Chi tiết dự phóng
+                  </div>
+                  <div className="divide-y divide-slate-100 bg-white">
+                    <div className="px-3 py-2 flex justify-between">
+                      <span className="text-slate-500">Số dư hiện tại</span>
+                      <span className="font-semibold text-slate-800">{formatNumber(riskData.currentBalance)}</span>
+                    </div>
+                    <div className="px-3 py-2 flex justify-between">
+                      <span className="text-slate-500">Dòng tiền thu dự kiến (COD)</span>
+                      <span className="font-semibold text-emerald-600">+{formatNumber(riskData.expectedInflow)}</span>
+                    </div>
+                    <div className="px-3 py-2 flex justify-between">
+                      <span className="text-slate-500">Nợ đến hạn (14 ngày)</span>
+                      <span className="font-semibold text-rose-600">-{formatNumber(riskData.totalDebtDueInWindow)}</span>
+                    </div>
+                    <div className="px-3 py-2 flex justify-between bg-slate-50/50">
+                      <span className="font-bold text-slate-700">Dự phòng dòng tiền</span>
+                      <span className={cn(
+                        "font-black",
+                        riskData.projectedBalance >= 0 ? "text-blue-600" : "text-rose-600"
+                      )}>
+                        {formatNumber(riskData.projectedBalance)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Center panel: NLP Reasoning */}
+              <div className="lg:col-span-8 space-y-4">
+                {aiAnalysis ? (
+                  <div className="space-y-4">
+                    {/* Reasoning text */}
+                    <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Phân tích chuyên gia AI</p>
+                      <p className="text-[13px] leading-relaxed text-slate-700">{aiAnalysis.reasoning}</p>
+                    </div>
+
+                    {/* Recommendations */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="bg-blue-50/30 rounded-[6px] border border-blue-100/50 p-4 space-y-2">
+                        <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Hành động khuyến nghị</p>
+                        <ul className="text-xs leading-relaxed text-slate-600 list-disc list-inside space-y-1.5">
+                          {aiAnalysis.actions?.map((act: string, idx: number) => (
+                            <li key={idx}>{act}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="bg-emerald-50/30 rounded-[6px] border border-emerald-100/50 p-4 space-y-2">
+                        <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Thứ tự ưu tiên trả nợ</p>
+                        <p className="text-xs leading-relaxed text-slate-600">{aiAnalysis.prioritiesExplanation}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
+                    <p className="text-xs text-slate-400 font-medium">Đang tải phân tích AI...</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Prioritized Debts Table Section */}
+          {!analyzingRisk && riskData?.prioritizedDebts?.length > 0 && (
+            <div className="border border-slate-100 rounded-[6px] overflow-hidden mt-4">
+              <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  Đề xuất ưu tiên thanh toán nhà cung cấp (Trong kỳ)
+                </p>
+                <span className="text-[10px] text-slate-400 font-medium">Sắp xếp theo thuật toán ưu tiên tối ưu mối quan hệ & chi phí</span>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-100/50">
+                      <TableHead className="w-[80px] p-2 text-center text-xs font-bold text-slate-700">Hạng</TableHead>
+                      <TableHead className="p-2 text-xs font-bold text-slate-700">Nhà cung cấp</TableHead>
+                      <TableHead className="p-2 text-right text-xs font-bold text-slate-700">Công nợ cần trả</TableHead>
+                      <TableHead className="p-2 text-center text-xs font-bold text-slate-700">Hạn trả gần nhất</TableHead>
+                      <TableHead className="p-2 text-center text-xs font-bold text-slate-700">Điểm ưu tiên</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {riskData.prioritizedDebts.map((debt: any) => (
+                      <TableRow key={debt.supplierId} className="hover:bg-slate-50/50 text-xs">
+                        <TableCell className="p-2 text-center font-bold text-slate-700">
+                          <Badge variant="outline" className={cn(
+                            "font-bold",
+                            debt.priorityRank === 1 && "bg-rose-50 border-rose-200 text-rose-700",
+                            debt.priorityRank === 2 && "bg-amber-50 border-amber-200 text-amber-700",
+                            debt.priorityRank > 2 && "bg-slate-50 border-slate-200 text-slate-600"
+                          )}>
+                            #{debt.priorityRank}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="p-2 font-semibold text-slate-800">{debt.supplierName}</TableCell>
+                        <TableCell className="p-2 text-right font-bold text-slate-800">
+                          {formatNumber(debt.outstandingAmount)}
+                        </TableCell>
+                        <TableCell className="p-2 text-center text-slate-600">{debt.dueDate}</TableCell>
+                        <TableCell className="p-2 text-center">
+                          <span className="font-bold text-blue-600">{debt.priorityScore}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

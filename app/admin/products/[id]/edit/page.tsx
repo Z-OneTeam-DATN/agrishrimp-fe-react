@@ -243,6 +243,8 @@ export default function EditProductPage() {
     const [lastDraftSavedAt, setLastDraftSavedAt] = useState("");
     const [mediaDirty, setMediaDirty] = useState(false);
     const [allowUnload, setAllowUnload] = useState(false);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
 
     const [variantImageFiles, setVariantImageFiles] = useState<(File | string | null)[]>([]);
     const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([]);
@@ -413,6 +415,20 @@ export default function EditProductPage() {
             setRecentDrafts([]);
         }
     }, [draftStorageKey]);
+
+    const removeDraftFromIndex = useCallback((key: string) => {
+        try {
+            const raw = localStorage.getItem(PRODUCT_DRAFT_INDEX_KEY);
+            const list: DraftIndexEntry[] = raw ? JSON.parse(raw) : [];
+            const filtered = list.filter((item) => item.key !== key);
+            localStorage.setItem(PRODUCT_DRAFT_INDEX_KEY, JSON.stringify(filtered));
+            setRecentDrafts(filtered.filter((item) => item.key === draftStorageKey));
+        } catch {
+            localStorage.removeItem(PRODUCT_DRAFT_INDEX_KEY);
+            setRecentDrafts([]);
+        }
+    }, [draftStorageKey]);
+
 
     const missingWarnings = useMemo(() => {
         const warnings: string[] = [];
@@ -619,6 +635,12 @@ export default function EditProductPage() {
         if (allowUnload || isFetching) return;
 
         const timer = window.setTimeout(() => {
+            if (!isDirty) {
+                localStorage.removeItem(draftStorageKey);
+                removeDraftFromIndex(draftStorageKey);
+                return;
+            }
+
             const payload = {
                 formData: getValues(),
                 savedAt: Date.now(),
@@ -633,11 +655,16 @@ export default function EditProductPage() {
         }, 900);
 
         return () => window.clearTimeout(timer);
-    }, [allowUnload, isFetching, getValues, draftStorageKey, id, nameWatch, categoryWatch, statusWatch, descriptionWatch, fields.length, variantsWatch, mediaDirty, syncDraftIndex]);
+    }, [allowUnload, isFetching, getValues, isDirty, draftStorageKey, id, nameWatch, categoryWatch, statusWatch, descriptionWatch, fields.length, variantsWatch, mediaDirty, syncDraftIndex, removeDraftFromIndex]);
 
-    const confirmLeaveIfDirty = useCallback(() => {
-        if (!hasUnsavedChanges) return true;
-        return window.confirm("Bạn có thay đổi chưa lưu. Bạn chắc chắn muốn rời khỏi trang?");
+
+    const confirmLeaveIfDirty = useCallback((onConfirm: () => void) => {
+        if (!hasUnsavedChanges) {
+            onConfirm();
+            return;
+        }
+        setPendingLeaveAction(() => onConfirm);
+        setConfirmDialogOpen(true);
     }, [hasUnsavedChanges]);
 
     const scrollToStep = useCallback((step: ProductFormStep) => {
@@ -1674,10 +1701,10 @@ export default function EditProductPage() {
             <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
                 <div className="flex flex-wrap justify-end gap-3">
                     <Button type="button" variant="outline" onClick={() => {
-                        if (confirmLeaveIfDirty()) {
+                        confirmLeaveIfDirty(() => {
                             setAllowUnload(true);
                             router.back();
-                        }
+                        });
                     }} className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50">
                         Hủy bỏ
                     </Button>
@@ -1687,6 +1714,36 @@ export default function EditProductPage() {
                     </Button>
                 </div>
             </div>
+
+            <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+                <DialogContent className="sm:max-w-[460px] bg-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-[18px] font-black text-slate-800">Bạn có thay đổi chưa lưu</DialogTitle>
+                        <DialogDescription className="text-[13px] text-slate-500">
+                            Các thay đổi của bạn sẽ bị mất nếu rời khỏi trang này.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setConfirmDialogOpen(false)}
+                        >
+                            Ở lại
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                setConfirmDialogOpen(false);
+                                pendingLeaveAction?.();
+                            }}
+                            className="bg-rose-600 hover:bg-rose-700"
+                        >
+                            Rời khỏi trang
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </form>
     );
 }

@@ -226,7 +226,33 @@ export default function BrandManagementPage() {
       setImageFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, logoUrl: reader.result as string });
+        const img = document.createElement("img");
+        img.src = reader.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          setFormData({ ...formData, logoUrl: dataUrl });
+        };
       };
       reader.readAsDataURL(file);
     }
@@ -266,6 +292,7 @@ export default function BrandManagementPage() {
         await createBrand(payload);
         toast.success("Thêm thương hiệu mới thành công");
       }
+      window.dispatchEvent(new Event("brandUpdated"));
       setIsModalOpen(false);
       loadData();
     } catch (error: any) {
@@ -286,6 +313,7 @@ export default function BrandManagementPage() {
       try {
         await deleteBrand(deleteId);
         toast.success("Xóa thương hiệu thành công!");
+        window.dispatchEvent(new Event("brandUpdated"));
         setDeleteId(null);
         loadData();
       } catch (error: any) {

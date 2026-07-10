@@ -5,6 +5,7 @@ import { Package, ShoppingBag, TrendingUp, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface DashboardStatsProps {
   branchId?: string;
@@ -34,6 +35,8 @@ const statsConfig = [
 ];
 
 export default function DashboardStats({ branchId }: DashboardStatsProps) {
+  const { user, isLoadingAuth } = useAuthStore();
+
   const {
     data: stats,
     isLoading,
@@ -41,6 +44,7 @@ export default function DashboardStats({ branchId }: DashboardStatsProps) {
   } = useQuery({
     queryKey: ["dashboard-stats", branchId],
     queryFn: () => dashboardService.getStats(branchId),
+    enabled: !!user && !isLoadingAuth,
   });
 
   const displayStats = [

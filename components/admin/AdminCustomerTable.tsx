@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { Eye, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, User, ChevronLeft, ChevronRight, Mail, Trash2, Loader2 } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -15,6 +15,16 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { customerService } from "@/app/services/customer.service";
+import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CustomerData {
     userId: number;
@@ -42,6 +52,7 @@ interface AdminCustomerTableProps {
     totalPages: number;
     totalElements: number;
     onPageChange: (newPage: number) => void;
+    onRefresh?: () => void;
 }
 
 export function AdminCustomerTable({
@@ -51,9 +62,52 @@ export function AdminCustomerTable({
                                        totalPages,
                                        totalElements,
                                        onPageChange,
+                                       onRefresh,
                                    }: AdminCustomerTableProps) {
     const { hasPermission } = usePermissions();
-    const canAction = hasPermission(P.CUSTOMER_VIEW);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [selectedCustomer, setSelectedCustomer] = useState<CustomerData | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [resendingId, setResendingId] = useState<number | null>(null);
+
+    const handleResendCredentials = async (userId: number) => {
+        try {
+            setResendingId(userId);
+            const message = await customerService.resendCredentials(userId);
+            if (message && message.includes("không gửi được email")) {
+                toast.error(message, { duration: 10000 });
+            } else {
+                toast.success(message || "Đã gửi lại email thông tin tài khoản.");
+            }
+        } catch (error) {
+            toast.error("Không thể gửi lại email. Vui lòng thử lại.");
+        } finally {
+            setResendingId(null);
+        }
+    };
+
+    const handleToggleStatus = async () => {
+        if (!deleteId) return;
+        try {
+            setIsDeleting(true);
+            await customerService.toggleStatus(deleteId);
+            const action = selectedCustomer?.userStatus === "INACTIVE" ? "Mở khóa" : "Tạm khóa";
+            toast.success(`${action} tài khoản khách hàng thành công`);
+            onRefresh?.();
+        } catch (error) {
+            toast.error("Không thể thay đổi trạng thái tài khoản này.");
+        } finally {
+            setIsDeleting(false);
+            setDeleteId(null);
+            setSelectedCustomer(null);
+        }
+    };
+
+    const openDeleteDialog = (cus: CustomerData) => {
+        setDeleteId(cus.userId);
+        setSelectedCustomer(cus);
+    };
+    const canAction = hasPermission(P.CUSTOMER_VIEW) || hasPermission(P.CUSTOMER_UPDATE);
 
     return (
         <div className="w-full">
@@ -100,8 +154,8 @@ export function AdminCustomerTable({
                                             </div>
                                             <div className="flex flex-col gap-0.5">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[12.5px] font-semibold text-slate-900">
-                                                        {cus.fullName || "Chưa cập nhật tên"}
+                                                    <span className={cn("text-[12.5px] font-semibold", cus.fullName ? "text-slate-900" : "text-slate-400 italic")}>
+                                                        {cus.fullName || "Chưa có tên"}
                                                     </span>
                                                 </div>
                                                 <span className="text-[10.5px] text-slate-500 font-normal mt-0.5">
@@ -112,10 +166,10 @@ export function AdminCustomerTable({
                                     </TableCell>
                                     <TableCell className="px-3 py-3">
                                         <div className="flex flex-col gap-1">
-                                            <div className="text-[12px] text-slate-700 font-medium">
-                                                {cus.phone || "---"}
+                                            <div className={cn("text-[12px] font-medium", cus.phone ? "text-slate-700" : "text-slate-400 italic")}>
+                                                {cus.phone || "Chưa có SĐT"}
                                             </div>
-                                            <div className="text-[10.5px] text-slate-500 font-normal">{cus.email || "---"}</div>
+                                            <div className={cn("text-[10.5px] font-normal", cus.email ? "text-slate-500" : "text-slate-400 italic")}>{cus.email || "Chưa có email"}</div>
                                         </div>
                                     </TableCell>
                                     <TableCell className="px-3 py-3 text-right">
@@ -138,14 +192,41 @@ export function AdminCustomerTable({
                                     </TableCell>
 
                                     {canAction && (
-                                        <TableCell className="px-3 py-3 text-right pr-4">
+                                        <TableCell className="px-3 py-3 text-right pr-4" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-1">
+                                                {hasPermission(P.CUSTOMER_UPDATE) && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title="Gửi lại email tài khoản"
+                                                        className="h-8 w-8 text-sky-500 hover:bg-sky-50 hover:text-sky-700 transition-all rounded-[4px]"
+                                                        disabled={resendingId === cus.userId}
+                                                        onClick={() => handleResendCredentials(cus.userId)}
+                                                    >
+                                                        {resendingId === cus.userId ? (
+                                                            <Loader2 size={15} className="animate-spin" />
+                                                        ) : (
+                                                            <Mail size={15} />
+                                                        )}
+                                                    </Button>
+                                                )}
                                                 {hasPermission(P.CUSTOMER_VIEW) && (
-                                                    <Link href={`/admin/customers/${cus.userId}`} onClick={(e) => e.stopPropagation()}>
+                                                    <Link href={`/admin/customers/${cus.userId}`}>
                                                         <Button variant="ghost" size="icon" title="Xem chi tiết" className="h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all rounded-[4px]">
                                                             <Eye size={16} />
                                                         </Button>
                                                     </Link>
+                                                )}
+                                                {hasPermission(P.CUSTOMER_UPDATE) && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        title={cus.userStatus === "ACTIVE" ? "Tạm khóa tài khoản" : "Mở khóa tài khoản"}
+                                                        className="h-8 w-8 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all rounded-[4px]"
+                                                        onClick={() => openDeleteDialog(cus)}
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </Button>
                                                 )}
                                             </div>
                                         </TableCell>
@@ -229,6 +310,43 @@ export function AdminCustomerTable({
                     </div>
                 )}
             </div>
+
+            <Dialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <DialogContent className="sm:max-w-[420px] rounded-[4px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-[16px] font-black uppercase tracking-tight">
+                            {selectedCustomer?.userStatus === "ACTIVE" ? "Tạm khóa tài khoản" : "Mở khóa tài khoản"}
+                        </DialogTitle>
+                        <DialogDescription className="text-[12px]">
+                            Hành động này sẽ thay đổi trạng thái đăng nhập của khách hàng trong hệ thống.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2 text-[13px] text-slate-600">
+                        Bạn có chắc chắn muốn {selectedCustomer?.userStatus === "ACTIVE" ? "tạm khóa" : "mở khóa"} tài khoản của khách hàng <strong>{selectedCustomer?.fullName}</strong>?
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setDeleteId(null)}
+                            className="rounded-[3px] text-[12px] h-9"
+                            disabled={isDeleting}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            onClick={handleToggleStatus}
+                            className={cn(
+                                "rounded-[3px] text-[12px] h-9 text-white",
+                                selectedCustomer?.userStatus === "ACTIVE" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+                            )}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? <Loader2 size={15} className="animate-spin mr-1" /> : null}
+                            Xác nhận {selectedCustomer?.userStatus === "ACTIVE" ? "Khóa" : "Mở khóa"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   BarChart3,
@@ -29,8 +29,8 @@ import { useAuthStore } from "@/stores/useAuthStore";
 export function InventorySidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { accessToken, isLoadingAuth } = useAuthStore();
   const currentTab = searchParams.get("tab");
+  const { user, accessToken, isLoadingAuth } = useAuthStore();
   const [productCount, setProductCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
   const [receiptPendingCount, setReceiptPendingCount] = useState(0);
@@ -40,7 +40,7 @@ export function InventorySidebar() {
   const [dashboardTaskCount, setDashboardTaskCount] = useState(0);
 
   useEffect(() => {
-    if (isLoadingAuth || !accessToken) {
+    if (!accessToken || !user || isLoadingAuth) {
       return;
     }
 
@@ -90,7 +90,7 @@ export function InventorySidebar() {
     };
 
     fetchCounts();
-  }, [accessToken, isLoadingAuth]);
+  }, [accessToken, isLoadingAuth, user]);
 
   const isActive = (path: string, tab?: string) => {
     if (tab) return pathname === path && currentTab === tab;
@@ -225,9 +225,23 @@ function SidebarLink({
   color,
   badgeColor,
 }: SidebarLinkProps) {
+  const router = useRouter();
+  const canPrefetch = typeof href === "string" && href.startsWith("/");
+
   return (
     <Link
       href={href}
+      prefetch={false}
+      onMouseEnter={() => {
+        if (canPrefetch) {
+          router.prefetch(href);
+        }
+      }}
+      onFocus={() => {
+        if (canPrefetch) {
+          router.prefetch(href);
+        }
+      }}
       className={cn(
         "flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative",
         active

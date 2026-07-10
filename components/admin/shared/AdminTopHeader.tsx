@@ -128,7 +128,7 @@ export default function AdminTopHeader() {
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isLoadingAuth } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const accessToken = useAuthStore((state) => state.accessToken);
   const shouldFetchBranchDirectory =
