@@ -228,15 +228,23 @@ export default function LayoutClient({
   );
 
   useEffect(() => {
+    const hasSessionCookie = Boolean(Cookies.get("hasSession"));
+    const cachedUser = readCache();
+
+    if (!isAdminPage && !isProtectedPath && !hasSessionCookie && !cachedUser) {
+      setLoadingAuth(false);
+      return;
+    }
+
     const shouldBlockOnFirstLoad = Boolean(
-      Cookies.get("hasSession") || readCache() || isAdminPage || isProtectedPath,
+      hasSessionCookie || cachedUser || isAdminPage || isProtectedPath,
     );
 
     void hydrateAuth({
       preferCache: true,
       background: !shouldBlockOnFirstLoad,
     });
-  }, [hydrateAuth, isAdminPage, isProtectedPath]);
+  }, [hydrateAuth, isAdminPage, isProtectedPath, setLoadingAuth]);
 
   useEffect(() => {
     const revalidateAuth = () => {
@@ -284,7 +292,15 @@ export default function LayoutClient({
 
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({
-      defaultOptions: { queries: { retry: 0 } },
+      defaultOptions: {
+        queries: {
+          retry: 0,
+          staleTime: 60_000,
+          gcTime: 10 * 60 * 1000,
+          refetchOnWindowFocus: false,
+          refetchOnReconnect: false,
+        },
+      },
     });
   }
 
@@ -313,7 +329,7 @@ export default function LayoutClient({
               <>{children}</>
             ) : (
               <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
-                <WebSocketProvider />
+                {user ? <WebSocketProvider /> : null}
                 <div className="sticky top-0 z-50">
                   <Header />
                   <Navbar />

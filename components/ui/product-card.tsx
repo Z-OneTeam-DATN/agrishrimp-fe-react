@@ -5,6 +5,7 @@ import Image from "next/image";
 import {
   ShoppingBag,
   Loader2,
+  Star,
 } from "lucide-react";
 
 import { formatNumber } from "@/lib/utils";
@@ -61,7 +62,7 @@ export function ProductCardSkeleton() {
   return (
     <div className="flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] animate-pulse">
       <div className="relative mx-auto w-full max-w-[220px] bg-gray-100 pt-[84%]"></div>
-      <div className="mt-4 flex flex-1 flex-col items-center text-center">
+      <div className="mt-3 flex flex-1 flex-col items-center text-center">
         <div className="h-5 w-28 rounded-full bg-gray-100" />
         <div className="mt-3 h-4 w-full rounded-lg bg-gray-100" />
         <div className="mt-2 h-4 w-5/6 rounded-lg bg-gray-100" />
@@ -95,6 +96,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const maxPrice = prices.length > 0 ? Math.max(...prices) : null;
   const hasPriceRange =
     minPrice !== null && maxPrice !== null && minPrice !== maxPrice;
+  const ratingAverage = Number(product.ratingAverage ?? 0);
+  const reviewCount = Number(product.reviewCount ?? 0);
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -154,11 +157,14 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="h-[19px]" />
         )}
 
-        <h3 className="mt-3 min-h-[46px] text-[14px] font-medium leading-[1.25] text-[#171717] line-clamp-2 transition-colors group-hover:text-[#1965a2]">
+        <h3
+          title={product.name}
+          className="mt-2 min-h-[36px] w-full overflow-hidden text-[14px] font-medium leading-[1.25] text-[#171717] line-clamp-2 transition-colors group-hover:text-[#1965a2]"
+        >
           {product.name}
         </h3>
 
-        <div className="mt-4">
+        <div className="mt-2">
           {minPrice !== null ? (
             <div className="flex items-baseline justify-center gap-2">
               <span className="text-[18px] font-semibold text-[#3f3f3f]">
@@ -172,13 +178,32 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        <div className="mt-auto w-full pt-5">
-          <div className="flex items-center justify-between gap-3 rounded-full border border-transparent px-4 py-2 transition-colors duration-300 group-hover:border-[#4c72b7]">
+        <div className="mt-1 flex items-center justify-center gap-1">
+          {Array.from({ length: 5 }).map((_, index) => {
+            const starNumber = index + 1;
+            const isActive = ratingAverage > 0 ? starNumber <= Math.round(ratingAverage) : true;
+
+            return (
+              <Star
+                key={starNumber}
+                size={12}
+                className={isActive ? "fill-[#f5b301] text-[#f5b301]" : "fill-transparent text-[#d6d6d6]"}
+                strokeWidth={1.8}
+              />
+            );
+          })}
+          <span className="ml-1 text-[11px] font-medium text-[#8a8a8a]">
+            ({formatNumber(reviewCount)})
+          </span>
+        </div>
+
+        <div className="mt-2 w-full pt-0">
+          <div className="flex items-center justify-between gap-3 rounded-full border border-transparent px-3 py-1.5 transition-colors duration-300 group-hover:border-[#4c72b7]">
             <button
               type="button"
               onClick={handleQuickAdd}
               disabled={isAdding || !firstVariant || product.isOutOfStock}
-              className="min-w-0 flex-1 whitespace-nowrap text-left text-[12px] font-semibold uppercase tracking-[0.02em] text-[#111111] transition-colors hover:text-[#1965a2] disabled:cursor-not-allowed disabled:text-gray-400"
+              className="min-w-0 flex-1 whitespace-nowrap text-left text-[11px] font-semibold uppercase tracking-[0.02em] text-[#111111] transition-colors hover:text-[#1965a2] disabled:cursor-not-allowed disabled:text-gray-400"
             >
               {isAdding ? "ĐANG THÊM..." : "THÊM VÀO GIỎ"}
             </button>
@@ -187,13 +212,13 @@ export default function ProductCard({ product }: ProductCardProps) {
               type="button"
               onClick={handleQuickAdd}
               disabled={isAdding || !firstVariant || product.isOutOfStock}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4c72b7] text-white shadow-[0_10px_20px_rgba(76,114,183,0.2)] transition-all hover:bg-[#3f63a4] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#4c72b7] text-white shadow-[0_8px_18px_rgba(76,114,183,0.18)] transition-all hover:bg-[#3f63a4] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300"
               aria-label={`Thêm ${product.name} vào giỏ`}
             >
               {isAdding ? (
-                <Loader2 size={15} className="animate-spin" />
+                <Loader2 size={14} className="animate-spin" />
               ) : (
-                <ShoppingBag size={15} strokeWidth={2} />
+                <ShoppingBag size={14} strokeWidth={2} />
               )}
             </button>
           </div>

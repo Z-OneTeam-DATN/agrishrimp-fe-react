@@ -130,11 +130,17 @@ export default function AdminTopHeader() {
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
   const { hasPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const shouldFetchBranchDirectory =
+    !!accessToken &&
+    hasPermission(P.BRANCH_VIEW) &&
+    !user?.branch?.name &&
+    !!warehouseId;
 
   const { data: branches, isLoading: isBranchesLoading } = useQuery({
     queryKey: ["branches"],
     queryFn: () => branchService.getAll(),
-    enabled: hasPermission(P.BRANCH_VIEW),
+    enabled: shouldFetchBranchDirectory,
     staleTime: 1000 * 60 * 30,
   });
 
@@ -229,9 +235,19 @@ export default function AdminTopHeader() {
   };
 
   const getUserBranchName = () => {
-    if (isUserLoading || isBranchesLoading) return "Đang tải...";
+    if (isUserLoading) return "Đang tải...";
 
     if (user?.branch?.name) return user.branch.name;
+
+    if (isAdminRole(user?.role) && !warehouseId) {
+      return "Toàn hệ thống";
+    }
+
+    if (!shouldFetchBranchDirectory) {
+      return warehouseId ? `Chi nhánh (ID: ${warehouseId})` : "Chưa có chi nhánh";
+    }
+
+    if (isBranchesLoading) return "Đang tải...";
 
     const branchData = branches as BranchResponse | undefined;
     const branchList = Array.isArray(branchData)
