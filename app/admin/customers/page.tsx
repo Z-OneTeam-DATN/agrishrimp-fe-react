@@ -151,27 +151,6 @@ export default function CustomerManagementPage() {
                     </h1>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                    {overviewCards.map((card) => (
-                        <div
-                            key={card.title}
-                            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
-                        >
-                            <p className="text-[11px] font-semibold text-slate-400">
-                                {card.title}
-                            </p>
-                            <div className="mt-3 space-y-1">
-                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
-                                    {card.value.toLocaleString("vi-VN")}
-                                </p>
-                                <p className="text-[10px] leading-[18px] text-slate-500">
-                                    {card.description}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                         <Select
@@ -218,6 +197,27 @@ export default function CustomerManagementPage() {
                     )}
                 </div>
 
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                    {overviewCards.map((card) => (
+                        <div
+                            key={card.title}
+                            className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+                        >
+                            <p className="text-[11px] font-semibold text-slate-400">
+                                {card.title}
+                            </p>
+                            <div className="mt-3 space-y-1">
+                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">
+                                    {card.value.toLocaleString("vi-VN")}
+                                </p>
+                                <p className="text-[10px] leading-[18px] text-slate-500">
+                                    {card.description}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
             <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
                 {isLoading && customers.length === 0 ? (
                     <AdminDataSyncLoader />
@@ -235,6 +235,7 @@ export default function CustomerManagementPage() {
                             totalPages={totalPages}
                             totalElements={totalElements}
                             onPageChange={(newPage) => setPage(newPage)}
+                            onRefresh={fetchCustomers}
                         />
                     </div>
                 )}

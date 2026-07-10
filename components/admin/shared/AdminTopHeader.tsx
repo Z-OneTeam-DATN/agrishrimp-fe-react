@@ -128,13 +128,13 @@ export default function AdminTopHeader() {
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isLoadingAuth } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
 
   const { data: branches, isLoading: isBranchesLoading } = useQuery({
     queryKey: ["branches"],
     queryFn: () => branchService.getAll(),
-    enabled: hasPermission(P.BRANCH_VIEW),
+    enabled: !!user && !isLoadingAuth && hasPermission(P.BRANCH_VIEW),
     staleTime: 1000 * 60 * 30,
   });
 

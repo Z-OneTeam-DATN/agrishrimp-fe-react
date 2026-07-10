@@ -24,18 +24,19 @@ interface PendingOrdersProps {
 }
 
 export default function PendingOrders({ branchId }: PendingOrdersProps) {
-  const { user } = useAuthStore();
+  const { user, isLoadingAuth } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
 
   const { data, isLoading } = useQuery({
     queryKey: ["pending-orders-summary", branchId],
     queryFn: () => dashboardService.getPendingOrdersSummary(branchId),
+    enabled: !!user && !isLoadingAuth,
   });
 
   const { data: backorders, isLoading: isBackordersLoading } = useQuery({
     queryKey: ["backorder-report", isAdmin],
     queryFn: () => orderService.getBackorderReport(),
-    enabled: isAdmin,
+    enabled: !!user && !isLoadingAuth && isAdmin,
     refetchInterval: 60000,
   });
 

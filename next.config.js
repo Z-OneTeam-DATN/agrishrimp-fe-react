@@ -38,9 +38,11 @@ const nextConfig = {
     ],
   },
   experimental: {
+    webpackBuildWorker: false,
     // Chỉ compile đúng export được dùng thay vì import cả package
     // Giảm số modules cần compile mỗi lần load trang mới
     optimizePackageImports: [
+
       "framer-motion",
       "recharts",
       "react-chartjs-2",

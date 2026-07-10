@@ -167,62 +167,68 @@ export default function AdminDashboard() {
   const { data: branches = [] } = useQuery<BranchOption[]>({
     queryKey: ["branches-list"],
     queryFn: () => branchService.getAll(),
-    enabled: isAdmin && canViewDashboard && hasPermission(P.BRANCH_VIEW),
+    enabled:
+      !!user &&
+      !isLoadingAuth &&
+      isAdmin &&
+      canViewDashboard &&
+      hasPermission(P.BRANCH_VIEW),
   });
 
   const { data: customerSnapshot } = useQuery<CustomerResponse>({
     queryKey: ["dashboard-customers-snapshot"],
     queryFn: () => customerService.getAll("", "all", 0, 500),
-    enabled: !!user && canViewDashboard && hasPermission(P.CUSTOMER_VIEW),
+    enabled:
+      !!user && !isLoadingAuth && canViewDashboard && hasPermission(P.CUSTOMER_VIEW),
   });
 
   const { data: stats, isLoading: isStatsLoading } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats", selectedBranchId],
     queryFn: () => dashboardService.getStats(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: !!user && !isLoadingAuth && canViewDashboard,
   });
 
   const { data: dailyResults, isLoading: isDailyLoading } =
     useQuery<DailyResults>({
       queryKey: ["daily-results", selectedBranchId],
       queryFn: () => dashboardService.getDailyResults(selectedBranchId),
-      enabled: !!user && canViewDashboard,
+      enabled: !!user && !isLoadingAuth && canViewDashboard,
     });
 
   const { data: pendingSummary } = useQuery<PendingOrdersSummary>({
     queryKey: ["pending-orders-summary", selectedBranchId],
     queryFn: () => dashboardService.getPendingOrdersSummary(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: !!user && !isLoadingAuth && canViewDashboard,
   });
 
   const { data: inventoryInfo } = useQuery<InventoryInfo>({
     queryKey: ["inventory-info", selectedBranchId],
     queryFn: () => dashboardService.getInventoryInfo(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: !!user && !isLoadingAuth && canViewDashboard,
   });
 
   const { data: topProducts = [] } = useQuery<TopProduct[]>({
     queryKey: ["top-products", selectedBranchId],
     queryFn: () => dashboardService.getTopProducts(5, selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: !!user && !isLoadingAuth && canViewDashboard,
   });
 
   const { data: salesPerformance } = useQuery({
     queryKey: ["sales-performance", selectedBranchId],
     queryFn: () => dashboardService.getSalesPerformance(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: !!user && !isLoadingAuth && canViewDashboard,
   });
 
   const { data: categoryDistribution = [] } = useQuery<CategoryDistribution[]>({
     queryKey: ["category-distribution", selectedBranchId],
     queryFn: () => dashboardService.getCategoryDistribution(selectedBranchId),
-    enabled: !!user && canViewDashboard,
+    enabled: !!user && !isLoadingAuth && canViewDashboard,
   });
 
   const { data: backorders = [] } = useQuery<OrderRisk[]>({
     queryKey: ["backorder-report", isAdmin],
     queryFn: () => orderService.getBackorderReport(),
-    enabled: !!user && canViewDashboard && isAdmin,
+    enabled: !!user && !isLoadingAuth && canViewDashboard && isAdmin,
     refetchInterval: 60000,
   });
 

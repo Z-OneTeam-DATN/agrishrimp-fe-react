@@ -24,11 +24,13 @@ import { ProductService } from "@/app/services/product.service";
 import { InventoryApiService, InventoryExportApiService, InventoryCheckApiService } from "@/app/services/inventory.service";
 import { transferService } from "@/app/services/transfer.service";
 import { useEffect, useState } from "react";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export function InventorySidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
+  const { user, isLoadingAuth } = useAuthStore();
   const [productCount, setProductCount] = useState(0);
   const [receiptCount, setReceiptCount] = useState(0);
   const [receiptPendingCount, setReceiptPendingCount] = useState(0);
@@ -38,6 +40,10 @@ export function InventorySidebar() {
   const [dashboardTaskCount, setDashboardTaskCount] = useState(0);
 
   useEffect(() => {
+    if (!user || isLoadingAuth) {
+      return;
+    }
+
     const fetchCounts = async () => {
       try {
         const results = await Promise.allSettled([
@@ -84,7 +90,7 @@ export function InventorySidebar() {
     };
 
     fetchCounts();
-  }, []);
+  }, [user, isLoadingAuth]);
 
   const isActive = (path: string, tab?: string) => {
     if (tab) return pathname === path && currentTab === tab;

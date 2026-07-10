@@ -17,6 +17,7 @@ import {
 import { formatDate } from "@/lib/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle } from "lucide-react";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 import {
   Chart as ChartJS,
@@ -54,6 +55,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
   const [activeTab, setActiveTab] = useState("revenue");
   const [days, setDays] = useState("7days");
   const [isClient, setIsClient] = useState(false);
+  const { user, isLoadingAuth } = useAuthStore();
 
   useEffect(() => {
     setIsClient(true);
@@ -66,7 +68,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
   } = useQuery({
     queryKey: ["sales-performance", branchId, days],
     queryFn: () => dashboardService.getSalesPerformance(branchId),
-    enabled: activeTab === "revenue",
+    enabled: isClient && !!user && !isLoadingAuth && activeTab === "revenue",
   });
 
   const {
@@ -76,7 +78,7 @@ export default function SalesPerformance({ branchId }: SalesPerformanceProps) {
   } = useQuery({
     queryKey: ["category-distribution", branchId],
     queryFn: () => dashboardService.getCategoryDistribution(branchId),
-    enabled: activeTab === "proportion",
+    enabled: isClient && !!user && !isLoadingAuth && activeTab === "proportion",
   });
 
   // Cấu hình Chart Doanh thu

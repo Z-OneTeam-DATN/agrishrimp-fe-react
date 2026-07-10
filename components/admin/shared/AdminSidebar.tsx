@@ -13,7 +13,6 @@ import {
   Building2,
   FileBarChart,
   Settings,
-  HelpCircle,
   Truck,
   TrendingUp,
   Warehouse,
@@ -24,7 +23,6 @@ import {
   ChevronRight,
   ShoppingCart,
   List,
-  Archive,
   RotateCcw,
   Ticket,
   Image as ImageIcon,
@@ -37,6 +35,7 @@ import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
 import { ProductService } from "@/app/services/product.service";
 import { getCategories } from "@/app/services/CategoryService";
+import { getAdminBrands } from "@/app/services/brand.service";
 import { branchService } from "@/app/services/branchService";
 import { EmployeeService } from "@/app/services/employee.service";
 import { voucherService } from "@/app/services/voucher.service";
@@ -55,7 +54,7 @@ import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, isLoadingAuth } = useAuthStore();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
   const role = normalizeRoleSlug(user?.role) || "USER";
@@ -115,6 +114,7 @@ export default function AdminSidebar() {
   const [customerCount, setCustomerCount] = useState(0);
   const [productCount, setProductCount] = useState(0);
   const [categoryCount, setCategoryCount] = useState(0);
+  const [brandCount, setBrandCount] = useState(0);
   const [attributeCount, setAttributeCount] = useState(0);
   const [employeeCount, setEmployeeCount] = useState(0);
   const [branchCount, setBranchCount] = useState(0);
@@ -136,6 +136,10 @@ export default function AdminSidebar() {
   }, [pathname]);
 
   const fetchCounts = useCallback(async () => {
+    if (!user || isLoadingAuth) {
+      return;
+    }
+
     try {
       const results = await Promise.allSettled([
         hasPermission(P.SUPPLIER_VIEW)
@@ -149,6 +153,9 @@ export default function AdminSidebar() {
           : Promise.resolve(null),
         hasPermission(P.CATEGORY_VIEW)
           ? getCategories().catch(() => [])
+          : Promise.resolve(null),
+        hasPermission(P.PRODUCT_VIEW)
+          ? getAdminBrands().catch(() => [])
           : Promise.resolve(null),
         hasPermission(P.ATTRIBUTE_VIEW)
           ? ProductService.getAttributes()
@@ -184,6 +191,7 @@ export default function AdminSidebar() {
         customerResult,
         productResult,
         categoryResult,
+        brandResult,
         attributeResult,
         employeeResult,
         branchResult,
@@ -211,6 +219,10 @@ export default function AdminSidebar() {
         categoryResult.status === "fulfilled"
           ? (categoryResult.value as any)
           : null;
+      const brandValue =
+        brandResult.status === "fulfilled"
+          ? (brandResult.value as any)
+          : null;
       const attributeValue =
         attributeResult.status === "fulfilled"
           ? (attributeResult.value as any)
@@ -236,6 +248,7 @@ export default function AdminSidebar() {
           : productValue?.totalProducts || 0,
       );
       setCategoryCount(Array.isArray(categoryValue) ? categoryValue.length : 0);
+      setBrandCount(Array.isArray(brandValue) ? brandValue.length : 0);
       setAttributeCount(
         Array.isArray(attributeValue) ? attributeValue.length : 0,
       );
@@ -304,7 +317,7 @@ export default function AdminSidebar() {
     } catch (error) {
       console.warn("Sidebar counts sync failed");
     }
-  }, [canAccessPurchaseRequests, hasPermission, isBranchAccount]);
+  }, [canAccessPurchaseRequests, hasPermission, isBranchAccount, isLoadingAuth, user]);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -331,6 +344,7 @@ export default function AdminSidebar() {
     window.addEventListener("supplierUpdated", handleUpdate);
     window.addEventListener("customerUpdated", handleUpdate);
     window.addEventListener("orderUpdated", handleUpdate);
+    window.addEventListener("brandUpdated", handleUpdate);
 
     return () => {
       if (idleId !== null && "cancelIdleCallback" in browserWindow) {
@@ -342,6 +356,7 @@ export default function AdminSidebar() {
       window.removeEventListener("supplierUpdated", handleUpdate);
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
+      window.removeEventListener("brandUpdated", handleUpdate);
     };
   }, [fetchCounts]);
 
@@ -404,6 +419,15 @@ export default function AdminSidebar() {
                   label="Tổng quan"
                   active={pathname === "/admin"}
                   color="text-blue-500"
+                />
+              )}
+              {canViewFinanceSection && (
+                <SidebarLink
+                  href="/admin/financial"
+                  icon={FileBarChart}
+                  label="Tổng quan tài chính"
+                  active={pathname.startsWith("/admin/financial")}
+                  color="text-emerald-400"
                 />
               )}
               {hasPermission(P.WORKSPACE_VIEW) && (
@@ -553,6 +577,7 @@ export default function AdminSidebar() {
                   icon={Building2}
                   label="Thương hiệu"
                   active={isActive("/admin/brands")}
+                  badge={brandCount}
                 />
               )}
               {hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount && (
@@ -637,45 +662,7 @@ export default function AdminSidebar() {
           </section>
         )}
 
-        {canViewFinanceSection && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Tài chính
-            </p>
-            <div className="space-y-0.5">
-              <SidebarLink
-                href="/admin/financial"
-                icon={FileBarChart}
-                label="Tổng quan tài chính"
-                active={pathname === "/admin/financial"}
-                color="text-blue-500"
-              />
-              {!isBranchAccount && (
-                <SidebarLink
-                  href="/admin/financial/supplier-debt"
-                  icon={Truck}
-                  label="Công nợ NCC"
-                  active={isActive("/admin/financial/supplier-debt")}
-                  color="text-orange-400"
-                />
-              )}
-              <SidebarLink
-                href="/admin/financial/cashbook"
-                icon={Archive}
-                label="Sổ quỹ / Tiền chi"
-                active={isActive("/admin/financial/cashbook")}
-                color="text-blue-400"
-              />
-              <SidebarLink
-                href="/admin/financial/profit-loss"
-                icon={TrendingUp}
-                label="Lãi lỗ"
-                active={isActive("/admin/financial/profit-loss")}
-                color="text-blue-400"
-              />
-            </div>
-          </section>
-        )}
+
 
         {hasAnyPermission([
           P.REPORT_REVENUE_VIEW,
@@ -753,7 +740,6 @@ export default function AdminSidebar() {
             active={isActive("/admin/settings")}
           />
         )}
-        <SidebarLink href="#" icon={HelpCircle} label="Hỗ trợ" active={false} />
       </div>
     </div>
   );

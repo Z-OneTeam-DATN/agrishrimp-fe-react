@@ -17,22 +17,29 @@ function getAuthHeader() {
 }
 
 export function useWebPush() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, isLoadingAuth, accessToken, user } = useAuthStore();
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) return;
+    if (!isAuthenticated || isLoadingAuth || !accessToken || !user?.id) return;
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
 
     const register = async () => {
       try {
         // Fetch VAPID public key
         const { data } = await apiJava.get<{ publicKey: string }>("/v1/notifications/vapid-public-key", {
           headers: getAuthHeader(),
+          signal: controller.signal,
         });
+        if (cancelled) return;
         if (!data.publicKey || data.publicKey.trim() === "") return;
 
         const reg = await navigator.serviceWorker.register("/sw.js");
+        if (cancelled) return;
         await navigator.serviceWorker.ready;
+        if (cancelled) return;
 
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
@@ -55,7 +62,12 @@ export function useWebPush() {
     };
 
     register();
-  }, [isAuthenticated, user?.id]);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [accessToken, isAuthenticated, isLoadingAuth, user?.id]);
 }
 
 async function sendSubscriptionToServer(sub: PushSubscription) {

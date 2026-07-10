@@ -234,6 +234,24 @@ export default function AddSupplierPage() {
         if (pendingDraftData || draftPromptOpen) return;
 
         const timer = setTimeout(() => {
+            const hasInput = !!(
+                watchedValues.name?.trim() ||
+                watchedValues.taxCode?.trim() ||
+                watchedValues.contactName?.trim() ||
+                watchedValues.phone?.trim() ||
+                watchedValues.email?.trim() ||
+                watchedValues.addressDetail?.trim() ||
+                (watchedValues.provinceId && watchedValues.provinceId !== "") ||
+                (watchedValues.issueDate && watchedValues.issueDate !== "") ||
+                watchedValues.taxAuthority?.trim() ||
+                watchedValues.mainBusinessSector?.trim()
+            );
+
+            if (!hasInput) {
+                localStorage.removeItem(DRAFT_KEY);
+                return;
+            }
+
             const dataToSave = {
                 formData: {
                     ...watchedValues,
@@ -245,6 +263,7 @@ export default function AddSupplierPage() {
 
         return () => clearTimeout(timer);
     }, [watchedValues, pendingDraftData, draftPromptOpen]);
+
 
     useEffect(() => {
         const timer = setTimeout(() => {

@@ -5,6 +5,7 @@ import { Activity, DollarSign, FileText, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/app/services/dashboard.service";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface DailyBusinessResultsProps {
   branchId?: string;
@@ -13,9 +14,12 @@ interface DailyBusinessResultsProps {
 export default function DailyBusinessResults({
   branchId,
 }: DailyBusinessResultsProps) {
+  const { user, isLoadingAuth } = useAuthStore();
+
   const { data, isLoading } = useQuery({
     queryKey: ["daily-results", branchId],
     queryFn: () => dashboardService.getDailyResults(branchId),
+    enabled: !!user && !isLoadingAuth,
   });
 
   const formatPercent = (percent?: number) => {

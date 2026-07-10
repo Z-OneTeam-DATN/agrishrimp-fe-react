@@ -624,16 +624,6 @@ export default function SupplierDetailPage() {
         setHistoryCurrentPage(1);
     }, [historyKeyword, historyStatus, fromDate, toDate]);
 
-    useEffect(() => {
-        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (!hasCatalogDraft) return;
-            event.preventDefault();
-            event.returnValue = "";
-        };
-
-        window.addEventListener("beforeunload", handleBeforeUnload);
-        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [hasCatalogDraft]);
 
     useEffect(() => {
         const handleDocumentLinkClick = (event: MouseEvent) => {

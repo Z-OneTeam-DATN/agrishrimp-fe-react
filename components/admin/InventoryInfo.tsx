@@ -13,15 +13,19 @@ import { dashboardService } from "@/app/services/dashboard.service";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface InventoryInfoProps {
   branchId?: string;
 }
 
 export default function InventoryInfo({ branchId }: InventoryInfoProps) {
+  const { user, isLoadingAuth } = useAuthStore();
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ["inventory-info", branchId],
     queryFn: () => dashboardService.getInventoryInfo(branchId),
+    enabled: !!user && !isLoadingAuth,
   });
 
   // Format tiền tệ VNĐ
