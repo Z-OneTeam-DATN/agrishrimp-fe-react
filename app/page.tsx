@@ -12,6 +12,8 @@ import { getPublicBlogPosts } from "@/app/services/blog.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
 
+export const dynamic = "force-dynamic";
+
 const BACKEND_ORIGIN =
   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 const CATEGORY_FALLBACK_IMAGE = "/placeholder.svg";
