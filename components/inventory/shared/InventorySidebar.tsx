@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   BarChart3,
@@ -225,9 +225,23 @@ function SidebarLink({
   color,
   badgeColor,
 }: SidebarLinkProps) {
+  const router = useRouter();
+  const canPrefetch = typeof href === "string" && href.startsWith("/");
+
   return (
     <Link
       href={href}
+      prefetch={false}
+      onMouseEnter={() => {
+        if (canPrefetch) {
+          router.prefetch(href);
+        }
+      }}
+      onFocus={() => {
+        if (canPrefetch) {
+          router.prefetch(href);
+        }
+      }}
       className={cn(
         "flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-200 group relative",
         active

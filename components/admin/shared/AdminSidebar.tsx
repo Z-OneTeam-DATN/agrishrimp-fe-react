@@ -842,7 +842,7 @@ function SidebarLink({
   return (
     <Link
       href={href}
-      prefetch={canPrefetch}
+      prefetch={false}
       onMouseEnter={() => {
         if (canPrefetch) {
           router.prefetch(href);
