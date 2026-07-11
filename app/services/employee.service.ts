@@ -40,8 +40,9 @@ export class EmployeeService {
     await apiJava.patch(`${this.PREFIX}/${id}/status`, { status })
   }
 
-  static async resendCredentials(id: number): Promise<void> {
-    await apiJava.post(`${this.PREFIX}/${id}/resend-credentials`)
+  static async resendCredentials(id: number): Promise<string> {
+    const response = await apiJava.post<string>(`${this.PREFIX}/${id}/resend-credentials`)
+    return response.data
   }
 
   static async lookupByCitizenId(citizenId: string): Promise<CitizenLookupResponse> {

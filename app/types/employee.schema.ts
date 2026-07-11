@@ -36,7 +36,13 @@ export const EmployeeCreateSchema = z.object({
     return age >= 18;
   }, { message: "Nhân viên phải từ 18 tuổi trở lên" }),
   avatarUrl: z.string().nullable().optional(),
-  status: z.enum(["ACTIVE", "INACTIVE", "BANNED"]),
+  status: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? undefined : val),
+    z.enum(["ACTIVE", "INACTIVE", "BANNED"], {
+      required_error: "Vui lòng chọn trạng thái",
+      invalid_type_error: "Vui lòng chọn trạng thái"
+    })
+  ),
   startDate: z.string().refine((date) => {
     const d = new Date(date);
     const minDate = new Date("2000-01-01");
@@ -47,7 +53,13 @@ export const EmployeeCreateSchema = z.object({
   branchId: requiredSelectNumber("Vui lòng chọn chi nhánh"),
   roleId: requiredSelectNumber("Vui lòng chọn vai trò"),
   citizenId: z.string().regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số"),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]),
+  gender: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined ? undefined : val),
+    z.enum(["MALE", "FEMALE", "OTHER"], {
+      required_error: "Vui lòng chọn giới tính",
+      invalid_type_error: "Vui lòng chọn giới tính"
+    })
+  ),
 });
 
 export type EmployeeCreateInput = z.infer<typeof EmployeeCreateSchema>;
