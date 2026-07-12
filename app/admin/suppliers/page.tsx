@@ -85,23 +85,6 @@ export default function SupplierListPage() {
                     Quản lý nhà cung cấp
                 </h1>
 
-                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-                    {[
-                        { title: "Tổng nhà cung cấp", value: totalElements, description: "Số hồ sơ theo bộ lọc hiện tại" },
-                        { title: "Đang giao dịch", value: visibleSummary.activeCount, description: "Nhà cung cấp đang hoạt động trong trang" },
-                        { title: "Tạm ngừng", value: visibleSummary.inactiveCount, description: "Nhà cung cấp đang tạm dừng trong trang" },
-                        { title: "Cảnh báo dữ liệu", value: visibleSummary.warningCount, description: "Thông tin cần kiểm tra hoặc bổ sung" },
-                    ].map((card) => (
-                        <div key={card.title} className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
-                            <p className="text-[11px] font-semibold text-slate-400">{card.title}</p>
-                            <div className="mt-3 space-y-1">
-                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">{card.value}</p>
-                                <p className="text-[10px] leading-4.5 text-slate-500">{card.description}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                         <div className="relative w-full lg:w-[300px]">
@@ -136,11 +119,28 @@ export default function SupplierListPage() {
 
                     <Button
                         onClick={() => router.push("/admin/suppliers/add")}
-                        className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                        className="h-[38px] rounded-md bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         Thêm nhà cung cấp
                     </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+                    {[
+                        { title: "Tổng nhà cung cấp", value: totalElements, description: "Số hồ sơ theo bộ lọc hiện tại" },
+                        { title: "Đang giao dịch", value: visibleSummary.activeCount, description: "Nhà cung cấp đang hoạt động trong trang" },
+                        { title: "Tạm ngừng", value: visibleSummary.inactiveCount, description: "Nhà cung cấp đang tạm dừng trong trang" },
+                        { title: "Cảnh báo dữ liệu", value: visibleSummary.warningCount, description: "Thông tin cần kiểm tra hoặc bổ sung" },
+                    ].map((card) => (
+                        <div key={card.title} className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+                            <p className="text-[11px] font-semibold text-slate-400">{card.title}</p>
+                            <div className="mt-3 space-y-1">
+                                <p className="text-[22px] font-semibold leading-none tracking-tight text-slate-900">{card.value}</p>
+                                <p className="text-[10px] leading-4.5 text-slate-500">{card.description}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
             <div className="mb-8 overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">

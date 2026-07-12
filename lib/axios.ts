@@ -103,9 +103,18 @@ const getErrorMessage = (error: AxiosError<any>) => {
   const data = error.response?.data;
   if (!data) return "Lỗi hệ thống, vui lòng thử lại.";
 
+  if (Array.isArray(data.fieldErrors) && data.fieldErrors.length > 0) {
+    return data.fieldErrors
+      .filter((fieldError: unknown) => typeof fieldError === "string" && fieldError.trim())
+      .join(". ");
+  }
+
   // Nếu có mảng chi tiết lỗi (Validation errors)
   if (Array.isArray(data.details) && data.details.length > 0) {
-    return data.details.map((d: any) => d.message).join(". ");
+    return data.details
+      .map((detail: any) => (typeof detail === "string" ? detail : detail?.message))
+      .filter(Boolean)
+      .join(". ");
   }
 
   return (

@@ -13,7 +13,6 @@ import {
   Building2,
   FileBarChart,
   Settings,
-  HelpCircle,
   Truck,
   TrendingUp,
   Warehouse,
@@ -24,7 +23,6 @@ import {
   ChevronRight,
   ShoppingCart,
   List,
-  Archive,
   RotateCcw,
   Ticket,
   Image as ImageIcon,
@@ -37,6 +35,7 @@ import { supplierService } from "@/app/services/supplier.service";
 import { customerService } from "@/app/services/customer.service";
 import { ProductService } from "@/app/services/product.service";
 import { getCategories } from "@/app/services/CategoryService";
+import { getAdminBrands } from "@/app/services/brand.service";
 import { branchService } from "@/app/services/branchService";
 import { EmployeeService } from "@/app/services/employee.service";
 import { voucherService } from "@/app/services/voucher.service";
@@ -53,9 +52,30 @@ import { P } from "@/lib/permissions";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 
+const SIDEBAR_COUNTS_CACHE_KEY = "admin_sidebar_counts_v1";
+const SIDEBAR_COUNTS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type SidebarCountsCache = {
+  fetchedAt: number;
+  supplierCount: number;
+  customerCount: number;
+  productCount: number;
+  categoryCount: number;
+  brandCount: number;
+  attributeCount: number;
+  employeeCount: number;
+  branchCount: number;
+  voucherCount: number;
+  purchaseRequestPendingCount: number;
+  receiptPendingCount: number;
+  exportPendingCount: number;
+  transferPendingCount: number;
+  checkPendingCount: number;
+};
+
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, accessToken, isLoadingAuth } = useAuthStore();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
   const role = normalizeRoleSlug(user?.role) || "USER";
@@ -118,6 +138,7 @@ export default function AdminSidebar() {
   const [customerCount, setCustomerCount] = useState(0);
   const [productCount, setProductCount] = useState(0);
   const [categoryCount, setCategoryCount] = useState(0);
+  const [brandCount, setBrandCount] = useState(0);
   const [attributeCount, setAttributeCount] = useState(0);
   const [employeeCount, setEmployeeCount] = useState(0);
   const [branchCount, setBranchCount] = useState(0);
@@ -129,6 +150,23 @@ export default function AdminSidebar() {
   const [transferPendingCount, setTransferPendingCount] = useState(0);
   const [checkPendingCount, setCheckPendingCount] = useState(0);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+
+  const applyCounts = useCallback((snapshot: SidebarCountsCache) => {
+    setSupplierCount(snapshot.supplierCount);
+    setCustomerCount(snapshot.customerCount);
+    setProductCount(snapshot.productCount);
+    setCategoryCount(snapshot.categoryCount);
+    setBrandCount(snapshot.brandCount);
+    setAttributeCount(snapshot.attributeCount);
+    setEmployeeCount(snapshot.employeeCount);
+    setBranchCount(snapshot.branchCount);
+    setVoucherCount(snapshot.voucherCount);
+    setPurchaseRequestPendingCount(snapshot.purchaseRequestPendingCount);
+    setReceiptPendingCount(snapshot.receiptPendingCount);
+    setExportPendingCount(snapshot.exportPendingCount);
+    setTransferPendingCount(snapshot.transferPendingCount);
+    setCheckPendingCount(snapshot.checkPendingCount);
+  }, []);
 
   useEffect(() => {
     if (
@@ -143,6 +181,10 @@ export default function AdminSidebar() {
   }, [pathname]);
 
   const fetchCounts = useCallback(async () => {
+    if (!accessToken || !user || isLoadingAuth) {
+      return;
+    }
+
     try {
       const results = await Promise.allSettled([
         hasPermission(P.SUPPLIER_VIEW)
@@ -156,6 +198,9 @@ export default function AdminSidebar() {
           : Promise.resolve(null),
         hasPermission(P.CATEGORY_VIEW)
           ? getCategories().catch(() => [])
+          : Promise.resolve(null),
+        hasPermission(P.PRODUCT_VIEW)
+          ? getAdminBrands().catch(() => [])
           : Promise.resolve(null),
         hasPermission(P.ATTRIBUTE_VIEW)
           ? ProductService.getAttributes()
@@ -191,6 +236,7 @@ export default function AdminSidebar() {
         customerResult,
         productResult,
         categoryResult,
+        brandResult,
         attributeResult,
         employeeResult,
         branchResult,
@@ -218,6 +264,10 @@ export default function AdminSidebar() {
         categoryResult.status === "fulfilled"
           ? (categoryResult.value as any)
           : null;
+      const brandValue =
+        brandResult.status === "fulfilled"
+          ? (brandResult.value as any)
+          : null;
       const attributeValue =
         attributeResult.status === "fulfilled"
           ? (attributeResult.value as any)
@@ -235,27 +285,24 @@ export default function AdminSidebar() {
           ? (voucherResult.value as any)
           : null;
 
-      setSupplierCount(supplierValue?.totalElements || 0);
-      setCustomerCount(customerValue?.totalElements || 0);
-      setProductCount(
+      const nextSupplierCount = supplierValue?.totalElements || 0;
+      const nextCustomerCount = customerValue?.totalElements || 0;
+      const nextProductCount =
         Array.isArray(productValue)
           ? productValue.length
-          : productValue?.totalProducts || 0,
-      );
-      setCategoryCount(Array.isArray(categoryValue) ? categoryValue.length : 0);
-      setAttributeCount(
-        Array.isArray(attributeValue) ? attributeValue.length : 0,
-      );
-      setEmployeeCount(employeeValue?.totalElements || 0);
-      setBranchCount(
+            : productValue?.totalProducts || 0;
+      const nextCategoryCount = Array.isArray(categoryValue) ? categoryValue.length : 0;
+      const nextBrandCount = Array.isArray(brandValue) ? brandValue.length : 0;
+      const nextAttributeCount =
+        Array.isArray(attributeValue) ? attributeValue.length : 0;
+      const nextEmployeeCount = employeeValue?.totalElements || 0;
+      const nextBranchCount =
         Array.isArray(branchValue)
           ? branchValue.length
-          : branchValue?.totalElements || 0,
-      );
-      setVoucherCount(
+          : branchValue?.totalElements || 0;
+      const nextVoucherCount =
         voucherValue?.totalElements ||
-          (Array.isArray(voucherValue) ? voucherValue.length : 0),
-      );
+        (Array.isArray(voucherValue) ? voucherValue.length : 0);
 
       const purchaseRequests =
         purchaseRequestResult.status === "fulfilled"
@@ -263,11 +310,10 @@ export default function AdminSidebar() {
             ? purchaseRequestResult.value
             : []
           : [];
-      setPurchaseRequestPendingCount(
+      const nextPurchaseRequestPendingCount =
         purchaseRequests.filter(
           (item: any) => item.status === "PENDING_APPROVAL",
-        ).length,
-      );
+        ).length;
 
       const receipts =
         receiptResult.status === "fulfilled"
@@ -275,11 +321,10 @@ export default function AdminSidebar() {
             ? receiptResult.value
             : receiptResult.value?.data || receiptResult.value?.content || []
           : [];
-      setReceiptPendingCount(
+      const nextReceiptPendingCount =
         receipts.filter(
           (item: any) => item.status === "PENDING" || item.status === "PO",
-        ).length,
-      );
+        ).length;
 
       const exportsList =
         exportResult.status === "fulfilled"
@@ -287,17 +332,15 @@ export default function AdminSidebar() {
             ? exportResult.value
             : exportResult.value?.data || exportResult.value?.content || []
           : [];
-      setExportPendingCount(
+      const nextExportPendingCount =
         exportsList.filter(
           (item: any) => item.status === "PENDING" || item.status === "DRAFT",
-        ).length,
-      );
+        ).length;
 
-      setTransferPendingCount(
+      const nextTransferPendingCount =
         transferResult.status === "fulfilled"
           ? transferResult.value?.totalElements || 0
-          : 0,
-      );
+          : 0;
 
       const checks =
         checkResult.status === "fulfilled"
@@ -305,39 +348,91 @@ export default function AdminSidebar() {
             ? checkResult.value
             : checkResult.value?.data || checkResult.value?.content || []
           : [];
-      setCheckPendingCount(
-        checks.filter((item: any) => item.status === "PENDING").length,
-      );
+      const nextCheckPendingCount = checks.filter(
+        (item: any) => item.status === "PENDING",
+      ).length;
+
+      const snapshot: SidebarCountsCache = {
+        fetchedAt: Date.now(),
+        supplierCount: nextSupplierCount,
+        customerCount: nextCustomerCount,
+        productCount: nextProductCount,
+        categoryCount: nextCategoryCount,
+        brandCount: nextBrandCount,
+        attributeCount: nextAttributeCount,
+        employeeCount: nextEmployeeCount,
+        branchCount: nextBranchCount,
+        voucherCount: nextVoucherCount,
+        purchaseRequestPendingCount: nextPurchaseRequestPendingCount,
+        receiptPendingCount: nextReceiptPendingCount,
+        exportPendingCount: nextExportPendingCount,
+        transferPendingCount: nextTransferPendingCount,
+        checkPendingCount: nextCheckPendingCount,
+      };
+
+      applyCounts(snapshot);
+
+      try {
+        sessionStorage.setItem(SIDEBAR_COUNTS_CACHE_KEY, JSON.stringify(snapshot));
+      } catch {}
     } catch (error) {
       console.warn("Sidebar counts sync failed");
     }
-  }, [canAccessPurchaseRequests, hasPermission, isBranchAccount]);
+  }, [accessToken, applyCounts, canAccessPurchaseRequests, hasPermission, isBranchAccount, isLoadingAuth, user]);
 
   useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let idleId: number | null = null;
     const browserWindow = window;
-    const scheduleFetch = () => {
-      if ("requestIdleCallback" in browserWindow) {
-        idleId = browserWindow.requestIdleCallback(
-          () => {
-            void fetchCounts();
-          },
-          { timeout: 1500 },
-        );
-        return;
-      }
+    let hasFreshCache = false;
 
+    try {
+      const rawCache = sessionStorage.getItem(SIDEBAR_COUNTS_CACHE_KEY);
+      if (rawCache) {
+        const parsed = JSON.parse(rawCache) as SidebarCountsCache;
+        if (parsed && typeof parsed.fetchedAt === "number") {
+          applyCounts(parsed);
+
+          if (Date.now() - parsed.fetchedAt < SIDEBAR_COUNTS_CACHE_TTL_MS) {
+            hasFreshCache = true;
+          }
+        }
+      }
+    } catch {}
+
+    const scheduleFetch = () => {
       timeoutId = globalThis.setTimeout(() => {
+        if ("requestIdleCallback" in browserWindow) {
+          idleId = browserWindow.requestIdleCallback(
+            () => {
+              void fetchCounts();
+            },
+            { timeout: 3000 },
+          );
+          return;
+        }
+
         void fetchCounts();
-      }, 500);
+      }, 2500);
     };
 
-    scheduleFetch();
-    const handleUpdate = () => fetchCounts();
+    if (!hasFreshCache) {
+      scheduleFetch();
+    }
+    const handleUpdate = () => {
+      try {
+        sessionStorage.removeItem(SIDEBAR_COUNTS_CACHE_KEY);
+      } catch {}
+      void fetchCounts();
+    };
     window.addEventListener("supplierUpdated", handleUpdate);
     window.addEventListener("customerUpdated", handleUpdate);
     window.addEventListener("orderUpdated", handleUpdate);
+    window.addEventListener("brandUpdated", handleUpdate);
 
     return () => {
       if (idleId !== null && "cancelIdleCallback" in browserWindow) {
@@ -349,8 +444,9 @@ export default function AdminSidebar() {
       window.removeEventListener("supplierUpdated", handleUpdate);
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
+      window.removeEventListener("brandUpdated", handleUpdate);
     };
-  }, [fetchCounts]);
+  }, [accessToken, fetchCounts]);
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
@@ -411,6 +507,15 @@ export default function AdminSidebar() {
                   label="Tổng quan"
                   active={pathname === "/admin"}
                   color="text-blue-500"
+                />
+              )}
+              {canViewFinanceSection && (
+                <SidebarLink
+                  href="/admin/financial"
+                  icon={FileBarChart}
+                  label="Tổng quan tài chính"
+                  active={pathname.startsWith("/admin/financial")}
+                  color="text-emerald-400"
                 />
               )}
               {hasPermission(P.WORKSPACE_VIEW) && (
@@ -560,6 +665,7 @@ export default function AdminSidebar() {
                   icon={Building2}
                   label="Thương hiệu"
                   active={isActive("/admin/brands")}
+                  badge={brandCount}
                 />
               )}
               {hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount && (
@@ -644,45 +750,7 @@ export default function AdminSidebar() {
           </section>
         )}
 
-        {canViewFinanceSection && (
-          <section>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
-              Tài chính
-            </p>
-            <div className="space-y-0.5">
-              <SidebarLink
-                href="/admin/financial"
-                icon={FileBarChart}
-                label="Tổng quan tài chính"
-                active={pathname === "/admin/financial"}
-                color="text-blue-500"
-              />
-              {!isBranchAccount && (
-                <SidebarLink
-                  href="/admin/financial/supplier-debt"
-                  icon={Truck}
-                  label="Công nợ NCC"
-                  active={isActive("/admin/financial/supplier-debt")}
-                  color="text-orange-400"
-                />
-              )}
-              <SidebarLink
-                href="/admin/financial/cashbook"
-                icon={Archive}
-                label="Sổ quỹ / Tiền chi"
-                active={isActive("/admin/financial/cashbook")}
-                color="text-blue-400"
-              />
-              <SidebarLink
-                href="/admin/financial/profit-loss"
-                icon={TrendingUp}
-                label="Lãi lỗ"
-                active={isActive("/admin/financial/profit-loss")}
-                color="text-blue-400"
-              />
-            </div>
-          </section>
-        )}
+
 
         {hasAnyPermission([
           P.REPORT_REVENUE_VIEW,
@@ -760,7 +828,6 @@ export default function AdminSidebar() {
             active={isActive("/admin/settings")}
           />
         )}
-        <SidebarLink href="#" icon={HelpCircle} label="Hỗ trợ" active={false} />
       </div>
     </div>
   );
@@ -782,7 +849,7 @@ function SidebarLink({
   return (
     <Link
       href={href}
-      prefetch={canPrefetch}
+      prefetch={false}
       onMouseEnter={() => {
         if (canPrefetch) {
           router.prefetch(href);

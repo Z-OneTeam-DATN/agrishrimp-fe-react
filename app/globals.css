@@ -120,17 +120,23 @@ input[type="number"] {
   scrollbar-width: none;
 }
 
-/* Brand marquee */
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
+
 .animate-marquee {
   display: flex;
   width: max-content;
   animation: marquee 28s linear infinite;
 }
+
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
 

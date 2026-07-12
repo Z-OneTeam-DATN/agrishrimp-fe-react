@@ -60,6 +60,11 @@ export const customerService = {
     return response.data;
   },
 
+  resendCredentials: async (userId: number) => {
+    const response = await apiJava.post(`${customerService.PREFIX}/${userId}/resend-credentials`);
+    return response.data;
+  },
+
   getCustomerOrders: async (userId: number) => {
     const response = await apiJava.get(`/admin/orders/user/${userId}`);
     return response.data; 

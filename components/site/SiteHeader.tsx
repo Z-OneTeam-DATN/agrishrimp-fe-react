@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,9 +23,7 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
-import ImageSearchModal from "@/components/site/ImageSearchModal";
 import { useRouter } from "next/navigation";
-import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
 import { useCartStore } from "@/stores/useCartStore";
@@ -41,6 +40,37 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+const ImageSearchModal = dynamic(() => import("@/components/site/ImageSearchModal"), {
+  ssr: false,
+});
+
+type BrowserSpeechRecognitionResultLike = ArrayLike<{ transcript?: string }>;
+
+type BrowserSpeechRecognitionEventLike = {
+  results: ArrayLike<BrowserSpeechRecognitionResultLike>;
+};
+
+interface BrowserSpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: BrowserSpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+}
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  }
+}
 
 const MOBILE_NAV_ITEMS = [
   { href: "/", label: "Trang chủ" },
@@ -60,28 +90,111 @@ export default function Header() {
   const [mobileCategories, setMobileCategories] = useState<CategoryDTO[]>([]);
   const [mobileCategoriesLoaded, setMobileCategoriesLoaded] = useState(false);
   const [isLoadingMobileCategories, setIsLoadingMobileCategories] = useState(false);
-  const { transcript, listening, browserSupportsSpeechRecognition, resetTranscript } =
-    useSpeechRecognition();
+  const speechRecognitionRef = useRef<BrowserSpeechRecognitionLike | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
 
-  useEffect(() => {
-    if (transcript) handleSearch(transcript);
-  }, [transcript]);
-
-  const handleVoiceSearch = () => {
-    if (listening) {
-      SpeechRecognition.stopListening();
-    } else {
-      resetTranscript();
-      SpeechRecognition.startListening({ language: "vi-VN", continuous: false });
-    }
-  };
-
-  const handleSearch = (keyword: string) => {
+  const handleSearch = useCallback((keyword: string) => {
     setSearchKeyword(keyword);
     const trimmed = keyword.trim();
-    if (!trimmed) { router.push("/"); return; }
-    router.replace(`/san-pham?keyword=${encodeURIComponent(trimmed)}`, { scroll: false });
-  };
+    startTransition(() => {
+      if (!trimmed) {
+        router.push("/", { scroll: false });
+        return;
+      }
+
+      router.push(`/san-pham?keyword=${encodeURIComponent(trimmed)}`, {
+        scroll: false,
+      });
+    });
+  }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setIsSpeechSupported(
+      Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
+    );
+
+    return () => {
+      speechRecognitionRef.current?.abort();
+      speechRecognitionRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const routes = [
+      "/san-pham",
+      "/blog",
+      "/store-locator",
+      "/user/cart",
+      "/login",
+      "/orders/list",
+    ];
+    const prefetchRoutes = () => {
+      routes.forEach((route) => router.prefetch(route));
+    };
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(prefetchRoutes, { timeout: 1500 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(prefetchRoutes, 600);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [router]);
+
+  const handleVoiceSearch = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const SpeechRecognitionConstructor =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionConstructor) {
+      return;
+    }
+
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+      return;
+    }
+
+    const recognition =
+      speechRecognitionRef.current ?? new SpeechRecognitionConstructor();
+
+    recognition.lang = "vi-VN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result?.[0]?.transcript?.trim() ?? "")
+        .join(" ")
+        .trim();
+
+      if (transcript) {
+        setSearchKeyword(transcript);
+        handleSearch(transcript);
+      }
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    speechRecognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  }, [handleSearch, isListening]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSearch(searchKeyword);
@@ -420,21 +533,21 @@ export default function Header() {
               <div className="flex items-center overflow-hidden rounded-[20px] border border-[#cbd8ec] bg-white shadow-[0_8px_20px_rgba(18,44,87,0.14)]">
                 <input
                   type="text"
-                  placeholder={listening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
+                  placeholder={isListening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
                   onKeyDown={handleKeyDown}
                   className="h-10 flex-1 bg-white px-4 text-[13px] text-gray-800 outline-none placeholder:text-gray-400"
                 />
-                {browserSupportsSpeechRecognition ? (
+                {isSpeechSupported ? (
                   <button
                     type="button"
                     onClick={handleVoiceSearch}
                     className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                      listening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-[rgb(25,101,162)]"
+                      isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-[rgb(25,101,162)]"
                     }`}
                   >
-                    {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                   </button>
                 ) : null}
                 <button
@@ -489,21 +602,21 @@ export default function Header() {
                   <div className="flex items-center overflow-hidden rounded-lg bg-white">
                     <input
                       type="text"
-                      placeholder={listening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
+                      placeholder={isListening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
                       value={searchKeyword}
                       onChange={(e) => setSearchKeyword(e.target.value)}
                       onKeyDown={handleKeyDown}
                       className="h-11 flex-1 bg-white px-4 text-[15px] text-gray-800 outline-none placeholder:text-gray-400"
                     />
-                    {browserSupportsSpeechRecognition ? (
+                    {isSpeechSupported ? (
                       <button
                         type="button"
                         onClick={handleVoiceSearch}
                         className={`flex h-11 w-10 items-center justify-center transition-colors ${
-                          listening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-[rgb(25,101,162)]"
+                          isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-[rgb(25,101,162)]"
                         }`}
                       >
-                        {listening ? <MicOff size={15} /> : <Mic size={15} />}
+                        {isListening ? <MicOff size={15} /> : <Mic size={15} />}
                       </button>
                     ) : null}
                     <button

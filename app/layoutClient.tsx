@@ -24,9 +24,6 @@ const Footer = dynamic(() => import("@/components/site/SiteFooter"), {
 const AIChatButton = dynamic(() => import("@/components/site/AIChatButton"), {
   ssr: false,
 });
-const ChatWidget = dynamic(() => import("@/components/chat/ChatWidget"), {
-  ssr: false,
-});
 const WebSocketProvider = dynamic(() => import("@/components/providers/WebSocketProvider"), {
   ssr: false,
 });
@@ -185,7 +182,6 @@ export default function LayoutClient({
       if (cachedUser) {
         setUser(cachedUser as UserType);
         setPermissions(cachedPermissions);
-        setLoadingAuth(false);
       } else if (background) {
         setLoadingAuth(false);
       } else {
@@ -231,15 +227,23 @@ export default function LayoutClient({
   );
 
   useEffect(() => {
+    const hasSessionCookie = Boolean(Cookies.get("hasSession"));
+    const cachedUser = readCache();
+
+    if (!isAdminPage && !isProtectedPath && !hasSessionCookie && !cachedUser) {
+      setLoadingAuth(false);
+      return;
+    }
+
     const shouldBlockOnFirstLoad = Boolean(
-      Cookies.get("hasSession") || readCache() || isAdminPage || isProtectedPath,
+      hasSessionCookie || cachedUser || isAdminPage || isProtectedPath,
     );
 
     void hydrateAuth({
       preferCache: true,
       background: !shouldBlockOnFirstLoad,
     });
-  }, [hydrateAuth, isAdminPage, isProtectedPath]);
+  }, [hydrateAuth, isAdminPage, isProtectedPath, setLoadingAuth]);
 
   useEffect(() => {
     const revalidateAuth = () => {
@@ -287,7 +291,15 @@ export default function LayoutClient({
 
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient({
-      defaultOptions: { queries: { retry: 0 } },
+      defaultOptions: {
+        queries: {
+          retry: 0,
+          staleTime: 60_000,
+          gcTime: 10 * 60 * 1000,
+          refetchOnWindowFocus: false,
+          refetchOnReconnect: false,
+        },
+      },
     });
   }
 
@@ -316,7 +328,7 @@ export default function LayoutClient({
               <>{children}</>
             ) : (
               <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
-                <WebSocketProvider />
+                {user ? <WebSocketProvider /> : null}
                 <div className="sticky top-0 z-50">
                   <Header />
                   <Navbar />
@@ -324,7 +336,6 @@ export default function LayoutClient({
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
                 <AIChatButton />
-                <ChatWidget />
               </div>
             )}
             <Toaster position="top-right" richColors closeButton />

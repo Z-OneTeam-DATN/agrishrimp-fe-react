@@ -44,10 +44,7 @@ export default function LoginForm() {
   });
 
   const mutation = useMutation({
-    mutationFn: (data: LoginFormValues) => {
-      console.log("Submitting Login Payload:", data);
-      return AuthService.loginNext(data);
-    },
+    mutationFn: (data: LoginFormValues) => AuthService.loginNext(data),
     onSuccess: (res) => {
       const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
       const setPermissions = useAuthStore.getState().setPermissions;

@@ -5,21 +5,27 @@ export interface DashboardStats {
   totalProducts: number;
 }
 
+export interface CustomerInsights {
+  totalCustomers: number;
+  activeCustomers: number;
+  newCustomersThisMonth: number;
+}
+
 export interface DailyResults {
   todayRevenue: number;
   yesterdayRevenue: number;
   revenueChangePercent: number; // Thêm trường này
   todayProfit: number;
   yesterdayProfit: number;
-  profitChangePercent: number;  // Thêm trường này
+  profitChangePercent: number; // Thêm trường này
   todayOrders: number;
   yesterdayOrders: number;
-  orderChangePercent: number;   // Thêm trường này
+  orderChangePercent: number; // Thêm trường này
 }
 
 export interface RecentActivity {
   id: string;
-  type: 'ORDER' | 'CUSTOMER' | 'INVENTORY';
+  type: "ORDER" | "CUSTOMER" | "INVENTORY";
   title: string;
   timestamp: string;
   status: string;

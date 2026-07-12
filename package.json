@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3004",
+    "dev:webpack": "next dev -p 3004",
     "dev:turbo": "next dev --turbo -p 3004",
     "build": "next build",
     "start": "next start -p 3004",

@@ -1,5 +1,3 @@
-"use client";
-
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -10,19 +8,23 @@ type AdminDataSyncLoaderProps = {
 
 export default function AdminDataSyncLoader({
   className,
-  message = "ĐANG ĐỒNG BỘ DỮ LIỆU...",
+  message,
 }: AdminDataSyncLoaderProps) {
   return (
     <div
       className={cn(
-        "flex min-h-[320px] flex-col items-center justify-center gap-6 bg-white px-6 text-center",
+        "flex min-h-[140px] items-center justify-center bg-white px-6 py-10",
         className,
       )}
     >
-      <Loader2 className="h-12 w-12 animate-spin text-blue-600/80" />
-      <p className="text-[12px] font-medium uppercase tracking-[0.28em] text-slate-400">
-        {message}
-      </p>
+      <div className="flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-9 w-9 animate-spin text-blue-600/80" />
+        {message ? (
+          <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-400">
+            {message}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

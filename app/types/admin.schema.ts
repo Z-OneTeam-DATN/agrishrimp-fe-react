@@ -295,10 +295,10 @@ export const CustomerSchema = z.object({
 
     phone: z
         .string()
-        .min(10, "Số điện thoại phải có ít nhất 10 số")
+        .min(1, "Vui lòng nhập số điện thoại")
         .regex(
-            /^(0|84)(3|5|7|8|9)([0-9]{8})$/,
-            "Định dạng số điện thoại Việt Nam không đúng"
+            /^(0|84)\s*(3|5|7|8|9)\d\s*\d{3}\s*\d{4}$/,
+            "Số điện thoại không đúng định dạng (VD: 0901234567)"
         ),
 
     email: z
@@ -306,7 +306,13 @@ export const CustomerSchema = z.object({
         .min(1, "Email không được để trống")
         .email("Định dạng email không hợp lệ"),
 
-    gender: z.enum(["MALE", "FEMALE", "OTHER"]).default("MALE"),
+    gender: z.preprocess(
+        (val) => (val === "" ? undefined : val),
+        z.enum(["MALE", "FEMALE", "OTHER"], {
+            required_error: "Vui lòng chọn giới tính",
+            invalid_type_error: "Vui lòng chọn giới tính",
+        })
+    ),
 
     // 2. Địa chỉ
     provinceId: z.string().min(1, "Vui lòng chọn Tỉnh/Thành phố"),
@@ -317,14 +323,19 @@ export const CustomerSchema = z.object({
         .min(5, "Vui lòng nhập địa chỉ chi tiết")
         .max(255, "Địa chỉ quá dài"),
 
-    // 3. Trạng thái & Ghi chú
-    status: z.enum(["ACTIVE", "LOCKED"]).default("ACTIVE"),
+    // 3. Trạng thái
+    status: z.preprocess(
+        (val) => (val === "" ? undefined : val),
+        z.enum(["ACTIVE", "LOCKED"], {
+            required_error: "Vui lòng chọn trạng thái",
+            invalid_type_error: "Vui lòng chọn trạng thái",
+        })
+    ),
     note: z.string().max(1000, "Ghi chú tối đa 1000 ký tự").optional().or(z.literal("")),
 
-    // 🟢 Assignment & Internal Notes
+    // 🟢 Assignment
     branchId: z.string().optional().or(z.literal("")),
     staffAssignedId: z.string().optional().or(z.literal("")),
-    internalNotes: z.string().max(2000, "Ghi chú nội bộ tối đa 2000 ký tự").optional().or(z.literal("")),
 });
 
 export type CustomerFormValues = z.infer<typeof CustomerSchema>;

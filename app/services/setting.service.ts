@@ -5,6 +5,10 @@ export type PriceRoundingRule = "NONE" | "STEP_500" | "STEP_1000" | "TAIL_99000"
 export type ProfitSettingResponse = {
     margin: string;
     roundingRule?: PriceRoundingRule;
+    multiTierEnabled?: boolean;
+    minMarginFloor?: string;
+    categoryOffsets?: Record<number, number>;
+    expiryTiers?: Record<number, number>;
 };
 
 export const SettingService = {
@@ -19,9 +23,20 @@ export const SettingService = {
     // 2. Cập nhật biên lợi nhuận mới
     updateProfitMargin: async (
         margin: string,
-        roundingRule?: PriceRoundingRule
+        roundingRule?: PriceRoundingRule,
+        multiTierEnabled?: boolean,
+        minMarginFloor?: string,
+        categoryOffsets?: Record<number, number>,
+        expiryTiers?: Record<number, number>
     ): Promise<{ success: boolean; message: string; roundingRule?: PriceRoundingRule }> => {
-        const response = await apiJava.put(`${SettingService.PREFIX}/profit-margin`, { margin, roundingRule });
+        const response = await apiJava.put(`${SettingService.PREFIX}/profit-margin`, {
+            margin,
+            roundingRule,
+            multiTierEnabled,
+            minMarginFloor,
+            categoryOffsets,
+            expiryTiers
+        });
         return response.data;
     },
 };

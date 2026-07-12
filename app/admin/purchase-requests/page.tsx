@@ -52,6 +52,8 @@ function formatDate(dateStr?: string) {
 
 export default function PurchaseRequestListPage() {
   const { data: currentUser } = useCurrentUser();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [data, setData]           = useState<PurchaseRequestResponse[]>([]);
@@ -68,6 +70,11 @@ export default function PurchaseRequestListPage() {
     (isWarehouseUser && isManagerRole(currentUser?.role));
 
   const fetchAll = async () => {
+    if (!accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const list = await PurchaseRequestApiService.getAll();
@@ -79,7 +86,18 @@ export default function PurchaseRequestListPage() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    if (isLoadingAuth) {
+      return;
+    }
+
+    if (!canAccessPurchaseRequests || !accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
+    void fetchAll();
+  }, [accessToken, canAccessPurchaseRequests, isLoadingAuth]);
   useEffect(() => { setCurrentPage(1); }, [activeTab, search]);
 
   const filtered = useMemo(() => {

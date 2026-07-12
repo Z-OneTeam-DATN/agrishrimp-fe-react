@@ -1,6 +1,23 @@
 import { apiJava, buildJavaApiUrl, type ApiPath } from "@/lib/axios";
 import { BrandDTO } from "@/app/types/brand.type";
 
+const isRequestAborted = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const typedError = error as {
+    code?: string;
+    message?: string;
+    name?: string;
+  };
+
+  return (
+    typedError.code === "ERR_CANCELED" ||
+    typedError.name === "CanceledError" ||
+    typedError.message?.toLowerCase().includes("aborted") ||
+    typedError.message?.toLowerCase().includes("canceled")
+  );
+};
+
 export const getPublicBrands = async (): Promise<BrandDTO[]> => {
   try {
     const response = await apiJava.get(
@@ -40,6 +57,10 @@ export const getAdminBrands = async (keyword?: string): Promise<BrandDTO[]> => {
     // Backend API response is wrapped in ApiResponse success structure: { code: 200, data: [...] }
     return response.data?.data || response.data || [];
   } catch (error) {
+    if (isRequestAborted(error)) {
+      return [];
+    }
+
     console.error("Lỗi khi lấy danh sách thương hiệu admin:", error);
     throw error;
   }

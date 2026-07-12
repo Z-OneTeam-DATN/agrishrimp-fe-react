@@ -45,6 +45,8 @@ interface Batch {
     quantity: number;
     importPrice: number | null;
     sellingPrice: number;
+    expiryDate?: string | null;
+    marginCapped?: boolean;
 }
 
 interface AttributeValueDisplay {
@@ -466,7 +468,14 @@ export function AdminProductTable({
                                                                                                         </td>
                                                                                                     )}
                                                                                                     <td className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-normal text-emerald-600">
-                                                                                                        {batch.sellingPrice > 0 ? `${batch.sellingPrice.toLocaleString("vi-VN")} ₫` : "—"}
+                                                                                                        <div className="flex items-center justify-end gap-1.5">
+                                                                                                            {batch.marginCapped && (
+                                                                                                                <span className="inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200" title="Chạm sàn lợi nhuận tối thiểu">
+                                                                                                                    Cận sàn
+                                                                                                                </span>
+                                                                                                            )}
+                                                                                                            <span>{batch.sellingPrice > 0 ? `${batch.sellingPrice.toLocaleString("vi-VN")} ₫` : "—"}</span>
+                                                                                                        </div>
                                                                                                     </td>
                                                                                                 </tr>
                                                                                             ))}

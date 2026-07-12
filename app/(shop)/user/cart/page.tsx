@@ -689,6 +689,7 @@ export default function CartPage() {
               {availableVouchers.map((voucher) => {
                 const eligible = Boolean(voucher.canApply);
                 const isSelected = selectedVoucher?.code === voucher.code;
+                const minOrderValue = Number(voucher.minOrderValue || 0);
 
                 const actualValue = Number(
                   voucher.value || voucher.discountValue || 0,

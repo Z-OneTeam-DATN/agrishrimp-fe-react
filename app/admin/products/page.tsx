@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { AdminProductTable } from "@/components/admin/AdminProductTable";
 import { ProductService } from "@/app/services/product.service";
 import { PriceRoundingRule, SettingService } from "@/app/services/setting.service";
+import { ProfitLossService } from "@/app/services/profit-loss.service";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { getAdminBrands } from "@/app/services/brand.service";
-import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search, Pencil } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Settings, Percent, Save, Plus, Search, Pencil, Brain, Sparkles, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,6 +83,86 @@ export default function ProductsPage() {
     const [roundingRule, setRoundingRule] = useState<PriceRoundingRule>("NONE");
     const [originalRoundingRule, setOriginalRoundingRule] = useState<PriceRoundingRule>("NONE");
     const [isSavingMargin, setIsSavingMargin] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Multi-tier pricing configuration states
+    const [isMultiTierEnabled, setIsMultiTierEnabled] = useState(false);
+    const [originalIsMultiTierEnabled, setOriginalIsMultiTierEnabled] = useState(false);
+    const [minMarginFloor, setMinMarginFloor] = useState("3.0");
+    const [originalMinMarginFloor, setOriginalMinMarginFloor] = useState("3.0");
+    const [categoryOffsets, setCategoryOffsets] = useState<Record<number, string>>({});
+    const [originalCategoryOffsets, setOriginalCategoryOffsets] = useState<Record<number, string>>({});
+    const [dbCategories, setDbCategories] = useState<any[]>([]);
+
+    // State Cấu hình AI gợi ý giá bán
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [aiSuggestion, setAiSuggestion] = useState<{
+        insufficientData?: boolean;
+        message?: string;
+        suggestedMargin: number;
+        suggestedRoundingRule: PriceRoundingRule;
+        reasoning: string;
+        analysis: {
+            financialHealth: string;
+            costImpact: string;
+            competitiveness: string;
+        };
+    } | null>(null);
+
+    const handleFetchAiSuggestion = async () => {
+        try {
+            setIsAiLoading(true);
+            setAiSuggestion(null);
+
+            const today = new Date();
+            const startDate = new Date();
+            startDate.setDate(today.getDate() - 30);
+            
+            const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+            
+            const pnlData = await ProfitLossService.getReport(
+                toIsoDate(startDate),
+                toIsoDate(today),
+                "all"
+            );
+
+            const response = await fetch("/api/pricing-suggestion", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    pnl: pnlData,
+                    currentMargin: Number(profitMargin || 30),
+                    productCount: products.length,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Không thể kết nối dịch vụ gợi ý AI.");
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                setAiSuggestion(data);
+                toast.success("AI đã phân tích và gợi ý thành công!");
+            } else {
+                throw new Error(data.message || "Gợi ý AI gặp lỗi.");
+            }
+        } catch (error: any) {
+            console.error("Ai suggestion error:", error);
+            toast.error(error?.message || "Lỗi khi lấy gợi ý của AI.");
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    const handleApplyAiSuggestion = () => {
+        if (!aiSuggestion) return;
+        setProfitMargin(String(aiSuggestion.suggestedMargin));
+        setRoundingRule(aiSuggestion.suggestedRoundingRule);
+        toast.success("Đã áp dụng thông số gợi ý từ AI!");
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -110,6 +191,8 @@ export default function ProductsPage() {
                         .sort((a: any, b: any) => a.name.localeCompare(b.name, "vi"))
                 );
 
+                setDbCategories(data);
+
                 if (isAdmin) {
                     const marginData = await SettingService.getProfitMargin();
                     if (marginData && marginData.margin) {
@@ -119,6 +202,23 @@ export default function ProductsPage() {
                     const ruleFromServer = marginData?.roundingRule || "NONE";
                     setRoundingRule(ruleFromServer);
                     setOriginalRoundingRule(ruleFromServer);
+
+                    const mtEnabled = !!marginData?.multiTierEnabled;
+                    setIsMultiTierEnabled(mtEnabled);
+                    setOriginalIsMultiTierEnabled(mtEnabled);
+
+                    const floorVal = marginData?.minMarginFloor || "3.0";
+                    setMinMarginFloor(floorVal);
+                    setOriginalMinMarginFloor(floorVal);
+
+                    const offsets: Record<number, string> = {};
+                    if (marginData?.categoryOffsets) {
+                        Object.entries(marginData.categoryOffsets).forEach(([k, v]) => {
+                            offsets[Number(k)] = String(v);
+                        });
+                    }
+                    setCategoryOffsets(offsets);
+                    setOriginalCategoryOffsets(offsets);
                 }
             } catch (error) {
                 console.error("Failed to fetch initial data:", error);
@@ -191,6 +291,7 @@ export default function ProductsPage() {
 
     const handleDelete = async (id: number) => {
         try {
+            setIsDeleting(true);
             const res = await ProductService.delete(id);
             // Nếu Backend trả về 200 OK
             if (res.success) {
@@ -202,6 +303,8 @@ export default function ProductsPage() {
         } catch (error: any) {
             const errorMessage = getErrorMessage(error);
             toast.error(errorMessage);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -259,12 +362,32 @@ export default function ProductsPage() {
 
         try {
             setIsSavingMargin(true);
-            const res = await SettingService.updateProfitMargin(marginValue.toString(), roundingRule);
+
+            const offsetsPayload: Record<number, number> = {};
+            Object.entries(categoryOffsets).forEach(([k, v]) => {
+                if (v && !isNaN(Number(v))) {
+                    offsetsPayload[Number(k)] = Number(v);
+                }
+            });
+
+            const res = await SettingService.updateProfitMargin(
+                marginValue.toString(),
+                roundingRule,
+                isMultiTierEnabled,
+                minMarginFloor,
+                offsetsPayload
+            );
+
             toast.success(res.message || "Đã cập nhật cấu hình lợi nhuận!");
             setOriginalProfitMargin(marginValue.toString());
             const savedRule = (res.roundingRule || roundingRule) as PriceRoundingRule;
             setRoundingRule(savedRule);
             setOriginalRoundingRule(savedRule);
+
+            setOriginalIsMultiTierEnabled(isMultiTierEnabled);
+            setOriginalMinMarginFloor(minMarginFloor);
+            setOriginalCategoryOffsets(categoryOffsets);
+
             setIsSettingOpen(false);
             fetchProducts();
         } catch (error: any) {
@@ -395,7 +518,14 @@ export default function ProductsPage() {
     const hasMarginValue = profitMargin.trim() !== "";
     const isValidMarginNumber = hasMarginValue && !Number.isNaN(marginValue);
     const isMarginInRange = isValidMarginNumber && marginValue >= 0 && marginValue <= 100;
-    const isMarginDirty = profitMargin !== originalProfitMargin || roundingRule !== originalRoundingRule;
+
+    const isOffsetsDirty = JSON.stringify(categoryOffsets) !== JSON.stringify(originalCategoryOffsets);
+    const isMarginDirty =
+        profitMargin !== originalProfitMargin ||
+        roundingRule !== originalRoundingRule ||
+        isMultiTierEnabled !== originalIsMultiTierEnabled ||
+        minMarginFloor !== originalMinMarginFloor ||
+        isOffsetsDirty;
 
     const sampleImportPrices = [100000, 250000, 500000];
     const samplePreviewRows = isMarginInRange
@@ -586,7 +716,7 @@ export default function ProductsPage() {
                                     Cấu hình giá bán
                                 </Button>
 
-                                <Dialog open={isSettingOpen} onOpenChange={setIsSettingOpen}>
+                                <Dialog open={isSettingOpen} onOpenChange={(open) => { setIsSettingOpen(open); if (!open) setAiSuggestion(null); }}>
                                     <DialogContent className="sm:max-w-[560px] rounded-[4px]">
                                         <DialogHeader>
                                             <DialogTitle className="text-[16px] font-black uppercase tracking-tight flex items-center gap-2">
@@ -660,6 +790,173 @@ export default function ProductsPage() {
 
                                             <p className={cn("mt-2 text-[12px] font-medium", marginHintClass)}>{marginHint}</p>
 
+                                            {/* Multi-tier pricing configuration section */}
+                                            <div className="mt-5 border-t border-slate-100 pt-4 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <Label className="text-[12px] font-bold text-slate-700 uppercase block">Định giá đa tầng (Mô hình động)</Label>
+                                                        <span className="text-[10.5px] text-slate-400 block">Tự động điều chỉnh giá bán theo nhóm hàng & hạn dùng của lô.</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsMultiTierEnabled(!isMultiTierEnabled)}
+                                                        className={cn(
+                                                            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                                                            isMultiTierEnabled ? "bg-emerald-500" : "bg-slate-200"
+                                                        )}
+                                                    >
+                                                        <span
+                                                            className={cn(
+                                                                "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                                                                isMultiTierEnabled ? "translate-x-4" : "translate-x-0"
+                                                            )}
+                                                        />
+                                                    </button>
+                                                </div>
+
+                                                {isMultiTierEnabled && (
+                                                    <div className="rounded-[4px] border border-slate-200 bg-slate-50/50 p-4 space-y-4 animate-fadeIn">
+                                                        {/* Min margin floor configuration */}
+                                                        <div className="grid grid-cols-2 items-center gap-4">
+                                                            <div className="space-y-0.5">
+                                                                <Label className="text-[11px] font-bold text-slate-600 uppercase block">Biên lợi nhuận tối thiểu sàn (%)</Label>
+                                                                <span className="text-[10px] text-slate-400 block">Chặn dưới ngăn bán dưới giá vốn.</span>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <Input
+                                                                    type="text"
+                                                                    value={minMarginFloor}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value.replace(",", ".").trim();
+                                                                        if (val === "" || /^\d*(\.\d*)?$/.test(val)) {
+                                                                            setMinMarginFloor(val);
+                                                                        }
+                                                                    }}
+                                                                    className="h-8 text-[12px] font-bold rounded-[3px] text-right pr-7"
+                                                                />
+                                                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">%</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Category margin offsets list */}
+                                                        <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                                                            <Label className="text-[11px] font-black text-slate-600 uppercase block">Bù trừ biên lợi nhuận theo danh mục</Label>
+                                                            <div className="max-h-[160px] overflow-y-auto pr-1 space-y-2">
+                                                                {dbCategories.map((cat) => (
+                                                                    <div key={cat.id} className="flex items-center justify-between gap-4 py-1.5 border-b border-dashed border-slate-100 last:border-0">
+                                                                        <span className="text-[11.5px] font-medium text-slate-600">{cat.name}</span>
+                                                                        <div className="relative w-24">
+                                                                            <Input
+                                                                                type="text"
+                                                                                placeholder="0.0"
+                                                                                value={categoryOffsets[cat.id] || ""}
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value.replace(",", ".").trim();
+                                                                                    if (val === "" || /^-?\d*(\.\d*)?$/.test(val)) {
+                                                                                        setCategoryOffsets(curr => ({ ...curr, [cat.id]: val }));
+                                                                                    }
+                                                                                }}
+                                                                                className="h-7 text-[12px] text-right pr-6 rounded-[3px] font-bold"
+                                                                            />
+                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* AI pricing suggestion section */}
+                                            <div className="mt-5 border-t border-slate-100 pt-4">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <Label className="text-[12px] font-black text-indigo-900 uppercase flex items-center gap-1.5">
+                                                        <Sparkles size={14} className="text-indigo-600 animate-pulse" /> Trợ lý phân tích & Gợi ý giá AI
+                                                    </Label>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={handleFetchAiSuggestion}
+                                                        disabled={isAiLoading}
+                                                        className="h-8 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 transition-all rounded-[3px]"
+                                                    >
+                                                        {isAiLoading ? (
+                                                            <>
+                                                                <Loader2 size={13} className="animate-spin mr-1.5" />
+                                                                Đang phân tích...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Brain size={13} className="mr-1.5" />
+                                                                Phân tích AI
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
+
+                                                {aiSuggestion && (
+                                                    aiSuggestion.insufficientData ? (
+                                                        <div className="rounded-[4px] border border-amber-200 bg-amber-50/50 p-4 text-[12.5px] text-amber-800 flex items-start gap-2.5 shadow-sm animate-fadeIn">
+                                                            <AlertTriangle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+                                                            <div>
+                                                                <p className="font-bold text-amber-900 mb-1 text-[13px]">Không đủ dữ liệu phân tích</p>
+                                                                <p className="leading-relaxed">{aiSuggestion.message}</p>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="rounded-[4px] border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-blue-50/40 p-4 space-y-3 shadow-inner transition-all animate-fadeIn">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100/50 pb-2">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[11px] font-bold text-slate-500 uppercase">Sức khỏe tài chính:</span>
+                                                                    <span className="px-2 py-0.5 rounded-[3px] text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                                                        {aiSuggestion.analysis.financialHealth}
+                                                                    </span>
+                                                                </div>
+                                                                <Button
+                                                                    type="button"
+                                                                    onClick={handleApplyAiSuggestion}
+                                                                    className="h-6 text-[10px] font-black uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white rounded-[3px] shadow-sm"
+                                                                >
+                                                                    Áp dụng gợi ý
+                                                                </Button>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                <div className="bg-white/80 p-2.5 rounded border border-indigo-50/50">
+                                                                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Biên lợi nhuận tối ưu</p>
+                                                                    <p className="text-[18px] font-black text-indigo-700 mt-0.5">{aiSuggestion.suggestedMargin}%</p>
+                                                                </div>
+                                                                <div className="bg-white/80 p-2.5 rounded border border-indigo-50/50">
+                                                                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Làm tròn đề xuất</p>
+                                                                    <p className="text-[12px] font-bold text-slate-700 mt-1.5">
+                                                                        {aiSuggestion.suggestedRoundingRule === "NONE" ? "Không làm tròn" :
+                                                                         aiSuggestion.suggestedRoundingRule === "STEP_500" ? "Làm tròn bội 500" :
+                                                                         aiSuggestion.suggestedRoundingRule === "STEP_1000" ? "Làm tròn bội 1.000" :
+                                                                         "Đuôi 99.000"}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="text-[11.5px] leading-relaxed text-slate-600 bg-white/50 p-2.5 rounded border border-indigo-50/30 space-y-2">
+                                                                <p>
+                                                                    <strong className="text-slate-700">Tác động chi phí: </strong>
+                                                                    {aiSuggestion.analysis.costImpact}
+                                                                </p>
+                                                                <p>
+                                                                    <strong className="text-slate-700">Khả năng cạnh tranh: </strong>
+                                                                    {aiSuggestion.analysis.competitiveness}
+                                                                </p>
+                                                                <p className="border-t border-indigo-50 pt-2 text-indigo-900/90 font-medium italic">
+                                                                    "{aiSuggestion.reasoning}"
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                )}
+                                            </div>
+
                                             <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-3">
                                                 <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
                                                     Xem trước nhanh theo nhiều mốc giá vốn
@@ -712,7 +1009,7 @@ export default function ProductsPage() {
                         {hasPermission(P.PRODUCT_CREATE) && (
                             <Button
                                 onClick={() => router.push("/admin/products/add")}
-                                className="h-[38px] rounded-md bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                                className="h-[38px] rounded-md bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
                             >
                                 <Plus size={15} className="mr-2" />
                                 Thêm sản phẩm
@@ -867,6 +1164,15 @@ export default function ProductsPage() {
                         )}
                     </>
                 )}
+            {isDeleting && (
+                <div className="fixed top-5 right-5 z-[9999] flex items-center gap-3 rounded-xl border border-slate-100 bg-white/95 backdrop-blur px-5 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.08)] transition-all duration-300 border-l-4 border-l-red-500">
+                    <Loader2 className="h-5 w-5 animate-spin text-red-500" />
+                    <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-slate-800">Đang thực hiện</span>
+                        <span className="text-[11px] text-slate-500">Đang xóa sản phẩm khỏi hệ thống...</span>
+                    </div>
+                </div>
+            )}
                 </div>
             </div>
         </div>

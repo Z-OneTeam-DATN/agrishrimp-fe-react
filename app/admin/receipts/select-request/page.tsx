@@ -10,6 +10,7 @@ import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { useAuthStore } from "@/stores/useAuthStore";
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ const statusLabel: Record<string, string> = {
 
 export default function SelectPurchaseRequestForReceiptPage() {
   const router = useRouter();
+  const { accessToken, isLoadingAuth } = useAuthStore();
   const [requests, setRequests] = useState<SelectablePurchaseRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
@@ -52,6 +54,11 @@ export default function SelectPurchaseRequestForReceiptPage() {
 
   useEffect(() => {
     const fetchRequests = async () => {
+      if (!accessToken) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
         const data = await PurchaseRequestApiService.getAll();
@@ -91,8 +98,17 @@ export default function SelectPurchaseRequestForReceiptPage() {
       }
     };
 
+    if (isLoadingAuth) {
+      return;
+    }
+
+    if (!accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
     void fetchRequests();
-  }, []);
+  }, [accessToken, isLoadingAuth]);
 
   useEffect(() => {
     setCurrentPage(1);

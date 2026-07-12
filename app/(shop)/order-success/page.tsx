@@ -58,9 +58,13 @@ function OrderSuccessContent() {
           setPaymentStatus("PAID")
         } else {
           // PAYOS: kiểm tra paymentStatus từ response hoặc query param
-          const pStatus = data?.paymentStatus ?? statusParam
+          const rawPaymentStatus = String(data?.paymentStatus ?? statusParam ?? "").toUpperCase()
           const resolved =
-            pStatus === "PAID" ? "PAID" : pStatus === "CANCELLED" ? "FAILED" : "PENDING"
+            rawPaymentStatus === "PAID"
+              ? "PAID"
+              : rawPaymentStatus === "CANCELLED"
+                ? "FAILED"
+                : "PENDING"
           setPaymentStatus(resolved)
 
           // Nếu chưa PAID và chưa poll quá 3 lần, thử lại sau 2 giây
