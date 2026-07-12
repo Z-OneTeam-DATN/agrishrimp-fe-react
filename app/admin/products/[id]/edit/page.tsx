@@ -1272,30 +1272,9 @@ export default function EditProductPage() {
                         </div>
                     </div>
 
-                    <div ref={descriptionSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
-                        <SectionHeader num="2" title="Đặc tính & Bài viết mô tả" />
-
-                        {/* 👉 TÍCH HỢP SOẠN THẢO VĂN BẢN VÀO ĐÂY, SỬ DỤNG { ref, ...fieldProps } */}
-                        <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
-                            <Controller
-                                name="description"
-                                control={control}
-                                render={({ field: { ref, ...fieldProps } }) => (
-                                    <ReactQuill
-                                        theme="snow"
-                                        value={fieldProps.value || ""}
-                                        onChange={fieldProps.onChange}
-                                        modules={quillModules}
-                                        placeholder="Nhập nội dung mô tả chi tiết sản phẩm (Hỗ trợ chèn ảnh, bảng, link...)"
-                                    />
-                                )}
-                            />
-                        </div>
-                    </div>
-
                     <div ref={variantsSectionRef} className="overflow-hidden border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                            <h3 className="text-[11px] font-bold text-slate-800">3. Danh sách biến thể sản phẩm (SKUs)</h3>
+                            <h3 className="text-[11px] font-bold text-slate-800">2. Danh sách biến thể sản phẩm (SKUs)</h3>
                             <Button type="button" variant="outline" onClick={handleAppendVariant} className="h-[34px] rounded-md border-blue-200 bg-white px-4 text-[11px] font-medium text-blue-600 shadow-none">+ Thêm biến thể</Button>
                         </div>
 
@@ -1532,6 +1511,27 @@ export default function EditProductPage() {
                                 );
                             })}
                             {variantWindow.virtual && <div style={{ height: variantWindow.bottomPadding }} />}
+                        </div>
+                    </div>
+
+                    <div ref={descriptionSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
+                        <SectionHeader num="3" title="Đặc tính & Bài viết mô tả" />
+
+                        {/* 👉 TÍCH HỢP SOẠN THẢO VĂN BẢN VÀO ĐÂY, SỬ DỤNG { ref, ...fieldProps } */}
+                        <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
+                            <Controller
+                                name="description"
+                                control={control}
+                                render={({ field: { ref, ...fieldProps } }) => (
+                                    <ReactQuill
+                                        theme="snow"
+                                        value={fieldProps.value || ""}
+                                        onChange={fieldProps.onChange}
+                                        modules={quillModules}
+                                        placeholder="Nhập nội dung mô tả chi tiết sản phẩm (Hỗ trợ chèn ảnh, bảng, link...)"
+                                    />
+                                )}
+                            />
                         </div>
                     </div>
                 </div>
