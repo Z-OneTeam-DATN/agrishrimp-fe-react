@@ -19,7 +19,6 @@ import {
   ChevronDown,
   Menu,
   PackageSearch,
-  MapPin,
   ShieldCheck,
   Truck,
 } from "lucide-react";
@@ -76,7 +75,6 @@ const MOBILE_NAV_ITEMS = [
   { href: "/", label: "Trang chủ" },
   { href: "/user/cart", label: "Giỏ hàng" },
   { href: "/blog", label: "Bài viết" },
-  { href: "/store-locator", label: "Hệ thống cửa hàng" },
 ];
 
 export default function Header() {
@@ -132,7 +130,6 @@ export default function Header() {
     const routes = [
       "/san-pham",
       "/blog",
-      "/store-locator",
       "/user/cart",
       "/login",
       "/orders/list",
@@ -392,16 +389,13 @@ export default function Header() {
                       </Link>
 
                       <div className="flex items-center gap-3">
-                        <Link href="/store-locator" onClick={() => setIsMobileMenuOpen(false)}>
-                          <MapPin size={21} className="text-white/95" />
-                        </Link>
                         <Link href="/orders/list" onClick={() => setIsMobileMenuOpen(false)}>
                           <User size={21} className="text-white/95" />
                         </Link>
-                        <Link href="/user/cart" className="relative" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/user/cart" className="flex items-center gap-1.5" onClick={() => setIsMobileMenuOpen(false)}>
                           <ShoppingCart size={21} className="text-white/95" />
                           {itemCount > 0 && (
-                            <span className="absolute -right-2 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold text-white">
+                            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold leading-none text-white">
                               {itemCount > 99 ? "99+" : itemCount}
                             </span>
                           )}
@@ -512,16 +506,13 @@ export default function Header() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Link href="/store-locator">
-                  <MapPin size={21} className="text-white/95" />
-                </Link>
                 <Link href="/orders/list">
                   <User size={21} className="text-white/95" />
                 </Link>
-                <Link href="/user/cart" className="relative">
+                <Link href="/user/cart" className="flex items-center gap-1.5">
                   <ShoppingCart size={21} className="text-white/95" />
                   {itemCount > 0 && (
-                    <span className="absolute -right-2 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold text-white">
+                    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold leading-none text-white">
                       {itemCount > 99 ? "99+" : itemCount}
                     </span>
                   )}
@@ -584,7 +575,7 @@ export default function Header() {
 
         <div className="bg-[linear-gradient(180deg,rgb(28,117,188)_0%,rgb(25,101,162)_100%)] text-white">
           <div className="mx-auto hidden w-full max-w-[1460px] px-8 lg:px-12 xl:px-16 py-4 md:block">
-            <div className="grid items-start gap-3 xl:gap-4 lg:grid-cols-[220px_minmax(0,1fr)_420px] xl:grid-cols-[248px_minmax(0,1fr)_500px]">
+            <div className="grid items-start gap-3 xl:gap-4 lg:grid-cols-[220px_minmax(0,1fr)_300px] xl:grid-cols-[248px_minmax(0,1fr)_330px]">
               <Link href="/" className="flex items-center gap-2.5 shrink-0 min-h-11">
                 <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white/95 shadow-sm shrink-0">
                   <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
@@ -654,37 +645,26 @@ export default function Header() {
               </div>
 
               <div className="flex min-w-0 items-center justify-end gap-0.5 pt-0.5 xl:justify-self-end">
-                <Link
-                  href="/store-locator"
-                  className="mr-1.5 grid h-11 min-w-[156px] grid-cols-[18px_minmax(0,1fr)_18px] items-center gap-2 rounded-xl bg-[rgba(33,78,133,0.42)] px-3 text-white ring-1 ring-white/10 transition-colors hover:bg-[rgba(33,78,133,0.56)] xl:mr-2 xl:min-w-[176px] xl:grid-cols-[20px_minmax(0,1fr)_20px] xl:gap-3 xl:px-4"
-                >
-                  <MapPin size={18} className="justify-self-center text-white/90 xl:h-[18px] xl:w-[18px]" />
-                  <div className="min-w-0 leading-tight">
-                    <p className="truncate text-[8px] text-white/70 xl:text-[9px]">Xem cửa hàng</p>
-                    <p className="mt-0.5 truncate text-[10px] font-semibold text-white xl:text-[11px]">Hệ thống cửa hàng</p>
-                  </div>
-                  <ChevronDown size={13} className="justify-self-center text-white/70 xl:h-[13px] xl:w-[13px]" />
-                </Link>
-
-                <span className="text-[18px] font-light leading-none text-white/34 select-none">|</span>
                 {renderAuthSection()}
 
                 <span className="text-[18px] font-light leading-none text-white/34 select-none">|</span>
                 <Link
                   href="/user/cart"
                   id="cart-icon-target"
-                  className="relative flex h-11 min-w-[126px] items-center gap-2 rounded-xl px-2 text-white transition-colors hover:bg-white/10 xl:min-w-[144px]"
+                  className="flex h-11 min-w-[126px] items-center gap-2 rounded-xl px-2 text-white transition-colors hover:bg-white/10 xl:min-w-[144px]"
                 >
                   <ShoppingCart size={17} className="shrink-0 xl:h-[18px] xl:w-[18px]" />
-                  <div className="leading-tight">
+                  <div className="min-w-0 leading-tight">
                     <p className="text-[8px] text-white/70 xl:text-[9px]">Mua sắm nhanh</p>
-                    <p className="mt-0.5 text-[11px] font-semibold text-white xl:text-[12px]">Giỏ hàng</p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white xl:text-[12px]">
+                      <span>Giỏ hàng</span>
+                      {itemCount > 0 && (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#f04646] px-1.5 text-[10px] font-bold leading-none text-white">
+                          {itemCount > 99 ? "99+" : itemCount}
+                        </span>
+                      )}
+                    </p>
                   </div>
-                  {itemCount > 0 && (
-                    <span className="absolute right-2 top-1 flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#f04646] px-1 text-[10px] font-bold text-white">
-                      {itemCount > 99 ? "99+" : itemCount}
-                    </span>
-                  )}
                 </Link>
               </div>
             </div>

@@ -17,6 +17,11 @@ export const PublicProductService = {
     keyword?: string;
     categoryId?: number | string | null;
     brandId?: number | string | null;
+    minPrice?: number | string | null;
+    maxPrice?: number | string | null;
+    packaging?: string | null;
+    packagingValueIds?: string | null;
+    sort?: string | null;
     page?: number;
     size?: number;
   }): Promise<PageResponse<PublicProductListItem>> => {

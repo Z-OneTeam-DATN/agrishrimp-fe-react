@@ -39,4 +39,4 @@ dist/
 build/
 node_modules/
 
-.idea/workspace.xml
+.idea/

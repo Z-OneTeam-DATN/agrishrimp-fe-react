@@ -4,6 +4,7 @@ const internalApiBaseUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
 const nextConfig = {
   output: "standalone",
   distDir: "dist",
+  allowedDevOrigins: ["192.168.1.11"],
   async rewrites() {
     return [
       {

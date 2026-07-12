@@ -11,14 +11,12 @@ export default function Navbar() {
     { href: "#", label: "Danh mục", type: "mega" as const },
     { href: "/user/cart", label: "Giỏ hàng", type: "link" as const },
     { href: "/blog", label: "Bài viết", type: "link" as const },
-    { href: "/store-locator", label: "Hệ thống cửa hàng", type: "link" as const },
   ];
   const mobileNavItems = [
     { href: "/", label: "Trang chủ" },
     { href: "/san-pham", label: "Danh mục" },
     { href: "/user/cart", label: "Giỏ hàng" },
     { href: "/blog", label: "Bài viết" },
-    { href: "/store-locator", label: "Hệ thống cửa hàng" },
   ];
 
   const isActive = (href: string) => {
