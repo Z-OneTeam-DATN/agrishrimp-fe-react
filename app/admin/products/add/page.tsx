@@ -1571,32 +1571,10 @@ export default function AddProductPage() {
                             </div>
                         </div>
                     </div>
-
-                    <div ref={descriptionSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
-                        <SectionHeader num="2" title="Đặc tính & Bài viết mô tả" />
-
-                        <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
-                            <Controller
-                                name="description"
-                                control={control}
-                                render={({ field: { ref, ...fieldProps } }) => (
-                                    <ReactQuill
-                                        theme="snow"
-                                        value={fieldProps.value || ""}
-                                        onChange={fieldProps.onChange}
-                                        modules={quillModules}
-                                        placeholder="Nhập nội dung mô tả chi tiết sản phẩm (Hỗ trợ chèn ảnh, bảng, link...)"
-                                    />
-                                )}
-                            />
-                        </div>
-
-                    </div>
-
                     <div ref={variantsSectionRef} className="overflow-hidden border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                             <h3 className="text-[11px] font-bold text-slate-800">
-                                3. Danh sách biến thể sản phẩm (SKUs)
+                                2. Danh sách biến thể sản phẩm (SKUs)
                             </h3>
                             <Button
                                 type="button"
@@ -1655,7 +1633,6 @@ export default function AddProductPage() {
                         <div ref={variantListRef} className={cn("divide-y divide-slate-100", fields.length > VARIANT_VIRTUAL_THRESHOLD && "max-h-[calc(100vh-430px)] lg:max-h-[calc(100vh-360px)] overflow-y-auto overscroll-contain pr-1")}>
                             {variantWindow.virtual && <div style={{ height: variantWindow.topPadding }} />}
                             {renderedVariantEntries.map(({ field, idx }) => {
-                                // Lấy mảng ID hiện tại
                                 const variantAttributeIds = watch(`variants.${idx}.attributeValueIds`) || [];
                                 const isCollapsed = !!collapsedVariantIds[field.id];
                                 const isSelected = !!selectedVariantIds[field.id];
@@ -1724,7 +1701,6 @@ export default function AddProductPage() {
 
                                         {!isCollapsed && (
                                         <div className="flex flex-col gap-5 border-t border-slate-100 px-6 py-5 xl:flex-row">
-                                            {/* Ảnh biến thể */}
                                             <div className="flex flex-col items-center shrink-0">
                                                 <div
                                                     onClick={() =>
@@ -1766,7 +1742,7 @@ export default function AddProductPage() {
                                                 {attributes.length > 0 && (
                                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                                         {attributes.map((attr, attrIdx) => {
-                                                            const attributeOptions = attr.valueDetails || []; // Dùng mảng mới tạo ở backend
+                                                            const attributeOptions = attr.valueDetails || [];
                                                             const matchedValue = attributeOptions.find((v: any) => variantAttributeIds.includes(Number(v.valueId)));
                                                             const currentValStr = matchedValue ? String(matchedValue.valueId) : "none";
 
@@ -1814,6 +1790,25 @@ export default function AddProductPage() {
                         </div>
                     </div>
 
+                    <div ref={descriptionSectionRef} className="border border-slate-200 bg-white p-6 shadow-sm">
+                        <SectionHeader num="3" title="Đặc tính & Bài viết mô tả" />
+
+                        <div className="bg-white [&_.ql-container]:min-h-[250px] [&_.ql-container]:text-[14px] [&_.ql-editor]:min-h-[250px] [&_.ql-toolbar]:border-[#ccc] [&_.ql-container]:border-[#ccc]">
+                            <Controller
+                                name="description"
+                                control={control}
+                                render={({ field: { ref, ...fieldProps } }) => (
+                                    <ReactQuill
+                                        theme="snow"
+                                        value={fieldProps.value || ""}
+                                        onChange={fieldProps.onChange}
+                                        modules={quillModules}
+                                        placeholder="Nhập nội dung mô tả chi tiết sản phẩm (Hỗ trợ chèn ảnh, bảng, link...)"
+                                    />
+                                )}
+                            />
+                        </div>
+                    </div>
                 </div>
 
             </div>

@@ -64,7 +64,12 @@ const today = new Date();
 const defaultStart = new Date(today);
 defaultStart.setDate(defaultStart.getDate() - 30);
 
-const toIso = (date: Date) => date.toISOString().slice(0, 10);
+const toIso = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 const compactCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
     notation: "compact",

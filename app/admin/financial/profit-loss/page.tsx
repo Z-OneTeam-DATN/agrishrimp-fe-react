@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Download, HelpCircle, Loader2, AlertTriangle } from "lucide-react";
+import { Download, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -31,11 +32,19 @@ import {
   ProfitLossService,
   type ProfitLossData,
 } from "@/app/services/profit-loss.service";
+import { ProfitLossInsightService, type ProfitLossInsightResult } from "@/app/services/profit-loss-insight";
 import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
+
+const toIsoDate = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
 const getPrevPeriod = (start: string, end: string) => {
   const startDate = new Date(start);
@@ -49,8 +58,8 @@ const getPrevPeriod = (start: string, end: string) => {
   prevStart.setDate(prevStart.getDate() - diffDays);
 
   return {
-    prevStart: prevStart.toISOString().split("T")[0],
-    prevEnd: prevEnd.toISOString().split("T")[0],
+    prevStart: toIsoDate(prevStart),
+    prevEnd: toIsoDate(prevEnd),
   };
 };
 
@@ -69,9 +78,9 @@ export default function ProfitLossReportPage() {
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
   const [startDate, setStartDate] = useState(
-    firstDayOfMonth.toISOString().split("T")[0]
+    toIsoDate(firstDayOfMonth)
   );
-  const [endDate, setEndDate] = useState(today.toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(toIsoDate(today));
   const [branchId, setBranchId] = useState(isAdmin ? "all" : ownBranchId || "all");
   const [branches, setBranches] = useState<Array<{ id: number; name: string }>>(
     []
@@ -80,6 +89,61 @@ export default function ProfitLossReportPage() {
   const [currentData, setCurrentData] = useState<ProfitLossData | null>(null);
   const [prevData, setPrevData] = useState<ProfitLossData | null>(null);
   const [isExplainOpen, setIsExplainOpen] = useState(false);
+
+  // AI states
+  const [insightResult, setInsightResult] = useState<ProfitLossInsightResult | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
+  const [analyzingInsight, setAnalyzingInsight] = useState(false);
+
+  const fetchInsightData = async () => {
+    if (!startDate || !endDate) return;
+    setLoadingInsight(true);
+    setAiAnalysis(null); // Clear previous AI analysis when filters change
+    try {
+      const data = await ProfitLossInsightService.getInsightAnalysis({
+        branchId,
+        startDate,
+        endDate,
+      });
+      setInsightResult(data);
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu định lượng P&L AI:", error);
+      setInsightResult(null);
+    } finally {
+      setLoadingInsight(false);
+    }
+  };
+
+  const handleAiAnalysis = async () => {
+    if (!insightResult) {
+      toast.error("Không có dữ liệu định lượng để phân tích AI!");
+      return;
+    }
+    setAnalyzingInsight(true);
+    try {
+      const activeBranch = branches.find((b) => String(b.id) === branchId);
+      const branchName = activeBranch ? activeBranch.name : "Toàn bộ hệ thống";
+      const explanation = await ProfitLossInsightService.getAiExplanation(
+        insightResult,
+        branchName,
+        startDate,
+        endDate
+      );
+      setAiAnalysis(explanation);
+    } catch (error) {
+      console.error("Lỗi gọi Gemini AI:", error);
+      toast.error("Không thể hoàn thành phân tích lãi lỗ AI");
+    } finally {
+      setAnalyzingInsight(false);
+    }
+  };
+
+  useEffect(() => {
+    if (startDate && endDate) {
+      void fetchInsightData();
+    }
+  }, [startDate, endDate, branchId]);
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -443,6 +507,214 @@ export default function ProfitLossReportPage() {
               Xuất file
             </Button>
           </div>
+        </div>
+
+        {/* AI Profit & Loss Insight Panel */}
+        <div className="mt-4 rounded-[4px] border border-[#dcdcdc] bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse" />
+              <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-700">
+                Trợ lý Phân tích Lãi Lỗ AI
+              </h3>
+            </div>
+            {insightResult && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600 animate-none"
+                onClick={handleAiAnalysis}
+                disabled={analyzingInsight}
+              >
+                <RefreshCw size={12} className={cn("mr-1.5", analyzingInsight && "animate-spin")} />
+                {analyzingInsight ? "Đang phân tích..." : "Phân tích AI"}
+              </Button>
+            )}
+          </div>
+
+          {loadingInsight ? (
+            <div className="flex flex-col items-center justify-center py-6 space-y-2">
+              <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+              <p className="text-xs text-slate-500 font-medium">Đang tính toán các chỉ số định lượng...</p>
+            </div>
+          ) : insightResult ? (
+            <div className="space-y-4">
+              
+              {/* 1. Warnings and Status Badges */}
+              {insightResult.warnings && insightResult.warnings.length > 0 && (
+                <div className="rounded-[6px] border border-amber-100 bg-amber-50/50 p-3.5 space-y-1.5">
+                  <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Cảnh báo rủi ro</p>
+                  <ul className="list-disc list-inside text-xs text-amber-700 space-y-1">
+                    {insightResult.warnings.map((w: string, idx: number) => (
+                      <li key={idx}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 2. Key Metrics Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Biên giá vốn */}
+                <div className="rounded-[6px] p-3.5 border bg-slate-50/80 border-slate-100 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tỷ lệ giá vốn/doanh thu thuần</p>
+                    <p className="text-xl font-black text-slate-800 mt-1">
+                      {insightResult.cogsRatio.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="mt-2.5">
+                    <Badge className={cn(
+                      "border-none text-[9px] font-semibold px-2 py-0.5 shadow-none",
+                      insightResult.cogsRatioStatus === "WARNING"
+                        ? "bg-rose-50 text-rose-600 hover:bg-rose-50"
+                        : "bg-emerald-50 text-emerald-600 hover:bg-emerald-50"
+                    )}>
+                      {insightResult.cogsRatioStatus === "WARNING" ? "Cảnh báo vượt ngưỡng" : "Mức an toàn"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Tỷ lệ hoàn hàng */}
+                <div className="rounded-[6px] p-3.5 border bg-slate-50/80 border-slate-100 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tỷ lệ hoàn trả hàng</p>
+                    <p className="text-xl font-black text-slate-800 mt-1">
+                      {insightResult.returnRatio.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="mt-2.5">
+                    <Badge className={cn(
+                      "border-none text-[9px] font-semibold px-2 py-0.5 shadow-none",
+                      insightResult.returnRatioStatus === "WARNING"
+                        ? "bg-rose-50 text-rose-600 hover:bg-rose-50"
+                        : "bg-emerald-50 text-emerald-600 hover:bg-emerald-50"
+                    )}>
+                      {insightResult.returnRatioStatus === "WARNING" ? "Tỷ lệ trả hàng cao" : "Mức bình thường"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Biến động lợi nhuận */}
+                <div className="rounded-[6px] p-3.5 border bg-slate-50/80 border-slate-100 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Biến động lợi nhuận ròng</p>
+                    {insightResult.netProfitChangePercent === "NO_PREVIOUS_DATA" ? (
+                      <p className="text-sm font-semibold text-slate-500 mt-2">Chưa có dữ liệu kỳ trước</p>
+                    ) : (
+                      <p className="text-xl font-black text-slate-800 mt-1">
+                        {Number(insightResult.netProfitChangePercent) > 0 ? "+" : ""}{insightResult.netProfitChangePercent}%
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-2.5">
+                    {insightResult.netProfitChangePercent === "NO_PREVIOUS_DATA" ? (
+                      <span className="text-[10px] text-slate-400">Kỳ đầu tiên/Từ đầu đến nay</span>
+                    ) : (
+                      <Badge className={cn(
+                        "border-none text-[9px] font-semibold px-2 py-0.5 shadow-none",
+                        Number(insightResult.netProfitChangePercent) > 0
+                          ? "bg-blue-50 text-blue-600 hover:bg-blue-50"
+                          : Number(insightResult.netProfitChangePercent) < 0
+                          ? "bg-rose-50 text-rose-600 hover:bg-rose-50"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-50"
+                      )}>
+                        {Number(insightResult.netProfitChangePercent) > 0
+                          ? "Tăng trưởng"
+                          : Number(insightResult.netProfitChangePercent) < 0
+                          ? "Suy giảm"
+                          : "Không biến động"}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Contribution Breakdown Table */}
+              <div className="border border-slate-100 rounded-[6px] overflow-hidden text-xs">
+                <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 font-bold text-slate-600 uppercase tracking-wide text-[10px]">
+                  Phân rã biến động các chỉ tiêu đóng góp
+                </div>
+                <div className="divide-y divide-slate-100 bg-white">
+                  {insightResult.contributionBreakdown?.map((item: any, idx: number) => (
+                    <div key={idx} className="px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-700">
+                            {item.factor === "REVENUE" && "Doanh thu gốc tiền hàng"}
+                            {item.factor === "COGS" && "Giá vốn hàng bán"}
+                            {item.factor === "SHIPPING" && "Phí ship thu khách ròng"}
+                            {item.factor === "DISCOUNT" && "Chiết khấu giảm giá ròng"}
+                            {item.factor === "RETURNS" && "Hàng bán bị trả lại"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">{item.note}</p>
+                      </div>
+                      <div className="flex items-center gap-6 whitespace-nowrap text-right text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] font-medium uppercase">Kỳ này</span>
+                          <span className="font-bold text-slate-700">{formatNumber(item.currentValue)} ₫</span>
+                        </div>
+                        {item.previousValue !== null && item.previousValue !== undefined && (
+                          <>
+                            <div>
+                              <span className="text-slate-400 block text-[9px] font-medium uppercase">Kỳ trước</span>
+                              <span className="text-slate-500">{formatNumber(item.previousValue)} ₫</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[9px] font-medium uppercase">Biến động</span>
+                              <span className={cn(
+                                "font-semibold",
+                                item.changeAmount > 0 
+                                  ? (item.factor === "COGS" || item.factor === "RETURNS" ? "text-rose-500" : "text-blue-500") 
+                                  : item.changeAmount < 0 
+                                  ? (item.factor === "COGS" || item.factor === "RETURNS" ? "text-blue-500" : "text-rose-500")
+                                  : "text-slate-500"
+                              )}>
+                                {item.changeAmount > 0 ? "+" : ""}{formatNumber(item.changeAmount)} ₫
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. AI Explanation Text */}
+              {analyzingInsight ? (
+                <div className="flex flex-col items-center justify-center py-6 space-y-2 bg-slate-50/50 rounded-[6px] border border-dashed border-slate-200">
+                  <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+                  <p className="text-xs text-slate-500 font-medium">Trí tuệ nhân tạo đang sinh văn bản giải thích nguyên nhân...</p>
+                </div>
+              ) : aiAnalysis ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4 space-y-2">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tóm tắt & Nguyên nhân biến động</p>
+                    <p className="text-[13px] leading-relaxed text-slate-700 font-semibold">{aiAnalysis.summary}</p>
+                    <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line border-t border-slate-100 pt-2 mt-2">{aiAnalysis.keyDrivers}</p>
+                  </div>
+                  <div className="bg-blue-50/30 rounded-[6px] border border-blue-100/50 p-4 space-y-2 flex flex-col justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Hành động khuyến nghị</p>
+                      <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line mt-2">{aiAnalysis.recommendation}</p>
+                    </div>
+                    <div className="text-[10px] text-slate-400 italic mt-4 border-t border-slate-100 pt-2">
+                      * Khuyến nghị mang tính tham khảo từ AI. Vui lòng đối chiếu với tình hình thực tế trước khi quyết định.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-50/60 rounded-[6px] border border-dashed border-slate-200 p-6 text-center">
+                  <p className="text-xs text-slate-500 font-medium">Bấm nút "Phân tích AI" ở góc trên để nhận bản phân tích nguyên nhân biến động chi tiết từ Gemini AI.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-slate-50/60 rounded-[6px] border border-dashed border-slate-200 p-4 text-center text-xs text-slate-450">
+              Không thể tải dữ liệu phân tích định lượng Lãi lỗ.
+            </div>
+          )}
         </div>
 
         <div className="mt-4 relative overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
