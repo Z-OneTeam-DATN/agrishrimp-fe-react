@@ -110,7 +110,7 @@ export default function HomeLatestBlogSection({
                 {normalizeDisplayTitle(post.title)}
               </Link>
 
-              <p className="mt-2 hidden flex-1 text-[13px] leading-6 text-slate-700 md:line-clamp-3 md:block">
+              <p className="mt-2 hidden flex-1 text-[13px] leading-6 text-slate-700 md:line-clamp-3">
                 {post.excerpt || "Bài viết đang được cập nhật nội dung chi tiết."}
               </p>
             </div>
