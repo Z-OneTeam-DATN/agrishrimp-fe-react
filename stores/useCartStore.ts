@@ -2,6 +2,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { cartService } from "@/app/services/cart.service"
+import { useAuthStore } from "@/stores/useAuthStore"
 import type { CartItem, DeliveryInfo, PrepareOrderResponse } from "@/app/types/order.types"
 
 interface CartStore {
@@ -33,12 +34,20 @@ export const useCartStore = create<CartStore>()(
       itemCount: 0,
 
       fetchCartCount: async () => {
+        const { accessToken, isAuthenticated } = useAuthStore.getState()
+        if (!accessToken || !isAuthenticated) {
+          set({ itemCount: 0 })
+          return
+        }
+
         try {
           const data = await cartService.getMyCart()
-          const total = data.reduce(
-            (sum: number, item: any) => sum + item.quantity,
-            0
-          )
+          const total = Array.isArray(data)
+            ? data.reduce(
+                (sum: number, item: any) => sum + Number(item?.quantity ?? 0),
+                0
+              )
+            : 0
           set({ itemCount: total })
         } catch {
           set({ itemCount: 0 })

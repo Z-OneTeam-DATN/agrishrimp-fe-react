@@ -201,8 +201,9 @@ export default function Header() {
   const isLoggedIn = isAuthenticated && !!user;
 
   useEffect(() => {
-    if (isLoggedIn) fetchCartCount();
-  }, [isLoggedIn, fetchCartCount]);
+    if (isLoading) return;
+    void fetchCartCount();
+  }, [fetchCartCount, isLoading, isLoggedIn]);
 
   useEffect(() => {
     if (!isMobileMenuOpen || mobileCategoriesLoaded) return;
@@ -239,9 +240,9 @@ export default function Header() {
   const renderAuthSection = () => {
     if (isLoading) {
       return (
-        <div className="flex h-11 w-[132px] items-center gap-2 px-2 animate-pulse xl:w-[148px]">
+        <div className="flex h-11 min-w-[148px] items-center gap-2.5 px-2.5 animate-pulse xl:min-w-[164px]">
           <div className="h-8 w-8 rounded-full bg-white/20 shrink-0 xl:h-9 xl:w-9" />
-          <div className="flex flex-col gap-1.5 flex-1">
+          <div className="flex flex-1 flex-col gap-1.5 text-left">
             <div className="h-2 bg-white/20 rounded w-full" />
             <div className="h-2 bg-white/20 rounded w-2/3" />
           </div>
@@ -253,10 +254,10 @@ export default function Header() {
       return (
         <Link
           href="/login"
-          className="flex h-11 w-[132px] items-center gap-2 rounded-xl px-2 text-white transition-colors hover:bg-white/10 xl:w-[148px]"
+          className="flex h-11 min-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-white transition-colors hover:bg-white/10 xl:min-w-[164px]"
         >
           <User size={16} className="shrink-0 text-white xl:h-[17px] xl:w-[17px]" />
-          <div className="min-w-0 flex-1 leading-tight">
+          <div className="min-w-0 flex-1 text-left leading-tight">
             <p className="truncate text-[8px] text-white/70 xl:text-[9px]">Đăng nhập / Đăng ký</p>
             <p className="mt-0.5 truncate text-[10px] font-semibold text-white xl:text-[11px]">Tài khoản của tôi</p>
           </div>
@@ -267,18 +268,18 @@ export default function Header() {
     return (
       <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
         <DropdownMenuTrigger asChild>
-          <button className="flex h-11 w-[132px] items-center gap-2 rounded-xl px-2 outline-none transition-colors hover:bg-white/10 xl:w-[148px]">
+          <button className="flex h-11 min-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-left outline-none transition-colors hover:bg-white/10 xl:min-w-[164px]">
             <Avatar className="h-8 w-8 shrink-0 xl:h-8 xl:w-8">
               <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={getUserDisplayName()} className="object-cover" />
               <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
                 {getUserDisplayName().charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1 leading-tight">
-              <span className="block w-full truncate text-[8px] text-white/70 xl:text-[9px]">
+            <div className="min-w-0 flex-1 text-left leading-tight">
+              <span className="block truncate text-[8px] text-white/70 xl:text-[9px]">
                 Tài khoản
               </span>
-              <span className="mt-0.5 block w-full truncate text-[10px] font-semibold text-white xl:text-[11px]">
+              <span className="mt-0.5 block truncate text-[10px] font-semibold text-white xl:text-[11px]">
                 {getUserDisplayName()}
               </span>
             </div>
@@ -389,13 +390,34 @@ export default function Header() {
                       </Link>
 
                       <div className="flex items-center gap-3">
-                        <Link href="/orders/list" onClick={() => setIsMobileMenuOpen(false)}>
-                          <User size={21} className="text-white/95" />
+                        <Link
+                          href="/orders/list"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="flex h-9 w-9 items-center justify-center"
+                        >
+                          {isLoggedIn ? (
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarImage
+                                src={user?.avatar?.imageUrl ?? ""}
+                                alt={getUserDisplayName()}
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
+                                {getUserDisplayName().charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <User size={21} className="text-white/95" />
+                          )}
                         </Link>
-                        <Link href="/user/cart" className="flex items-center gap-1.5" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link
+                          href="/user/cart"
+                          className="relative flex h-9 w-9 items-center justify-center"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
                           <ShoppingCart size={21} className="text-white/95" />
                           {itemCount > 0 && (
-                            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold leading-none text-white">
+                            <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold leading-none text-white">
                               {itemCount > 99 ? "99+" : itemCount}
                             </span>
                           )}
@@ -506,13 +528,32 @@ export default function Header() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Link href="/orders/list">
-                  <User size={21} className="text-white/95" />
+                <Link
+                  href="/orders/list"
+                  className="flex h-9 w-9 items-center justify-center"
+                >
+                  {isLoggedIn ? (
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage
+                        src={user?.avatar?.imageUrl ?? ""}
+                        alt={getUserDisplayName()}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
+                        {getUserDisplayName().charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <User size={21} className="text-white/95" />
+                  )}
                 </Link>
-                <Link href="/user/cart" className="flex items-center gap-1.5">
+                <Link
+                  href="/user/cart"
+                  className="relative flex h-9 w-9 items-center justify-center"
+                >
                   <ShoppingCart size={21} className="text-white/95" />
                   {itemCount > 0 && (
-                    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold leading-none text-white">
+                    <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[9px] font-bold leading-none text-white">
                       {itemCount > 99 ? "99+" : itemCount}
                     </span>
                   )}
@@ -651,19 +692,19 @@ export default function Header() {
                 <Link
                   href="/user/cart"
                   id="cart-icon-target"
-                  className="flex h-11 min-w-[126px] items-center gap-2 rounded-xl px-2 text-white transition-colors hover:bg-white/10 xl:min-w-[144px]"
+                  className="flex h-11 min-w-[130px] items-center gap-2.5 rounded-xl px-2.5 text-white transition-colors hover:bg-white/10 xl:min-w-[144px]"
                 >
-                  <ShoppingCart size={17} className="shrink-0 xl:h-[18px] xl:w-[18px]" />
-                  <div className="min-w-0 leading-tight">
+                  <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+                    <ShoppingCart size={17} className="xl:h-[18px] xl:w-[18px]" />
+                    {itemCount > 0 && (
+                      <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#f04646] px-1.5 text-[10px] font-bold leading-none text-white">
+                        {itemCount > 99 ? "99+" : itemCount}
+                      </span>
+                    )}
+                  </span>
+                  <div className="min-w-0 text-left leading-tight">
                     <p className="text-[8px] text-white/70 xl:text-[9px]">Mua sắm nhanh</p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white xl:text-[12px]">
-                      <span>Giỏ hàng</span>
-                      {itemCount > 0 && (
-                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#f04646] px-1.5 text-[10px] font-bold leading-none text-white">
-                          {itemCount > 99 ? "99+" : itemCount}
-                        </span>
-                      )}
-                    </p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-white xl:text-[12px]">Giỏ hàng</p>
                   </div>
                 </Link>
               </div>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   SlidersHorizontal,
+  Menu,
   X,
   Loader2,
   PackageX,
@@ -13,7 +14,6 @@ import {
   Check,
   Tag,
   BadgeCheck,
-  LayoutGrid,
 } from "lucide-react";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import { getPublicCategories } from "@/app/services/CategoryService";
@@ -445,7 +445,6 @@ function ProductListingInner() {
             !categoryId ? "bg-blue-50 font-semibold text-blue-800" : "text-slate-900 hover:bg-slate-50"
           }`}
         >
-          <LayoutGrid size={14} className="shrink-0 text-blue-700" />
           <span>Tất cả sản phẩm</span>
         </button>
 
@@ -552,7 +551,7 @@ function ProductListingInner() {
       >
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <span className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-slate-900">
-            <SlidersHorizontal size={15} className="text-blue-700" />
+            <Menu size={15} className="text-blue-700" />
             Lọc sản phẩm
           </span>
           <button
@@ -595,6 +594,14 @@ function ProductListingInner() {
                 </div>
 
                 <div className="flex flex-1 items-center gap-2 md:max-w-md">
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileFilter(true)}
+                    className="flex h-9 items-center gap-2 border border-blue-700 bg-white px-3 text-[12px] font-semibold text-blue-800 lg:hidden"
+                  >
+                    <Menu size={14} /> Lọc
+                  </button>
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -644,14 +651,6 @@ function ProductListingInner() {
                       className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-blue-700"
                     />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowMobileFilter(true)}
-                    className="flex h-9 items-center gap-2 border border-blue-700 bg-white px-3 text-[12px] font-semibold text-blue-800 lg:hidden"
-                  >
-                    <SlidersHorizontal size={14} /> Lọc
-                  </button>
                 </div>
               </div>
             </div>

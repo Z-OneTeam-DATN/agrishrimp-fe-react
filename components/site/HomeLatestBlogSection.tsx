@@ -70,12 +70,15 @@ export default function HomeLatestBlogSection({
         </h2>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {initialPosts.map((post) => (
-          <article key={post.id} className="group/card flex h-full flex-col">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-6 xl:grid-cols-4">
+        {initialPosts.map((post, index) => (
+          <article
+            key={post.id}
+            className={`group/card h-full ${index >= 4 ? "hidden md:flex" : "flex"} flex-col`}
+          >
             <Link
               href={`/blog/${post.slug}`}
-              className="relative block aspect-[16/9] overflow-hidden bg-slate-100"
+              className="relative block aspect-[4/3] overflow-hidden bg-slate-100 md:aspect-[16/9]"
             >
               {post.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -92,8 +95,8 @@ export default function HomeLatestBlogSection({
               )}
             </Link>
 
-            <div className="flex flex-1 flex-col border border-slate-200 bg-white px-4 py-3">
-              <div className="flex items-center justify-between gap-3 text-[12px] font-medium text-[#315f9c]">
+            <div className="flex flex-1 flex-col border border-slate-200 bg-white px-2.5 py-2.5 md:px-4 md:py-3">
+              <div className="flex items-center justify-between gap-2 text-[10px] font-medium text-[#315f9c] md:gap-3 md:text-[12px]">
                 <span className="line-clamp-1">Cẩm Nang Kinh Nghiệm</span>
                 <span className="shrink-0 text-slate-500">
                   {formatDate(post.publishedAt ?? post.createdAt)}
@@ -102,12 +105,12 @@ export default function HomeLatestBlogSection({
 
               <Link
                 href={`/blog/${post.slug}`}
-                className="mt-2 line-clamp-2 text-[15px] font-extrabold leading-[1.35] text-slate-950 transition-colors hover:text-[#315f9c] md:text-[16px]"
+                className="mt-1.5 line-clamp-2 text-[13px] font-extrabold leading-[1.3] text-slate-950 transition-colors hover:text-[#315f9c] md:mt-2 md:text-[16px] md:leading-[1.35]"
               >
                 {normalizeDisplayTitle(post.title)}
               </Link>
 
-              <p className="mt-2 line-clamp-3 flex-1 text-[12px] leading-6 text-slate-700 md:text-[13px]">
+              <p className="mt-2 hidden flex-1 text-[13px] leading-6 text-slate-700 md:line-clamp-3 md:block">
                 {post.excerpt || "Bài viết đang được cập nhật nội dung chi tiết."}
               </p>
             </div>

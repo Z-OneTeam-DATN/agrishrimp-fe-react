@@ -101,7 +101,7 @@ export default function AIChatButton() {
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-20 right-4 z-50 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-4 md:bottom-6 md:right-6"
+      className="fixed bottom-5 right-4 z-50 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-4 md:bottom-6 md:right-6"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

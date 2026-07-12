@@ -224,8 +224,9 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
 
     // Tự động làm mới token nếu sắp hết hạn (pre-emptive refresh)
     if (token && isClient() && !isAuthRefreshUrl(config.url)) {
+      let decoded: JwtPayload | null = null;
       try {
-        const decoded = jwtDecode<JwtPayload>(token);
+        decoded = jwtDecode<JwtPayload>(token);
         const now = Date.now() / 1000;
         // Nếu token sắp hết hạn trong 30 giây tới
         if (decoded.exp && decoded.exp - now < 30) {
@@ -254,10 +255,20 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
         }
       } catch (e) {
         console.warn("Lỗi giải mã token trong request interceptor", e);
+        const { useAuthStore } = await import("@/stores/useAuthStore");
+        useAuthStore.getState().clearAuth();
+        token = null;
       }
     }
 
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else if (config.headers) {
+      config.headers.Authorization = undefined;
+      if (typeof config.headers.delete === "function") {
+        config.headers.delete("Authorization");
+      }
+    }
     return config;
   });
 
