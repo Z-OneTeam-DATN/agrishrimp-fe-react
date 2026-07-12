@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ShieldCheck,
-    Loader2, Camera, UserCircle2, Upload
+    Loader2, Camera, UserCircle2, Upload, CalendarIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,10 @@ import { Label } from "@/components/ui/label";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parseISO } from "date-fns";
+import { Controller } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getErrorMessage, apiJava } from "@/lib/axios";
@@ -107,6 +111,7 @@ export default function AddEmployeePage() {
         handleSubmit,
         setValue,
         watch,
+        control,
         setError,
         formState: { errors, dirtyFields },
     } = useForm<EmployeeCreateInput>({
@@ -121,11 +126,11 @@ export default function AddEmployeePage() {
             addressDetail: "",
             dateOfBirth: "",
             avatarUrl: null,
-            status: "ACTIVE",
+            status: undefined,
             startDate: new Date().toISOString().split('T')[0],
             branchId: undefined,
             roleId: undefined,
-            gender: "MALE"
+            gender: undefined
         }
     });
 
@@ -470,11 +475,11 @@ export default function AddEmployeePage() {
                                             Giới tính
                                         </Label>
                                         <Select
-                                            value={currentGender}
-                                            onValueChange={(val: "MALE" | "FEMALE" | "OTHER") => setValue("gender", val)}
+                                            value={currentGender || undefined}
+                                            onValueChange={(val: "MALE" | "FEMALE" | "OTHER") => setValue("gender", val, { shouldValidate: true })}
                                         >
-                                            <SelectTrigger className="h-9 text-[12px] font-medium">
-                                                <SelectValue />
+                                            <SelectTrigger className={cn("h-9 text-[12px] font-medium", errors.gender && "border-rose-500")}>
+                                                <SelectValue placeholder="Chọn giới tính" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="MALE">Nam</SelectItem>
@@ -482,6 +487,9 @@ export default function AddEmployeePage() {
                                                 <SelectItem value="OTHER">Khác</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        {errors.gender && (
+                                            <span className="text-[11px] text-rose-500">{errors.gender.message}</span>
+                                        )}
                                     </div>
 
                                     <div className="space-y-1.5 md:col-span-4">
@@ -546,13 +554,53 @@ export default function AddEmployeePage() {
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Ngày sinh *
                                         </Label>
-                                        <Input
-                                            type="date"
-                                            {...register("dateOfBirth")}
-                                            className={cn(
-                                                "h-9 text-[13px]",
-                                                errors.dateOfBirth && "border-rose-500 focus-visible:ring-rose-500"
-                                            )}
+                                        <Controller
+                                            name="dateOfBirth"
+                                            control={control}
+                                            render={({ field }) => {
+                                                const dateValue = field.value ? parseISO(field.value) : undefined;
+                                                return (
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                type="button"
+                                                                className={cn(
+                                                                    "h-9 w-full justify-between px-3 text-[13px] font-normal shadow-none border-slate-200",
+                                                                    !field.value && "text-slate-400",
+                                                                    errors.dateOfBirth && "border-rose-500 focus-visible:ring-rose-500"
+                                                                )}
+                                                            >
+                                                                <span>
+                                                                    {dateValue && !Number.isNaN(dateValue.getTime())
+                                                                        ? format(dateValue, "dd/MM/yyyy")
+                                                                        : "dd/mm/yyyy"}
+                                                                </span>
+                                                                <CalendarIcon className="h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0 z-[1000]" align="start">
+                                                            <Calendar
+                                                                mode="single"
+                                                                selected={dateValue}
+                                                                onSelect={(date) => {
+                                                                    if (date) {
+                                                                        field.onChange(format(date, "yyyy-MM-dd"));
+                                                                    } else {
+                                                                        field.onChange("");
+                                                                    }
+                                                                }}
+                                                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                                                captionLayout="dropdown-buttons"
+                                                                fromYear={1940}
+                                                                toYear={new Date().getFullYear()}
+                                                                defaultMonth={dateValue || new Date(2000, 0, 1)}
+                                                                initialFocus
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                );
+                                            }}
                                         />
                                         {errors.dateOfBirth && (
                                             <span className="text-[11px] text-rose-500">
@@ -661,7 +709,7 @@ export default function AddEmployeePage() {
                             </Label>
                             <Select
                                 value={currentBranchId ? String(currentBranchId) : undefined}
-                                onValueChange={(val) => setValue("branchId", Number(val))}
+                                onValueChange={(val) => setValue("branchId", Number(val), { shouldValidate: true })}
                                 disabled={branches.length === 0 || !isAdmin}
                             >
                                 <SelectTrigger
@@ -708,7 +756,7 @@ export default function AddEmployeePage() {
                             </Label>
                             <Select
                                 value={currentRoleId ? String(currentRoleId) : undefined}
-                                onValueChange={(val) => setValue("roleId", Number(val))}
+                                onValueChange={(val) => setValue("roleId", Number(val), { shouldValidate: true })}
                                 disabled={roles.length === 0}
                             >
                                 <SelectTrigger
@@ -744,13 +792,49 @@ export default function AddEmployeePage() {
                             <Label className="text-[10px] font-medium text-slate-400">
                                 Ngày vào làm *
                             </Label>
-                            <Input
-                                type="date"
-                                {...register("startDate")}
-                                className={cn(
-                                    "h-9 text-[13px]",
-                                    errors.startDate && "border-rose-500 focus-visible:ring-rose-500"
-                                )}
+                            <Controller
+                                name="startDate"
+                                control={control}
+                                render={({ field }) => {
+                                    const dateValue = field.value ? parseISO(field.value) : undefined;
+                                    return (
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    type="button"
+                                                    className={cn(
+                                                        "h-9 w-full justify-between px-3 text-[13px] font-normal shadow-none border-slate-200",
+                                                        !field.value && "text-slate-400",
+                                                        errors.startDate && "border-rose-500 focus-visible:ring-rose-500"
+                                                    )}
+                                                >
+                                                    <span>
+                                                        {dateValue && !Number.isNaN(dateValue.getTime())
+                                                            ? format(dateValue, "dd/MM/yyyy")
+                                                            : "dd/mm/yyyy"}
+                                                    </span>
+                                                    <CalendarIcon className="h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 z-[1000]" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={dateValue}
+                                                    onSelect={(date) => {
+                                                        if (date) {
+                                                            field.onChange(format(date, "yyyy-MM-dd"));
+                                                        } else {
+                                                            field.onChange("");
+                                                        }
+                                                    }}
+                                                    disabled={(date) => date < new Date("2000-01-01")}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    );
+                                }}
                             />
                             {errors.startDate && (
                                 <span className="text-[11px] text-rose-500">{errors.startDate.message}</span>
@@ -762,11 +846,11 @@ export default function AddEmployeePage() {
                                 Trạng thái tài khoản
                             </Label>
                             <Select
-                                value={currentStatus}
-                                onValueChange={(val: "ACTIVE" | "INACTIVE" | "BANNED") => setValue("status", val)}
+                                value={currentStatus || undefined}
+                                onValueChange={(val: "ACTIVE" | "INACTIVE" | "BANNED") => setValue("status", val, { shouldValidate: true })}
                             >
-                                <SelectTrigger className="h-9 text-[12px] font-medium">
-                                    <SelectValue />
+                                <SelectTrigger className={cn("h-9 text-[12px] font-medium", errors.status && "border-rose-500")}>
+                                    <SelectValue placeholder="Chọn trạng thái" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
@@ -774,6 +858,9 @@ export default function AddEmployeePage() {
                                     <SelectItem value="BANNED">Cấm truy cập</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {errors.status && (
+                                <span className="text-[11px] text-rose-500">{errors.status.message}</span>
+                            )}
                         </div>
                     </div>
                 </div>

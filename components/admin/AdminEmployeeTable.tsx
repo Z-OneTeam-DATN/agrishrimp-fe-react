@@ -74,8 +74,8 @@ export function AdminEmployeeTable({
   const handleResendCredentials = async (empId: number) => {
     try {
       setResendingId(empId);
-      await EmployeeService.resendCredentials(empId);
-      toast.success("Đã gửi lại email thông tin tài khoản.");
+      const msg = await EmployeeService.resendCredentials(empId);
+      toast.success(msg || "Đã gửi lại email thông tin tài khoản.");
     } catch {
       toast.error("Không thể gửi lại email. Vui lòng thử lại.");
     } finally {
