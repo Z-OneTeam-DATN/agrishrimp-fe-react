@@ -172,7 +172,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <Link href={`/reviews/write/${item.productId}?orderId=${order.id}`}>
                     <Button
                       variant="outline"
-                      className={cn(btnOutlineClass, "h-7 border-[#1965a2] px-3 text-[10px] text-[#1965a2] hover:bg-blue-50 hover:text-[#1965a2]")}
+                      className={cn(btnOutlineClass, "h-7 border-[#1965a2] px-3 text-[10px] text-[#1965a2] hover:bg-[#1965a2]/10 hover:text-[#1965a2]")}
                     >
                       Viết đánh giá
                     </Button>
@@ -196,7 +196,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             <span
               className={cn(
                 "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase",
-                order.paymentStatus === "PAID" ? "bg-blue-100 text-blue-600" : "bg-orange-100 text-orange-600",
+                order.paymentStatus === "PAID" ? "bg-[#1965a2]/10 text-[#1965a2]" : "bg-orange-100 text-orange-600",
               )}
             >
               {order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}

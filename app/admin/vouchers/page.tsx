@@ -34,6 +34,8 @@ const formatDate = (value: string) => {
   return date.toLocaleDateString("vi-VN");
 };
 
+const pageSize = 5;
+
 const getDiscountValue = (voucher: Voucher) =>
   toNumber(voucher.value ?? voucher.discountValue);
 
@@ -67,6 +69,7 @@ export default function AdminVoucherPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | Voucher["status"]>(
     "ALL",
   );
+  const [currentPage, setCurrentPage] = useState(0);
   const [deleteConfirmVoucher, setDeleteConfirmVoucher] =
     useState<Voucher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -130,6 +133,17 @@ export default function AdminVoucherPage() {
     }),
     [vouchers],
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredVouchers.length / pageSize));
+
+  const paginatedVouchers = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredVouchers.slice(start, start + pageSize);
+  }, [currentPage, filteredVouchers]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
 
   const confirmDelete = async () => {
     if (!canManageVoucher || !deleteConfirmVoucher?.id) return;
@@ -291,7 +305,7 @@ export default function AdminVoucherPage() {
                   </td>
                 </tr>
               ) : (
-                filteredVouchers.map((voucher) => (
+                paginatedVouchers.map((voucher) => (
                   <tr
                     key={voucher.id ?? voucher.code}
                     className="border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50"
@@ -351,6 +365,53 @@ export default function AdminVoucherPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex min-w-full shrink-0 flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12px] font-semibold text-slate-500">
+            Tổng số: {filteredVouchers.length} voucher (Trang {filteredVouchers.length === 0 ? 0 : currentPage + 1}/{filteredVouchers.length === 0 ? 0 : totalPages})
+          </p>
+
+          {filteredVouchers.length > pageSize && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                disabled={currentPage === 0}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Trước
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setCurrentPage(index)}
+                    className={`h-7 min-w-[28px] rounded-[4px] border px-2 text-[11px] font-bold shadow-sm transition-all ${
+                      currentPage === index
+                        ? "border-[#1965a2] bg-gradient-to-r from-[#1965a2] to-[#1965a2] text-white hover:from-[#145486] hover:to-[#145486]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
+                }
+                disabled={currentPage >= totalPages - 1}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Sau
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

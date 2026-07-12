@@ -237,8 +237,16 @@ export default function AttributeManagementPage() {
     const val = newValueInput.trim();
     if (!val) return;
 
-    if (valueInputError) {
-      toast.error(valueInputError);
+    if (valueInputError) return;
+
+    const isDuplicate = values.some(
+      (item) =>
+        normalizeValueForCompare(item) === normalizeValueForCompare(val),
+    );
+    if (isDuplicate) {
+      setValueInputError(
+        "Giá trị này đã tồn tại (không phân biệt hoa thường).",
+      );
       return;
     }
 
@@ -411,6 +419,7 @@ export default function AttributeManagementPage() {
               />
             </div>
 
+            <div className="hidden">
             <Select
               value={currentCountFilter}
               onValueChange={setCurrentCountFilter}
@@ -430,6 +439,7 @@ export default function AttributeManagementPage() {
                 </SelectItem>
               </SelectContent>
             </Select>
+            </div>
 
             <Select
               value={currentStatusFilter}
@@ -451,6 +461,7 @@ export default function AttributeManagementPage() {
               </SelectContent>
             </Select>
 
+            <div className="hidden">
             <Select
               value={currentSort}
               onValueChange={(value) =>
@@ -475,6 +486,7 @@ export default function AttributeManagementPage() {
                 </SelectItem>
               </SelectContent>
             </Select>
+            </div>
           </div>
 
           {hasPermission(P.ATTRIBUTE_CREATE) && (

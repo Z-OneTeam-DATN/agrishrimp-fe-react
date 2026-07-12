@@ -1,15 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { X, Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
 import {
   createAttribute,
   getAttributeById,
   updateAttribute,
 } from "@/app/services/AttributeService";
-import { X, Save, Settings2, Loader2 } from "lucide-react";
+import { AdminAttributeSchema } from "@/app/types/admin.schema";
+import { getErrorMessage } from "@/lib/axios";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,31 +26,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import {
-  AdminAttributeSchema,
-  AdminAttributeForm,
-} from "@/app/types/admin.schema";
 
-// --- HÀM TIỆN ÍCH CHUYỂN ĐỔI TÊN THÀNH MÃ ---
-const generateCodeFromName = (name: string) => {
-  if (!name) return "";
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Z0-9_]/g, "");
-};
+const AdminAttributePageSchema = AdminAttributeSchema.omit({
+  description: true,
+  code: true,
+});
+
+type AdminAttributePageForm = z.infer<typeof AdminAttributePageSchema>;
 
 export default function AddVariantPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [newValueInput, setNewValueInput] = useState("");
+  const [valueInputError, setValueInputError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const idFromUrl = searchParams.get("id");
@@ -57,51 +51,37 @@ export default function AddVariantPage() {
     setValue,
     watch,
     reset,
+    clearErrors,
     formState: { errors },
-  } = useForm<AdminAttributeForm>({
-    resolver: zodResolver(AdminAttributeSchema),
+  } = useForm<AdminAttributePageForm>({
+    resolver: zodResolver(AdminAttributePageSchema),
     mode: "onTouched",
     defaultValues: {
       name: "",
-      code: "",
-      description: "",
       status: "ACTIVE",
       values: [],
     },
   });
 
-  // Theo dõi tên để sinh mã tự động
-  const nameValue = watch("name");
-
   useEffect(() => {
-    // Chỉ tự động điền mã khi thêm mới
-    if (!isEditMode && nameValue) {
-      const autoCode = generateCodeFromName(nameValue);
-      setValue("code", autoCode, { shouldValidate: true });
-    }
-  }, [nameValue, isEditMode, setValue]);
+    if (!isEditMode || !idFromUrl) return;
 
-  // Load dữ liệu cũ khi chỉnh sửa
-  useEffect(() => {
-    if (isEditMode && idFromUrl) {
-      const fetchDetail = async () => {
-        try {
-          const data = await getAttributeById(Number(idFromUrl));
-          reset({
-            name: data.name,
-            code: data.code,
-            description: data.description || "",
-            status: data.status,
-            values: data.values || [],
-          });
-        } catch (error) {
-          toast.error("Không tìm thấy thuộc tính yêu cầu!");
-          router.push("/admin/variants");
-        }
-      };
-      fetchDetail();
-    }
-  }, [isEditMode, idFromUrl, reset, router]);
+    const fetchDetail = async () => {
+      try {
+        const data = await getAttributeById(Number(idFromUrl));
+        reset({
+          name: data.name,
+          status: data.status,
+          values: data.values || [],
+        });
+      } catch (error) {
+        toast.error("Không tìm thấy thuộc tính yêu cầu!");
+        router.push("/admin/variants");
+      }
+    };
+
+    void fetchDetail();
+  }, [idFromUrl, isEditMode, reset, router]);
 
   const values = watch("values") || [];
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
@@ -110,42 +90,72 @@ export default function AddVariantPage() {
   const sectionCardClass = "border border-slate-200 bg-white p-6 shadow-sm";
   const sectionTitleClass = "text-[11px] font-bold text-slate-800";
 
-  const addValue = () => {
-    const val = newValueInput.trim();
-    if (!val) return;
-    if (values.includes(val)) {
-      toast.error("Giá trị này đã tồn tại");
+  const normalizeValueForCompare = (value: string) =>
+    value.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
+
+  useEffect(() => {
+    const nextVal = newValueInput.trim();
+    if (!nextVal) {
+      setValueInputError("");
       return;
     }
+
+    const isDuplicate = values.some(
+      (item) =>
+        normalizeValueForCompare(item) === normalizeValueForCompare(nextVal),
+    );
+
+    setValueInputError(
+      isDuplicate
+        ? "Giá trị này đã tồn tại (không phân biệt hoa thường)."
+        : "",
+    );
+  }, [newValueInput, values]);
+
+  const addValue = () => {
+    const val = newValueInput.trim();
+    if (!val || valueInputError) return;
+
+    const isDuplicate = values.some(
+      (item) =>
+        normalizeValueForCompare(item) === normalizeValueForCompare(val),
+    );
+    if (isDuplicate) {
+      setValueInputError(
+        "Giá trị này đã tồn tại (không phân biệt hoa thường).",
+      );
+      return;
+    }
+
     setValue("values", [...values, val], { shouldValidate: true });
     setNewValueInput("");
+    setValueInputError("");
+    clearErrors("values");
   };
 
   const removeValue = (val: string) => {
     setValue(
       "values",
-      values.filter((v) => v !== val),
+      values.filter((item) => item !== val),
       { shouldValidate: true },
     );
   };
 
-  const onSave = async (data: AdminAttributeForm) => {
+  const onSave = async (data: AdminAttributePageForm) => {
     try {
       setIsSubmitting(true);
-      const payload = {
-        ...data,
-        code: data.code || generateCodeFromName(data.name),
-      };
+
       if (isEditMode) {
-        await updateAttribute(Number(idFromUrl), payload);
+        await updateAttribute(Number(idFromUrl), data);
         toast.success("Cập nhật thành công!");
       } else {
-        await createAttribute(payload);
+        await createAttribute(data);
         toast.success("Thêm mới thành công!");
       }
+
       router.push("/admin/variants");
     } catch (error) {
-      toast.error("Mã định danh (Code) đã tồn tại hoặc lỗi server!");
+      toast.error(getErrorMessage(error as any));
     } finally {
       setIsSubmitting(false);
     }
@@ -156,7 +166,7 @@ export default function AddVariantPage() {
       onSubmit={handleSubmit(onSave)}
       className="space-y-5 px-1 pb-[100px] text-slate-800"
     >
-      <div className="mt-2 mb-8 space-y-4">
+      <div className="mb-8 mt-2 space-y-4">
         <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
           {isEditMode ? "Chỉnh sửa thuộc tính" : "Thêm thuộc tính mới"}
         </h1>
@@ -183,8 +193,6 @@ export default function AddVariantPage() {
               </p>
             )}
           </div>
-
-          <input type="hidden" {...register("code")} />
 
           <div className="space-y-1.5 md:col-span-2">
             <Label className={fieldLabelClass}>Trạng thái sử dụng</Label>
@@ -227,7 +235,10 @@ export default function AddVariantPage() {
               placeholder="Nhập giá trị mới rồi nhấn Enter..."
               className={cn(
                 fieldControlClass,
-                "border-slate-200 bg-white sm:max-w-[420px]",
+                "bg-white sm:max-w-[420px]",
+                valueInputError
+                  ? "border-rose-300 focus-visible:ring-rose-500/20"
+                  : "border-slate-200",
               )}
               value={newValueInput}
               onChange={(e) => setNewValueInput(e.target.value)}
@@ -246,6 +257,12 @@ export default function AddVariantPage() {
               Thêm
             </Button>
           </div>
+
+          {valueInputError && (
+            <p className="text-[10px] font-medium text-rose-500">
+              {valueInputError}
+            </p>
+          )}
 
           <div
             className={cn(
@@ -270,17 +287,20 @@ export default function AddVariantPage() {
                 </button>
               </div>
             ))}
+
             {values.length === 0 && (
               <span className="m-auto text-[12px] font-medium text-slate-300">
                 Chưa có giá trị nào
               </span>
             )}
           </div>
+
           {errors.values && (
             <p className="text-[10px] font-medium text-rose-500">
               {errors.values.message}
             </p>
           )}
+
           <p className="text-[10px] text-slate-400">
             Mẹo: nhấn Enter để thêm nhanh từng giá trị.
           </p>
@@ -314,4 +334,3 @@ export default function AddVariantPage() {
     </form>
   );
 }
-
