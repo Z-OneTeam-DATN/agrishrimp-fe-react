@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Star,
-  MessageSquare,
   Loader2,
   User,
   CheckCircle,
@@ -192,17 +191,16 @@ export function ProductReviews({
   })();
 
   return (
-    <div className="space-y-8">
-      <div className="grid gap-8 border-b border-slate-200 pb-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="space-y-5 sm:space-y-6">
+      <div className="grid gap-5 border-b border-slate-200 pb-5 sm:gap-6 sm:pb-6 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)]">
         <div className="text-center lg:text-left">
-          <h3 className="text-3xl font-bold text-slate-950">Đánh giá và nhận xét</h3>
-          <div className="mt-5 text-6xl font-bold tracking-tight text-slate-950">
+          <div className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
             {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
           </div>
           <div className="mt-3 flex justify-center lg:justify-start">
-            {renderStars(Math.round(averageRating), 22)}
+            {renderStars(Math.round(averageRating), 18)}
           </div>
-          <p className="mt-3 text-sm text-slate-500">{reviews.length} lượt đánh giá</p>
+          <p className="mt-3 text-xs text-slate-500">{reviews.length} lượt đánh giá</p>
         </div>
 
         <div className="space-y-3">
@@ -211,9 +209,9 @@ export function ProductReviews({
               key={item.rating}
               type="button"
               onClick={() => handleFilterChange(item.rating as 1 | 2 | 3 | 4 | 5)}
-              className="grid w-full grid-cols-[28px_minmax(0,1fr)_34px] items-center gap-3 text-left"
+              className="grid w-full grid-cols-[24px_minmax(0,1fr)_28px] items-center gap-2 text-left sm:grid-cols-[28px_minmax(0,1fr)_34px] sm:gap-3"
             >
-              <span className="flex items-center gap-1 text-sm text-slate-600">
+              <span className="flex items-center gap-1 text-xs text-slate-600">
                 {item.rating}
                 <Star size={13} className="fill-orange-400 text-orange-400" />
               </span>
@@ -226,18 +224,18 @@ export function ProductReviews({
                   style={{ width: `${item.percentage}%` }}
                 />
               </span>
-              <span className="text-sm text-slate-600">{item.count}</span>
+              <span className="text-xs text-slate-600">{item.count}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2 sm:gap-3">
         <button
           type="button"
           onClick={() => handleFilterChange("all")}
           className={cn(
-            "inline-flex min-w-[118px] items-center justify-center rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all",
+            "inline-flex min-w-[86px] items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold transition-all sm:min-w-[104px] sm:px-3.5",
             selectedFilter === "all"
               ? "border-[#d24335] bg-white text-[#d24335]"
               : "border-slate-200 bg-white text-slate-600 hover:border-[#d24335] hover:text-[#d24335]"
@@ -252,7 +250,7 @@ export function ProductReviews({
             type="button"
             onClick={() => handleFilterChange(rating as 1 | 2 | 3 | 4 | 5)}
             className={cn(
-              "inline-flex min-w-[88px] items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all",
+              "inline-flex min-w-[58px] items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all sm:min-w-[76px] sm:px-3.5",
               selectedFilter === rating
                 ? "border-[#d24335] bg-white text-[#d24335]"
                 : "border-slate-200 bg-white text-slate-600 hover:border-[#d24335] hover:text-[#d24335]"
@@ -267,7 +265,7 @@ export function ProductReviews({
           type="button"
           onClick={() => handleFilterChange("with-images")}
           className={cn(
-            "inline-flex min-w-[148px] items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all",
+            "inline-flex min-w-[116px] items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-all sm:min-w-[132px] sm:px-3.5",
             selectedFilter === "with-images"
               ? "border-[#d24335] bg-white text-[#d24335]"
               : "border-slate-200 bg-white text-slate-600 hover:border-[#d24335] hover:text-[#d24335]"
@@ -278,19 +276,18 @@ export function ProductReviews({
         </button>
       </div>
 
-      <div className="text-sm font-medium text-slate-600">{filterSummaryLabel}</div>
+      <div className="text-xs font-medium text-slate-600">{filterSummaryLabel}</div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16">
           <Loader2 className="mb-4 animate-spin text-blue-600" size={32} />
-          <p className="text-sm font-medium text-slate-500">Đang tải đánh giá...</p>
+          <p className="text-xs font-medium text-slate-500">Đang tải đánh giá...</p>
         </div>
-      ) : reviews.length > 0 ? (
-        filteredReviews.length > 0 ? (
+      ) : reviews.length > 0 && filteredReviews.length > 0 ? (
           <div className="divide-y divide-slate-200">
             {filteredReviews.map((review) => (
-              <div key={review.id} className="py-8 first:pt-0 last:pb-0">
-                <div className="flex gap-4">
+              <div key={review.id} className="py-6 first:pt-0 last:pb-0 sm:py-8">
+                <div className="flex gap-3 sm:gap-4">
                   <div className="hidden shrink-0 sm:block">
                     <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-slate-500">
                       {review.userAvatar ? (
@@ -312,7 +309,7 @@ export function ProductReviews({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-lg font-bold text-slate-950">
+                          <h4 className="text-sm font-bold text-slate-950 sm:text-base">
                             {review.userName || "Khách hàng"}
                           </h4>
                           <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
@@ -320,7 +317,7 @@ export function ProductReviews({
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
                           <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">
                             {review.rating}
                             <Star size={12} className="fill-current" />
@@ -345,19 +342,19 @@ export function ProductReviews({
                     </div>
 
                     {review.comment && (
-                      <p className="mt-4 text-base leading-7 text-slate-700">
+                      <p className="mt-3 text-xs leading-6 text-slate-700 sm:mt-4 sm:text-sm">
                         {review.comment}
                       </p>
                     )}
 
                     {review.imageUrls && review.imageUrls.length > 0 && (
-                      <div className="mt-5 flex flex-wrap gap-3">
+                      <div className="mt-4 flex flex-wrap gap-2.5 sm:mt-5 sm:gap-3">
                         {review.imageUrls.map((url, idx) => (
                           <button
                             key={`${review.id}-${idx}`}
                             type="button"
                             onClick={() => setSelectedImage(getFullImageUrl(url))}
-                            className="relative h-24 w-24 overflow-hidden rounded-lg border border-slate-200 transition-transform hover:scale-[1.03]"
+                            className="relative h-20 w-20 overflow-hidden rounded-lg border border-slate-200 transition-transform hover:scale-[1.03] sm:h-24 sm:w-24"
                           >
                             <img
                               src={getFullImageUrl(url)}
@@ -376,24 +373,15 @@ export function ProductReviews({
               </div>
             ))}
           </div>
-        ) : (
+      ) : reviews.length > 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center">
-            <h4 className="text-lg font-bold text-slate-800">Chưa có đánh giá phù hợp</h4>
-            <p className="mt-2 text-sm text-slate-500">
+            <h4 className="text-base font-bold text-slate-800">Chưa có đánh giá phù hợp</h4>
+            <p className="mt-2 text-xs text-slate-500">
               Thử chuyển sang bộ lọc khác để xem thêm nhận xét từ khách hàng.
             </p>
           </div>
-        )
       ) : (
-        <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 py-16 text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-xl bg-white text-slate-200 shadow-sm">
-            <MessageSquare size={32} />
-          </div>
-          <h4 className="text-lg font-bold text-slate-800">Chưa có đánh giá nào</h4>
-          <p className="mx-auto mt-2 max-w-xs text-sm text-slate-400">
-            Sản phẩm này chưa có nhận xét công khai từ khách hàng.
-          </p>
-        </div>
+        null
       )}
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>

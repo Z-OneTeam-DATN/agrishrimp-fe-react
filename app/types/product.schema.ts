@@ -196,3 +196,13 @@ export interface PublicProductDetail {
   ratingAverage?: number;
   reviewCount?: number;
 }
+
+export interface FrequentlyBoughtTogetherItem {
+  product: PublicProductListItem;
+  supportCount: number;
+  customerCount: number;
+  support: number;
+  confidence: number;
+  lift: number;
+  calculatedAt: string;
+}

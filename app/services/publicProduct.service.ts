@@ -3,6 +3,7 @@ import {
   PageResponse,
   PublicProductListItem,
   PublicProductDetail,
+  FrequentlyBoughtTogetherItem,
 } from "@/app/types/product.schema";
 
 export const PublicProductService = {
@@ -58,6 +59,43 @@ export const PublicProductService = {
       { isPublic: true } as any
     );
     return response.data;
+  },
+
+  /**
+   * Lấy danh sách "Khách hàng thường mua kèm" đã được backend precompute.
+   * Endpoint: GET /api/public/products/{id}/frequently-bought-together
+   */
+  getFrequentlyBoughtTogether: async (
+    id: number | string,
+    limit = 4,
+  ): Promise<FrequentlyBoughtTogetherItem[]> => {
+    const response = await apiJava.get(
+      buildJavaApiUrl(
+        `${PublicProductService.PREFIX}/${id}/frequently-bought-together` as ApiPath,
+      ),
+      {
+        params: { limit },
+        isPublic: true,
+      } as any,
+    );
+    return response.data || [];
+  },
+
+  trackRecommendationClick: async (
+    productId: number | string,
+    recommendedProductId: number | string,
+    source = "product_detail",
+  ): Promise<void> => {
+    await apiJava.post(
+      buildJavaApiUrl(
+        `${PublicProductService.PREFIX}/${productId}/frequently-bought-together/clicks` as ApiPath,
+      ),
+      {
+        recommendedProductId,
+        source,
+      },
+      { isPublic: true } as any,
+    );
   },
 
   getByCategory: async (categoryId: number | string): Promise<PublicProductListItem[]> => {

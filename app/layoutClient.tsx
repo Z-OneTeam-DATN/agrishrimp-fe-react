@@ -77,6 +77,7 @@ export default function LayoutClient({
   const pathname = usePathname();
   const router = useRouter();
   const queryClientRef = useRef<QueryClient>();
+  const siteHeaderRef = useRef<HTMLDivElement | null>(null);
   const {
     user,
     setUser,
@@ -95,6 +96,7 @@ export default function LayoutClient({
   const isChangePasswordPage = pathname === "/change-password";
   const isAdminPage = pathname?.startsWith("/admin");
   const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
+  const isHideLayout = isAdminPage || isAuthPage || isAiDoctorPage;
   const isProtectedPath = [
     "/profile",
     "/orders",
@@ -284,6 +286,41 @@ export default function LayoutClient({
     }
   }, [user, isLoadingAuth, isChangePasswordPage, router]);
 
+  useEffect(() => {
+    if (isHideLayout) {
+      document.documentElement.style.removeProperty("--site-header-height");
+      return;
+    }
+
+    const headerElement = siteHeaderRef.current;
+    const updateHeaderHeight = () => {
+      const height = headerElement?.getBoundingClientRect().height ?? 0;
+      document.documentElement.style.setProperty(
+        "--site-header-height",
+        `${Math.ceil(height)}px`,
+      );
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && headerElement
+        ? new ResizeObserver(updateHeaderHeight)
+        : null;
+
+    if (headerElement) {
+      resizeObserver?.observe(headerElement);
+    }
+
+    window.addEventListener("resize", updateHeaderHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateHeaderHeight);
+      document.documentElement.style.removeProperty("--site-header-height");
+    };
+  }, [isHideLayout]);
+
   const showBlockingLoader = (isAdminPage || isProtectedPath) && isLoadingAuth;
 
   if (!isLoadingAuth && user?.mustChangePassword && !isChangePasswordPage) {
@@ -303,8 +340,6 @@ export default function LayoutClient({
       },
     });
   }
-
-  const isHideLayout = isAdminPage || isAuthPage || isAiDoctorPage;
 
   return (
     <GoogleAuthProvider>
@@ -330,9 +365,10 @@ export default function LayoutClient({
             ) : (
               <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
                 {user ? <WebSocketProvider /> : null}
-                <div className="sticky top-0 z-50">
-                  <Header />
+                <Header />
+                <div ref={siteHeaderRef} className="sticky top-0 z-50">
                   <Navbar />
+                  <div id="site-breadcrumb-slot" />
                 </div>
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
