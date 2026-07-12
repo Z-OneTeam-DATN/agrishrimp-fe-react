@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Loader2, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { voucherService, Voucher } from "@/app/services/voucher.service";
-import VoucherWalletClient from "./VoucherWalletClient";
 
 const SAVED_VOUCHERS_KEY = "agrishrimp.savedVoucherCodes";
 
@@ -61,7 +60,13 @@ const isVoucherVisible = (voucher: Voucher) => {
   return voucher.status === "ACTIVE" && startOk && endOk;
 };
 
-function LegacyVoucherWalletPage() {
+const actionButtonClass =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-[13px] font-semibold transition-all duration-200";
+const secondaryActionClass = `${actionButtonClass} border-[#1965a2]/15 bg-[#1965a2]/5 text-[#1965a2] hover:border-[#1965a2]/30 hover:bg-[#1965a2]/10`;
+const primaryActionClass = `${actionButtonClass} border-[#1965a2] bg-[#1965a2] text-white shadow-sm shadow-[#1965a2]/20 hover:border-[#145486] hover:bg-[#145486]`;
+const dangerActionClass = `${actionButtonClass} border-red-200 bg-red-50 text-red-600 hover:border-red-300 hover:bg-red-100`;
+
+export default function VoucherWalletPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [savedCodes, setSavedCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,16 +150,16 @@ function LegacyVoucherWalletPage() {
       <div className="flex flex-col gap-4 border-b border-gray-100 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h5 className="text-[18px] font-medium text-gray-900">
-            Voucher của tôi
+            Ví Voucher và Ưu đãi
           </h5>
           <p className="mt-1 text-sm text-gray-500">
-            Lưu và quản lý các mã ưu đãi để dùng nhanh khi thanh toán
+            Voucher được lưu trên backend và đồng bộ theo tài khoản
           </p>
         </div>
 
         <Link href="/voucher/create">
           <button className="flex h-10 items-center justify-center bg-[#1965a2] px-4 text-sm font-medium text-white transition-colors hover:bg-[#145486]">
-            <Ticket size={16} className="mr-1.5" /> Nhập mã voucher
+            <Ticket size={16} className="mr-1.5" /> Nhập mã Voucher
           </button>
         </Link>
       </div>
@@ -170,7 +175,7 @@ function LegacyVoucherWalletPage() {
 
           {savedVouchers.length === 0 && (
             <div className="py-12 text-center text-gray-500">
-              Bạn chưa lưu voucher nào
+              Chưa có mã nào trong ví
             </div>
           )}
 
@@ -212,24 +217,24 @@ function LegacyVoucherWalletPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 items-start gap-4 text-[15px] md:min-w-[220px] md:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 md:min-w-[320px] md:justify-end">
                     <button
                       type="button"
                       onClick={() => handleCopy(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={secondaryActionClass}
                     >
                       Sao chép
                     </button>
                     <Link
                       href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
-                      className="text-[#1965a2] hover:underline"
+                      className={primaryActionClass}
                     >
                       Dùng ngay
                     </Link>
                     <button
                       type="button"
                       onClick={() => handleRemoveSaved(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={dangerActionClass}
                     >
                       Gỡ khỏi ví
                     </button>
@@ -242,10 +247,10 @@ function LegacyVoucherWalletPage() {
 
         <div className="pt-8">
           <h6 className="mb-2 text-[15px] font-medium text-gray-900">
-            Voucher khả dụng
+            Voucher khả dụng từ hệ thống
           </h6>
           <p className="text-sm text-gray-500">
-            {availableToSave.length} mã có thể lưu thêm vào ví
+            {availableToSave.length} mã mới có thể lưu vào ví
           </p>
 
           {availableToSave.length === 0 && (
@@ -292,18 +297,18 @@ function LegacyVoucherWalletPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 items-start gap-4 text-[15px] md:min-w-[170px] md:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 md:min-w-[240px] md:justify-end">
                     <button
                       type="button"
                       onClick={() => handleSave(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={primaryActionClass}
                     >
                       Lưu mã
                     </button>
                     <button
                       type="button"
                       onClick={() => handleCopy(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={secondaryActionClass}
                     >
                       Sao chép
                     </button>
@@ -318,6 +323,3 @@ function LegacyVoucherWalletPage() {
   );
 }
 
-export default function VoucherWalletPage() {
-  return <VoucherWalletClient />;
-}

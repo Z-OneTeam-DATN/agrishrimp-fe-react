@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
@@ -37,55 +37,55 @@ const statusConfig: Record<
   PENDING: {
     label: "Chờ xác nhận",
     subLabel: "Đơn hàng đã được ghi nhận và đang chờ cửa hàng xác nhận.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <Clock size={28} />,
   },
   AWAITING_PAYMENT: {
     label: "Chờ thanh toán",
     subLabel: "Đơn hàng đang chờ bạn hoàn tất thanh toán online.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <CreditCard size={28} />,
   },
   AWAITING_REPLENISHMENT: {
-    label: "Chờ điều chuyển",
-    subLabel: "Đơn hàng đang được gom hoặc điều chuyển nội bộ để bổ sung đủ hàng trước khi giao.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    label: "Chờ xác nhận",
+    subLabel: "Đơn hàng của bạn đã được ghi nhận và đang được xử lý. Cửa hàng sẽ sớm xác nhận và chuẩn bị hàng cho bạn.",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <Package size={28} />,
   },
   CONFIRMED: {
     label: "Chờ lấy hàng",
     subLabel: "Đơn hàng đã được duyệt và đang chờ chuẩn bị để bàn giao.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <Package size={28} />,
   },
   PROCESSING: {
     label: "Chờ lấy hàng",
     subLabel: "Đơn hàng đang được chuẩn bị trước khi bàn giao cho vận chuyển.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <Package size={28} />,
   },
   READY_FOR_PICKUP: {
     label: "Chờ lấy hàng",
-    subLabel: "Đơn hàng đã chuẩn bị xong và đang chờ bàn giao cho đơn vị vận chuyển.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    subLabel: "Đơn hàng đã được xác nhận và đang chờ chuẩn bị để bàn giao vận chuyển.",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <Package size={28} />,
   },
   SHIPPING: {
     label: "Chờ giao hàng",
     subLabel: "Đơn hàng đã bàn giao vận chuyển và đang trên đường đến bạn.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <Truck size={28} />,
   },
   RECEIVED: {
     label: "Đã nhận hàng",
     subLabel: "Đơn hàng đã được xác nhận là khách đã nhận.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <CheckCircle2 size={28} />,
   },
   COMPLETED: {
     label: "Đã giao",
     subLabel: "Đơn hàng đã được giao thành công.",
-    bannerBg: "from-[#329965] to-[#2d9f8d]",
+    bannerBg: "from-[#1965a2] to-[#1965a2]",
     icon: <CheckCircle2 size={28} />,
   },
   CANCELLED: {
@@ -111,7 +111,6 @@ const paymentLabel: Record<string, string> = {
 
 const steps = [
   { icon: Clock, label: "Chờ xác nhận", status: "PENDING" },
-  { icon: Package, label: "Chờ điều chuyển", status: "AWAITING_REPLENISHMENT" },
   { icon: Package, label: "Chờ lấy hàng", status: "READY_FOR_PICKUP" },
   { icon: Truck, label: "Chờ giao hàng", status: "SHIPPING" },
   { icon: CheckCircle2, label: "Đã giao", status: "COMPLETED" },
@@ -133,7 +132,7 @@ function CopyButton({ text }: { text: string }) {
       title="Sao chép"
       type="button"
     >
-      {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+      {copied ? <Check size={12} className="text-[#1965a2]" /> : <Copy size={12} />}
     </button>
   );
 }
@@ -188,7 +187,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <p className="text-center text-sm text-gray-600">{error ?? "Không tìm thấy đơn hàng."}</p>
           <Link
             href="/orders/list"
-            className="w-full rounded-lg bg-teal-600 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+            className="w-full rounded-lg bg-[#1965a2] py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#145486]"
           >
             Quay lại danh sách đơn hàng
           </Link>
@@ -199,13 +198,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const activeStep = (() => {
     if (order.status === "CANCELLED" || order.status === "RETURNED") return -1;
-    if (order.status === "AWAITING_PAYMENT" || order.status === "PENDING") return 0;
+    if (order.status === "AWAITING_PAYMENT") return 0;
     if (order.status === "AWAITING_REPLENISHMENT") return 1;
-    if (order.status === "CONFIRMED" || order.status === "PROCESSING" || order.status === "READY_FOR_PICKUP") {
-      return 2;
-    }
-    if (order.status === "SHIPPING") return 3;
-    if (order.status === "RECEIVED" || order.status === "COMPLETED") return 4;
+    if (order.status === "CONFIRMED" || order.status === "PROCESSING") return 1;
+    if (order.status === "RECEIVED") return 3;
     const idx = steps.findIndex((step) => step.status === order.status);
     return idx === -1 ? 0 : idx;
   })();
@@ -223,10 +219,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       await orderService.confirmReceivedByCustomer(order.id);
       const refreshedOrder = await orderService.getOrderById(order.id);
       setOrder(refreshedOrder);
-      toast.success("Don hang da duoc xac nhan nhan thanh cong.");
+      toast.success("Đơn hàng đã được xác nhận nhận thành công.");
     } catch (err) {
       console.error("Failed to confirm received order:", err);
-      toast.error("Khong the xac nhan nhan hang. Vui long thu lai sau.");
+      toast.error("Không thể xác nhận nhận hàng. Vui lòng thử lại sau.");
     } finally {
       setIsConfirmingReceived(false);
     }
@@ -271,7 +267,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   return (
                     <div key={step.status} className="relative z-10 flex flex-1 flex-col items-center gap-1.5">
                       <div
-                        className={`flex h-[30px] w-[30px] items-center justify-center rounded-full transition-all duration-300 ${done || active ? "bg-white text-teal-600 shadow-md" : "bg-white/30 text-white/60"} ${active ? "scale-110 ring-4 ring-white/40" : ""}`}
+                        className={`flex h-[30px] w-[30px] items-center justify-center rounded-full transition-all duration-300 ${done || active ? "bg-white text-[#1965a2] shadow-md" : "bg-white/30 text-white/60"} ${active ? "scale-110 ring-4 ring-white/40" : ""}`}
                       >
                         {done ? <Check size={13} className="stroke-[2.5]" /> : <step.icon size={13} />}
                       </div>
@@ -305,11 +301,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="overflow-hidden rounded-xl bg-white">
           <div className="grid grid-cols-1 divide-y divide-gray-100 md:grid-cols-2 md:divide-x md:divide-y-0">
             <div className="flex gap-3 px-4 py-3.5">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50">
-                <MapPin size={15} className="text-teal-600" />
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1965a2]/10">
+                <MapPin size={15} className="text-[#1965a2]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-teal-600">Địa chỉ nhận hàng</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#1965a2]">Địa chỉ nhận hàng</p>
                 <p className="text-sm font-semibold text-gray-900">{order.receiverName || order.customerName}</p>
                 <p className="text-sm text-gray-500">{order.receiverPhone}</p>
                 <p className="mt-0.5 text-sm leading-relaxed text-gray-500">{order.shippingAddress}</p>
@@ -317,11 +313,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div className="flex gap-3 px-4 py-3.5">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50">
-                <Store size={15} className="text-teal-600" />
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1965a2]/10">
+                <Store size={15} className="text-[#1965a2]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-teal-600">Cửa hàng xử lý</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#1965a2]">Cửa hàng xử lý</p>
                 <p className="text-sm font-semibold text-gray-900">{order.branchName || "AgriShrimp"}</p>
                 <p className="text-sm text-gray-500">{order.branchPhone || ""}</p>
                 <p className="mt-0.5 text-sm leading-relaxed text-gray-500">
@@ -334,7 +330,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         <div className="overflow-hidden rounded-xl bg-white">
           <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-            <ShoppingBag size={14} className="text-teal-600" />
+            <ShoppingBag size={14} className="text-[#1965a2]" />
             <span className="text-sm font-semibold text-gray-700">Sản phẩm ({order.items.length})</span>
           </div>
 
@@ -355,7 +351,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       ) : (
                         <Link
                           href={`/reviews/write/${item.productId}?orderId=${order.id}`}
-                          className="rounded-md border border-teal-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-teal-600 transition-all hover:bg-teal-50"
+                          className="rounded-md border border-[#1965a2]/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1965a2] transition-all hover:bg-[#1965a2]/10"
                         >
                           Đánh giá
                         </Link>
@@ -364,8 +360,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                   <p className="mt-0.5 text-xs text-gray-400">Phân loại: {item.sku}</p>
                   {(item.missingQuantity ?? 0) > 0 && (
-                    <p className="mt-1 text-[11px] font-semibold text-[#2d9f8d]">
-                      Cửa hàng đang gom hoặc điều chuyển thêm {item.missingQuantity} sản phẩm
+                    <p className="mt-1 text-[11px] font-semibold text-[#1965a2]">
+                      Cửa hàng đang bổ sung thêm {item.missingQuantity} sản phẩm
                     </p>
                   )}
                   <div className="mt-2 flex items-center justify-between">
@@ -397,7 +393,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         <div className="overflow-hidden rounded-xl bg-white">
           <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-            <CreditCard size={14} className="text-teal-600" />
+            <CreditCard size={14} className="text-[#1965a2]" />
             <span className="text-sm font-semibold text-gray-700">Thông tin thanh toán</span>
           </div>
           <div className="space-y-3 px-4 py-3.5">
@@ -408,7 +404,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Trạng thái</span>
               <span
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${order.paymentStatus === "PAID" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-500"}`}
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${order.paymentStatus === "PAID" ? "bg-[#1965a2]/10 text-[#1965a2]" : "bg-orange-50 text-orange-500"}`}
               >
                 {order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
               </span>
@@ -421,7 +417,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 href={order.checkoutUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 py-3 text-center text-sm font-bold text-white shadow-sm shadow-teal-200 transition-all hover:from-teal-600 hover:to-teal-700 active:scale-[0.98]"
+                className="block w-full rounded-xl bg-gradient-to-r from-[#1965a2] to-[#1965a2] py-3 text-center text-sm font-bold text-white shadow-sm shadow-[#1965a2]/20 transition-all hover:from-[#145486] hover:to-[#145486] active:scale-[0.98]"
               >
                 Thanh toán ngay
               </a>
@@ -435,9 +431,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               type="button"
               onClick={handleConfirmReceived}
               disabled={isConfirmingReceived}
-              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3 text-center text-sm font-bold text-white shadow-sm transition-all hover:from-emerald-600 hover:to-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-gradient-to-r from-[#1965a2] to-[#1965a2] py-3 text-center text-sm font-bold text-white shadow-sm transition-all hover:from-[#145486] hover:to-[#145486] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isConfirmingReceived ? "Dang xac nhan..." : "Da nhan duoc hang"}
+              {isConfirmingReceived ? "Đang xác nhận..." : "Đã nhận được hàng"}
             </button>
           </div>
         )}
@@ -461,13 +457,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="flex gap-2.5 rounded-xl bg-white px-4 py-4">
           <Link
             href="/orders/list"
-            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-center text-sm font-semibold text-gray-600 transition-colors hover:border-teal-400 hover:text-teal-600"
+            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-center text-sm font-semibold text-gray-600 transition-colors hover:border-[#1965a2] hover:text-[#1965a2]"
           >
             Đơn hàng của tôi
           </Link>
           <Link
             href="/san-pham"
-            className="flex-1 rounded-xl bg-teal-600 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+            className="flex-1 rounded-xl bg-[#1965a2] py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-[#145486]"
           >
             Tiếp tục mua sắm
           </Link>
@@ -478,3 +474,4 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 }
+

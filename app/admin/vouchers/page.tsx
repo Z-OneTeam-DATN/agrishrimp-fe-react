@@ -14,7 +14,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
-import { cn } from "@/lib/utils";
 
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number"
@@ -34,6 +33,8 @@ const formatDate = (value: string) => {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("vi-VN");
 };
+
+const pageSize = 5;
 
 const getDiscountValue = (voucher: Voucher) =>
   toNumber(voucher.value ?? voucher.discountValue);
@@ -68,16 +69,10 @@ export default function AdminVoucherPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | Voucher["status"]>(
     "ALL",
   );
+  const [currentPage, setCurrentPage] = useState(0);
   const [deleteConfirmVoucher, setDeleteConfirmVoucher] =
     useState<Voucher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 5;
-
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [keyword, statusFilter]);
 
   const fetchVouchers = useCallback(async () => {
     if (!canViewVoucher) return;
@@ -123,20 +118,6 @@ export default function AdminVoucherPage() {
     });
   }, [keyword, statusFilter, vouchers]);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredVouchers.length / pageSize)),
-    [filteredVouchers.length, pageSize],
-  );
-
-  useEffect(() => {
-    setCurrentPage((page) => Math.min(page, totalPages - 1));
-  }, [totalPages]);
-
-  const paginatedVouchers = useMemo(() => {
-    const startIndex = currentPage * pageSize;
-    return filteredVouchers.slice(startIndex, startIndex + pageSize);
-  }, [filteredVouchers, currentPage, pageSize]);
-
   const counts = useMemo(
     () => ({
       total: vouchers.length,
@@ -152,6 +133,17 @@ export default function AdminVoucherPage() {
     }),
     [vouchers],
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredVouchers.length / pageSize));
+
+  const paginatedVouchers = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredVouchers.slice(start, start + pageSize);
+  }, [currentPage, filteredVouchers]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
 
   const confirmDelete = async () => {
     if (!canManageVoucher || !deleteConfirmVoucher?.id) return;
@@ -303,7 +295,7 @@ export default function AdminVoucherPage() {
                     <Loader2 className="mx-auto animate-spin text-slate-400" />
                   </td>
                 </tr>
-              ) : paginatedVouchers.length === 0 ? (
+              ) : filteredVouchers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={canManageVoucher ? 6 : 5}
@@ -374,42 +366,47 @@ export default function AdminVoucherPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex min-w-full shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
+
+        <div className="flex min-w-full shrink-0 flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[12px] font-semibold text-slate-500">
-            Tổng số: {filteredVouchers.length} voucher (Trang {currentPage + 1}/{totalPages})
+            Tổng số: {filteredVouchers.length} voucher (Trang {filteredVouchers.length === 0 ? 0 : currentPage + 1}/{filteredVouchers.length === 0 ? 0 : totalPages})
           </p>
-          {totalPages > 1 && (
+
+          {filteredVouchers.length > pageSize && (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setCurrentPage(currentPage - 1)}
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
                 disabled={currentPage === 0}
-                className="inline-flex h-7 items-center justify-center rounded border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Trước
               </button>
+
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }).map((_, index) => (
                   <button
                     key={index}
                     type="button"
                     onClick={() => setCurrentPage(index)}
-                    className={cn(
-                      "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all rounded",
+                    className={`h-7 min-w-[28px] rounded-[4px] border px-2 text-[11px] font-bold shadow-sm transition-all ${
                       currentPage === index
-                        ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
-                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                    )}
+                        ? "border-[#1965a2] bg-gradient-to-r from-[#1965a2] to-[#1965a2] text-white hover:from-[#145486] hover:to-[#145486]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
                     {index + 1}
                   </button>
                 ))}
               </div>
+
               <button
                 type="button"
-                onClick={() => setCurrentPage(currentPage + 1)}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
+                }
                 disabled={currentPage >= totalPages - 1}
-                className="inline-flex h-7 items-center justify-center rounded border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Sau
               </button>
