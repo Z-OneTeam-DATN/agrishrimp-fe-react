@@ -7,11 +7,11 @@ import {
   Download,
   Printer,
   HelpCircle,
-  Calendar,
   ChevronDown,
   Search,
   Info,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,7 +32,7 @@ import {
 
 export default function InventorySummaryReportPage() {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState("11/02/2026");
+  const [selectedDate, setSelectedDate] = useState("2000-12-01");
 
   return (
     <div className="space-y-4 pb-10 bg-[#f0f2f5] min-h-screen">
@@ -70,17 +70,13 @@ export default function InventorySummaryReportPage() {
           <span className="text-[13px] font-medium text-slate-700">
             Thời gian
           </span>
-          <div className="relative">
-            <Input
-              value={selectedDate}
-              readOnly
-              className="h-8 w-[160px] pr-8 text-[13px] border-slate-300 rounded-none shadow-none"
-            />
-            <Calendar
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
-              size={14}
-            />
-          </div>
+          <SharedDatePicker
+            value={selectedDate}
+            onChange={setSelectedDate}
+            placeholder="Chọn ngày"
+            variant="compact"
+            buttonClassName="h-8 w-[160px] border-slate-300 rounded-none text-[13px] shadow-none"
+          />
         </div>
 
         <Select defaultValue="all">

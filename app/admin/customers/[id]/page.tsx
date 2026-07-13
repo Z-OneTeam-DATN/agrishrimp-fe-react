@@ -17,6 +17,7 @@ import {
     Plus,
     MapPinCheck,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -451,17 +452,19 @@ export default function CustomerDetailPage({
                                 <option value="oldest">Cũ nhất</option>
                                 <option value="highest">Giá cao nhất</option>
                             </select>
-                            <input
-                                type="date"
+                            <SharedDatePicker
                                 value={orderDateFrom}
-                                onChange={(e) => setOrderDateFrom(e.target.value)}
-                                className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
+                                onChange={setOrderDateFrom}
+                                placeholder="Từ ngày"
+                                variant="compact"
+                                buttonClassName="h-[30px] min-w-[132px] border-slate-300 bg-white px-2 text-[10px] font-bold"
                             />
-                            <input
-                                type="date"
+                            <SharedDatePicker
                                 value={orderDateTo}
-                                onChange={(e) => setOrderDateTo(e.target.value)}
-                                className="text-[10px] font-bold px-2 py-1.5 border border-slate-300 rounded bg-white"
+                                onChange={setOrderDateTo}
+                                placeholder="Đến ngày"
+                                variant="compact"
+                                buttonClassName="h-[30px] min-w-[132px] border-slate-300 bg-white px-2 text-[10px] font-bold"
                             />
                             {getCancellationStats() > 0 && (
                                 <div className="ml-auto text-[11px] font-medium text-amber-700 px-2 py-1">

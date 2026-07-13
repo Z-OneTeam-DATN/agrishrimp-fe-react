@@ -6,8 +6,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
 import {
-    Save, Search, CalendarIcon
+    Save, Search
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +24,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface Province { id: string; name: string; full_name: string; }
@@ -434,56 +432,25 @@ export default function AddSupplierPage() {
                                 <Controller
                                     name="issueDate"
                                     control={control}
-                                    render={({ field }) => {
-                                        let dateValue: Date | undefined = undefined;
-                                        if (field.value) {
-                                            try {
-                                                dateValue = parse(field.value, "yyyy-MM-dd", new Date());
-                                                if (isNaN(dateValue.getTime())) {
-                                                    dateValue = undefined;
-                                                }
-                                            } catch {
-                                                dateValue = undefined;
-                                            }
-                                        }
-                                        return (
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        disabled={!!duplicateTaxCode}
-                                                        className={cn(
-                                                            "w-full h-[38px] justify-between text-left font-normal border-slate-200 shadow-none rounded-md px-3 text-[13px] bg-white hover:bg-slate-50",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        <span>
-                                                            {dateValue
-                                                                ? format(dateValue, "dd/MM/yyyy")
-                                                                : "dd/mm/yyyy"}
-                                                        </span>
-                                                        <CalendarIcon className="h-4 w-4 opacity-50" />
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0 z-[1000]" align="start">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={dateValue}
-                                                        onSelect={(date) => {
-                                                            if (date) {
-                                                                field.onChange(format(date, "yyyy-MM-dd"));
-                                                            } else {
-                                                                field.onChange("");
-                                                            }
-                                                        }}
-                                                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                                        initialFocus
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        );
-                                    }}
+                                    render={({ field }) => (
+                                        <SharedDatePicker
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            disabled={!!duplicateTaxCode}
+                                            hasError={!!errors.issueDate}
+                                            placeholder="Chọn ngày cấp / thành lập"
+                                            heading="Ngày cấp"
+                                            emptyStateLabel="Chưa chọn ngày cấp"
+                                            variant="compact"
+                                            fromDate={new Date("1900-01-01")}
+                                            toDate={new Date()}
+                                            disabledDate={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                            buttonClassName={cn(
+                                                "w-full h-[38px] border-slate-200 px-3 text-[13px] bg-white hover:bg-slate-50",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                        />
+                                    )}
                                 />
                                 {errors.issueDate && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.issueDate.message}</p>}
                             </div>

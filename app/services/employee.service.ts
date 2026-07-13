@@ -45,6 +45,10 @@ export class EmployeeService {
     return response.data
   }
 
+  static async deletePermanently(id: number): Promise<void> {
+    await apiJava.delete(`${this.PREFIX}/${id}/permanent`)
+  }
+
   static async lookupByCitizenId(citizenId: string): Promise<CitizenLookupResponse> {
     const response = await apiJava.get<CitizenLookupResponse>(`${this.PREFIX}/lookup-citizen/${citizenId}`)
     return response.data

@@ -8,7 +8,6 @@ import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import Turnstile from "react-turnstile";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
 import { LoginSchema, LoginFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
@@ -20,6 +19,29 @@ import {
   AUTH_ACCENT_SOLID,
   AUTH_ACCENT_TEXT,
 } from "@/components/auth/auth-theme";
+
+const LOCKED_ACCOUNT_MESSAGE =
+  "Tài khoản này đã bị khóa. Vui lòng liên hệ quản trị viên.";
+
+const getLoginInlineErrorMessage = (message: string, status?: number) => {
+  const normalized = message.trim().toLowerCase();
+
+  if (
+    normalized.includes("đã bị khóa") ||
+    normalized.includes("bi khoa") ||
+    normalized.includes("vô hiệu hóa") ||
+    normalized.includes("vo hieu hoa") ||
+    normalized.includes("inactive")
+  ) {
+    return LOCKED_ACCOUNT_MESSAGE;
+  }
+
+  if (status === 401) {
+    return "Tài khoản hoặc mật khẩu không chính xác.";
+  }
+
+  return message || "Đăng nhập thất bại.";
+};
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -54,7 +76,6 @@ export default function LoginForm() {
       } catch {}
       setPermissions([]);
       setAccessAndRefreshToken(res);
-      toast.success("Đăng nhập thành công!");
       const role = normalizeRoleSlug(res.role);
       window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
     },
@@ -67,13 +88,22 @@ export default function LoginForm() {
           : undefined;
       const message = getErrorMessage(error as AxiosError);
 
-      if (status === 401) {
-        toast.error("Tài khoản hoặc mật khẩu không chính xác.");
-      } else if (status === 400 && message.toLowerCase().includes("captcha")) {
-        toast.error("Xác thực Captcha không hợp lệ.");
+      if (status === 400 && message.toLowerCase().includes("captcha")) {
+        setError("captchaToken", {
+          type: "server",
+          message: "Xác thực Captcha không hợp lệ.",
+        });
         resetCaptcha();
+      } else if (status === 400 || status === 401 || status === 403) {
+        setError("password", {
+          type: "server",
+          message: getLoginInlineErrorMessage(message, status),
+        });
       } else {
-        toast.error(message || "Đăng nhập thất bại.");
+        setError("password", {
+          type: "server",
+          message: "Đăng nhập thất bại. Vui lòng thử lại sau.",
+        });
         resetCaptcha();
       }
     },
@@ -123,7 +153,9 @@ export default function LoginForm() {
             placeholder="example@gmail.com"
             className="w-full bg-transparent p-3 text-sm focus:outline-none"
             disabled={mutation.isPending}
-            {...register("contact")}
+            {...register("contact", {
+              onChange: () => clearErrors("password"),
+            })}
           />
         </div>
         {errors.contact && (
@@ -153,7 +185,9 @@ export default function LoginForm() {
             placeholder="••••••••"
             className="w-full bg-transparent p-3 text-sm focus:outline-none"
             disabled={mutation.isPending}
-            {...register("password")}
+            {...register("password", {
+              onChange: () => clearErrors("password"),
+            })}
           />
           <button
             type="button"

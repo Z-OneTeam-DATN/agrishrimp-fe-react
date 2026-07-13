@@ -15,6 +15,7 @@ import {
   Ban,
   FileText,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -198,6 +199,7 @@ function AdminReceiptFormContent() {
   const watchPurchaseRequestId = watch("purchaseRequestId");
   const watchStatus = watch("status") || "PENDING";
   const currentTargetBranch = watch("branchName");
+  const watchEntryDate = watch("entryDate");
 
   const isInfoReadOnly =
     isReadOnly || (isEditMode && (watchStatus || "").toUpperCase() !== "PENDING");
@@ -897,18 +899,21 @@ function AdminReceiptFormContent() {
             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Ngày nhập
             </Label>
-            <div className="relative">
-              <input
-                type="date"
-                {...register("entryDate")}
-                className="h-10 w-full border border-slate-200 bg-white px-3 text-[13px] outline-none"
-                disabled={isInfoReadOnly}
-              />
-              <Clock
-                size={14}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-              />
-            </div>
+            <input type="hidden" {...register("entryDate")} />
+            <SharedDatePicker
+              value={watchEntryDate}
+              disabled={isInfoReadOnly}
+              onChange={(nextValue) =>
+                setValue("entryDate", nextValue, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                  shouldTouch: true,
+                })
+              }
+              placeholder="Chọn ngày nhập"
+              variant="compact"
+              buttonClassName="h-10 w-full border border-slate-200 bg-white text-[13px]"
+            />
           </div>
           <div>
             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
@@ -1122,11 +1127,23 @@ function AdminReceiptFormContent() {
                                 {...register(`items.${idx}.lotNumber`)}
                                 disabled={isReadOnly}
                               />
-                              <Input
-                                type="date"
-                                className="h-9 border-slate-200 px-2 text-[11.5px] shadow-none"
+                              <input
+                                type="hidden"
                                 {...register(`items.${idx}.expiryDate`)}
+                              />
+                              <SharedDatePicker
+                                value={watchItems[idx]?.expiryDate || ""}
                                 disabled={isInfoReadOnly}
+                                onChange={(nextValue) =>
+                                  setValue(`items.${idx}.expiryDate`, nextValue, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                    shouldTouch: true,
+                                  })
+                                }
+                                placeholder="Hạn dùng"
+                                variant="compact"
+                                buttonClassName="h-9 border-slate-200 px-2 text-[11.5px] shadow-none"
                               />
                             </div>
                           </TableCell>

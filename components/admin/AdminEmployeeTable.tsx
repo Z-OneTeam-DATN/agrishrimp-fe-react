@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Pencil, Trash2, Phone, Calendar, User as UserIcon, Mail } from "lucide-react";
+import { AxiosError } from "axios";
+import { Pencil, Lock, LockOpen, Phone, Calendar, User as UserIcon, Mail, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { 
   Table, 
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { UserResponse } from "@/app/types/employee.schema";
 import { toast } from "sonner";
 import { EmployeeService } from "@/app/services/employee.service";
+import { getErrorMessage } from "@/lib/axios";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -66,9 +68,10 @@ export function AdminEmployeeTable({
   onPageChange
 }: AdminEmployeeTableProps) {
   const { hasPermission } = usePermissions();
-  const [deleteId, setDeleteId] = React.useState<number | null>(null);
-  const [selectedEmployee, setSelectedEmployee] = React.useState<UserResponse | null>(null);
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [statusTarget, setStatusTarget] = React.useState<UserResponse | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<UserResponse | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
+  const [isDeletingPermanently, setIsDeletingPermanently] = React.useState(false);
   const [resendingId, setResendingId] = React.useState<number | null>(null);
 
   const handleResendCredentials = async (empId: number) => {
@@ -83,46 +86,58 @@ export function AdminEmployeeTable({
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleToggleStatus = async () => {
+    if (!statusTarget) return;
+
     try {
-      setIsDeleting(true);
-      await EmployeeService.delete(deleteId);
-      const action = selectedEmployee?.status === "INACTIVE" ? "Mở lại" : "Tạm khóa";
+      setIsUpdatingStatus(true);
+      const nextStatus = statusTarget.status === "INACTIVE" ? "ACTIVE" : "INACTIVE";
+      await EmployeeService.updateStatus(statusTarget.id, nextStatus);
+      const action = statusTarget.status === "INACTIVE" ? "Mở lại" : "Tạm khóa";
       toast.success(`${action} nhân viên thành công`);
       onRefresh?.();
     } catch (error) {
-      toast.error("Không thể thay đổi trạng thái nhân viên này.");
+      toast.error(getErrorMessage(error as AxiosError));
     } finally {
-      setIsDeleting(false);
-      setDeleteId(null);
-      setSelectedEmployee(null);
+      setIsUpdatingStatus(false);
+      setStatusTarget(null);
     }
   };
 
-  const openDeleteDialog = (emp: UserResponse) => {
-    setDeleteId(emp.id);
-    setSelectedEmployee(emp);
+  const handlePermanentDelete = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      setIsDeletingPermanently(true);
+      await EmployeeService.deletePermanently(deleteTarget.id);
+      toast.success("Đã xóa vĩnh viễn nhân viên.");
+      onRefresh?.();
+    } catch (error) {
+      toast.error(getErrorMessage(error as AxiosError));
+    } finally {
+      setIsDeletingPermanently(false);
+      setDeleteTarget(null);
+    }
   };
 
-  const getDialogTitle = () => {
-    if (!selectedEmployee) return "Xác nhận thay đổi trạng thái";
-    return selectedEmployee.status === "INACTIVE" 
+  const getStatusDialogTitle = () => {
+    if (!statusTarget) return "Xác nhận thay đổi trạng thái";
+    return statusTarget.status === "INACTIVE" 
       ? "Xác nhận mở lại tài khoản"
       : "Xác nhận tạm khóa tài khoản";
   };
 
-  const getDialogMessage = () => {
-    if (!selectedEmployee) return "";
-    if (selectedEmployee.status === "INACTIVE") {
-      return `Bạn có chắc chắn muốn mở lại tài khoản cho nhân viên "${selectedEmployee.fullName}" không?`;
+  const getStatusDialogMessage = () => {
+    if (!statusTarget) return "";
+    if (statusTarget.status === "INACTIVE") {
+      return `Bạn có chắc chắn muốn mở lại tài khoản cho nhân viên "${statusTarget.fullName}" không?`;
     }
-    return `Bạn có chắc chắn muốn tạm khóa tài khoản nhân viên "${selectedEmployee.fullName}" không?`;
+    return `Bạn có chắc chắn muốn tạm khóa tài khoản nhân viên "${statusTarget.fullName}" không?`;
   };
 
-  const getButtonText = () => {
-    if (!selectedEmployee) return "Xác nhận";
-    return selectedEmployee.status === "INACTIVE" 
+  const getStatusButtonText = () => {
+    if (!statusTarget) return "Xác nhận";
+    return statusTarget.status === "INACTIVE" 
       ? "Xác nhận mở lại"
       : "Xác nhận tạm khóa";
   };
@@ -182,12 +197,12 @@ export function AdminEmployeeTable({
               </TableCell>
               <TableCell className="p-2 text-center">
                 <span className="text-[12px] font-medium text-slate-800 whitespace-nowrap">
-                  {emp.status === "ACTIVE" ? "Hoạt động" : emp.status === "BANNED" ? "Bị chặn" : "Tạm khóa"}
+                  {emp.status === "ACTIVE" ? "Hoạt động" : "Tạm khóa"}
                 </span>
               </TableCell>
               {canAction && (
                 <TableCell className="p-2 text-right pr-4">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-end gap-1.5">
                     {hasPermission(P.STAFF_UPDATE) && (
                       <Button
                         variant="ghost" size="icon" className="h-7 w-7 hover:bg-sky-50"
@@ -206,7 +221,31 @@ export function AdminEmployeeTable({
                       </Link>
                     )}
                     {hasPermission(P.STAFF_DELETE) && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-rose-50" onClick={() => openDeleteDialog(emp)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-7 w-7",
+                          emp.status === "INACTIVE" ? "hover:bg-sky-50" : "hover:bg-rose-50",
+                        )}
+                        title={emp.status === "INACTIVE" ? "Mở lại tài khoản" : "Tạm khóa tài khoản"}
+                        onClick={() => setStatusTarget(emp)}
+                      >
+                        {emp.status === "INACTIVE" ? (
+                          <LockOpen size={14} className="text-sky-600" />
+                        ) : (
+                          <Lock size={14} className="text-rose-600" />
+                        )}
+                      </Button>
+                    )}
+                    {hasPermission(P.STAFF_DELETE) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-rose-50"
+                        title="Xóa vĩnh viễn nhân viên tạo nhầm"
+                        onClick={() => setDeleteTarget(emp)}
+                      >
                         <Trash2 size={14} className="text-rose-600" />
                       </Button>
                     )}
@@ -231,18 +270,41 @@ export function AdminEmployeeTable({
         </div>
       </div>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && (setDeleteId(null), setSelectedEmployee(null))}>
+      <AlertDialog open={!!statusTarget} onOpenChange={(open) => !open && setStatusTarget(null)}>
         <AlertDialogContent className="rounded-[4px]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[16px] font-bold uppercase">{getDialogTitle()}</AlertDialogTitle>
+            <AlertDialogTitle className="text-[16px] font-bold uppercase">{getStatusDialogTitle()}</AlertDialogTitle>
             <AlertDialogDescription className="text-[13px]">
-              {getDialogMessage()}
+              {getStatusDialogMessage()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9 text-[11px] font-bold uppercase">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete(); }} className={cn("h-9 text-[11px] font-bold uppercase text-white", selectedEmployee?.status === "INACTIVE" ? "bg-blue-600 hover:bg-blue-700" : "bg-rose-600 hover:bg-rose-700")} disabled={isDeleting}>
-              {isDeleting ? "Đang xử lý..." : getButtonText()}
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleToggleStatus(); }} className={cn("h-9 text-[11px] font-bold uppercase text-white", statusTarget?.status === "INACTIVE" ? "bg-blue-600 hover:bg-blue-700" : "bg-rose-600 hover:bg-rose-700")} disabled={isUpdatingStatus}>
+              {isUpdatingStatus ? "Đang xử lý..." : getStatusButtonText()}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-[4px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[16px] font-bold uppercase">Xác nhận xóa vĩnh viễn</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px]">
+              {deleteTarget
+                ? `Bạn có chắc chắn muốn xóa vĩnh viễn nhân viên "${deleteTarget.fullName}" không? Chỉ nên dùng khi tạo nhầm tài khoản và tài khoản này chưa phát sinh dữ liệu.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-9 text-[11px] font-bold uppercase">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handlePermanentDelete(); }}
+              className="h-9 bg-rose-600 text-[11px] font-bold uppercase text-white hover:bg-rose-700"
+              disabled={isDeletingPermanently}
+            >
+              {isDeletingPermanently ? "Đang xử lý..." : "Xác nhận xóa"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

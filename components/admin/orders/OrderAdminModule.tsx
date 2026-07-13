@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import type { MyOrder, MyOrderItem } from "@/app/types/order.types";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -1482,13 +1483,14 @@ export function AdminOrderEditorModule({
           </FormField>
 
           <FormField label="Ngày hẹn giao">
-            <Input
-              type="date"
+            <SharedDatePicker
               value={form.expectedDeliveryDate}
-              onChange={(event) =>
-                updateForm("expectedDeliveryDate", event.target.value)
+              onChange={(nextValue) =>
+                updateForm("expectedDeliveryDate", nextValue)
               }
-              className="h-10 border-slate-200 text-[13px] shadow-none"
+              placeholder="Chọn ngày giao"
+              variant="compact"
+              buttonClassName="h-10 border-slate-200 text-[13px] shadow-none"
             />
           </FormField>
         </div>

@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { cn, formatNumber } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 
@@ -117,6 +118,7 @@ function AdminExportFormContent() {
   const watchBranchId = watch("branchId");
   const watchTargetId = watch("targetId");
   const watchItems = watch("items");
+  const watchExpectedDate = watch("expectedDate");
 
   useEffect(() => {
       if (isEditMode && exportId) {
@@ -494,7 +496,22 @@ function AdminExportFormContent() {
 
               <div className="space-y-1.5 md:col-span-3">
                 <Label className={fieldLabelClass}>Ngày hẹn xuất</Label>
-                <Input readOnly={isReadOnly} type="date" {...register("expectedDate")} className={cn(fieldControlClass, "w-full border-slate-200", errors.expectedDate && "border-rose-500", isReadOnly && "bg-slate-50")} />
+                <input type="hidden" {...register("expectedDate")} />
+                <SharedDatePicker
+                  value={watchExpectedDate}
+                  disabled={isReadOnly}
+                  hasError={!!errors.expectedDate}
+                  onChange={(nextValue) =>
+                    setValue("expectedDate", nextValue, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                      shouldTouch: true,
+                    })
+                  }
+                  placeholder="Chọn ngày hẹn xuất"
+                  variant="compact"
+                  buttonClassName={cn(fieldControlClass, "w-full border-slate-200", errors.expectedDate && "border-rose-500", isReadOnly && "bg-slate-50")}
+                />
                 {errors.expectedDate && <p className="text-rose-500 text-[10px] mt-1">{errors.expectedDate.message}</p>}
               </div>
 

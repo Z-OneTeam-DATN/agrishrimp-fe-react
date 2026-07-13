@@ -38,7 +38,7 @@ export const EmployeeCreateSchema = z.object({
   avatarUrl: z.string().nullable().optional(),
   status: z.preprocess(
     (val) => (val === "" || val === null || val === undefined ? undefined : val),
-    z.enum(["ACTIVE", "INACTIVE", "BANNED"], {
+    z.enum(["ACTIVE", "INACTIVE"], {
       required_error: "Vui lòng chọn trạng thái",
       invalid_type_error: "Vui lòng chọn trạng thái"
     })
@@ -98,7 +98,7 @@ export interface UserResponse {
     displayName: string;
     slug: string;
   };
-  status: "ACTIVE" | "INACTIVE" | "BANNED";
+  status: "ACTIVE" | "INACTIVE";
   mustChangePassword: boolean;
   emailSent: boolean;
   createdAt: string;

@@ -22,6 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -715,15 +716,16 @@ export default function ReceiptDetailPage() {
                                  }}
                                  className="h-9 rounded-md border-slate-200 bg-white text-[11px] font-medium shadow-none"
                                />
-                               <Input 
-                                 type="date"
+                               <SharedDatePicker
                                  value={item.expiryDate || ""}
-                                 onChange={(e) => {
+                                 onChange={(nextValue) => {
                                    const newItems = [...inspectItems];
-                                   newItems[idx].expiryDate = e.target.value;
+                                   newItems[idx].expiryDate = nextValue;
                                    setInspectItems(newItems);
                                  }}
-                                 className="h-9 rounded-md border-slate-200 bg-white text-[11px] shadow-none"
+                                 placeholder="Hạn dùng"
+                                 variant="compact"
+                                 buttonClassName="h-9 rounded-md border-slate-200 bg-white text-[11px] shadow-none"
                                />
                             </td>
 
@@ -828,11 +830,12 @@ export default function ReceiptDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10.5px] font-semibold text-slate-500">Ngày thanh toán</Label>
-                  <Input
-                    type="date"
+                  <SharedDatePicker
                     value={paymentForm.paymentDate}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
-                    className="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
+                    onChange={(nextValue) => setPaymentForm({ ...paymentForm, paymentDate: nextValue })}
+                    placeholder="Chọn ngày"
+                    variant="compact"
+                    buttonClassName="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
                   />
                 </div>
               </div>

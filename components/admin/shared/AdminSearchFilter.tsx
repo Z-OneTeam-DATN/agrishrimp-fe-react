@@ -69,8 +69,7 @@ export function AdminSearchFilter({
                                       filter2Options = [
                                           { label: "Tất cả trạng thái", value: "all" },
                                           { label: "Đang hoạt động", value: "ACTIVE" },
-                                          { label: "Tạm khóa", value: "INACTIVE" },
-                                          { label: "Bị chặn", value: "BANNED" }
+                                          { label: "Tạm khóa", value: "INACTIVE" }
                                       ],
                                       onFilter1Change,
                                       onFilter2Change,
@@ -129,7 +128,7 @@ export function AdminSearchFilter({
                                 return (
                                     <SelectItem key={opt.value} value={opt.value} className={cn(
                                         "text-[13px] font-medium",
-                                        val === "ACTIVE" ? "text-blue-600" : val === "INACTIVE" ? "text-rose-600" : val === "BANNED" ? "text-red-600" : ""
+                                        val === "ACTIVE" ? "text-blue-600" : val === "INACTIVE" ? "text-rose-600" : ""
                                     )}>
                                         {opt.label}
                                     </SelectItem>

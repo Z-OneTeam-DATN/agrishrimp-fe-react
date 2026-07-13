@@ -16,6 +16,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -363,11 +364,12 @@ export default function FinancialReportListPage() {
               <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Từ ngày
               </p>
-              <Input
-                type="date"
+              <SharedDatePicker
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+                onChange={setStartDate}
+                placeholder="Chọn ngày"
+                variant="compact"
+                buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
               />
             </div>
 
@@ -375,11 +377,12 @@ export default function FinancialReportListPage() {
               <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Đến ngày
               </p>
-              <Input
-                type="date"
+              <SharedDatePicker
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+                onChange={setEndDate}
+                placeholder="Chọn ngày"
+                variant="compact"
+                buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
               />
             </div>
           </div>

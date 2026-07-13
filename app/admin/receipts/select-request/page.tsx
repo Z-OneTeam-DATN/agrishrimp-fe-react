@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
@@ -182,18 +183,13 @@ export default function SelectPurchaseRequestForReceiptPage() {
             />
           </div>
         <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
-          <div className="relative w-full sm:w-[190px]">
-            <CalendarDays
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-            />
-            <Input
-              type="date"
-              value={createdDate}
-              onChange={(event) => setCreatedDate(event.target.value)}
-              className="h-[38px] border-slate-200 bg-white pl-10 text-[13px] shadow-none"
-            />
-          </div>
+          <SharedDatePicker
+            value={createdDate}
+            onChange={setCreatedDate}
+            placeholder="Chọn ngày"
+            variant="compact"
+            buttonClassName="h-[38px] w-full border-slate-200 bg-white text-[13px] shadow-none sm:w-[190px]"
+          />
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="h-[38px] w-full border-slate-200 bg-white text-[13px] shadow-none lg:w-[220px]">
               <SelectValue placeholder="Tất cả trạng thái" />

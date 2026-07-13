@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -435,21 +436,23 @@ export default function SalesReportPage() {
 
           <div className="space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Từ ngày</p>
-            <Input
-              type="date"
+            <SharedDatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              onChange={setStartDate}
+              placeholder="Chọn ngày"
+              variant="compact"
+              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
             />
           </div>
 
           <div className="space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Đến ngày</p>
-            <Input
-              type="date"
+            <SharedDatePicker
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              onChange={setEndDate}
+              placeholder="Chọn ngày"
+              variant="compact"
+              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
             />
           </div>
           </div>

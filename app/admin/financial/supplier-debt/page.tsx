@@ -9,6 +9,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -279,18 +280,20 @@ export default function SupplierDebtReportPage() {
             />
           </div>
 
-          <Input
-            type="date"
+          <SharedDatePicker
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+            onChange={setStartDate}
+            placeholder="Chọn ngày"
+            variant="compact"
+            buttonClassName="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none"
           />
 
-          <Input
-            type="date"
+          <SharedDatePicker
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+            onChange={setEndDate}
+            placeholder="Chọn ngày"
+            variant="compact"
+            buttonClassName="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none"
           />
 
           <DropdownMenu>

@@ -5,19 +5,16 @@ import { useRouter, useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    Mail, Phone, MapPin, Fingerprint,
-    ShieldCheck, Loader2, Camera, UserCircle2, Upload, CalendarIcon
+    Mail, Phone, MapPin,
+    Loader2, Camera, UserCircle2, Fingerprint
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BirthDatePicker, SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format, parseISO } from "date-fns";
-import { Controller } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getErrorMessage, apiJava } from "@/lib/axios";
@@ -55,7 +52,6 @@ export default function EditEmployeePage() {
         setValue,
         watch,
         reset,
-        control,
         setError,
         formState: { errors },
     } = useForm<EmployeeUpdateInput>({
@@ -66,6 +62,8 @@ export default function EditEmployeePage() {
     const currentStatus = watch("status");
     const currentBranchId = watch("branchId");
     const currentRoleId = watch("roleId");
+    const currentDateOfBirth = watch("dateOfBirth");
+    const currentStartDate = watch("startDate");
 
     useEffect(() => {
         if (!isLoadingAuth && !hasAllPermissions([P.STAFF_VIEW, P.STAFF_UPDATE])) {
@@ -266,7 +264,7 @@ export default function EditEmployeePage() {
                                 </div>
                                 <div className="space-y-1.5 md:col-span-6">
                                     <Label className="flex h-4 items-center text-[10px] font-medium text-slate-400">Giới tính</Label>
-                                    <Select value={currentGender} onValueChange={(val: any) => setValue("gender", val, { shouldValidate: true })}>
+                                    <Select value={currentGender} onValueChange={(val: any) => setValue("gender", val)}>
                                         <SelectTrigger className="h-9 text-[13px]"><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="MALE">Nam</SelectItem>
@@ -301,53 +299,17 @@ export default function EditEmployeePage() {
                                 </div>
                                 <div className="space-y-1.5 md:col-span-6">
                                     <Label className="flex h-4 items-center text-[10px] font-medium text-slate-400">Ngày sinh *</Label>
-                                    <Controller
-                                        name="dateOfBirth"
-                                        control={control}
-                                        render={({ field }) => {
-                                            const dateValue = field.value ? parseISO(field.value) : undefined;
-                                            return (
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            variant="outline"
-                                                            type="button"
-                                                            className={cn(
-                                                                "h-9 w-full justify-between px-3 text-[13px] font-normal shadow-none border-slate-200",
-                                                                !field.value && "text-slate-400",
-                                                                errors.dateOfBirth && "border-rose-500 focus-visible:ring-rose-500"
-                                                            )}
-                                                        >
-                                                            <span>
-                                                                {dateValue && !Number.isNaN(dateValue.getTime())
-                                                                    ? format(dateValue, "dd/MM/yyyy")
-                                                                    : "dd/mm/yyyy"}
-                                                            </span>
-                                                            <CalendarIcon className="h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0 z-[1000]" align="start">
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={dateValue}
-                                                            onSelect={(date) => {
-                                                                if (date) {
-                                                                    field.onChange(format(date, "yyyy-MM-dd"));
-                                                                } else {
-                                                                    field.onChange("");
-                                                                }
-                                                            }}
-                                                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                                            captionLayout="dropdown-buttons"
-                                                            fromYear={1940}
-                                                            toYear={new Date().getFullYear()}
-                                                            defaultMonth={dateValue || new Date(2000, 0, 1)}
-                                                            initialFocus
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
-                                            );
-                                        }}
+                                    <input type="hidden" {...register("dateOfBirth")} />
+                                    <BirthDatePicker
+                                        value={currentDateOfBirth}
+                                        hasError={!!errors.dateOfBirth}
+                                        onChange={(nextValue) =>
+                                            setValue("dateOfBirth", nextValue, {
+                                                shouldDirty: true,
+                                                shouldValidate: true,
+                                                shouldTouch: true,
+                                            })
+                                        }
                                     />
                                     <p className={cn("min-h-4 text-[10px] font-bold", errors.dateOfBirth ? "text-red-500" : "text-transparent")}>
                                         {errors.dateOfBirth?.message || "\u00A0"}
@@ -381,7 +343,7 @@ export default function EditEmployeePage() {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-medium text-slate-400">Chi nhánh làm việc *</Label>
-                            <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val), { shouldValidate: true })} disabled={!isAdmin}>
+                            <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
                                 <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
@@ -391,7 +353,7 @@ export default function EditEmployeePage() {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-medium text-slate-400">Vai trò hệ thống *</Label>
-                            <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val), { shouldValidate: true })}>
+                            <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val))}>
                                 <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {roles.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.displayName}</SelectItem>)}
@@ -401,60 +363,30 @@ export default function EditEmployeePage() {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-medium text-slate-400">Ngày vào làm *</Label>
-                            <Controller
-                                name="startDate"
-                                control={control}
-                                render={({ field }) => {
-                                    const dateValue = field.value ? parseISO(field.value) : undefined;
-                                    return (
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    type="button"
-                                                    className={cn(
-                                                        "h-9 w-full justify-between px-3 text-[13px] font-normal shadow-none border-slate-200",
-                                                        !field.value && "text-slate-400",
-                                                        errors.startDate && "border-rose-500 focus-visible:ring-rose-500"
-                                                    )}
-                                                >
-                                                    <span>
-                                                        {dateValue && !Number.isNaN(dateValue.getTime())
-                                                            ? format(dateValue, "dd/MM/yyyy")
-                                                            : "dd/mm/yyyy"}
-                                                    </span>
-                                                    <CalendarIcon className="h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 z-[1000]" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={dateValue}
-                                                    onSelect={(date) => {
-                                                        if (date) {
-                                                            field.onChange(format(date, "yyyy-MM-dd"));
-                                                        } else {
-                                                            field.onChange("");
-                                                        }
-                                                    }}
-                                                    disabled={(date) => date < new Date("2000-01-01")}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                    );
-                                }}
+                            <input type="hidden" {...register("startDate")} />
+                            <SharedDatePicker
+                                value={currentStartDate}
+                                hasError={!!errors.startDate}
+                                onChange={(nextValue) =>
+                                    setValue("startDate", nextValue, {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                        shouldTouch: true,
+                                    })
+                                }
+                                placeholder="Chọn ngày vào làm"
+                                variant="compact"
+                                buttonClassName={cn("h-9 text-[13px]", errors.startDate && "border-red-500")}
                             />
                             {errors.startDate && <p className="text-[10px] text-red-500 font-bold">{errors.startDate.message}</p>}
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-medium text-slate-400">Trạng thái tài khoản</Label>
-                            <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val, { shouldValidate: true })}>
+                            <Select value={currentStatus} onValueChange={(val: any) => setValue("status", val)}>
                                 <SelectTrigger className="h-9 text-[12px] font-medium"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
                                     <SelectItem value="INACTIVE">Tạm khóa</SelectItem>
-                                    <SelectItem value="BANNED">Cấm truy cập</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Save, User, Calendar, Mail, Phone, Loader2, RotateCcw } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { updateProfileSchema, UserData } from "@/app/types/user.schema";
 import { UserService } from "@/app/services/user.service";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export default function EditProfileForm({
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<UserData>({
@@ -48,6 +50,13 @@ export default function EditProfileForm({
   }, [normalizedInitialValues, reset]);
 
   const currentGender = watch("gender");
+  const currentBirthday = watch("birthday");
+  const currentBirthdayValue =
+    typeof currentBirthday === "string"
+      ? currentBirthday
+      : currentBirthday instanceof Date
+        ? currentBirthday.toISOString().split("T")[0]
+        : "";
 
   const onSubmit = async (data: UserData) => {
     try {
@@ -131,11 +140,21 @@ export default function EditProfileForm({
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <Calendar size={12} /> Ngày sinh
           </label>
-          <input
-            type="date"
-            {...register("birthday")}
-            className={cn(
-              "w-full px-4 h-12 bg-white border rounded-lg text-sm focus:ring-1 focus:ring-blue-500",
+          <input type="hidden" {...register("birthday")} />
+          <SharedDatePicker
+            value={currentBirthdayValue}
+            hasError={!!errors.birthday}
+            onChange={(nextValue) =>
+              setValue("birthday", nextValue as never, {
+                shouldDirty: true,
+                shouldValidate: true,
+                shouldTouch: true,
+              })
+            }
+            placeholder="Chọn ngày sinh"
+            variant="compact"
+            buttonClassName={cn(
+              "w-full h-12 bg-white border rounded-lg text-sm focus:ring-1 focus:ring-blue-500",
               errors.birthday ? "border-red-500" : "border-gray-200"
             )}
           />

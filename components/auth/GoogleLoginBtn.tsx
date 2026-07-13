@@ -3,11 +3,9 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { getErrorMessage } from "@/lib/axios";
 import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 
 export default function GoogleLoginBtn() {
@@ -33,17 +31,12 @@ export default function GoogleLoginBtn() {
       useAuthStore.getState().setPermissions([]);
       setAccessAndRefreshToken(res);
 
-      // 2. Thông báo thành công
-      toast.success("Đăng nhập với Google thành công!");
-
-      // 3. Full page reload để layoutClient hydrate lại user đầy đủ từ API
+      // Full page reload để layoutClient hydrate lại user đầy đủ từ API
       const role = normalizeRoleSlug(res.role);
       window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);
-      const message = getErrorMessage(error);
-      toast.error(message || "Đăng nhập Google thất bại. Vui lòng thử lại.");
       setIsInternalLoading(false);
     },
   });
@@ -61,7 +54,6 @@ export default function GoogleLoginBtn() {
     },
     onError: (errorResponse) => {
       console.error("Google Login Failed:", errorResponse);
-      toast.error("Không thể kết nối với tài khoản Google.");
       setIsInternalLoading(false);
     },
   });

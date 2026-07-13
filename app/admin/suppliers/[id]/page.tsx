@@ -13,11 +13,11 @@ import {
     RefreshCcw,
     Save,
     Search,
-    CalendarIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { SupplierSchema, SupplierFormValues } from "@/app/types/admin.schema";
 import {
     Supplier,
@@ -30,9 +30,6 @@ import { supplierService } from "@/app/services/supplier.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format, parse } from "date-fns";
 import {
     Select,
     SelectContent,
@@ -995,55 +992,24 @@ export default function SupplierDetailPage() {
                                                 <Controller
                                                     name="issueDate"
                                                     control={control}
-                                                    render={({ field }) => {
-                                                        let dateValue: Date | undefined = undefined;
-                                                        if (field.value) {
-                                                            try {
-                                                                dateValue = parse(field.value, "yyyy-MM-dd", new Date());
-                                                                if (isNaN(dateValue.getTime())) {
-                                                                    dateValue = undefined;
-                                                                }
-                                                            } catch {
-                                                                dateValue = undefined;
-                                                            }
-                                                        }
-                                                        return (
-                                                            <Popover>
-                                                                <PopoverTrigger asChild>
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="outline"
-                                                                        className={cn(
-                                                                            "w-full h-[40px] justify-between text-left font-normal border-slate-200 shadow-none rounded-md px-3 text-[13px] bg-white hover:bg-slate-50",
-                                                                            !field.value && "text-muted-foreground"
-                                                                        )}
-                                                                    >
-                                                                        <span>
-                                                                            {dateValue
-                                                                                ? format(dateValue, "dd/MM/yyyy")
-                                                                                : "dd/mm/yyyy"}
-                                                                        </span>
-                                                                        <CalendarIcon className="h-4 w-4 opacity-50" />
-                                                                    </Button>
-                                                                </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-0 z-[1000]" align="start">
-                                                                    <Calendar
-                                                                        mode="single"
-                                                                        selected={dateValue}
-                                                                        onSelect={(date) => {
-                                                                            if (date) {
-                                                                                field.onChange(format(date, "yyyy-MM-dd"));
-                                                                            } else {
-                                                                                field.onChange("");
-                                                                            }
-                                                                        }}
-                                                                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                                                        initialFocus
-                                                                    />
-                                                                </PopoverContent>
-                                                            </Popover>
-                                                        );
-                                                    }}
+                                                    render={({ field }) => (
+                                                        <SharedDatePicker
+                                                            value={field.value}
+                                                            onChange={field.onChange}
+                                                            hasError={!!errors.issueDate}
+                                                            placeholder="Chọn ngày cấp / thành lập"
+                                                            heading="Ngày cấp"
+                                                            emptyStateLabel="Chưa chọn ngày cấp"
+                                                            variant="compact"
+                                                            fromDate={new Date("1900-01-01")}
+                                                            toDate={new Date()}
+                                                            disabledDate={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                                            buttonClassName={cn(
+                                                                "w-full h-[40px] border-slate-200 px-3 text-[13px] bg-white hover:bg-slate-50",
+                                                                !field.value && "text-muted-foreground"
+                                                            )}
+                                                        />
+                                                    )}
                                                 />
                                                 {copyButton("Ngày cấp / Thành lập", supplierData.issueDate || "")}
                                             </div>
@@ -1474,8 +1440,20 @@ export default function SupplierDetailPage() {
                                         </Button>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                                        <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-[34px] text-[12px]" />
-                                        <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-[34px] text-[12px]" />
+                                        <SharedDatePicker
+                                            value={fromDate}
+                                            onChange={setFromDate}
+                                            placeholder="Từ ngày"
+                                            variant="compact"
+                                            buttonClassName="h-[34px] text-[12px]"
+                                        />
+                                        <SharedDatePicker
+                                            value={toDate}
+                                            onChange={setToDate}
+                                            placeholder="Đến ngày"
+                                            variant="compact"
+                                            buttonClassName="h-[34px] text-[12px]"
+                                        />
                                     </div>
                                 </div>
 
