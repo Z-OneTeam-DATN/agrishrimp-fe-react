@@ -155,6 +155,16 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
         ],
       },
       {
+        id: P.PURCHASE_REQUEST_VIEW,
+        label: "Yêu cầu nhập NCC",
+        advanced: [
+          { id: P.PURCHASE_REQUEST_CREATE, label: "Tạo yêu cầu nhập NCC" },
+          { id: P.PURCHASE_REQUEST_UPDATE, label: "Sửa yêu cầu nhập NCC" },
+          { id: P.PURCHASE_REQUEST_APPROVE, label: "Duyệt yêu cầu nhập NCC" },
+          { id: P.PURCHASE_REQUEST_DELETE, label: "Xóa yêu cầu nhập NCC" },
+        ],
+      },
+      {
         id: P.IMPORT_VIEW,
         label: "Nhập hàng",
         advanced: [

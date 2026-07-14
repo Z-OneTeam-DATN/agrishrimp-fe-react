@@ -8,7 +8,6 @@ export type PurchaseRequestStatus =
   | "APPROVED"
   | "SENT_TO_SUPPLIER"
   | "SUPPLIER_CONFIRMED"
-  | "PREPARING"
   | "DELIVERING"
   | "PARTIALLY_RECEIVED"
   | "COMPLETED"
@@ -21,8 +20,7 @@ export const PR_STATUS_LABEL: Record<PurchaseRequestStatus, string> = {
   APPROVED: "Đã duyệt",
   SENT_TO_SUPPLIER: "Đã gửi NCC",
   SUPPLIER_CONFIRMED: "NCC xác nhận",
-  PREPARING: "Đang chuẩn bị",
-  DELIVERING: "Đang giao hàng",
+  DELIVERING: "Chờ giao hàng",
   PARTIALLY_RECEIVED: "Đã nhận một phần",
   COMPLETED: "Đã nhận đủ",
   CANCELLED: "Đã hủy",
@@ -35,7 +33,6 @@ export const PR_STATUS_COLOR: Record<PurchaseRequestStatus, string> = {
   APPROVED: "bg-blue-100 text-blue-700",
   SENT_TO_SUPPLIER: "bg-indigo-100 text-indigo-700",
   SUPPLIER_CONFIRMED: "bg-cyan-100 text-cyan-700",
-  PREPARING: "bg-violet-100 text-violet-700",
   DELIVERING: "bg-emerald-100 text-emerald-700",
   PARTIALLY_RECEIVED: "bg-orange-100 text-orange-700",
   COMPLETED: "bg-blue-100 text-blue-700",
@@ -45,14 +42,36 @@ export const PR_STATUS_COLOR: Record<PurchaseRequestStatus, string> = {
 
 // SCHEMAS - TAO / SUA PHIEU YEU CAU MUA
 
+function parseNumberInput(value: unknown) {
+  if (typeof value !== "string") return value;
+
+  const normalized = value.replace(/[.,\s]/g, "").trim();
+  if (!normalized) return undefined;
+
+  return Number(normalized);
+}
+
 export const PurchaseRequestItemSchema = z.object({
   productCode: z.string().min(1, "Vui lòng chọn sản phẩm"),
   productName: z.string().default(""),
   imageUrl: z.string().optional(),
-  requestedQty: z.coerce.number().min(1, "Số lượng phải >= 1"),
+  requestedQty: z.preprocess(
+    parseNumberInput,
+    z
+      .number({
+        required_error: "Vui lòng nhập số lượng",
+        invalid_type_error: "Số lượng phải là số hợp lệ",
+      })
+      .min(1, "Số lượng phải >= 1"),
+  ),
   unitPrice: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? 0 : v),
-    z.coerce.number().min(0, "Đơn giá không được âm").default(0),
+    (v) => (v === "" || v === null || v === undefined ? 0 : parseNumberInput(v)),
+    z
+      .number({
+        invalid_type_error: "Đơn giá phải là số hợp lệ",
+      })
+      .min(0, "Đơn giá không được âm")
+      .default(0),
   ),
   note: z.string().nullable().optional(),
 });
@@ -124,4 +143,3 @@ export interface PurchaseRequestResponse {
   items: PurchaseRequestItemResponse[];
   goodsReceipts: GoodsReceiptSummary[];
 }
-

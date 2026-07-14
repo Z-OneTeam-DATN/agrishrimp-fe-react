@@ -73,13 +73,7 @@ export const PurchaseRequestApiService = {
     return res.data;
   },
 
-  /** SUPPLIER_CONFIRMED -> PREPARING */
-  markPreparing: async (id: number | string): Promise<PurchaseRequestResponse> => {
-    const res = await apiJava.post(`${BASE}/${id}/mark-preparing`);
-    return res.data;
-  },
-
-  /** PREPARING -> DELIVERING */
+  /** SUPPLIER_CONFIRMED -> DELIVERING */
   markDelivering: async (id: number | string): Promise<PurchaseRequestResponse> => {
     const res = await apiJava.post(`${BASE}/${id}/mark-delivering`);
     return res.data;

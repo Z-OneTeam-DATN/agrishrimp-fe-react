@@ -8,6 +8,7 @@ export class EmployeeService {
     keyword?: string;
     roleId?: number;
     branchId?: number;
+    permissionCode?: string;
     status?: string;
     page?: number;
     size?: number;

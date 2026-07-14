@@ -184,7 +184,7 @@ export default function LayoutClient({
       if (cachedUser) {
         setUser(cachedUser as UserType);
         setPermissions(cachedPermissions);
-        setLoadingAuth(false);
+        setLoadingAuth(!background);
       } else if (background) {
         setLoadingAuth(false);
       } else {

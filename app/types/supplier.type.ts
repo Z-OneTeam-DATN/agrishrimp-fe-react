@@ -61,6 +61,7 @@ export interface SupplierProductCatalogItem {
   productId: number;
   productName: string;
   productSlug: string;
+  imageUrl?: string;
   brandName?: string;
   origin?: string;
   categoryName?: string;

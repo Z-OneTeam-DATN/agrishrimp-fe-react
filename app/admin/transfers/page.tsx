@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 type TransferRow = {
   id: string;
@@ -45,6 +46,10 @@ type TransferRow = {
   destBranchName?: string;
   referenceCode?: string;
   description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  transferDate?: string;
+  deadline?: string;
 };
 
 type WarehouseOption = {
@@ -53,6 +58,7 @@ type WarehouseOption = {
 };
 
 export default function AdminTransferListPage() {
+  const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
   const [activeTab, setActiveTab] = useState("all");
   const [transfers, setTransfers] = useState<TransferRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +69,8 @@ export default function AdminTransferListPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
+  const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
+  const [toDate, setToDate] = useState(defaultDateRange.toDate);
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
@@ -124,26 +132,16 @@ export default function AdminTransferListPage() {
     }
   };
 
-  const filteredData = useMemo(() => {
+  const baseFilteredData = useMemo(() => {
     return transfers.filter((item) => {
-      let matchTab = true;
-      const status = (item.status || "").toUpperCase();
-
-      if (activeTab === "pending") matchTab = status === "PENDING";
-      else if (activeTab === "approved") matchTab = status === "APPROVED";
-      else if (activeTab === "shipping") {
-        matchTab = status === "SHIPPING" || status === "TRANSIT";
-      } else if (activeTab === "completed") matchTab = status === "COMPLETED";
-      else if (activeTab === "cancelled") {
-        matchTab = status === "CANCELLED" || status === "REJECTED";
-      }
-
-      if (!matchTab) return false;
-
       if (selectedWarehouse !== "all") {
         const from = item.fromBranchName || item.sourceBranchName || "";
         const to = item.toBranchName || item.destBranchName || "";
         if (from !== selectedWarehouse && to !== selectedWarehouse) return false;
+      }
+
+      if (!isDateInRange(item.transferDate || item.deadline || item.createdAt || item.updatedAt, fromDate, toDate)) {
+        return false;
       }
 
       if (searchQuery) {
@@ -156,11 +154,29 @@ export default function AdminTransferListPage() {
 
       return true;
     });
-  }, [transfers, activeTab, searchQuery, selectedWarehouse]);
+  }, [transfers, searchQuery, selectedWarehouse, fromDate, toDate]);
+
+  const filteredData = useMemo(() => {
+    return baseFilteredData.filter((item) => {
+      let matchTab = true;
+      const status = (item.status || "").toUpperCase();
+
+      if (activeTab === "pending") matchTab = status === "PENDING";
+      else if (activeTab === "approved") matchTab = status === "APPROVED";
+      else if (activeTab === "shipping") {
+        matchTab = status === "SHIPPING" || status === "TRANSIT";
+      } else if (activeTab === "completed") matchTab = status === "COMPLETED";
+      else if (activeTab === "cancelled") {
+        matchTab = status === "CANCELLED" || status === "REJECTED";
+      }
+
+      return matchTab;
+    });
+  }, [baseFilteredData, activeTab]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, selectedWarehouse, transfers.length]);
+  }, [activeTab, searchQuery, selectedWarehouse, fromDate, toDate, transfers.length]);
 
   const totalItems = filteredData.length;
   const totalPages = Math.ceil(totalItems / pageSize);
@@ -169,7 +185,7 @@ export default function AdminTransferListPage() {
     currentPage * pageSize,
   );
   const hasActiveFilters =
-    activeTab !== "all" || selectedWarehouse !== "all" || !!searchQuery.trim();
+    activeTab !== "all" || selectedWarehouse !== "all" || !!searchQuery.trim() || !!fromDate || !!toDate;
   const emptyMessage =
     transfers.length === 0 && !hasActiveFilters
       ? "Chưa có lệnh điều chuyển nào"
@@ -187,20 +203,20 @@ export default function AdminTransferListPage() {
   const counts = useMemo(() => {
     const s = (status: string) => (status || "").toUpperCase();
     return {
-      all: transfers.length,
-      pending: transfers.filter((t) => s(t.status || "") === "PENDING").length,
-      approved: transfers.filter((t) => s(t.status || "") === "APPROVED").length,
-      shipping: transfers.filter((t) => {
+      all: baseFilteredData.length,
+      pending: baseFilteredData.filter((t) => s(t.status || "") === "PENDING").length,
+      approved: baseFilteredData.filter((t) => s(t.status || "") === "APPROVED").length,
+      shipping: baseFilteredData.filter((t) => {
         const currentStatus = s(t.status || "");
         return currentStatus === "SHIPPING" || currentStatus === "TRANSIT";
       }).length,
-      completed: transfers.filter((t) => s(t.status || "") === "COMPLETED").length,
-      cancelled: transfers.filter((t) => {
+      completed: baseFilteredData.filter((t) => s(t.status || "") === "COMPLETED").length,
+      cancelled: baseFilteredData.filter((t) => {
         const currentStatus = s(t.status || "");
         return currentStatus === "CANCELLED" || currentStatus === "REJECTED";
       }).length,
     };
-  }, [transfers]);
+  }, [baseFilteredData]);
 
   const summaryCards = [
     {
@@ -313,7 +329,8 @@ export default function AdminTransferListPage() {
             })}
           </div>
 
-          <div className="relative w-full xl:max-w-[360px]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative w-full sm:w-[280px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
             <Input
               placeholder="Tìm mã lệnh, chi nhánh..."
@@ -321,6 +338,19 @@ export default function AdminTransferListPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+          </div>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
+          />
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
+          />
           </div>
         </div>
 
