@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ShieldCheck,
-    Loader2, Camera, UserCircle2
+    Loader2, Camera, UserCircle2, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ export default function AddEmployeePage() {
     const roleSlug = typeof currentUser?.role === "object" ? currentUser.role?.slug : currentUser?.role;
     const isAdmin = roleSlug?.toLowerCase() === "admin" || roleSlug?.toLowerCase() === "super_admin";
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const citizenIdInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedInitRef = useRef(false);
 
     const [roles, setRoles] = useState<RoleType[]>([]);
@@ -49,14 +50,17 @@ export default function AddEmployeePage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [ocrProcessing, setOcrProcessing] = useState(false);
 
     const {
         register,
         handleSubmit,
         setValue,
         watch,
+        getValues,
+        clearErrors,
         setError,
-        formState: { errors },
+        formState: { errors, dirtyFields },
     } = useForm<EmployeeCreateInput>({
         resolver: zodResolver(EmployeeCreateSchema),
         defaultValues: {
@@ -145,6 +149,7 @@ export default function AddEmployeePage() {
     }, [branches, currentBranchId, currentUser, isAdmin, setValue]);
 
     const handleAvatarClick = () => fileInputRef.current?.click();
+    const handleCitizenIdUploadClick = () => citizenIdInputRef.current?.click();
 
     const handleEmployeeAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -169,6 +174,63 @@ export default function AddEmployeePage() {
             toast.error(getErrorMessage(toApiError(error)) || "Lỗi khi tải ảnh.");
         } finally {
             setUploading(false);
+        }
+    };
+
+    const applyOcrValue = <K extends keyof EmployeeCreateInput>(
+        field: K,
+        value: EmployeeCreateInput[K] | null | undefined
+    ) => {
+        if (value === null || value === undefined) return;
+        if (typeof value === "string" && value.trim() === "") return;
+        if (dirtyFields[field]) return;
+
+        setValue(field as keyof EmployeeCreateInput, value as EmployeeCreateInput[keyof EmployeeCreateInput], {
+            shouldDirty: false,
+            shouldValidate: true,
+            shouldTouch: true,
+        });
+        clearErrors(field as keyof EmployeeCreateInput);
+    };
+
+    const handleCitizenIdUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Ảnh CCCD vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            toast.error("File tải lên phải là ảnh hợp lệ.");
+            return;
+        }
+
+        try {
+            setOcrProcessing(true);
+            const recognized = await EmployeeService.ocrCitizenId(file);
+            const currentValues = getValues();
+
+            applyOcrValue("citizenId", recognized.citizenId ?? currentValues.citizenId);
+            applyOcrValue("fullName", recognized.fullName ?? currentValues.fullName);
+            applyOcrValue("dateOfBirth", recognized.dateOfBirth ?? currentValues.dateOfBirth);
+            applyOcrValue("addressDetail", recognized.addressDetail ?? currentValues.addressDetail);
+
+            if (recognized.gender && ["MALE", "FEMALE", "OTHER"].includes(recognized.gender)) {
+                applyOcrValue("gender", recognized.gender);
+            }
+
+            toast.success(
+                recognized.confidence
+                    ? `Đã đọc CCCD thành công (${recognized.confidence.toFixed(1)}%).`
+                    : "Đã đọc CCCD thành công."
+            );
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(toApiError(error)) || "Không thể đọc ảnh CCCD.");
+        } finally {
+            setOcrProcessing(false);
         }
     };
 
@@ -421,7 +483,42 @@ export default function AddEmployeePage() {
                                         )}
                                     </div>
 
-                                    <div className="flex h-full flex-col gap-1.5 md:col-span-7">
+                                    <div className="flex h-full flex-col gap-1.5 md:col-span-3">
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            OCR CCCD
+                                        </Label>
+                                        <input
+                                            type="file"
+                                            ref={citizenIdInputRef}
+                                            onChange={handleCitizenIdUpload}
+                                            className="hidden"
+                                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleCitizenIdUploadClick}
+                                            disabled={ocrProcessing}
+                                            className="h-9 justify-start text-[12px] font-medium"
+                                        >
+                                            {ocrProcessing ? (
+                                                <>
+                                                    <Loader2 size={14} className="mr-2 animate-spin" />
+                                                    Đang đọc CCCD
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={14} className="mr-2" />
+                                                    Upload mặt trước CCCD
+                                                </>
+                                            )}
+                                        </Button>
+                                        <span className="min-h-[16px] text-[10px] text-slate-400">
+                                            Ảnh rõ 4 góc, mặt trước, tối đa 5MB. Trường bạn đã sửa tay sẽ không bị ghi đè.
+                                        </span>
+                                    </div>
+
+                                    <div className="flex h-full flex-col gap-1.5 md:col-span-4">
                                         <Label aria-hidden="true" className="text-[10px] font-medium text-transparent">
                                             Mật khẩu mặc định
                                         </Label>
@@ -600,7 +697,7 @@ export default function AddEmployeePage() {
                 </Button>
                 <Button
                     type="submit"
-                    disabled={saving || uploading || branches.length === 0 || roles.length === 0}
+                    disabled={saving || uploading || ocrProcessing || branches.length === 0 || roles.length === 0}
                     className="h-9 bg-blue-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
                 >
                     {saving ? <Loader2 className="mr-2 animate-spin" /> : null}

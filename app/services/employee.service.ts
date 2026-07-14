@@ -1,5 +1,5 @@
 import { apiJava } from '@/lib/axios'
-import { UserRequest, UserResponse, PageResponse } from '@/app/types/employee.schema'
+import { UserRequest, UserResponse, PageResponse, EmployeeCitizenIdOcrResponse } from '@/app/types/employee.schema'
 
 export class EmployeeService {
   private static readonly PREFIX = '/employees'
@@ -24,6 +24,18 @@ export class EmployeeService {
 
   static async create(data: UserRequest): Promise<UserResponse> {
     const response = await apiJava.post<UserResponse>(`${this.PREFIX}`, data)
+    return response.data
+  }
+
+  static async ocrCitizenId(file: File): Promise<EmployeeCitizenIdOcrResponse> {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    const response = await apiJava.post<EmployeeCitizenIdOcrResponse>(
+      `${this.PREFIX}/ocr-citizen-id`,
+      formData,
+    )
+
     return response.data
   }
 

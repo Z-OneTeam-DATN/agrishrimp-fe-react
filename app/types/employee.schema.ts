@@ -77,6 +77,18 @@ export type EmployeeUpdateInput = z.infer<typeof EmployeeUpdateSchema>;
 
 export interface UserRequest extends EmployeeCreateInput {}
 
+export interface EmployeeCitizenIdOcrResponse {
+  citizenId?: string | null;
+  fullName?: string | null;
+  dateOfBirth?: string | null;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
+  addressDetail?: string | null;
+  homeTown?: string | null;
+  nationality?: string | null;
+  cardType?: string | null;
+  confidence?: number | null;
+}
+
 export interface UserResponse {
   id: number;
   employeeCode: string;
