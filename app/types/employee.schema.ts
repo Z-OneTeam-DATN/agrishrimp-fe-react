@@ -117,10 +117,3 @@ export interface BranchType {
   id: number;
   name: string;
 }
-
-export interface CitizenLookupResponse {
-  fullName: string;
-  dateOfBirth: string;
-  gender: string;
-  address: string;
-}

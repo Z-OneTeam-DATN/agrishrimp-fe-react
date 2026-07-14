@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ShieldCheck,
-    Loader2, Camera, UserCircle2, Upload
+    Loader2, Camera, UserCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,57 +28,6 @@ import { canManageSystemAdminRoles } from "@/lib/roles";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 
-const inferBirthYearAndGenderFromCitizenId = (citizenId: string) => {
-    if (!/^\d{12}$/.test(citizenId)) return null;
-
-    const genderCenturyDigit = Number(citizenId[3]);
-    const birthYearSuffix = Number(citizenId.slice(4, 6));
-    const centuryMap = [1900, 1900, 2000, 2000, 2100, 2100, 2200, 2200];
-    const inferredCentury = centuryMap[genderCenturyDigit];
-
-    if (!Number.isFinite(inferredCentury)) return null;
-
-    return {
-        gender: genderCenturyDigit % 2 === 0 ? "FEMALE" : "MALE",
-        year: inferredCentury + birthYearSuffix,
-    } as const;
-};
-
-const isLikelyOcrFullName = (value?: string | null) => {
-    if (!value) return false;
-
-    const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
-    if (!normalized || /\d/.test(normalized)) return false;
-
-    if (normalized.includes("FULL NAME") || normalized.includes("NAME")) return false;
-    if (normalized === "HO VA TEN" || normalized === "HO TEN" || normalized === "TEN") return false;
-
-    return normalized.split(" ").length >= 2;
-};
-
-const sanitizeOcrAddress = (value?: string | null) => {
-    if (!value) return "";
-
-    const cleaned = value
-        .replace(/\bPlace\s+of\s+(origin|residence)\b/gi, " ")
-        .replace(/^[/,\-\s]+/, "")
-        .replace(/\s+/g, " ")
-        .replace(/\s+,/g, ",")
-        .trim();
-
-    const parts = cleaned
-        .split(/\s+/)
-        .filter((part) => {
-            const normalized = part.replace(/[,./-]/g, "");
-            return !(normalized.length === 1 && /^[A-Za-zÀ-ỹ]$/.test(normalized));
-        });
-
-    let result = parts.join(" ").trim();
-    result = result.replace(/[/,\-\s]+$/, "").trim();
-    result = result.replace(/\s+[A-ZÀ-Ỵ]{1,2}$/, "").trim();
-    return result;
-};
-
 const extractContent = <T,>(payload: T[] | { content?: T[] } | null | undefined) => {
     if (Array.isArray(payload)) return payload;
     return payload?.content ?? [];
@@ -93,7 +42,6 @@ export default function AddEmployeePage() {
     const roleSlug = typeof currentUser?.role === "object" ? currentUser.role?.slug : currentUser?.role;
     const isAdmin = roleSlug?.toLowerCase() === "admin" || roleSlug?.toLowerCase() === "super_admin";
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const cccdFileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedInitRef = useRef(false);
 
     const [roles, setRoles] = useState<RoleType[]>([]);
@@ -101,7 +49,6 @@ export default function AddEmployeePage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [ocrProcessing, setOcrProcessing] = useState(false);
 
     const {
         register,
@@ -109,7 +56,7 @@ export default function AddEmployeePage() {
         setValue,
         watch,
         setError,
-        formState: { errors, dirtyFields },
+        formState: { errors },
     } = useForm<EmployeeCreateInput>({
         resolver: zodResolver(EmployeeCreateSchema),
         defaultValues: {
@@ -135,7 +82,6 @@ export default function AddEmployeePage() {
     const currentStatus = watch("status");
     const currentBranchId = watch("branchId");
     const currentRoleId = watch("roleId");
-    const currentCitizenId = watch("citizenId");
     const currentDateOfBirth = watch("dateOfBirth");
     const currentStartDate = watch("startDate");
 
@@ -198,61 +144,6 @@ export default function AddEmployeePage() {
         }
     }, [branches, currentBranchId, currentUser, isAdmin, setValue]);
 
-    useEffect(() => {
-        // Validate CCCD format first
-        if (!currentCitizenId || !/^\d{12}$/.test(currentCitizenId)) {
-            return;
-        }
-
-        // 🔍 Lookup CCCD từ API để auto-fill thông tin nhân viên
-        const lookupCitizenInfo = async () => {
-            try {
-                const data = await EmployeeService.lookupByCitizenId(currentCitizenId);
-                
-                // Auto-fill fullName từ API
-                const currentFullName = watch("fullName");
-                if (!currentFullName && data.fullName) {
-                    setValue("fullName", data.fullName, { shouldDirty: true });
-                }
-                
-                // Auto-fill dateOfBirth từ API
-                const currentDateOfBirth = watch("dateOfBirth");
-                if (!currentDateOfBirth && data.dateOfBirth) {
-                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
-                } else if (currentDateOfBirth === `${inferBirthYearAndGenderFromCitizenId(currentCitizenId)?.year}-01-01` && data.dateOfBirth) {
-                    // Update inferred date with actual API date
-                    setValue("dateOfBirth", data.dateOfBirth, { shouldDirty: true });
-                }
-                
-                // Auto-fill gender từ API
-                if ((currentGender === "MALE" || currentGender === "OTHER") && data.gender) {
-                    setValue("gender", data.gender as "MALE" | "FEMALE" | "OTHER", { shouldDirty: true });
-                }
-                
-                // Auto-fill addressDetail từ API
-                const currentAddress = watch("addressDetail");
-                if (!currentAddress && data.address) {
-                    setValue("addressDetail", data.address, { shouldDirty: true });
-                }
-            } catch {
-                // CCCD lookup failed - fallback to inference from citizenId digits
-                const inferred = inferBirthYearAndGenderFromCitizenId(currentCitizenId);
-                if (!inferred) return;
-
-                const currentDateOfBirth = watch("dateOfBirth");
-                if (!currentDateOfBirth) {
-                    setValue("dateOfBirth", `${inferred.year}-01-01`, { shouldDirty: true });
-                }
-
-                if (!currentGender || currentGender === "OTHER") {
-                    setValue("gender", inferred.gender, { shouldDirty: true });
-                }
-            }
-        };
-
-        lookupCitizenInfo();
-    }, [currentCitizenId, currentGender, setValue, watch]);
-
     const handleAvatarClick = () => fileInputRef.current?.click();
 
     const handleEmployeeAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,72 +169,6 @@ export default function AddEmployeePage() {
             toast.error(getErrorMessage(toApiError(error)) || "Lỗi khi tải ảnh.");
         } finally {
             setUploading(false);
-        }
-    };
-
-    const handleCccdOcrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            toast.error("Vui lòng chọn file ảnh hợp lệ (PNG, JPG, JPEG)");
-            return;
-        }
-
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("Kích thước ảnh không được vượt quá 5MB");
-            return;
-        }
-
-        try {
-            setOcrProcessing(true);
-            const formData = new FormData();
-            formData.append("image", file);
-
-            const response = await apiJava.post('/employees/ocr-cccd', formData, {
-                timeout: 90000,
-            });
-
-            const ocrData = response.data;
-            const currentFullName = watch("fullName");
-            const currentCitizenId = watch("citizenId");
-            const currentAddress = watch("addressDetail");
-            const currentDateOfBirth = watch("dateOfBirth");
-            const currentGender = watch("gender");
-
-            // Auto-fill form fields from OCR result
-            const normalizedName = ocrData.fullName?.trim();
-            if (normalizedName && !currentFullName?.trim() && isLikelyOcrFullName(normalizedName)) {
-                setValue("fullName", normalizedName, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-            }
-
-            if (ocrData.dateOfBirth && (!currentDateOfBirth?.trim() || currentDateOfBirth.endsWith("-01-01"))) {
-                setValue("dateOfBirth", ocrData.dateOfBirth, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-            }
-
-            if (ocrData.gender && (!dirtyFields.gender || currentGender === "OTHER")) {
-                setValue("gender", ocrData.gender, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-            }
-
-            const normalizedAddress = sanitizeOcrAddress(ocrData.address);
-            if (normalizedAddress && !currentAddress?.trim()) {
-                setValue("addressDetail", normalizedAddress, { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-            }
-
-            if (ocrData.citizenId && !currentCitizenId?.trim()) {
-                setValue("citizenId", ocrData.citizenId.trim(), { shouldDirty: true, shouldValidate: true, shouldTouch: true });
-            }
-
-            toast.success(`OCR thành công! Độ tin cậy: ${Math.round((ocrData.confidence || 0) * 100)}%`);
-
-        } catch (error: unknown) {
-            toast.error(getErrorMessage(toApiError(error)) || "Lỗi khi xử lý ảnh CCCD. Vui lòng thử lại.");
-        } finally {
-            setOcrProcessing(false);
-            // Reset file input
-            if (e.target) e.target.value = '';
         }
     };
 
@@ -596,42 +421,7 @@ export default function AddEmployeePage() {
                                         )}
                                     </div>
 
-                                    <div className="flex h-full flex-col gap-1.5 md:col-span-3">
-                                        <Label className="text-[10px] font-medium text-slate-400">
-                                            Nhận diện CCCD
-                                        </Label>
-                                        <input
-                                            ref={cccdFileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleCccdOcrUpload}
-                                            className="hidden"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => cccdFileInputRef.current?.click()}
-                                            disabled={ocrProcessing}
-                                            className="h-9 w-full justify-center text-[12px] font-medium"
-                                        >
-                                            {ocrProcessing ? (
-                                                <>
-                                                    <Loader2 size={12} className="mr-2 animate-spin" />
-                                                    Đang xử lý ảnh CCCD
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Upload size={12} className="mr-2" />
-                                                    Chọn ảnh CCCD
-                                                </>
-                                            )}
-                                        </Button>
-                                        <span aria-hidden="true" className="min-h-[16px] text-[10px] text-transparent">
-                                            {"\u00A0"}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex h-full flex-col gap-1.5 md:col-span-4">
+                                    <div className="flex h-full flex-col gap-1.5 md:col-span-7">
                                         <Label aria-hidden="true" className="text-[10px] font-medium text-transparent">
                                             Mật khẩu mặc định
                                         </Label>
