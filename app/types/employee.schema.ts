@@ -11,24 +11,34 @@ const requiredSelectNumber = (message: string) =>
     invalid_type_error: message,
   }).min(1, message));
 
+const requiredText = (message: string) =>
+  z.string({
+    required_error: message,
+    invalid_type_error: message,
+  }).trim().min(1, message);
+
+const requiredDate = (message: string) =>
+  requiredText(message).refine((date) => !Number.isNaN(new Date(date).getTime()), {
+    message: "Ngày không hợp lệ",
+  });
+
 export const EmployeeCreateSchema = z.object({
-  fullName: z.string()
+  fullName: requiredText("Vui lòng nhập họ và tên")
     .min(2, "Họ tên từ 2-100 ký tự")
     .max(100, "Họ tên không quá 100 ký tự")
-    .regex(/^[a-zA-ZÀ-ỹ\s]+$/, "Họ tên không được chứa số hoặc ký tự đặc biệt")
-    .transform(v => v.trim()),
+    .regex(/^[a-zA-ZÀ-ỹ\s]+$/, "Họ tên không được chứa số hoặc ký tự đặc biệt"),
   employeeCode: z.string().optional(), // Server tự sinh nếu trống
-  email: z.string()
-    .email("Email không đúng định dạng RFC")
-    .max(100, "Email không quá 100 ký tự")
-    .transform(v => v.trim()),
+  email: requiredText("Vui lòng nhập email đăng nhập")
+    .email("Email không đúng định dạng")
+    .max(100, "Email không quá 100 ký tự"),
   password: z.string()
     .min(6, "Mật khẩu phải từ 6-100 ký tự")
     .max(100, "Mật khẩu không quá 100 ký tự")
     .optional(),
-  phoneNumber: z.string().regex(/^0\d{9}$/, "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng 0"),
-  addressDetail: z.string().min(1, "Địa chỉ không được để trống").transform(v => v.trim()),
-  dateOfBirth: z.string().refine((date) => {
+  phoneNumber: requiredText("Vui lòng nhập số điện thoại")
+    .regex(/^0\d{9}$/, "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng 0"),
+  addressDetail: requiredText("Vui lòng nhập địa chỉ liên hệ"),
+  dateOfBirth: requiredDate("Vui lòng chọn ngày sinh").refine((date) => {
     const dob = new Date(date);
     const today = new Date();
     let age = today.getFullYear() - dob.getFullYear();
@@ -43,7 +53,7 @@ export const EmployeeCreateSchema = z.object({
       invalid_type_error: "Vui lòng chọn trạng thái"
     })
   ),
-  startDate: z.string().refine((date) => {
+  startDate: requiredDate("Vui lòng chọn ngày vào làm").refine((date) => {
     const d = new Date(date);
     const minDate = new Date("2000-01-01");
     const maxDate = new Date();
@@ -52,7 +62,8 @@ export const EmployeeCreateSchema = z.object({
   }, { message: "Ngày vào làm không hợp lệ (từ năm 2000 đến +30 ngày tới)" }),
   branchId: requiredSelectNumber("Vui lòng chọn chi nhánh"),
   roleId: requiredSelectNumber("Vui lòng chọn vai trò"),
-  citizenId: z.string().regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số"),
+  citizenId: requiredText("Vui lòng nhập số CCCD")
+    .regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số"),
   gender: z.preprocess(
     (val) => (val === "" || val === null || val === undefined ? undefined : val),
     z.enum(["MALE", "FEMALE", "OTHER"], {

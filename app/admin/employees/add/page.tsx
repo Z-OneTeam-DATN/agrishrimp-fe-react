@@ -100,11 +100,11 @@ export default function AddEmployeePage() {
             addressDetail: "",
             dateOfBirth: "",
             avatarUrl: null,
-            status: "ACTIVE",
-            startDate: new Date().toISOString().split("T")[0],
+            status: undefined,
+            startDate: "",
             branchId: undefined,
             roleId: undefined,
-            gender: "MALE",
+            gender: undefined,
         },
     });
 
@@ -324,6 +324,10 @@ export default function AddEmployeePage() {
         }
     };
 
+    const onFormInvalid = () => {
+        toast.error("Vui lòng nhập/chọn đầy đủ thông tin bắt buộc.");
+    };
+
     if (loading || isLoadingAuth) {
         return (
             <div className="flex min-h-screen items-center justify-center">
@@ -333,7 +337,7 @@ export default function AddEmployeePage() {
     }
 
     return (
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-2 pb-[100px] text-slate-800">
+        <form onSubmit={handleSubmit(onFormSubmit, onFormInvalid)} className="space-y-2 pb-[100px] text-slate-800">
             <div className="mb-6 mt-2 space-y-3">
                 <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
                     Thêm nhân viên mới
@@ -498,14 +502,25 @@ export default function AddEmployeePage() {
 
                                     <div className="space-y-1.5 md:col-span-3">
                                         <Label className="text-[10px] font-medium text-slate-400">
-                                            Giới tính
+                                            Giới tính *
                                         </Label>
                                         <Select
                                             value={currentGender}
-                                            onValueChange={(val: "MALE" | "FEMALE" | "OTHER") => setValue("gender", val)}
+                                            onValueChange={(val: "MALE" | "FEMALE" | "OTHER") =>
+                                                setValue("gender", val, {
+                                                    shouldDirty: true,
+                                                    shouldValidate: true,
+                                                    shouldTouch: true,
+                                                })
+                                            }
                                         >
-                                            <SelectTrigger className="h-9 text-[12px] font-medium">
-                                                <SelectValue />
+                                            <SelectTrigger
+                                                className={cn(
+                                                    "h-9 text-[12px] font-medium",
+                                                    errors.gender && "border-rose-500 focus-visible:ring-rose-500",
+                                                )}
+                                            >
+                                                <SelectValue placeholder="Chọn giới tính" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="MALE">Nam</SelectItem>
@@ -513,6 +528,9 @@ export default function AddEmployeePage() {
                                                 <SelectItem value="OTHER">Khác</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        {errors.gender && (
+                                            <span className="text-[11px] text-rose-500">{errors.gender.message}</span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -633,7 +651,13 @@ export default function AddEmployeePage() {
                                             </Label>
                                             <Select
                                                 value={currentBranchId ? String(currentBranchId) : undefined}
-                                                onValueChange={(val) => setValue("branchId", Number(val))}
+                                                onValueChange={(val) =>
+                                                    setValue("branchId", Number(val), {
+                                                        shouldDirty: true,
+                                                        shouldValidate: true,
+                                                        shouldTouch: true,
+                                                    })
+                                                }
                                                 disabled={branches.length === 0 || !isAdmin}
                                             >
                                                 <SelectTrigger
@@ -680,7 +704,13 @@ export default function AddEmployeePage() {
                                             </Label>
                                             <Select
                                                 value={currentRoleId ? String(currentRoleId) : undefined}
-                                                onValueChange={(val) => setValue("roleId", Number(val))}
+                                                onValueChange={(val) =>
+                                                    setValue("roleId", Number(val), {
+                                                        shouldDirty: true,
+                                                        shouldValidate: true,
+                                                        shouldTouch: true,
+                                                    })
+                                                }
                                                 disabled={roles.length === 0}
                                             >
                                                 <SelectTrigger
@@ -741,20 +771,34 @@ export default function AddEmployeePage() {
 
                                         <div className="space-y-1.5 xl:col-span-3">
                                             <Label className="text-[10px] font-medium text-slate-400">
-                                                Trạng thái tài khoản
+                                                Trạng thái tài khoản *
                                             </Label>
                                             <Select
                                                 value={currentStatus}
-                                                onValueChange={(val: "ACTIVE" | "INACTIVE") => setValue("status", val)}
+                                                onValueChange={(val: "ACTIVE" | "INACTIVE") =>
+                                                    setValue("status", val, {
+                                                        shouldDirty: true,
+                                                        shouldValidate: true,
+                                                        shouldTouch: true,
+                                                    })
+                                                }
                                             >
-                                                <SelectTrigger className="h-9 text-[12px] font-medium">
-                                                    <SelectValue />
+                                                <SelectTrigger
+                                                    className={cn(
+                                                        "h-9 text-[12px] font-medium",
+                                                        errors.status && "border-rose-500 focus-visible:ring-rose-500",
+                                                    )}
+                                                >
+                                                    <SelectValue placeholder="Chọn trạng thái" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
                                                     <SelectItem value="INACTIVE">Tạm khóa</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            {errors.status && (
+                                                <span className="text-[11px] text-rose-500">{errors.status.message}</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
