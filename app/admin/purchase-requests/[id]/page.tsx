@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -28,9 +28,7 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { InventoryApiService } from "@/app/services/inventory.service";
-import type {
-  PurchaseRequestResponse,
-} from "@/app/types/purchase.schema";
+import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
 import { PR_STATUS_LABEL } from "@/app/types/purchase.schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,7 +80,6 @@ export default function PurchaseRequestDetailPage() {
       | "sendToSupplier"
       | "resendToSupplier"
       | "confirmSupplier"
-      | "markPreparing"
       | "markDelivering"
       | "cancel"
       | "close";
@@ -163,9 +160,6 @@ export default function PurchaseRequestDetailPage() {
         case "confirmSupplier":
           await PurchaseRequestApiService.confirmSupplier(pr.id);
           break;
-        case "markPreparing":
-          await PurchaseRequestApiService.markPreparing(pr.id);
-          break;
         case "markDelivering":
           await PurchaseRequestApiService.markDelivering(pr.id);
           break;
@@ -199,6 +193,37 @@ export default function PurchaseRequestDetailPage() {
       `/admin/receipts/new?purchaseRequestId=${pr?.id}&supplierCode=${pr?.supplierCode}&branchName=${encodeURIComponent(pr?.branchName ?? "")}`,
     );
   };
+
+  const itemProgressMap = useMemo(() => {
+    const totals = new Map<
+      string,
+      { deliveredQty: number; defectiveQty: number }
+    >();
+
+    Object.values(receiptHistoryDetails).forEach((receipt: any) => {
+      (receipt?.items || []).forEach((item: any) => {
+        const productCode = String(item.productCode || item.sku || "").trim();
+        if (!productCode) return;
+
+        const deliveredQty = Number(
+          item.quantityReal ?? item.deliveredQty ?? item.quantityDelivered ?? 0,
+        );
+        const defectiveQty = Number(
+          item.quantityRejected ?? item.defectiveQty ?? 0,
+        );
+        const current = totals.get(productCode) || {
+          deliveredQty: 0,
+          defectiveQty: 0,
+        };
+
+        current.deliveredQty += deliveredQty;
+        current.defectiveQty += defectiveQty;
+        totals.set(productCode, current);
+      });
+    });
+
+    return totals;
+  }, [receiptHistoryDetails]);
 
   if (isLoading) {
     return (
@@ -241,9 +266,7 @@ export default function PurchaseRequestDetailPage() {
               <h1 className="text-[20px] font-semibold uppercase text-slate-900">
                 Cập nhật phiếu yêu cầu {pr.code}
               </h1>
-              <span
-                className="text-[12px] font-medium text-slate-500"
-              >
+              <span className="text-[12px] font-medium text-slate-500">
                 {PR_STATUS_LABEL[pr.status]}
               </span>
             </div>
@@ -327,62 +350,47 @@ export default function PurchaseRequestDetailPage() {
 
           {pr.status === "SENT_TO_SUPPLIER" && (
             <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-[4px] border-indigo-200 text-[12px] font-medium text-indigo-600 hover:bg-indigo-50"
-              onClick={() =>
-                setConfirmAction({
-                  type: "resendToSupplier",
-                  label: "Gửi lại email cho nhà cung cấp",
-                })
-              }
-            >
-              <Mail size={13} className="mr-1.5" />
-              Gửi lại mail
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 rounded-[4px] bg-cyan-600 text-[12px] font-medium text-white hover:bg-cyan-700"
-              onClick={() =>
-                setConfirmAction({
-                  type: "confirmSupplier",
-                  label: "Ghi nhận xác nhận của nhà cung cấp",
-                })
-              }
-            >
-              Ghi nhận NCC
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-[4px] border-indigo-200 text-[12px] font-medium text-indigo-600 hover:bg-indigo-50"
+                onClick={() =>
+                  setConfirmAction({
+                    type: "resendToSupplier",
+                    label: "Gửi lại email cho nhà cung cấp",
+                  })
+                }
+              >
+                <Mail size={13} className="mr-1.5" />
+                Gửi lại mail
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 rounded-[4px] bg-cyan-600 text-[12px] font-medium text-white hover:bg-cyan-700"
+                onClick={() =>
+                  setConfirmAction({
+                    type: "confirmSupplier",
+                    label: "Ghi nhận NCC xác nhận",
+                  })
+                }
+              >
+                NCC xác nhận
+              </Button>
             </>
           )}
 
           {pr.status === "SUPPLIER_CONFIRMED" && (
             <Button
               size="sm"
-              className="h-8 rounded-[4px] bg-violet-600 text-[12px] font-medium text-white hover:bg-violet-700"
-              onClick={() =>
-                setConfirmAction({
-                  type: "markPreparing",
-                  label: "Cập nhật đang chuẩn bị hàng",
-                })
-              }
-            >
-              Đang chuẩn bị
-            </Button>
-          )}
-
-          {pr.status === "PREPARING" && (
-            <Button
-              size="sm"
               className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
               onClick={() =>
                 setConfirmAction({
                   type: "markDelivering",
-                  label: "Cập nhật đang giao hàng",
+                  label: "Chuyển sang chờ giao hàng",
                 })
               }
             >
-              Đang giao
+              Chờ giao hàng
             </Button>
           )}
 
@@ -419,20 +427,23 @@ export default function PurchaseRequestDetailPage() {
             "APPROVED",
             "SENT_TO_SUPPLIER",
             "SUPPLIER_CONFIRMED",
-            "PREPARING",
             "DELIVERING",
-          ].includes(pr.status) && (pr.totalReceiptCount ?? 0) === 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-[4px] border-rose-200 text-[12px] font-medium text-rose-600"
-              onClick={() =>
-                setConfirmAction({ type: "cancel", label: "Hủy phiếu yêu cầu" })
-              }
-            >
-              Hủy
-            </Button>
-          )}
+          ].includes(pr.status) &&
+            (pr.totalReceiptCount ?? 0) === 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-[4px] border-rose-200 text-[12px] font-medium text-rose-600"
+                onClick={() =>
+                  setConfirmAction({
+                    type: "cancel",
+                    label: "Hủy phiếu yêu cầu",
+                  })
+                }
+              >
+                Hủy
+              </Button>
+            )}
         </div>
       </div>
 
@@ -512,8 +523,18 @@ export default function PurchaseRequestDetailPage() {
             </thead>
             <tbody>
               {(pr.items ?? []).map((item, idx) => {
+                const progress = itemProgressMap.get(
+                  String(item.productCode || "").trim(),
+                );
+                const requestedQty = Number(item.requestedQty ?? 0);
+                const deliveredQty =
+                  progress?.deliveredQty ?? Number(item.deliveredQty ?? 0);
+                const defectiveQty =
+                  progress?.defectiveQty ?? Number(item.defectiveQty ?? 0);
+                const acceptedQty = Math.max(deliveredQty - defectiveQty, 0);
+                const remainingQty = Math.max(requestedQty - deliveredQty, 0);
                 const fulfilled =
-                  (item.acceptedQty ?? 0) >= (item.requestedQty ?? 0);
+                  deliveredQty >= requestedQty && requestedQty > 0;
                 return (
                   <tr
                     key={item.id ?? idx}
@@ -547,20 +568,18 @@ export default function PurchaseRequestDetailPage() {
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-center font-semibold">
-                      {item.requestedQty}
+                      {requestedQty}
                     </td>
                     <td className="px-4 py-2.5 text-center text-slate-600">
-                      {item.deliveredQty}
+                      {deliveredQty}
                     </td>
                     <td className="px-4 py-2.5 text-center font-medium text-slate-700">
-                      {item.acceptedQty}
+                      {acceptedQty}
                     </td>
                     <td className="px-4 py-2.5 text-center font-medium text-slate-700">
-                      {item.defectiveQty}
+                      {defectiveQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center">
-                      {item.remainingQty ?? 0}
-                    </td>
+                    <td className="px-4 py-2.5 text-center">{remainingQty}</td>
                     <td className="px-4 py-2.5 text-right text-slate-600">
                       {fmtCurrency(item.unitPrice ?? 0)}
                     </td>
@@ -651,9 +670,7 @@ export default function PurchaseRequestDetailPage() {
                             >
                               {receipt.code}
                             </Link>
-                            <span
-                              className="text-[10.5px] font-medium text-slate-500"
-                            >
+                            <span className="text-[10.5px] font-medium text-slate-500">
                               {statusInfo.label}
                             </span>
                           </div>
@@ -814,4 +831,3 @@ export default function PurchaseRequestDetailPage() {
     </div>
   );
 }
-

@@ -18,13 +18,17 @@ import {
 import { InventoryExportApiService } from "@/app/services/inventory.service";
 import { branchService } from "@/app/services/branchService";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 export default function AdminExportListPage() {
   const router = useRouter();
+  const defaultDateRange = React.useMemo(() => getCurrentWeekRange(), []);
   const [activeTab, setActiveTab] = useState("all");
   const [exports, setExports] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
+  const [toDate, setToDate] = useState(defaultDateRange.toDate);
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
   const [warehouseOptions, setWarehouseOptions] = useState<any[]>([
     { label: "Tất cả kho", value: "all" },
@@ -67,21 +71,14 @@ export default function AdminExportListPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, selectedWarehouse]);
+  }, [activeTab, searchQuery, selectedWarehouse, fromDate, toDate]);
 
-  const filteredData = exports.filter((item) => {
-    let matchTab = true;
-    const status = (item.status || "").toUpperCase();
-    if (activeTab === "pending") matchTab = status === "PENDING";
-    else if (activeTab === "completed") {
-      matchTab = status === "APPROVED" || status === "COMPLETED";
-    } else if (activeTab === "cancelled") {
-      matchTab = status === "CANCELLED" || status === "REJECTED";
+  const baseFilteredData = React.useMemo(() => exports.filter((item) => {
+    if (selectedWarehouse !== "all" && item.branchName !== selectedWarehouse) {
+      return false;
     }
 
-    if (!matchTab) return false;
-
-    if (selectedWarehouse !== "all" && item.branchName !== selectedWarehouse) {
+    if (!isDateInRange(item.exportDate || item.entryDate || item.createdAt || item.updatedAt, fromDate, toDate)) {
       return false;
     }
 
@@ -104,6 +101,20 @@ export default function AdminExportListPage() {
     }
 
     return true;
+  }), [exports, selectedWarehouse, searchQuery, fromDate, toDate]);
+
+  const filteredData = baseFilteredData.filter((item) => {
+    let matchTab = true;
+    const status = (item.status || "").toUpperCase();
+    if (activeTab === "pending") matchTab = status === "PENDING";
+    else if (activeTab === "completed") {
+      matchTab = status === "APPROVED" || status === "COMPLETED";
+    } else if (activeTab === "cancelled") {
+      matchTab = status === "CANCELLED" || status === "REJECTED";
+    }
+
+    if (!matchTab) return false;
+    return true;
   });
 
   const totalItems = filteredData.length;
@@ -116,19 +127,19 @@ export default function AdminExportListPage() {
   const counts = React.useMemo(() => {
     const s = (status: string) => (status || "").toUpperCase();
     return {
-      all: exports.length,
-      pending: exports.filter((t) => s(t.status) === "PENDING").length,
-      completed: exports.filter(
+      all: baseFilteredData.length,
+      pending: baseFilteredData.filter((t) => s(t.status) === "PENDING").length,
+      completed: baseFilteredData.filter(
         (t) => s(t.status) === "APPROVED" || s(t.status) === "COMPLETED",
       ).length,
-      cancelled: exports.filter(
+      cancelled: baseFilteredData.filter(
         (t) => s(t.status) === "CANCELLED" || s(t.status) === "REJECTED",
       ).length,
     };
-  }, [exports]);
+  }, [baseFilteredData]);
   const totalExportAmount = React.useMemo(
-    () => exports.reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0),
-    [exports],
+    () => baseFilteredData.reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0),
+    [baseFilteredData],
   );
 
   const summaryCards = [
@@ -227,7 +238,7 @@ export default function AdminExportListPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-          <div className="flex flex-wrap items-center gap-2 xl:col-span-3">
+          <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
             {tabs.map((tab) => {
               const hasItems = (counts as any)[tab.id] > 0;
               const showRedDot = tab.id === "pending" && hasItems;
@@ -252,7 +263,8 @@ export default function AdminExportListPage() {
             })}
           </div>
 
-          <div className="relative w-full xl:max-w-[360px]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end xl:col-span-2">
+            <div className="relative w-full sm:w-[260px]">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
               size={16}
@@ -262,6 +274,19 @@ export default function AdminExportListPage() {
               className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            </div>
+            <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
+            />
+            <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
             />
           </div>
         </div>

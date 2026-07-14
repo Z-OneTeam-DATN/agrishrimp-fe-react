@@ -6,8 +6,24 @@ import { isAdminRole } from "@/lib/roles";
 type JwtAuthPayload = {
   exp?: number;
   sub?: string;
+  roleSlug?: string | null;
+  role?: string | null;
   authorities?: string[]; // Spring Security: chứa permission codes của user
 };
+
+type PermissionLike = string | { code?: string | null } | null | undefined;
+
+function normalizePermissions(values?: PermissionLike[] | null): string[] {
+  if (!Array.isArray(values)) return [];
+
+  return values
+    .map((value) => {
+      if (typeof value === "string") return value;
+      if (value && typeof value === "object") return value.code ?? "";
+      return "";
+    })
+    .filter(Boolean);
+}
 
 /** Decode JWT, trả về authorities[] (không throw) */
 function getJwtAuthorities(token: string | null): string[] {
@@ -20,10 +36,21 @@ function getJwtAuthorities(token: string | null): string[] {
   }
 }
 
+function getJwtRole(token: string | null): string {
+  if (!token) return "";
+  try {
+    const { roleSlug, role } = jwtDecode<JwtAuthPayload>(token);
+    return roleSlug || role || "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Hook kiểm tra phân quyền động.
  *
- * Nguyên tắc: KHÔNG check role slug — chỉ check permission codes.
+ * Nguyên tắc: check permission codes. Admin cấp cao được bypass để luôn
+ * còn đường vào màn phân quyền khi dữ liệu permission bị cấu hình sai.
  * Permissions được lấy từ API /me/permissions sau khi đăng nhập,
  * lưu vào store. Fallback về JWT authorities nếu store chưa có.
  */
@@ -33,30 +60,34 @@ export function usePermissions() {
   /** Lấy toàn bộ permission codes của user hiện tại */
   const getAuthorities = useCallback((): string[] => {
     // Ưu tiên: permissions từ API (nguồn sự thật)
-    if (storePermissions.length > 0) return storePermissions;
+    const fromStore = normalizePermissions(storePermissions);
+    if (fromStore.length > 0) return fromStore;
 
     // Fallback: decode từ JWT (dùng khi store chưa load xong)
     const fromJwt = getJwtAuthorities(accessToken);
     if (fromJwt.length > 0) return fromJwt;
 
     // Last resort: từ user object
-    return (
-      user?.permissions ??
-      (typeof user?.role === "object" ? user?.role?.permissions : undefined) ??
-      []
+    const fromUser = normalizePermissions(user?.permissions as PermissionLike[]);
+    if (fromUser.length > 0) return fromUser;
+
+    return normalizePermissions(
+      typeof user?.role === "object"
+        ? (user.role.permissions as PermissionLike[])
+        : undefined
     );
   }, [storePermissions, accessToken, user]);
 
   const hasPermission = useCallback(
     (permission: string): boolean => {
+      const isSystemAdmin = isAdminRole(user?.role) || isAdminRole(getJwtRole(accessToken));
+      if (isSystemAdmin) {
+        return true;
+      }
       if (!user) return false;
-      
-      // Admin-like bypass: ADMIN / SUPER_ADMIN luôn có toàn quyền
-      if (isAdminRole(user.role)) return true;
-      
       return getAuthorities().includes(permission);
     },
-    [user, getAuthorities]
+    [user, accessToken, getAuthorities]
   );
 
   const hasAnyPermission = useCallback(

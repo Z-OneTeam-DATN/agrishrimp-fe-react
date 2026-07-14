@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, Plus, RefreshCcw, Search } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
 import { InventoryApiService } from "@/app/services/inventory.service";
 import { branchService } from "@/app/services/branchService";
@@ -31,18 +30,21 @@ import type { AxiosError } from "axios";
 import { getErrorMessage } from "@/lib/axios";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import { cn, formatNumber } from "@/lib/utils";
+import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 const PAGE_SIZE = 20;
 
 export default function AdminReceiptListPage() {
   const router = useRouter();
+  const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteReceipt, setDeleteReceipt] = useState<{ id: number; code: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [selectedDate, setSelectedDate] = useState("");
+  const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
+  const [toDate, setToDate] = useState(defaultDateRange.toDate);
   const [warehouseOptions, setWarehouseOptions] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -92,25 +94,31 @@ export default function AdminReceiptListPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedWarehouse, selectedStatus, selectedDate]);
+  }, [searchQuery, selectedWarehouse, selectedStatus, fromDate, toDate]);
 
-  const filteredData = useMemo(() => {
+  const baseFilteredData = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
     return receipts.filter((item) => {
       const matchesKeyword = !keyword
         || item.code.toLowerCase().includes(keyword)
         || item.supplier.toLowerCase().includes(keyword);
       const matchesWarehouse = selectedWarehouse === "all" || item.warehouse === selectedWarehouse;
-      const matchesDate = !selectedDate || item.dateValue === selectedDate;
+      const matchesDate = isDateInRange(item.dateValue, fromDate, toDate);
+      return matchesKeyword && matchesWarehouse && matchesDate;
+    });
+  }, [receipts, searchQuery, selectedWarehouse, fromDate, toDate]);
+
+  const filteredData = useMemo(() => {
+    return baseFilteredData.filter((item) => {
       const matchesStatus = selectedStatus === "all"
         || (selectedStatus === "pending" && ["PENDING", "PO"].includes(item.status))
         || (selectedStatus === "completed" && ["APPROVED", "COMPLETED", "IMPORTED"].includes(item.status))
         || (selectedStatus === "cancelled" && ["CANCELLED", "REJECTED"].includes(item.status));
-      return matchesKeyword && matchesWarehouse && matchesDate && matchesStatus;
+      return matchesStatus;
     });
-  }, [receipts, searchQuery, selectedWarehouse, selectedStatus, selectedDate]);
+  }, [baseFilteredData, selectedStatus]);
 
-  const summary = useMemo(() => receipts.reduce(
+  const summary = useMemo(() => baseFilteredData.reduce(
     (result, item) => {
       result.totalValue += item.status === "CANCELLED" || item.status === "REJECTED" ? 0 : item.total;
       result.totalDebt += item.status === "CANCELLED" || item.status === "REJECTED" ? 0 : item.debt;
@@ -118,7 +126,7 @@ export default function AdminReceiptListPage() {
       return result;
     },
     { totalValue: 0, totalDebt: 0, pending: 0 },
-  ), [receipts]);
+  ), [baseFilteredData]);
 
   const statusTabs = [
     { id: "all", label: "Tất cả" },
@@ -128,11 +136,11 @@ export default function AdminReceiptListPage() {
   ];
 
   const statusCounts = useMemo(() => ({
-    all: receipts.length,
-    pending: receipts.filter((item) => ["PENDING", "PO"].includes(item.status)).length,
-    completed: receipts.filter((item) => ["APPROVED", "COMPLETED", "IMPORTED"].includes(item.status)).length,
-    cancelled: receipts.filter((item) => ["CANCELLED", "REJECTED"].includes(item.status)).length,
-  }), [receipts]);
+    all: baseFilteredData.length,
+    pending: baseFilteredData.filter((item) => ["PENDING", "PO"].includes(item.status)).length,
+    completed: baseFilteredData.filter((item) => ["APPROVED", "COMPLETED", "IMPORTED"].includes(item.status)).length,
+    cancelled: baseFilteredData.filter((item) => ["CANCELLED", "REJECTED"].includes(item.status)).length,
+  }), [baseFilteredData]);
 
   const totalPages = Math.ceil(filteredData.length / PAGE_SIZE);
   const displayData = filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -156,7 +164,7 @@ export default function AdminReceiptListPage() {
         <h1 className="text-[20px] font-semibold uppercase text-slate-900">Quản lý phiếu nhập</h1>
 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-[540px]">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-[260px]">
             <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
               <SelectTrigger className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none">
                 <SelectValue placeholder="Tất cả kho" />
@@ -168,13 +176,6 @@ export default function AdminReceiptListPage() {
                 ))}
               </SelectContent>
             </Select>
-            <SharedDatePicker
-              value={selectedDate}
-              onChange={setSelectedDate}
-              placeholder="Chọn ngày"
-              variant="compact"
-              buttonClassName="h-[38px] border-slate-200 bg-white text-[13px] shadow-none"
-            />
           </div>
           <Button
             className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700"
@@ -224,8 +225,8 @@ export default function AdminReceiptListPage() {
             ))}
           </div>
 
-          <div className="flex items-center justify-end gap-2">
-          <div className="relative w-full xl:max-w-[380px]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative w-full sm:w-[300px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
             <Input
               value={searchQuery}
@@ -234,6 +235,18 @@ export default function AdminReceiptListPage() {
               className="h-[38px] border-slate-200 bg-white pl-10 text-[13px] shadow-none"
             />
           </div>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+            className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none sm:w-[150px]"
+          />
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none sm:w-[150px]"
+          />
           <Button type="button" variant="outline" size="icon" className="h-[38px] w-[38px]" onClick={() => void fetchReceipts()} disabled={isLoading}>
             <RefreshCcw size={15} className={isLoading ? "animate-spin" : ""} />
           </Button>

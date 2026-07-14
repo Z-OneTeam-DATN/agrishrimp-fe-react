@@ -10,6 +10,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 const typeFilters = [
   { label: "Tất cả nhóm", value: "all" },
@@ -24,9 +26,11 @@ const statusFilters = [
 ];
 
 export default function RolesManagementPage() {
+  const { hasPermission } = usePermissions();
   const [roles, setRoles] = useState<RoleType[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalElements, setTotalElements] = useState(0);
+  const canCreateRole = hasPermission(P.ROLE_CREATE);
   
   const [filters, setFilters] = useState({
     keyword: "",
@@ -114,14 +118,14 @@ export default function RolesManagementPage() {
           hideRefreshButton
           hideSort
           hideSettingsButton
-          trailingContent={
+          trailingContent={canCreateRole ? (
             <Link href="/admin/employees/roles/add">
               <Button className="h-[38px] px-4 text-[14px] font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-all">
                 <Plus className="mr-2 h-4 w-4" />
                 Thêm vai trò mới
               </Button>
             </Link>
-          }
+          ) : undefined}
         />
         
         {loading ? (

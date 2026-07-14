@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole, isManagerRole } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/axios";
 import { branchService } from "@/app/services/branchService";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
@@ -39,6 +40,8 @@ type SupplierCatalogVariant = {
 };
 
 const AVAILABLE_CATALOG_STATUS = "AVAILABLE";
+const BACKEND_ORIGIN =
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN ?? "https://api.agrishrimp.io.vn";
 
 function normalizeBranchText(value?: string | null) {
   return String(value || "")
@@ -48,7 +51,42 @@ function normalizeBranchText(value?: string | null) {
     .toLowerCase();
 }
 
-function isWarehouseBranchOption(branch: BranchDTO) {
+function resolveProductImageSrc(imagePath?: string | null) {
+  const normalizedPath = String(imagePath || "").trim();
+  if (!normalizedPath) return undefined;
+
+  if (normalizedPath.startsWith("data:") || normalizedPath.startsWith("blob:")) {
+    return normalizedPath;
+  }
+
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    try {
+      const imageUrl = new URL(normalizedPath);
+      const backendUrl = new URL(BACKEND_ORIGIN);
+
+      if (
+        imageUrl.hostname === "api" ||
+        imageUrl.hostname === "host.docker.internal"
+      ) {
+        return `${backendUrl.origin}${imageUrl.pathname}${imageUrl.search}${imageUrl.hash}`;
+      }
+    } catch {
+      // keep original absolute URL below
+    }
+
+    return normalizedPath;
+  }
+
+  return `${BACKEND_ORIGIN}${normalizedPath.startsWith("/") ? "" : "/"}${normalizedPath}`;
+}
+
+function isWarehouseBranchOption(
+  branch?:
+    | Pick<BranchDTO, "branchCode" | "branchType" | "name">
+    | null,
+) {
+  if (!branch) return false;
+
   const code = String(branch.branchCode || "").trim().toUpperCase();
   const type = String(branch.branchType || "").trim().toUpperCase();
   const name = normalizeBranchText(branch.name);
@@ -75,26 +113,56 @@ function buildSupplierCatalogVariants(
         String(item.status || "").toUpperCase() === AVAILABLE_CATALOG_STATUS,
     )
     .map((item) => {
-      const product = products.find((product) =>
-        product.variants?.some(
+      const normalizedSku = String(item.sku || "").trim().toLowerCase();
+      const product =
+        products.find((product) => Number(product.id) === Number(item.productId)) ||
+        products.find((product) => product.slug === item.productSlug) ||
+        products.find((product) =>
+          product.variants?.some(
+            (variant) => Number(variant.id) === Number(item.productVariantId),
+          ),
+        ) ||
+        products.find((product) =>
+          product.variants?.some(
+            (variant) => String(variant.sku || "").trim().toLowerCase() === normalizedSku,
+          ),
+        );
+      const variant =
+        product?.variants?.find(
           (variant) => Number(variant.id) === Number(item.productVariantId),
-        ),
-      );
-      const variant = product?.variants?.find(
-        (variant) => Number(variant.id) === Number(item.productVariantId),
-      );
+        ) ||
+        product?.variants?.find(
+          (variant) => String(variant.sku || "").trim().toLowerCase() === normalizedSku,
+        );
       const specs = variant?.attributeValues?.length
         ? variant.attributeValues
             .map((value) => `${value.attributeName}: ${value.value}`)
             .join(", ")
         : "";
+      const resolvedImageUrl = resolveProductImageSrc(
+        item.imageUrl || variant?.imageUrl || product?.imageUrls?.[0],
+      );
+
+      if (
+        process.env.NODE_ENV === "development" &&
+        !resolvedImageUrl
+      ) {
+        console.warn("[purchase-request] missing catalog image", {
+          productVariantId: item.productVariantId,
+          productId: item.productId,
+          productSlug: item.productSlug,
+          sku: item.sku,
+          matchedProductId: product?.id,
+          matchedVariantId: variant?.id,
+        });
+      }
 
       return {
         id: Number(item.productVariantId),
         productId: Number(item.productId || product?.id || 0),
         sku: item.sku || variant?.sku || `SKU-${item.productVariantId}`,
         productName: product?.name || item.productName || "",
-        imageUrl: variant?.imageUrl || product?.imageUrls?.[0],
+        imageUrl: resolvedImageUrl,
         quantity: variant?.quantity,
         customSpecs: specs,
         specs,
@@ -111,6 +179,16 @@ function buildSupplierCatalogVariants(
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n);
+}
+
+function parseMoneyInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function formatMoneyInput(value: unknown) {
+  const numeric = Number(value) || 0;
+  return formatCurrency(numeric);
 }
 
 function getPurchaseRequestErrorMessage(error: unknown) {
@@ -137,13 +215,22 @@ function getPurchaseRequestErrorMessage(error: unknown) {
 
 export default function NewPurchaseRequestPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
+  const { hasPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const router = useRouter();
   const currentUserBranch = currentUser?.branch as
     | { id?: number; name?: string; branchType?: string; branchCode?: string }
     | undefined;
+  const currentUserBranchOption = currentUserBranch
+    ? {
+        name: currentUserBranch.name ?? "",
+        branchType: currentUserBranch.branchType ?? "",
+        branchCode: currentUserBranch.branchCode ?? "",
+      }
+    : undefined;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDependencies, setIsLoadingDependencies] = useState(true);
   const [warehouseBranches, setWarehouseBranches] = useState<BranchDTO[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [allProducts, setAllProducts] = useState<ProductListItem[]>([]);
@@ -156,11 +243,25 @@ export default function NewPurchaseRequestPage() {
   const [catalogSearchTerm, setCatalogSearchTerm] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isWarehouseUser =
-    currentUserBranch?.branchType === "WAREHOUSE" || warehouseId === 1;
-  const canAccessPurchaseRequests =
-    isAdminRole(currentUser?.role) ||
-    (isWarehouseUser && isManagerRole(currentUser?.role));
+  const canAccessPurchaseRequests = hasPermission(P.PURCHASE_REQUEST_CREATE);
+  const isCurrentWarehouseBranch = useMemo(() => {
+    if (isWarehouseBranchOption(currentUserBranchOption)) {
+      return true;
+    }
+
+    return warehouseBranches.some((branch) => {
+      if (currentUserBranch?.id && String(branch.id) === String(currentUserBranch.id)) {
+        return true;
+      }
+
+      if (warehouseId && String(branch.id) === String(warehouseId)) {
+        return true;
+      }
+
+      const currentName = normalizeBranchText(currentUserBranch?.name);
+      return Boolean(currentName) && normalizeBranchText(branch.name) === currentName;
+    });
+  }, [currentUserBranch, currentUserBranchOption, warehouseBranches, warehouseId]);
 
   const {
     register,
@@ -171,6 +272,8 @@ export default function NewPurchaseRequestPage() {
     formState: { errors },
   } = useForm<PurchaseRequestForm>({
     resolver: zodResolver(PurchaseRequestSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       supplierCode: "",
       supplierName: "",
@@ -201,12 +304,14 @@ export default function NewPurchaseRequestPage() {
   }, [catalogSearchTerm, supplierProducts]);
 
   useEffect(() => {
-    if (!isWarehouseUser && !isAdminRole(currentUser?.role)) {
+    if (!canAccessPurchaseRequests) {
+      setIsLoadingDependencies(false);
       return;
     }
 
     (async () => {
       try {
+        setIsLoadingDependencies(true);
         const branchData = await branchService.getAll();
         const allBranches = Array.isArray(branchData)
           ? branchData
@@ -253,12 +358,14 @@ export default function NewPurchaseRequestPage() {
         );
       } catch (error) {
         console.error("Failed to load purchase request dependencies", error);
+      } finally {
+        setIsLoadingDependencies(false);
       }
     })();
   }, [
+    canAccessPurchaseRequests,
+    currentUserBranch?.id,
     currentUserBranch?.name,
-    currentUser?.role,
-    isWarehouseUser,
     setValue,
     warehouseId,
   ]);
@@ -519,15 +626,22 @@ export default function NewPurchaseRequestPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (canAccessPurchaseRequests && isLoadingDependencies)) {
     return null;
   }
 
   if (!canAccessPurchaseRequests) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
-        Chỉ admin hoặc quản lý thuộc kho tổng mới được tạo phiếu yêu cầu nhập
-        NCC.
+        Bạn không có quyền tạo phiếu yêu cầu nhập NCC.
+      </div>
+    );
+  }
+
+  if (!isCurrentWarehouseBranch) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
+        Chỉ kho tổng mới được tạo phiếu yêu cầu nhập NCC.
       </div>
     );
   }
@@ -540,7 +654,7 @@ export default function NewPurchaseRequestPage() {
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-6 border-b border-slate-200 pb-4">
             <h2 className="text-[12px] font-semibold text-slate-900">
@@ -731,9 +845,12 @@ export default function NewPurchaseRequestPage() {
                           <div className="flex items-center gap-2">
                             {item?.imageUrl && (
                               <img
-                                src={item.imageUrl}
+                                src={resolveProductImageSrc(item.imageUrl) || "/placeholder.svg"}
                                 alt={item.productName}
                                 className="w-8 h-8 rounded object-cover"
+                                onError={(event) => {
+                                  event.currentTarget.src = "/placeholder.svg";
+                                }}
                               />
                             )}
                             <div>
@@ -753,8 +870,8 @@ export default function NewPurchaseRequestPage() {
                         </td>
                         <td className="px-3 py-2">
                           <input
-                            type="number"
-                            min={1}
+                            type="text"
+                            inputMode="numeric"
                             {...register(`items.${idx}.requestedQty`)}
                             className={cn(
                               "h-9 w-full border px-2 text-center text-[12px] shadow-none outline-none focus:border-blue-300",
@@ -771,11 +888,28 @@ export default function NewPurchaseRequestPage() {
                         </td>
                         <td className="px-3 py-2">
                           <input
-                            type="number"
-                            min={0}
-                            {...register(`items.${idx}.unitPrice`)}
-                            className="h-9 w-full border border-slate-200 px-2 text-right text-[12px] shadow-none outline-none focus:border-blue-300"
+                            type="text"
+                            inputMode="numeric"
+                            value={formatMoneyInput(item?.unitPrice)}
+                            onChange={(event) =>
+                              setValue(
+                                `items.${idx}.unitPrice`,
+                                parseMoneyInput(event.target.value),
+                                { shouldDirty: true, shouldValidate: true },
+                              )
+                            }
+                            className={cn(
+                              "h-9 w-full border px-2 text-right text-[12px] shadow-none outline-none focus:border-blue-300",
+                              errors.items?.[idx]?.unitPrice
+                                ? "border-red-400"
+                                : "border-slate-200",
+                            )}
                           />
+                          {errors.items?.[idx]?.unitPrice && (
+                            <p className="mt-1 text-[10px] text-red-500">
+                              {errors.items[idx]?.unitPrice?.message}
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-slate-700">
                           {formatCurrency(subtotal)}
@@ -911,9 +1045,12 @@ export default function NewPurchaseRequestPage() {
                       />
                       {product.imageUrl ? (
                         <img
-                          src={product.imageUrl}
+                          src={resolveProductImageSrc(product.imageUrl) || "/placeholder.svg"}
                           alt={product.productName}
                           className="w-12 h-12 rounded object-cover border border-slate-200"
+                          onError={(event) => {
+                            event.currentTarget.src = "/placeholder.svg";
+                          }}
                         />
                       ) : (
                         <div className="w-12 h-12 rounded border border-slate-200 bg-slate-100" />

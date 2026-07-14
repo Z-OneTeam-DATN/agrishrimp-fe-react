@@ -50,6 +50,7 @@ import { branchService } from "@/app/services/branchService";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 type InventoryCheckStatus =
   | "ALL"
@@ -97,13 +98,16 @@ const getShortageRows = (products: any[]) =>
 
 export default function InventoryCheckListPage() {
   const router = useRouter();
-  const { hasPermission, isLoadingAuth } = usePermissions();
+  const { hasPermission, hasAnyPermission, isLoadingAuth } = usePermissions();
+  const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
 
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [inventoryChecks, setInventoryChecks] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
+  const [toDate, setToDate] = useState(defaultDateRange.toDate);
   const [activeTab, setActiveTab] = useState<InventoryCheckStatus>("ALL");
   const [selectedBranchId, setSelectedBranchId] = useState("all");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | string | null>(
@@ -139,24 +143,23 @@ export default function InventoryCheckListPage() {
     }
   };
 
-  const filteredData = useMemo(() => {
+  const canAccessInventoryChecks = hasAnyPermission([
+    P.CHECK_VIEW,
+    P.CHECK_CREATE,
+    P.CHECK_UPDATE,
+    P.CHECK_APPROVE,
+    P.CHECK_CANCEL,
+    P.CHECK_DELETE,
+  ]);
+
+  const baseFilteredData = useMemo(() => {
     return inventoryChecks.filter((item: any) => {
-      const status = getWorkflowStatus(item);
       const branchId = String(item.branchId || "");
       const branchName = normalizeText(item.branchName || "Kho tổng");
       const q = normalizeText(searchTerm);
 
-      const matchTab =
-        activeTab === "ALL" ||
-        ((activeTab === "COUNTING" || activeTab === ("PENDING" as InventoryCheckStatus)) &&
-          (status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS")) ||
-        (activeTab === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
-          status === "WAITING_FOR_ADJUSTMENT_APPROVAL") ||
-        ((activeTab === "COUNTING_COMPLETED" || activeTab === ("COMPLETED" as InventoryCheckStatus)) &&
-          status === "COUNTING_COMPLETED");
-
-      if (!matchTab) return false;
       if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
+      if (!isDateInRange(item.checkDate || item.createdAt, fromDate, toDate)) return false;
 
       if (!q) return true;
 
@@ -167,22 +170,38 @@ export default function InventoryCheckListPage() {
         normalizeText(item.createdByName || item.checkedByName).includes(q)
       );
     });
-  }, [inventoryChecks, activeTab, selectedBranchId, searchTerm]);
+  }, [inventoryChecks, selectedBranchId, searchTerm, fromDate, toDate]);
+
+  const filteredData = useMemo(() => {
+    return baseFilteredData.filter((item: any) => {
+      const status = getWorkflowStatus(item);
+      const matchTab =
+        activeTab === "ALL" ||
+        ((activeTab === "COUNTING" || activeTab === ("PENDING" as InventoryCheckStatus)) &&
+          (status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS")) ||
+        (activeTab === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
+          status === "WAITING_FOR_ADJUSTMENT_APPROVAL") ||
+        ((activeTab === "COUNTING_COMPLETED" || activeTab === ("COMPLETED" as InventoryCheckStatus)) &&
+          status === "COUNTING_COMPLETED");
+
+      return matchTab;
+    });
+  }, [baseFilteredData, activeTab]);
 
   const stats = useMemo(() => {
-    const pending = inventoryChecks.filter((item: any) => {
+    const pending = baseFilteredData.filter((item: any) => {
       const status = getWorkflowStatus(item);
       return status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS";
     }).length;
-    const waitingApproval = inventoryChecks.filter(
+    const waitingApproval = baseFilteredData.filter(
       (item: any) =>
         getWorkflowStatus(item) === "WAITING_FOR_ADJUSTMENT_APPROVAL"
     ).length;
-    const completed = inventoryChecks.filter(
+    const completed = baseFilteredData.filter(
       (item: any) => getWorkflowStatus(item) === "COUNTING_COMPLETED"
     ).length;
 
-    const damagedUnits = inventoryChecks.reduce((sum: number, item: any) => {
+    const damagedUnits = baseFilteredData.reduce((sum: number, item: any) => {
       const details = Array.isArray(item.details) ? item.details : [];
       return (
         sum +
@@ -194,7 +213,7 @@ export default function InventoryCheckListPage() {
       );
     }, 0);
 
-    const needRestockCount = inventoryChecks.reduce((sum: number, item: any) => {
+    const needRestockCount = baseFilteredData.reduce((sum: number, item: any) => {
       const details = Array.isArray(item.details) ? item.details : [];
       return (
         sum +
@@ -211,7 +230,7 @@ export default function InventoryCheckListPage() {
     }, 0);
 
     return { pending, waitingApproval, completed, damagedUnits, needRestockCount };
-  }, [inventoryChecks]);
+  }, [baseFilteredData]);
 
   const getStatusLabel = (status: string) => {
     const normalized = String(status || "").toUpperCase();
@@ -341,7 +360,7 @@ export default function InventoryCheckListPage() {
     );
   }
 
-  if (!hasPermission(P.CHECK_VIEW)) {
+  if (!canAccessInventoryChecks) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 opacity-40">
         <AlertTriangle size={64} />
@@ -486,8 +505,8 @@ export default function InventoryCheckListPage() {
             ))}
           </div>
 
-          <div className="flex flex-1 flex-col gap-3 xl:max-w-[420px] xl:flex-row xl:items-center xl:justify-end">
-            <div className="relative w-full xl:max-w-[420px]">
+          <div className="flex flex-1 flex-col gap-2 xl:max-w-[620px] xl:flex-row xl:items-center xl:justify-end">
+            <div className="relative w-full xl:max-w-[300px]">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
                 size={16}
@@ -499,6 +518,18 @@ export default function InventoryCheckListPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 xl:w-[150px]"
+            />
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 xl:w-[150px]"
+            />
           </div>
         </div>
 

@@ -684,7 +684,7 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("Đã gửi phiếu kiểm kê sang bước chờ admin duyệt cân bằng");
+      toast.success("Đã gửi phiếu kiểm kê sang bước chờ duyệt cân bằng");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
