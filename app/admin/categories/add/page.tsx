@@ -2,9 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Save, Upload, X } from "lucide-react";
+
 import {
   createCategory,
   getCategoryById,
@@ -22,9 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 interface Category {
   id: number;
@@ -36,37 +37,55 @@ interface Category {
 
 type CategoryApiError = {
   response?: {
-    data?: {
-      detail?: string;
-      message?: string;
-      statusCode?: string;
-    } | string;
+    data?:
+      | {
+          detail?: string;
+          message?: string;
+          statusCode?: string;
+        }
+      | string;
     status?: number;
   };
 };
 
 const CATEGORY_NAME_MIN = 2;
 const CATEGORY_NAME_MAX = 100;
+const CATEGORY_PARENT_PLACEHOLDER = "__CATEGORY_PARENT_PLACEHOLDER__";
+const CATEGORY_ROOT_OPTION = "__CATEGORY_ROOT_OPTION__";
+const CATEGORY_STATUS_PLACEHOLDER = "__CATEGORY_STATUS_PLACEHOLDER__";
+const normalizeCategoryName = (value: string) =>
+  value.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 
 export default function AddCategoryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasPermission, isLoadingAuth } = usePermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [modeResolved, setModeResolved] = useState(false);
-  const [parentList, setParentList] = useState<Category[]>([]);
-  const [name, setName] = useState("");
-  const [parentId, setParentId] = useState("none");
-  const [status, setStatus] = useState("ACTIVE");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageFileName, setImageFileName] = useState("");
-  const [nameTouched, setNameTouched] = useState(false);
-  const [nameError, setNameError] = useState("");
-  const [loadingData, setLoadingData] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const rawId = searchParams.get("id");
+  const editingId = rawId && /^\d+$/.test(rawId) ? Number(rawId) : null;
   const isEdit = editingId !== null;
   const requiredPermission = isEdit ? P.CATEGORY_UPDATE : P.CATEGORY_CREATE;
+
+  const [parentList, setParentList] = useState<Category[]>([]);
+  const [name, setName] = useState("");
+  const [parentId, setParentId] = useState(CATEGORY_PARENT_PLACEHOLDER);
+  const [status, setStatus] = useState(CATEGORY_STATUS_PLACEHOLDER);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageFileName, setImageFileName] = useState("");
+
+  const [nameTouched, setNameTouched] = useState(false);
+  const [parentTouched, setParentTouched] = useState(false);
+  const [statusTouched, setStatusTouched] = useState(false);
+  const [imageTouched, setImageTouched] = useState(false);
+
+  const [nameError, setNameError] = useState("");
+  const [parentError, setParentError] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const [imageError, setImageError] = useState("");
+
+  const [loadingData, setLoadingData] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
   const fieldControlClass =
@@ -88,111 +107,177 @@ export default function AddCategoryPage() {
     return "";
   }, []);
 
-  useEffect(() => {
-    const rawId = new URLSearchParams(window.location.search).get("id");
-    setEditingId(rawId && /^\d+$/.test(rawId) ? Number(rawId) : null);
-    setModeResolved(true);
+  const validateDuplicateCategoryName = useCallback(
+    (value: string) => {
+      const normalizedValue = normalizeCategoryName(value);
+      if (!normalizedValue) {
+        return "";
+      }
+
+      const duplicatedCategory = parentList.find(
+        (category) =>
+          category.id !== editingId &&
+          normalizeCategoryName(category.name) === normalizedValue,
+      );
+
+      return duplicatedCategory ? "Tên danh mục đã tồn tại" : "";
+    },
+    [editingId, parentList],
+  );
+
+  const validateParentSelection = useCallback((value: string) => {
+    if (value === CATEGORY_PARENT_PLACEHOLDER) {
+      return "Vui lòng chọn danh mục cha hoặc danh mục gốc";
+    }
+
+    return "";
+  }, []);
+
+  const validateStatusSelection = useCallback((value: string) => {
+    if (value === CATEGORY_STATUS_PLACEHOLDER) {
+      return "Vui lòng chọn trạng thái";
+    }
+
+    return "";
+  }, []);
+
+  const validateCategoryImage = useCallback((value: string) => {
+    if (!value.trim()) {
+      return "Vui lòng tải ảnh đại diện cho danh mục";
+    }
+
+    return "";
   }, []);
 
   useEffect(() => {
-    if (modeResolved && !isLoadingAuth && !hasPermission(requiredPermission)) {
+    if (!isLoadingAuth && !hasPermission(requiredPermission)) {
       router.push("/admin/forbidden");
     }
-  }, [hasPermission, isLoadingAuth, modeResolved, requiredPermission, router]);
+  }, [hasPermission, isLoadingAuth, requiredPermission, router]);
 
   useEffect(() => {
-    if (
-      !modeResolved ||
-      isLoadingAuth ||
-      !hasPermission(requiredPermission)
-    ) {
+    if (isLoadingAuth || !hasPermission(requiredPermission)) {
       return;
     }
+
+    let isMounted = true;
 
     const loadData = async () => {
       setLoadingData(true);
       try {
         const categories = await getCategories();
+        if (!isMounted) return;
+
         setParentList(Array.isArray(categories) ? categories : []);
 
-        if (editingId !== null) {
-          const category = await getCategoryById(editingId);
-          if (!category) {
-            toast.error("Không tìm thấy danh mục cần cập nhật");
-            router.push("/admin/categories");
-            return;
-          }
+        if (editingId === null) return;
 
-          setName(category.name ?? "");
-          setParentId(
-            category.parentId === null ? "none" : String(category.parentId),
-          );
-          setStatus(category.status === "INACTIVE" ? "INACTIVE" : "ACTIVE");
-          setImageUrl(category.imageUrl ?? "");
-          setImageFileName(
-            category.imageUrl
-              ? decodeURIComponent(
-                  category.imageUrl.split("?")[0].split("/").pop() ||
-                    "Ảnh hiện tại",
-                )
-              : "",
-          );
+        const category = await getCategoryById(editingId);
+        if (!isMounted) return;
+
+        if (!category) {
+          toast.error("Không tìm thấy danh mục cần cập nhật");
+          router.push("/admin/categories");
+          return;
         }
+
+        setName(category.name ?? "");
+        setParentId(
+          category.parentId === null
+            ? CATEGORY_ROOT_OPTION
+            : String(category.parentId),
+        );
+        setStatus(category.status === "INACTIVE" ? "INACTIVE" : "ACTIVE");
+        setImageUrl(category.imageUrl ?? "");
+        setImageFileName(
+          category.imageUrl
+            ? decodeURIComponent(
+                category.imageUrl.split("?")[0].split("/").pop() ||
+                  "Ảnh hiện tại",
+              )
+            : "",
+        );
       } catch {
         toast.error(
           isEdit
             ? "Không thể tải thông tin danh mục"
             : "Không thể tải danh sách danh mục",
         );
-        if (isEdit) router.push("/admin/categories");
+        if (isEdit) {
+          router.push("/admin/categories");
+        }
       } finally {
-        setLoadingData(false);
+        if (isMounted) {
+          setLoadingData(false);
+        }
       }
     };
 
     void loadData();
-  }, [
-    editingId,
-    hasPermission,
-    isEdit,
-    isLoadingAuth,
-    modeResolved,
-    requiredPermission,
-    router,
-  ]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editingId, hasPermission, isEdit, isLoadingAuth, requiredPermission, router]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setImageTouched(true);
+    setImageError("");
     setImageFileName(file.name);
+
     const reader = new FileReader();
     reader.onloadend = () => setImageUrl(reader.result as string);
     reader.readAsDataURL(file);
   };
 
   const handleRemoveImage = () => {
+    setImageTouched(true);
     setImageUrl("");
     setImageFileName("");
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setImageError(validateCategoryImage(""));
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     setNameTouched(true);
-    const inlineNameError = validateCategoryName(name);
-    if (inlineNameError) {
-      setNameError(inlineNameError);
+    setParentTouched(true);
+    setStatusTouched(true);
+    setImageTouched(true);
+
+    const inlineNameError =
+      validateCategoryName(name) || validateDuplicateCategoryName(name);
+    const inlineParentError = validateParentSelection(parentId);
+    const inlineStatusError = validateStatusSelection(status);
+    const inlineImageError = validateCategoryImage(imageUrl);
+
+    setNameError(inlineNameError);
+    setParentError(inlineParentError);
+    setStatusError(inlineStatusError);
+    setImageError(inlineImageError);
+
+    if (
+      inlineNameError ||
+      inlineParentError ||
+      inlineStatusError ||
+      inlineImageError
+    ) {
       return;
     }
-    setNameError("");
 
     setSaving(true);
     try {
       const payload: CategoryPayload = {
         name: name.trim(),
-        parentId: parentId === "none" ? null : Number(parentId),
+        parentId:
+          parentId === CATEGORY_ROOT_OPTION ? null : Number(parentId),
         status: status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
         imageUrl,
       };
@@ -204,6 +289,7 @@ export default function AddCategoryPage() {
         await createCategory(payload);
         toast.success("Thêm danh mục mới thành công");
       }
+
       router.push("/admin/categories");
       router.refresh();
     } catch (error: unknown) {
@@ -238,17 +324,31 @@ export default function AddCategoryPage() {
     }
   };
 
-  const realtimeNameError = nameTouched ? validateCategoryName(name) : "";
+  const realtimeNameError = nameTouched
+    ? validateCategoryName(name) || validateDuplicateCategoryName(name)
+    : "";
+  const realtimeParentError = parentTouched
+    ? validateParentSelection(parentId)
+    : "";
+  const realtimeStatusError = statusTouched
+    ? validateStatusSelection(status)
+    : "";
+  const realtimeImageError = imageTouched
+    ? validateCategoryImage(imageUrl)
+    : "";
 
   return (
     <div className="space-y-3">
-      <div className="mt-2 mb-8 space-y-4 px-1">
-        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+      <div className="mb-8 mt-2 space-y-4 px-1">
+        <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
           {isEdit ? "Cập nhật danh mục" : "Thêm danh mục mới"}
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 px-1 pb-[100px] text-slate-800">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5 px-1 pb-[100px] text-slate-800"
+      >
         <div className={sectionCardClass}>
           <div className="border-b border-slate-200 pb-3">
             <span className={sectionTitleClass}>1. Thông tin danh mục</span>
@@ -283,32 +383,65 @@ export default function AddCategoryPage() {
             </div>
 
             <div className="space-y-1.5 md:col-span-6">
-              <Label className={fieldLabelClass}>Danh mục cha</Label>
-              <Select value={parentId} onValueChange={setParentId}>
-                <SelectTrigger className={cn(fieldControlClass, "border-slate-200 bg-white")}>
-                  <SelectValue />
+              <Label className={fieldLabelClass}>
+                Danh mục cha <span className="text-rose-500 normal-case">*</span>
+              </Label>
+              <Select
+                value={parentId}
+                onValueChange={(value) => {
+                  setParentTouched(true);
+                  setParentId(value);
+                  setParentError("");
+                }}
+              >
+                <SelectTrigger
+                  className={cn(
+                    fieldControlClass,
+                    "border-slate-200 bg-white",
+                    parentId === CATEGORY_PARENT_PLACEHOLDER && "text-slate-400",
+                    (realtimeParentError || parentError) &&
+                      "border-red-500 focus-visible:ring-red-200",
+                  )}
+                >
+                  <SelectValue placeholder="-- Chọn danh mục cha --" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none" className="text-[13px]">
+                  <SelectItem
+                    value={CATEGORY_PARENT_PLACEHOLDER}
+                    className="text-[13px] text-slate-400"
+                  >
+                    -- Chọn danh mục cha --
+                  </SelectItem>
+                  <SelectItem
+                    value={CATEGORY_ROOT_OPTION}
+                    className="text-[13px]"
+                  >
                     Danh mục gốc
                   </SelectItem>
                   {parentList
                     .filter((category) => category.id !== editingId)
                     .map((category) => (
-                    <SelectItem
-                      key={category.id}
-                      value={String(category.id)}
-                      className="text-[13px]"
-                    >
-                      {category.name}
-                    </SelectItem>
+                      <SelectItem
+                        key={category.id}
+                        value={String(category.id)}
+                        className="text-[13px]"
+                      >
+                        {category.name}
+                      </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
+              {(realtimeParentError || parentError) && (
+                <p className="text-[11px] font-semibold text-red-500">
+                  {realtimeParentError || parentError}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5 md:col-span-6">
-              <Label className={fieldLabelClass}>Ảnh đại diện</Label>
+              <Label className={fieldLabelClass}>
+                Ảnh đại diện <span className="text-rose-500 normal-case">*</span>
+              </Label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -324,11 +457,16 @@ export default function AddCategoryPage() {
                   className={cn(
                     fieldControlClass,
                     "flex min-w-0 flex-1 items-center justify-start rounded-[4px] border border-slate-200 bg-white px-3 text-left text-slate-500 transition-colors hover:border-blue-300 hover:text-blue-600",
+                    (realtimeImageError || imageError) &&
+                      "border-red-500 text-red-500 hover:border-red-500 hover:text-red-500",
                   )}
                 >
                   <Upload size={14} className="mr-2 shrink-0" />
                   <span className="truncate">
-                    {imageFileName || (imageUrl ? "Đã có ảnh đại diện" : "Chọn ảnh đại diện...")}
+                    {imageFileName ||
+                      (imageUrl
+                        ? "Đã có ảnh đại diện"
+                        : "Chọn ảnh đại diện...")}
                   </span>
                 </button>
                 {imageUrl && (
@@ -342,6 +480,12 @@ export default function AddCategoryPage() {
                   </Button>
                 )}
               </div>
+
+              {(realtimeImageError || imageError) && (
+                <p className="text-[11px] font-semibold text-red-500">
+                  {realtimeImageError || imageError}
+                </p>
+              )}
 
               {imageUrl && (
                 <div className="mt-3 flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
@@ -357,18 +501,37 @@ export default function AddCategoryPage() {
             </div>
 
             <div className="space-y-1.5 md:col-span-6">
-              <Label className={fieldLabelClass}>Trạng thái</Label>
-              <Select value={status} onValueChange={setStatus}>
+              <Label className={fieldLabelClass}>
+                Trạng thái <span className="text-rose-500 normal-case">*</span>
+              </Label>
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  setStatusTouched(true);
+                  setStatus(value);
+                  setStatusError("");
+                }}
+              >
                 <SelectTrigger
                   className={cn(
                     fieldControlClass,
                     "border-slate-200 bg-white font-semibold",
-                    status === "ACTIVE" ? "text-blue-600" : "text-amber-600",
+                    status === CATEGORY_STATUS_PLACEHOLDER && "text-slate-400",
+                    status === "ACTIVE" && "text-blue-600",
+                    status === "INACTIVE" && "text-amber-600",
+                    (realtimeStatusError || statusError) &&
+                      "border-red-500 focus-visible:ring-red-200",
                   )}
                 >
-                  <SelectValue />
+                  <SelectValue placeholder="-- Chọn trạng thái --" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem
+                    value={CATEGORY_STATUS_PLACEHOLDER}
+                    className="text-[13px] text-slate-400"
+                  >
+                    -- Chọn trạng thái --
+                  </SelectItem>
                   <SelectItem value="ACTIVE" className="text-[13px]">
                     Đang hiển thị
                   </SelectItem>
@@ -377,6 +540,11 @@ export default function AddCategoryPage() {
                   </SelectItem>
                 </SelectContent>
               </Select>
+              {(realtimeStatusError || statusError) && (
+                <p className="text-[11px] font-semibold text-red-500">
+                  {realtimeStatusError || statusError}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -393,7 +561,7 @@ export default function AddCategoryPage() {
             </Button>
             <Button
               type="submit"
-              disabled={saving || loadingData || !modeResolved}
+              disabled={saving || loadingData}
               className="h-10 min-w-[160px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
             >
               {saving || loadingData ? (
@@ -409,4 +577,3 @@ export default function AddCategoryPage() {
     </div>
   );
 }
-

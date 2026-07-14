@@ -693,6 +693,7 @@ export default function CartPage() {
                 const actualValue = Number(
                   voucher.value || voucher.discountValue || 0,
                 );
+                const minOrderValue = Number(voucher.minOrderValue || 0);
 
                 const discountString =
                   voucher.discountType === "PERCENT"

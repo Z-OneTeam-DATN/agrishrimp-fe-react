@@ -1,12 +1,13 @@
-"use client"
+﻿"use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, Loader2, X, Plus, MapPin, CheckCircle2, Banknote, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 import { cartService } from "@/app/services/cart.service"
 import { addressService } from "@/app/services/address.service"
+import { voucherService, type UserVoucher } from "@/app/services/voucher.service"
 import { useCartStore } from "@/stores/useCartStore"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useLocationStore } from "@/stores/locationStore"
@@ -15,7 +16,9 @@ import { usePrepareOrder } from "@/hooks/usePrepareOrder"
 import { useConfirmOrder } from "@/hooks/useConfirmOrder"
 import AddressForm from "@/components/profile/AddressForm"
 import { PrepareOrderSummary } from "@/components/order/PrepareOrderSummary"
+import CheckoutVoucherSelector from "@/components/order/CheckoutVoucherSelector"
 import { OutOfStockWarning } from "@/components/order/OutOfStockWarning"
+import { getFriendlyError } from "@/app/utils/apiError"
 import type { DeliveryInfo, CartItem, PaymentMethod } from "@/app/types/order.types"
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ"
@@ -38,11 +41,22 @@ const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: R
 type SavedAddress = {
     id: number
     addressDetail: string
-    districtId: number
-    wardId: string | number
+    districtId: number | null
+    wardCode: string
     receiverName: string
     receiverPhone: string
     isDefault?: boolean
+}
+
+type SavedAddressApi = {
+    id?: number | string | null
+    addressDetail?: string | null
+    districtId?: number | string | null
+    wardId?: string | number | null
+    wardCode?: string | number | null
+    receiverName?: string | null
+    receiverPhone?: string | null
+    isDefault?: boolean | null
 }
 
 type CheckoutCartApiItem = {
@@ -66,10 +80,59 @@ type AddressFormValues = {
     addressType: string
 }
 
+type Voucher = UserVoucher
+
+const normalizeNumber = (value: unknown) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+const normalizeWardCode = (value: unknown) => {
+    const normalized = String(value ?? "").trim()
+    return normalized && normalized !== "undefined" && normalized !== "null" ? normalized : ""
+}
+
+const getVoucherLabel = (voucher: Voucher) => {
+    if (voucher.title?.trim()) return voucher.title.trim()
+
+    const value = Number(voucher.value ?? voucher.discountValue ?? 0)
+    if (voucher.discountType === "PERCENT") {
+        const maxDiscount = voucher.maxDiscount
+            ? ` tối đa ${formatMoney(Number(voucher.maxDiscount))}`
+            : ""
+        return `Giảm ${value}%${maxDiscount}`
+    }
+
+    return `Giảm ${formatMoney(value)}`
+}
+
+const normalizeSavedAddress = (raw: SavedAddressApi): SavedAddress | null => {
+    const id = normalizeNumber(raw.id)
+    if (!id) return null
+
+    return {
+        id,
+        addressDetail: String(raw.addressDetail ?? "").trim(),
+        districtId: normalizeNumber(raw.districtId),
+        wardCode: normalizeWardCode(raw.wardCode ?? raw.wardId),
+        receiverName: String(raw.receiverName ?? "").trim(),
+        receiverPhone: String(raw.receiverPhone ?? "").trim(),
+        isDefault: Boolean(raw.isDefault),
+    }
+}
+
+const getSavedAddressLocationError = (addr: SavedAddress) => {
+    if (!addr.districtId || !addr.wardCode) {
+        return "Địa chỉ này đang thiếu dữ liệu vị trí, hệ thống sẽ dùng phí vận chuyển ước tính nếu cần."
+    }
+
+    return null
+}
+
 export default function CheckoutPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const voucherCode = searchParams.get("voucher")?.trim().toUpperCase() || undefined
+    const queryVoucherCode = searchParams.get("voucher")?.trim().toUpperCase() || ""
     const selectedItemsParam = searchParams.get("items") || ""
     const selectedItemIds = useMemo(
         () => selectedItemsParam
@@ -89,12 +152,19 @@ export default function CheckoutPage() {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false)
     const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
     const [isSubmittingAddress, setIsSubmittingAddress] = useState(false)
+    const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([])
+    const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null)
+    const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
+    const [voucherInput, setVoucherInput] = useState(queryVoucherCode)
+    const [isLoadingVouchers, setIsLoadingVouchers] = useState(false)
+    const [hasLoadedVouchers, setHasLoadedVouchers] = useState(false)
 
     const [showConflictModal, setShowConflictModal] = useState(false)
     const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false)
     const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
+    const [addressLocationWarning, setAddressLocationWarning] = useState<string | null>(null)
 
-    const { deliveryInfo, setDeliveryInfo, prepareOrderResponse, prepareToken } = useCartStore()
+    const { deliveryInfo, setDeliveryInfo, prepareOrderResponse, prepareToken, clearPrepareResponse } = useCartStore()
     const { userLocation } = useLocationStore()
     const { isAuthenticated, isLoadingAuth } = useAuthStore()
 
@@ -117,12 +187,166 @@ export default function CheckoutPage() {
         return () => clearInterval(timer)
     }, [rateLimitCooldown])
 
+    const cartSubtotal = useMemo(
+        () =>
+            cartItems.reduce(
+                (sum, item) => sum + (Number(item.unitPrice) || 0) * item.quantity,
+                0
+            ),
+        [cartItems]
+    )
+
+    const activeVoucherCode = selectedVoucher?.code?.trim().toUpperCase() || undefined
+
+    const syncVoucherInUrl = useCallback((nextVoucherCode?: string | null) => {
+        const params = new URLSearchParams(searchParams.toString())
+
+        if (nextVoucherCode) {
+            params.set("voucher", nextVoucherCode)
+        } else {
+            params.delete("voucher")
+        }
+
+        const query = params.toString()
+        router.replace(query ? `/checkout?${query}` : "/checkout", { scroll: false })
+    }, [router, searchParams])
+
+    const triggerPrepare = useCallback((
+        userAddressId: number,
+        currentCart: CartItem[] = cartItems,
+        nextVoucherCode?: string
+    ) => {
+        prepareMutation.mutate({
+            userAddressId,
+            cart: currentCart.map((item) => ({
+                productVariantId: item.productVariantId,
+                quantity: item.quantity,
+            })),
+            ...(nextVoucherCode ? { voucherCode: nextVoucherCode } : {}),
+            ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
+        })
+    }, [cartItems, prepareMutation, userLocation])
+
+    const fetchAvailableVouchers = useCallback(async (orderSubtotal: number) => {
+        setIsLoadingVouchers(true)
+        try {
+            const vouchers = await voucherService.getAvailableForMe(orderSubtotal)
+            setAvailableVouchers(Array.isArray(vouchers) ? vouchers : [])
+        } catch (error) {
+            console.error("Khong the tai danh sach voucher", error)
+            setAvailableVouchers([])
+        } finally {
+            setHasLoadedVouchers(true)
+            setIsLoadingVouchers(false)
+        }
+    }, [])
+
+    const applyVoucher = useCallback((
+        voucher: Voucher | null,
+        options?: { closeModal?: boolean; showToast?: boolean }
+    ) => {
+        const nextVoucherCode = voucher?.code?.trim().toUpperCase() || undefined
+
+        setSelectedVoucher(voucher)
+        setVoucherInput(nextVoucherCode || "")
+        syncVoucherInUrl(nextVoucherCode)
+
+        if (deliveryInfo?.userAddressId) {
+            prepareMutation.reset()
+            triggerPrepare(deliveryInfo.userAddressId, cartItems, nextVoucherCode)
+        }
+
+        if (options?.closeModal) {
+            setIsVoucherModalOpen(false)
+        }
+
+        if (options?.showToast) {
+            toast.success(nextVoucherCode ? "Đã áp dụng voucher." : "Đã bỏ chọn voucher.")
+        }
+    }, [cartItems, deliveryInfo?.userAddressId, prepareMutation, syncVoucherInUrl, triggerPrepare])
+
+    const applyVoucherByCode = useCallback(() => {
+        const normalizedCode = voucherInput.trim().toUpperCase()
+
+        if (!normalizedCode) {
+            applyVoucher(null, { closeModal: true, showToast: true })
+            return
+        }
+
+        const foundVoucher = availableVouchers.find(
+            (voucher) => voucher.code.trim().toUpperCase() === normalizedCode
+        )
+
+        if (!foundVoucher) {
+            toast.error("Không tìm thấy voucher phù hợp cho đơn hàng này.")
+            return
+        }
+
+        if (!foundVoucher.canApply) {
+            toast.error(foundVoucher.availabilityReason || "Voucher chưa đủ điều kiện áp dụng.")
+            return
+        }
+
+        applyVoucher(foundVoucher, { closeModal: true, showToast: true })
+    }, [applyVoucher, availableVouchers, voucherInput])
+
+    useEffect(() => {
+        if (cartSubtotal <= 0) {
+            setAvailableVouchers([])
+            setHasLoadedVouchers(true)
+            return
+        }
+
+        void fetchAvailableVouchers(cartSubtotal)
+    }, [cartSubtotal, fetchAvailableVouchers])
+
+    useEffect(() => {
+        if (!selectedVoucher) return
+
+        const refreshedVoucher = availableVouchers.find(
+            (voucher) => voucher.code.trim().toUpperCase() === selectedVoucher.code.trim().toUpperCase()
+        )
+
+        if (!refreshedVoucher || !refreshedVoucher.canApply) {
+            applyVoucher(null)
+            return
+        }
+
+        if (refreshedVoucher !== selectedVoucher) {
+            setSelectedVoucher(refreshedVoucher)
+        }
+    }, [applyVoucher, availableVouchers, selectedVoucher])
+
+    useEffect(() => {
+        if (!hasLoadedVouchers || !queryVoucherCode) return
+
+        const foundVoucher = availableVouchers.find(
+            (voucher) => voucher.code.trim().toUpperCase() === queryVoucherCode
+        )
+
+        if (!foundVoucher || !foundVoucher.canApply) {
+            if (!selectedVoucher) {
+                syncVoucherInUrl(null)
+            }
+            return
+        }
+
+        if (selectedVoucher?.code.trim().toUpperCase() === foundVoucher.code.trim().toUpperCase()) {
+            return
+        }
+
+        applyVoucher(foundVoucher)
+    }, [applyVoucher, availableVouchers, hasLoadedVouchers, queryVoucherCode, selectedVoucher, syncVoucherInUrl])
+
     // 🐛 FIX LỖI 400: Thêm tham số currentCart = cartItems
     const handleAddressSelect = (addr: SavedAddress, currentCart = cartItems) => {
+        prepareMutation.reset()
+        setAddressLocationWarning(null)
+
         const info: DeliveryInfo = {
             address: addr.addressDetail,
-            districtId: addr.districtId,
-            wardCode: String(addr.wardId),
+            districtId: addr.districtId ?? 0,
+            wardCode: addr.wardCode,
             districtName: "",
             wardName: "",
             receiverName: addr.receiverName,
@@ -133,6 +357,13 @@ export default function CheckoutPage() {
         setAddressConfirmed(true)
         setIsAddressModalOpen(false)
 
+        const locationError = getSavedAddressLocationError(addr)
+        if (locationError) {
+            clearPrepareResponse()
+            setAddressLocationWarning(locationError)
+            toast.warning("Địa chỉ này đang thiếu dữ liệu vị trí, hệ thống sẽ dùng phí vận chuyển ước tính nếu cần.")
+        }
+
         if (addr.id) {
             prepareMutation.mutate({
                 userAddressId: addr.id,
@@ -141,7 +372,7 @@ export default function CheckoutPage() {
                     productVariantId: item.productVariantId,
                     quantity: item.quantity
                 })),
-                ...(voucherCode && { voucherCode }),
+                ...(activeVoucherCode && { voucherCode: activeVoucherCode }),
                 ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
             })
         }
@@ -187,7 +418,11 @@ export default function CheckoutPage() {
                 }
 
                 setCartItems(filteredItems)
-                const normalizedAddresses = addressData as SavedAddress[]
+                const normalizedAddresses = Array.isArray(addressData)
+                    ? addressData
+                        .map((item) => normalizeSavedAddress(item as SavedAddressApi))
+                        .filter((item): item is SavedAddress => item !== null)
+                    : []
                 setAddresses(normalizedAddresses)
                 if (normalizedAddresses.length > 0) {
                     const defaultAddr = normalizedAddresses.find((a) => a.isDefault) || normalizedAddresses[0]
@@ -218,12 +453,21 @@ export default function CheckoutPage() {
             }
             const newAddr = await addressService.create(payload)
             toast.success("Đã thêm địa chỉ mới!")
-            const updatedAddresses = await addressService.getAll() as SavedAddress[]
+            const updatedAddressData = await addressService.getAll()
+            const updatedAddresses = Array.isArray(updatedAddressData)
+                ? updatedAddressData
+                    .map((item) => normalizeSavedAddress(item as SavedAddressApi))
+                    .filter((item): item is SavedAddress => item !== null)
+                : []
             setAddresses(updatedAddresses)
-            const createdAddress = newAddr as Partial<SavedAddress>
-            const selectedAddress = createdAddress.id
-                ? createdAddress as SavedAddress
-                : updatedAddresses.find((a) => a.addressDetail === payload.addressDetail)
+            const createdAddress = normalizeSavedAddress(newAddr as SavedAddressApi)
+            const selectedAddress = createdAddress
+                ? createdAddress
+                : updatedAddresses.find(
+                    (a) =>
+                        a.addressDetail === payload.addressDetail &&
+                        a.receiverPhone === payload.receiverPhone
+                )
             if (selectedAddress) {
                 handleAddressSelect(selectedAddress)
             }
@@ -291,6 +535,19 @@ export default function CheckoutPage() {
         }
     }, [cartItems, prepareOrderResponse])
 
+    const appliedVoucherDetails = useMemo(() => {
+        const appliedVoucherCode = prepareOrderDisplayResponse?.voucherCode?.trim().toUpperCase()
+        if (!appliedVoucherCode) return null
+
+        if (selectedVoucher?.code.trim().toUpperCase() === appliedVoucherCode) {
+            return selectedVoucher
+        }
+
+        return availableVouchers.find(
+            (voucher) => voucher.code.trim().toUpperCase() === appliedVoucherCode
+        ) ?? null
+    }, [availableVouchers, prepareOrderDisplayResponse?.voucherCode, selectedVoucher])
+
     const handleConfirm = () => {
         if (rateLimitCooldown > 0) {
             return // Chỉ disable button, không show toast
@@ -313,7 +570,7 @@ export default function CheckoutPage() {
                 productVariantId: item.productVariantId,
                 quantity: item.quantity
             })),
-            ...(voucherCode && { voucherCode }),
+            ...(activeVoucherCode && { voucherCode: activeVoucherCode }),
             ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
         })
     }
@@ -414,6 +671,11 @@ export default function CheckoutPage() {
                                                                 )}
                                                             </div>
                                                             <p className="text-xs text-gray-400">{addr.addressDetail}</p>
+                                                            {getSavedAddressLocationError(addr) && (
+                                                                <p className="mt-1 text-[11px] font-medium text-red-500">
+                                                                    {getSavedAddressLocationError(addr)}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -444,6 +706,9 @@ export default function CheckoutPage() {
                                                 <span className="text-sm text-gray-500">{deliveryInfo?.receiverPhone}</span>
                                             </div>
                                             <p className="text-sm text-gray-500 leading-relaxed">{deliveryInfo?.address}</p>
+                                            {addressLocationWarning && (
+                                                <p className="mt-2 text-xs font-medium text-amber-600">{addressLocationWarning}</p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -488,8 +753,21 @@ export default function CheckoutPage() {
 
                                 {addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
                                     <div className="border border-red-100 bg-red-50 rounded-lg p-5 text-center">
+                                        <p className="text-sm font-semibold text-red-700 mb-1">{getFriendlyError(prepareMutation.error)}</p>
+                                        <p className="text-xs text-red-400">Vui lòng kiểm tra lại địa chỉ, tồn kho hoặc thử thanh toán lại.</p>
+                                    </div>
+                                )}
+
+                                {false && addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
+                                    <div className="border border-red-100 bg-red-50 rounded-lg p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">Khu vực hiện chưa có cửa hàng phục vụ</p>
                                         <p className="text-xs text-red-400">Vui lòng chọn địa chỉ khác.</p>
+                                    </div>
+                                )}
+
+                                {addressConfirmed && addressLocationWarning && (
+                                    <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 text-sm text-amber-700">
+                                        {addressLocationWarning}
                                     </div>
                                 )}
 
@@ -503,6 +781,19 @@ export default function CheckoutPage() {
                                         <PrepareOrderSummary
                                             prepareResponse={prepareOrderDisplayResponse}
                                             imageByVariantId={imageByVariantId}
+                                        />
+                                        <CheckoutVoucherSelector
+                                            availableVouchers={availableVouchers}
+                                            selectedVoucher={selectedVoucher}
+                                            voucherInput={voucherInput}
+                                            isLoading={isLoadingVouchers}
+                                            isOpen={isVoucherModalOpen}
+                                            onOpen={() => setIsVoucherModalOpen(true)}
+                                            onClose={() => setIsVoucherModalOpen(false)}
+                                            onVoucherInputChange={setVoucherInput}
+                                            onApplyByCode={applyVoucherByCode}
+                                            onApplyVoucher={(voucher) => applyVoucher(voucher, { showToast: true })}
+                                            onClearVoucher={() => applyVoucher(null, { showToast: true })}
                                         />
                                     </div>
                                 )}
@@ -591,10 +882,18 @@ export default function CheckoutPage() {
                                         </div>
                                         {prepareOrderDisplayResponse.discountAmount > 0 && (
                                             <div className="flex justify-between items-center">
-                                                <span className="text-gray-500">
-                                                    Giáº£m giĂ¡
-                                                    {prepareOrderDisplayResponse.voucherCode ? ` (${prepareOrderDisplayResponse.voucherCode})` : ""}
-                                                </span>
+                                                <div className="pr-3">
+                                                    <p className="text-gray-500">Giảm giá voucher</p>
+                                                    {appliedVoucherDetails ? (
+                                                        <p className="mt-0.5 text-xs text-gray-400">
+                                                            {getVoucherLabel(appliedVoucherDetails)} ({appliedVoucherDetails.code})
+                                                        </p>
+                                                    ) : prepareOrderDisplayResponse.voucherCode ? (
+                                                        <p className="mt-0.5 text-xs text-gray-400">
+                                                            {prepareOrderDisplayResponse.voucherCode}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
                                                 <span className="font-medium text-blue-600">-{formatMoney(prepareOrderDisplayResponse.discountAmount)}</span>
                                             </div>
                                         )}
@@ -723,6 +1022,11 @@ export default function CheckoutPage() {
                                                         <span className="text-sm text-gray-500">{addr.receiverPhone}</span>
                                                     </div>
                                                     <p className="text-xs text-gray-500 leading-relaxed">{addr.addressDetail}</p>
+                                                    {getSavedAddressLocationError(addr) && (
+                                                        <p className="mt-1 text-[11px] font-medium text-red-500">
+                                                            {getSavedAddressLocationError(addr)}
+                                                        </p>
+                                                    )}
                                                     {addr.isDefault && (
                                                         <span className="mt-1.5 inline-block text-[10px] text-blue-600 border border-blue-400 px-1.5 py-0.5 rounded-sm">
                               Mặc định
@@ -815,4 +1119,5 @@ export default function CheckoutPage() {
         </div>
     )
 }
+
 

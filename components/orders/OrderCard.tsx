@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Store, Truck, CheckCircle2, RotateCcw, XCircle, CreditCard, Clock, Package } from "lucide-react";
 import { MyOrder, OrderStatus } from "@/app/types/order.types";
 import { cn } from "@/lib/utils";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { CancelOrderModal } from "./CancelOrderModal";
@@ -128,7 +129,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             <Link href={`/orders/${order.id}`} className="group flex min-w-0 flex-1 cursor-pointer gap-3">
               <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 transition-colors group-hover:border-[#1965a2]/30">
                 <Image
-                  src={item.image || "/placeholder.png"}
+                  src={resolveImageUrl(item.image, "/placeholder.png")}
                   alt={item.productName}
                   fill
                   className={`object-cover transition-transform duration-300 group-hover:scale-105 ${order.status === "CANCELLED" ? "grayscale opacity-70" : ""}`}

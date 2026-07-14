@@ -22,6 +22,7 @@ import { orderService } from "@/app/services/order.service";
 import { MyOrder, OrderStatus } from "@/app/types/order.types";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/dateUtils";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -338,7 +339,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {order.items.map((item) => (
               <div key={item.id} className="flex gap-3 px-4 py-3.5">
                 <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
-                  <Image src={item.image || "/placeholder.png"} alt={item.productName} fill className="object-cover" />
+                  <Image
+                    src={resolveImageUrl(item.image, "/placeholder.png")}
+                    alt={item.productName}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">

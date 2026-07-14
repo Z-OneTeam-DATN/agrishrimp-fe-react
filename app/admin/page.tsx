@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import WarehouseWorkflowCards from "@/components/admin/WarehouseWorkflowCards";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -102,27 +103,27 @@ const orderStatusRows = (pending?: PendingOrdersSummary) => [
   {
     label: "Chờ duyệt",
     value: pending?.pendingApproval ?? 0,
-    href: "/admin/orders-all",
+    href: "/admin/orders/pending",
   },
   {
     label: "Chờ thanh toán",
     value: pending?.pendingPayment ?? 0,
-    href: "/admin/orders-all",
+    href: "/admin/orders/awaiting-payment",
   },
   {
     label: "Chờ đóng gói",
     value: pending?.pendingPacking ?? 0,
-    href: "/admin/orders-processing",
+    href: "/admin/orders/processing",
   },
   {
     label: "Chờ lấy hàng",
     value: pending?.pendingPickup ?? 0,
-    href: "/admin/orders-handover",
+    href: "/admin/orders/ready-for-pickup",
   },
   {
     label: "Đang giao",
     value: pending?.shipping ?? 0,
-    href: "/admin/orders-handover",
+    href: "/admin/orders/shipping",
   },
   {
     label: "Hủy giao chờ nhận",
@@ -138,7 +139,7 @@ export default function AdminDashboard() {
     isLoading: isUserLoading,
     error: userError,
   } = useCurrentUser();
-  const { hasPermission, isLoadingAuth } = usePermissions();
+  const { hasPermission, hasAnyPermission, isLoadingAuth } = usePermissions();
   const accessToken = useAuthStore((state) => state.accessToken);
   const [selectedBranchId, setSelectedBranchId] = useState<
     string | undefined
@@ -148,6 +149,12 @@ export default function AdminDashboard() {
   const roleSlug = normalizeRoleSlug(user?.role);
   const isAdmin = isAdminRole(user?.role);
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
+  const canViewWarehouseWorkflows = hasAnyPermission([
+    P.IMPORT_VIEW,
+    P.EXPORT_VIEW,
+    P.TRANSFER_VIEW,
+    P.CHECK_VIEW,
+  ]);
   const isRestricted = ["MANAGER", "STAFF", "EMPLOYEE"].includes(roleSlug);
   const canRunProtectedQueries =
     !isLoadingAuth && !!user && !!accessToken && canViewDashboard;
@@ -624,13 +631,19 @@ export default function AdminDashboard() {
         </Panel>
       </div>
 
+      {canViewWarehouseWorkflows && (
+        <Panel title="Phiếu kho cần xử lý">
+          <WarehouseWorkflowCards />
+        </Panel>
+      )}
+
       <Panel title="Ưu tiên hôm nay">
         <div className="grid gap-3 md:grid-cols-3">
           <PriorityCard
             label="Xử lý đơn"
             value={orderWorkload}
             description="Duyệt, thanh toán, đóng gói và giao hàng."
-            href="/admin/orders-all"
+            href="/admin/orders"
           />
           <PriorityCard
             label="Bổ sung hàng"

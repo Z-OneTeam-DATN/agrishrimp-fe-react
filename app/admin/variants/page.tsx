@@ -170,7 +170,39 @@ export default function AttributeManagementPage() {
     if (!hasPermission(P.ATTRIBUTE_VIEW)) return;
     try {
       const data = await getAttributes();
-      setAttributes(data || []);
+      setAttributes(
+        (data || []).map((item) => ({
+          id: Number(item.id),
+          name: typeof item.name === "string" ? item.name : "",
+          code: typeof item.code === "string" ? item.code : "",
+          status:
+            item.status === "INACTIVE" || item.status === "ACTIVE"
+              ? item.status
+              : "ACTIVE",
+          values: Array.isArray(item.values)
+            ? item.values.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+          valueDetails: Array.isArray(item.valueDetails)
+            ? item.valueDetails
+                .filter(
+                  (
+                    detail,
+                  ): detail is {
+                    valueId?: unknown;
+                    value?: unknown;
+                    usedInVariant?: unknown;
+                  } => Boolean(detail && typeof detail === "object"),
+                )
+                .map((detail) => ({
+                  valueId: Number(detail.valueId),
+                  value: typeof detail.value === "string" ? detail.value : "",
+                  usedInVariant: Boolean(detail.usedInVariant),
+                }))
+            : [],
+        })),
+      );
     } catch (error) {
       toast.error("Không thể tải danh sách thuộc tính");
     }
@@ -224,9 +256,7 @@ export default function AttributeManagementPage() {
         normalizeValueForCompare(item) === normalizeValueForCompare(nextVal),
     );
     if (isDuplicate) {
-      setValueInputError(
-        "Giá trị này đã tồn tại (không phân biệt hoa thường).",
-      );
+      setValueInputError("Giá trị này đã tồn tại.");
       return;
     }
 
@@ -244,9 +274,7 @@ export default function AttributeManagementPage() {
         normalizeValueForCompare(item) === normalizeValueForCompare(val),
     );
     if (isDuplicate) {
-      setValueInputError(
-        "Giá trị này đã tồn tại (không phân biệt hoa thường).",
-      );
+      setValueInputError("Giá trị này đã tồn tại.");
       return;
     }
 
@@ -394,6 +422,8 @@ export default function AttributeManagementPage() {
   const paginatedAttributes = useMemo(() => {
     return displayedAttributes.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
   }, [displayedAttributes, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(displayedAttributes.length / pageSize);
 
   return (
     <div className="space-y-3">
@@ -611,48 +641,49 @@ export default function AttributeManagementPage() {
             </table>
           </div>
         </TooltipProvider>
-        <div className="flex min-w-full shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
+        <div className="flex min-w-full shrink-0 flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[12px] font-semibold text-slate-500">
-            Tổng số: {displayedAttributes.length} thuộc tính (Trang {currentPage + 1}/{Math.ceil(displayedAttributes.length / pageSize) || 1})
+            Tổng số: {displayedAttributes.length} thuộc tính (Trang {displayedAttributes.length === 0 ? 0 : currentPage + 1}/{displayedAttributes.length === 0 ? 0 : totalPages})
           </p>
-          {Math.ceil(displayedAttributes.length / pageSize) > 1 && (
+
+          {displayedAttributes.length > pageSize && (
             <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
                 disabled={currentPage === 0}
-                className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Trước
-              </Button>
+              </button>
+
               <div className="flex items-center gap-1">
-                {Array.from({ length: Math.ceil(displayedAttributes.length / pageSize) }).map((_, index) => (
-                  <Button
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <button
                     key={index}
-                    variant="outline"
-                    size="sm"
+                    type="button"
                     onClick={() => setCurrentPage(index)}
-                    className={cn(
-                      "h-7 min-w-[28px] px-2 p-0 text-[11px] font-bold shadow-sm transition-all",
+                    className={`h-7 min-w-[28px] rounded-[4px] border px-2 text-[11px] font-bold shadow-sm transition-all ${
                       currentPage === index
-                        ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                    )}
+                        ? "border-[#1965a2] bg-gradient-to-r from-[#1965a2] to-[#1965a2] text-white hover:from-[#145486] hover:to-[#145486]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
                     {index + 1}
-                  </Button>
+                  </button>
                 ))}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage >= Math.ceil(displayedAttributes.length / pageSize) - 1}
-                className="h-7 px-2 text-[11px] font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
+                }
+                disabled={currentPage >= totalPages - 1}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Sau
-              </Button>
+              </button>
             </div>
           )}
         </div>

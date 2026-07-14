@@ -24,7 +24,7 @@ const getVoucherLabel = (voucher: Voucher) => {
   const value = Number(voucher.value ?? voucher.discountValue ?? 0);
   if (voucher.discountType === "PERCENT") {
     const maxDiscount = voucher.maxDiscount
-      ? ` tối đa ${formatMoney(voucher.maxDiscount)}`
+      ? `, tối đa ${formatMoney(voucher.maxDiscount)}`
       : "";
     return `Giảm ${value}%${maxDiscount}`;
   }
@@ -55,16 +55,15 @@ const persistSavedVoucherCodes = (codes: string[]) => {
 
 const isVoucherVisible = (voucher: Voucher) => {
   const now = Date.now();
-  const startOk = !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
-  const endOk = !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
+  const startOk =
+    !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
+  const endOk =
+    !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
   return voucher.status === "ACTIVE" && startOk && endOk;
 };
 
-const actionButtonClass =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-full border px-4 text-[13px] font-semibold transition-all duration-200";
-const secondaryActionClass = `${actionButtonClass} border-[#1965a2]/15 bg-[#1965a2]/5 text-[#1965a2] hover:border-[#1965a2]/30 hover:bg-[#1965a2]/10`;
-const primaryActionClass = `${actionButtonClass} border-[#1965a2] bg-[#1965a2] text-white shadow-sm shadow-[#1965a2]/20 hover:border-[#145486] hover:bg-[#145486]`;
-const dangerActionClass = `${actionButtonClass} border-red-200 bg-red-50 text-red-600 hover:border-red-300 hover:bg-red-100`;
+const actionTextClass =
+  "text-[15px] font-medium text-[#1965a2] transition-colors hover:text-[#145486]";
 
 export default function VoucherWalletPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -96,7 +95,7 @@ export default function VoucherWalletPage() {
       }
     };
 
-    fetchPublicVouchers();
+    void fetchPublicVouchers();
   }, []);
 
   const handleCopy = (code: string) => {
@@ -117,16 +116,6 @@ export default function VoucherWalletPage() {
     setSavedCodes(nextCodes);
     persistSavedVoucherCodes(nextCodes);
     toast.success(`Đã lưu voucher ${normalized} vào ví`);
-  };
-
-  const handleRemoveSaved = (code: string) => {
-    const normalized = code.trim().toUpperCase();
-    const nextCodes = savedCodes.filter(
-      (savedCode) => savedCode !== normalized,
-    );
-    setSavedCodes(nextCodes);
-    persistSavedVoucherCodes(nextCodes);
-    toast.success(`Đã gỡ voucher ${normalized} khỏi ví`);
   };
 
   const savedVouchers = vouchers.filter((voucher) =>
@@ -159,7 +148,8 @@ export default function VoucherWalletPage() {
 
         <Link href="/voucher/create">
           <button className="flex h-10 items-center justify-center bg-[#1965a2] px-4 text-sm font-medium text-white transition-colors hover:bg-[#145486]">
-            <Ticket size={16} className="mr-1.5" /> Nhập mã Voucher
+            <Ticket size={16} className="mr-1.5" />
+            Nhập mã Voucher
           </button>
         </Link>
       </div>
@@ -217,27 +207,20 @@ export default function VoucherWalletPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2 md:min-w-[320px] md:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-4 md:min-w-[220px] md:justify-end">
                     <button
                       type="button"
                       onClick={() => handleCopy(voucher.code)}
-                      className={secondaryActionClass}
+                      className={actionTextClass}
                     >
                       Sao chép
                     </button>
                     <Link
                       href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
-                      className={primaryActionClass}
+                      className={actionTextClass}
                     >
                       Dùng ngay
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSaved(voucher.code)}
-                      className={dangerActionClass}
-                    >
-                      Gỡ khỏi ví
-                    </button>
                   </div>
                 </div>
               );
@@ -274,7 +257,7 @@ export default function VoucherWalletPage() {
                       <span className="text-[18px] font-medium text-gray-900">
                         {getVoucherLabel(voucher)}
                       </span>
-                      <span className="text-[15px] text-gray-500">
+                      <span className="inline-flex border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500">
                         {voucher.code}
                       </span>
                     </div>
@@ -297,18 +280,18 @@ export default function VoucherWalletPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2 md:min-w-[240px] md:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-4 md:min-w-[220px] md:justify-end">
                     <button
                       type="button"
                       onClick={() => handleSave(voucher.code)}
-                      className={primaryActionClass}
+                      className={actionTextClass}
                     >
                       Lưu mã
                     </button>
                     <button
                       type="button"
                       onClick={() => handleCopy(voucher.code)}
-                      className={secondaryActionClass}
+                      className={actionTextClass}
                     >
                       Sao chép
                     </button>
@@ -322,4 +305,3 @@ export default function VoucherWalletPage() {
     </div>
   );
 }
-

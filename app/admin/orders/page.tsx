@@ -1,5 +1,5 @@
-import { LegacyOrderRouteRedirect } from "@/components/admin/orders/LegacyOrderRouteRedirect";
+import { redirect } from "next/navigation";
 
 export default function AdminOrdersPage() {
-  return <LegacyOrderRouteRedirect />;
+  redirect("/admin/orders-all");
 }

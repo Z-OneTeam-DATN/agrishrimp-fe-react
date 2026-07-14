@@ -1,0 +1,308 @@
+import { MyOrder, OrderStatus } from "@/app/types/order.types";
+import { cn } from "@/lib/utils";
+
+type BadgeTone = {
+  label: string;
+  styles: string;
+};
+
+type DeliveryState =
+  | "NOT_STARTED"
+  | "PREPARING"
+  | "WAITING_HANDOVER"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "RETURNED";
+
+const ORDER_WORKFLOW_STATUS_MAP: Record<string, BadgeTone> = {
+  AWAITING_REPLENISHMENT: {
+    label: "Đơn thiếu hàng",
+    styles: "bg-rose-50 text-rose-600 border-rose-200",
+  },
+  PENDING: {
+    label: "Chờ xác nhận",
+    styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]",
+  },
+  AWAITING_PAYMENT: {
+    label: "Chờ thanh toán",
+    styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]",
+  },
+  CONFIRMED: {
+    label: "Đã xác nhận",
+    styles: "bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]",
+  },
+  PROCESSING: {
+    label: "Đang chuẩn bị",
+    styles: "bg-[#fffbe6] text-[#d4b106] border-[#ffe58f]",
+  },
+  READY_FOR_PICKUP: {
+    label: "Chờ bàn giao",
+    styles: "bg-teal-50 text-teal-700 border-teal-200",
+  },
+  SHIPPING: {
+    label: "Đang giao hàng",
+    styles: "bg-[#f9f0ff] text-[#722ed1] border-[#d3adf7]",
+  },
+  RECEIVED: {
+    label: "Đã giao hàng",
+    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  COMPLETED: {
+    label: "Hoàn thành",
+    styles: "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]",
+  },
+  CANCELLED: {
+    label: "Đã hủy",
+    styles: "bg-[#fff1f0] text-[#f5222d] border-[#ffa39e]",
+  },
+  RETURNED: {
+    label: "Trả hàng",
+    styles: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+};
+
+const PAYMENT_STATUS_MAP: Record<string, BadgeTone> = {
+  PAID: {
+    label: "Đã thanh toán",
+    styles: "bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]",
+  },
+  UNPAID: {
+    label: "Chưa thanh toán",
+    styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]",
+  },
+  PARTIAL: {
+    label: "Thanh toán một phần",
+    styles: "bg-blue-50 text-blue-600 border-blue-200",
+  },
+  PENDING_TRANSFER_CONFIRMATION: {
+    label: "Chờ xác nhận chuyển khoản",
+    styles: "bg-violet-50 text-violet-700 border-violet-200",
+  },
+  REFUNDED: {
+    label: "Đã hoàn tiền",
+    styles: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+};
+
+const DELIVERY_STATUS_MAP: Record<DeliveryState, BadgeTone> = {
+  NOT_STARTED: {
+    label: "Chưa giao",
+    styles: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  PREPARING: {
+    label: "Đang chuẩn bị",
+    styles: "bg-amber-50 text-amber-700 border-amber-200",
+  },
+  WAITING_HANDOVER: {
+    label: "Chờ bàn giao",
+    styles: "bg-teal-50 text-teal-700 border-teal-200",
+  },
+  IN_TRANSIT: {
+    label: "Đang giao",
+    styles: "bg-violet-50 text-violet-700 border-violet-200",
+  },
+  DELIVERED: {
+    label: "Đã giao",
+    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  CANCELLED: {
+    label: "Đã hủy",
+    styles: "bg-rose-50 text-rose-700 border-rose-200",
+  },
+  RETURNED: {
+    label: "Trả hàng",
+    styles: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+};
+
+const INVENTORY_STATUS_MAP: Record<"IN_STOCK" | "SHORTAGE", BadgeTone> = {
+  IN_STOCK: {
+    label: "Đủ hàng",
+    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  SHORTAGE: {
+    label: "Thiếu hàng",
+    styles: "bg-rose-50 text-rose-600 border-rose-200",
+  },
+};
+
+const renderBadge = (tone: BadgeTone) => (
+  <span
+    className={cn(
+      "inline-flex items-center rounded-[10px] border px-2.5 py-0.5 text-[11px] font-medium",
+      tone.styles,
+    )}
+  >
+    {tone.label}
+  </span>
+);
+
+export const getOrderCode = (order: Pick<MyOrder, "orderCode" | "code">) =>
+  order.orderCode ?? order.code;
+
+export const getOrderBranchNames = (
+  order: Pick<MyOrder, "branchName" | "subOrders">,
+) => {
+  const rawNames = [
+    order.branchName,
+    ...(order.subOrders ?? []).map((subOrder) => subOrder.branchName),
+  ];
+
+  return Array.from(
+    new Set(
+      rawNames
+        .map((name) => name?.trim())
+        .filter((name): name is string => Boolean(name)),
+    ),
+  );
+};
+
+export const getOrderBranchSummary = (
+  order: Pick<MyOrder, "branchName" | "subOrders">,
+) => {
+  const names = getOrderBranchNames(order);
+
+  if (names.length === 0) {
+    return "Chưa gán chi nhánh";
+  }
+
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  return `${names[0]} +${names.length - 1} chi nhánh`;
+};
+
+export const getOrderMissingSkuCount = (
+  order: Pick<MyOrder, "items" | "status">,
+) => {
+  const count = (order.items ?? []).filter(
+    (item) => Number(item.missingQuantity ?? 0) > 0,
+  ).length;
+
+  return order.status === "AWAITING_REPLENISHMENT" ? Math.max(1, count) : count;
+};
+
+export const getOrderMissingUnitCount = (
+  order: Pick<MyOrder, "items" | "status">,
+) =>
+  (order.items ?? []).reduce(
+    (sum, item) => sum + Number(item.missingQuantity ?? 0),
+    0,
+  );
+
+export const hasOrderShortage = (order: Pick<MyOrder, "items" | "status">) =>
+  order.status === "AWAITING_REPLENISHMENT" ||
+  (order.items ?? []).some((item) => Number(item.missingQuantity ?? 0) > 0);
+
+export const getOrderInventoryStatus = (
+  order: Pick<MyOrder, "items" | "status">,
+) => (hasOrderShortage(order) ? "SHORTAGE" : "IN_STOCK");
+
+export const getDeliveryStatusFromOrder = (
+  status: OrderStatus | string,
+): DeliveryState => {
+  switch (status) {
+    case "PROCESSING":
+      return "PREPARING";
+    case "READY_FOR_PICKUP":
+      return "WAITING_HANDOVER";
+    case "SHIPPING":
+      return "IN_TRANSIT";
+    case "RECEIVED":
+    case "COMPLETED":
+      return "DELIVERED";
+    case "CANCELLED":
+      return "CANCELLED";
+    case "RETURNED":
+      return "RETURNED";
+    default:
+      return "NOT_STARTED";
+  }
+};
+
+export const isOrderProcessingOverdue = (
+  order: Pick<MyOrder, "createdAt" | "status">,
+  thresholdHours = 24,
+) => {
+  if (["RECEIVED", "COMPLETED", "CANCELLED", "RETURNED"].includes(order.status)) {
+    return false;
+  }
+
+  const createdAt = new Date(order.createdAt).getTime();
+  if (Number.isNaN(createdAt)) {
+    return false;
+  }
+
+  return Date.now() - createdAt >= thresholdHours * 60 * 60 * 1000;
+};
+
+export const isOrderCreatedToday = (order: Pick<MyOrder, "createdAt">) => {
+  const createdAt = new Date(order.createdAt);
+  if (Number.isNaN(createdAt.getTime())) {
+    return false;
+  }
+
+  const now = new Date();
+  return (
+    createdAt.getDate() === now.getDate() &&
+    createdAt.getMonth() === now.getMonth() &&
+    createdAt.getFullYear() === now.getFullYear()
+  );
+};
+
+export const getOrderRevenueValue = (
+  order: Pick<MyOrder, "finalAmount" | "totalAmount">,
+) => Number(order.finalAmount ?? order.totalAmount ?? 0);
+
+export const canApprovePackedAndShip = (order: MyOrder, detail?: MyOrder) => {
+  const orderDetail = detail ?? order;
+  const hasActiveSubOrders =
+    (orderDetail.subOrders ?? []).filter(
+      (subOrder) => !["CANCELLED", "RETURNED"].includes(subOrder.status),
+    ).length > 0;
+
+  return (
+    !hasActiveSubOrders &&
+    ["CONFIRMED", "PROCESSING", "READY_FOR_PICKUP"].includes(order.status)
+  );
+};
+
+export function OrderWorkflowBadge({
+  status,
+}: {
+  status: OrderStatus | string;
+}) {
+  const tone = ORDER_WORKFLOW_STATUS_MAP[status] ?? {
+    label: status,
+    styles: "bg-slate-100 text-slate-600 border-slate-200",
+  };
+
+  return renderBadge(tone);
+}
+
+export function PaymentStatusBadge({ status }: { status: string }) {
+  const tone = PAYMENT_STATUS_MAP[status] ?? {
+    label: status,
+    styles: "bg-slate-100 text-slate-600 border-slate-200",
+  };
+
+  return renderBadge(tone);
+}
+
+export function DeliveryStatusBadge({
+  status,
+}: {
+  status: OrderStatus | string;
+}) {
+  return renderBadge(DELIVERY_STATUS_MAP[getDeliveryStatusFromOrder(status)]);
+}
+
+export function InventoryStatusBadge({
+  order,
+}: {
+  order: Pick<MyOrder, "items" | "status">;
+}) {
+  return renderBadge(INVENTORY_STATUS_MAP[getOrderInventoryStatus(order)]);
+}

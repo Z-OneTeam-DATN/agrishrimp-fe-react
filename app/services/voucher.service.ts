@@ -109,6 +109,11 @@ export const voucherService = {
     return normalizeVoucherList(response.data);
   },
 
+  getById: async (id: number) => {
+    const response = await apiJava.get(`/vouchers/${id}`);
+    return normalizeVoucherItem<Voucher>(response.data);
+  },
+
   create: async (data: VoucherUpsertPayload) => {
     const response = await apiJava.post("/vouchers", buildVoucherPayload(data));
     return response.data;
