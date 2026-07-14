@@ -324,10 +324,6 @@ export default function AddEmployeePage() {
         }
     };
 
-    const onFormInvalid = () => {
-        toast.error("Vui lòng nhập/chọn đầy đủ thông tin bắt buộc.");
-    };
-
     if (loading || isLoadingAuth) {
         return (
             <div className="flex min-h-screen items-center justify-center">
@@ -337,7 +333,7 @@ export default function AddEmployeePage() {
     }
 
     return (
-        <form onSubmit={handleSubmit(onFormSubmit, onFormInvalid)} className="space-y-2 pb-[100px] text-slate-800">
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-2 pb-[100px] text-slate-800">
             <div className="mb-6 mt-2 space-y-3">
                 <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
                     Thêm nhân viên mới
@@ -465,7 +461,7 @@ export default function AddEmployeePage() {
                         <div className="xl:col-span-8">
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-                                    <div className="space-y-1.5 md:col-span-5">
+                                    <div className="space-y-1.5 md:col-span-4">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Họ và tên *
                                         </Label>
@@ -500,7 +496,7 @@ export default function AddEmployeePage() {
                                         )}
                                     </div>
 
-                                    <div className="space-y-1.5 md:col-span-3">
+                                    <div className="space-y-1.5 md:col-span-4">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Giới tính *
                                         </Label>
