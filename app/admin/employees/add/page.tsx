@@ -1,32 +1,33 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Camera, IdCard, Loader2, ShieldCheck, Upload, UserCircle2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { RoleService } from "@/app/services/RoleService";
+import { BranchService } from "@/app/services/branchService";
+import { EmployeeService } from "@/app/services/employee.service";
 import {
-    ShieldCheck,
-    Loader2, Camera, UserCircle2, Upload
-} from "lucide-react";
+    BranchType,
+    EmployeeCreateInput,
+    EmployeeCreateSchema,
+    UserRequest,
+} from "@/app/types/employee.schema";
+import { RoleType } from "@/app/types/role.schema";
+import { BirthDatePicker, SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BirthDatePicker, SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { getErrorMessage, apiJava } from "@/lib/axios";
-import { EmployeeService } from "@/app/services/employee.service";
-import { RoleService } from "@/app/services/RoleService";
-import { BranchService } from "@/app/services/branchService";
-import { RoleType } from "@/app/types/role.schema";
-import { BranchType, UserRequest, EmployeeCreateSchema, EmployeeCreateInput } from "@/app/types/employee.schema";
-import { useAuthStore } from "@/stores/useAuthStore";
-import { canManageSystemAdminRoles } from "@/lib/roles";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
+import { apiJava, getErrorMessage } from "@/lib/axios";
 import { P } from "@/lib/permissions";
+import { canManageSystemAdminRoles } from "@/lib/roles";
+import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const extractContent = <T,>(payload: T[] | { content?: T[] } | null | undefined) => {
     if (Array.isArray(payload)) return payload;
@@ -35,13 +36,39 @@ const extractContent = <T,>(payload: T[] | { content?: T[] } | null | undefined)
 
 const toApiError = (error: unknown) => error as Parameters<typeof getErrorMessage>[0];
 
+const normalizeOcrErrorMessage = (error: unknown) => {
+    const rawMessage = getErrorMessage(toApiError(error)) || "";
+    const message = rawMessage.trim();
+
+    if (!message) {
+        return "Chưa lấy được thông tin từ ảnh. Vui lòng thử lại.";
+    }
+
+    const lowered = message.toLowerCase();
+
+    if (lowered.includes("api key") || lowered.includes("cấu hình")) {
+        return "Hệ thống đang thiếu cấu hình xử lý ảnh. Vui lòng thử lại sau.";
+    }
+
+    if (lowered.includes("không thể kết nối") || lowered.includes("thử lại sau")) {
+        return "Hệ thống đang bận. Vui lòng thử lại sau ít phút.";
+    }
+
+    if (lowered.includes("json") || lowered.includes("định dạng")) {
+        return "Ảnh chưa đúng định dạng. Vui lòng chọn lại ảnh rõ hơn.";
+    }
+
+    return message;
+};
+
 export default function AddEmployeePage() {
     const router = useRouter();
     const { user: currentUser, isLoadingAuth } = useAuthStore();
     const { hasPermission } = usePermissions();
     const roleSlug = typeof currentUser?.role === "object" ? currentUser.role?.slug : currentUser?.role;
     const isAdmin = roleSlug?.toLowerCase() === "admin" || roleSlug?.toLowerCase() === "super_admin";
-    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const avatarInputRef = useRef<HTMLInputElement>(null);
     const citizenIdInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedInitRef = useRef(false);
 
@@ -51,6 +78,7 @@ export default function AddEmployeePage() {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [ocrProcessing, setOcrProcessing] = useState(false);
+    const [citizenImagePreview, setCitizenImagePreview] = useState<string | null>(null);
 
     const {
         register,
@@ -66,7 +94,6 @@ export default function AddEmployeePage() {
         defaultValues: {
             fullName: "",
             email: "",
-            // ✅ Đặt cứng mật khẩu mặc định là 123456
             password: undefined,
             phoneNumber: "",
             citizenId: "",
@@ -74,11 +101,11 @@ export default function AddEmployeePage() {
             dateOfBirth: "",
             avatarUrl: null,
             status: "ACTIVE",
-            startDate: new Date().toISOString().split('T')[0],
+            startDate: new Date().toISOString().split("T")[0],
             branchId: undefined,
             roleId: undefined,
-            gender: "MALE"
-        }
+            gender: "MALE",
+        },
     });
 
     const currentAvatarUrl = watch("avatarUrl");
@@ -96,6 +123,14 @@ export default function AddEmployeePage() {
     }, [hasPermission, isLoadingAuth, router]);
 
     useEffect(() => {
+        return () => {
+            if (citizenImagePreview) {
+                URL.revokeObjectURL(citizenImagePreview);
+            }
+        };
+    }, [citizenImagePreview]);
+
+    useEffect(() => {
         if (isLoadingAuth || !hasPermission(P.STAFF_CREATE)) {
             return;
         }
@@ -104,38 +139,37 @@ export default function AddEmployeePage() {
             if (!hasLoadedInitRef.current) {
                 setLoading(true);
             }
+
             try {
                 const [rolesRes, branchesRes] = await Promise.all([
                     RoleService.getAll(),
-                    BranchService.getAll()
+                    BranchService.getAll(),
                 ]);
 
                 let rolesList = extractContent<RoleType>(rolesRes as RoleType[] | { content?: RoleType[] });
-
-                // 1. Cấm gán USER (5.8)
-                // 2. Cấm tự leo thang quyền (5.8) - Phải là ADMIN mới gán được ADMIN
-                rolesList = rolesList.filter(r => {
-                    const slug = r.slug.toLowerCase();
+                rolesList = rolesList.filter((role) => {
+                    const slug = role.slug.toLowerCase();
                     if (slug === "user" || slug === "customer") return false;
-                    if (!canManageSystemAdminRoles(currentUser?.role) && (slug === "admin" || slug === "super_admin")) return false;
+                    if (!canManageSystemAdminRoles(currentUser?.role) && (slug === "admin" || slug === "super_admin")) {
+                        return false;
+                    }
                     return true;
                 });
-
                 setRoles(rolesList);
 
-                // ✅ Tải danh sách chi nhánh
                 let branchesList = extractContent<BranchType>(branchesRes as BranchType[] | { content?: BranchType[] });
                 if (!isAdmin && currentUser?.branch?.id) {
                     branchesList = branchesList.filter((branch) => branch.id === currentUser.branch?.id);
                 }
                 setBranches(branchesList);
             } catch {
-                toast.error("Không thể tải dữ liệu hệ thống.");
+                toast.error("Không tải được dữ liệu cần thiết. Vui lòng thử lại.");
             } finally {
                 hasLoadedInitRef.current = true;
                 setLoading(false);
             }
         }
+
         loadInitData();
     }, [currentUser, hasPermission, isAdmin, isLoadingAuth]);
 
@@ -148,8 +182,42 @@ export default function AddEmployeePage() {
         }
     }, [branches, currentBranchId, currentUser, isAdmin, setValue]);
 
-    const handleAvatarClick = () => fileInputRef.current?.click();
+    const handleAvatarClick = () => avatarInputRef.current?.click();
     const handleCitizenIdUploadClick = () => citizenIdInputRef.current?.click();
+
+    const validateCitizenIdImage = async (file: File) => {
+        const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+        if (!allowedTypes.includes(file.type)) {
+            throw new Error("Vui lòng chọn ảnh JPG, PNG hoặc WEBP.");
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            throw new Error("Ảnh CCCD vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+
+        try {
+            const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => {
+                    resolve({ width: image.width, height: image.height });
+                    URL.revokeObjectURL(image.src);
+                };
+                image.onerror = () => {
+                    reject(new Error("Không đọc được ảnh. Vui lòng chọn lại ảnh khác."));
+                    URL.revokeObjectURL(image.src);
+                };
+                image.src = objectUrl;
+            });
+
+            if (dimensions.width < 640 || dimensions.height < 480) {
+                throw new Error("Ảnh quá nhỏ. Vui lòng chọn ảnh rõ hơn, tối thiểu khoảng 640x480.");
+            }
+        } finally {
+            URL.revokeObjectURL(objectUrl);
+        }
+    };
 
     const handleEmployeeAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -160,18 +228,18 @@ export default function AddEmployeePage() {
             const formDataUpload = new FormData();
             formDataUpload.append("file", file);
 
-            const response = await apiJava.post('/users/upload-avatar', formDataUpload);
-
+            const response = await apiJava.post("/users/upload-avatar", formDataUpload);
             const avatarUrl = response.data.imageUrl || response.data.url;
+
             if (!avatarUrl) {
-                toast.error("Upload thành công nhưng không nhận được đường dẫn ảnh.");
+                toast.error("Tải ảnh xong nhưng hệ thống chưa nhận được ảnh. Vui lòng thử lại.");
                 return;
             }
 
             setValue("avatarUrl", avatarUrl, { shouldDirty: true, shouldValidate: true });
-            toast.success("Tải ảnh lên thành công!");
+            toast.success("Ảnh đại diện đã được tải lên.");
         } catch (error: unknown) {
-            toast.error(getErrorMessage(toApiError(error)) || "Lỗi khi tải ảnh.");
+            toast.error(getErrorMessage(toApiError(error)) || "Không tải được ảnh đại diện. Vui lòng thử lại.");
         } finally {
             setUploading(false);
         }
@@ -179,7 +247,7 @@ export default function AddEmployeePage() {
 
     const applyOcrValue = <K extends keyof EmployeeCreateInput>(
         field: K,
-        value: EmployeeCreateInput[K] | null | undefined
+        value: EmployeeCreateInput[K] | null | undefined,
     ) => {
         if (value === null || value === undefined) return;
         if (typeof value === "string" && value.trim() === "") return;
@@ -198,23 +266,21 @@ export default function AddEmployeePage() {
         e.target.value = "";
         if (!file) return;
 
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("Ảnh CCCD vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.");
-            return;
-        }
-
-        if (!file.type.startsWith("image/")) {
-            toast.error("File tải lên phải là ảnh hợp lệ.");
-            return;
-        }
-
         try {
+            await validateCitizenIdImage(file);
+
+            const nextPreview = URL.createObjectURL(file);
+            if (citizenImagePreview) {
+                URL.revokeObjectURL(citizenImagePreview);
+            }
+            setCitizenImagePreview(nextPreview);
+
             setOcrProcessing(true);
             const recognized = await EmployeeService.ocrCitizenId(file);
             const currentValues = getValues();
 
-            applyOcrValue("citizenId", recognized.citizenId ?? currentValues.citizenId);
             applyOcrValue("fullName", recognized.fullName ?? currentValues.fullName);
+            applyOcrValue("citizenId", recognized.citizenId ?? currentValues.citizenId);
             applyOcrValue("dateOfBirth", recognized.dateOfBirth ?? currentValues.dateOfBirth);
             applyOcrValue("addressDetail", recognized.addressDetail ?? currentValues.addressDetail);
 
@@ -222,13 +288,13 @@ export default function AddEmployeePage() {
                 applyOcrValue("gender", recognized.gender);
             }
 
-            toast.success(
-                recognized.confidence
-                    ? `Đã đọc CCCD thành công (${recognized.confidence.toFixed(1)}%).`
-                    : "Đã đọc CCCD thành công."
-            );
+            toast.success("Lấy thông tin thành công, vui lòng kiểm tra lại thông tin.");
         } catch (error: unknown) {
-            toast.error(getErrorMessage(toApiError(error)) || "Không thể đọc ảnh CCCD.");
+            if (error instanceof Error) {
+                toast.error(error.message);
+            } else {
+                toast.error(normalizeOcrErrorMessage(error));
+            }
         } finally {
             setOcrProcessing(false);
         }
@@ -238,21 +304,20 @@ export default function AddEmployeePage() {
         try {
             setSaving(true);
             await EmployeeService.create(data as unknown as UserRequest);
-            toast.success("Tài khoản đã tạo thành công. Email đã được gửi.");
+            toast.success("Đã tạo nhân viên thành công.");
             router.push("/admin/employees");
         } catch (error: unknown) {
             const backendDetails = (error as { response?: { data?: { details?: string[] } } }).response?.data?.details;
             if (Array.isArray(backendDetails)) {
                 backendDetails.forEach((detail: string) => {
-                    // BE trả format: "fieldName message"
                     const parts = detail.split(" ");
                     const field = parts[0] as keyof EmployeeCreateInput;
                     const message = parts.slice(1).join(" ");
                     setError(field, { type: "manual", message });
                 });
-                toast.error("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.");
+                toast.error("Vui lòng kiểm tra lại thông tin đã nhập.");
             } else {
-                toast.error(getErrorMessage(toApiError(error)) || "Lỗi khi tạo nhân viên.");
+                toast.error(getErrorMessage(toApiError(error)) || "Chưa tạo được nhân viên. Vui lòng thử lại.");
             }
         } finally {
             setSaving(false);
@@ -269,7 +334,7 @@ export default function AddEmployeePage() {
 
     return (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3 pb-[100px] text-slate-800">
-            <div className="mt-2 mb-8 space-y-4">
+            <div className="mb-8 mt-2 space-y-4">
                 <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
                     Thêm nhân viên mới
                 </h1>
@@ -283,53 +348,111 @@ export default function AddEmployeePage() {
 
                     <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-12">
                         <div className="xl:col-span-3">
-                            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-6 xl:min-h-[360px]">
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-medium text-slate-400">
-                                        Ảnh đại diện
-                                    </Label>
-                                    <div className="flex flex-col items-center justify-center gap-5 xl:min-h-[290px]">
-                                        <div className="relative cursor-pointer" onClick={handleAvatarClick}>
-                                            <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-200 bg-white">
+                            <div className="space-y-5">
+                                <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-6">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            Ảnh đại diện
+                                        </Label>
+                                        <div className="flex flex-col items-center justify-center gap-5">
+                                            <div className="relative cursor-pointer" onClick={handleAvatarClick}>
+                                                <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-200 bg-white">
+                                                    {uploading ? (
+                                                        <Loader2 className="animate-spin text-blue-600" />
+                                                    ) : currentAvatarUrl ? (
+                                                        <img
+                                                            src={currentAvatarUrl}
+                                                            alt="Avatar"
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <UserCircle2 size={86} className="text-slate-200" />
+                                                    )}
+                                                </div>
+                                                <div className="absolute bottom-1 right-1 rounded-full bg-blue-600 p-2 text-white shadow-lg">
+                                                    <Camera size={18} />
+                                                </div>
+                                            </div>
+
+                                            <input
+                                                type="file"
+                                                ref={avatarInputRef}
+                                                onChange={handleEmployeeAvatarUpload}
+                                                className="hidden"
+                                                accept="image/*"
+                                            />
+
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={handleAvatarClick}
+                                                disabled={uploading}
+                                                className="h-10 w-full text-[13px] font-medium"
+                                            >
                                                 {uploading ? (
-                                                    <Loader2 className="animate-spin text-blue-600" />
-                                                ) : currentAvatarUrl ? (
+                                                    <>
+                                                        <Loader2 size={12} className="mr-2 animate-spin" />
+                                                        Đang tải ảnh
+                                                    </>
+                                                ) : (
+                                                    "Chọn ảnh đại diện"
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-6">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            Upload ảnh CCCD
+                                        </Label>
+
+                                        <div className="space-y-4">
+                                            <div className="flex min-h-[180px] items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-200 bg-white">
+                                                {citizenImagePreview ? (
                                                     <img
-                                                        src={currentAvatarUrl}
-                                                        alt="Avatar"
-                                                        className="h-full w-full object-cover"
+                                                        src={citizenImagePreview}
+                                                        alt="Ảnh CCCD"
+                                                        className="max-h-[220px] w-full rounded-xl object-contain"
                                                     />
                                                 ) : (
-                                                    <UserCircle2 size={86} className="text-slate-200" />
+                                                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-slate-400">
+                                                        <IdCard size={36} className="text-slate-300" />
+                                                        <p className="text-[12px] font-medium">Chưa có ảnh CCCD</p>
+                                                        <p className="text-[11px]">Ảnh rõ 4 góc, mặt trước, tối đa 5MB.</p>
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="absolute bottom-1 right-1 rounded-full bg-blue-600 p-2 text-white shadow-lg">
-                                                <Camera size={18} />
-                                            </div>
+
+                                            <input
+                                                type="file"
+                                                ref={citizenIdInputRef}
+                                                onChange={handleCitizenIdUpload}
+                                                className="hidden"
+                                                accept="image/png,image/jpeg,image/jpg,image/webp"
+                                            />
+
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={handleCitizenIdUploadClick}
+                                                disabled={ocrProcessing}
+                                                className="h-10 w-full text-[13px] font-medium"
+                                            >
+                                                {ocrProcessing ? (
+                                                    <>
+                                                        <Loader2 size={14} className="mr-2 animate-spin" />
+                                                        Đang lấy thông tin
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Upload size={14} className="mr-2" />
+                                                        Chọn ảnh CCCD
+                                                    </>
+                                                )}
+                                            </Button>
                                         </div>
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            onChange={handleEmployeeAvatarUpload}
-                                            className="hidden"
-                                            accept="image/*"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={handleAvatarClick}
-                                            disabled={uploading}
-                                            className="h-10 w-full text-[13px] font-medium"
-                                        >
-                                            {uploading ? (
-                                                <>
-                                                    <Loader2 size={12} className="mr-2 animate-spin" />
-                                                    Đang tải ảnh
-                                                </>
-                                            ) : (
-                                                "Chọn ảnh đại diện"
-                                            )}
-                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -346,12 +469,30 @@ export default function AddEmployeePage() {
                                             {...register("fullName")}
                                             className={cn(
                                                 "h-9 text-[13px]",
-                                                errors.fullName && "border-rose-500 focus-visible:ring-rose-500"
+                                                errors.fullName && "border-rose-500 focus-visible:ring-rose-500",
                                             )}
                                             placeholder="Nhập họ và tên..."
                                         />
                                         {errors.fullName && (
                                             <span className="text-[11px] text-rose-500">{errors.fullName.message}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5 md:col-span-4">
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            Số CCCD (12 số) *
+                                        </Label>
+                                        <Input
+                                            {...register("citizenId")}
+                                            className={cn(
+                                                "h-9 text-[13px]",
+                                                errors.citizenId && "border-rose-500 focus-visible:ring-rose-500",
+                                            )}
+                                            placeholder="Nhập số CCCD..."
+                                            maxLength={12}
+                                        />
+                                        {errors.citizenId && (
+                                            <span className="text-[11px] text-rose-500">{errors.citizenId.message}</span>
                                         )}
                                     </div>
 
@@ -373,73 +514,14 @@ export default function AddEmployeePage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-
-                                    <div className="space-y-1.5 md:col-span-4">
-                                        <Label className="text-[10px] font-medium text-slate-400">
-                                            Email đăng nhập *
-                                        </Label>
-                                        <Input
-                                            {...register("email")}
-                                            className={cn(
-                                                "h-9 text-[13px]",
-                                                errors.email && "border-rose-500 focus-visible:ring-rose-500"
-                                            )}
-                                            placeholder="email@agrishrimp.vn"
-                                        />
-                                        {errors.email && (
-                                            <span className="text-[11px] text-rose-500">{errors.email.message}</span>
-                                        )}
-                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
-                                    <div className="space-y-1.5 md:col-span-5">
-                                        <Label className="text-[10px] font-medium text-slate-400">
-                                            Số điện thoại *
-                                        </Label>
-                                        <Input
-                                            {...register("phoneNumber")}
-                                            className={cn(
-                                                "h-9 text-[13px]",
-                                                errors.phoneNumber && "border-rose-500 focus-visible:ring-rose-500"
-                                            )}
-                                            placeholder="Nhập số điện thoại..."
-                                        />
-                                        {errors.phoneNumber && (
-                                            <span className="text-[11px] text-rose-500">
-                                                {errors.phoneNumber.message}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1.5 md:col-span-3">
-                                        <Label className="text-[10px] font-medium text-slate-400">
-                                            Số CCCD (12 số) *
-                                        </Label>
-                                        <Input
-                                            {...register("citizenId")}
-                                            className={cn(
-                                                "h-9 text-[13px]",
-                                                errors.citizenId && "border-rose-500 focus-visible:ring-rose-500"
-                                            )}
-                                            placeholder="Nhập số CCCD..."
-                                            maxLength={12}
-                                        />
-                                        {errors.citizenId && (
-                                            <span className="text-[11px] text-rose-500">
-                                                {errors.citizenId.message}
-                                            </span>
-                                        )}
-                                    </div>
-
                                     <div className="space-y-1.5 md:col-span-4">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Ngày sinh *
                                         </Label>
-                                        <input
-                                            type="hidden"
-                                            {...register("dateOfBirth")}
-                                        />
+                                        <input type="hidden" {...register("dateOfBirth")} />
                                         <BirthDatePicker
                                             value={currentDateOfBirth}
                                             hasError={!!errors.dateOfBirth}
@@ -452,15 +534,47 @@ export default function AddEmployeePage() {
                                             }
                                         />
                                         {errors.dateOfBirth && (
-                                            <span className="text-[11px] text-rose-500">
-                                                {errors.dateOfBirth.message}
-                                            </span>
+                                            <span className="text-[11px] text-rose-500">{errors.dateOfBirth.message}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5 md:col-span-4">
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            Số điện thoại *
+                                        </Label>
+                                        <Input
+                                            {...register("phoneNumber")}
+                                            className={cn(
+                                                "h-9 text-[13px]",
+                                                errors.phoneNumber && "border-rose-500 focus-visible:ring-rose-500",
+                                            )}
+                                            placeholder="Nhập số điện thoại..."
+                                        />
+                                        {errors.phoneNumber && (
+                                            <span className="text-[11px] text-rose-500">{errors.phoneNumber.message}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5 md:col-span-4">
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            Email đăng nhập *
+                                        </Label>
+                                        <Input
+                                            {...register("email")}
+                                            className={cn(
+                                                "h-9 text-[13px]",
+                                                errors.email && "border-rose-500 focus-visible:ring-rose-500",
+                                            )}
+                                            placeholder="email@agrishrimp.vn"
+                                        />
+                                        {errors.email && (
+                                            <span className="text-[11px] text-rose-500">{errors.email.message}</span>
                                         )}
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
-                                    <div className="flex h-full flex-col gap-1.5 md:col-span-5">
+                                    <div className="flex h-full flex-col gap-1.5 md:col-span-8">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Địa chỉ liên hệ *
                                         </Label>
@@ -468,7 +582,7 @@ export default function AddEmployeePage() {
                                             {...register("addressDetail")}
                                             className={cn(
                                                 "h-9 text-[13px]",
-                                                errors.addressDetail && "border-rose-500 focus-visible:ring-rose-500"
+                                                errors.addressDetail && "border-rose-500 focus-visible:ring-rose-500",
                                             )}
                                             placeholder="Số nhà, tên đường..."
                                         />
@@ -483,44 +597,9 @@ export default function AddEmployeePage() {
                                         )}
                                     </div>
 
-                                    <div className="flex h-full flex-col gap-1.5 md:col-span-3">
-                                        <Label className="text-[10px] font-medium text-slate-400">
-                                            OCR CCCD
-                                        </Label>
-                                        <input
-                                            type="file"
-                                            ref={citizenIdInputRef}
-                                            onChange={handleCitizenIdUpload}
-                                            className="hidden"
-                                            accept="image/png,image/jpeg,image/jpg,image/webp"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={handleCitizenIdUploadClick}
-                                            disabled={ocrProcessing}
-                                            className="h-9 justify-start text-[12px] font-medium"
-                                        >
-                                            {ocrProcessing ? (
-                                                <>
-                                                    <Loader2 size={14} className="mr-2 animate-spin" />
-                                                    Đang đọc CCCD
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Upload size={14} className="mr-2" />
-                                                    Upload mặt trước CCCD
-                                                </>
-                                            )}
-                                        </Button>
-                                        <span className="min-h-[16px] text-[10px] text-slate-400">
-                                            Ảnh rõ 4 góc, mặt trước, tối đa 5MB. Trường bạn đã sửa tay sẽ không bị ghi đè.
-                                        </span>
-                                    </div>
-
                                     <div className="flex h-full flex-col gap-1.5 md:col-span-4">
-                                        <Label aria-hidden="true" className="text-[10px] font-medium text-transparent">
-                                            Mật khẩu mặc định
+                                        <Label className="text-[10px] font-medium text-slate-400">
+                                            Mật khẩu
                                         </Label>
                                         <div className="border border-blue-100 bg-blue-50 p-3">
                                             <div className="flex items-start gap-2">
@@ -564,7 +643,7 @@ export default function AddEmployeePage() {
                                 <SelectTrigger
                                     className={cn(
                                         "h-9 text-[13px]",
-                                        errors.branchId && "border-rose-500 focus-visible:ring-rose-500"
+                                        errors.branchId && "border-rose-500 focus-visible:ring-rose-500",
                                     )}
                                 >
                                     <SelectValue
@@ -611,7 +690,7 @@ export default function AddEmployeePage() {
                                 <SelectTrigger
                                     className={cn(
                                         "h-9 text-[13px]",
-                                        errors.roleId && "border-rose-500 focus-visible:ring-rose-500"
+                                        errors.roleId && "border-rose-500 focus-visible:ring-rose-500",
                                     )}
                                 >
                                     <SelectValue
@@ -656,7 +735,7 @@ export default function AddEmployeePage() {
                                 variant="compact"
                                 buttonClassName={cn(
                                     "h-9 text-[13px]",
-                                    errors.startDate && "border-rose-500 focus-visible:ring-rose-500"
+                                    errors.startDate && "border-rose-500 focus-visible:ring-rose-500",
                                 )}
                             />
                             {errors.startDate && (
@@ -683,7 +762,6 @@ export default function AddEmployeePage() {
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 z-[999] flex justify-end gap-3 border-t bg-white p-3 lg:left-[260px]">
@@ -707,4 +785,3 @@ export default function AddEmployeePage() {
         </form>
     );
 }
-
