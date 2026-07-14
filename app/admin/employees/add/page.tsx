@@ -333,30 +333,30 @@ export default function AddEmployeePage() {
     }
 
     return (
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3 pb-[100px] text-slate-800">
-            <div className="mb-8 mt-2 space-y-4">
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-2 pb-[100px] text-slate-800">
+            <div className="mb-6 mt-2 space-y-3">
                 <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
                     Thêm nhân viên mới
                 </h1>
 
-                <div className="border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="border-b border-slate-200 pb-3">
                         <span className="text-[11px] font-bold text-slate-800">
                             1. Thông tin cá nhân
                         </span>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-12">
-                        <div className="xl:col-span-3">
-                            <div className="space-y-5">
-                                <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-6">
+                    <div className="mt-4 grid grid-cols-1 gap-5 xl:grid-cols-12 xl:gap-6">
+                        <div className="xl:col-span-4">
+                            <div className="space-y-3">
+                                <div className="rounded-md border border-slate-200 bg-slate-50/50 p-3">
                                     <div className="space-y-3">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Ảnh đại diện
                                         </Label>
-                                        <div className="flex flex-col items-center justify-center gap-5">
+                                        <div className="flex flex-col items-center justify-center gap-3">
                                             <div className="relative cursor-pointer" onClick={handleAvatarClick}>
-                                                <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-200 bg-white">
+                                                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-slate-200 bg-white">
                                                     {uploading ? (
                                                         <Loader2 className="animate-spin text-blue-600" />
                                                     ) : currentAvatarUrl ? (
@@ -366,7 +366,7 @@ export default function AddEmployeePage() {
                                                             className="h-full w-full object-cover"
                                                         />
                                                     ) : (
-                                                        <UserCircle2 size={86} className="text-slate-200" />
+                                                        <UserCircle2 size={60} className="text-slate-200" />
                                                     )}
                                                 </div>
                                                 <div className="absolute bottom-1 right-1 rounded-full bg-blue-600 p-2 text-white shadow-lg">
@@ -387,7 +387,7 @@ export default function AddEmployeePage() {
                                                 variant="outline"
                                                 onClick={handleAvatarClick}
                                                 disabled={uploading}
-                                                className="h-10 w-full text-[13px] font-medium"
+                                                className="h-9 w-full text-[13px] font-medium"
                                             >
                                                 {uploading ? (
                                                     <>
@@ -402,23 +402,23 @@ export default function AddEmployeePage() {
                                     </div>
                                 </div>
 
-                                <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-6">
+                                <div className="rounded-md border border-slate-200 bg-slate-50/50 p-3">
                                     <div className="space-y-3">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Upload ảnh CCCD
                                         </Label>
 
-                                        <div className="space-y-4">
-                                            <div className="flex min-h-[180px] items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-200 bg-white">
+                                        <div className="space-y-3">
+                                            <div className="flex min-h-[120px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
                                                 {citizenImagePreview ? (
                                                     <img
                                                         src={citizenImagePreview}
                                                         alt="Ảnh CCCD"
-                                                        className="max-h-[220px] w-full rounded-xl object-contain"
+                                                        className="max-h-[150px] w-full rounded-xl object-contain"
                                                     />
                                                 ) : (
-                                                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-slate-400">
-                                                        <IdCard size={36} className="text-slate-300" />
+                                                    <div className="flex flex-col items-center gap-2 px-4 py-5 text-center text-slate-400">
+                                                        <IdCard size={26} className="text-slate-300" />
                                                         <p className="text-[12px] font-medium">Chưa có ảnh CCCD</p>
                                                         <p className="text-[11px]">Ảnh rõ 4 góc, mặt trước, tối đa 5MB.</p>
                                                     </div>
@@ -438,7 +438,7 @@ export default function AddEmployeePage() {
                                                 variant="outline"
                                                 onClick={handleCitizenIdUploadClick}
                                                 disabled={ocrProcessing}
-                                                className="h-10 w-full text-[13px] font-medium"
+                                                className="h-9 w-full text-[13px] font-medium"
                                             >
                                                 {ocrProcessing ? (
                                                     <>
@@ -458,9 +458,9 @@ export default function AddEmployeePage() {
                             </div>
                         </div>
 
-                        <div className="xl:col-span-9">
-                            <div className="space-y-5">
-                                <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+                        <div className="xl:col-span-8">
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                                     <div className="space-y-1.5 md:col-span-5">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Họ và tên *
@@ -516,7 +516,7 @@ export default function AddEmployeePage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                                     <div className="space-y-1.5 md:col-span-4">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Ngày sinh *
@@ -573,7 +573,7 @@ export default function AddEmployeePage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
                                     <div className="flex h-full flex-col gap-1.5 md:col-span-8">
                                         <Label className="text-[10px] font-medium text-slate-400">
                                             Địa chỉ liên hệ *
@@ -618,147 +618,147 @@ export default function AddEmployeePage() {
                                         </span>
                                     </div>
                                 </div>
+
+                                <div className="border-t border-slate-200 pt-4">
+                                    <div className="border-b border-slate-200 pb-3">
+                                        <span className="text-[11px] font-bold text-slate-800">
+                                            2. Công tác & phân quyền
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+                                        <div className="space-y-1.5 xl:col-span-3">
+                                            <Label className="text-[10px] font-medium text-slate-400">
+                                                Chi nhánh làm việc *
+                                            </Label>
+                                            <Select
+                                                value={currentBranchId ? String(currentBranchId) : undefined}
+                                                onValueChange={(val) => setValue("branchId", Number(val))}
+                                                disabled={branches.length === 0 || !isAdmin}
+                                            >
+                                                <SelectTrigger
+                                                    className={cn(
+                                                        "h-9 text-[13px]",
+                                                        errors.branchId && "border-rose-500 focus-visible:ring-rose-500",
+                                                    )}
+                                                >
+                                                    <SelectValue
+                                                        placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {branches.length > 0 ? (
+                                                        branches.map((branch) => (
+                                                            <SelectItem key={branch.id} value={String(branch.id)}>
+                                                                {branch.name}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                            Chưa có chi nhánh nào. Hãy tạo chi nhánh trước.
+                                                        </div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors.branchId && (
+                                                <span className="text-[11px] text-rose-500">{errors.branchId.message}</span>
+                                            )}
+                                            {branches.length === 0 ? (
+                                                <span className="text-[10px] text-slate-400">
+                                                    Bạn cần tạo ít nhất 1 chi nhánh trước khi thêm nhân viên.
+                                                </span>
+                                            ) : !isAdmin ? (
+                                                <span className="text-[10px] text-slate-400">
+                                                    Tài khoản hiện tại chỉ được gán nhân viên vào chi nhánh đang phụ trách.
+                                                </span>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="space-y-1.5 xl:col-span-3">
+                                            <Label className="text-[10px] font-medium text-slate-400">
+                                                Vai trò hệ thống *
+                                            </Label>
+                                            <Select
+                                                value={currentRoleId ? String(currentRoleId) : undefined}
+                                                onValueChange={(val) => setValue("roleId", Number(val))}
+                                                disabled={roles.length === 0}
+                                            >
+                                                <SelectTrigger
+                                                    className={cn(
+                                                        "h-9 text-[13px]",
+                                                        errors.roleId && "border-rose-500 focus-visible:ring-rose-500",
+                                                    )}
+                                                >
+                                                    <SelectValue
+                                                        placeholder={roles.length === 0 ? "Chưa có vai trò" : "Chọn vai trò"}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {roles.length > 0 ? (
+                                                        roles.map((role) => (
+                                                            <SelectItem key={role.id} value={String(role.id)}>
+                                                                {role.displayName}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                            Chưa có vai trò nào khả dụng.
+                                                        </div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors.roleId && (
+                                                <span className="text-[11px] text-rose-500">{errors.roleId.message}</span>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1.5 xl:col-span-3">
+                                            <Label className="text-[10px] font-medium text-slate-400">
+                                                Ngày vào làm *
+                                            </Label>
+                                            <input type="hidden" {...register("startDate")} />
+                                            <SharedDatePicker
+                                                value={currentStartDate}
+                                                hasError={!!errors.startDate}
+                                                onChange={(nextValue) =>
+                                                    setValue("startDate", nextValue, {
+                                                        shouldDirty: true,
+                                                        shouldValidate: true,
+                                                        shouldTouch: true,
+                                                    })
+                                                }
+                                                placeholder="Chọn ngày vào làm"
+                                                variant="compact"
+                                                buttonClassName={cn(
+                                                    "h-9 text-[13px]",
+                                                    errors.startDate && "border-rose-500 focus-visible:ring-rose-500",
+                                                )}
+                                            />
+                                            {errors.startDate && (
+                                                <span className="text-[11px] text-rose-500">{errors.startDate.message}</span>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1.5 xl:col-span-3">
+                                            <Label className="text-[10px] font-medium text-slate-400">
+                                                Trạng thái tài khoản
+                                            </Label>
+                                            <Select
+                                                value={currentStatus}
+                                                onValueChange={(val: "ACTIVE" | "INACTIVE") => setValue("status", val)}
+                                            >
+                                                <SelectTrigger className="h-9 text-[12px] font-medium">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
+                                                    <SelectItem value="INACTIVE">Tạm khóa</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="border-b border-slate-200 pb-3">
-                        <span className="text-[11px] font-bold text-slate-800">
-                            2. Công tác & phân quyền
-                        </span>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12">
-                        <div className="space-y-1.5 xl:col-span-3">
-                            <Label className="text-[10px] font-medium text-slate-400">
-                                Chi nhánh làm việc *
-                            </Label>
-                            <Select
-                                value={currentBranchId ? String(currentBranchId) : undefined}
-                                onValueChange={(val) => setValue("branchId", Number(val))}
-                                disabled={branches.length === 0 || !isAdmin}
-                            >
-                                <SelectTrigger
-                                    className={cn(
-                                        "h-9 text-[13px]",
-                                        errors.branchId && "border-rose-500 focus-visible:ring-rose-500",
-                                    )}
-                                >
-                                    <SelectValue
-                                        placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"}
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {branches.length > 0 ? (
-                                        branches.map((branch) => (
-                                            <SelectItem key={branch.id} value={String(branch.id)}>
-                                                {branch.name}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <div className="px-3 py-2 text-[12px] text-slate-400">
-                                            Chưa có chi nhánh nào. Hãy tạo chi nhánh trước.
-                                        </div>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            {errors.branchId && (
-                                <span className="text-[11px] text-rose-500">{errors.branchId.message}</span>
-                            )}
-                            {branches.length === 0 ? (
-                                <span className="text-[10px] text-slate-400">
-                                    Bạn cần tạo ít nhất 1 chi nhánh trước khi thêm nhân viên.
-                                </span>
-                            ) : !isAdmin ? (
-                                <span className="text-[10px] text-slate-400">
-                                    Tài khoản hiện tại chỉ được gán nhân viên vào chi nhánh đang phụ trách.
-                                </span>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-1.5 xl:col-span-3">
-                            <Label className="text-[10px] font-medium text-slate-400">
-                                Vai trò hệ thống *
-                            </Label>
-                            <Select
-                                value={currentRoleId ? String(currentRoleId) : undefined}
-                                onValueChange={(val) => setValue("roleId", Number(val))}
-                                disabled={roles.length === 0}
-                            >
-                                <SelectTrigger
-                                    className={cn(
-                                        "h-9 text-[13px]",
-                                        errors.roleId && "border-rose-500 focus-visible:ring-rose-500",
-                                    )}
-                                >
-                                    <SelectValue
-                                        placeholder={roles.length === 0 ? "Chưa có vai trò" : "Chọn vai trò"}
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {roles.length > 0 ? (
-                                        roles.map((role) => (
-                                            <SelectItem key={role.id} value={String(role.id)}>
-                                                {role.displayName}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <div className="px-3 py-2 text-[12px] text-slate-400">
-                                            Chưa có vai trò nào khả dụng.
-                                        </div>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            {errors.roleId && (
-                                <span className="text-[11px] text-rose-500">{errors.roleId.message}</span>
-                            )}
-                        </div>
-
-                        <div className="space-y-1.5 xl:col-span-3">
-                            <Label className="text-[10px] font-medium text-slate-400">
-                                Ngày vào làm *
-                            </Label>
-                            <input type="hidden" {...register("startDate")} />
-                            <SharedDatePicker
-                                value={currentStartDate}
-                                hasError={!!errors.startDate}
-                                onChange={(nextValue) =>
-                                    setValue("startDate", nextValue, {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                        shouldTouch: true,
-                                    })
-                                }
-                                placeholder="Chọn ngày vào làm"
-                                variant="compact"
-                                buttonClassName={cn(
-                                    "h-9 text-[13px]",
-                                    errors.startDate && "border-rose-500 focus-visible:ring-rose-500",
-                                )}
-                            />
-                            {errors.startDate && (
-                                <span className="text-[11px] text-rose-500">{errors.startDate.message}</span>
-                            )}
-                        </div>
-
-                        <div className="space-y-1.5 xl:col-span-3">
-                            <Label className="text-[10px] font-medium text-slate-400">
-                                Trạng thái tài khoản
-                            </Label>
-                            <Select
-                                value={currentStatus}
-                                onValueChange={(val: "ACTIVE" | "INACTIVE") => setValue("status", val)}
-                            >
-                                <SelectTrigger className="h-9 text-[12px] font-medium">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ACTIVE">Đang hoạt động</SelectItem>
-                                    <SelectItem value="INACTIVE">Tạm khóa</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
                 </div>
