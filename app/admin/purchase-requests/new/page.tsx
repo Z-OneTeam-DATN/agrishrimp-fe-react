@@ -221,6 +221,13 @@ export default function NewPurchaseRequestPage() {
   const currentUserBranch = currentUser?.branch as
     | { id?: number; name?: string; branchType?: string; branchCode?: string }
     | undefined;
+  const currentUserBranchOption = currentUserBranch
+    ? {
+        name: currentUserBranch.name ?? "",
+        branchType: currentUserBranch.branchType ?? "",
+        branchCode: currentUserBranch.branchCode ?? "",
+      }
+    : undefined;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDependencies, setIsLoadingDependencies] = useState(true);
@@ -238,7 +245,7 @@ export default function NewPurchaseRequestPage() {
 
   const canAccessPurchaseRequests = hasPermission(P.PURCHASE_REQUEST_CREATE);
   const isCurrentWarehouseBranch = useMemo(() => {
-    if (isWarehouseBranchOption(currentUserBranch)) {
+    if (isWarehouseBranchOption(currentUserBranchOption)) {
       return true;
     }
 
@@ -254,7 +261,7 @@ export default function NewPurchaseRequestPage() {
       const currentName = normalizeBranchText(currentUserBranch?.name);
       return Boolean(currentName) && normalizeBranchText(branch.name) === currentName;
     });
-  }, [currentUserBranch, warehouseBranches, warehouseId]);
+  }, [currentUserBranch, currentUserBranchOption, warehouseBranches, warehouseId]);
 
   const {
     register,

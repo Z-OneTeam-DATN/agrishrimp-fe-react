@@ -21,7 +21,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -880,144 +879,6 @@ export default function ReceiptDetailPage() {
         </div>
       </section>
 
-      {/* MODAL GIAI ĐOẠN 3: KIỂM ĐẾM QC & XÁC NHẬN NHẬP (Lời khuyên UI) */}
-      {showInspectModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-           <div className="flex max-h-[92vh] w-full max-w-[1150px] flex-col rounded-md border border-slate-200 bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-200 p-5">
-                <div className="flex flex-col">
-                   <h3 className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><CheckSquare size={18} className="text-blue-600"/> Kiểm hàng và nhập kho</h3>
-                   <p className="mt-1 text-[10.5px] text-slate-500">Xác nhận số lượng giao, số lượng đạt và hàng lỗi.</p>
-                </div>
-                <button onClick={() => setShowInspectModal(false)} className="text-slate-400 hover:text-slate-700"><X size={20}/></button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-                 <table className="w-full border border-slate-200 bg-white text-left text-[12px]">
-                    <thead className="sticky top-0 z-10 border-b bg-slate-50">
-                       <tr className="text-[10.5px] font-medium text-slate-500">
-                          <th className="p-4 border-r w-[240px]">Sản phẩm / SKU</th>
-                          <th className="p-4 text-center border-r w-[140px]">Số lô / hạn dùng</th>
-                          <th className="p-4 text-center border-r w-[90px]">Dự kiến</th>
-                          <th className="p-4 text-center border-r w-[120px]">SL giao</th>
-                          <th className="p-4 text-center border-r w-[120px]">SL đạt</th>
-                          <th className="p-4 text-center border-r w-[100px]">SL lỗi</th>
-                          <th className="p-4 text-left">Lý do lỗi / Ghi chú</th>
-                       </tr>
-                    </thead>
-                    <tbody>
-                       {inspectItems.map((item, idx) => {
-                           const planned = item.plannedQuantity || 0;
-                           const delivered = Number(item.quantityDelivered) || 0;
-                           const accepted = Number(item.quantityAccepted) || 0;
-                           const rejected = Number(item.quantityRejected) || 0;
-                           const isNoteRequired = rejected > 0 || delivered < planned;
-
-                          return (
-                         <tr key={idx} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4 border-r">
-                              <p className="font-semibold leading-tight text-slate-700">{item.productName}</p>
-                              <p className="text-[10px] font-mono text-slate-400 mt-1">#{item.productCode}</p>
-                            </td>
-                            
-                            <td className="p-2 border-r space-y-1 bg-slate-50/30">
-                               <Input 
-                                 placeholder="Số lô hàng..."
-                                 value={item.lotNumber || ""}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].lotNumber = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-9 rounded-md border-slate-200 bg-white text-[11px] font-medium shadow-none"
-                               />
-                               <SharedDatePicker
-                                 value={item.expiryDate || ""}
-                                 onChange={(nextValue) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].expiryDate = nextValue;
-                                   setInspectItems(newItems);
-                                 }}
-                                 placeholder="Hạn dùng"
-                                 variant="compact"
-                                 buttonClassName="h-9 rounded-md border-slate-200 bg-white text-[11px] shadow-none"
-                               />
-                            </td>
-
-                            <td className="border-r p-4 text-center text-[13px] font-semibold text-slate-600">{planned}</td>
-                            
-                            <td className="border-r p-2">
-                               <Input 
-                                 type="number"
-                                 min={0}
-                                 value={item.quantityDelivered}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityDelivered = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                  className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                                />
-                             </td>
-
-                            <td className="border-r p-2">
-                               <Input 
-                                 type="number"
-                                 min={0}
-                                 value={item.quantityAccepted} 
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityAccepted = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                               />
-                               <div className="mt-1 text-right text-[10.5px] text-slate-500">
-                                 Thực nhập kho <span className="font-semibold text-slate-700">{formatNumber(accepted)}</span>
-                               </div>
-                             </td>
-
-                            <td className="border-r p-2">
-                               <Input
-                                 type="number"
-                                 min={0}
-                                 value={item.quantityRejected}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityRejected = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                               />
-                            </td>
-
-                            <td className="p-2">
-                               <Input 
-                                 value={item.note || ""} 
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].note = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 placeholder={isNoteRequired ? "Bắt buộc: Nêu lý do lỗi hoặc giao thiếu..." : "Ghi chú thêm..."} 
-                                 className={cn(
-                                   "h-10 rounded-md border-slate-200 bg-white text-[11px] font-normal shadow-none",
-                                   isNoteRequired ? "border-rose-400 bg-rose-50 ring-1 ring-rose-200" : ""
-                                 )}
-                               />
-                            </td>
-                         </tr>
-                       )})}
-                    </tbody>
-                 </table>
-              </div>
-              <div className="flex justify-end gap-3 border-t bg-white p-5">
-                 <Button variant="outline" onClick={() => setShowInspectModal(false)} className="h-10 px-6 text-[12px] font-medium">Hủy</Button>
-                 <Button onClick={submitInspect} disabled={isProcessing} className="flex h-10 items-center gap-2 bg-blue-600 px-6 text-[12px] font-semibold text-white hover:bg-blue-700"><CheckCircle2 size={16}/> Hoàn tất nhập kho</Button>
-              </div>
-           </div>
-        </div>
-      )}
       {showPaymentModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-[560px] rounded-md border border-slate-200 bg-white shadow-xl">
@@ -1054,13 +915,19 @@ export default function ReceiptDetailPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10.5px] font-semibold text-slate-500">Ngày thanh toán</Label>
-                  <SharedDatePicker
+                  <Label className="text-[10.5px] font-semibold text-slate-500">
+                    Ngày thanh toán
+                  </Label>
+                  <Input
+                    type="date"
                     value={paymentForm.paymentDate}
-                    onChange={(nextValue) => setPaymentForm({ ...paymentForm, paymentDate: nextValue })}
-                    placeholder="Chọn ngày"
-                    variant="compact"
-                    buttonClassName="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
+                    onChange={(e) =>
+                      setPaymentForm({
+                        ...paymentForm,
+                        paymentDate: e.target.value,
+                      })
+                    }
+                    className="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
                   />
                 </div>
               </div>

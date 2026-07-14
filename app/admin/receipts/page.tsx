@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, Plus, RefreshCcw, Search } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
 import { InventoryApiService } from "@/app/services/inventory.service";
 import { branchService } from "@/app/services/branchService";
@@ -177,13 +176,6 @@ export default function AdminReceiptListPage() {
                 ))}
               </SelectContent>
             </Select>
-            <SharedDatePicker
-              value={selectedDate}
-              onChange={setSelectedDate}
-              placeholder="Chọn ngày"
-              variant="compact"
-              buttonClassName="h-[38px] border-slate-200 bg-white text-[13px] shadow-none"
-            />
           </div>
           <Button
             className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700"
