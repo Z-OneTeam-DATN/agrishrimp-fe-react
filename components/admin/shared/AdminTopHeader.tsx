@@ -36,6 +36,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
 import { P } from "@/lib/permissions";
+import { ADVISOR_WORKSPACE_PERMISSIONS } from "@/lib/workspace-permissions";
 
 type BranchSummary = {
   id: number;
@@ -102,6 +103,7 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/reports/inventory": "Báo cáo nhập xuất tồn",
   "/admin/settings": "Cài đặt",
   "/admin/chat": "Chat khách hàng",
+  "/chat": "Chat khách hàng",
   "/admin/vouchers": "Khuyến mãi & Voucher",
   "/admin/vouchers/add": "Thêm voucher",
   "/admin/vouchers/edit": "Cập nhật voucher",
@@ -127,9 +129,12 @@ export default function AdminTopHeader() {
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
-  const { hasPermission, isLoadingAuth } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const canAccessAdvisorWorkspace = hasAnyPermission(
+    ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
   const shouldFetchBranchDirectory =
     !!accessToken &&
     hasPermission(P.BRANCH_VIEW) &&
@@ -312,6 +317,16 @@ export default function AdminTopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
+        {canAccessAdvisorWorkspace ? (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
+            <Link href="/chat">Qua chat</Link>
+          </Button>
+        ) : null}
+
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
           <MapPin size={14} className="text-blue-600" />
           <span className="text-[12px] font-bold text-blue-700">

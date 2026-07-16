@@ -341,7 +341,7 @@ export default function AdvisorInboxWorkspace() {
                     className="h-11 rounded-2xl border-slate-200 bg-white/90 px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
                   >
                     <Link href="/admin">
-                      Qua trang quản lý
+                      Qua quản trị
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </Button>

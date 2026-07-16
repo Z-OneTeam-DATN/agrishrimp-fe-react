@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/shared/AdminSidebar";
 import AdminTopHeader from "@/components/admin/shared/AdminTopHeader";
@@ -13,7 +13,7 @@ import { P } from "@/lib/permissions";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import {
   ADMIN_WORKSPACE_PERMISSIONS,
-  ADVISOR_WORKSPACE_PERMISSIONS,
+  setLastWorkspace,
 } from "@/lib/workspace-permissions";
 
 const WebSocketProvider = dynamic(
@@ -78,7 +78,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { hasPermission, hasAnyPermission } = usePermissions();
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
@@ -86,11 +85,6 @@ export default function AdminLayout({
   const hasAdminWorkspaceAccess = hasAnyPermission(
     ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
   );
-  const hasAdvisorWorkspaceAccess = hasAnyPermission(
-    ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
-  );
-  const shouldRedirectToAdvisor =
-    !isLoadingAuth && hasAdvisorWorkspaceAccess && !hasAdminWorkspaceAccess;
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
@@ -115,20 +109,12 @@ export default function AdminLayout({
   }, [isBranchScopedOrderUser, matchedRule, hasAnyPermission, hasPermission, pathname]);
 
   useEffect(() => {
-    if (shouldRedirectToAdvisor) {
-      router.replace("/advisor/inbox");
+    if (!isLoadingAuth && hasAdminWorkspaceAccess) {
+      setLastWorkspace("/admin");
     }
-  }, [router, shouldRedirectToAdvisor]);
+  }, [hasAdminWorkspaceAccess, isLoadingAuth]);
 
   if (isLoadingAuth) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  if (shouldRedirectToAdvisor) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />

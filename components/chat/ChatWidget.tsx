@@ -18,6 +18,7 @@ export default function ChatWidget() {
   if (
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/advisor") ||
+    pathname?.startsWith("/chat") ||
     pathname?.startsWith("/login") ||
     pathname?.startsWith("/signup") ||
     pathname?.startsWith("/ai-doctor")

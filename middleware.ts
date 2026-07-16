@@ -56,6 +56,7 @@ const PROTECTED_PATHS = [
   "/user/cart",
   "/user/checkout",
   "/advisor",
+  "/chat",
 ];
 
 // Helper to decode JWT payload without external library

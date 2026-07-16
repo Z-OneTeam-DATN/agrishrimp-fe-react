@@ -1,5 +1,5 @@
-import AdvisorInboxWorkspace from "@/components/chat/advisor/AdvisorInboxWorkspace";
+import { redirect } from "next/navigation";
 
 export default function AdvisorInboxPage() {
-  return <AdvisorInboxWorkspace />;
+  redirect("/chat");
 }

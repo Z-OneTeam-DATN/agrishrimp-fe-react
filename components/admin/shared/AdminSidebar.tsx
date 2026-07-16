@@ -650,10 +650,10 @@ export default function AdminSidebar() {
               )}
               {hasPermission(P.CHAT_VIEW) && (
                 <SidebarLink
-                  href="/admin/chat"
+                  href="/chat"
                   icon={MessageCircle}
                   label="Chat khách hàng"
-                  active={isActive("/admin/chat")}
+                  active={pathname === "/chat" || isActive("/admin/chat")}
                   color="text-blue-400"
                 />
               )}

@@ -1,6 +1,8 @@
 import { P } from "@/lib/permissions";
 
 export const ADVISOR_WORKSPACE_PERMISSIONS = [P.CUSTOMER_ADVISOR_USE] as const;
+export const LAST_WORKSPACE_STORAGE_KEY = "lastWorkspace";
+export type WorkspaceRoute = "/admin" | "/chat";
 
 export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.DASHBOARD_VIEW,
@@ -36,13 +38,61 @@ export function hasAnyPermissionCode(
   return requiredPermissions.some((permission) => permissions.includes(permission));
 }
 
-export function getPostLoginDestination(permissions: string[] = []) {
-  if (hasAnyPermissionCode(permissions, ADVISOR_WORKSPACE_PERMISSIONS)) {
-    return "/advisor/inbox";
+export function hasAdminWorkspacePermission(permissions: string[] = []) {
+  return hasAnyPermissionCode(permissions, ADMIN_WORKSPACE_PERMISSIONS);
+}
+
+export function hasAdvisorWorkspacePermission(permissions: string[] = []) {
+  return hasAnyPermissionCode(permissions, ADVISOR_WORKSPACE_PERMISSIONS);
+}
+
+export function getAvailableWorkspaces(
+  permissions: string[] = [],
+): WorkspaceRoute[] {
+  const workspaces: WorkspaceRoute[] = [];
+
+  if (hasAdminWorkspacePermission(permissions)) {
+    workspaces.push("/admin");
   }
 
-  if (hasAnyPermissionCode(permissions, ADMIN_WORKSPACE_PERMISSIONS)) {
+  if (hasAdvisorWorkspacePermission(permissions)) {
+    workspaces.push("/chat");
+  }
+
+  return workspaces;
+}
+
+export function getLastWorkspace(): WorkspaceRoute | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const workspace = window.localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY);
+  return workspace === "/admin" || workspace === "/chat" ? workspace : null;
+}
+
+export function setLastWorkspace(workspace: WorkspaceRoute) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspace);
+}
+
+export function getPostLoginDestination(permissions: string[] = []) {
+  const availableWorkspaces = getAvailableWorkspaces(permissions);
+  const lastWorkspace = getLastWorkspace();
+
+  if (lastWorkspace && availableWorkspaces.includes(lastWorkspace)) {
+    return lastWorkspace;
+  }
+
+  if (availableWorkspaces.includes("/admin")) {
     return "/admin";
+  }
+
+  if (availableWorkspaces.includes("/chat")) {
+    return "/chat";
   }
 
   return "/";
