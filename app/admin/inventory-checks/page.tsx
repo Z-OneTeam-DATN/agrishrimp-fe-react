@@ -54,26 +54,35 @@ import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 type InventoryCheckStatus =
   | "ALL"
+  | "DRAFT"
   | "COUNTING"
-  | "WAITING_FOR_ADJUSTMENT_APPROVAL"
-  | "COUNTING_COMPLETED";
+  | "PENDING_APPROVAL"
+  | "RECOUNT_REQUIRED"
+  | "COMPLETED"
+  | "CANCELLED";
 
-const getWorkflowStatus = (item: any) => {
+const getWorkflowStatus = (item: any): Exclude<InventoryCheckStatus, "ALL"> => {
   const normalized = String(item?.checkWorkflowStatus || item?.status || "")
     .toUpperCase()
     .trim();
 
-  if (
-    normalized === "COUNTING_INIT" ||
-    normalized === "COUNTING_IN_PROGRESS" ||
-    normalized === "WAITING_FOR_ADJUSTMENT_APPROVAL" ||
-    normalized === "COUNTING_COMPLETED"
-  ) {
-    return normalized;
+  switch (normalized) {
+    case "COUNTING":
+    case "COUNTING_IN_PROGRESS":
+      return "COUNTING";
+    case "PENDING_APPROVAL":
+    case "WAITING_FOR_ADJUSTMENT_APPROVAL":
+      return "PENDING_APPROVAL";
+    case "RECOUNT_REQUIRED":
+      return "RECOUNT_REQUIRED";
+    case "COMPLETED":
+    case "COUNTING_COMPLETED":
+      return "COMPLETED";
+    case "CANCELLED":
+      return "CANCELLED";
+    default:
+      return "DRAFT";
   }
-
-  if (normalized === "COMPLETED") return "COUNTING_COMPLETED";
-  return "COUNTING_INIT";
 };
 
 const normalizeText = (value: string | number | null | undefined) =>
@@ -152,12 +161,22 @@ export default function InventoryCheckListPage() {
     P.CHECK_DELETE,
   ]);
 
-  const baseFilteredData = useMemo(() => {
+  const filteredData = useMemo(() => {
     return inventoryChecks.filter((item: any) => {
+      const status = getWorkflowStatus(item);
       const branchId = String(item.branchId || "");
       const branchName = normalizeText(item.branchName || "Kho tổng");
       const q = normalizeText(searchTerm);
 
+      const matchTab =
+        activeTab === "ALL" ||
+        (activeTab === ("PENDING" as InventoryCheckStatus) &&
+          ["DRAFT", "COUNTING", "RECOUNT_REQUIRED"].includes(status)) ||
+        (activeTab === ("COMPLETED" as InventoryCheckStatus) &&
+          status === "COMPLETED") ||
+        status === activeTab;
+
+      if (!matchTab) return false;
       if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
       if (!isDateInRange(item.checkDate || item.createdAt, fromDate, toDate)) return false;
 
@@ -170,38 +189,25 @@ export default function InventoryCheckListPage() {
         normalizeText(item.createdByName || item.checkedByName).includes(q)
       );
     });
-  }, [inventoryChecks, selectedBranchId, searchTerm, fromDate, toDate]);
-
-  const filteredData = useMemo(() => {
-    return baseFilteredData.filter((item: any) => {
-      const status = getWorkflowStatus(item);
-      const matchTab =
-        activeTab === "ALL" ||
-        ((activeTab === "COUNTING" || activeTab === ("PENDING" as InventoryCheckStatus)) &&
-          (status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS")) ||
-        (activeTab === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
-          status === "WAITING_FOR_ADJUSTMENT_APPROVAL") ||
-        ((activeTab === "COUNTING_COMPLETED" || activeTab === ("COMPLETED" as InventoryCheckStatus)) &&
-          status === "COUNTING_COMPLETED");
-
-      return matchTab;
-    });
-  }, [baseFilteredData, activeTab]);
+  }, [inventoryChecks, activeTab, selectedBranchId, searchTerm, fromDate, toDate]);
 
   const stats = useMemo(() => {
-    const pending = baseFilteredData.filter((item: any) => {
+    const pending = inventoryChecks.filter((item: any) => {
       const status = getWorkflowStatus(item);
-      return status === "COUNTING_INIT" || status === "COUNTING_IN_PROGRESS";
+      return (
+        status === "DRAFT" ||
+        status === "COUNTING" ||
+        status === "RECOUNT_REQUIRED"
+      );
     }).length;
-    const waitingApproval = baseFilteredData.filter(
-      (item: any) =>
-        getWorkflowStatus(item) === "WAITING_FOR_ADJUSTMENT_APPROVAL"
+    const waitingApproval = inventoryChecks.filter(
+      (item: any) => getWorkflowStatus(item) === "PENDING_APPROVAL"
     ).length;
-    const completed = baseFilteredData.filter(
-      (item: any) => getWorkflowStatus(item) === "COUNTING_COMPLETED"
+    const completed = inventoryChecks.filter(
+      (item: any) => getWorkflowStatus(item) === "COMPLETED"
     ).length;
 
-    const damagedUnits = baseFilteredData.reduce((sum: number, item: any) => {
+    const damagedUnits = inventoryChecks.reduce((sum: number, item: any) => {
       const details = Array.isArray(item.details) ? item.details : [];
       return (
         sum +
@@ -213,7 +219,7 @@ export default function InventoryCheckListPage() {
       );
     }, 0);
 
-    const needRestockCount = baseFilteredData.reduce((sum: number, item: any) => {
+    const needRestockCount = inventoryChecks.reduce((sum: number, item: any) => {
       const details = Array.isArray(item.details) ? item.details : [];
       return (
         sum +
@@ -230,9 +236,9 @@ export default function InventoryCheckListPage() {
     }, 0);
 
     return { pending, waitingApproval, completed, damagedUnits, needRestockCount };
-  }, [baseFilteredData]);
+  }, [inventoryChecks]);
 
-  const getStatusLabel = (status: string) => {
+  const getLegacyStatusLabel = (status: string) => {
     const normalized = String(status || "").toUpperCase();
     if (normalized === "COUNTING_COMPLETED") {
       return "Đã cân bằng";
@@ -254,6 +260,25 @@ export default function InventoryCheckListPage() {
         return "Chờ xử lý";
       default:
         return status;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (String(status || "").toUpperCase()) {
+      case "DRAFT":
+        return "Nhap";
+      case "COUNTING":
+        return "Dang kiem ke";
+      case "PENDING_APPROVAL":
+        return "Cho duyet can bang";
+      case "RECOUNT_REQUIRED":
+        return "Yeu cau kiem lai";
+      case "COMPLETED":
+        return "Da can bang";
+      case "CANCELLED":
+        return "Da huy";
+      default:
+        return getLegacyStatusLabel(status);
     }
   };
 
@@ -649,7 +674,7 @@ export default function InventoryCheckListPage() {
                             >
                               <Eye size={14} />
                             </Button>
-                            {["COUNTING_INIT", "COUNTING_IN_PROGRESS"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_UPDATE) && (
+                            {["DRAFT", "COUNTING", "RECOUNT_REQUIRED"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_UPDATE) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -662,7 +687,7 @@ export default function InventoryCheckListPage() {
                                 <Pencil size={14} />
                               </Button>
                             )}
-                            {["COUNTING_INIT", "COUNTING_IN_PROGRESS"].includes(getWorkflowStatus(item)) && hasPermission(P.CHECK_DELETE) && (
+                            {getWorkflowStatus(item) === "DRAFT" && hasPermission(P.CHECK_DELETE) && (
                               <Button
                                 variant="ghost"
                                 size="icon"

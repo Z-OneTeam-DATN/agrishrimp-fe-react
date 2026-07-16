@@ -148,13 +148,28 @@ export const InventoryCheckApiService = {
     return response.data;
   },
 
+  startCheck: async (id: number | string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/start`);
+    return response.data;
+  },
+
   submitForApproval: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/submit-for-approval`);
     return response.data;
   },
 
+  requestRecount: async (id: number | string, reason: string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/request-recount`, { reason });
+    return response.data;
+  },
+
   approveAdjustment: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/approve-adjustment`);
+    return response.data;
+  },
+
+  cancelCheck: async (id: number | string, reason?: string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/cancel`, { reason });
     return response.data;
   },
 

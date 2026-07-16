@@ -67,8 +67,8 @@ type CheckItem = {
   sku: string;
   unit: string;
   systemQuantity: number;
-  quantityReal: number;
-  quantityRejected: number;
+  quantityReal: number | null;
+  quantityRejected: number | null;
   minThreshold: number;
   reason: string;
   batchNumber?: string;
@@ -76,21 +76,32 @@ type CheckItem = {
 };
 
 type CheckWorkflowStatus =
-  | "COUNTING_INIT"
-  | "COUNTING_IN_PROGRESS"
-  | "WAITING_FOR_ADJUSTMENT_APPROVAL"
-  | "COUNTING_COMPLETED";
+  | "DRAFT"
+  | "COUNTING"
+  | "PENDING_APPROVAL"
+  | "RECOUNT_REQUIRED"
+  | "COMPLETED"
+  | "CANCELLED";
 
 const getWorkflowStatus = (value: any): CheckWorkflowStatus => {
   const normalized = String(value || "").toUpperCase();
-  if (
-    normalized === "COUNTING_IN_PROGRESS" ||
-    normalized === "WAITING_FOR_ADJUSTMENT_APPROVAL" ||
-    normalized === "COUNTING_COMPLETED"
-  ) {
-    return normalized as CheckWorkflowStatus;
+  switch (normalized) {
+    case "COUNTING":
+    case "COUNTING_IN_PROGRESS":
+      return "COUNTING";
+    case "PENDING_APPROVAL":
+    case "WAITING_FOR_ADJUSTMENT_APPROVAL":
+      return "PENDING_APPROVAL";
+    case "RECOUNT_REQUIRED":
+      return "RECOUNT_REQUIRED";
+    case "COMPLETED":
+    case "COUNTING_COMPLETED":
+      return "COMPLETED";
+    case "CANCELLED":
+      return "CANCELLED";
+    default:
+      return "DRAFT";
   }
-  return "COUNTING_INIT";
 };
 
 const generatePKKCode = () => {
@@ -114,8 +125,14 @@ const mapItem = (item: any): CheckItem => ({
   sku: item.sku || "N/A",
   unit: item.unit || "Cái",
   systemQuantity: toNumber(item.systemQuantity ?? item.quantity ?? 0),
-  quantityReal: toNumber(item.quantityReal ?? item.quantity ?? 0),
-  quantityRejected: toNumber(item.quantityRejected ?? 0),
+  quantityReal:
+    item.quantityReal === null || item.quantityReal === undefined
+      ? null
+      : toNumber(item.quantityReal),
+  quantityRejected:
+    item.quantityRejected === null || item.quantityRejected === undefined
+      ? 0
+      : toNumber(item.quantityRejected),
   minThreshold: toNumber(
     item.minThreshold ?? item.minStock ?? item.reorderPoint ?? 10,
     10,
@@ -126,10 +143,10 @@ const mapItem = (item: any): CheckItem => ({
 });
 
 const getItemMetrics = (item: CheckItem) => {
-  const realQty = Math.max(0, toNumber(item.quantityReal));
+  const realQty = Math.max(0, toNumber(item.quantityReal, 0));
   const rejectedQty = Math.max(
     0,
-    Math.min(realQty, toNumber(item.quantityRejected)),
+    Math.min(realQty, toNumber(item.quantityRejected, 0)),
   );
   const usableQty = Math.max(0, realQty - rejectedQty);
   const systemQty = Math.max(0, toNumber(item.systemQuantity));
@@ -157,24 +174,34 @@ const getItemBadge = (item: CheckItem) => {
 
 const getWorkflowStatusMeta = (status: CheckWorkflowStatus) => {
   switch (status) {
-    case "COUNTING_IN_PROGRESS":
+    case "COUNTING":
       return {
         label: "Đang đếm thực tế",
         className: "border-amber-100 bg-amber-50 text-amber-700",
       };
-    case "WAITING_FOR_ADJUSTMENT_APPROVAL":
+    case "PENDING_APPROVAL":
       return {
         label: "Chờ duyệt cân bằng",
         className: "border-blue-100 bg-blue-50 text-blue-700",
       };
-    case "COUNTING_COMPLETED":
+    case "RECOUNT_REQUIRED":
+      return {
+        label: "Yêu cầu kiểm lại",
+        className: "border-rose-100 bg-rose-50 text-rose-700",
+      };
+    case "COMPLETED":
       return {
         label: "Đã cân bằng",
         className: "border-blue-100 bg-blue-50 text-blue-700",
       };
+    case "CANCELLED":
+      return {
+        label: "Đã hủy",
+        className: "border-slate-200 bg-slate-100 text-slate-600",
+      };
     default:
       return {
-        label: "Mới khởi tạo",
+        label: "Nháp",
         className: "border-slate-200 bg-slate-50 text-slate-600",
       };
   }
@@ -308,9 +335,7 @@ export default function InventoryUpsert({
       setItems(productList.map(mapItem));
       setSelectedProductIds([]);
       setSearchResults([]);
-      setWorkflowStatus(
-        productList.length > 0 ? "COUNTING_INIT" : "COUNTING_IN_PROGRESS",
-      );
+      setWorkflowStatus("DRAFT");
     } catch (error) {
       console.error(error);
       toast.error("Không thể tạo snapshot tồn kho cho chi nhánh này");
@@ -376,7 +401,7 @@ export default function InventoryUpsert({
         sku: variant.sku || "N/A",
         unit: variant.unit || "Cái",
         systemQuantity: toNumber(variant.quantity ?? 0),
-        quantityReal: toNumber(variant.quantity ?? 0),
+        quantityReal: null,
         quantityRejected: 0,
         minThreshold: toNumber(
           variant.minThreshold ??
@@ -426,6 +451,9 @@ export default function InventoryUpsert({
           field === "quantityRejected" ||
           field === "minThreshold"
         ) {
+          if (value === "" && field === "quantityReal") {
+            return { ...item, [field]: null };
+          }
           return { ...item, [field]: Math.max(0, toNumber(value)) };
         }
         return { ...item, [field]: value };
@@ -607,6 +635,7 @@ export default function InventoryUpsert({
       const payload: any = {
         branchId: Number(formData.branchId),
         type: formData.type,
+        scopeType: "FULL_WAREHOUSE",
         checkDate: new Date(formData.checkDate).toISOString(),
         checkedBy: formData.checkedBy,
         note: formData.note,
@@ -615,8 +644,9 @@ export default function InventoryUpsert({
           batchNumber: item.batchNumber || "N/A",
           importPrice: item.importPrice || 0,
           systemQuantity: toNumber(item.systemQuantity),
-          quantityReal: toNumber(item.quantityReal),
-          quantityRejected: toNumber(item.quantityRejected),
+          quantityReal:
+            item.quantityReal === null ? null : toNumber(item.quantityReal),
+          quantityRejected: toNumber(item.quantityRejected, 0),
           note: item.reason,
         })),
       };
@@ -636,46 +666,79 @@ export default function InventoryUpsert({
     }
   };
 
+  const validateDraftForm = () => {
+    if (!formData.branchId) {
+      setFormErrors((prev) => ({
+        ...prev,
+        branchId: "Vui lĂ²ng chá»n kho kiá»ƒm kĂª",
+      }));
+      return false;
+    }
+    if (items.length === 0) {
+      setFormErrors((prev) => ({
+        ...prev,
+        items: "Vui lĂ²ng thĂªm Ă­t nháº¥t má»™t sáº£n pháº©m",
+      }));
+      return false;
+    }
+    setFormErrors({});
+    return true;
+  };
+
+  const ensureSavedCheck = async () => {
+    if (!validateDraftForm()) return null;
+    if (currentCheckId) return currentCheckId;
+
+    const payload: any = {
+      branchId: Number(formData.branchId),
+      type: formData.type,
+      scopeType: "FULL_WAREHOUSE",
+      checkDate: new Date(formData.checkDate).toISOString(),
+      checkedBy: formData.checkedBy,
+      note: formData.note,
+      details: items.map((item) => ({
+        productVariantId: item.productVariantId,
+        batchNumber: item.batchNumber || "N/A",
+        importPrice: item.importPrice || 0,
+        systemQuantity: toNumber(item.systemQuantity),
+        quantityReal:
+          item.quantityReal === null ? null : toNumber(item.quantityReal),
+        quantityRejected: toNumber(item.quantityRejected, 0),
+        note: item.reason,
+      })),
+    };
+
+    const saved = await InventoryCheckApiService.saveCheck(payload);
+    setCurrentCheckId(saved?.id ?? null);
+    return saved?.id;
+  };
+
+  const handleStartCheck = async () => {
+    try {
+      setIsSubmitting(true);
+      const checkId = await ensureSavedCheck();
+      if (!checkId) {
+        toast.error("Không thể xác định phiếu kiểm kê để bắt đầu");
+        return;
+      }
+      const response = await InventoryCheckApiService.startCheck(checkId);
+      setWorkflowStatus(
+        getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
+      );
+      toast.success("Đã bắt đầu kiểm kê và chốt snapshot tồn kho");
+      router.push(`/admin/inventory-checks/${response?.code || formData.code}?edit=true`);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Không thể bắt đầu kiểm kê");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmitForApproval = async () => {
     try {
       setIsSubmitting(true);
-      let checkId = currentCheckId;
-      if (!checkId) {
-        if (!formData.branchId) {
-          setFormErrors((prev) => ({
-            ...prev,
-            branchId: "Vui lòng chọn kho kiểm kê",
-          }));
-          return;
-        }
-        if (items.length === 0) {
-          setFormErrors((prev) => ({
-            ...prev,
-            items: "Không có dữ liệu snapshot để gửi duyệt",
-          }));
-          return;
-        }
-        setFormErrors({});
-        const payload: any = {
-          branchId: Number(formData.branchId),
-          type: formData.type,
-          checkDate: new Date(formData.checkDate).toISOString(),
-          checkedBy: formData.checkedBy,
-          note: formData.note,
-          details: items.map((item) => ({
-            productVariantId: item.productVariantId,
-            batchNumber: item.batchNumber || "N/A",
-            importPrice: item.importPrice || 0,
-            systemQuantity: toNumber(item.systemQuantity),
-            quantityReal: toNumber(item.quantityReal),
-            quantityRejected: toNumber(item.quantityRejected),
-            note: item.reason,
-          })),
-        };
-        const saved = await InventoryCheckApiService.saveCheck(payload);
-        checkId = saved?.id;
-        setCurrentCheckId(saved?.id ?? null);
-      }
+      const checkId = await ensureSavedCheck();
       if (checkId == null) {
         toast.error("Không thể xác định phiếu kiểm kê để gửi duyệt");
         return;
@@ -684,7 +747,7 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("Đã gửi phiếu kiểm kê sang bước chờ duyệt cân bằng");
+      toast.success("Đã gửi phiếu kiểm kê sang bước chờ duyệt");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
@@ -724,6 +787,86 @@ export default function InventoryUpsert({
     await handleApproveAdjustment();
   };
 
+  const handleRequestRecount = async () => {
+    const reason = window.prompt("Nháº­p lĂ½ do yĂªu cáº§u kiá»ƒm láº¡i phiáº¿u nĂ y:");
+    if (!reason?.trim()) return;
+
+    try {
+      setIsSubmitting(true);
+      let checkId = currentCheckId;
+      if (!checkId) {
+        const detail = await InventoryCheckApiService.getDetail(formData.code);
+        checkId = detail?.id;
+      }
+      if (!checkId) {
+        toast.error("KhĂ´ng tĂ¬m tháº¥y phiáº¿u Ä‘á»ƒ yĂªu cáº§u kiá»ƒm láº¡i");
+        return;
+      }
+
+      const response = await InventoryCheckApiService.requestRecount(
+        checkId,
+        reason.trim(),
+      );
+      setWorkflowStatus(
+        getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
+      );
+      toast.success("ÄĂ£ chuyá»ƒn phiáº¿u sang tráº¡ng thĂ¡i yĂªu cáº§u kiá»ƒm láº¡i");
+      router.push(`/admin/inventory-checks/${response?.code || formData.code}`);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(
+        error?.response?.data?.message ||
+          "KhĂ´ng thá»ƒ yĂªu cáº§u kiá»ƒm láº¡i phiáº¿u kiá»ƒm kĂª",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelCheck = async () => {
+    const requiresReason = workflowStatus !== "DRAFT";
+    const reason = requiresReason
+      ? window.prompt("Nháº­p lĂ½ do há»§y phiáº¿u kiá»ƒm kĂª:")
+      : "";
+
+    if (requiresReason && !reason?.trim()) return;
+
+    const confirmed = window.confirm(
+      "Báº¡n cĂ³ cháº¯c muá»‘n há»§y phiáº¿u kiá»ƒm kĂª nĂ y khĂ´ng?",
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsSubmitting(true);
+      let checkId = currentCheckId;
+      if (!checkId) {
+        const detail = await InventoryCheckApiService.getDetail(formData.code);
+        checkId = detail?.id;
+      }
+      if (!checkId) {
+        toast.error("KhĂ´ng tĂ¬m tháº¥y phiáº¿u Ä‘á»ƒ há»§y");
+        return;
+      }
+
+      const response = await InventoryCheckApiService.cancelCheck(
+        checkId,
+        reason?.trim() || undefined,
+      );
+      setWorkflowStatus(
+        getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
+      );
+      toast.success("ÄĂ£ há»§y phiáº¿u kiá»ƒm kĂª");
+      router.push("/admin/inventory-checks");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(
+        error?.response?.data?.message || "KhĂ´ng thá»ƒ há»§y phiáº¿u kiá»ƒm kĂª",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-slate-400">
@@ -742,6 +885,15 @@ export default function InventoryUpsert({
         ? `Cập nhật phiếu ${formData.code}`
         : `Chi tiết phiếu ${formData.code}`;
   const workflowStatusMeta = getWorkflowStatusMeta(workflowStatus);
+  const canEditDraftContent = mode !== "view" && workflowStatus === "DRAFT";
+  const canEditCountResults =
+    mode !== "view" &&
+    (workflowStatus === "COUNTING" || workflowStatus === "RECOUNT_REQUIRED");
+  const canEditCheck = canEditDraftContent || canEditCountResults;
+  const canEditFromView =
+    workflowStatus === "DRAFT" ||
+    workflowStatus === "COUNTING" ||
+    workflowStatus === "RECOUNT_REQUIRED";
 
   return (
     <div className="space-y-3 pb-[100px] text-slate-800">
@@ -754,7 +906,7 @@ export default function InventoryUpsert({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {workflowStatus !== "COUNTING_INIT" && (
+            {workflowStatus !== "DRAFT" && (
               <Badge
                 className={cn(
                   "rounded-[4px] border px-3 py-1 text-[11px] font-medium shadow-none",
@@ -788,7 +940,7 @@ export default function InventoryUpsert({
                 Loại kiểm kê
               </Label>
               <Select
-                disabled={mode === "view"}
+                disabled={!canEditDraftContent}
                 value={formData.type}
                 onValueChange={(value) =>
                   setFormData((prev) => ({ ...prev, type: value }))
@@ -854,7 +1006,7 @@ export default function InventoryUpsert({
                 Ngày kiểm kê
               </Label>
               <SharedDatePicker
-                disabled={mode === "view"}
+                disabled={!canEditDraftContent}
                 value={formData.checkDate}
                 onChange={(nextValue) =>
                   setFormData((prev) => ({
@@ -873,7 +1025,7 @@ export default function InventoryUpsert({
                 Người kiểm kê
               </Label>
               <Select
-                disabled={mode === "view"}
+                disabled={!canEditDraftContent}
                 value=""
                 onValueChange={(value) => {
                   const employee = employees.find(
@@ -909,7 +1061,7 @@ export default function InventoryUpsert({
                       className="gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-normal text-slate-700"
                     >
                       {name}
-                      {mode !== "view" && (
+                      {canEditDraftContent && (
                         <X
                           size={12}
                           className="cursor-pointer text-slate-400 hover:text-rose-500"
@@ -943,7 +1095,7 @@ export default function InventoryUpsert({
                 Ghi chú phiếu
               </Label>
               <Input
-                disabled={mode === "view"}
+                disabled={!canEditDraftContent}
                 className="h-9 rounded-md border-slate-200 bg-white text-[13px]"
                 placeholder="Mô tả đợt kiểm kê hoặc lưu ý xử lý tồn kho..."
                 value={formData.note}
@@ -998,7 +1150,7 @@ export default function InventoryUpsert({
           <div className="mt-6 border-t border-slate-200 pt-6" />
 
           <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center">
-            {mode !== "view" && (
+            {canEditDraftContent && (
               <div className="relative w-full xl:max-w-[420px] xl:flex-1">
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1200,9 +1352,9 @@ export default function InventoryUpsert({
                         <TableCell className="px-1 py-2 text-right">
                           <Input
                             type="number"
-                            disabled={mode === "view"}
+                            disabled={!canEditCountResults}
                             className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
-                            value={item.quantityReal}
+                            value={item.quantityReal ?? ""}
                             onChange={(e) =>
                               updateItem(index, "quantityReal", e.target.value)
                             }
@@ -1211,9 +1363,9 @@ export default function InventoryUpsert({
                         <TableCell className="px-1 py-2 text-right">
                           <Input
                             type="number"
-                            disabled={mode === "view"}
+                            disabled={!canEditCountResults}
                             className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
-                            value={item.quantityRejected}
+                            value={item.quantityRejected ?? ""}
                             onChange={(e) =>
                               updateItem(
                                 index,
@@ -1229,7 +1381,7 @@ export default function InventoryUpsert({
                         <TableCell className="px-1 py-2 text-right">
                           <Input
                             type="number"
-                            disabled={mode === "view"}
+                            disabled={!canEditDraftContent}
                             className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
                             value={item.minThreshold}
                             onChange={(e) =>
@@ -1267,7 +1419,7 @@ export default function InventoryUpsert({
                             >
                               <MessageSquareText size={15} />
                             </Button>
-                            {mode !== "view" && (
+                            {canEditDraftContent && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1313,7 +1465,7 @@ export default function InventoryUpsert({
             <div className="px-5 py-4">
               <Textarea
                 value={noteDraft}
-                disabled={mode === "view"}
+                disabled={!canEditCheck}
                 onChange={(e) => setNoteDraft(e.target.value)}
                 placeholder="Ghi rõ nguyên nhân hoặc ghi chú liên quan..."
                 className="min-h-[120px] resize-none rounded-md border-slate-200 text-[13px] shadow-none"
@@ -1329,7 +1481,7 @@ export default function InventoryUpsert({
               >
                 {mode === "view" ? "Đóng" : "Hủy"}
               </Button>
-              {mode !== "view" && (
+              {canEditCheck && (
                 <Button
                   type="button"
                   className="h-9 rounded-md bg-blue-600 px-4 text-[11px] font-medium text-white hover:bg-blue-700"
@@ -1353,8 +1505,7 @@ export default function InventoryUpsert({
           </Button>
 
           {mode === "view" &&
-            (workflowStatus === "COUNTING_INIT" ||
-              workflowStatus === "COUNTING_IN_PROGRESS") &&
+            canEditFromView &&
             hasPermission(P.CHECK_UPDATE) && (
               <Button
                 variant="outline"
@@ -1367,7 +1518,25 @@ export default function InventoryUpsert({
             )}
 
           {mode === "view" &&
-            workflowStatus === "WAITING_FOR_ADJUSTMENT_APPROVAL" &&
+            workflowStatus === "PENDING_APPROVAL" &&
+            hasPermission(P.CHECK_APPROVE) && (
+              <Button
+                variant="outline"
+                className="h-9 border-slate-200 bg-white px-5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                disabled={isSubmitting}
+                onClick={handleRequestRecount}
+              >
+                {isSubmitting ? (
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                ) : (
+                  <Pencil size={14} className="mr-2" />
+                )}
+                YĂªu cáº§u kiá»ƒm láº¡i
+              </Button>
+            )}
+
+          {mode === "view" &&
+            workflowStatus === "PENDING_APPROVAL" &&
             hasPermission(P.CHECK_APPROVE) && (
               <Button
                 className="h-9 bg-blue-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
@@ -1383,8 +1552,28 @@ export default function InventoryUpsert({
               </Button>
             )}
 
+          {(mode === "view" || canEditCheck) &&
+            workflowStatus !== "COMPLETED" &&
+            workflowStatus !== "CANCELLED" &&
+            hasPermission(P.CHECK_CANCEL) && (
+              <Button
+                variant="outline"
+                className="h-9 border-rose-200 bg-white px-5 text-[11px] font-medium text-rose-600 shadow-sm hover:bg-rose-50"
+                disabled={isSubmitting}
+                onClick={handleCancelCheck}
+              >
+                {isSubmitting ? (
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                ) : (
+                  <X size={14} className="mr-2" />
+                )}
+                Há»§y phiáº¿u
+              </Button>
+            )}
+
           {mode !== "view" && (
             <>
+              {canEditCheck && (
               <Button
                 variant="outline"
                 className="h-9 border-slate-200 bg-white px-5 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -1398,7 +1587,22 @@ export default function InventoryUpsert({
                 )}
                 Lưu phiếu
               </Button>
-              {hasPermission(P.CHECK_UPDATE) && (
+              )}
+              {workflowStatus === "DRAFT" && hasPermission(P.CHECK_UPDATE) && (
+                <Button
+                  className="h-9 bg-amber-500 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-amber-600"
+                  disabled={isSubmitting}
+                  onClick={handleStartCheck}
+                >
+                  {isSubmitting ? (
+                    <Loader2 size={14} className="mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={14} className="mr-2" />
+                  )}
+                  Báº¯t Ä‘áº§u kiá»ƒm kĂª
+                </Button>
+              )}
+              {canEditCountResults && hasPermission(P.CHECK_UPDATE) && (
                 <Button
                   className="h-9 bg-blue-600 px-6 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
                   disabled={isSubmitting}
