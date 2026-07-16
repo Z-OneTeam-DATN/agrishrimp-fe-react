@@ -95,14 +95,16 @@ export default function LayoutClient({
     pathname?.startsWith("/reset-password");
   const isChangePasswordPage = pathname === "/change-password";
   const isAdminPage = pathname?.startsWith("/admin");
+  const isAdvisorPage = pathname?.startsWith("/advisor");
   const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
-  const isHideLayout = isAdminPage || isAuthPage || isAiDoctorPage;
+  const isHideLayout = isAdminPage || isAdvisorPage || isAuthPage || isAiDoctorPage;
   const isProtectedPath = [
     "/profile",
     "/orders",
     "/checkout",
     "/user/checkout",
     "/ai-doctor",
+    "/advisor",
   ].some((p) => pathname?.startsWith(p));
   const hydratePromiseRef = useRef<Promise<void> | null>(null);
   const lastHydratedAtRef = useRef(0);

@@ -12,8 +12,8 @@ import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { LoginSchema, LoginFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
 import { getErrorMessage } from "@/lib/axios";
-import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { getPostLoginDestination } from "@/lib/workspace-permissions";
 import {
   AUTH_ACCENT_RING,
   AUTH_ACCENT_SOLID,
@@ -67,7 +67,7 @@ export default function LoginForm() {
 
   const mutation = useMutation({
     mutationFn: (data: LoginFormValues) => AuthService.loginNext(data),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
       const setPermissions = useAuthStore.getState().setPermissions;
       try {
@@ -76,8 +76,14 @@ export default function LoginForm() {
       } catch {}
       setPermissions([]);
       setAccessAndRefreshToken(res);
-      const role = normalizeRoleSlug(res.role);
-      window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
+
+      let permissions: string[] = [];
+      try {
+        permissions = await AuthService.getMyPermissionsNext();
+        setPermissions(permissions);
+      } catch {}
+
+      window.location.href = getPostLoginDestination(permissions);
     },
     onError: (error: unknown) => {
       const status =

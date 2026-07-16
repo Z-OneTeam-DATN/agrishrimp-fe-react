@@ -17,6 +17,7 @@ export default function ChatWidget() {
   // Hide on admin/auth/ai-doctor pages
   if (
     pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/advisor") ||
     pathname?.startsWith("/login") ||
     pathname?.startsWith("/signup") ||
     pathname?.startsWith("/ai-doctor")

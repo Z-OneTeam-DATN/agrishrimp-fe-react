@@ -1,13 +1,10 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
-import { isAdminRole } from "@/lib/roles";
 
 type JwtAuthPayload = {
   exp?: number;
   sub?: string;
-  roleSlug?: string | null;
-  role?: string | null;
   authorities?: string[]; // Spring Security: chứa permission codes của user
 };
 
@@ -36,21 +33,10 @@ function getJwtAuthorities(token: string | null): string[] {
   }
 }
 
-function getJwtRole(token: string | null): string {
-  if (!token) return "";
-  try {
-    const { roleSlug, role } = jwtDecode<JwtAuthPayload>(token);
-    return roleSlug || role || "";
-  } catch {
-    return "";
-  }
-}
-
 /**
  * Hook kiểm tra phân quyền động.
  *
- * Nguyên tắc: check permission codes. Admin cấp cao được bypass để luôn
- * còn đường vào màn phân quyền khi dữ liệu permission bị cấu hình sai.
+ * Nguyên tắc: check permission codes, không phụ thuộc vào tên vai trò.
  * Permissions được lấy từ API /me/permissions sau khi đăng nhập,
  * lưu vào store. Fallback về JWT authorities nếu store chưa có.
  */
@@ -80,14 +66,10 @@ export function usePermissions() {
 
   const hasPermission = useCallback(
     (permission: string): boolean => {
-      const isSystemAdmin = isAdminRole(user?.role) || isAdminRole(getJwtRole(accessToken));
-      if (isSystemAdmin) {
-        return true;
-      }
       if (!user) return false;
       return getAuthorities().includes(permission);
     },
-    [user, accessToken, getAuthorities]
+    [user, getAuthorities]
   );
 
   const hasAnyPermission = useCallback(

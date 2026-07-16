@@ -192,40 +192,40 @@ export default function PurchaseRequestListPage() {
           </h1>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:max-w-[320px]">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+              <div className="relative w-full sm:max-w-[320px]">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Tìm mã phiếu, nhà cung cấp..."
+                  className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-blue-300"
+                />
+              </div>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
               />
               <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm mã phiếu, nhà cung cấp..."
-                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-blue-300"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
               />
             </div>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
-            />
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
-            />
-            </div>
             {canCreatePurchaseRequest && (
-            <Link href="/admin/purchase-requests/new" className="shrink-0">
-              <Button className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
-                <Plus size={16} className="mr-2" />
-                Lập phiếu yêu cầu
-              </Button>
-            </Link>
-          )}
+              <Link href="/admin/purchase-requests/new" className="shrink-0">
+                <Button className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
+                  <Plus size={16} className="mr-2" />
+                  Lập phiếu yêu cầu
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 

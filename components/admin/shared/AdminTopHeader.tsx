@@ -35,7 +35,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
-import { isAdminRole } from "@/lib/roles";
 import { P } from "@/lib/permissions";
 
 type BranchSummary = {
@@ -239,7 +238,7 @@ export default function AdminTopHeader() {
 
     if (user?.branch?.name) return user.branch.name;
 
-    if (isAdminRole(user?.role) && !warehouseId) {
+    if (!warehouseId) {
       return "Toàn hệ thống";
     }
 
@@ -259,7 +258,7 @@ export default function AdminTopHeader() {
       if (currentBranch) return currentBranch.name;
     }
 
-    if (isAdminRole(user?.role)) {
+    if (!warehouseId) {
       return branchList.length > 0 ? "Toàn hệ thống" : "Chưa có chi nhánh";
     }
 
@@ -358,7 +357,7 @@ export default function AdminTopHeader() {
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  {isAdminRole(user?.role)
+                  {!warehouseId
                     ? "Quyền hạn cao nhất"
                     : "Thông tin tài khoản"}
                 </span>

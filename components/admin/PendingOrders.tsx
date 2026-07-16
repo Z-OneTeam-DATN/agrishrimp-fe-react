@@ -16,7 +16,8 @@ import { dashboardService } from "@/app/services/dashboard.service";
 import { orderService } from "@/app/services/order.service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { getOrderListPath } from "@/lib/order-routing";
 
 interface PendingOrdersProps {
@@ -25,7 +26,8 @@ interface PendingOrdersProps {
 
 export default function PendingOrders({ branchId }: PendingOrdersProps) {
   const { user, isLoadingAuth } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const { hasPermission } = usePermissions();
+  const canViewSystemBackorders = hasPermission(P.ORDER_VIEW) && !user?.branch?.id;
 
   const { data, isLoading } = useQuery({
     queryKey: ["pending-orders-summary", branchId],
@@ -34,9 +36,9 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
   });
 
   const { data: backorders, isLoading: isBackordersLoading } = useQuery({
-    queryKey: ["backorder-report", isAdmin],
+    queryKey: ["backorder-report", canViewSystemBackorders],
     queryFn: () => orderService.getBackorderReport(),
-    enabled: !!user && !isLoadingAuth && isAdmin,
+    enabled: !!user && !isLoadingAuth && canViewSystemBackorders,
     refetchInterval: 60000,
   });
 
@@ -109,7 +111,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
         </span>
       </div>
 
-      {isAdmin && !isBackordersLoading && backorderCount > 0 && (
+      {canViewSystemBackorders && !isBackordersLoading && backorderCount > 0 && (
         <div className="mx-4 mt-4 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-3.5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">

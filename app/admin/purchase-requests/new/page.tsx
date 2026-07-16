@@ -262,6 +262,7 @@ export default function NewPurchaseRequestPage() {
       return Boolean(currentName) && normalizeBranchText(branch.name) === currentName;
     });
   }, [currentUserBranch, currentUserBranchOption, warehouseBranches, warehouseId]);
+  const canCreatePurchaseRequests = hasPermission(P.PURCHASE_REQUEST_CREATE);
 
   const {
     register,
@@ -630,7 +631,7 @@ export default function NewPurchaseRequestPage() {
     return null;
   }
 
-  if (!canAccessPurchaseRequests) {
+  if (!canCreatePurchaseRequests) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center text-red-500 font-bold text-lg">
         Bạn không có quyền tạo phiếu yêu cầu nhập NCC.

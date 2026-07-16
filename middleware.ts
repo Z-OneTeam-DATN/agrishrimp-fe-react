@@ -55,6 +55,7 @@ const PROTECTED_PATHS = [
   "/checkout",
   "/user/cart",
   "/user/checkout",
+  "/advisor",
 ];
 
 // Helper to decode JWT payload without external library
@@ -140,7 +141,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-    // 3. RBAC Check for /admin
+  // 3. RBAC Check for /admin
   if (accessToken && path.startsWith("/admin")) {
     const payload = decodeJwt(accessToken);
     if (!payload) return NextResponse.next();
@@ -148,32 +149,13 @@ export function middleware(req: NextRequest) {
     // Trang 403 luôn được phép truy cập (tránh redirect loop)
     if (path === "/admin/forbidden") return NextResponse.next();
 
-    // 1. Trích xuất Role (Dựa vào JWT)
-    let role = (payload.role || "").toUpperCase();
-    const authorities: string[] = Array.isArray(payload.authorities)
-      ? payload.authorities.map((a: any) => (typeof a === "string" ? a : a.authority || "").toUpperCase())
-      : [];
-      
-    // Chuẩn hóa role
-    if (!role) {
-      const roleAuth = authorities.find(a => a.startsWith("ROLE_"));
-      if (roleAuth) role = roleAuth.replace("ROLE_", "");
-    } else if (role.startsWith("ROLE_")) {
-      role = role.replace("ROLE_", "");
-    }
-
-    // USER/CUSTOMER hoàn toàn không có quyền vào /admin
-    if (role === "USER" || role === "CUSTOMER") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-
     /**
      * LƯU Ý QUAN TRỌNG:
      * Vì danh sách permissions chi tiết (REPORT_REVENUE_VIEW, v.v.) được fetch qua API /me/permissions
      * và KHÔNG nằm trong JWT, Middleware (chạy ở Edge Runtime) không thể kiểm tra granular permissions.
      *
      * Do đó:
-     * 1. Middleware chỉ chặn tầng cao nhất (Role != USER).
+     * 1. Middleware chỉ kiểm tra đăng nhập.
      * 2. Việc phân quyền chi tiết (ẩn/hiện menu, chặn truy cập trang cụ thể)
      *    sẽ do Hook usePermissions() và các Component/Page đảm nhận ở phía Client.
      */

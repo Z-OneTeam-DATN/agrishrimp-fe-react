@@ -1,5 +1,3 @@
-import { isAdminRole } from "@/lib/roles";
-
 type RoleLike =
   | string
   | {
@@ -16,21 +14,21 @@ type OrderRouteUser = {
 } | null | undefined;
 
 export function isBranchOrderUser(user: OrderRouteUser): boolean {
-  return !isAdminRole(user?.role) && !!user?.branch?.id;
+  return Boolean(user?.branch?.id);
 }
 
 export function canUseBranchOrderRoutes(
   user: OrderRouteUser,
   warehouseId?: number | null,
 ): boolean {
-  return !isAdminRole(user?.role) && Boolean(user?.branch?.id || warehouseId);
+  return Boolean(user?.branch?.id || warehouseId);
 }
 
 export function getOrderListPath(
   user: OrderRouteUser,
   status?: string | null,
 ): string {
-  const basePath = isAdminRole(user?.role) ? "/admin/orders-all" : "/admin/orders";
+  const basePath = isBranchOrderUser(user) ? "/admin/orders" : "/admin/orders-all";
 
   if (!status) return basePath;
 

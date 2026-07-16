@@ -31,7 +31,6 @@ import { P } from "@/lib/permissions";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getOrderListPath } from "@/lib/order-routing";
-import { isAdminRole } from "@/lib/roles";
 import { formatDate } from "@/lib/dateUtils";
 
 const TABS = [
@@ -66,10 +65,10 @@ export default function AllOrdersPage() {
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [shippingOrderId, setShippingOrderId] = useState<number | null>(null);
-  const isAdmin = isAdminRole(user?.role);
+  const canViewSystemOrders = hasPermission(P.ORDER_VIEW) && !user?.branch?.id;
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAdmin) {
+    if (!isLoadingAuth && !canViewSystemOrders) {
       router.replace(getOrderListPath(user, searchParams.get("status")));
       return;
     }
@@ -77,15 +76,15 @@ export default function AllOrdersPage() {
     if (!isLoadingAuth && !hasPermission(P.ORDER_VIEW)) {
       router.push("/admin/forbidden");
     }
-  }, [hasPermission, isAdmin, isLoadingAuth, router, searchParams, user]);
+  }, [canViewSystemOrders, hasPermission, isLoadingAuth, router, searchParams, user]);
 
   useEffect(() => {
     if (isLoadingAuth) return;
 
-    if (!isAdmin) {
+    if (!canViewSystemOrders) {
       router.replace(getOrderListPath(user, searchParams.get("status")));
     }
-  }, [isAdmin, isLoadingAuth, router, searchParams, user]);
+  }, [canViewSystemOrders, isLoadingAuth, router, searchParams, user]);
 
   useEffect(() => {
     const requestedStatus = searchParams.get("status");
@@ -100,7 +99,7 @@ export default function AllOrdersPage() {
   }, [searchParams]);
 
   const fetchOrders = useCallback(async (tab: string, q?: string) => {
-    if (!isAdmin) return;
+    if (!canViewSystemOrders) return;
 
     setIsLoading(true);
     setExpandedId(null);
@@ -114,12 +113,12 @@ export default function AllOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin]);
+  }, [canViewSystemOrders]);
 
   useEffect(() => {
-    if (isLoadingAuth || !isAdmin) return;
+    if (isLoadingAuth || !canViewSystemOrders) return;
     fetchOrders(activeTab);
-  }, [activeTab, fetchOrders, isAdmin, isLoadingAuth]);
+  }, [activeTab, canViewSystemOrders, fetchOrders, isLoadingAuth]);
 
   const handleToggleRow = async (orderId: number) => {
     if (expandedId === orderId) {

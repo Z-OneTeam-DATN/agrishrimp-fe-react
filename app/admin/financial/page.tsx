@@ -54,7 +54,6 @@ import type {
 import { branchService } from "@/app/services/branchService";
 import { formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string };
 
@@ -120,11 +119,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function FinancialReportListPage() {
   const router = useRouter();
   const { user, warehouseId } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    isAdmin ? "all" : ownBranchId || "all"
+    canSelectAllBranches ? "all" : ownBranchId || "all"
   );
   const [startDate, setStartDate] = useState(() =>
     toIsoDate(new Date(new Date().setDate(new Date().getDate() - 30)))
@@ -146,7 +145,7 @@ export default function FinancialReportListPage() {
         const list = Array.isArray(response)
           ? response
           : response?.data || response?.content || [];
-        if (!isAdmin && ownBranchId) {
+        if (!canSelectAllBranches && ownBranchId) {
           setBranches(
             list.filter(
               (branch: BranchOption) => branch.id.toString() === ownBranchId
@@ -160,13 +159,13 @@ export default function FinancialReportListPage() {
       }
     };
     loadBranches();
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
-    if (!isAdmin && ownBranchId) {
+    if (!canSelectAllBranches && ownBranchId) {
       setSelectedBranchId(ownBranchId);
     }
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   const loadFinancialData = useCallback(async () => {
     try {
@@ -345,12 +344,12 @@ export default function FinancialReportListPage() {
               >
                 <SelectTrigger
                   className="h-[38px] w-full min-w-[220px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0 lg:w-[260px]"
-                  disabled={!isAdmin}
+                  disabled={!canSelectAllBranches}
                 >
                   <SelectValue placeholder="Tất cả chi nhánh" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {canSelectAllBranches && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id.toString()}>
                       {branch.name}
