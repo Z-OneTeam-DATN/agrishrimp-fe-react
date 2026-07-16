@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowRight,
   BellDot,
   ImageIcon,
   Loader2,
@@ -28,6 +30,8 @@ import { useChatStore } from "@/stores/useChatStore";
 import { useTypingStore } from "@/stores/useTypingStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
+import { ADMIN_WORKSPACE_PERMISSIONS } from "@/lib/workspace-permissions";
 import { toast } from "sonner";
 
 type InboxTab = "all" | "unread" | "assigned";
@@ -40,8 +44,11 @@ const FILTER_TABS: Array<{ id: InboxTab; label: string }> = [
 
 export default function AdvisorInboxWorkspace() {
   const { user } = useAuthStore();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const canManageChat = hasPermission(P.CHAT_MANAGE);
+  const canAccessAdminWorkspace = hasAnyPermission(
+    ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
   const {
     conversations,
     setConversations,
@@ -325,7 +332,23 @@ export default function AdvisorInboxWorkspace() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[520px]">
+            <div className="flex flex-col gap-3 xl:min-w-[520px]">
+              {canAccessAdminWorkspace && (
+                <div className="flex justify-start xl:justify-end">
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="h-11 rounded-2xl border-slate-200 bg-white/90 px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
+                    <Link href="/admin">
+                      Qua trang quản lý
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
                   Hội thoại mở
@@ -350,6 +373,7 @@ export default function AdvisorInboxWorkspace() {
                   {mineCount}
                 </p>
               </div>
+            </div>
             </div>
           </div>
         </header>

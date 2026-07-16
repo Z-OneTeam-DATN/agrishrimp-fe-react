@@ -83,12 +83,14 @@ export default function AdminLayout({
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const shouldMountWebSocket = pathname.startsWith("/admin/chat");
-  const shouldRedirectToAdvisor =
-    !isLoadingAuth &&
-    hasAnyPermission(ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]);
   const hasAdminWorkspaceAccess = hasAnyPermission(
     ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
   );
+  const hasAdvisorWorkspaceAccess = hasAnyPermission(
+    ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
+  const shouldRedirectToAdvisor =
+    !isLoadingAuth && hasAdvisorWorkspaceAccess && !hasAdminWorkspaceAccess;
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
