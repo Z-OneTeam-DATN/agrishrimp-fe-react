@@ -1,16 +1,23 @@
 "use client"
 
+import axios from "axios"
 import { useMutation } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { confirmOrder } from "@/app/services/orderService"
 import { useCartStore } from "@/stores/useCartStore"
 import { isConflictError, isTokenExpiredError, getFriendlyError, isRateLimitedError, getRetryAfterSeconds } from "@/app/utils/apiError"
-import type { ConfirmOrderPayload } from "@/app/types/order.types"
+import type { ConfirmOrderPayload, PrepareOrderResponse } from "@/app/types/order.types"
+
+type QuoteChangedPayload = {
+  newPrepareToken: string
+  newQuote: PrepareOrderResponse
+}
 
 interface UseConfirmOrderOptions {
   /** 409 Conflict — hàng vừa hết khi confirm */
   onConflict?: () => void
+  onQuoteChanged?: (payload: QuoteChangedPayload) => void
   /** 400 Token hết hạn — prepareToken > 30 phút */
   onTokenExpired?: () => void
   /** 409 Rate limited — thao tác quá nhanh */
@@ -18,7 +25,7 @@ interface UseConfirmOrderOptions {
 }
 
 export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
-  const { onConflict, onTokenExpired, onRateLimited } = options
+  const { onConflict, onQuoteChanged, onTokenExpired, onRateLimited } = options
   const router = useRouter()
   const { clearCart } = useCartStore()
 
@@ -43,6 +50,24 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
     },
 
     onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const data = error.response.data as
+          | { code?: string; newPrepareToken?: string; newQuote?: PrepareOrderResponse }
+          | undefined
+
+        if (
+          data?.code === "ORDER_QUOTE_CHANGED" &&
+          typeof data.newPrepareToken === "string" &&
+          data.newQuote
+        ) {
+          onQuoteChanged?.({
+            newPrepareToken: data.newPrepareToken,
+            newQuote: data.newQuote,
+          })
+          return
+        }
+      }
+
       if (isConflictError(error)) {
         // 409 — race condition, hàng vừa hết sau khi prepare
         onConflict?.()

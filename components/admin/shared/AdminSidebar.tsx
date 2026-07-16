@@ -97,9 +97,9 @@ export default function AdminSidebar() {
         isManagerRole(user?.role)));
   const orderListHref = getOrderListPath(user);
   const orderListBasePath = orderListHref.split("?")[0];
-  const isAdminOrderOverviewActive = pathname === "/admin/orders";
   const isAdminOrderDetailActive = /^\/admin\/orders\/\d+$/.test(pathname);
   const isOrderListActive =
+    pathname === "/admin/orders" ||
     pathname === orderListBasePath ||
     (isAdmin && isAdminOrderDetailActive) ||
     (pathname.startsWith("/admin/orders-processing") &&
@@ -542,15 +542,6 @@ export default function AdminSidebar() {
                   onToggle={() => toggleGroup("orders")}
                   active={pathname.startsWith("/admin/orders")}
                 >
-                  {isAdmin && (
-                    <SidebarLink
-                      href="/admin/orders"
-                      icon={List}
-                      label="Tổng quan đơn hàng"
-                      active={isAdminOrderOverviewActive}
-                      isChild
-                    />
-                  )}
                   <SidebarLink
                     href={orderListHref}
                     icon={List}

@@ -2,7 +2,6 @@ import { OrderStatus } from "@/app/types/order.types";
 
 export type UserOrderStage =
   | "PENDING"
-  | "AWAITING_REPLENISHMENT"
   | "READY_FOR_PICKUP"
   | "SHIPPING"
   | "COMPLETED"
@@ -14,7 +13,6 @@ export type UserOrderFilter = "ALL" | UserOrderStage;
 export const USER_ORDER_TABS: Array<{ label: string; value: UserOrderFilter }> = [
   { label: "Tất cả", value: "ALL" },
   { label: "Chờ xác nhận", value: "PENDING" },
-  { label: "Chờ điều chuyển", value: "AWAITING_REPLENISHMENT" },
   { label: "Chờ lấy hàng", value: "READY_FOR_PICKUP" },
   { label: "Chờ giao hàng", value: "SHIPPING" },
   { label: "Đã giao", value: "COMPLETED" },
@@ -23,15 +21,23 @@ export const USER_ORDER_TABS: Array<{ label: string; value: UserOrderFilter }> =
 ];
 
 export function getUserOrderStage(status: OrderStatus): UserOrderStage {
-  if (status === "AWAITING_PAYMENT" || status === "PENDING") {
+  if (
+    status === "PENDING_PAYMENT" ||
+    status === "PENDING_AUTO_APPROVAL" ||
+    status === "AWAITING_PAYMENT" ||
+    status === "PENDING"
+  ) {
     return "PENDING";
   }
 
-  if (status === "AWAITING_REPLENISHMENT") {
-    return "AWAITING_REPLENISHMENT";
-  }
-
-  if (status === "CONFIRMED" || status === "PROCESSING" || status === "READY_FOR_PICKUP") {
+  if (
+    status === "PENDING_SHORTAGE_REVIEW" ||
+    status === "PENDING_TRANSFER" ||
+    status === "AWAITING_REPLENISHMENT" ||
+    status === "CONFIRMED" ||
+    status === "PROCESSING" ||
+    status === "READY_FOR_PICKUP"
+  ) {
     return "READY_FOR_PICKUP";
   }
 
@@ -63,15 +69,23 @@ export function normalizeUserOrderFilter(value?: string | null): UserOrderFilter
     return "ALL";
   }
 
-  if (value === "AWAITING_PAYMENT" || value === "PENDING") {
+  if (
+    value === "PENDING_PAYMENT" ||
+    value === "PENDING_AUTO_APPROVAL" ||
+    value === "AWAITING_PAYMENT" ||
+    value === "PENDING"
+  ) {
     return "PENDING";
   }
 
-  if (value === "AWAITING_REPLENISHMENT") {
-    return "AWAITING_REPLENISHMENT";
-  }
-
-  if (value === "CONFIRMED" || value === "PROCESSING" || value === "READY_FOR_PICKUP") {
+  if (
+    value === "PENDING_SHORTAGE_REVIEW" ||
+    value === "PENDING_TRANSFER" ||
+    value === "AWAITING_REPLENISHMENT" ||
+    value === "CONFIRMED" ||
+    value === "PROCESSING" ||
+    value === "READY_FOR_PICKUP"
+  ) {
     return "READY_FOR_PICKUP";
   }
 

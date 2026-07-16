@@ -16,6 +16,22 @@ type DeliveryState =
   | "RETURNED";
 
 const ORDER_WORKFLOW_STATUS_MAP: Record<string, BadgeTone> = {
+  PENDING_PAYMENT: {
+    label: "Chờ thanh toán",
+    styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]",
+  },
+  PENDING_AUTO_APPROVAL: {
+    label: "Chờ tự xác nhận",
+    styles: "bg-[#fff7e6] text-[#fa8c16] border-[#ffe7ba]",
+  },
+  PENDING_SHORTAGE_REVIEW: {
+    label: "Chờ xử lý thiếu hàng",
+    styles: "bg-rose-50 text-rose-600 border-rose-200",
+  },
+  PENDING_TRANSFER: {
+    label: "Chờ điều chuyển",
+    styles: "bg-orange-50 text-orange-600 border-orange-200",
+  },
   AWAITING_REPLENISHMENT: {
     label: "Đơn thiếu hàng",
     styles: "bg-rose-50 text-rose-600 border-rose-200",
@@ -138,6 +154,31 @@ const renderBadge = (tone: BadgeTone) => (
   </span>
 );
 
+const normalizeWorkflowStatus = (status: OrderStatus | string) => {
+  switch (status) {
+    case "PENDING_PAYMENT":
+      return "AWAITING_PAYMENT";
+    case "PENDING_AUTO_APPROVAL":
+      return "PENDING";
+    case "PENDING_SHORTAGE_REVIEW":
+    case "PENDING_TRANSFER":
+      return "AWAITING_REPLENISHMENT";
+    default:
+      return status;
+  }
+};
+
+export type OrderWorkflowAction = {
+  label: string;
+  nextStatus: Exclude<
+    OrderStatus,
+    | "PENDING_PAYMENT"
+    | "PENDING_AUTO_APPROVAL"
+    | "PENDING_SHORTAGE_REVIEW"
+    | "PENDING_TRANSFER"
+  >;
+};
+
 export const getOrderCode = (order: Pick<MyOrder, "orderCode" | "code">) =>
   order.orderCode ?? order.code;
 
@@ -180,8 +221,11 @@ export const getOrderMissingSkuCount = (
   const count = (order.items ?? []).filter(
     (item) => Number(item.missingQuantity ?? 0) > 0,
   ).length;
+  const normalizedStatus = normalizeWorkflowStatus(order.status);
 
-  return order.status === "AWAITING_REPLENISHMENT" ? Math.max(1, count) : count;
+  return normalizedStatus === "AWAITING_REPLENISHMENT"
+    ? Math.max(1, count)
+    : count;
 };
 
 export const getOrderMissingUnitCount = (
@@ -193,17 +237,71 @@ export const getOrderMissingUnitCount = (
   );
 
 export const hasOrderShortage = (order: Pick<MyOrder, "items" | "status">) =>
-  order.status === "AWAITING_REPLENISHMENT" ||
+  normalizeWorkflowStatus(order.status) === "AWAITING_REPLENISHMENT" ||
   (order.items ?? []).some((item) => Number(item.missingQuantity ?? 0) > 0);
 
 export const getOrderInventoryStatus = (
   order: Pick<MyOrder, "items" | "status">,
 ) => (hasOrderShortage(order) ? "SHORTAGE" : "IN_STOCK");
 
+export const isReplenishmentWorkflowStatus = (status: OrderStatus | string) =>
+  ["AWAITING_REPLENISHMENT", "PENDING_SHORTAGE_REVIEW"].includes(status);
+
+export const canRequestReplenishmentAction = (
+  order: Pick<MyOrder, "status" | "items">,
+) =>
+  ["PENDING", "AWAITING_REPLENISHMENT"].includes(order.status) &&
+  hasOrderShortage(order);
+
+export const matchesAdminOrderStatusFilter = (
+  status: OrderStatus | string,
+  filter: OrderStatus | "ALL",
+) => filter === "ALL" || normalizeWorkflowStatus(status) === filter;
+
+export const getNextOrderWorkflowAction = (
+  order: Pick<MyOrder, "status" | "items">,
+): OrderWorkflowAction | null => {
+  if (hasOrderShortage(order)) {
+    return null;
+  }
+
+  if (
+    [
+      "PENDING_PAYMENT",
+      "PENDING_AUTO_APPROVAL",
+      "PENDING_SHORTAGE_REVIEW",
+      "PENDING_TRANSFER",
+      "AWAITING_REPLENISHMENT",
+      "AWAITING_PAYMENT",
+    ].includes(order.status)
+  ) {
+    return null;
+  }
+
+  const status = normalizeWorkflowStatus(order.status);
+
+  switch (status) {
+    case "PENDING":
+      return { label: "Xác nhận đơn", nextStatus: "CONFIRMED" };
+    case "CONFIRMED":
+      return { label: "Chuyển chuẩn bị", nextStatus: "PROCESSING" };
+    case "PROCESSING":
+      return { label: "Chờ bàn giao", nextStatus: "READY_FOR_PICKUP" };
+    case "READY_FOR_PICKUP":
+      return { label: "Chuyển giao hàng", nextStatus: "SHIPPING" };
+    case "SHIPPING":
+      return { label: "Xác nhận đã giao", nextStatus: "RECEIVED" };
+    case "RECEIVED":
+      return { label: "Hoàn thành đơn", nextStatus: "COMPLETED" };
+    default:
+      return null;
+  }
+};
+
 export const getDeliveryStatusFromOrder = (
   status: OrderStatus | string,
 ): DeliveryState => {
-  switch (status) {
+  switch (normalizeWorkflowStatus(status)) {
     case "PROCESSING":
       return "PREPARING";
     case "READY_FOR_PICKUP":
@@ -262,11 +360,9 @@ export const canApprovePackedAndShip = (order: MyOrder, detail?: MyOrder) => {
     (orderDetail.subOrders ?? []).filter(
       (subOrder) => !["CANCELLED", "RETURNED"].includes(subOrder.status),
     ).length > 0;
+  const status = normalizeWorkflowStatus(order.status);
 
-  return (
-    !hasActiveSubOrders &&
-    ["CONFIRMED", "PROCESSING", "READY_FOR_PICKUP"].includes(order.status)
-  );
+  return !hasActiveSubOrders && status === "READY_FOR_PICKUP";
 };
 
 export function OrderWorkflowBadge({
@@ -274,10 +370,12 @@ export function OrderWorkflowBadge({
 }: {
   status: OrderStatus | string;
 }) {
-  const tone = ORDER_WORKFLOW_STATUS_MAP[status] ?? {
-    label: status,
-    styles: "bg-slate-100 text-slate-600 border-slate-200",
-  };
+  const tone =
+    ORDER_WORKFLOW_STATUS_MAP[status] ??
+    ORDER_WORKFLOW_STATUS_MAP[normalizeWorkflowStatus(status)] ?? {
+      label: status,
+      styles: "bg-slate-100 text-slate-600 border-slate-200",
+    };
 
   return renderBadge(tone);
 }

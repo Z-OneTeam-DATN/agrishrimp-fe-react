@@ -643,7 +643,7 @@ export default function AdminDashboard() {
             label="Xử lý đơn"
             value={orderWorkload}
             description="Duyệt, thanh toán, đóng gói và giao hàng."
-            href="/admin/orders"
+            href="/admin/orders-all"
           />
           <PriorityCard
             label="Bổ sung hàng"

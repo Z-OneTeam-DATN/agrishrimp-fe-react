@@ -9,7 +9,6 @@ import {
   ChevronsRight,
   Package,
   Settings,
-  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
@@ -37,12 +36,14 @@ import { getOrderListPath } from "@/lib/order-routing";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
-  canApprovePackedAndShip,
   DeliveryStatusBadge,
+  getNextOrderWorkflowAction,
   getOrderBranchSummary,
   getOrderCode,
   hasOrderShortage,
   InventoryStatusBadge,
+  canRequestReplenishmentAction,
+  matchesAdminOrderStatusFilter,
   OrderWorkflowBadge,
   PaymentStatusBadge,
 } from "./OrderStateBadges";
@@ -55,7 +56,7 @@ type AdminOrderListPageProps = {
 type PaymentFilter = "ALL" | "PAID" | "UNPAID";
 type StatusFilter = "ALL" | OrderStatus;
 
-const TABLE_COL_SPAN = 12;
+const TABLE_COL_SPAN = 11;
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -107,7 +108,7 @@ export default function AdminOrderListPage({
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
-  const [shippingOrderId, setShippingOrderId] = useState<number | null>(null);
+  const [advancingOrderId, setAdvancingOrderId] = useState<number | null>(null);
 
   const isAdmin = isAdminRole(user?.role);
   const isAllOrdersPage = !fixedStatus;
@@ -168,7 +169,7 @@ export default function AdminOrderListPage({
       const matchesStatus =
         !isAllOrdersPage ||
         statusFilter === "ALL" ||
-        order.status === statusFilter;
+        matchesAdminOrderStatusFilter(order.status, statusFilter);
 
       const matchesPayment =
         paymentFilter === "ALL" || order.paymentStatus === paymentFilter;
@@ -257,31 +258,33 @@ export default function AdminOrderListPage({
       const transferSummary = response.transferCodes?.length
         ? ` (${response.transferCodes.join(", ")})`
         : "";
-      toast.success(
-        `Đã tạo lệnh điều chuyển cho ${orderCode}${transferSummary}`,
-      );
+      toast.success(`Đã gửi xin lệnh điều chuyển cho ${orderCode}${transferSummary}`);
       await fetchOrders();
     } catch {
       toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
     }
   };
 
-  const handleApprovePackedAndShip = async (
+  const handleAdvanceStatus = async (
     event: React.MouseEvent,
-    orderId: number,
-    orderCode: string,
+    order: MyOrder,
   ) => {
     event.stopPropagation();
 
+    const action = getNextOrderWorkflowAction(order);
+    if (!action) {
+      return;
+    }
+
     try {
-      setShippingOrderId(orderId);
-      await orderService.approvePackedAndShipOrder(orderId);
-      toast.success(`Đơn hàng ${orderCode} đã chuyển sang đang giao.`);
+      setAdvancingOrderId(order.id);
+      await orderService.updateOrderStatus(order.id, action.nextStatus);
+      toast.success(`Đơn hàng ${getOrderCode(order)} đã được cập nhật trạng thái.`);
       await fetchOrders();
     } catch {
-      toast.error("Không thể chuyển đơn hàng sang trạng thái đang giao.");
+      toast.error("Không thể cập nhật trạng thái đơn hàng.");
     } finally {
-      setShippingOrderId(null);
+      setAdvancingOrderId(null);
     }
   };
 
@@ -471,9 +474,6 @@ export default function AdminOrderListPage({
                   Trạng thái đơn
                 </TableHead>
                 <TableHead className="text-center text-[12px] font-bold text-slate-800">
-                  Giao hàng
-                </TableHead>
-                <TableHead className="text-center text-[12px] font-bold text-slate-800">
                   Thao tác
                 </TableHead>
               </TableRow>
@@ -505,12 +505,13 @@ export default function AdminOrderListPage({
                   const detail = detailCache[orderId];
                   const isLoadingDetail = loadingDetailId === orderId;
                   const orderDetail = detail ?? order;
-                  const allowDirectShip =
-                    hasPermission(P.ORDER_UPDATE) &&
-                    canApprovePackedAndShip(order, detail);
+                  const nextAction =
+                    hasPermission(P.ORDER_UPDATE)
+                      ? getNextOrderWorkflowAction(orderDetail)
+                      : null;
                   const allowReplenishment =
                     hasPermission(P.ORDER_UPDATE) &&
-                    order.status === "AWAITING_REPLENISHMENT";
+                    canRequestReplenishmentAction(orderDetail);
 
                   return (
                     <React.Fragment key={orderId}>
@@ -573,9 +574,6 @@ export default function AdminOrderListPage({
                         <TableCell className="text-center">
                           <OrderWorkflowBadge status={order.status} />
                         </TableCell>
-                        <TableCell className="text-center">
-                          <DeliveryStatusBadge status={order.status} />
-                        </TableCell>
                         <TableCell
                           className="text-center"
                           onClick={(event) => event.stopPropagation()}
@@ -589,21 +587,14 @@ export default function AdminOrderListPage({
                             >
                               <Link href={`/admin/orders/${order.id}`}>Chi tiết</Link>
                             </Button>
-                            {allowDirectShip ? (
+                            {nextAction ? (
                               <Button
                                 size="sm"
                                 className="h-8 bg-blue-600 text-[12px] hover:bg-blue-700"
-                                disabled={shippingOrderId === orderId}
-                                onClick={(event) =>
-                                  void handleApprovePackedAndShip(
-                                    event,
-                                    orderId,
-                                    orderCode,
-                                  )
-                                }
+                                disabled={advancingOrderId === orderId}
+                                onClick={(event) => void handleAdvanceStatus(event, orderDetail)}
                               >
-                                <Truck className="mr-1 h-3.5 w-3.5" />
-                                Giao hàng
+                                {nextAction.label}
                               </Button>
                             ) : allowReplenishment ? (
                               <Button
@@ -618,7 +609,7 @@ export default function AdminOrderListPage({
                                 }
                               >
                                 <Package className="mr-1 h-3.5 w-3.5" />
-                                Điều chuyển
+                                Xin lệnh điều chuyển
                               </Button>
                             ) : null}
                           </div>

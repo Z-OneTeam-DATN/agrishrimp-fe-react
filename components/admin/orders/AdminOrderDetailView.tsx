@@ -26,13 +26,14 @@ import { isAdminRole } from "@/lib/roles";
 import { getOrderListPath } from "@/lib/order-routing";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
-  canApprovePackedAndShip,
   DeliveryStatusBadge,
+  getNextOrderWorkflowAction,
   getOrderBranchSummary,
   getOrderCode,
   getOrderMissingSkuCount,
   getOrderMissingUnitCount,
   InventoryStatusBadge,
+  canRequestReplenishmentAction,
   OrderWorkflowBadge,
   PaymentStatusBadge,
 } from "./OrderStateBadges";
@@ -53,7 +54,7 @@ export default function AdminOrderDetailView({
   const { user } = useAuthStore();
   const [order, setOrder] = useState<MyOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState<"replenishment" | "ship" | null>(
+  const [isSubmitting, setIsSubmitting] = useState<"replenishment" | "advance" | null>(
     null,
   );
 
@@ -142,18 +143,23 @@ export default function AdminOrderDetailView({
     }
   };
 
-  const handleApprovePackedAndShip = async () => {
+  const handleAdvanceStatus = async () => {
     if (!order) {
       return;
     }
 
+    const nextAction = getNextOrderWorkflowAction(order);
+    if (!nextAction) {
+      return;
+    }
+
     try {
-      setIsSubmitting("ship");
-      await orderService.approvePackedAndShipOrder(order.id);
-      toast.success(`Đơn hàng ${getOrderCode(order)} đã chuyển sang đang giao.`);
+      setIsSubmitting("advance");
+      await orderService.updateOrderStatus(order.id, nextAction.nextStatus);
+      toast.success(`Đơn hàng ${getOrderCode(order)} đã được cập nhật trạng thái.`);
       await fetchOrder();
     } catch {
-      toast.error("Không thể chuyển đơn hàng sang trạng thái đang giao.");
+      toast.error("Không thể cập nhật trạng thái đơn hàng.");
     } finally {
       setIsSubmitting(null);
     }
@@ -171,9 +177,10 @@ export default function AdminOrderDetailView({
   }
 
   const canCreateReplenishment =
-    hasPermission(P.ORDER_UPDATE) && order.status === "AWAITING_REPLENISHMENT";
-  const canDirectShip =
-    hasPermission(P.ORDER_UPDATE) && canApprovePackedAndShip(order);
+    hasPermission(P.ORDER_UPDATE) && canRequestReplenishmentAction(order);
+  const nextAction = hasPermission(P.ORDER_UPDATE)
+    ? getNextOrderWorkflowAction(order)
+    : null;
 
   return (
     <div className="space-y-5">
@@ -224,22 +231,21 @@ export default function AdminOrderDetailView({
               >
                 <Package className="mr-1" />
                 {isSubmitting === "replenishment"
-                  ? "Đang tạo điều chuyển..."
-                  : "Tạo lệnh điều chuyển"}
+                  ? "Đang xin lệnh điều chuyển..."
+                  : "Xin lệnh điều chuyển"}
               </Button>
             ) : null}
 
-            {canDirectShip ? (
+            {nextAction ? (
               <Button
                 type="button"
                 className="bg-blue-600 hover:bg-blue-700"
-                onClick={() => void handleApprovePackedAndShip()}
+                onClick={() => void handleAdvanceStatus()}
                 disabled={isSubmitting !== null}
               >
-                <Truck className="mr-1" />
-                {isSubmitting === "ship"
+                {isSubmitting === "advance"
                   ? "Đang chuyển trạng thái..."
-                  : "Duyệt đóng gói và giao"}
+                  : nextAction.label}
               </Button>
             ) : null}
           </div>

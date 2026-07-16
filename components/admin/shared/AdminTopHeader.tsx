@@ -82,7 +82,7 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/blog/posts/new": "Thêm bài viết",
   "/admin/blog/posts/edit": "Chỉnh sửa bài viết",
   "/admin/blog/categories": "Danh mục blog",
-  "/admin/orders": "Tổng quan đơn hàng",
+  "/admin/orders": "Danh sách đơn hàng",
   "/admin/orders-all": "Danh sách đơn hàng",
   "/admin/orders/add": "Tạo đơn hàng",
   "/admin/orders/draft": "Đơn hàng nháp",
@@ -202,7 +202,6 @@ export default function AdminTopHeader() {
 
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
-
       const exactLabel =
         currentPath === "/admin/branches/add" && editingBranchId
           ? "Cập nhật chi nhánh"

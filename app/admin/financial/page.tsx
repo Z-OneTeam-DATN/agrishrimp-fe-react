@@ -50,7 +50,7 @@ import type {
   ProfitLossData,
   SupplierDebtData,
 } from "@/app/services/financial-report.types";
-import { branchService } from "@/app/services/branchService";
+import { PublicBranchService } from "@/app/services/publicBranch.service";
 import { formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
@@ -137,14 +137,13 @@ export default function FinancialReportListPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const latestLoadIdRef = useRef(0);
 
   useEffect(() => {
     const loadBranches = async () => {
       try {
-        const response = await branchService.getAll();
-        const list = Array.isArray(response)
-          ? response
-          : response?.data || response?.content || [];
+        const response = await PublicBranchService.getAll();
+        const list = Array.isArray(response) ? response : [];
         if (!isAdmin && ownBranchId) {
           setBranches(
             list.filter(
@@ -168,6 +167,7 @@ export default function FinancialReportListPage() {
   }, [isAdmin, ownBranchId]);
 
   const loadFinancialData = useCallback(async () => {
+    const requestId = ++latestLoadIdRef.current;
     try {
       setLoading(true);
       const branchId = selectedBranchId === "all" ? "all" : selectedBranchId;
@@ -177,15 +177,23 @@ export default function FinancialReportListPage() {
           endDate,
           branchId,
         });
+      if (requestId !== latestLoadIdRef.current) {
+        return;
+      }
       setProfitLoss(profitLossRes);
       setSupplierDebts(Array.isArray(supplierDebtRes) ? supplierDebtRes : []);
       setLastUpdated(new Date());
     } catch (error) {
+      if (requestId !== latestLoadIdRef.current) {
+        return;
+      }
       console.error("Không tải được dữ liệu tài chính", error);
       setProfitLoss(null);
       setSupplierDebts([]);
     } finally {
-      setLoading(false);
+      if (requestId === latestLoadIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [selectedBranchId, startDate, endDate]);
 

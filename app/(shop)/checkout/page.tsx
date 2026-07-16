@@ -1,6 +1,7 @@
 ﻿"use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, Loader2, X, Plus, MapPin, CheckCircle2, Banknote, Smartphone } from "lucide-react"
@@ -15,13 +16,25 @@ import { useUserLocation } from "@/hooks/useUserLocation"
 import { usePrepareOrder } from "@/hooks/usePrepareOrder"
 import { useConfirmOrder } from "@/hooks/useConfirmOrder"
 import AddressForm from "@/components/profile/AddressForm"
-import { PrepareOrderSummary } from "@/components/order/PrepareOrderSummary"
 import CheckoutVoucherSelector from "@/components/order/CheckoutVoucherSelector"
-import { OutOfStockWarning } from "@/components/order/OutOfStockWarning"
 import { getFriendlyError } from "@/app/utils/apiError"
 import type { DeliveryInfo, CartItem, PaymentMethod } from "@/app/types/order.types"
+import { resolveImageUrl } from "@/lib/resolveImageUrl"
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ"
+
+const formatDateTime = (value?: string | null) => {
+    if (!value) return ""
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return ""
+    return parsed.toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    })
+}
 
 const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: React.ReactNode }[] = [
     {
@@ -159,12 +172,20 @@ export default function CheckoutPage() {
     const [isLoadingVouchers, setIsLoadingVouchers] = useState(false)
     const [hasLoadedVouchers, setHasLoadedVouchers] = useState(false)
 
-    const [showConflictModal, setShowConflictModal] = useState(false)
     const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false)
     const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
     const [addressLocationWarning, setAddressLocationWarning] = useState<string | null>(null)
+    const [quoteNowMs, setQuoteNowMs] = useState(() => Date.now())
+    const confirmAttemptKeyRef = useRef<string | null>(null)
 
-    const { deliveryInfo, setDeliveryInfo, prepareOrderResponse, prepareToken, clearPrepareResponse } = useCartStore()
+    const {
+        deliveryInfo,
+        setDeliveryInfo,
+        prepareOrderResponse,
+        prepareToken,
+        setPrepareResponse,
+        clearPrepareResponse,
+    } = useCartStore()
     const { userLocation } = useLocationStore()
     const { isAuthenticated, isLoadingAuth } = useAuthStore()
 
@@ -174,7 +195,6 @@ export default function CheckoutPage() {
         onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
     })
     const confirmMutation = useConfirmOrder({
-        onConflict: () => setShowConflictModal(true),
         onTokenExpired: () => setShowTokenExpiredModal(true),
         onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
     })
@@ -186,6 +206,21 @@ export default function CheckoutPage() {
         }, 1000)
         return () => clearInterval(timer)
     }, [rateLimitCooldown])
+
+    useEffect(() => {
+        if (!prepareOrderResponse?.expiresAt) return
+        setQuoteNowMs(Date.now())
+        const timer = setInterval(() => {
+            setQuoteNowMs(Date.now())
+        }, 1000)
+        return () => clearInterval(timer)
+    }, [prepareOrderResponse?.expiresAt])
+
+    useEffect(() => {
+        if (!confirmMutation.isPending) {
+            confirmAttemptKeyRef.current = null
+        }
+    }, [confirmMutation.isPending])
 
     const cartSubtotal = useMemo(
         () =>
@@ -233,7 +268,7 @@ export default function CheckoutPage() {
             const vouchers = await voucherService.getAvailableForMe(orderSubtotal)
             setAvailableVouchers(Array.isArray(vouchers) ? vouchers : [])
         } catch (error) {
-            console.error("Khong the tai danh sach voucher", error)
+            console.error("Không thể tải danh sách voucher", error)
             setAvailableVouchers([])
         } finally {
             setHasLoadedVouchers(true)
@@ -479,10 +514,6 @@ export default function CheckoutPage() {
         }
     }
 
-    const imageByVariantId = Object.fromEntries(
-        cartItems.map((item) => [item.productVariantId, item.imageUrl as string | undefined])
-    ) as Record<number, string | undefined>
-
     const prepareOrderDisplayResponse = useMemo(() => {
         if (!prepareOrderResponse) return null
 
@@ -535,6 +566,68 @@ export default function CheckoutPage() {
         }
     }, [cartItems, prepareOrderResponse])
 
+    const checkoutDisplayItems = useMemo(() => {
+        const preparedTotalsByVariantId = new Map<number, { unitPrice: number; subtotal: number }>()
+
+        prepareOrderDisplayResponse?.subOrders.forEach((subOrder) => {
+            subOrder.items.forEach((item) => {
+                const existing = preparedTotalsByVariantId.get(item.productVariantId)
+                const unitPrice =
+                    item.unitPrice > 0
+                        ? item.unitPrice
+                        : (existing?.unitPrice ?? 0)
+                const subtotal =
+                    (existing?.subtotal ?? 0) +
+                    (item.subtotal > 0 ? item.subtotal : unitPrice * item.quantity)
+
+                preparedTotalsByVariantId.set(item.productVariantId, {
+                    unitPrice,
+                    subtotal,
+                })
+            })
+        })
+
+        return cartItems.map((item) => {
+            const prepared = preparedTotalsByVariantId.get(item.productVariantId)
+            const unitPrice = prepared?.unitPrice ?? Number(item.unitPrice) ?? 0
+
+            return {
+                ...item,
+                displayName: item.productName?.trim() || `Sản phẩm #${item.productVariantId}`,
+                displayVariant: item.variantName?.trim() || "",
+                unitPrice,
+                subtotal: prepared?.subtotal && prepared.subtotal > 0
+                    ? prepared.subtotal
+                    : unitPrice * item.quantity,
+            }
+        })
+    }, [cartItems, prepareOrderDisplayResponse])
+
+    const shippingPreview = useMemo(() => {
+        if (!prepareOrderDisplayResponse) return null
+
+        const firstSubOrder = prepareOrderDisplayResponse.subOrders[0]
+
+        return {
+            carrier: firstSubOrder?.carrier?.trim() || "Đối tác vận chuyển",
+            estimatedDays: firstSubOrder?.estimatedDays?.trim() || "2-3 ngày",
+        }
+    }, [prepareOrderDisplayResponse])
+
+    const totalDisplayQuantity = useMemo(
+        () => checkoutDisplayItems.reduce((sum, item) => sum + item.quantity, 0),
+        [checkoutDisplayItems]
+    )
+
+    const quoteExpiresAtMs = useMemo(() => {
+        if (!prepareOrderDisplayResponse?.expiresAt) return null
+        const parsed = new Date(prepareOrderDisplayResponse.expiresAt).getTime()
+        return Number.isNaN(parsed) ? null : parsed
+    }, [prepareOrderDisplayResponse?.expiresAt])
+
+    const quoteExpired = quoteExpiresAtMs !== null && quoteExpiresAtMs <= quoteNowMs
+    const quoteExpiryLabel = formatDateTime(prepareOrderDisplayResponse?.expiresAt)
+
     const appliedVoucherDetails = useMemo(() => {
         const appliedVoucherCode = prepareOrderDisplayResponse?.voucherCode?.trim().toUpperCase()
         if (!appliedVoucherCode) return null
@@ -552,15 +645,29 @@ export default function CheckoutPage() {
         if (rateLimitCooldown > 0) {
             return // Chỉ disable button, không show toast
         }
+        if (quoteExpired) {
+            setShowTokenExpiredModal(true)
+            return
+        }
         if (!prepareToken) { setShowTokenExpiredModal(true); return }
-        confirmMutation.mutate({ prepareToken, paymentMethod, note: note.trim() || undefined })
+        if (!confirmAttemptKeyRef.current) {
+            confirmAttemptKeyRef.current =
+                globalThis.crypto?.randomUUID?.() ??
+                `${Date.now()}-${Math.random().toString(36).slice(2)}`
+        }
+        confirmMutation.mutate({
+            prepareToken,
+            idempotencyKey: confirmAttemptKeyRef.current,
+            paymentMethod,
+            note: note.trim() || undefined,
+        })
     }
 
     const retryPrepare = () => {
         if (rateLimitCooldown > 0) {
             return // Chỉ disable button, không show toast
         }
-        setShowConflictModal(false)
+        confirmAttemptKeyRef.current = null
         setShowTokenExpiredModal(false)
         if (!deliveryInfo?.userAddressId) return
         prepareMutation.mutate({
@@ -576,8 +683,9 @@ export default function CheckoutPage() {
     }
 
     const canPlaceOrder =
-        !!prepareOrderResponse &&
-        (prepareOrderResponse.canFulfill || prepareOrderResponse.subOrders.length > 0)
+        !!prepareOrderDisplayResponse &&
+        !!prepareOrderDisplayResponse.canPlaceOrder &&
+        !quoteExpired
 
     if (isLoadingCart) {
         return (
@@ -754,7 +862,7 @@ export default function CheckoutPage() {
                                 {addressConfirmed && prepareMutation.isError && !prepareMutation.isPending && (
                                     <div className="border border-red-100 bg-red-50 rounded-lg p-5 text-center">
                                         <p className="text-sm font-semibold text-red-700 mb-1">{getFriendlyError(prepareMutation.error)}</p>
-                                        <p className="text-xs text-red-400">Vui lòng kiểm tra lại địa chỉ, tồn kho hoặc thử thanh toán lại.</p>
+                                        <p className="text-xs text-red-400">Vui lòng kiểm tra lại thông tin giao hàng hoặc thử lại sau.</p>
                                     </div>
                                 )}
 
@@ -773,15 +881,70 @@ export default function CheckoutPage() {
 
                                 {addressConfirmed && !prepareMutation.isPending && prepareOrderDisplayResponse && (
                                     <div className="space-y-3">
-                                        {prepareOrderDisplayResponse.outOfStockItems.length > 0 && (
-                                            <OutOfStockWarning
-                                                items={prepareOrderDisplayResponse.outOfStockItems}
-                                            />
-                                        )}
-                                        <PrepareOrderSummary
-                                            prepareResponse={prepareOrderDisplayResponse}
-                                            imageByVariantId={imageByVariantId}
-                                        />
+                                        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                            <div className="divide-y divide-gray-100">
+                                                {checkoutDisplayItems.map((item) => (
+                                                    <div key={item.productVariantId} className="flex gap-3 px-4 py-4">
+                                                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                                                            <Image
+                                                                src={resolveImageUrl(item.imageUrl, "/placeholder.png")}
+                                                                alt={item.displayName}
+                                                                fill
+                                                                sizes="80px"
+                                                                className="object-cover"
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="min-w-0">
+                                                                    <p className="line-clamp-2 text-sm font-semibold text-gray-900">
+                                                                        {item.displayName}
+                                                                    </p>
+                                                                    {item.displayVariant && (
+                                                                        <p className="mt-1 text-xs text-gray-400">
+                                                                            Phân loại: {item.displayVariant}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                                <p className="shrink-0 text-sm font-semibold text-blue-600">
+                                                                    {formatMoney(item.subtotal)}
+                                                                </p>
+                                                            </div>
+                                                            <div className="mt-3 flex items-center justify-between text-sm">
+                                                                <span className="text-gray-500">{formatMoney(item.unitPrice)}</span>
+                                                                <span className="text-gray-400">x{item.quantity}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {shippingPreview && (
+                                                <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
+                                                    <div className="text-gray-500">
+                                                        Đơn vị vận chuyển:{" "}
+                                                        <span className="font-semibold text-blue-600">
+                                                            {shippingPreview.carrier}
+                                                        </span>
+                                                        {" · "}
+                                                        Dự kiến {shippingPreview.estimatedDays} (ước tính)
+                                                    </div>
+                                                    <div className="text-right font-semibold text-gray-700">
+                                                        {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 bg-gray-50/70 px-4 py-3 text-sm text-gray-600">
+                                                <span>{totalDisplayQuantity} sản phẩm</span>
+                                                <span>Tổng tiền hàng: {formatMoney(prepareOrderDisplayResponse.totalSubtotal)}</span>
+                                                <span>Phí vận chuyển: {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}</span>
+                                                <span className="font-bold text-gray-900">
+                                                    Tổng: {formatMoney(prepareOrderDisplayResponse.totalAmount)}
+                                                </span>
+                                            </div>
+                                        </div>
+
                                         <CheckoutVoucherSelector
                                             availableVouchers={availableVouchers}
                                             selectedVoucher={selectedVoucher}
@@ -910,6 +1073,17 @@ export default function CheckoutPage() {
                                             </div>
                                             <p className="text-[10px] text-gray-400 text-right mt-1">Đã bao gồm VAT (nếu có)</p>
                                         </div>
+                                        {quoteExpiryLabel && (
+                                            <div className={`rounded-lg border px-3 py-2 text-xs ${
+                                                quoteExpired
+                                                    ? "border-red-200 bg-red-50 text-red-700"
+                                                    : "border-slate-200 bg-slate-50 text-slate-600"
+                                            }`}>
+                                                {quoteExpired
+                                                    ? "Báo giá đã hết hạn. Vui lòng chuẩn bị lại trước khi đặt hàng."
+                                                    : `Báo giá được giữ đến ${quoteExpiryLabel}.`}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-xs text-gray-400 text-center py-4">
@@ -926,6 +1100,8 @@ export default function CheckoutPage() {
                                         <><Loader2 size={15} className="animate-spin" /> Đang xử lý...</>
                                     ) : rateLimitCooldown > 0 ? (
                                         `Vui lòng chờ ${rateLimitCooldown}s`
+                                    ) : quoteExpired ? (
+                                        "Báo giá đã hết hạn"
                                     ) : !canPlaceOrder ? (
                                         "Chọn địa chỉ giao hàng"
                                     ) : (
@@ -961,13 +1137,15 @@ export default function CheckoutPage() {
                         </div>
                         <button
                             onClick={handleConfirm}
-                            disabled={confirmMutation.isPending || rateLimitCooldown > 0}
+                            disabled={!canPlaceOrder || confirmMutation.isPending || rateLimitCooldown > 0}
                             className="px-7 py-3 bg-blue-600 text-white text-sm font-bold rounded uppercase tracking-wide transition-colors disabled:opacity-50"
                         >
                             {confirmMutation.isPending
                                 ? <Loader2 size={14} className="animate-spin" />
                                 : rateLimitCooldown > 0
                                     ? `Chờ ${rateLimitCooldown}s`
+                                : quoteExpired
+                                    ? "Hết hạn"
                                 : "Đặt hàng"
                             }
                         </button>
@@ -1069,28 +1247,6 @@ export default function CheckoutPage() {
                                 </button>
                             </div>
                         )}
-                    </div>
-                </div>
-            )}
-
-            {/* ── MODAL: CONFLICT ── */}
-            {showConflictModal && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowConflictModal(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full z-10">
-                        <button onClick={() => setShowConflictModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                            <X size={16} />
-                        </button>
-                        <div className="text-center">
-                            <p className="text-3xl mb-3">⚠️</p>
-                            <h3 className="font-bold text-gray-900 mb-2">Hàng vừa thay đổi!</h3>
-                            <p className="text-sm text-gray-500 mb-5">
-                                Một số sản phẩm vừa hết hàng hoặc không đủ số lượng.
-                            </p>
-                            <button onClick={retryPrepare} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors">
-                                Kiểm tra lại đơn
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}

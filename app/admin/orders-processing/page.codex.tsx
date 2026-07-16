@@ -404,14 +404,14 @@ export default function OrderManagementPage() {
                                     Chi tiết sản phẩm ({detail?.items?.length || order.items.length || 0})
                                   </h3>
 
-                                  {activeTab === "AWAITING_REPLENISHMENT" ? (
+                                  {activeTab === "PENDING" && hasMissingItems ? (
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
                                       <PackageCheck size={15} className="mr-1.5" />
-                                      Tạo lệnh điều chuyển
+                                      Xin lệnh điều chuyển
                                     </Button>
                                   ) : activeTab === "PENDING" ? (
                                     <Button
@@ -421,6 +421,15 @@ export default function OrderManagementPage() {
                                     >
                                       <CheckCircle2 size={15} className="mr-1.5" />
                                       Xác nhận đơn
+                                    </Button>
+                                  ) : activeTab === "AWAITING_REPLENISHMENT" ? (
+                                    <Button
+                                      size="sm"
+                                      className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
+                                      onClick={(event) => handleRequestReplenishment(event, order)}
+                                    >
+                                      <PackageCheck size={15} className="mr-1.5" />
+                                      Xin lệnh điều chuyển
                                     </Button>
                                   ) : activeTab === "CONFIRMED" ? (
                                     <Button
@@ -568,7 +577,7 @@ export default function OrderManagementPage() {
   );
 }
 
-function PaymentBadge({ status }: { status: "PAID" | "UNPAID" }) {
+function PaymentBadge({ status }: { status: string }) {
   const styles =
     status === "PAID"
       ? "border-emerald-100 bg-emerald-50 text-emerald-600 font-bold"
