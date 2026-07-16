@@ -442,18 +442,6 @@ export default function AdminSidebar() {
     isLoadingAuth,
     user,
   ]);
-  }, [
-    accessToken,
-    applyCounts,
-    canAccessExports,
-    canAccessImports,
-    canAccessInventoryChecks,
-    canAccessPurchaseRequests,
-    canAccessTransfers,
-    hasPermission,
-    isLoadingAuth,
-    user,
-  ]);
 
   useEffect(() => {
     if (!accessToken) {
