@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { ChatMessage, Conversation } from "@/app/types/chat.types";
 
+export interface ConsultProduct {
+  id: number;
+  name: string;
+  price: number;
+  imageUrl: string;
+  slug: string;
+}
+
 interface ChatStore {
   isOpen: boolean;
   conversations: Conversation[];
@@ -8,6 +16,7 @@ interface ChatStore {
   messages: Record<number, ChatMessage[]>;
   unreadByConv: Record<number, number>;
   sendWsMessage: ((destination: string, body: object) => void) | null;
+  consultProduct: ConsultProduct | null;
 
   openChat: () => void;
   closeChat: () => void;
@@ -20,6 +29,7 @@ interface ChatStore {
   updateConversationLastMsg: (convId: number, msg: ChatMessage) => void;
   addOrUpdateConversation: (conv: Conversation) => void;
   setSendWsMessage: (fn: ((destination: string, body: object) => void) | null) => void;
+  setConsultProduct: (product: ConsultProduct | null) => void;
 }
 
 /** Sort conversations by lastMessageAt DESC so newest appears first */
@@ -38,6 +48,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: {},
   unreadByConv: {},
   sendWsMessage: null,
+  consultProduct: null,
 
   openChat: () => set({ isOpen: true }),
   closeChat: () => set({ isOpen: false }),
@@ -103,4 +114,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }),
 
   setSendWsMessage: (fn) => set({ sendWsMessage: fn }),
+
+  setConsultProduct: (product) => set({ consultProduct: product }),
 }));

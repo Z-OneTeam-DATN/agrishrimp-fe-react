@@ -17,6 +17,7 @@ export default function ChatWindow() {
     activeConversationId, setActiveConversation,
     messages, setMessages, addMessage,
     sendWsMessage,
+    consultProduct, setConsultProduct,
   } = useChatStore();
   const { typingByConv } = useTypingStore();
 
@@ -102,6 +103,21 @@ export default function ChatWindow() {
       setIsSending(false);
     }
   }, [input, activeConversationId, isSending, addMessage]);
+
+  const handleSendProduct = useCallback(async () => {
+    if (!consultProduct || !activeConversationId || isSending) return;
+    const text = `Tôi muốn được tư vấn về sản phẩm này: ${consultProduct.name}\nLink: ${window.location.origin}/product/${consultProduct.slug}`;
+    setIsSending(true);
+    try {
+      const msg = await ChatService.sendMessage(activeConversationId, text);
+      addMessage(msg);
+      setConsultProduct(null); // Gửi xong thì đóng card
+    } catch {
+      toast.error("Gửi thông tin sản phẩm thất bại");
+    } finally {
+      setIsSending(false);
+    }
+  }, [consultProduct, activeConversationId, isSending, addMessage, setConsultProduct]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,6 +212,38 @@ export default function ChatWindow() {
             )}
             <div ref={bottomRef} />
           </div>
+
+          {/* Panel sản phẩm đang tư vấn (Shopee style) */}
+          {consultProduct && (
+            <div className="bg-slate-50 dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 px-3 py-2 flex flex-col gap-1.5 animate-fadeIn relative">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Bạn đang trao đổi với Người bán về sản phẩm này</span>
+                <button 
+                  onClick={() => setConsultProduct(null)} 
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                  title="Đóng panel"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-lg p-2 border border-gray-100 dark:border-slate-700 shadow-sm">
+                <div className="w-12 h-12 relative rounded bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 overflow-hidden shrink-0">
+                  <img src={consultProduct.imageUrl || "/placeholder.svg"} alt="product" className="object-contain w-full h-full p-0.5" />
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <h4 className="text-xs font-bold text-gray-800 dark:text-gray-100 line-clamp-1 leading-tight">{consultProduct.name}</h4>
+                  <span className="text-xs font-extrabold text-red-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(consultProduct.price)}</span>
+                </div>
+                <button 
+                  onClick={handleSendProduct}
+                  disabled={isSending}
+                  className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-colors shrink-0"
+                >
+                  Gửi Link
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Input area */}
           <div className="px-3 py-3 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700 flex items-center gap-2">
