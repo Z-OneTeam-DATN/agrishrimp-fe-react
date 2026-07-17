@@ -63,6 +63,11 @@ export class ChatService {
     return res.data;
   }
 
+  static async getConversationById(conversationId: number): Promise<Conversation> {
+    const res = await apiJava.get<Conversation>(`${PREFIX}/conversations/${conversationId}`, getConfig());
+    return res.data;
+  }
+
   static async markAsRead(conversationId: number): Promise<void> {
     await apiJava.put(`${PREFIX}/conversations/${conversationId}/read`, {}, getConfig());
   }

@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { parseLocalDateTime } from "@/lib/dateUtils";
 import { vi } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
@@ -294,7 +295,7 @@ export default function AdvisorInboxWorkspace() {
       return "Mới tạo";
     }
 
-    return formatDistanceToNow(new Date(conversation.lastMessageAt), {
+    return formatDistanceToNow(parseLocalDateTime(conversation.lastMessageAt), {
       addSuffix: true,
       locale: vi,
     });
@@ -305,7 +306,7 @@ export default function AdvisorInboxWorkspace() {
       return "Chưa có hoạt động gần đây";
     }
 
-    return format(new Date(activeConversation.lastMessageAt), "HH:mm - dd/MM", {
+    return format(parseLocalDateTime(activeConversation.lastMessageAt), "HH:mm - dd/MM", {
       locale: vi,
     });
   };
@@ -651,7 +652,7 @@ export default function AdvisorInboxWorkspace() {
                         />
                       ))}
                       {activeConversationId && typingByConv[activeConversationId] ? (
-                        <TypingBubble />
+                        <TypingBubble name={activeConversation?.customerName || "Khách hàng"} />
                       ) : null}
                       <div ref={bottomRef} />
                     </div>
