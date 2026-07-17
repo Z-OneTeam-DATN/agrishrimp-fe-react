@@ -532,6 +532,7 @@ export default function AdminChatPage() {
                     isOwn={msg.senderId === user?.id}
                     isLast={index === convMessages.length - 1}
                     onRetry={handleRetryMessage}
+                    isAdminWorkspace={true}
                   />
                 ))
               )}

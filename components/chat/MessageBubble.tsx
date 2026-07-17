@@ -12,6 +12,7 @@ interface Props {
   isOwn: boolean;
   isLast?: boolean;
   onRetry?: (message: ChatMessage) => void;
+  isAdminWorkspace?: boolean;
 }
 
 const getFullImageUrl = (url?: string) => {
@@ -59,26 +60,28 @@ const isVideoFile = (url?: string) => {
   return url.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi|3gp)$/) || url.includes("/video/upload/");
 };
 
-export default function MessageBubble({ message, isOwn, isLast, onRetry }: Props) {
+export default function MessageBubble({ message, isOwn, isLast, onRetry, isAdminWorkspace }: Props) {
   const time = message.createdAt ? formatDate(message.createdAt, "HH:mm") : "";
   const { cleanText, cardMeta, stickerUrl } = parseMessageContent(message.content || "");
   const sendStatus = message.status;
   const isError = sendStatus === "error";
   const isSending = sendStatus === "sending";
 
+  const isSenderAdmin = isAdminWorkspace ? isOwn : !isOwn;
+
   return (
     <div className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
-      {!isOwn ? (
+      {isSenderAdmin ? (
+        <div className="relative w-7 h-7 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
+          <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" unoptimized />
+        </div>
+      ) : (
         <Avatar className="w-7 h-7 shrink-0">
-          <AvatarImage src={message.senderAvatar} />
+          <AvatarImage src={getFullImageUrl(message.senderAvatar)} />
           <AvatarFallback className="text-xs bg-gray-200 text-gray-600 font-medium">
             {message.senderName?.charAt(0) ?? "?"}
           </AvatarFallback>
         </Avatar>
-      ) : (
-        <div className="relative w-7 h-7 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
-          <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" unoptimized />
-        </div>
       )}
       <div className={`flex flex-col gap-0.5 max-w-[65%] ${isOwn ? "items-end" : "items-start"}`}>
         {stickerUrl ? (
@@ -125,6 +128,12 @@ export default function MessageBubble({ message, isOwn, isLast, onRetry }: Props
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {isAdminWorkspace && isSenderAdmin && message.senderName && (
+          <div className={`w-full flex items-center gap-1 text-[10px] text-gray-500 mt-0.5 font-medium ${isOwn ? "justify-end" : "justify-start"}`}>
+            <span>Người gửi:</span>
+            <span className="font-semibold text-slate-700">{message.senderName}</span>
           </div>
         )}
         <div className={`flex items-center gap-1 px-0.5 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>

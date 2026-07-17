@@ -950,6 +950,7 @@ export default function AdvisorInboxWorkspace() {
                           message={message}
                           isOwn={message.senderId === user?.id}
                           isLast={index === activeMessages.length - 1}
+                          isAdminWorkspace={true}
                         />
                       ))}
                       {activeConversationId && typingByConv[activeConversationId] ? (
