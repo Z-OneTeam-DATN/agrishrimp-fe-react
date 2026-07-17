@@ -77,6 +77,15 @@ const MOBILE_NAV_ITEMS = [
   { href: "/blog", label: "Bài viết" },
 ];
 
+const getFullImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export default function Header() {
   const router = useRouter();
   const { data: user, isAuthenticated, isLoading } = useCurrentUser();
@@ -270,7 +279,7 @@ export default function Header() {
         <DropdownMenuTrigger asChild>
           <button className="flex h-11 min-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-left outline-none transition-colors hover:bg-white/10 xl:min-w-[164px]">
             <Avatar className="h-8 w-8 shrink-0 xl:h-8 xl:w-8">
-              <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={getUserDisplayName()} className="object-cover" />
+              <AvatarImage src={getFullImageUrl(user?.avatar?.imageUrl || (user as any)?.avatarUrl) ?? ""} alt={getUserDisplayName()} className="object-cover" />
               <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
                 {getUserDisplayName().charAt(0).toUpperCase()}
               </AvatarFallback>
