@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, FilePenLine, Trash2 } from "lucide-react";
+import { Database, FilePenLine, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 
@@ -18,6 +18,7 @@ const DEFAULT_CATEGORY_FORM = {
 export default function AgronomistCategoriesPage() {
   const queryClient = useQueryClient();
   const [categoryForm, setCategoryForm] = useState(DEFAULT_CATEGORY_FORM);
+  const [showForm, setShowForm] = useState(false);
 
   const categoriesQuery = useQuery({
     queryKey: ["ai-knowledge", "categories"],
@@ -44,6 +45,7 @@ export default function AgronomistCategoriesPage() {
     onSuccess: async () => {
       toast.success("Đã lưu danh mục tri thức.");
       setCategoryForm(DEFAULT_CATEGORY_FORM);
+      setShowForm(false);
       await invalidate();
     },
     onError: (error: any) => toast.error(error?.message || "Không thể lưu danh mục."),
@@ -56,105 +58,136 @@ export default function AgronomistCategoriesPage() {
     await invalidate();
   };
 
+  const openCreateForm = () => {
+    setCategoryForm(DEFAULT_CATEGORY_FORM);
+    setShowForm(true);
+  };
+
+  const openEditForm = (category: (typeof categories)[number]) => {
+    setCategoryForm({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description || "",
+      enabled: category.enabled,
+      sortOrder: category.sortOrder,
+    });
+    setShowForm(true);
+  };
+
   return (
-    <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
-      <SectionHeader
-        icon={<Database className="h-5 w-5 text-blue-600" />}
-        title="Danh mục tri thức"
-        description="Nhóm các bệnh theo mảng chuyên môn để bot gợi ý đúng ngữ cảnh."
-      />
-
-      <div className="mt-5 grid gap-6 xl:grid-cols-2">
-        <div className="space-y-3">
-          <Field label="Tên danh mục">
-            <input
-              value={categoryForm.name}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-              className={inputClassName}
-              placeholder="Bệnh virus"
-            />
-          </Field>
-          <Field label="Slug">
-            <input
-              value={categoryForm.slug}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, slug: event.target.value }))}
-              className={inputClassName}
-              placeholder="benh-virus"
-            />
-          </Field>
-          <Field label="Mô tả">
-            <textarea
-              value={categoryForm.description}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))}
-              className={textareaClassName}
-              rows={3}
-              placeholder="Nhóm bệnh do virus hoặc tác nhân lây nhiễm nhanh."
-            />
-          </Field>
-          <Field label="Thứ tự">
-            <input
-              type="number"
-              value={categoryForm.sortOrder}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, sortOrder: Number(event.target.value) }))}
-              className={inputClassName}
-            />
-          </Field>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={categoryForm.enabled}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, enabled: event.target.checked }))}
-            />
-            Đang bật
-          </label>
-
-          <div className="flex gap-3">
-            <button onClick={() => categoryMutation.mutate()} className={primaryButtonClassName}>
-              {categoryForm.id ? "Cập nhật danh mục" : "Tạo danh mục"}
-            </button>
-            {categoryForm.id ? (
-              <button onClick={() => setCategoryForm(DEFAULT_CATEGORY_FORM)} className={secondaryButtonClassName}>
-                Làm mới form
-              </button>
-            ) : null}
-          </div>
+    <div className="space-y-6">
+      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <SectionHeader
+            icon={<Database className="h-5 w-5 text-blue-600" />}
+            title="Danh mục tri thức"
+            description="Nhóm các bệnh theo mảng chuyên môn để bot gợi ý đúng ngữ cảnh."
+          />
+          <button onClick={openCreateForm} className={primaryButtonClassName}>
+            <Plus className="h-4 w-4" />
+            Thêm danh mục
+          </button>
         </div>
 
-        <div className="space-y-3">
-          {categories.map((category) => (
-            <div key={category.id} className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{category.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">{category.slug}</p>
+        <div className="mt-6 space-y-3">
+          {categoriesQuery.isLoading ? (
+            <p className="text-sm text-slate-400">Đang tải...</p>
+          ) : categories.length === 0 ? (
+            <p className="text-sm text-slate-400">Chưa có danh mục nào. Bấm "Thêm danh mục" để tạo mới.</p>
+          ) : (
+            categories.map((category) => (
+              <div key={category.id} className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{category.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{category.slug}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEditForm(category)} className={iconButtonClassName}>
+                      <FilePenLine className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => deleteCategory(category.id)} className={iconButtonClassName}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCategoryForm({
-                      id: category.id,
-                      name: category.name,
-                      slug: category.slug,
-                      description: category.description || "",
-                      enabled: category.enabled,
-                      sortOrder: category.sortOrder,
-                    })}
-                    className={iconButtonClassName}
-                  >
-                    <FilePenLine className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => deleteCategory(category.id)} className={iconButtonClassName}>
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                {category.description ? (
+                  <p className="mt-2 text-sm text-slate-600">{category.description}</p>
+                ) : null}
               </div>
-              {category.description ? (
-                <p className="mt-2 text-sm text-slate-600">{category.description}</p>
-              ) : null}
-            </div>
-          ))}
+            ))
+          )}
         </div>
-      </div>
-    </section>
+      </section>
+
+      {showForm ? (
+        <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-900">
+            {categoryForm.id ? "Cập nhật danh mục" : "Tạo danh mục mới"}
+          </h3>
+
+          <div className="mt-4 space-y-3">
+            <Field label="Tên danh mục">
+              <input
+                value={categoryForm.name}
+                onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
+                className={inputClassName}
+                placeholder="Bệnh virus"
+              />
+            </Field>
+            <Field label="Slug">
+              <input
+                value={categoryForm.slug}
+                onChange={(event) => setCategoryForm((current) => ({ ...current, slug: event.target.value }))}
+                className={inputClassName}
+                placeholder="benh-virus"
+              />
+            </Field>
+            <Field label="Mô tả">
+              <textarea
+                value={categoryForm.description}
+                onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))}
+                className={textareaClassName}
+                rows={3}
+                placeholder="Nhóm bệnh do virus hoặc tác nhân lây nhiễm nhanh."
+              />
+            </Field>
+            <Field label="Thứ tự">
+              <input
+                type="number"
+                value={categoryForm.sortOrder}
+                onChange={(event) => setCategoryForm((current) => ({ ...current, sortOrder: Number(event.target.value) }))}
+                className={inputClassName}
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={categoryForm.enabled}
+                onChange={(event) => setCategoryForm((current) => ({ ...current, enabled: event.target.checked }))}
+              />
+              Đang bật
+            </label>
+
+            <div className="flex gap-3">
+              <button onClick={() => categoryMutation.mutate()} className={primaryButtonClassName}>
+                {categoryForm.id ? "Cập nhật danh mục" : "Tạo danh mục"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setCategoryForm(DEFAULT_CATEGORY_FORM);
+                }}
+                className={secondaryButtonClassName}
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+    </div>
   );
 }
 
