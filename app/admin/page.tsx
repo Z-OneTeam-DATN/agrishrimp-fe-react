@@ -33,6 +33,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 const AdminDashboardCharts = dynamic(
   () => import("@/components/admin/AdminDashboardCharts"),
@@ -155,6 +156,7 @@ export default function AdminDashboard() {
     P.TRANSFER_VIEW,
     P.CHECK_VIEW,
   ]);
+  const roleSlug = normalizeRoleSlug(user?.role);
   const isRestricted = ["MANAGER", "STAFF", "EMPLOYEE"].includes(roleSlug);
   const canRunProtectedQueries =
     !isLoadingAuth && !!user && !!accessToken && canViewDashboard;
