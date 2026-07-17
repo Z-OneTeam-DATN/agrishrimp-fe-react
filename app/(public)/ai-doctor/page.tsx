@@ -85,7 +85,7 @@ export default function AiDoctorChatPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const latestComposerPreviewRef = useRef<string | null>(null);
   const latestSubmittedPreviewRef = useRef<string | null>(null);
-  const { data: user } = useCurrentUser();
+  const { data: user, isAuthenticated } = useCurrentUser();
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -298,7 +298,7 @@ export default function AiDoctorChatPage() {
           </div>
 
           <Link
-            href="/ai-doctor/history"
+            href={isAuthenticated ? "/ai-doctor/history" : "/ai-doctor"}
             className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/15"
           >
             <MoreVertical size={22} />
@@ -423,9 +423,10 @@ export default function AiDoctorChatPage() {
                 />
               </div>
 
-              <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-700 shadow-sm">
-                {assistantMessage}
-              </div>
+              <div
+                className="prose prose-sm max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-gray-700 shadow-sm prose-p:my-2 prose-strong:text-[#1f3125] prose-li:my-1"
+                dangerouslySetInnerHTML={{ __html: assistantMessage }}
+              />
             </div>
           )}
 
@@ -518,7 +519,7 @@ export default function AiDoctorChatPage() {
                         onClick={openReport}
                         className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#376E60] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#2f5c50]"
                       >
-                        Xem cách chữa trị ngay
+                        {isAuthenticated ? "Xem cách chữa trị ngay" : "Mở hồ sơ điều trị"}
                         <ArrowRight size={16} />
                       </button>
                     </div>

@@ -36,7 +36,10 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
 import { P } from "@/lib/permissions";
-import { ADVISOR_WORKSPACE_PERMISSIONS } from "@/lib/workspace-permissions";
+import {
+  ADVISOR_WORKSPACE_PERMISSIONS,
+  AGRONOMIST_WORKSPACE_PERMISSIONS,
+} from "@/lib/workspace-permissions";
 
 type BranchSummary = {
   id: number;
@@ -134,6 +137,9 @@ export default function AdminTopHeader() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const canAccessAdvisorWorkspace = hasAnyPermission(
     ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
+  const canAccessAgronomistWorkspace = hasAnyPermission(
+    AGRONOMIST_WORKSPACE_PERMISSIONS as unknown as string[]
   );
   const shouldFetchBranchDirectory =
     !!accessToken &&
@@ -324,6 +330,15 @@ export default function AdminTopHeader() {
             className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
           >
             <Link href="/chat">Qua chat</Link>
+          </Button>
+        ) : null}
+        {canAccessAgronomistWorkspace ? (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
+            <Link href="/agronomist">Qua AI Doctor</Link>
           </Button>
         ) : null}
 

@@ -4,6 +4,7 @@ import {
   LucideIcon,
   MessageSquareText,
   Package,
+  Microscope,
   Settings,
   ShoppingCart,
   TrendingUp,
@@ -269,6 +270,24 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
         advanced: [
           { id: P.CHAT_VIEW, label: "Xem danh sách hội thoại" },
           { id: P.CHAT_MANAGE, label: "Phân công và ghim sản phẩm" },
+        ],
+      },
+    ],
+  },
+  {
+    group: "AI Doctor",
+    icon: Microscope,
+    screens: [
+      {
+        id: P.AGRONOMIST_WORKSPACE_USE,
+        label: "Workspace kỹ sư nông nghiệp",
+        advanced: [
+          { id: P.AI_KNOWLEDGE_VIEW, label: "Xem tri thức AI" },
+          { id: P.AI_KNOWLEDGE_CREATE, label: "Tạo tri thức AI" },
+          { id: P.AI_KNOWLEDGE_UPDATE, label: "Cập nhật tri thức AI" },
+          { id: P.AI_KNOWLEDGE_APPROVE, label: "Duyệt tri thức AI" },
+          { id: P.AI_IMPORT_KNOWLEDGE, label: "Import tri thức AI" },
+          { id: P.AI_CASE_REVIEW, label: "Xử lý case AI" },
         ],
       },
     ],

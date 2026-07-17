@@ -1,8 +1,9 @@
 import { P } from "@/lib/permissions";
 
 export const ADVISOR_WORKSPACE_PERMISSIONS = [P.CUSTOMER_ADVISOR_USE] as const;
+export const AGRONOMIST_WORKSPACE_PERMISSIONS = [P.AGRONOMIST_WORKSPACE_USE] as const;
 export const LAST_WORKSPACE_STORAGE_KEY = "lastWorkspace";
-export type WorkspaceRoute = "/admin" | "/chat";
+export type WorkspaceRoute = "/admin" | "/agronomist" | "/chat";
 
 export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.DASHBOARD_VIEW,
@@ -46,6 +47,10 @@ export function hasAdvisorWorkspacePermission(permissions: string[] = []) {
   return hasAnyPermissionCode(permissions, ADVISOR_WORKSPACE_PERMISSIONS);
 }
 
+export function hasAgronomistWorkspacePermission(permissions: string[] = []) {
+  return hasAnyPermissionCode(permissions, AGRONOMIST_WORKSPACE_PERMISSIONS);
+}
+
 export function getAvailableWorkspaces(
   permissions: string[] = [],
 ): WorkspaceRoute[] {
@@ -53,6 +58,10 @@ export function getAvailableWorkspaces(
 
   if (hasAdminWorkspacePermission(permissions)) {
     workspaces.push("/admin");
+  }
+
+  if (hasAgronomistWorkspacePermission(permissions)) {
+    workspaces.push("/agronomist");
   }
 
   if (hasAdvisorWorkspacePermission(permissions)) {
@@ -68,7 +77,9 @@ export function getLastWorkspace(): WorkspaceRoute | null {
   }
 
   const workspace = window.localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY);
-  return workspace === "/admin" || workspace === "/chat" ? workspace : null;
+  return workspace === "/admin" || workspace === "/chat" || workspace === "/agronomist"
+    ? workspace
+    : null;
 }
 
 export function setLastWorkspace(workspace: WorkspaceRoute) {
@@ -89,6 +100,10 @@ export function getPostLoginDestination(permissions: string[] = []) {
 
   if (availableWorkspaces.includes("/admin")) {
     return "/admin";
+  }
+
+  if (availableWorkspaces.includes("/agronomist")) {
+    return "/agronomist";
   }
 
   if (availableWorkspaces.includes("/chat")) {
