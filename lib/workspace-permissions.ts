@@ -7,7 +7,6 @@ export type WorkspaceRoute = "/admin" | "/agronomist" | "/chat";
 
 export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.DASHBOARD_VIEW,
-  P.WORKSPACE_VIEW,
   P.REPORT_REVENUE_VIEW,
   P.REPORT_INVENTORY_VIEW,
   P.REPORT_FINANCE_VIEW,

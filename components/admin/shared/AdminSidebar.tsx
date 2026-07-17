@@ -127,6 +127,7 @@ export default function AdminSidebar() {
   const { hasPermission, hasAnyPermission } = usePermissions();
   const isAdmin = isAdminRole(user?.role);
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
+  const isBranchAccount = !isAdmin && Boolean(user?.branch?.id || warehouseId);
   const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
   const canAccessImports = hasAnyPermission(IMPORT_PERMISSIONS);
   const canAccessExports = hasAnyPermission(EXPORT_PERMISSIONS);
