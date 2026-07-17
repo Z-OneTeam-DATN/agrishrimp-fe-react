@@ -89,6 +89,11 @@ export class ChatService {
   static async markAsRead(conversationId: number): Promise<void> {
     await apiJava.put(`${PREFIX}/conversations/${conversationId}/read`, {}, getConfig());
   }
+
+  static async getStickerPacks(): Promise<any[]> {
+    const res = await apiJava.get<any[]>(`${PREFIX}/stickers`, getConfig());
+    return res.data;
+  }
 }
 
 export interface CannedResponse {

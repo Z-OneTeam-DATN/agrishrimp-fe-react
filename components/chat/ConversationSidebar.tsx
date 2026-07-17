@@ -34,6 +34,41 @@ const getFullImageUrl = (url?: string) => {
   return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
+function formatLastMessage(content: string, isFromCustomer: boolean, customerName: string): string {
+  if (!content) return "Bắt đầu cuộc trò chuyện";
+
+  // 1. If it's a reaction
+  if (content.startsWith("[REACTION:")) {
+    const match = content.match(/^\[REACTION:([^|]+)\|(-?\d+)\]$/);
+    if (match) {
+      const emoji = match[1];
+      if (emoji === "REMOVE") {
+        return isFromCustomer ? `${customerName} đã gỡ cảm xúc` : "Bạn đã gỡ cảm xúc";
+      }
+      return isFromCustomer ? `${customerName} đã bày tỏ ${emoji}` : `Bạn đã bày tỏ ${emoji}`;
+    }
+  }
+
+  let text = content;
+
+  // 2. If it's a reply, extract the main text
+  const replyMatch = text.match(/^\[REPLY:([^|]+)\|([^|]+)\|([^\]]+)\]([\s\S]*)$/);
+  if (replyMatch) {
+    text = replyMatch[4];
+  }
+
+  // 3. Strip other metadata
+  text = text.replace(/\[CARD_META:[^\]]+\]/g, "").trim();
+
+  // 4. Handle Sticker
+  if (text.startsWith("[STICKER:")) {
+    return isFromCustomer ? `${customerName} đã gửi 1 nhãn dán` : "Bạn đã gửi 1 nhãn dán";
+  }
+
+  // Return text with sender prefix
+  return isFromCustomer ? text : `Bạn: ${text}`;
+}
+
 export default function ConversationSidebar({ conversations, activeId, onSelect, isLoading, starredIds }: Props) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
@@ -220,19 +255,11 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className={`text-[13px] truncate flex-1 ${hasUnread ? "font-semibold text-gray-800" : "text-gray-500"}`}>
-                      {conv.lastMessage
-                        ? (conv.lastSenderId === conv.customerId || !conv.lastSenderId
-                            ? (conv.lastMessage.startsWith("[STICKER:")
-                                ? `${conv.customerName} đã gửi 1 sticker`
-                                : conv.lastMessage
-                              )
-                            : (conv.lastMessage.startsWith("[STICKER:")
-                                ? "Bạn: đã gửi 1 sticker"
-                                : `Bạn: ${conv.lastMessage}`
-                              )
-                          )
-                        : "Bắt đầu cuộc trò chuyện"
-                      }
+                      {formatLastMessage(
+                        conv.lastMessage || "",
+                        conv.lastSenderId === conv.customerId || !conv.lastSenderId,
+                        conv.customerName || "Khách hàng"
+                      )}
                     </p>
                   </div>
                   {/* Tags row */}

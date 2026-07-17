@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   ArrowRight,
   BellDot,
@@ -22,6 +22,7 @@ import {
   Mail,
   CheckCircle2,
   Archive,
+  X,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { parseLocalDateTime } from "@/lib/dateUtils";
@@ -31,7 +32,7 @@ import { ChatService, CannedResponseService, CannedResponse } from "@/app/servic
 import { EmployeeService } from "@/app/services/employee.service";
 import { Conversation } from "@/app/types/chat.types";
 import { UserResponse } from "@/app/types/employee.schema";
-import MessageBubble, { TypingBubble } from "@/components/chat/MessageBubble";
+import MessageBubble, { TypingBubble, parseReactionsAndMessages } from "@/components/chat/MessageBubble";
 import PinProductModal from "@/components/chat/PinProductModal";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useChatStore } from "@/stores/useChatStore";
@@ -41,6 +42,16 @@ import { P } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { ADMIN_WORKSPACE_PERMISSIONS } from "@/lib/workspace-permissions";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type InboxTab = "all" | "unread" | "assigned" | "attention";
 
@@ -94,6 +105,13 @@ export default function AdvisorInboxWorkspace() {
   const [mutedConvs, setMutedConvs] = useState<number[]>([]);
   const [starredConvs, setStarredConvs] = useState<number[]>([]);
 
+  // Quote reply state
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
+
+  // AlertDialog confirm archive states
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [conversationToArchive, setConversationToArchive] = useState<number | null>(null);
+
   useEffect(() => {
     try {
       const muted = localStorage.getItem("agrishrimp_muted_convs");
@@ -112,6 +130,31 @@ export default function AdvisorInboxWorkspace() {
     localStorage.setItem("agrishrimp_muted_convs", JSON.stringify(updated));
     toast.success(isCurrentlyMuted ? "Đã bật nhận thông báo cho cuộc hội thoại này" : "Đã tắt nhận thông báo cho cuộc hội thoại này");
   };
+
+  const handleReact = useCallback(async (msg: any, emoji: string) => {
+    if (!activeConversationId) return;
+    const content = `[REACTION:${emoji}|${msg.id}]`;
+    const localId = `local-react-${Date.now()}`;
+    const optimistic = {
+      id: -Date.now() as number,
+      localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content,
+      messageType: "TEXT" as const,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending" as const,
+    };
+    addMessage(optimistic);
+    try {
+      const serverMsg = await ChatService.sendMessage(activeConversationId, content);
+      addMessage({ ...serverMsg, localId, status: "sent" as const });
+    } catch {
+      addMessage({ ...optimistic, status: "error" as const });
+    }
+  }, [activeConversationId, user, addMessage]);
 
   const toggleStar = (convId: number) => {
     const isCurrentlyStarred = starredConvs.includes(convId);
@@ -149,8 +192,6 @@ export default function AdvisorInboxWorkspace() {
   };
 
   const handleArchiveConversation = async (convId: number) => {
-    const confirm = window.confirm("Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này?");
-    if (!confirm) return;
     try {
       await ChatService.updateStatus(convId, "CLOSED");
       setConversations(
@@ -172,6 +213,10 @@ export default function AdvisorInboxWorkspace() {
   const activeConversation =
     conversations.find((conversation) => conversation.id === activeConversationId) ?? null;
   const activeMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
+
+  const { reactionsMap, visibleMessages } = useMemo(() => {
+    return parseReactionsAndMessages(activeMessages, activeConversation?.customerId);
+  }, [activeMessages, activeConversation?.customerId]);
 
   useEffect(() => {
     const loadWorkspace = async () => {
@@ -413,10 +458,29 @@ export default function AdvisorInboxWorkspace() {
     }, 1500);
   };
 
+  const getReplySnippet = (msg: any) => {
+    if (!msg.content) return "";
+    let snippet = msg.content;
+    const replyMatch = snippet.match(/^\[REPLY:[^\]]+\]([\s\S]*)$/);
+    if (replyMatch) {
+      snippet = replyMatch[1];
+    }
+    snippet = snippet.replace(/\[CARD_META:[^\]]+\]/g, "");
+    snippet = snippet.replace(/\[STICKER:[^\]]+\]/g, "Nhãn dán");
+    return snippet.substring(0, 45);
+  };
+
   const handleSendMessage = async () => {
     const content = input.trim();
     if (!content || !activeConversationId || isSending) {
       return;
+    }
+
+    let contentToSend = content;
+    if (replyingTo) {
+      const snippet = getReplySnippet(replyingTo);
+      contentToSend = `[REPLY:${replyingTo.id}|${replyingTo.senderName || "Người dùng"}|${snippet}]${content}`;
+      setReplyingTo(null);
     }
 
     setInput("");
@@ -424,7 +488,7 @@ export default function AdvisorInboxWorkspace() {
     setIsSending(true);
 
     try {
-      const message = await ChatService.sendMessage(activeConversationId, content);
+      const message = await ChatService.sendMessage(activeConversationId, contentToSend);
       addMessage(message);
       setConversations(
         conversations.map((conversation) =>
@@ -455,6 +519,41 @@ export default function AdvisorInboxWorkspace() {
       addSuffix: true,
       locale: vi,
     });
+  };
+
+  const formatLastMessage = (content: string, isFromCustomer: boolean, customerName: string): string => {
+    if (!content) return "Bắt đầu cuộc trò chuyện";
+
+    // 1. If it's a reaction
+    if (content.startsWith("[REACTION:")) {
+      const match = content.match(/^\[REACTION:([^|]+)\|(-?\d+)\]$/);
+      if (match) {
+        const emoji = match[1];
+        if (emoji === "REMOVE") {
+          return isFromCustomer ? `${customerName} đã gỡ cảm xúc` : "Bạn đã gỡ cảm xúc";
+        }
+        return isFromCustomer ? `${customerName} đã bày tỏ ${emoji}` : `Bạn đã bày tỏ ${emoji}`;
+      }
+    }
+
+    let text = content;
+
+    // 2. If it's a reply, extract the main text
+    const replyMatch = text.match(/^\[REPLY:([^|]+)\|([^|]+)\|([^\]]+)\]([\s\S]*)$/);
+    if (replyMatch) {
+      text = replyMatch[4];
+    }
+
+    // 3. Strip other metadata
+    text = text.replace(/\[CARD_META:[^\]]+\]/g, "").trim();
+
+    // 4. Handle Sticker
+    if (text.startsWith("[STICKER:")) {
+      return isFromCustomer ? `${customerName} đã gửi 1 nhãn dán` : "Bạn đã gửi 1 nhãn dán";
+    }
+
+    // Return text with sender prefix
+    return isFromCustomer ? text : `Bạn: ${text}`;
   };
 
   const renderLastActive = () => {
@@ -732,7 +831,11 @@ export default function AdvisorInboxWorkspace() {
                               isActive ? "text-white/80" : "text-slate-500"
                             }`}
                           >
-                            {conversation.lastMessage || "Khách hàng vừa bắt đầu cuộc trò chuyện."}
+                            {formatLastMessage(
+                              conversation.lastMessage || "",
+                              conversation.lastSenderId === conversation.customerId || !conversation.lastSenderId,
+                              conversation.customerName || "Khách hàng"
+                            )}
                           </p>
 
                           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -838,7 +941,10 @@ export default function AdvisorInboxWorkspace() {
                         {/* 2. Lưu trữ (Đóng & Lưu trữ cuộc trò chuyện) */}
                         <button
                           type="button"
-                          onClick={() => handleArchiveConversation(activeConversation.id)}
+                          onClick={() => {
+                            setConversationToArchive(activeConversation.id);
+                            setArchiveConfirmOpen(true);
+                          }}
                           className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
                           title="Đóng và lưu trữ cuộc trò chuyện"
                         >
@@ -944,17 +1050,23 @@ export default function AdvisorInboxWorkspace() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {activeMessages.map((message, index) => (
+                      {visibleMessages.map((message, index) => (
                         <MessageBubble
                           key={message.id}
                           message={message}
-                          isOwn={message.senderId === user?.id}
-                          isLast={index === activeMessages.length - 1}
+                          isOwn={message.senderId !== activeConversation?.customerId}
+                          isLast={index === visibleMessages.length - 1}
                           isAdminWorkspace={true}
+                          onReply={setReplyingTo}
+                          reactions={reactionsMap[message.id]}
+                          onReact={handleReact}
                         />
                       ))}
                       {activeConversationId && typingByConv[activeConversationId] ? (
-                        <TypingBubble name={activeConversation?.customerName || "Khách hàng"} />
+                        <TypingBubble 
+                          name={activeConversation?.customerName || "Khách hàng"} 
+                          avatarUrl={activeConversation?.customerAvatar}
+                        />
                       ) : null}
                       <div ref={bottomRef} />
                     </div>
@@ -990,6 +1102,21 @@ export default function AdvisorInboxWorkspace() {
                 ) : null}
 
                 <div className="border-t border-slate-100 bg-white px-4 py-4 xl:px-6">
+                  {replyingTo && (
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl mb-2 animate-slideUp shrink-0">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+                        <span className="font-bold shrink-0">Đang trả lời {replyingTo.senderName}:</span>
+                        <span className="italic truncate">"{replyingTo.content}"</span>
+                      </div>
+                      <button
+                        onClick={() => setReplyingTo(null)}
+                        className="text-slate-400 hover:text-slate-600 p-0.5 hover:bg-slate-100 rounded-full shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-3 shadow-inner">
                     <div className="flex items-end gap-3">
                       <button
@@ -1177,6 +1304,31 @@ export default function AdvisorInboxWorkspace() {
           }}
         />
       ) : null}
+
+      {/* AlertDialog confirm archive */}
+      <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+        <AlertDialogContent className="rounded-3xl dark:bg-slate-900 border dark:border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold">Lưu trữ cuộc trò chuyện</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+              Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này? Hành động này sẽ đóng cuộc trò chuyện.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl border border-gray-200 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800">Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => {
+                if (conversationToArchive !== null) {
+                  handleArchiveConversation(conversationToArchive);
+                }
+              }}
+            >
+              Đồng ý
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

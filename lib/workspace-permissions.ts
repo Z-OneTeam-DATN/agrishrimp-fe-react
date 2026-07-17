@@ -89,7 +89,11 @@ export function setLastWorkspace(workspace: WorkspaceRoute) {
   window.localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspace);
 }
 
-export function getPostLoginDestination(permissions: string[] = []) {
+export function getPostLoginDestination(permissions: string[] = [], roleSlug?: string) {
+  if (roleSlug === "USER" || roleSlug === "CUSTOMER") {
+    return "/";
+  }
+
   const availableWorkspaces = getAvailableWorkspaces(permissions);
   const lastWorkspace = getLastWorkspace();
 
