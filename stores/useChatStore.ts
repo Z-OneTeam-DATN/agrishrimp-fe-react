@@ -22,7 +22,7 @@ interface ChatStore {
   closeChat: () => void;
   toggleChat: () => void;
   setConversations: (convs: Conversation[]) => void;
-  setActiveConversation: (id: number) => void;
+  setActiveConversation: (id: number | null) => void;
   setMessages: (convId: number, msgs: ChatMessage[]) => void;
   addMessage: (msg: ChatMessage) => void;
   markConvRead: (convId: number, isCustomer: boolean) => void;
