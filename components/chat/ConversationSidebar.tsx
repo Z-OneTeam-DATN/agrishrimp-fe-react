@@ -6,6 +6,7 @@ import { Conversation } from "@/app/types/chat.types";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { MessageCircle, Search } from "lucide-react";
+import { parseLocalDateTime } from "@/lib/dateUtils";
 
 type FilterTab = "all" | "unread" | "assigned";
 
@@ -104,7 +105,7 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
             const isActive = conv.id === activeId;
             const hasUnread = conv.unreadByShop > 0;
             const timeAgo = conv.lastMessageAt
-              ? formatDistanceToNow(new Date(conv.lastMessageAt), { addSuffix: false, locale: vi })
+              ? formatDistanceToNow(parseLocalDateTime(conv.lastMessageAt), { addSuffix: false, locale: vi })
               : "";
 
             // Shorten time display like Messenger: "T4", "10:32", "2 giờ"

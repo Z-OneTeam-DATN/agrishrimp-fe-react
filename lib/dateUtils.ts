@@ -42,7 +42,17 @@ export function formatDate(date: string | number | Date, pattern: string = "dd/M
   }
 }
 
+/**
+ * Parse a Java LocalDateTime string (e.g. "2026-07-17T14:51:00") as local time.
+ * new Date("2026-07-17T14:51:00") would treat it as UTC and shift by +7h in Vietnam.
+ * This function constructs the Date correctly in the browser's local timezone.
+ */
+export function parseLocalDateTime(date: string | number | Date): Date {
+  return parseAppDate(date);
+}
+
 function parseAppDate(date: string | number | Date): Date {
+
   if (date instanceof Date) {
     return date;
   }

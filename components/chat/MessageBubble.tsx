@@ -7,6 +7,7 @@ import { ChatMessage } from "@/app/types/chat.types";
 import PinnedProductCard from "./PinnedProductCard";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { formatDate } from "@/lib/dateUtils";
 
 interface Props {
   message: ChatMessage;
@@ -16,7 +17,7 @@ interface Props {
 
 export default function MessageBubble({ message, isOwn, isLast }: Props) {
   const time = message.createdAt
-    ? format(new Date(message.createdAt), "HH:mm", { locale: vi })
+    ? formatDate(message.createdAt, "HH:mm")
     : "";
 
   return (
