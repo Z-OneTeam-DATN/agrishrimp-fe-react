@@ -154,6 +154,7 @@ export default function AdvisorInboxWorkspace() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeConversation =
@@ -232,18 +233,28 @@ export default function AdvisorInboxWorkspace() {
   }, [activeConversationId, setMessages]);
 
   const scrollToBottom = useCallback((smooth = false) => {
-    if (!bottomRef.current) return;
-    bottomRef.current.scrollIntoView({
-      behavior: smooth ? "smooth" : "auto",
-      block: "end",
-    });
+    // 1. Prioritize messagesContainerRef.scrollTo (Most reliable in flex layouts)
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto"
+      });
+      return;
+    }
+    // 2. Fallback to bottomRef.scrollIntoView
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+    }
   }, []);
 
   // Instant scroll on active conversation change or load completion
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollToBottom(false);
-    }, 100);
+    }, 60);
     return () => clearTimeout(timer);
   }, [activeConversationId, isLoadingMessages, scrollToBottom]);
 
@@ -251,7 +262,7 @@ export default function AdvisorInboxWorkspace() {
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollToBottom(true);
-    }, 80);
+    }, 50);
     return () => clearTimeout(timer);
   }, [activeMessages.length, scrollToBottom]);
 
@@ -836,7 +847,7 @@ export default function AdvisorInboxWorkspace() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,0.78),_rgba(255,255,255,0.96))] px-5 py-5 xl:px-6">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,0.78),_rgba(255,255,255,0.96))] px-5 py-5 xl:px-6">
                   {isLoadingMessages ? (
                     <div className="flex justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
