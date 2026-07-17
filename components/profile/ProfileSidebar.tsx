@@ -95,23 +95,9 @@ export default function ProfileSidebar({
     try {
       const uploadedAvatar = await UserService.uploadAvatar(formData);
       if (user) {
-        let birthStr: string | undefined = undefined;
-        if ((user as any).dateOfBirth) {
-          try {
-            const dob = new Date((user as any).dateOfBirth);
-            birthStr = dob.toISOString().split("T")[0];
-          } catch (e) {
-            console.error(e);
-          }
+        if (uploadedAvatar.imageUrl) {
+          await UserService.updateAvatarUrl(uploadedAvatar.imageUrl);
         }
-
-        await UserService.updateProfile({
-          fullName: user.fullName || user.displayName || "Người dùng",
-          phoneNumber: user.phoneNumber || "",
-          gender: user.gender || "OTHER",
-          dateOfBirth: birthStr || "1995-05-20",
-          avatarUrl: uploadedAvatar.imageUrl || "",
-        } as any);
 
         setUser({
           ...user,
