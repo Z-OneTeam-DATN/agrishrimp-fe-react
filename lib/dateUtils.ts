@@ -62,7 +62,7 @@ function parseAppDate(date: string | number | Date): Date {
   }
 
   if (typeof date === "string") {
-    const trimmed = date.trim();
+    const trimmed = date.trim().replace(/Z$/, "");
     const localDateTimeMatch = trimmed.match(
       /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,9}))?$/
     );
@@ -83,5 +83,7 @@ function parseAppDate(date: string | number | Date): Date {
     }
   }
 
-  return new Date(date);
+  // Handle case where Date constructors fallback to raw string, clean it first too
+  const rawDateStr = typeof date === "string" ? date.trim().replace(/Z$/, "") : date;
+  return new Date(rawDateStr);
 }

@@ -861,7 +861,7 @@ export default function ProductDetailPage({
                                             id: product.id,
                                             name: product.name,
                                             price: currentVariant?.price || 0,
-                                            imageUrl: product.imageUrls?.[0] || "",
+                                            imageUrl: currentVariant?.imageUrl || product.variants?.find((v) => v.imageUrl)?.imageUrl || product.imageUrls?.[0] || "",
                                             slug: slug,
                                         });
                                     }
@@ -935,7 +935,7 @@ export default function ProductDetailPage({
                                             id: product.id,
                                             name: product.name,
                                             price: currentVariant?.price || 0,
-                                            imageUrl: product.imageUrls?.[0] || "",
+                                            imageUrl: currentVariant?.imageUrl || product.variants?.find((v) => v.imageUrl)?.imageUrl || product.imageUrls?.[0] || "",
                                             slug: slug,
                                         });
                                     }
