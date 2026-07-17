@@ -51,6 +51,15 @@ const FILTER_TABS: Array<{ id: InboxTab; label: string }> = [
   { id: "attention", label: "Chú ý" },
 ];
 
+const getFullImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export default function AdvisorInboxWorkspace() {
   const { user } = useAuthStore();
   const { hasPermission, hasAnyPermission } = usePermissions();
@@ -676,7 +685,7 @@ export default function AdvisorInboxWorkspace() {
                       <div className="flex items-start gap-3">
                         <div className="relative shrink-0">
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={conversation.customerAvatar} />
+                            <AvatarImage src={getFullImageUrl(conversation.customerAvatar)} />
                             <AvatarFallback
                               className={`text-sm font-semibold ${
                                 isActive
@@ -778,7 +787,7 @@ export default function AdvisorInboxWorkspace() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-12 w-12 ring-2 ring-white shadow">
-                        <AvatarImage src={activeConversation.customerAvatar} />
+                        <AvatarImage src={getFullImageUrl(activeConversation.customerAvatar)} />
                         <AvatarFallback className="bg-slate-100 text-slate-700">
                           {activeConversation.customerName?.charAt(0) ?? "K"}
                         </AvatarFallback>

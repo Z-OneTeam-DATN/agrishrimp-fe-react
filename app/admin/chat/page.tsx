@@ -18,6 +18,15 @@ import MessageBubble, { TypingBubble } from "@/components/chat/MessageBubble";
 import PinProductModal from "@/components/chat/PinProductModal";
 import { toast } from "sonner";
 
+const getFullImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export default function AdminChatPage() {
   const { user } = useAuthStore();
   const {
@@ -404,7 +413,7 @@ export default function AdminChatPage() {
               {/* Customer avatar > handler avatar breadcrumb */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <Avatar className="w-9 h-9">
-                  <AvatarImage src={activeConv.customerAvatar} />
+                  <AvatarImage src={getFullImageUrl(activeConv.customerAvatar)} />
                   <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
                     {activeConv.customerName?.charAt(0) ?? "K"}
                   </AvatarFallback>

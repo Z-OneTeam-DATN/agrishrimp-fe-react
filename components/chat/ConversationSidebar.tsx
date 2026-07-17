@@ -25,6 +25,15 @@ interface Props {
   starredIds?: number[];
 }
 
+const getFullImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export default function ConversationSidebar({ conversations, activeId, onSelect, isLoading, starredIds }: Props) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
@@ -179,7 +188,7 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   <Avatar className="w-12 h-12">
-                    <AvatarImage src={conv.customerAvatar} />
+                    <AvatarImage src={getFullImageUrl(conv.customerAvatar)} />
                     <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
                       {conv.customerName?.charAt(0) ?? "K"}
                     </AvatarFallback>
