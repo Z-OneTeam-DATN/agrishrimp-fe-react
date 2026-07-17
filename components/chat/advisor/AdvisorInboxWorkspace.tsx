@@ -311,6 +311,40 @@ export default function AdvisorInboxWorkspace() {
     });
   };
 
+  const [timeTick, setTimeTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setTimeTick(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getActiveStatus = () => {
+    if (!activeConversation?.lastMessageAt) {
+      return {
+        label: "Ngoại tuyến",
+        className: "bg-slate-100 text-slate-600",
+      };
+    }
+    const lastActiveDate = parseLocalDateTime(activeConversation.lastMessageAt);
+    const diffMs = Date.now() - lastActiveDate.getTime();
+    const diffMinutes = diffMs / (1000 * 60);
+
+    if (diffMinutes < 5) {
+      return {
+        label: "Đang hoạt động",
+        className: "bg-emerald-50 text-emerald-700",
+      };
+    } else {
+      const distance = formatDistanceToNow(lastActiveDate, {
+        addSuffix: true,
+        locale: vi,
+      });
+      return {
+        label: `Hoạt động ${distance}`,
+        className: "bg-slate-100 text-slate-600",
+      };
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(15,118,110,0.12),_transparent_28%),linear-gradient(180deg,_#f8fafc_0%,_#eef4ff_100%)] px-4 py-4 text-slate-900 md:px-6">
       <div className="mx-auto flex max-w-[1680px] flex-col gap-4">
@@ -580,8 +614,8 @@ export default function AdvisorInboxWorkspace() {
                           <h2 className="text-lg font-semibold text-slate-900">
                             {activeConversation.customerName}
                           </h2>
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
-                            Đang hoạt động
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${getActiveStatus().className}`}>
+                            {getActiveStatus().label}
                           </span>
                         </div>
                         <p className="mt-1 text-sm text-slate-500">

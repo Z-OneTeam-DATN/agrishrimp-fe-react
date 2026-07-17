@@ -101,8 +101,10 @@ export function useWebSocket() {
           `/user/queue/typing`,
           (frame) => {
             try {
-              const { conversationId } = JSON.parse(frame.body);
-              setTyping(conversationId);
+              const { conversationId, senderId } = JSON.parse(frame.body);
+              if (senderId && senderId !== user?.id) {
+                setTyping(conversationId);
+              }
             } catch {}
           }
         );
@@ -119,8 +121,10 @@ export function useWebSocket() {
           });
           const shopTypingSub = client.subscribe("/topic/shop-typing", (frame) => {
             try {
-              const { conversationId } = JSON.parse(frame.body);
-              setTyping(conversationId);
+              const { conversationId, senderId } = JSON.parse(frame.body);
+              if (senderId && senderId !== user?.id) {
+                setTyping(conversationId);
+              }
             } catch {}
           });
           subs.push(shopSub, shopTypingSub);

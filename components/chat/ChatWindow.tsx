@@ -10,6 +10,15 @@ import { ChatService } from "@/app/services/chat.service";
 import { toast } from "sonner";
 import MessageBubble, { TypingBubble } from "./MessageBubble";
 
+const getFullImageUrl = (url?: string) => {
+  if (!url) return "/placeholder.svg";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export default function ChatWindow() {
   const { user } = useAuthStore();
   const {
@@ -106,7 +115,14 @@ export default function ChatWindow() {
 
   const handleSendProduct = useCallback(async () => {
     if (!consultProduct || !activeConversationId || isSending) return;
-    const text = `Tôi muốn được tư vấn về sản phẩm này: ${consultProduct.name}\nLink: ${window.location.origin}/product/${consultProduct.slug}`;
+    const cardMeta = JSON.stringify({
+      id: consultProduct.id,
+      name: consultProduct.name,
+      price: consultProduct.price,
+      imageUrl: consultProduct.imageUrl || "",
+      slug: consultProduct.slug,
+    });
+    const text = `Tôi muốn được tư vấn về sản phẩm này: ${consultProduct.name}\n[CARD_META:${cardMeta}]`;
     setIsSending(true);
     try {
       const msg = await ChatService.sendMessage(activeConversationId, text);
@@ -153,7 +169,7 @@ export default function ChatWindow() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 flex flex-col">
+    <div className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 flex flex-col ${isMinimized ? "h-auto" : "h-[500px]"}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-blue-600 dark:bg-blue-700">
         <div className="relative">
@@ -186,7 +202,7 @@ export default function ChatWindow() {
       {!isMinimized && (
         <>
           {/* Messages area */}
-          <div className="flex-1 h-[380px] overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
             {isLoadingConv ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
@@ -228,7 +244,7 @@ export default function ChatWindow() {
               </div>
               <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-lg p-2 border border-gray-100 dark:border-slate-700 shadow-sm">
                 <div className="w-12 h-12 relative rounded bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 overflow-hidden shrink-0">
-                  <img src={consultProduct.imageUrl || "/placeholder.svg"} alt="product" className="object-contain w-full h-full p-0.5" />
+                  <img src={getFullImageUrl(consultProduct.imageUrl)} alt="product" className="object-contain w-full h-full p-0.5" />
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                   <h4 className="text-xs font-bold text-gray-800 dark:text-gray-100 line-clamp-1 leading-tight">{consultProduct.name}</h4>
