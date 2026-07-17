@@ -846,12 +846,38 @@ export default function ProductDetailPage({
                             </div>
                         </div>
 
-                        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:gap-3">
+                        <div className="mt-5 flex gap-2 sm:gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+                                    if (!isAuthenticated) {
+                                        toast.error("Vui lòng đăng nhập để chat với chăm sóc khách hàng!");
+                                        router.push(`/login?redirect=/san-pham/${slug}`);
+                                        return;
+                                    }
+                                    if (product) {
+                                        useChatStore.getState().setConsultProduct({
+                                            id: product.id,
+                                            name: product.name,
+                                            price: currentVariant?.price || 0,
+                                            imageUrl: product.imageUrls?.[0] || "",
+                                            slug: slug,
+                                        });
+                                    }
+                                    useChatStore.getState().openChat();
+                                }}
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-blue-800 bg-white px-4 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 shrink-0"
+                                title="Chat tư vấn sản phẩm"
+                            >
+                                <MessageCircle size={15} strokeWidth={2} />
+                                <span>Chat</span>
+                            </button>
                             <button
                                 type="button"
                                 onClick={(event) => handleAddToCart(event, false)}
                                 disabled={isAdding || isCompletelyOutOfStock}
-                                className="flex h-10 items-center justify-center gap-2 rounded-full border-2 border-blue-800 bg-white px-5 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                                className="flex-1 flex h-10 items-center justify-center gap-2 rounded-full border-2 border-blue-800 bg-white px-3 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                             >
                                 {isAdding ? <Loader2 className="animate-spin" size={15} /> : <><ShoppingCart size={15} /> Thêm vào giỏ hàng</>}
                             </button>
@@ -859,7 +885,7 @@ export default function ProductDetailPage({
                                 type="button"
                                 onClick={(event) => handleAddToCart(event, true)}
                                 disabled={isAdding || isCompletelyOutOfStock}
-                                className="flex h-10 items-center justify-center rounded-full bg-blue-900 px-5 text-xs font-bold text-white transition-colors hover:bg-blue-950 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                className="flex-1 flex h-10 items-center justify-center rounded-full bg-blue-900 px-3 text-xs font-bold text-white transition-colors hover:bg-blue-950 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                                 {isAdding ? <Loader2 className="animate-spin" size={15} /> : "Mua ngay"}
                             </button>
@@ -903,6 +929,15 @@ export default function ProductDetailPage({
                                         toast.error("Vui lòng đăng nhập để chat với chăm sóc khách hàng!");
                                         router.push(`/login?redirect=/san-pham/${slug}`);
                                         return;
+                                    }
+                                    if (product) {
+                                        useChatStore.getState().setConsultProduct({
+                                            id: product.id,
+                                            name: product.name,
+                                            price: currentVariant?.price || 0,
+                                            imageUrl: product.imageUrls?.[0] || "",
+                                            slug: slug,
+                                        });
                                     }
                                     useChatStore.getState().openChat();
                                 }}
