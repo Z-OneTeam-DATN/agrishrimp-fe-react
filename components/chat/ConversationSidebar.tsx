@@ -66,6 +66,13 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
   });
 
   const sorted = [...filtered].sort((a, b) => {
+    const isStarredA = starredIds?.includes(a.id) ? 1 : 0;
+    const isStarredB = starredIds?.includes(b.id) ? 1 : 0;
+
+    if (isStarredA !== isStarredB) {
+      return isStarredB - isStarredA;
+    }
+
     const timeA = a.lastMessageAt ? parseLocalDateTime(a.lastMessageAt).getTime() : 0;
     const timeB = b.lastMessageAt ? parseLocalDateTime(b.lastMessageAt).getTime() : 0;
     return sortBy === "newest" ? timeB - timeA : timeA - timeB;
