@@ -16,6 +16,7 @@ import {
     Minus,
     PackageX,
     PhoneCall,
+    MessageCircle,
     Plus,
     RefreshCw,
     ShieldCheck,
@@ -33,6 +34,8 @@ import { voucherService, Voucher } from "@/app/services/voucher.service";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { CategoryDTO } from "@/app/types/category.type";
 import { useCartStore } from "@/stores/useCartStore";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useChatStore } from "@/stores/useChatStore";
 import {
     PublicProductDetail,
     PublicProductListItem,
@@ -871,7 +874,7 @@ export default function ProductDetailPage({
                             ))}
                         </div>
 
-                        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:gap-3">
+                        <div className="mt-5 grid grid-cols-1 min-[540px]:grid-cols-3 gap-2.5 sm:gap-3">
                             <button
                                 type="button"
                                 onClick={() => window.open("https://zalo.me/0395024181", "_blank")}
@@ -887,6 +890,33 @@ export default function ProductDetailPage({
                                     <span className="min-w-0">
                                         <span className="block truncate text-[11px] font-medium leading-4 text-blue-900 min-[420px]:text-xs sm:text-sm sm:leading-5">Liên hệ Zalo</span>
                                         <span className="mt-0.5 block truncate text-[10px] text-slate-600 min-[420px]:text-xs">Trao đổi trực tiếp với tư vấn viên</span>
+                                    </span>
+                                </span>
+                                <ChevronRight className="h-4 w-4 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5 sm:h-5 sm:w-5" strokeWidth={2.4} />
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const isAuthenticated = useAuthStore.getState().isAuthenticated;
+                                    if (!isAuthenticated) {
+                                        toast.error("Vui lòng đăng nhập để chat với chăm sóc khách hàng!");
+                                        router.push(`/login?redirect=/san-pham/${slug}`);
+                                        return;
+                                    }
+                                    useChatStore.getState().openChat();
+                                }}
+                                className="group flex min-h-[54px] w-full items-center justify-between border border-blue-100 bg-blue-50 px-2 py-2 text-left transition-colors hover:border-blue-300 hover:bg-blue-100/70 min-[420px]:px-3 sm:min-h-[66px] sm:px-3.5 sm:py-2.5"
+                            >
+                                <span className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100 min-[420px]:h-10 min-[420px]:w-10 sm:h-11 sm:w-11">
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-teal-600 text-white min-[420px]:h-7 min-[420px]:w-7 sm:h-8 sm:w-8">
+                                            <MessageCircle size={15} strokeWidth={2.25} />
+                                        </span>
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-[11px] font-medium leading-4 text-blue-900 min-[420px]:text-xs sm:text-sm sm:leading-5">Chat trực tuyến</span>
+                                        <span className="mt-0.5 block truncate text-[10px] text-slate-600 min-[420px]:text-xs">Nhắn tin trực tiếp với CSKH</span>
                                     </span>
                                 </span>
                                 <ChevronRight className="h-4 w-4 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5 sm:h-5 sm:w-5" strokeWidth={2.4} />

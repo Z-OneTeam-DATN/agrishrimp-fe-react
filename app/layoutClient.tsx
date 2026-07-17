@@ -24,6 +24,9 @@ const Footer = dynamic(() => import("@/components/site/SiteFooter"), {
 const AIChatButton = dynamic(() => import("@/components/site/AIChatButton"), {
   ssr: false,
 });
+const ChatWidget = dynamic(() => import("@/components/chat/ChatWidget"), {
+  ssr: false,
+});
 const WebSocketProvider = dynamic(() => import("@/components/providers/WebSocketProvider"), {
   ssr: false,
 });
@@ -388,6 +391,7 @@ export default function LayoutClient({
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
                 <AIChatButton />
+                <ChatWidget />
               </div>
             )}
             <Toaster position="top-right" richColors closeButton />
