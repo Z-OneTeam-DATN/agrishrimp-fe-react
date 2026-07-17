@@ -19,6 +19,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { getOrderListPath } from "@/lib/order-routing";
+import { isAdminRole } from "@/lib/roles";
 
 interface PendingOrdersProps {
   branchId?: string;
@@ -26,6 +27,7 @@ interface PendingOrdersProps {
 
 export default function PendingOrders({ branchId }: PendingOrdersProps) {
   const { user, isLoadingAuth } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const { hasPermission } = usePermissions();
   const canViewSystemBackorders = hasPermission(P.ORDER_VIEW) && !user?.branch?.id;
 
