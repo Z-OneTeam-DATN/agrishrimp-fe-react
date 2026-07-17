@@ -210,6 +210,8 @@ export interface MyOrder {
   totalAmount: number
   shippingFee: number
   totalShippingFee?: number
+  voucherCode?: string | null
+  discountAmount?: number
   finalAmount: number
   branchName: string
   branchPhone: string | null

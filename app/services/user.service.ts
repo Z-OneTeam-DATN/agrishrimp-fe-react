@@ -137,6 +137,19 @@ export class UserService {
    return response.data;
  }
 
+  static async updateAvatarUrl(avatarUrl: string): Promise<UserType> {
+    const config = this.getConfig();
+    const response = await apiJava.post<UserType>(
+      `${this.PREFIX}/update-avatar`,
+      null,
+      {
+        ...config,
+        params: { avatarUrl },
+      }
+    );
+    return response.data;
+  }
+
   // --- WebSocket Stomp ---
   static connectUser = (stompClient: Client, user: UserType) => {
     if (stompClient.connected) {

@@ -83,7 +83,7 @@ export default function LoginForm() {
         setPermissions(permissions);
       } catch {}
 
-      window.location.href = getPostLoginDestination(permissions);
+      window.location.href = getPostLoginDestination(permissions, res.role);
     },
     onError: (error: unknown) => {
       const status =

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
   Pin, Send, Loader2, MessageCircle, ImageIcon,
-  Bell, Trash2, Star, Mail, CheckCircle2, BellOff, Archive,
+  Bell, Star, Mail, CheckCircle2, BellOff, Archive, Smile, Video, X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
@@ -11,12 +11,32 @@ import { EmployeeService } from "@/app/services/employee.service";
 import { useChatStore } from "@/stores/useChatStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTypingStore } from "@/stores/useTypingStore";
-import { Conversation } from "@/app/types/chat.types";
+import { Conversation, ChatMessage } from "@/app/types/chat.types";
 import { UserResponse } from "@/app/types/employee.schema";
 import ConversationSidebar from "@/components/chat/ConversationSidebar";
-import MessageBubble, { TypingBubble } from "@/components/chat/MessageBubble";
+import MessageBubble, { TypingBubble, parseReactionsAndMessages } from "@/components/chat/MessageBubble";
 import PinProductModal from "@/components/chat/PinProductModal";
+import StickerPicker from "@/components/chat/StickerPicker";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const getFullImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
 
 export default function AdminChatPage() {
   const { user } = useAuthStore();
@@ -40,6 +60,25 @@ export default function AdminChatPage() {
 
   const [mutedConvs, setMutedConvs] = useState<number[]>([]);
   const [starredConvs, setStarredConvs] = useState<number[]>([]);
+
+  // AlertDialog confirm archive states
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [conversationToArchive, setConversationToArchive] = useState<number | null>(null);
+
+  // Quote reply state
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+
+  // Image/video preview state (show preview before sending)
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [pendingVideoPreview, setPendingVideoPreview] = useState<string | null>(null);
+
+  // Sticker picker
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     try {
@@ -96,8 +135,6 @@ export default function AdminChatPage() {
   };
 
   const handleArchiveConversation = async (convId: number) => {
-    const confirm = window.confirm("Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này?");
-    if (!confirm) return;
     try {
       await ChatService.updateStatus(convId, "CLOSED");
       setConversations(
@@ -115,8 +152,22 @@ export default function AdminChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clear pending media when conversation changes
+  useEffect(() => {
+    setPendingImage(null);
+    setPendingImagePreview(null);
+    setPendingVideo(null);
+    setPendingVideoPreview(null);
+    setShowStickerPicker(false);
+  }, [activeConversationId]);
+
   const activeConv = conversations.find((c) => c.id === activeConversationId) ?? null;
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
+  
+  const { reactionsMap, visibleMessages } = useMemo(() => {
+    return parseReactionsAndMessages(convMessages, activeConv?.customerId);
+  }, [convMessages, activeConv?.customerId]);
+
   const currentViewers = activeConversationId ? (viewersByConv[activeConversationId] ?? []) : [];
   const otherViewers = currentViewers
     .filter((v) => v.userId !== user?.id)
@@ -200,18 +251,115 @@ export default function AdminChatPage() {
     }
   }, [activeConversationId, conversations, setConversations]);
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image: show preview first, send on submit
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeConversationId) return;
     e.target.value = "";
-    setIsSending(true);
+    const objectUrl = URL.createObjectURL(file);
+    setPendingImage(file);
+    setPendingImagePreview(objectUrl);
+    setPendingVideo(null);
+    setPendingVideoPreview(null);
+  };
+
+  // Video: show preview first, send on submit
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeConversationId) return;
+    e.target.value = "";
+    const objectUrl = URL.createObjectURL(file);
+    setPendingVideo(file);
+    setPendingVideoPreview(objectUrl);
+    setPendingImage(null);
+    setPendingImagePreview(null);
+  };
+
+  // Send sticker
+  const handleSendSticker = async (stickerUrl: string) => {
+    if (!activeConversationId) return;
+    setShowStickerPicker(false);
+    const localId = `local-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: -Date.now(), localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content: `[STICKER:${stickerUrl}]`,
+      messageType: "TEXT",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+    };
+    addMessage(optimistic);
     try {
-      const msg = await ChatService.sendImage(activeConversationId, file);
-      addMessage(msg);
+      const msg = await ChatService.sendMessage(activeConversationId, `[STICKER:${stickerUrl}]`);
+      addMessage({ ...msg, localId });
     } catch {
-      toast.error("Gửi ảnh thất bại");
-    } finally {
-      setIsSending(false);
+      addMessage({ ...optimistic, status: "error" });
+    }
+  };
+
+  // Retry sending a failed message
+  const handleRetryMessage = useCallback(async (failedMsg: ChatMessage) => {
+    if (!activeConversationId) return;
+    addMessage({ ...failedMsg, status: "sending" });
+    try {
+      const msg = await ChatService.sendMessage(activeConversationId, failedMsg.content);
+      addMessage({ ...msg, localId: failedMsg.localId, status: "sent" });
+    } catch {
+      addMessage({ ...failedMsg, status: "error" });
+    }
+  }, [activeConversationId, addMessage]);
+
+  const handleReact = useCallback(async (msg: ChatMessage, emoji: string) => {
+    if (!activeConversationId) return;
+    const content = `[REACTION:${emoji}|${msg.id}]`;
+    const localId = `local-react-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: -Date.now(),
+      localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content,
+      messageType: "TEXT",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+    };
+    addMessage(optimistic);
+    try {
+      const serverMsg = await ChatService.sendMessage(activeConversationId, content);
+      addMessage({ ...serverMsg, localId, status: "sent" });
+    } catch {
+      addMessage({ ...optimistic, status: "error" });
+    }
+  }, [activeConversationId, user, addMessage]);
+
+  // Send pending image/video or text
+  const handleSendMedia = async () => {
+    if (!activeConversationId) return;
+    if (pendingImage) {
+      const file = pendingImage;
+      setPendingImage(null); setPendingImagePreview(null);
+      setIsSending(true);
+      try {
+        const msg = await ChatService.sendImage(activeConversationId, file);
+        addMessage(msg);
+      } catch {
+        toast.error("Gửi ảnh thất bại");
+      } finally { setIsSending(false); }
+    } else if (pendingVideo) {
+      const file = pendingVideo;
+      setPendingVideo(null); setPendingVideoPreview(null);
+      setIsSending(true);
+      try {
+        const msg = await ChatService.sendImage(activeConversationId, file);
+        addMessage(msg);
+      } catch {
+        toast.error("Gửi video thất bại");
+      } finally { setIsSending(false); }
     }
   };
 
@@ -237,23 +385,59 @@ export default function AdminChatPage() {
     }, 1500);
   };
 
+  const getReplySnippet = (msg: ChatMessage) => {
+    if (!msg.content) return "";
+    let snippet = msg.content;
+    const replyMatch = snippet.match(/^\[REPLY:[^\]]+\]([\s\S]*)$/);
+    if (replyMatch) {
+      snippet = replyMatch[1];
+    }
+    snippet = snippet.replace(/\[CARD_META:[^\]]+\]/g, "");
+    snippet = snippet.replace(/\[STICKER:[^\]]+\]/g, "Nhãn dán");
+    return snippet.substring(0, 45);
+  };
+
   const handleSend = useCallback(async () => {
+    // If there's pending media, send that first
+    if (pendingImage || pendingVideo) {
+      await handleSendMedia();
+      return;
+    }
     const text = input.trim();
-    if (!text || !activeConversationId || isSending) return;
+    if (!text || !activeConversationId) return;
+
+    let contentToSend = text;
+    if (replyingTo) {
+      const snippet = getReplySnippet(replyingTo);
+      contentToSend = `[REPLY:${replyingTo.id}|${replyingTo.senderName || "Người dùng"}|${snippet}]${text}`;
+      setReplyingTo(null);
+    }
+
     setInput("");
     setCannedSuggestions([]);
-    setIsSending(true);
+    // Optimistic: push a "sending" message immediately
+    const localId = `local-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: -Date.now(), localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content: contentToSend,
+      messageType: "TEXT",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+    };
+    addMessage(optimistic);
     try {
-      const msg = await ChatService.sendMessage(activeConversationId, text);
-      addMessage(msg);
+      const msg = await ChatService.sendMessage(activeConversationId, contentToSend);
+      addMessage({ ...msg, localId, status: "sent" });
     } catch {
-      toast.error("Gửi thất bại");
-      setInput(text);
+      addMessage({ ...optimistic, status: "error" });
     } finally {
-      setIsSending(false);
       inputRef.current?.focus();
     }
-  }, [input, activeConversationId, isSending, addMessage]);
+  }, [input, activeConversationId, pendingImage, pendingVideo, user, addMessage, replyingTo]);
 
   const assignedStaffName = activeConv?.assignedStaffName;
 
@@ -282,19 +466,29 @@ export default function AdminChatPage() {
           <>
             {/* ── Chat header ── */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white">
-              {/* Customer info */}
-              <Avatar className="w-10 h-10">
-                <AvatarImage src={activeConv.customerAvatar} />
-                <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
-                  {activeConv.customerName?.charAt(0) ?? "K"}
-                </AvatarFallback>
-              </Avatar>
+              {/* Customer avatar > handler avatar breadcrumb */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Avatar className="w-9 h-9">
+                  <AvatarImage src={getFullImageUrl(activeConv.customerAvatar)} />
+                  <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
+                    {activeConv.customerName?.charAt(0) ?? "K"}
+                  </AvatarFallback>
+                </Avatar>
+                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                {/* Staff (handler) avatar */}
+                <Avatar className="w-9 h-9 ring-2 ring-[#0084ff] ring-offset-1">
+                  <AvatarImage src={user?.avatar?.imageUrl ?? undefined} />
+                  <AvatarFallback className="bg-[#0084ff] text-white font-semibold text-sm">
+                    {user?.fullName?.charAt(0) ?? "A"}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-[15px] text-gray-900 truncate">
                   {activeConv.customerName}
                 </p>
                 <p className="text-xs text-[#0084ff] font-medium">
-                  Khách hàng liên hệ
+                  Đang xử lý bởi <span className="font-semibold">{user?.fullName ?? "Bạn"}</span>
                 </p>
               </div>
 
@@ -318,7 +512,10 @@ export default function AdminChatPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleArchiveConversation(activeConv.id)}
+                  onClick={() => {
+                    setConversationToArchive(activeConv.id);
+                    setArchiveConfirmOpen(true);
+                  }}
                   className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
                   title="Đóng và lưu trữ cuộc trò chuyện"
                 >
@@ -381,23 +578,31 @@ export default function AdminChatPage() {
                 <div className="flex justify-center py-10">
                   <Loader2 className="w-6 h-6 text-[#0084ff] animate-spin" />
                 </div>
-              ) : convMessages.length === 0 ? (
+              ) : visibleMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                   <MessageCircle className="w-10 h-10 opacity-20" />
                   <p className="text-sm">Chưa có tin nhắn</p>
                 </div>
               ) : (
-                convMessages.map((msg, index) => (
+                visibleMessages.map((msg, index) => (
                   <MessageBubble
-                    key={msg.id}
+                    key={msg.localId ?? msg.id}
                     message={msg}
-                    isOwn={msg.senderId === user?.id}
-                    isLast={index === convMessages.length - 1}
+                    isOwn={msg.senderId !== activeConv?.customerId}
+                    isLast={index === visibleMessages.length - 1}
+                    onRetry={handleRetryMessage}
+                    isAdminWorkspace={true}
+                    onReply={setReplyingTo}
+                    reactions={reactionsMap[msg.id]}
+                    onReact={handleReact}
                   />
                 ))
               )}
               {activeConversationId && typingByConv[activeConversationId] && (
-                <TypingBubble name={activeConv?.customerName || "Khách hàng"} />
+                <TypingBubble 
+                  name={activeConv?.customerName || "Khách hàng"} 
+                  avatarUrl={activeConv?.customerAvatar} 
+                />
               )}
               <div ref={bottomRef} />
             </div>
@@ -418,6 +623,61 @@ export default function AdminChatPage() {
               </div>
             )}
 
+            {/* ── Sticker Picker ── */}
+            {showStickerPicker && (
+              <StickerPicker
+                onSelectSticker={handleSendSticker}
+                onClose={() => setShowStickerPicker(false)}
+                className="absolute bottom-[60px] left-4"
+              />
+            )}
+
+            {/* ── Image / Video Preview Strip ── */}
+            {(pendingImagePreview || pendingVideoPreview) && (
+              <div className="bg-gray-50 border-t border-gray-100 px-4 py-2 flex items-center gap-3">
+                <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                  {pendingImagePreview && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={pendingImagePreview} alt="preview" className="w-full h-full object-cover" />
+                  )}
+                  {pendingVideoPreview && (
+                    <video src={pendingVideoPreview} className="w-full h-full object-cover" />
+                  )}
+                  <button
+                    onClick={() => { setPendingImage(null); setPendingImagePreview(null); setPendingVideo(null); setPendingVideoPreview(null); }}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-gray-800/70 hover:bg-red-500 text-white rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-600 truncate font-medium">{pendingImage?.name ?? pendingVideo?.name}</p>
+                  <p className="text-[10px] text-gray-400">Nhấn Gửi để upload {pendingImage ? "ảnh" : "video"}</p>
+                </div>
+                <button onClick={handleSend} disabled={isSending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0084ff] hover:bg-blue-600 text-white rounded-full text-xs font-semibold transition-colors disabled:opacity-50">
+                  {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  Gửi
+                </button>
+              </div>
+            )}
+
+            {/* ── Replying To Banner ── */}
+            {replyingTo && (
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-gray-150 animate-slideUp shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+                  <span className="font-bold shrink-0">Đang trả lời {replyingTo.senderName}:</span>
+                  <span className="italic truncate">"{replyingTo.content}"</span>
+                </div>
+                <button
+                  onClick={() => setReplyingTo(null)}
+                  className="text-gray-400 hover:text-gray-600 p-0.5 hover:bg-slate-100 rounded-full shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* ── Input bar ── */}
             <div className="px-4 py-3 border-t border-gray-200 bg-white flex items-center gap-3">
               {/* Page avatar */}
@@ -426,9 +686,17 @@ export default function AdminChatPage() {
                 <AvatarFallback className="bg-gray-200 text-gray-600 text-xs font-bold">AS</AvatarFallback>
               </Avatar>
 
-              {/* Input field */}
+              {/* Hidden file inputs */}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-              <div className="flex-1 flex items-center bg-[#f0f2f5] rounded-full px-4 py-2">
+              <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoSelect} />
+
+              <div className="flex-1 flex items-center bg-[#f0f2f5] rounded-full px-4 py-2.5 gap-2.5 border border-gray-100 shadow-sm">
+                {/* 1. Sticker Picker */}
+                <button onClick={() => setShowStickerPicker(v => !v)}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0" title="Stickers">
+                  <Smile className="w-5 h-5" />
+                </button>
+
                 <input
                   ref={inputRef}
                   value={input}
@@ -437,43 +705,40 @@ export default function AdminChatPage() {
                   placeholder="Trả lời trong Messenger..."
                   className="flex-1 bg-transparent text-sm outline-none text-gray-800 placeholder-gray-500"
                 />
-              </div>
 
-              {/* Action icons */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSending}
-                  className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
-                  title="Đính kèm ảnh"
-                >
+                {/* 2. Image Select */}
+                <button onClick={() => fileInputRef.current?.click()} disabled={isSending}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 disabled:opacity-40"
+                  title="Gửi ảnh">
                   <ImageIcon className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={() => setIsPinModalOpen(true)}
-                  className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors"
-                  title="Ghim sản phẩm"
-                >
-                  <Pin className="w-5 h-5" />
+
+                {/* 3. Video Select */}
+                <button onClick={() => videoInputRef.current?.click()} disabled={isSending}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 disabled:opacity-40"
+                  title="Gửi video">
+                  <Video className="w-5 h-5" />
                 </button>
-                {input.trim() ? (
-                  <button
-                    onClick={handleSend}
-                    disabled={isSending}
-                    className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
-                  >
-                    {isSending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
+
+                {/* 4. Pin Product */}
+                <button onClick={() => setIsPinModalOpen(true)}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0"
+                  title="Ghim sản phẩm">
+                  <Pin className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+
+              {/* Action icons (outside the pill) */}
+              <div className="flex items-center shrink-0">
+                {(input.trim() || pendingImage || pendingVideo) ? (
+                  <button onClick={handleSend} disabled={isSending}
+                    className="w-10 h-10 flex items-center justify-center bg-[#0084ff] hover:bg-blue-600 text-white rounded-full transition-all disabled:opacity-50 active:scale-95 shadow-sm">
+                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   </button>
                 ) : (
-                  <button
-                    className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors"
-                    title="Gửi like"
-                  >
-                    <span className="text-lg">👍</span>
+                  <button onClick={() => handleSendSticker("https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif")}
+                    className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all active:scale-95" title="Gửi like">
+                    <span className="text-xl">👍</span>
                   </button>
                 )}
               </div>
@@ -482,7 +747,6 @@ export default function AdminChatPage() {
         )}
       </div>
 
-      {/* Pin Product Modal */}
       {activeConversationId && (
         <PinProductModal
           conversationId={activeConversationId}
@@ -495,6 +759,31 @@ export default function AdminChatPage() {
           }}
         />
       )}
+
+      {/* AlertDialog confirm archive */}
+      <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+        <AlertDialogContent className="rounded-3xl dark:bg-slate-900 border dark:border-slate-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold">Lưu trữ cuộc trò chuyện</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+              Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này? Hành động này sẽ đóng cuộc trò chuyện.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl border border-gray-200 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800">Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => {
+                if (conversationToArchive !== null) {
+                  handleArchiveConversation(conversationToArchive);
+                }
+              }}
+            >
+              Đồng ý
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

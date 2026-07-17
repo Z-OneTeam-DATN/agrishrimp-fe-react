@@ -28,6 +28,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import {
   DeliveryStatusBadge,
   getNextOrderWorkflowAction,
+  getOrderBranchNames,
   getOrderBranchSummary,
   getOrderCode,
   getOrderMissingSkuCount,
@@ -269,7 +270,7 @@ export default function AdminOrderDetailView({
         />
         <DetailMetricCard
           label="Chi nhánh phụ trách"
-          value={getOrderBranchSummary(order)}
+          value={getOrderBranchNames(order)[0] ?? getOrderBranchSummary(order)}
           hint={order.branchAddress || "Chưa có địa chỉ chi nhánh chính."}
           icon={<MapPin size={18} className="text-violet-700" />}
           accent="bg-violet-50"

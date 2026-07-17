@@ -298,7 +298,7 @@ export default function CartPage() {
     }
     if (!found.canApply) {
       return void toast.error(
-        found.availabilityReason || "Voucher chua du dieu kien",
+        found.availabilityReason || "Voucher chưa đủ điều kiện",
       );
     }
     setSelectedVoucher(found);
@@ -707,13 +707,13 @@ export default function CartPage() {
                       if (!eligible) {
                         return void toast.error(
                           voucher.availabilityReason ||
-                            "Voucher chua du dieu kien ap dung",
+                            "Voucher chưa đủ điều kiện áp dụng",
                         );
                       }
                       setSelectedVoucher(voucher);
                       setIsVoucherModalOpen(false);
                       setVoucherInput(voucher.code);
-                      return void toast.success("Ap dung voucher thanh cong!");
+                      return void toast.success("Áp dụng voucher thành công!");
                       /*
                       if (!eligible) {
                         toast.error(

@@ -38,7 +38,7 @@ export default function GoogleLoginBtn() {
       } catch {}
 
       // Full page reload để layoutClient hydrate lại user đầy đủ từ API
-      window.location.href = getPostLoginDestination(permissions);
+      window.location.href = getPostLoginDestination(permissions, res.role);
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);

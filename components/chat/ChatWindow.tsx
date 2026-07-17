@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Send, X, Minimize2, MessageCircle, Loader2, ImageIcon, Smile, Video, ShoppingBag, ClipboardList } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useChatStore } from "@/stores/useChatStore";
@@ -8,7 +8,8 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useTypingStore } from "@/stores/useTypingStore";
 import { ChatService } from "@/app/services/chat.service";
 import { toast } from "sonner";
-import MessageBubble, { TypingBubble } from "./MessageBubble";
+import StickerPicker from "./StickerPicker";
+import MessageBubble, { TypingBubble, parseReactionsAndMessages } from "./MessageBubble";
 import { useRouter } from "next/navigation";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 
@@ -20,18 +21,6 @@ const getFullImageUrl = (url?: string) => {
   const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
   return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
 };
-
-const STICKERS = [
-  { id: "wow", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62e/512.gif", label: "Wow" },
-  { id: "haha", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif", label: "Haha" },
-  { id: "love", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif", label: "Love" },
-  { id: "like", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif", label: "Like" },
-  { id: "cry", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/512.gif", label: "Cry" },
-  { id: "think", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/512.gif", label: "Think" },
-  { id: "clap", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif", label: "Clap" },
-  { id: "fire", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif", label: "Fire" },
-];
-
 export default function ChatWindow() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -52,6 +41,15 @@ export default function ChatWindow() {
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [pickerProducts, setPickerProducts] = useState<any[]>([]);
 
+  // Image/video preview before sending
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [pendingVideoPreview, setPendingVideoPreview] = useState<string | null>(null);
+
+  // Quote reply state
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +58,10 @@ export default function ChatWindow() {
   const typingThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
+
+  const { reactionsMap: reactionsMapReal, visibleMessages: visibleMessagesReal } = useMemo(() => {
+    return parseReactionsAndMessages(convMessages, user?.id);
+  }, [convMessages, user?.id]);
 
   // Keep a ref so the effect can read the latest value without triggering re-runs
   const convIdRef = useRef<number | null>(activeConversationId);
@@ -153,22 +155,65 @@ export default function ChatWindow() {
     }
   }, [isOpen, isMinimized]);
 
+  const getReplySnippet = (msg: any) => {
+    if (!msg.content) return "";
+    let snippet = msg.content;
+    const replyMatch = snippet.match(/^\[REPLY:[^\]]+\]([\s\S]*)$/);
+    if (replyMatch) snippet = replyMatch[1];
+    snippet = snippet.replace(/\[CARD_META:[^\]]+\]/g, "");
+    snippet = snippet.replace(/\[STICKER:[^\]]+\]/g, "Nhãn dán");
+    return snippet.substring(0, 45);
+  };
+
   const handleSend = useCallback(async () => {
+    // If media pending, send it
+    if (pendingImage || pendingVideo) {
+      const file = pendingImage || pendingVideo!;
+      const isImg = !!pendingImage;
+      setPendingImage(null); setPendingImagePreview(null);
+      setPendingVideo(null); setPendingVideoPreview(null);
+      setIsSending(true);
+      try {
+        const msg = await ChatService.sendImage(activeConversationId!, file);
+        addMessage(msg);
+      } catch {
+        toast.error(isImg ? "Gửi ảnh thất bại" : "Gửi video thất bại");
+      } finally { setIsSending(false); }
+      return;
+    }
     const text = input.trim();
-    if (!text || !activeConversationId || isSending) return;
+    if (!text || !activeConversationId) return;
+
+    let contentToSend = text;
+    if (replyingTo) {
+      const snippet = getReplySnippet(replyingTo);
+      contentToSend = `[REPLY:${replyingTo.id}|${replyingTo.senderName || "Shop"}|${snippet}]${text}`;
+      setReplyingTo(null);
+    }
 
     setInput("");
-    setIsSending(true);
+    // Optimistic send
+    const localId = `local-${Date.now()}`;
+    const optimistic = {
+      id: -Date.now() as number,
+      localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content: contentToSend,
+      messageType: "TEXT" as const,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending" as const,
+    };
+    addMessage(optimistic);
     try {
-      const msg = await ChatService.sendMessage(activeConversationId, text);
-      addMessage(msg);
+      const msg = await ChatService.sendMessage(activeConversationId, contentToSend);
+      addMessage({ ...msg, localId, status: "sent" as const });
     } catch {
-      toast.error("Gửi tin nhắn thất bại");
-      setInput(text);
-    } finally {
-      setIsSending(false);
+      addMessage({ ...optimistic, status: "error" as const });
     }
-  }, [input, activeConversationId, isSending, addMessage]);
+  }, [input, activeConversationId, pendingImage, pendingVideo, user, addMessage, replyingTo]);
 
   const handleSendProduct = useCallback(async () => {
     if (!consultProduct || !activeConversationId || isSending) return;
@@ -192,20 +237,52 @@ export default function ChatWindow() {
     }
   }, [consultProduct, activeConversationId, isSending, addMessage, setConsultProduct]);
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image: show preview first
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeConversationId) return;
+    if (!file) return;
     e.target.value = "";
-    setIsSending(true);
-    try {
-      const msg = await ChatService.sendImage(activeConversationId, file);
-      addMessage(msg);
-    } catch {
-      toast.error("Gửi ảnh thất bại");
-    } finally {
-      setIsSending(false);
-    }
+    setPendingImage(file);
+    setPendingImagePreview(URL.createObjectURL(file));
+    setPendingVideo(null); setPendingVideoPreview(null);
   };
+
+  // Retry failed message
+  const handleRetryMessage = useCallback(async (failedMsg: any) => {
+    if (!activeConversationId) return;
+    addMessage({ ...failedMsg, status: "sending" });
+    try {
+      const msg = await ChatService.sendMessage(activeConversationId, failedMsg.content);
+      addMessage({ ...msg, localId: failedMsg.localId, status: "sent" });
+    } catch {
+      addMessage({ ...failedMsg, status: "error" });
+    }
+  }, [activeConversationId, addMessage]);
+
+  const handleReact = useCallback(async (msg: any, emoji: string) => {
+    if (!activeConversationId) return;
+    const content = `[REACTION:${emoji}|${msg.id}]`;
+    const localId = `local-react-${Date.now()}`;
+    const optimistic = {
+      id: -Date.now() as number,
+      localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content,
+      messageType: "TEXT" as const,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending" as const,
+    };
+    addMessage(optimistic);
+    try {
+      const serverMsg = await ChatService.sendMessage(activeConversationId, content);
+      addMessage({ ...serverMsg, localId, status: "sent" as const });
+    } catch {
+      addMessage({ ...optimistic, status: "error" as const });
+    }
+  }, [activeConversationId, user, addMessage]);
 
   // Load products for picker popup
   useEffect(() => {
@@ -233,19 +310,13 @@ export default function ChatWindow() {
     }
   };
 
-  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeConversationId) return;
+    if (!file) return;
     e.target.value = "";
-    setIsSending(true);
-    try {
-      const msg = await ChatService.sendImage(activeConversationId, file);
-      addMessage(msg);
-    } catch {
-      toast.error("Gửi video thất bại");
-    } finally {
-      setIsSending(false);
-    }
+    setPendingVideo(file);
+    setPendingVideoPreview(URL.createObjectURL(file));
+    setPendingImage(null); setPendingImagePreview(null);
   };
 
   const handleGoToOrders = () => {
@@ -310,24 +381,28 @@ export default function ChatWindow() {
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
               </div>
-            ) : convMessages.length === 0 ? (
+            ) : visibleMessagesReal.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
                 <MessageCircle className="w-10 h-10 opacity-30" />
                 <p className="text-sm">Bắt đầu cuộc trò chuyện</p>
                 <p className="text-xs">Chúng tôi luôn sẵn sàng hỗ trợ bạn!</p>
               </div>
             ) : (
-              convMessages.map((msg, index) => (
+              visibleMessagesReal.map((msg, index) => (
                 <MessageBubble
-                  key={msg.id}
+                  key={msg.localId ?? msg.id}
                   message={msg}
                   isOwn={msg.senderId === user?.id}
-                  isLast={index === convMessages.length - 1}
+                  isLast={index === visibleMessagesReal.length - 1}
+                  onRetry={handleRetryMessage}
+                  onReply={setReplyingTo}
+                  reactions={reactionsMapReal[msg.id]}
+                  onReact={handleReact}
                 />
               ))
             )}
             {activeConversationId && typingByConv[activeConversationId] && (
-              <TypingBubble name="Shop" />
+              <TypingBubble name="Shop" isAdmin={true} />
             )}
             <div ref={bottomRef} />
           </div>
@@ -374,25 +449,11 @@ export default function ChatWindow() {
 
           {/* Sticker Picker Popover */}
           {showStickerPicker && (
-            <div className="bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 px-3 py-2 flex flex-col gap-1.5 max-h-[160px] overflow-y-auto animate-fadeIn relative z-10">
-              <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-slate-700 mb-1">
-                <span className="text-[10px] font-bold text-gray-500">Stickers dễ thương</span>
-                <button onClick={() => setShowStickerPicker(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {STICKERS.map((sticker) => (
-                  <button 
-                    key={sticker.id} 
-                    onClick={() => handleSendSticker(sticker.url)}
-                    className="hover:bg-slate-100 dark:hover:bg-slate-700 p-1.5 rounded-xl transition-all active:scale-95 flex items-center justify-center"
-                  >
-                    <img src={sticker.url} alt={sticker.label} className="w-10 h-10 object-contain" />
-                  </button>
-                ))}
-              </div>
-            </div>
+            <StickerPicker
+              onSelectSticker={handleSendSticker}
+              onClose={() => setShowStickerPicker(false)}
+              className="absolute bottom-[60px] left-4 w-[320px] max-w-[calc(100vw-3rem)]"
+            />
           )}
 
           {/* Product Picker Popover */}
@@ -443,6 +504,45 @@ export default function ChatWindow() {
             </div>
           )}
 
+          {/* Image / Video Preview Strip */}
+          {(pendingImagePreview || pendingVideoPreview) && (
+            <div className="bg-gray-50 dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 px-3 py-2 flex items-center gap-2">
+              <div className="relative w-12 h-12 shrink-0 rounded-lg overflow-hidden border border-gray-200 dark:border-slate-600">
+                {pendingImagePreview && <img src={pendingImagePreview} alt="preview" className="w-full h-full object-cover" />}
+                {pendingVideoPreview && <video src={pendingVideoPreview} className="w-full h-full object-cover" />}
+                <button onClick={() => { setPendingImage(null); setPendingImagePreview(null); setPendingVideo(null); setPendingVideoPreview(null); }}
+                  className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-gray-800/70 hover:bg-red-500 text-white rounded-full flex items-center justify-center">
+                  <X className="w-2 h-2" />
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-gray-500 truncate">{pendingImage?.name ?? pendingVideo?.name}</p>
+                <p className="text-[9px] text-gray-400">Nhấn gửi để upload</p>
+              </div>
+              <button onClick={handleSend} disabled={isSending}
+                className="flex items-center gap-1 px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-[10px] font-bold transition-colors disabled:opacity-50">
+                {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                Gửi
+              </button>
+            </div>
+          )}
+
+          {/* Quote reply banner */}
+          {replyingTo && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 shrink-0">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                <span className="font-bold shrink-0">Đang trả lời {replyingTo.senderName}:</span>
+                <span className="italic truncate">"{replyingTo.content}"</span>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full shrink-0 ml-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Input area (Shopee style layout) */}
           <div className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700 p-2.5 flex flex-col gap-2">
             {/* Input Row */}
@@ -458,7 +558,7 @@ export default function ChatWindow() {
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || isSending}
+                disabled={(!input.trim() && !pendingImage && !pendingVideo) || isSending}
                 className="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
               >
                 {isSending ? (
