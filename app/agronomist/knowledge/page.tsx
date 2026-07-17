@@ -75,12 +75,22 @@ const DEFAULT_CHAT_CONFIG: AiKnowledgeChatConfig = {
   fallbackMessage: "",
 };
 
+type KnowledgeTabKey = "categories" | "keywords" | "diseases" | "chat";
+
+const TABS: { key: KnowledgeTabKey; label: string }[] = [
+  { key: "categories", label: "Danh mục" },
+  { key: "keywords", label: "Bộ từ khóa & câu trả lời" },
+  { key: "diseases", label: "Bệnh & phác đồ" },
+  { key: "chat", label: "Chatbot mở đầu" },
+];
+
 export default function AgronomistKnowledgePage() {
   const queryClient = useQueryClient();
   const [categoryForm, setCategoryForm] = useState(DEFAULT_CATEGORY_FORM);
   const [faqForm, setFaqForm] = useState(DEFAULT_FAQ_FORM);
   const [diseaseForm, setDiseaseForm] = useState(DEFAULT_DISEASE_FORM);
   const [chatConfigForm, setChatConfigForm] = useState<AiKnowledgeChatConfig>(DEFAULT_CHAT_CONFIG);
+  const [activeTab, setActiveTab] = useState<KnowledgeTabKey>("categories");
 
   const categoriesQuery = useQuery({
     queryKey: ["ai-knowledge", "categories"],
@@ -354,27 +364,31 @@ export default function AgronomistKnowledgePage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-4 xl:grid-cols-4">
-        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-            Approved Knowledge Hub
-          </p>
-          <h3 className="mt-3 text-3xl font-bold leading-tight text-slate-900">
-            Xây kho tri thức có duyệt cho AI Doctor
-          </h3>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Mọi câu trả lời production chỉ được đi từ tri thức đã duyệt. Ảnh AI chỉ đóng vai trò tín hiệu đầu vào,
-            không được tự suy diễn phác đồ ngoài kho tri thức này.
-          </p>
-        </div>
-
         <StatCard label="Danh mục" value={categories.length} />
         <StatCard label="Tri thức bệnh" value={diseases.length} />
         <StatCard label="Bộ từ khóa" value={keywordSets.length} />
         <StatCard label="Sản phẩm hoạt động" value={products.length} />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-12">
-        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm xl:col-span-4">
+      <div className="flex gap-1 border-b border-slate-200">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+              activeTab === tab.key
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "categories" ? (
+      <section className="grid gap-6">
+        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
           <SectionHeader
             icon={<Database className="h-5 w-5 text-blue-600" />}
             title="Danh mục tri thức"
@@ -470,8 +484,12 @@ export default function AgronomistKnowledgePage() {
             ))}
           </div>
         </div>
+      </section>
+      ) : null}
 
-        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm xl:col-span-8">
+      {activeTab === "keywords" ? (
+      <section className="grid gap-6">
+        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
           <SectionHeader
             icon={<RefreshCw className="h-5 w-5 text-blue-600" />}
             title="Bộ từ khóa & câu trả lời"
@@ -509,17 +527,6 @@ export default function AgronomistKnowledgePage() {
                 ))}
               </select>
             </Field>
-            <Field label="Ngưỡng match">
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.01}
-                value={faqForm.matchThreshold}
-                onChange={(event) => setFaqForm((current) => ({ ...current, matchThreshold: Number(event.target.value) }))}
-                className={inputClassName}
-              />
-            </Field>
           </div>
 
           <Field label="Danh sách từ khóa (phân tách dấu phẩy)" className="mt-4">
@@ -543,7 +550,7 @@ export default function AgronomistKnowledgePage() {
             />
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
+          <div className="mt-4">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -552,34 +559,6 @@ export default function AgronomistKnowledgePage() {
               />
               Đang bật
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={faqForm.canonical}
-                onChange={(event) => setFaqForm((current) => ({ ...current, canonical: event.target.checked }))}
-              />
-              Canonical
-            </label>
-            <Field label="Ưu tiên">
-              <input
-                type="number"
-                value={faqForm.priority}
-                onChange={(event) => setFaqForm((current) => ({ ...current, priority: Number(event.target.value) }))}
-                className={inputClassName}
-              />
-            </Field>
-            <Field label="Trạng thái">
-              <select
-                value={faqForm.status}
-                onChange={(event) => setFaqForm((current) => ({ ...current, status: event.target.value }))}
-                className={inputClassName}
-              >
-                <option value="DRAFT">DRAFT</option>
-                <option value="IN_REVIEW">IN_REVIEW</option>
-                <option value="APPROVED">APPROVED</option>
-                <option value="DISABLED">DISABLED</option>
-              </select>
-            </Field>
           </div>
 
           <div className="mt-5 flex gap-3">
@@ -620,7 +599,9 @@ export default function AgronomistKnowledgePage() {
           </div>
         </div>
       </section>
+      ) : null}
 
+      {activeTab === "diseases" ? (
       <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
         <SectionHeader
           icon={<CheckCircle2 className="h-5 w-5 text-blue-600" />}
@@ -711,67 +692,15 @@ export default function AgronomistKnowledgePage() {
           </Field>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-5">
-          <Field label="Ngưỡng confidence AI">
+        <div className="mt-4">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
             <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              value={diseaseForm.confidenceThreshold}
-              onChange={(event) => setDiseaseForm((current) => ({ ...current, confidenceThreshold: Number(event.target.value) }))}
-              className={inputClassName}
+              type="checkbox"
+              checked={diseaseForm.enabled}
+              onChange={(event) => setDiseaseForm((current) => ({ ...current, enabled: event.target.checked }))}
             />
-          </Field>
-          <Field label="Ngưỡng match text">
-            <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              value={diseaseForm.matchThreshold}
-              onChange={(event) => setDiseaseForm((current) => ({ ...current, matchThreshold: Number(event.target.value) }))}
-              className={inputClassName}
-            />
-          </Field>
-          <Field label="Ưu tiên">
-            <input
-              type="number"
-              value={diseaseForm.priority}
-              onChange={(event) => setDiseaseForm((current) => ({ ...current, priority: Number(event.target.value) }))}
-              className={inputClassName}
-            />
-          </Field>
-          <Field label="Trạng thái">
-            <select
-              value={diseaseForm.status}
-              onChange={(event) => setDiseaseForm((current) => ({ ...current, status: event.target.value }))}
-              className={inputClassName}
-            >
-              <option value="DRAFT">DRAFT</option>
-              <option value="IN_REVIEW">IN_REVIEW</option>
-              <option value="APPROVED">APPROVED</option>
-              <option value="DISABLED">DISABLED</option>
-            </select>
-          </Field>
-          <div className="flex flex-col gap-2 pt-6 text-sm text-slate-600">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={diseaseForm.enabled}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, enabled: event.target.checked }))}
-              />
-              Đang bật
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={diseaseForm.canonical}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, canonical: event.target.checked }))}
-              />
-              Canonical
-            </label>
-          </div>
+            Đang bật
+          </label>
         </div>
 
         <div className="mt-6 rounded-[4px] border border-slate-200 bg-slate-50 p-5">
@@ -874,7 +803,9 @@ export default function AgronomistKnowledgePage() {
           ))}
         </div>
       </section>
+      ) : null}
 
+      {activeTab === "chat" ? (
       <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
         <SectionHeader
           icon={<FilePenLine className="h-5 w-5 text-blue-600" />}
@@ -911,6 +842,7 @@ export default function AgronomistKnowledgePage() {
           </button>
         </div>
       </section>
+      ) : null}
     </div>
   );
 }
