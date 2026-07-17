@@ -59,7 +59,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/receipts", anyOf: [P.IMPORT_VIEW, P.IMPORT_CREATE, P.IMPORT_UPDATE, P.IMPORT_APPROVE, P.IMPORT_CANCEL, P.IMPORT_DELETE] },
   { path: "/admin/exports/new-command", anyOf: [P.EXPORT_VIEW, P.EXPORT_CREATE, P.EXPORT_UPDATE] },
   { path: "/admin/exports", anyOf: [P.EXPORT_VIEW, P.EXPORT_CREATE, P.EXPORT_UPDATE, P.EXPORT_APPROVE, P.EXPORT_CANCEL, P.EXPORT_DELETE] },
-  { path: "/admin/transfers/new", permission: P.TRANSFER_CREATE },
+  { path: "/admin/transfers/new", anyOf: [P.TRANSFER_CREATE, P.TRANSFER_UPDATE] },
   { path: "/admin/transfers", anyOf: [P.TRANSFER_VIEW, P.TRANSFER_CREATE, P.TRANSFER_UPDATE, P.TRANSFER_APPROVE, P.TRANSFER_CANCEL, P.TRANSFER_DELETE] },
   { path: "/admin/inventory-checks/new", permission: P.CHECK_CREATE },
   { path: "/admin/inventory-checks", anyOf: [P.CHECK_VIEW, P.CHECK_CREATE, P.CHECK_UPDATE, P.CHECK_APPROVE, P.CHECK_CANCEL, P.CHECK_DELETE] },

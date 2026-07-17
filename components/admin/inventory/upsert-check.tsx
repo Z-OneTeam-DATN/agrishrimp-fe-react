@@ -3,8 +3,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Boxes,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   Loader2,
   MessageSquareText,
@@ -61,7 +66,10 @@ interface InventoryUpsertProps {
   code?: string;
 }
 
+type InventoryCheckScopeType = "FULL_WAREHOUSE" | "SELECTED_VARIANTS";
+
 type CheckItem = {
+  rowId: string;
   productVariantId: number | string;
   name: string;
   sku: string;
@@ -72,7 +80,8 @@ type CheckItem = {
   minThreshold: number;
   reason: string;
   batchNumber?: string;
-  importPrice?: number;
+  expiryDate?: string | null;
+  importPrice?: number | null;
 };
 
 type CheckWorkflowStatus =
@@ -119,16 +128,108 @@ const toNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const normalizeScopeType = (value: unknown): InventoryCheckScopeType =>
+  String(value || "").toUpperCase() === "SELECTED_VARIANTS"
+    ? "SELECTED_VARIANTS"
+    : "FULL_WAREHOUSE";
+
+const getScopeTypeLabel = (value: unknown) =>
+  normalizeScopeType(value) === "SELECTED_VARIANTS"
+    ? "Một số sản phẩm / SKU"
+    : "Toàn bộ kho";
+
+const getVariantId = (item: any) =>
+  item?.productVariantId ?? item?.variantId ?? item?.id;
+
+const getLotIdentity = (item: any) =>
+  `${String(getVariantId(item) ?? "variant")}::${String(item?.batchNumber ?? "")}::${String(item?.importPrice ?? "")}`;
+
+const getSkuGroupIdentity = (item: any) =>
+  `${String(getVariantId(item) ?? "variant")}::${String(item?.sku ?? "")}`;
+
+const serializeExpiryDate = (value: unknown) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const serializeCheckDateTime = (value: string) => {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}T00:00:00`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return `${raw}T00:00:00`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const hours = String(parsed.getHours()).padStart(2, "0");
+  const minutes = String(parsed.getMinutes()).padStart(2, "0");
+  const seconds = String(parsed.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
+const normalizeBatchNumber = (value: unknown) => {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw.toUpperCase() === "N/A") return null;
+  return raw;
+};
+
+const normalizeImportPrice = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return null;
+  return toNumber(value);
+};
+
+const formatExpiryDate = (value: unknown) => {
+  if (!value) return "—";
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString("vi-VN");
+};
+
+let checkItemRowSeed = 0;
+
+const createCheckItemRowId = (item: any) => {
+  const existingRowId = item?.rowId ?? item?.clientRowId;
+  if (existingRowId) return String(existingRowId);
+
+  checkItemRowSeed += 1;
+  const variantId = getVariantId(item) ?? "variant";
+  const sku = item?.sku ?? "sku";
+  const batchNumber = item?.batchNumber ?? "batch";
+  return `${variantId}-${sku}-${batchNumber}-${checkItemRowSeed}`;
+};
+
 const mapItem = (item: any): CheckItem => ({
-  productVariantId: item.productVariantId ?? item.id,
+  rowId: createCheckItemRowId(item),
+  productVariantId: getVariantId(item),
   name: item.name || item.productName || item.variantName || "N/A",
   sku: item.sku || "N/A",
   unit: item.unit || "Cái",
   systemQuantity: toNumber(item.systemQuantity ?? item.quantity ?? 0),
-  quantityReal:
-    item.quantityReal === null || item.quantityReal === undefined
-      ? null
-      : toNumber(item.quantityReal),
+  quantityReal: getEffectiveQuantityReal({
+    systemQuantity: item.systemQuantity ?? item.quantity ?? 0,
+    quantityReal: item.quantityReal,
+  }),
   quantityRejected:
     item.quantityRejected === null || item.quantityRejected === undefined
       ? 0
@@ -139,20 +240,73 @@ const mapItem = (item: any): CheckItem => ({
   ),
   reason: item.reason || item.note || "",
   batchNumber: item.batchNumber || "N/A",
-  importPrice: toNumber(item.importPrice ?? 0),
+  expiryDate: item.expiryDate || null,
+  importPrice: normalizeImportPrice(item.importPrice ?? item.price),
 });
+
+const buildCheckPayloadDetails = (items: CheckItem[]) =>
+  items.map((item) => ({
+    productVariantId: toNumber(item.productVariantId),
+    batchNumber: normalizeBatchNumber(item.batchNumber),
+    expiryDate: serializeExpiryDate(item.expiryDate),
+    importPrice: item.importPrice == null ? null : item.importPrice,
+    systemQuantity: toNumber(item.systemQuantity),
+    quantityReal: getEffectiveQuantityReal(item),
+    quantityRejected: getEffectiveQuantityRejected(item),
+    note: item.reason,
+  }));
+
+const getInventoryCheckErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.message ||
+  error?.response?.data?.detail ||
+  error?.response?.data?.error ||
+  fallback;
+
+const normalizeOptionalQuantity = (value: unknown) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.max(0, parsed);
+};
+
+const getEffectiveQuantityReal = (
+  item: Pick<CheckItem, "systemQuantity" | "quantityReal">,
+) => {
+  const normalizedRealQty = normalizeOptionalQuantity(item.quantityReal);
+  if (normalizedRealQty !== null) {
+    return normalizedRealQty;
+  }
+
+  return Math.max(0, toNumber(item.systemQuantity)) === 0 ? 0 : null;
+};
+
+const getEffectiveQuantityRejected = (
+  item: Pick<CheckItem, "systemQuantity" | "quantityReal" | "quantityRejected">,
+) => {
+  const realQty = getEffectiveQuantityReal(item) ?? 0;
+  return Math.max(0, Math.min(realQty, toNumber(item.quantityRejected, 0)));
+};
+
+const getUncheckedCheckItems = (items: CheckItem[]) =>
+  items.filter((item) => getEffectiveQuantityReal(item) === null);
+
+const getInvalidRejectedCheckItems = (items: CheckItem[]) =>
+  items.filter((item) => toNumber(item.quantityRejected, 0) > (getEffectiveQuantityReal(item) ?? 0));
 
 const getItemMetrics = (item: CheckItem) => {
   const realQty = Math.max(0, toNumber(item.quantityReal, 0));
-  const rejectedQty = Math.max(
-    0,
-    Math.min(realQty, toNumber(item.quantityRejected, 0)),
-  );
+  const rejectedQty = getEffectiveQuantityRejected(item);
   const usableQty = Math.max(0, realQty - rejectedQty);
   const systemQty = Math.max(0, toNumber(item.systemQuantity));
   const minThreshold = Math.max(0, toNumber(item.minThreshold, 10));
   const diffQty = usableQty - systemQty;
-  const suggestedImport = Math.max(0, minThreshold - usableQty);
+  const suggestedImport = 0;
   return {
     realQty,
     rejectedQty,
@@ -164,12 +318,149 @@ const getItemMetrics = (item: CheckItem) => {
   };
 };
 
+type CheckItemMetrics = ReturnType<typeof getItemMetrics>;
+
+const createEmptyMetrics = (): CheckItemMetrics => ({
+  realQty: 0,
+  rejectedQty: 0,
+  usableQty: 0,
+  systemQty: 0,
+  minThreshold: 0,
+  diffQty: 0,
+  suggestedImport: 0,
+});
+
+const getSharedMinThreshold = (items: Array<Pick<CheckItem, "minThreshold">>) =>
+  Math.max(0, toNumber(items[0]?.minThreshold, 10));
+
+const getGroupMetrics = (items: CheckItem[]): CheckItemMetrics =>
+  items.reduce(
+    (acc, item, index) => {
+      const metrics = getItemMetrics(item);
+      const nextUsableQty = acc.usableQty + metrics.usableQty;
+      const minThreshold =
+        index === 0 ? getSharedMinThreshold(items) : acc.minThreshold;
+
+      return {
+        realQty: acc.realQty + metrics.realQty,
+        rejectedQty: acc.rejectedQty + metrics.rejectedQty,
+        usableQty: nextUsableQty,
+        systemQty: acc.systemQty + metrics.systemQty,
+        minThreshold,
+        diffQty: acc.diffQty + metrics.diffQty,
+        suggestedImport: Math.max(
+          0,
+          minThreshold - (acc.systemQty + metrics.systemQty),
+        ),
+      };
+    },
+    createEmptyMetrics(),
+  );
+
+const mergeMetrics = (
+  acc: CheckItemMetrics,
+  metrics: CheckItemMetrics,
+): CheckItemMetrics => ({
+  realQty: acc.realQty + metrics.realQty,
+  rejectedQty: acc.rejectedQty + metrics.rejectedQty,
+  usableQty: acc.usableQty + metrics.usableQty,
+  systemQty: acc.systemQty + metrics.systemQty,
+  minThreshold: acc.minThreshold + metrics.minThreshold,
+  diffQty: acc.diffQty + metrics.diffQty,
+  suggestedImport: acc.suggestedImport + metrics.suggestedImport,
+});
+
+const normalizeViText = (value: string) => {
+  return String(value || "");
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const getBadgeFromMetrics = (metrics: CheckItemMetrics) => {
+  if (metrics.rejectedQty > 0) {
+    return {
+      label: "Hư hại",
+      className: "bg-rose-50 text-rose-700 border-rose-100",
+    };
+  }
+  if (metrics.suggestedImport > 0) {
+    return {
+      label: "Cần nhập",
+      className: "bg-amber-50 text-amber-700 border-amber-100",
+    };
+  }
+  if (metrics.diffQty !== 0) {
+    return {
+      label: "Chênh lệch",
+      className: "bg-sky-50 text-sky-700 border-sky-100",
+    };
+  }
+  return {
+    label: "Khớp kho",
+    className: "bg-blue-50 text-blue-700 border-blue-100",
+  };
+};
+
+const isExpiredLot = (value: unknown) => {
+  if (!value) return false;
+
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+
+  return parsed < today;
+};
+
 const getItemBadge = (item: CheckItem) => {
   const metrics = getItemMetrics(item);
   if (metrics.rejectedQty > 0) return { label: "Hư hại", className: "bg-rose-50 text-rose-700 border-rose-100" };
   if (metrics.suggestedImport > 0) return { label: "Cần nhập", className: "bg-amber-50 text-amber-700 border-amber-100" };
   if (metrics.diffQty !== 0) return { label: "Chênh lệch", className: "bg-sky-50 text-sky-700 border-sky-100" };
   return { label: "Khớp kho", className: "bg-blue-50 text-blue-700 border-blue-100" };
+};
+
+const getLotBadge = (item: CheckItem) => {
+  const metrics = getItemMetrics(item);
+  if (metrics.rejectedQty > 0) {
+    return {
+      label: "Hư hại",
+      className: "bg-rose-50 text-rose-700 border-rose-100",
+    };
+  }
+  if (metrics.diffQty !== 0) {
+    return {
+      label: "Chênh lệch",
+      className: "bg-sky-50 text-sky-700 border-sky-100",
+    };
+  }
+  return {
+    label: "Khớp kho",
+    className: "bg-blue-50 text-blue-700 border-blue-100",
+  };
 };
 
 const getWorkflowStatusMeta = (status: CheckWorkflowStatus) => {
@@ -220,11 +511,14 @@ export default function InventoryUpsert({
   const router = useRouter();
   const { data: user } = useCurrentUser();
   const { hasPermission } = usePermissions();
+  const canViewEmployees = hasPermission(P.STAFF_VIEW);
 
   const [loading, setLoading] = useState(mode !== "create");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [employeesLoaded, setEmployeesLoaded] = useState(false);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
   const [currentCheckId, setCurrentCheckId] = useState<number | string | null>(
     initialData?.id ?? null,
   );
@@ -234,11 +528,13 @@ export default function InventoryUpsert({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedProductIds, setSelectedProductIds] = useState<
-    (number | string)[]
-  >([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [resultFilter, setResultFilter] = useState("ALL");
-  const [stockFilter, setStockFilter] = useState("ALL");
+  const stockFilter = "ALL";
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [showZeroStockLots, setShowZeroStockLots] = useState(false);
   const [noteDialogIndex, setNoteDialogIndex] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [formErrors, setFormErrors] = useState<{
@@ -249,6 +545,7 @@ export default function InventoryUpsert({
   const [formData, setFormData] = useState({
     type: initialData?.type || "PERIODIC",
     branchId: initialData?.branchId?.toString() || "",
+    scopeType: normalizeScopeType(initialData?.scopeType),
     code:
       initialData?.code ||
       code ||
@@ -263,9 +560,76 @@ export default function InventoryUpsert({
     (initialData?.details || []).map(mapItem),
   );
 
+  const searchResultGroups = useMemo(() => {
+    const groupedMap = new Map<
+      string,
+      {
+        key: string;
+        sku: string;
+        name: string;
+        unit: string;
+        totalQuantity: number;
+        lotCount: number;
+        hasZeroStockLot: boolean;
+        earliestExpiryDate: string | null;
+        products: any[];
+      }
+    >();
+
+    searchResults.forEach((product) => {
+      const key = getSkuGroupIdentity(product);
+      const existingGroup = groupedMap.get(key);
+      const quantity = Math.max(0, toNumber(product.quantity));
+      const expiryDate = product.expiryDate ? String(product.expiryDate) : null;
+
+      if (existingGroup) {
+        existingGroup.products.push(product);
+        existingGroup.totalQuantity += quantity;
+        existingGroup.lotCount += 1;
+        existingGroup.hasZeroStockLot =
+          existingGroup.hasZeroStockLot || quantity <= 0;
+
+        if (
+          expiryDate &&
+          (!existingGroup.earliestExpiryDate ||
+            expiryDate < existingGroup.earliestExpiryDate)
+        ) {
+          existingGroup.earliestExpiryDate = expiryDate;
+        }
+        return;
+      }
+
+      groupedMap.set(key, {
+        key,
+        sku: product.sku || "N/A",
+        name: product.productName || product.name || "N/A",
+        unit: product.unit || "Cai",
+        totalQuantity: quantity,
+        lotCount: 1,
+        hasZeroStockLot: quantity <= 0,
+        earliestExpiryDate: expiryDate,
+        products: [product],
+      });
+    });
+
+    return Array.from(groupedMap.values());
+  }, [searchResults]);
+
+  const fallbackEmployees = useMemo(() => {
+    if (!user?.fullName) return [];
+
+    return [
+      {
+        id: user.id ?? "current-user",
+        fullName: user.fullName,
+        username: user.email ?? "",
+        role: user.role ?? null,
+      },
+    ].filter(isInternalEmployee);
+  }, [user]);
+
   useEffect(() => {
     fetchBranches();
-    fetchEmployees();
     if (mode !== "create" && !initialData && code) {
       fetchDetail();
     } else if (mode === "create") {
@@ -287,12 +651,25 @@ export default function InventoryUpsert({
   };
 
   const fetchEmployees = async () => {
+    if (employeesLoaded || employeesLoading) return;
+    if (!canViewEmployees) {
+      setEmployees(fallbackEmployees);
+      setEmployeesLoaded(true);
+      return;
+    }
+
     try {
+      setEmployeesLoading(true);
       const res = await EmployeeService.getAll({ status: "ACTIVE", size: 100 });
       const list = Array.isArray(res) ? res : res?.content || [];
       setEmployees(list.filter(isInternalEmployee));
+      setEmployeesLoaded(true);
     } catch (error) {
       console.error("Error fetching employees:", error);
+      setEmployees(fallbackEmployees);
+      setEmployeesLoaded(true);
+    } finally {
+      setEmployeesLoading(false);
     }
   };
 
@@ -310,6 +687,7 @@ export default function InventoryUpsert({
       setFormData({
         type: res.type || "PERIODIC",
         branchId: res.branchId?.toString() || "",
+        scopeType: normalizeScopeType(res.scopeType),
         code: res.code || code || "---",
         checkDate: formattedDate,
         checkedBy: res.checkedBy || "",
@@ -327,7 +705,7 @@ export default function InventoryUpsert({
   };
 
   const loadBranchSnapshot = async (branchId: string) => {
-    if (!branchId || mode !== "create") return;
+    if (!branchId) return;
     try {
       setIsSearching(true);
       const data = await InventoryCheckApiService.searchProducts("", branchId);
@@ -346,8 +724,52 @@ export default function InventoryUpsert({
 
   useEffect(() => {
     if (mode !== "create" || !formData.branchId) return;
-    void loadBranchSnapshot(formData.branchId);
-  }, [formData.branchId, mode]);
+    if (formData.scopeType === "FULL_WAREHOUSE") {
+      void loadBranchSnapshot(formData.branchId);
+      return;
+    }
+
+    setItems([]);
+    setSelectedProductIds([]);
+    setSearchResults([]);
+  }, [formData.branchId, formData.scopeType, mode]);
+
+  const handleBranchChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, branchId: value }));
+    setFormErrors((prev) => ({ ...prev, branchId: undefined, items: undefined }));
+    setSearchTerm("");
+    setSelectedProductIds([]);
+    setSearchResults([]);
+
+    if (!canEditDraftContent || mode === "create") return;
+
+    if (formData.scopeType === "FULL_WAREHOUSE" && value) {
+      void loadBranchSnapshot(value);
+      return;
+    }
+
+    setItems([]);
+  };
+
+  const handleScopeTypeChange = (value: InventoryCheckScopeType) => {
+    const nextScopeType = normalizeScopeType(value);
+    setFormData((prev) => ({ ...prev, scopeType: nextScopeType }));
+    setFormErrors((prev) => ({ ...prev, items: undefined }));
+    setSearchTerm("");
+    setSelectedProductIds([]);
+    setSearchResults([]);
+
+    if (!canEditDraftContent) return;
+
+    if (nextScopeType === "FULL_WAREHOUSE") {
+      if (formData.branchId && mode !== "create") {
+        void loadBranchSnapshot(formData.branchId);
+      }
+      return;
+    }
+
+    setItems([]);
+  };
 
   const handleSearchProduct = async (term: string) => {
     if (!term.trim()) {
@@ -385,57 +807,105 @@ export default function InventoryUpsert({
     return () => clearTimeout(timer);
   }, [searchTerm, formData.branchId]);
 
-  const addItem = (variant: any) => {
-    const exists = items.find(
-      (item) => String(item.productVariantId) === String(variant.id),
-    );
-    if (exists) {
-      toast.warning("Sản phẩm đã có trong phiếu kiểm kê");
+  const addItems = (variants: any[]) => {
+    if (variants.length === 0) return;
+
+    let addedCount = 0;
+    let skippedCount = 0;
+    let hasInvalidVariant = false;
+
+    setItems((prev) => {
+      const nextItems = [...prev];
+
+      variants.forEach((variant) => {
+        const variantId = getVariantId(variant);
+        if (variantId == null) {
+          hasInvalidVariant = true;
+          return;
+        }
+
+        const exists = nextItems.some(
+          (item) =>
+            String(item.productVariantId) === String(variantId) &&
+            String(item.batchNumber ?? "") === String(variant.batchNumber ?? "") &&
+            String(item.importPrice ?? "") === String(variant.importPrice ?? ""),
+        );
+
+        if (exists) {
+          skippedCount += 1;
+          return;
+        }
+
+        nextItems.unshift({
+          rowId: createCheckItemRowId(variant),
+          productVariantId: variantId,
+          name: variant.productName || variant.name || "N/A",
+          sku: variant.sku || "N/A",
+          unit: variant.unit || "Cái",
+          systemQuantity: toNumber(variant.quantity ?? 0),
+          quantityReal: getEffectiveQuantityReal({
+            systemQuantity: variant.quantity ?? 0,
+            quantityReal: null,
+          }),
+          quantityRejected: 0,
+          minThreshold: toNumber(
+            variant.minThreshold ??
+              variant.minStock ??
+              variant.reorderPoint ??
+              10,
+            10,
+          ),
+          reason: "",
+          batchNumber: variant.batchNumber || "N/A",
+          expiryDate: variant.expiryDate || null,
+          importPrice: normalizeImportPrice(variant.importPrice),
+        });
+        addedCount += 1;
+      });
+
+      return nextItems;
+    });
+
+    if (hasInvalidVariant) {
+      toast.error("Không xác định được biến thể sản phẩm cho dòng tồn này");
+    }
+
+    if (addedCount === 0 && skippedCount > 0) {
+      toast.warning("Các lô của SKU này đã có trong phiếu kiểm kê");
       return;
     }
 
-    setItems((prev) => [
-      {
-        productVariantId: variant.id,
-        name: variant.productName || variant.name || "N/A",
-        sku: variant.sku || "N/A",
-        unit: variant.unit || "Cái",
-        systemQuantity: toNumber(variant.quantity ?? 0),
-        quantityReal: null,
-        quantityRejected: 0,
-        minThreshold: toNumber(
-          variant.minThreshold ??
-            variant.minStock ??
-            variant.reorderPoint ??
-            10,
-          10,
-        ),
-        reason: "",
-        batchNumber: variant.batchNumber || "N/A",
-        importPrice: toNumber(variant.importPrice ?? 0),
-      },
-      ...prev,
-    ]);
+    if (addedCount > 0 && skippedCount > 0) {
+      toast.info(`Đã thêm ${addedCount} lô mới, bỏ qua ${skippedCount} lô đã có`);
+    }
+
     setFormErrors((prev) => ({ ...prev, items: undefined }));
   };
 
-  const toggleSelectedProduct = (productId: number | string) => {
+  const toggleSelectedProduct = (productIdentity: string) => {
     setSelectedProductIds((prev) =>
-      prev.some((id) => String(id) === String(productId))
-        ? prev.filter((id) => String(id) !== String(productId))
-        : [...prev, productId],
+      prev.includes(productIdentity)
+        ? prev.filter((id) => id !== productIdentity)
+        : [...prev, productIdentity],
     );
   };
 
+  const handleAddSearchGroup = (variants: any[]) => {
+    addItems(variants);
+    setSearchTerm("");
+    setSearchResults([]);
+    setSelectedProductIds([]);
+  };
+
   const handleAddSelectedProducts = () => {
-    const selectedProducts = searchResults.filter((product) =>
-      selectedProductIds.some((id) => String(id) === String(product.id)),
+    const selectedGroups = searchResultGroups.filter((group) =>
+      selectedProductIds.includes(group.key),
     );
-    if (selectedProducts.length === 0) {
+    if (selectedGroups.length === 0) {
       toast.warning("Vui lòng chọn ít nhất một sản phẩm");
       return;
     }
-    selectedProducts.forEach((product) => addItem(product));
+    selectedGroups.forEach((group) => addItems(group.products));
     setSearchTerm("");
     setSearchResults([]);
     setSelectedProductIds([]);
@@ -445,15 +915,34 @@ export default function InventoryUpsert({
     setItems((prev) =>
       prev.map((item, itemIndex) => {
         if (itemIndex !== index) return item;
-        if (
-          field === "systemQuantity" ||
-          field === "quantityReal" ||
-          field === "quantityRejected" ||
-          field === "minThreshold"
-        ) {
-          if (value === "" && field === "quantityReal") {
-            return { ...item, [field]: null };
+        if (field === "quantityReal") {
+          if (value === "") {
+            return { ...item, quantityReal: null, quantityRejected: 0 };
           }
+
+          const nextQuantityReal = Math.max(0, toNumber(value));
+          return {
+            ...item,
+            quantityReal: nextQuantityReal,
+            quantityRejected: Math.min(
+              nextQuantityReal,
+              toNumber(item.quantityRejected, 0),
+            ),
+          };
+        }
+
+        if (field === "quantityRejected") {
+          const nextQuantityRejected = Math.max(0, toNumber(value));
+          return {
+            ...item,
+            quantityRejected: Math.min(
+              getEffectiveQuantityReal(item) ?? 0,
+              nextQuantityRejected,
+            ),
+          };
+        }
+
+        if (field === "systemQuantity" || field === "minThreshold") {
           return { ...item, [field]: Math.max(0, toNumber(value)) };
         }
         return { ...item, [field]: value };
@@ -481,10 +970,35 @@ export default function InventoryUpsert({
     setItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
+  const updateGroupMinThreshold = (groupKey: string, value: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        getSkuGroupIdentity(item) === groupKey
+          ? {
+              ...item,
+              minThreshold:
+                value === "" ? 0 : Math.max(0, toNumber(value, item.minThreshold)),
+            }
+          : item,
+      ),
+    );
+  };
+
+  const removeGroup = (groupKey: string) => {
+    const confirmed = window.confirm(
+      "Bạn có chắc muốn xóa toàn bộ các lô của SKU này khỏi phiếu kiểm kê không?",
+    );
+    if (!confirmed) return;
+
+    setItems((prev) =>
+      prev.filter((item) => getSkuGroupIdentity(item) !== groupKey),
+    );
+  };
+
   const branchName = useMemo(
     () =>
       branches.find((branch) => String(branch.id) === String(formData.branchId))
-        ?.name || "ARGISHRIMP CHI NHANH CAN THO",
+        ?.name || "ARGISHRIMP CHI NHÁNH CẦN THƠ",
     [branches, formData.branchId],
   );
 
@@ -492,35 +1006,6 @@ export default function InventoryUpsert({
     () =>
       formData.checkedBy.split(", ").filter((name: string) => Boolean(name)),
     [formData.checkedBy],
-  );
-
-  const summary = useMemo(
-    () =>
-      items.reduce(
-        (acc, item) => {
-          const metrics = getItemMetrics(item);
-          acc.systemQty += metrics.systemQty;
-          acc.realQty += metrics.realQty;
-          acc.rejectedQty += metrics.rejectedQty;
-          acc.usableQty += metrics.usableQty;
-          acc.suggestedImport += metrics.suggestedImport;
-          if (metrics.rejectedQty > 0) acc.damagedLines += 1;
-          if (metrics.suggestedImport > 0) acc.replenishmentLines += 1;
-          if (metrics.diffQty !== 0) acc.diffLines += 1;
-          return acc;
-        },
-        {
-          systemQty: 0,
-          realQty: 0,
-          rejectedQty: 0,
-          usableQty: 0,
-          suggestedImport: 0,
-          damagedLines: 0,
-          replenishmentLines: 0,
-          diffLines: 0,
-        },
-      ),
-    [items],
   );
 
   const filteredItems = useMemo(() => {
@@ -549,17 +1034,156 @@ export default function InventoryUpsert({
     });
   }, [items, resultFilter, stockFilter]);
 
+  const groupedItems = useMemo(() => {
+    const groupedMap = new Map<
+      string,
+      {
+        key: string;
+        productVariantId: number | string;
+        sku: string;
+        name: string;
+        unit: string;
+        entries: Array<{
+          index: number;
+          item: CheckItem;
+          metrics: CheckItemMetrics;
+          badge: ReturnType<typeof getLotBadge>;
+          isExpired: boolean;
+        }>;
+      }
+    >();
+
+    items.forEach((item, index) => {
+      const groupKey = getSkuGroupIdentity(item);
+      const entry = {
+        index,
+        item,
+        metrics: getItemMetrics(item),
+        badge: getLotBadge(item),
+        isExpired: isExpiredLot(item.expiryDate),
+      };
+      const existingGroup = groupedMap.get(groupKey);
+
+      if (existingGroup) {
+        existingGroup.entries.push(entry);
+        return;
+      }
+
+      groupedMap.set(groupKey, {
+        key: groupKey,
+        productVariantId: item.productVariantId,
+        sku: item.sku,
+        name: item.name,
+        unit: item.unit,
+        entries: [entry],
+      });
+    });
+
+    return Array.from(groupedMap.values()).map((group) => {
+      const metrics = getGroupMetrics(group.entries.map((entry) => entry.item));
+      const visibleEntries = showZeroStockLots
+        ? group.entries
+        : group.entries.filter((entry) => entry.metrics.systemQty > 0);
+
+      return {
+        ...group,
+        metrics,
+        badge: getBadgeFromMetrics(metrics),
+        hasUnchecked: group.entries.some(
+          (entry) => getEffectiveQuantityReal(entry.item) === null,
+        ),
+        hasExpiredLot: group.entries.some((entry) => entry.isExpired),
+        totalLots: group.entries.length,
+        visibleEntries,
+        hiddenZeroStockCount: group.entries.length - visibleEntries.length,
+      };
+    });
+  }, [items, showZeroStockLots]);
+
+  const summary = useMemo(
+    () =>
+      groupedItems.reduce(
+        (acc, group) => {
+          acc.systemQty += group.metrics.systemQty;
+          acc.realQty += group.metrics.realQty;
+          acc.rejectedQty += group.metrics.rejectedQty;
+          acc.usableQty += group.metrics.usableQty;
+          acc.suggestedImport += group.metrics.suggestedImport;
+          if (group.metrics.rejectedQty > 0) acc.damagedLines += 1;
+          if (group.metrics.suggestedImport > 0) acc.replenishmentLines += 1;
+          if (group.metrics.diffQty !== 0) acc.diffLines += 1;
+          return acc;
+        },
+        {
+          systemQty: 0,
+          realQty: 0,
+          rejectedQty: 0,
+          usableQty: 0,
+          suggestedImport: 0,
+          damagedLines: 0,
+          replenishmentLines: 0,
+          diffLines: 0,
+        },
+      ),
+    [groupedItems],
+  );
+
+  const filteredGroups = useMemo(() => {
+    return groupedItems.filter((group) => {
+      const matchesResult =
+        resultFilter === "ALL" ||
+        (resultFilter === "MATCHED" &&
+          group.metrics.rejectedQty === 0 &&
+          group.metrics.suggestedImport === 0 &&
+          group.metrics.diffQty === 0) ||
+        (resultFilter === "REPLENISH" && group.metrics.suggestedImport > 0) ||
+        (resultFilter === "DAMAGED" && group.metrics.rejectedQty > 0) ||
+        (resultFilter === "DIFF" &&
+          group.metrics.diffQty !== 0 &&
+          group.metrics.rejectedQty === 0 &&
+          group.metrics.suggestedImport === 0);
+
+      const matchesStock =
+        stockFilter === "ALL" ||
+        (stockFilter === "HAS_DAMAGE" && group.metrics.rejectedQty > 0) ||
+        (stockFilter === "LOW_STOCK" && group.metrics.suggestedImport > 0) ||
+        (stockFilter === "HAS_DIFF" && group.metrics.diffQty !== 0) ||
+        (stockFilter === "ENOUGH" &&
+          group.metrics.rejectedQty === 0 &&
+          group.metrics.suggestedImport === 0 &&
+          group.metrics.diffQty === 0);
+
+      return matchesResult && matchesStock;
+    });
+  }, [groupedItems, resultFilter, stockFilter]);
+
+  useEffect(() => {
+    setExpandedGroups((prev) => {
+      const next = groupedItems.reduce<Record<string, boolean>>((acc, group) => {
+        acc[group.key] = prev[group.key] ?? group.hasUnchecked;
+        return acc;
+      }, {});
+
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      const isUnchanged =
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => prev[key] === next[key]);
+
+      return isUnchanged ? prev : next;
+    });
+  }, [groupedItems]);
+
   const handleExportExcel = () => {
-    const lowStockItems = items
-      .map((item, index) => {
-        const metrics = getItemMetrics(item);
-        if (metrics.suggestedImport <= 0) return null;
+    const lowStockItems = groupedItems
+      .map((group, index) => {
+        if (group.metrics.suggestedImport <= 0) return null;
         return {
           stt: index + 1,
-          sku: item.sku,
-          name: item.name,
-          currentQty: metrics.usableQty,
-          minThreshold: metrics.minThreshold,
+          sku: group.sku,
+          name: group.name,
+          currentQty: group.metrics.usableQty,
+          minThreshold: group.metrics.minThreshold,
         };
       })
       .filter(Boolean) as {
@@ -635,20 +1259,11 @@ export default function InventoryUpsert({
       const payload: any = {
         branchId: Number(formData.branchId),
         type: formData.type,
-        scopeType: "FULL_WAREHOUSE",
-        checkDate: new Date(formData.checkDate).toISOString(),
+        scopeType: formData.scopeType,
+        checkDate: serializeCheckDateTime(formData.checkDate),
         checkedBy: formData.checkedBy,
         note: formData.note,
-        details: items.map((item) => ({
-          productVariantId: item.productVariantId,
-          batchNumber: item.batchNumber || "N/A",
-          importPrice: item.importPrice || 0,
-          systemQuantity: toNumber(item.systemQuantity),
-          quantityReal:
-            item.quantityReal === null ? null : toNumber(item.quantityReal),
-          quantityRejected: toNumber(item.quantityRejected, 0),
-          note: item.reason,
-        })),
+        details: buildCheckPayloadDetails(items),
       };
 
       if (mode === "edit" && currentCheckId) {
@@ -660,7 +1275,9 @@ export default function InventoryUpsert({
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
-      toast.error("Lỗi khi lưu phiếu kiểm kê");
+      toast.error(
+        getInventoryCheckErrorMessage(error, "Lỗi khi lưu phiếu kiểm kê"),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -670,14 +1287,14 @@ export default function InventoryUpsert({
     if (!formData.branchId) {
       setFormErrors((prev) => ({
         ...prev,
-        branchId: "Vui lĂ²ng chá»n kho kiá»ƒm kĂª",
+        branchId: "Vui lòng chọn kho kiểm kê",
       }));
       return false;
     }
     if (items.length === 0) {
       setFormErrors((prev) => ({
         ...prev,
-        items: "Vui lĂ²ng thĂªm Ă­t nháº¥t má»™t sáº£n pháº©m",
+        items: "Vui lòng thêm ít nhất một sản phẩm",
       }));
       return false;
     }
@@ -685,38 +1302,69 @@ export default function InventoryUpsert({
     return true;
   };
 
-  const ensureSavedCheck = async () => {
+  const validateApprovalForm = () => {
+    if (!validateDraftForm()) return false;
+
+    const uncheckedItems = getUncheckedCheckItems(items);
+    if (uncheckedItems.length > 0) {
+      setFormErrors((prev) => ({
+        ...prev,
+        items:
+          uncheckedItems.length === 1
+            ? "Vui lòng nhập số lượng thực tế cho tất cả các dòng trước khi gửi duyệt. Hiện còn 1 dòng chưa nhập."
+            : `Vui lòng nhập số lượng thực tế cho tất cả các dòng trước khi gửi duyệt. Hiện còn ${uncheckedItems.length} dòng chưa nhập.`,
+      }));
+      toast.error("Vui lòng nhập đầy đủ số lượng thực tế trước khi gửi duyệt.");
+      return false;
+    }
+
+    const invalidRejectedItems = getInvalidRejectedCheckItems(items);
+    if (invalidRejectedItems.length > 0) {
+      setFormErrors((prev) => ({
+        ...prev,
+        items:
+          invalidRejectedItems.length === 1
+            ? "So luong hu hong khong duoc lon hon so luong thuc te. Hien con 1 dong chua hop le."
+            : `So luong hu hong khong duoc lon hon so luong thuc te. Hien con ${invalidRejectedItems.length} dong chua hop le.`,
+      }));
+      toast.error("So luong hu hong khong duoc lon hon so luong thuc te.");
+      return false;
+    }
+
+    setFormErrors((prev) => ({
+      ...prev,
+      items: undefined,
+    }));
+    return true;
+  };
+
+  const saveCurrentCheck = async () => {
     if (!validateDraftForm()) return null;
-    if (currentCheckId) return currentCheckId;
 
     const payload: any = {
       branchId: Number(formData.branchId),
       type: formData.type,
-      scopeType: "FULL_WAREHOUSE",
-      checkDate: new Date(formData.checkDate).toISOString(),
+      scopeType: formData.scopeType,
+      checkDate: serializeCheckDateTime(formData.checkDate),
       checkedBy: formData.checkedBy,
       note: formData.note,
-      details: items.map((item) => ({
-        productVariantId: item.productVariantId,
-        batchNumber: item.batchNumber || "N/A",
-        importPrice: item.importPrice || 0,
-        systemQuantity: toNumber(item.systemQuantity),
-        quantityReal:
-          item.quantityReal === null ? null : toNumber(item.quantityReal),
-        quantityRejected: toNumber(item.quantityRejected, 0),
-        note: item.reason,
-      })),
+      details: buildCheckPayloadDetails(items),
     };
 
+    if (currentCheckId) {
+      payload.id = currentCheckId;
+    }
+
     const saved = await InventoryCheckApiService.saveCheck(payload);
-    setCurrentCheckId(saved?.id ?? null);
-    return saved?.id;
+    setCurrentCheckId(saved?.id ?? currentCheckId ?? null);
+    return saved;
   };
 
   const handleStartCheck = async () => {
     try {
       setIsSubmitting(true);
-      const checkId = await ensureSavedCheck();
+      const saved = await saveCurrentCheck();
+      const checkId = saved?.id;
       if (!checkId) {
         toast.error("Không thể xác định phiếu kiểm kê để bắt đầu");
         return;
@@ -726,7 +1374,9 @@ export default function InventoryUpsert({
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
       toast.success("Đã bắt đầu kiểm kê và chốt snapshot tồn kho");
-      router.push(`/admin/inventory-checks/${response?.code || formData.code}?edit=true`);
+      router.push(
+        `/admin/inventory-checks/${response?.code || saved?.code || formData.code}?edit=true`,
+      );
     } catch (error: any) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Không thể bắt đầu kiểm kê");
@@ -736,9 +1386,12 @@ export default function InventoryUpsert({
   };
 
   const handleSubmitForApproval = async () => {
+    if (!validateApprovalForm()) return;
+
     try {
       setIsSubmitting(true);
-      const checkId = await ensureSavedCheck();
+      const saved = await saveCurrentCheck();
+      const checkId = saved?.id;
       if (checkId == null) {
         toast.error("Không thể xác định phiếu kiểm kê để gửi duyệt");
         return;
@@ -751,7 +1404,12 @@ export default function InventoryUpsert({
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
-      toast.error("Không thể gửi duyệt phiếu kiểm kê");
+      toast.error(
+        getInventoryCheckErrorMessage(
+          error,
+          "Không thể gửi duyệt phiếu kiểm kê",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -773,7 +1431,7 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("Đã duyệt cân bằng và ép tồn hệ thống về đúng số thực tế");
+      toast.success("Đã duyệt cân bằng và áp tồn hệ thống về đúng số thực tế");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
@@ -788,7 +1446,7 @@ export default function InventoryUpsert({
   };
 
   const handleRequestRecount = async () => {
-    const reason = window.prompt("Nháº­p lĂ½ do yĂªu cáº§u kiá»ƒm láº¡i phiáº¿u nĂ y:");
+    const reason = window.prompt("Nhập lý do yêu cầu kiểm lại phiếu này:");
     if (!reason?.trim()) return;
 
     try {
@@ -799,7 +1457,7 @@ export default function InventoryUpsert({
         checkId = detail?.id;
       }
       if (!checkId) {
-        toast.error("KhĂ´ng tĂ¬m tháº¥y phiáº¿u Ä‘á»ƒ yĂªu cáº§u kiá»ƒm láº¡i");
+        toast.error("Không tìm thấy phiếu để yêu cầu kiểm lại");
         return;
       }
 
@@ -810,13 +1468,13 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("ÄĂ£ chuyá»ƒn phiáº¿u sang tráº¡ng thĂ¡i yĂªu cáº§u kiá»ƒm láº¡i");
+      toast.success("Đã chuyển phiếu sang trạng thái yêu cầu kiểm lại");
       router.push(`/admin/inventory-checks/${response?.code || formData.code}`);
     } catch (error: any) {
       console.error(error);
       toast.error(
         error?.response?.data?.message ||
-          "KhĂ´ng thá»ƒ yĂªu cáº§u kiá»ƒm láº¡i phiáº¿u kiá»ƒm kĂª",
+          "Không thể yêu cầu kiểm lại phiếu kiểm kê",
       );
     } finally {
       setIsSubmitting(false);
@@ -826,13 +1484,13 @@ export default function InventoryUpsert({
   const handleCancelCheck = async () => {
     const requiresReason = workflowStatus !== "DRAFT";
     const reason = requiresReason
-      ? window.prompt("Nháº­p lĂ½ do há»§y phiáº¿u kiá»ƒm kĂª:")
+      ? window.prompt("Nhập lý do hủy phiếu kiểm kê:")
       : "";
 
     if (requiresReason && !reason?.trim()) return;
 
     const confirmed = window.confirm(
-      "Báº¡n cĂ³ cháº¯c muá»‘n há»§y phiáº¿u kiá»ƒm kĂª nĂ y khĂ´ng?",
+      "Bạn có chắc muốn hủy phiếu kiểm kê này không?",
     );
     if (!confirmed) return;
 
@@ -844,7 +1502,7 @@ export default function InventoryUpsert({
         checkId = detail?.id;
       }
       if (!checkId) {
-        toast.error("KhĂ´ng tĂ¬m tháº¥y phiáº¿u Ä‘á»ƒ há»§y");
+        toast.error("Không tìm thấy phiếu để hủy");
         return;
       }
 
@@ -855,12 +1513,12 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("ÄĂ£ há»§y phiáº¿u kiá»ƒm kĂª");
+      toast.success("Đã hủy phiếu kiểm kê");
       router.push("/admin/inventory-checks");
     } catch (error: any) {
       console.error(error);
       toast.error(
-        error?.response?.data?.message || "KhĂ´ng thá»ƒ há»§y phiáº¿u kiá»ƒm kĂª",
+        error?.response?.data?.message || "Không thể hủy phiếu kiểm kê",
       );
     } finally {
       setIsSubmitting(false);
@@ -894,6 +1552,30 @@ export default function InventoryUpsert({
     workflowStatus === "DRAFT" ||
     workflowStatus === "COUNTING" ||
     workflowStatus === "RECOUNT_REQUIRED";
+  const isFullWarehouseScope = formData.scopeType === "FULL_WAREHOUSE";
+  const isSelectedScope = formData.scopeType === "SELECTED_VARIANTS";
+  const toggleGroupExpansion = (groupKey: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupKey]: !prev[groupKey],
+    }));
+  };
+  const expandAllGroups = () => {
+    setExpandedGroups(
+      groupedItems.reduce<Record<string, boolean>>((acc, group) => {
+        acc[group.key] = true;
+        return acc;
+      }, {}),
+    );
+  };
+  const collapseAllGroups = () => {
+    setExpandedGroups(
+      groupedItems.reduce<Record<string, boolean>>((acc, group) => {
+        acc[group.key] = false;
+        return acc;
+      }, {}),
+    );
+  };
 
   return (
     <div className="space-y-3 pb-[100px] text-slate-800">
@@ -913,7 +1595,7 @@ export default function InventoryUpsert({
                   workflowStatusMeta.className,
                 )}
               >
-                {workflowStatusMeta.label}
+                {normalizeViText(workflowStatusMeta.label)}
               </Badge>
             )}
             <Button
@@ -962,12 +1644,9 @@ export default function InventoryUpsert({
                 Kho kiểm kê
               </Label>
               <Select
-                disabled={mode !== "create"}
+                disabled={!canEditDraftContent}
                 value={formData.branchId}
-                onValueChange={(value) => {
-                  setFormData((prev) => ({ ...prev, branchId: value }));
-                  setFormErrors((prev) => ({ ...prev, branchId: undefined }));
-                }}
+                onValueChange={handleBranchChange}
               >
                 <SelectTrigger
                   className={cn(
@@ -1027,6 +1706,11 @@ export default function InventoryUpsert({
               <Select
                 disabled={!canEditDraftContent}
                 value=""
+                onOpenChange={(open) => {
+                  if (open) {
+                    void fetchEmployees();
+                  }
+                }}
                 onValueChange={(value) => {
                   const employee = employees.find(
                     (item) => item.fullName === value || item.username === value,
@@ -1045,9 +1729,17 @@ export default function InventoryUpsert({
                   <SelectValue placeholder="Thêm người kiểm kê" />
                 </SelectTrigger>
                 <SelectContent>
+                  {employeesLoading && employees.length === 0 && (
+                    <SelectItem value="__loading" disabled>
+                      Đang tải danh sách nhân viên...
+                    </SelectItem>
+                  )}
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.fullName}>
-                      {employee.fullName} ({employee.username})
+                      {employee.fullName}
+                      {employee.username?.trim()
+                        ? ` (${employee.username})`
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1088,6 +1780,34 @@ export default function InventoryUpsert({
               <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-700">
                 {formData.createdByName}
               </div>
+            </div>
+
+            <div className="space-y-1.5 xl:col-span-12">
+              <Label className="text-[10px] font-medium text-slate-400">
+                Phạm vi kiểm kê
+              </Label>
+              <Select
+                disabled={!canEditDraftContent}
+                value={formData.scopeType}
+                onValueChange={(value) =>
+                  handleScopeTypeChange(value as InventoryCheckScopeType)
+                }
+              >
+                <SelectTrigger className="h-9 rounded-md border-slate-200 bg-white text-[13px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FULL_WAREHOUSE">Toàn bộ kho</SelectItem>
+                  <SelectItem value="SELECTED_VARIANTS">
+                    Một số sản phẩm / SKU
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[10px] text-slate-400">
+                {isFullWarehouseScope
+                  ? "Phiếu sẽ chốt snapshot toàn bộ hàng hóa của kho khi bắt đầu kiểm kê."
+                  : "Chỉ các SKU được chọn mới thuộc phạm vi kiểm kê và bị khóa giao dịch tồn kho."}
+              </p>
             </div>
 
             <div className="space-y-1.5 xl:col-span-12">
@@ -1150,7 +1870,18 @@ export default function InventoryUpsert({
           <div className="mt-6 border-t border-slate-200 pt-6" />
 
           <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center">
-            {canEditDraftContent && (
+            <div className="w-full xl:flex-1">
+              <p className="text-[11px] font-medium text-slate-600">
+                {isFullWarehouseScope
+                  ? "Phiếu đang kiểm kê toàn bộ SKU hiện có của kho được chọn."
+                  : "Phiếu chỉ kiểm kê các SKU bạn chủ động thêm vào danh sách bên dưới."}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-400">
+                Phạm vi hiện tại: {getScopeTypeLabel(formData.scopeType)}
+              </p>
+            </div>
+
+            {canEditDraftContent && isSelectedScope && (
               <div className="relative w-full xl:max-w-[420px] xl:flex-1">
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1169,7 +1900,7 @@ export default function InventoryUpsert({
                   />
                 )}
 
-                {searchResults.length > 0 && (
+                {searchResultGroups.length > 0 && (
                   <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
                     <div className="flex items-center justify-between gap-3 border-b bg-slate-50 px-3 py-2 text-xs">
                       <span className="text-slate-500">
@@ -1177,7 +1908,7 @@ export default function InventoryUpsert({
                         <span className="font-bold text-slate-700">
                           {selectedProductIds.length}
                         </span>{" "}
-                        sản phẩm
+                        SKU
                       </span>
                       <Button
                         type="button"
@@ -1189,12 +1920,19 @@ export default function InventoryUpsert({
                       </Button>
                     </div>
                     <div className="max-h-[320px] overflow-y-auto">
-                      {searchResults.map((product) => (
-                        <button
-                          key={product.id}
-                          type="button"
-                          className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50"
-                          onClick={() => addItem(product)}
+                      {searchResultGroups.map((group) => (
+                        <div
+                          key={group.key}
+                          role="button"
+                          tabIndex={0}
+                          className="flex cursor-pointer items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+                          onClick={() => handleAddSearchGroup(group.products)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleAddSearchGroup(group.products);
+                            }
+                          }}
                         >
                           <div className="flex items-center gap-2">
                             <div
@@ -1202,37 +1940,38 @@ export default function InventoryUpsert({
                               className="flex items-center"
                             >
                               <Checkbox
-                                checked={selectedProductIds.some(
-                                  (id) => String(id) === String(product.id),
-                                )}
+                                checked={selectedProductIds.includes(group.key)}
                                 onCheckedChange={() =>
-                                  toggleSelectedProduct(product.id)
+                                  toggleSelectedProduct(group.key)
                                 }
                               />
                             </div>
                             <div>
                               <p className="text-sm font-medium text-slate-900">
-                                {product.productName || product.name}
+                                {group.name}
                               </p>
                               <p className="mt-1 text-xs text-slate-500">
-                                SKU: {product.sku} | tồn hiện tại:{" "}
-                                {formatNumber(toNumber(product.quantity))}
+                                SKU: {group.sku} | tổng tồn:{" "}
+                                {formatNumber(group.totalQuantity)} | {group.lotCount} lô
+                              </p>
+                              <p className="mt-1 text-[11px] text-slate-400">
+                                HSD gần nhất:{" "}
+                                {formatExpiryDate(group.earliestExpiryDate)}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {toNumber(product.quantity) <=
-                              toNumber(
-                                product.minThreshold ?? product.minStock ?? 10,
-                                10,
-                              ) && (
+                            {group.hasZeroStockLot && (
                               <Badge className="rounded-md border border-amber-100 bg-amber-50 text-[10px] font-medium text-amber-700">
-                                Sắp hết hàng
+                                Có lô hết hàng
                               </Badge>
                             )}
+                            <Badge className="rounded-md border border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-700">
+                              Thêm toàn bộ lô
+                            </Badge>
                             <Plus size={16} className="text-blue-600" />
                           </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1253,28 +1992,500 @@ export default function InventoryUpsert({
               </SelectContent>
             </Select>
 
-            <Select value={stockFilter} onValueChange={setStockFilter}>
-              <SelectTrigger className="h-9 w-full rounded-md border-slate-200 bg-white text-[12px] xl:w-[170px]">
-                <SelectValue placeholder="Lọc tình trạng" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả tình trạng</SelectItem>
-                <SelectItem value="HAS_DAMAGE">Có hư hại</SelectItem>
-                <SelectItem value="LOW_STOCK">Dưới định mức</SelectItem>
-                <SelectItem value="HAS_DIFF">Có chênh lệch</SelectItem>
-                <SelectItem value="ENOUGH">Ổn định</SelectItem>
-              </SelectContent>
-            </Select>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50/70 p-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-700"
+                onClick={expandAllGroups}
+              >
+                <ChevronDown size={14} className="mr-1.5" />
+                Mở rộng tất cả
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-700"
+                onClick={collapseAllGroups}
+              >
+                <ChevronRight size={14} className="mr-1.5" />
+                Thu gọn tất cả
+              </Button>
+              <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700">
+                <Checkbox
+                  checked={showZeroStockLots}
+                  onCheckedChange={(checked) =>
+                    setShowZeroStockLots(Boolean(checked))
+                  }
+                />
+                {showZeroStockLots ? (
+                  <Eye size={14} className="text-slate-500" />
+                ) : (
+                  <EyeOff size={14} className="text-slate-500" />
+                )}
+                Hiển thị lô hết hàng
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Mỗi SKU chỉ cần một dòng cha, bấm mũi tên để xem và nhập kiểm kê
+              theo từng lô.
+            </p>
           </div>
 
           <div className="mt-5 overflow-x-auto rounded-[4px] border border-slate-100">
-            <Table className="min-w-[980px]">
+            <Table className="min-w-[1500px]">
+              <TableHeader>
+                <TableRow className="border-b border-[#d6dde8] bg-[#eef4ff] hover:bg-[#eef4ff]">
+                  <TableHead className="w-12 px-2 py-3 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    STT
+                  </TableHead>
+                  <TableHead className="w-[150px] px-2 py-3 text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Mã SKU
+                  </TableHead>
+                  <TableHead className="min-w-[240px] px-2 py-3 text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Sản phẩm
+                  </TableHead>
+                  <TableHead className="w-[110px] px-2 py-3 text-right text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Tổng tồn
+                  </TableHead>
+                  <TableHead className="w-[110px] px-2 py-3 text-right text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Tổng đếm
+                  </TableHead>
+                  <TableHead className="w-[100px] px-2 py-3 text-right text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Tổng hư
+                  </TableHead>
+                  <TableHead className="w-[110px] px-2 py-3 text-right text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Tổng khả dụng
+                  </TableHead>
+                  <TableHead className="w-[150px] px-2 py-3 text-right text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Cần nhập / Lệch
+                  </TableHead>
+                  <TableHead className="w-[120px] px-2 py-3 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Kết luận chung
+                  </TableHead>
+                  <TableHead className="w-[100px] px-2 py-3 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Số lô
+                  </TableHead>
+                  <TableHead className="w-[92px] px-2 py-3 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Mở / Đóng
+                  </TableHead>
+                  <TableHead className="w-[88px] px-2 py-3 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                    Thao tác
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="h-32 text-center">
+                      <div className="flex flex-col items-center gap-3 text-slate-400">
+                        <Boxes size={32} className="opacity-40" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">
+                            Chưa có sản phẩm kiểm kê
+                          </p>
+                          <p className="mt-1 text-sm">
+                            Kho này chưa có dữ liệu hàng hóa để lập phiếu kiểm kê.
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredGroups.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={12}
+                      className="h-28 text-center text-sm text-slate-500"
+                    >
+                      Không có sản phẩm phù hợp với điều kiện lọc hiện tại
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredGroups.map((group, groupIndex) => {
+                    const isExpanded =
+                      expandedGroups[group.key] ?? group.hasUnchecked;
+
+                    return (
+                      <React.Fragment key={group.key}>
+                        <TableRow
+                          className="cursor-pointer border-b border-slate-200 bg-slate-100/90 transition-colors hover:bg-slate-100"
+                          onClick={() => toggleGroupExpansion(group.key)}
+                        >
+                          <TableCell className="px-2 py-3 text-center text-[12px] font-medium text-slate-500">
+                            {groupIndex + 1}
+                          </TableCell>
+                          <TableCell className="px-2 py-3 font-mono text-[11px] font-semibold text-slate-700">
+                            {group.sku}
+                          </TableCell>
+                          <TableCell className="px-2 py-3">
+                            <div className="space-y-1">
+                              <p className="text-[12px] font-semibold leading-5 text-slate-900">
+                                {group.name}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                                <span>{group.totalLots} lô</span>
+                                <span>Định mức tối thiểu: {formatNumber(group.metrics.minThreshold)}</span>
+                                {group.hiddenZeroStockCount > 0 && (
+                                  <span>
+                                    Đang ẩn {group.hiddenZeroStockCount} lô hết
+                                    hàng
+                                  </span>
+                                )}
+                                {group.hasExpiredLot && (
+                                  <span className="inline-flex items-center gap-1 font-medium text-rose-600">
+                                    <AlertTriangle size={12} />
+                                    Có lô hết hạn
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-right text-[12px] font-semibold text-slate-900">
+                            {formatNumber(group.metrics.systemQty)}
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-right text-[12px] font-semibold text-slate-900">
+                            {formatNumber(group.metrics.realQty)}
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-right text-[12px] font-semibold text-slate-900">
+                            {formatNumber(group.metrics.rejectedQty)}
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-right text-[12px] font-semibold text-slate-900">
+                            {formatNumber(group.metrics.usableQty)}
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-right">
+                            <div className="space-y-0.5">
+                              <p className="text-[12px] font-semibold text-slate-900">
+                                {formatNumber(group.metrics.suggestedImport)}
+                              </p>
+                              <p
+                                className={cn(
+                                  "text-[10px] font-medium",
+                                  group.metrics.diffQty < 0
+                                    ? "text-rose-600"
+                                    : group.metrics.diffQty > 0
+                                      ? "text-sky-600"
+                                      : "text-slate-500",
+                                )}
+                              >
+                                Lech{" "}
+                                {group.metrics.diffQty > 0
+                                  ? `+${group.metrics.diffQty}`
+                                  : group.metrics.diffQty}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-center">
+                            <Badge
+                              className={cn(
+                                "rounded-md border px-2 py-1 text-[10px] font-medium",
+                                group.badge.className,
+                              )}
+                            >
+                              {normalizeViText(group.badge.label)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-center text-[11px] text-slate-600">
+                            <span className="font-semibold text-slate-800">
+                              {group.totalLots}
+                            </span>
+                            <p className="mt-1 text-[10px] text-slate-400">
+                              Hiện {group.visibleEntries.length} lô
+                            </p>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="mx-auto h-8 w-8 rounded-md text-slate-500 hover:bg-white hover:text-slate-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleGroupExpansion(group.key);
+                              }}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown size={16} />
+                              ) : (
+                                <ChevronRight size={16} />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="px-2 py-3 text-center">
+                            {canEditDraftContent ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="mx-auto h-8 w-8 rounded-md text-slate-400 hover:bg-white hover:text-rose-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeGroup(group.key);
+                                }}
+                                title="Xóa toàn bộ SKU"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-slate-300">
+                                -
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+
+                        {isExpanded && (
+                          <TableRow className="border-b border-slate-200 bg-white hover:bg-white">
+                            <TableCell colSpan={12} className="p-0">
+                              <div className="bg-slate-50/80 px-6 py-4">
+                                <div className="rounded-md border border-slate-200 bg-white">
+                                  <Table className="min-w-[1180px]">
+                                    <TableHeader>
+                                      <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+                                        <TableHead className="px-3 py-2 text-[10px] font-semibold text-slate-600">
+                                          Lô hàng
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-[10px] font-semibold text-slate-600">
+                                          Hạn sử dụng
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
+                                          Ton kho
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
+                                          Đếm thực
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
+                                          SL hu
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
+                                          Khả dụng
+                                        </TableHead>
+                                        <TableHead className="hidden px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
+                                          Dinh muc
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
+                                          Lech
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-center text-[10px] font-semibold text-slate-600">
+                                          Kết luận
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-[10px] font-semibold text-slate-600">
+                                          Ghi chú
+                                        </TableHead>
+                                        <TableHead className="px-3 py-2 text-center text-[10px] font-semibold text-slate-600">
+                                          Thao tác
+                                        </TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {group.visibleEntries.length === 0 ? (
+                                        <TableRow>
+                                          <TableCell
+                                            colSpan={11}
+                                            className="px-3 py-6 text-center text-[12px] text-slate-500"
+                                          >
+                                            Tất cả lô của SKU này đang hết
+                                            hàng. Bật &quot;Hiển thị lô hết
+                                            hàng&quot; để xem chi tiết.
+                                          </TableCell>
+                                        </TableRow>
+                                      ) : (
+                                        group.visibleEntries.map((entry) => (
+                                          <TableRow
+                                            key={entry.item.rowId}
+                                            className="border-b border-slate-100 hover:bg-sky-50/40"
+                                          >
+                                            <TableCell className="px-3 py-3">
+                                              <div className="pl-5">
+                                                <p className="font-mono text-[11px] font-medium text-slate-700">
+                                                  {entry.item.batchNumber ||
+                                                    "-"}
+                                                </p>
+                                                <p className="mt-1 text-[10px] text-slate-400">
+                                                  SKU cha: {group.sku}
+                                                </p>
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3">
+                                              <div className="space-y-1">
+                                                <p
+                                                  className={cn(
+                                                    "text-[11px] text-slate-700",
+                                                    entry.isExpired &&
+                                                      "font-semibold text-rose-600",
+                                                  )}
+                                                >
+                                                  {formatExpiryDate(
+                                                    entry.item.expiryDate,
+                                                  )}
+                                                </p>
+                                                {entry.isExpired && (
+                                                  <Badge className="rounded-md border border-rose-100 bg-rose-50 px-2 py-0.5 text-[9px] font-medium text-rose-700">
+                                                    Hết hạn
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3 text-right text-[11px] font-medium text-slate-800">
+                                              {formatNumber(entry.metrics.systemQty)}
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3 text-right">
+                                              <Input
+                                                type="number"
+                                                disabled={!canEditCountResults}
+                                                className="ml-auto h-7 w-[82px] rounded-md border-slate-200 bg-white px-2 text-right text-[11px] font-medium text-slate-800"
+                                                value={
+                                                  getEffectiveQuantityReal(
+                                                    entry.item,
+                                                  ) ?? ""
+                                                }
+                                                onChange={(e) =>
+                                                  updateItem(
+                                                    entry.index,
+                                                    "quantityReal",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3 text-right">
+                                              <Input
+                                                type="number"
+                                                disabled={!canEditCountResults}
+                                                className="ml-auto h-7 w-[82px] rounded-md border-slate-200 bg-white px-2 text-right text-[11px] font-medium text-slate-800"
+                                                value={
+                                                  entry.item.quantityRejected ??
+                                                  ""
+                                                }
+                                                onChange={(e) =>
+                                                  updateItem(
+                                                    entry.index,
+                                                    "quantityRejected",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                              />
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3 text-right text-[11px] font-medium text-slate-800">
+                                              {formatNumber(entry.metrics.usableQty)}
+                                            </TableCell>
+                                            <TableCell className="hidden px-3 py-3 text-right">
+                                              {entry.index ===
+                                              group.visibleEntries[0]?.index ? (
+                                                <span className="font-medium text-slate-700">
+                                                  {formatNumber(
+                                                    group.metrics.minThreshold,
+                                                  )}
+                                                </span>
+                                              ) : (
+                                                "-"
+                                              )}
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3 text-right">
+                                              <div className="space-y-0.5">
+                                                <p className="text-[10px] font-medium text-slate-500">
+                                                  Theo SKU
+                                                </p>
+                                                <p
+                                                  className={cn(
+                                                    "text-[10px] font-medium",
+                                                    entry.metrics.diffQty < 0
+                                                      ? "text-rose-600"
+                                                      : entry.metrics.diffQty > 0
+                                                        ? "text-sky-600"
+                                                        : "text-slate-500",
+                                                  )}
+                                                >
+                                                  Lệch{" "}
+                                                  {entry.metrics.diffQty > 0
+                                                    ? `+${entry.metrics.diffQty}`
+                                                    : entry.metrics.diffQty}
+                                                </p>
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3 text-center">
+                                              <Badge
+                                                className={cn(
+                                                  "rounded-md border px-2 py-0.5 text-[9px] font-medium",
+                                                  entry.badge.className,
+                                                )}
+                                              >
+                                                {normalizeViText(entry.badge.label)}
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3">
+                                              <p className="max-w-[180px] truncate text-[11px] text-slate-500">
+                                                {entry.item.reason || "—"}
+                                              </p>
+                                            </TableCell>
+                                            <TableCell className="px-3 py-3">
+                                              <div className="flex items-center justify-center gap-1">
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className={cn(
+                                                    "h-7 w-7 rounded-md hover:bg-slate-100",
+                                                    entry.item.reason
+                                                      ? "text-blue-600 hover:text-blue-700"
+                                                      : "text-slate-400 hover:text-slate-600",
+                                                  )}
+                                                  onClick={() =>
+                                                    openNoteDialog(entry.index)
+                                                  }
+                                                  title="Ghi chú"
+                                                >
+                                                  <MessageSquareText
+                                                    size={15}
+                                                  />
+                                                </Button>
+                                                {canEditDraftContent && (
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                                                    onClick={() =>
+                                                      removeItem(entry.index)
+                                                    }
+                                                  >
+                                                    <Trash2 size={15} />
+                                                  </Button>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))
+                                      )}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+            {formErrors.items && (
+              <div className="border-t border-rose-100 bg-rose-50 p-3 text-center text-[11px] font-semibold text-rose-500">
+                {formErrors.items}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden mt-5 overflow-x-auto rounded-[4px] border border-slate-100">
+            <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
                   <TableHead className="w-10 px-1 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">STT</TableHead>
                   <TableHead className="w-[98px] px-1 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Mã SKU</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] max-w-[150px] px-1 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Sản phẩm</TableHead>
-                  <TableHead className="px-1 py-2 text-center text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Đơn vị</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Tồn kho</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Đếm thực</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">SL hư</TableHead>
@@ -1289,7 +2500,7 @@ export default function InventoryUpsert({
                 {items.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={12}
+                      colSpan={11}
                       className="h-32 text-center"
                     >
                       <div className="flex flex-col items-center gap-3 text-slate-400">
@@ -1304,7 +2515,7 @@ export default function InventoryUpsert({
                 ) : filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={12}
+                      colSpan={11}
                       className="h-28 text-center text-sm text-slate-500"
                     >
                       Không có sản phẩm phù hợp với điều kiện lọc hiện tại
@@ -1313,16 +2524,14 @@ export default function InventoryUpsert({
                 ) : (
                   filteredItems.map((item) => {
                     const index = items.findIndex(
-                      (sourceItem) =>
-                        String(sourceItem.productVariantId) ===
-                          String(item.productVariantId) &&
-                        sourceItem.sku === item.sku,
+                      (sourceItem) => sourceItem.rowId === item.rowId,
                     );
+                    if (index === -1) return null;
                     const metrics = getItemMetrics(item);
                     const badge = getItemBadge(item);
                     return (
                       <TableRow
-                        key={`${item.productVariantId}-${index}`}
+                        key={item.rowId}
                         className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]"
                       >
                         <TableCell className="px-1 py-2 text-center text-[12px] text-slate-500">
@@ -1336,15 +2545,18 @@ export default function InventoryUpsert({
                             <p className="max-w-[150px] break-words text-[11px] font-medium leading-4.5 text-slate-900">
                               {item.name}
                             </p>
+                            <p className="mt-0.5 text-[10px] text-slate-500">
+                              Lô: {item.batchNumber || "—"}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-slate-500">
+                              HSD: {formatExpiryDate(item.expiryDate)}
+                            </p>
                             {metrics.diffQty !== 0 && (
                               <p className={cn("mt-0.5 text-[10px] font-semibold", metrics.diffQty < 0 ? "text-rose-600" : "text-blue-600")}>
                                 Lệch {metrics.diffQty > 0 ? `+${metrics.diffQty}` : metrics.diffQty}
                               </p>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell className="px-1 py-2 text-center text-[11px] text-slate-600">
-                          {item.unit}
                         </TableCell>
                         <TableCell className="px-1 py-2 text-right text-[11px] font-medium text-slate-800">
                           {formatNumber(metrics.systemQty)}
@@ -1354,7 +2566,7 @@ export default function InventoryUpsert({
                             type="number"
                             disabled={!canEditCountResults}
                             className="ml-auto h-6 w-[50px] rounded-md border-slate-200 bg-white px-1 text-right text-[11px] font-medium text-slate-800"
-                            value={item.quantityReal ?? ""}
+                            value={getEffectiveQuantityReal(item) ?? ""}
                             onChange={(e) =>
                               updateItem(index, "quantityReal", e.target.value)
                             }
@@ -1531,7 +2743,7 @@ export default function InventoryUpsert({
                 ) : (
                   <Pencil size={14} className="mr-2" />
                 )}
-                YĂªu cáº§u kiá»ƒm láº¡i
+                Yêu cầu kiểm lại
               </Button>
             )}
 
@@ -1567,7 +2779,7 @@ export default function InventoryUpsert({
                 ) : (
                   <X size={14} className="mr-2" />
                 )}
-                Há»§y phiáº¿u
+                Hủy phiếu
               </Button>
             )}
 
@@ -1599,7 +2811,7 @@ export default function InventoryUpsert({
                   ) : (
                     <CheckCircle2 size={14} className="mr-2" />
                   )}
-                  Báº¯t Ä‘áº§u kiá»ƒm kĂª
+                  Bắt đầu kiểm kê
                 </Button>
               )}
               {canEditCountResults && hasPermission(P.CHECK_UPDATE) && (

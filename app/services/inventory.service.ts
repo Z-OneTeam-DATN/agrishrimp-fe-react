@@ -132,13 +132,24 @@ export const InventoryCheckApiService = {
   // B. Tạo hoặc Cập nhật phiếu
   // Payload có 'id' -> Cập nhật, không 'id' -> Tạo mới
   saveCheck: async (payload: any) => {
-    const response = await apiJava.post("/inventory-checks", payload);
+    const checkId =
+      payload?.id === null || payload?.id === undefined || payload?.id === ""
+        ? null
+        : Number(payload.id);
+    const requestPayload =
+      checkId == null ? payload : { ...payload, id: undefined };
+    const response =
+      checkId == null
+        ? await apiJava.post("/inventory-checks", requestPayload)
+        : await apiJava.put(`/inventory-checks/${checkId}`, requestPayload);
     return response.data;
   },
 
   // C. Lấy chi tiết phiếu theo ID hoặc Mã (Code)
   getDetail: async (codeOrId: string | number) => {
-    const response = await apiJava.get(`/inventory-checks/${codeOrId}`);
+    const response = await apiJava.get(`/inventory-checks/${codeOrId}`, {
+      timeout: 60000,
+    });
     return response.data;
   },
 

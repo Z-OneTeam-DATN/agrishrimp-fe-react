@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { getTransferStatusLabel } from "@/lib/transfer-status";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -85,36 +86,36 @@ export function AdminTransferTable({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex-1 overflow-x-auto relative custom-scrollbar">
-          <Table className="table-custom border-collapse min-w-[1060px] w-full">
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="relative flex-1 overflow-x-auto custom-scrollbar">
+          <Table className="table-custom min-w-[1060px] w-full border-collapse">
             <TableHeader className="sticky top-0 z-20">
               <TableRow className="border-b border-[#ccc] bg-[#f0f0f0] hover:bg-[#f0f0f0]">
-                <TableHead className="w-[52px] px-1.5 py-2 pl-4 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[52px] whitespace-nowrap px-1.5 py-2 pl-4 text-[10px] font-semibold text-[#1f1f1f]">
                   STT
                 </TableHead>
-                <TableHead className="w-[122px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[122px] whitespace-nowrap px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f]">
                   Mã phiếu
                 </TableHead>
-                <TableHead className="w-[160px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[160px] whitespace-nowrap px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f]">
                   Loại
                 </TableHead>
-                <TableHead className="w-[118px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[118px] whitespace-nowrap px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f]">
                   Ngày lập
                 </TableHead>
-                <TableHead className="w-[244px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[244px] whitespace-nowrap px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f]">
                   Lộ trình (Gửi -&gt; Nhận)
                 </TableHead>
-                <TableHead className="w-[128px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[128px] whitespace-nowrap px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f]">
                   Người giao
                 </TableHead>
-                <TableHead className="w-[82px] px-1.5 py-2 text-right text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[82px] whitespace-nowrap px-1.5 py-2 text-right text-[10px] font-semibold text-[#1f1f1f]">
                   Số lượng
                 </TableHead>
-                <TableHead className="w-[104px] px-1.5 py-2 text-center text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[104px] whitespace-nowrap px-1.5 py-2 text-center text-[10px] font-semibold text-[#1f1f1f]">
                   Trạng thái
                 </TableHead>
-                <TableHead className="w-[84px] px-1.5 py-2 pr-4 text-right text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                <TableHead className="w-[84px] whitespace-nowrap px-1.5 py-2 pr-4 text-right text-[10px] font-semibold text-[#1f1f1f]">
                   Thao tác
                 </TableHead>
               </TableRow>
@@ -129,7 +130,7 @@ export function AdminTransferTable({
                     key={item.id}
                     onClick={() => handleViewDetail(item.id)}
                     className={cn(
-                      "cursor-pointer border-b border-[#eee] transition-colors hover:bg-[#f0f8ff] group",
+                      "group cursor-pointer border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]",
                       selectedIds.includes(item.id) && "bg-blue-50/30",
                     )}
                   >
@@ -155,12 +156,12 @@ export function AdminTransferTable({
                     </TableCell>
 
                     <TableCell className="px-1.5 py-2">
-                      <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap">
+                      <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
                         {item.date || new Date(item.createdAt).toLocaleDateString("vi-VN")}
                       </span>
                     </TableCell>
 
-                    <TableCell className="px-1.5 py-2 whitespace-nowrap">
+                    <TableCell className="whitespace-nowrap px-1.5 py-2">
                       <div className="flex items-center gap-1.5">
                         <span className="max-w-[98px] truncate text-[11px] font-medium text-slate-500">
                           {item.fromBranchName || item.fromWarehouse || item.sourceBranchName}
@@ -180,29 +181,32 @@ export function AdminTransferTable({
 
                     <TableCell className="px-1.5 py-2 text-right">
                       <div className="flex flex-col items-end">
-                        <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                        <span className="whitespace-nowrap text-[11px] font-semibold text-slate-700">
                           {item.totalQuantity || item.totalQty || 0}
                         </span>
                       </div>
                     </TableCell>
 
-                    <TableCell className="px-1.5 py-2 text-center whitespace-nowrap">
-                      <span className="text-[11px] font-medium text-slate-700 whitespace-nowrap">
-                        {getStatusLabel(item.status)}
+                    <TableCell className="whitespace-nowrap px-1.5 py-2 text-center">
+                      <span className="whitespace-nowrap text-[11px] font-medium text-slate-700">
+                        {getTransferStatusLabel(
+                          item.status,
+                          item.transferBusinessType,
+                        )}
                       </span>
                     </TableCell>
 
                     <TableCell
-                      className="px-1 py-2 text-right pr-3 whitespace-nowrap"
+                      className="whitespace-nowrap px-1 py-2 pr-3 text-right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex justify-end gap-0.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-0.5 opacity-40 transition-opacity group-hover:opacity-100">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => handleViewDetail(item.id)}
-                          title="Xem chi tiet"
+                          title="Xem chi tiết"
                         >
                           <Pencil size={13} className="text-slate-400 hover:text-blue-500" />
                         </Button>
@@ -219,7 +223,7 @@ export function AdminTransferTable({
                             if (canDelete) onDelete(item.id);
                           }}
                           disabled={!canDelete}
-                          title={canDelete ? "Xoa phieu" : "Khong the xoa phieu da xu ly"}
+                          title={canDelete ? "Xóa phiếu" : "Không thể xóa phiếu đã xử lý"}
                         >
                           <Trash2 size={13} className="text-slate-400 hover:text-rose-500" />
                         </Button>
@@ -240,7 +244,7 @@ export function AdminTransferTable({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-3 text-[11px] font-bold text-slate-400 uppercase hover:text-slate-600"
+              className="h-7 px-3 text-[11px] font-bold uppercase text-slate-400 hover:text-slate-600"
               onClick={() => onPageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
             >
@@ -252,7 +256,7 @@ export function AdminTransferTable({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-3 text-[11px] font-bold text-slate-400 uppercase hover:text-slate-600"
+              className="h-7 px-3 text-[11px] font-bold uppercase text-slate-400 hover:text-slate-600"
               onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
             >

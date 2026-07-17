@@ -61,6 +61,16 @@ type InventoryCheckStatus =
   | "COMPLETED"
   | "CANCELLED";
 
+const STATUS_TABS: Array<{ id: InventoryCheckStatus; label: string }> = [
+  { id: "ALL", label: "Tất cả" },
+  { id: "DRAFT", label: "Nháp" },
+  { id: "COUNTING", label: "Đang kiểm kê" },
+  { id: "PENDING_APPROVAL", label: "Chờ duyệt" },
+  { id: "RECOUNT_REQUIRED", label: "Kiểm lại" },
+  { id: "COMPLETED", label: "Đã cân bằng" },
+  { id: "CANCELLED", label: "Đã hủy" },
+];
+
 const getWorkflowStatus = (item: any): Exclude<InventoryCheckStatus, "ALL"> => {
   const normalized = String(item?.checkWorkflowStatus || item?.status || "")
     .toUpperCase()
@@ -84,6 +94,11 @@ const getWorkflowStatus = (item: any): Exclude<InventoryCheckStatus, "ALL"> => {
       return "DRAFT";
   }
 };
+
+const getScopeTypeLabel = (scopeType: string | null | undefined) =>
+  String(scopeType || "").toUpperCase() === "SELECTED_VARIANTS"
+    ? "Một số SKU"
+    : "Toàn kho";
 
 const normalizeText = (value: string | number | null | undefined) =>
   String(value ?? "")
@@ -167,14 +182,9 @@ export default function InventoryCheckListPage() {
       const branchId = String(item.branchId || "");
       const branchName = normalizeText(item.branchName || "Kho tổng");
       const q = normalizeText(searchTerm);
+      const scopeLabel = normalizeText(getScopeTypeLabel(item.scopeType));
 
-      const matchTab =
-        activeTab === "ALL" ||
-        (activeTab === ("PENDING" as InventoryCheckStatus) &&
-          ["DRAFT", "COUNTING", "RECOUNT_REQUIRED"].includes(status)) ||
-        (activeTab === ("COMPLETED" as InventoryCheckStatus) &&
-          status === "COMPLETED") ||
-        status === activeTab;
+      const matchTab = activeTab === "ALL" || status === activeTab;
 
       if (!matchTab) return false;
       if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
@@ -186,6 +196,7 @@ export default function InventoryCheckListPage() {
         normalizeText(item.code || `PKK-${item.id}`).includes(q) ||
         normalizeText(item.note).includes(q) ||
         branchName.includes(q) ||
+        scopeLabel.includes(q) ||
         normalizeText(item.createdByName || item.checkedByName).includes(q)
       );
     });
@@ -266,17 +277,17 @@ export default function InventoryCheckListPage() {
   const getStatusLabel = (status: string) => {
     switch (String(status || "").toUpperCase()) {
       case "DRAFT":
-        return "Nhap";
+        return "Nháp";
       case "COUNTING":
-        return "Dang kiem ke";
+        return "Đang kiểm kê";
       case "PENDING_APPROVAL":
-        return "Cho duyet can bang";
+        return "Chờ duyệt cân bằng";
       case "RECOUNT_REQUIRED":
-        return "Yeu cau kiem lai";
+        return "Yêu cầu kiểm lại";
       case "COMPLETED":
-        return "Da can bang";
+        return "Đã cân bằng";
       case "CANCELLED":
-        return "Da huy";
+        return "Đã hủy";
       default:
         return getLegacyStatusLabel(status);
     }
@@ -326,7 +337,7 @@ export default function InventoryCheckListPage() {
 
       const branchName =
         branches.find((branch: any) => String(branch.id) === String(branchId))
-          ?.name || "ARGISHRIMP CHI NHÁNH CẦN THƠ";
+          ?.name || "AGRISHRIMP CHI NHÁNH CẦN THƠ";
 
       const now = new Date();
       const timeLabel = format(now, "HH:mm:ss dd/MM/yyyy");
@@ -510,19 +521,15 @@ export default function InventoryCheckListPage() {
 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {[
-              { id: "ALL", label: "Tất cả" },
-              { id: "PENDING", label: "Chờ xử lý" },
-              { id: "COMPLETED", label: "Đã chốt" },
-            ].map((tab) => (
+            {STATUS_TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as InventoryCheckStatus)}
+                onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
                   activeTab === tab.id
                     ? "border-blue-200 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600"
+                    : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
                 )}
               >
                 {tab.label}
@@ -583,6 +590,9 @@ export default function InventoryCheckListPage() {
                     <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
                       Kho kiểm kê
                     </TableHead>
+                    <TableHead className="w-[126px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
+                      Phạm vi
+                    </TableHead>
                     <TableHead className="w-[150px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
                       Người phụ trách
                     </TableHead>
@@ -638,6 +648,18 @@ export default function InventoryCheckListPage() {
                         <TableCell className="px-1.5 py-2 text-[11px] text-slate-600">
                           {item.branchName || "Kho tổng"}
                         </TableCell>
+                        <TableCell className="px-1.5 py-2 text-[11px] text-slate-600">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-slate-700">
+                              {getScopeTypeLabel(item.scopeType)}
+                            </span>
+                            {String(item.scopeType || "").toUpperCase() === "SELECTED_VARIANTS" && (
+                              <span className="text-[10px] text-slate-400">
+                                {Array.isArray(item.details) ? item.details.length : 0} SKU
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="px-1.5 py-2 text-[11px]">
                           <div className="flex flex-col gap-0.5">
                             <span className="font-semibold text-slate-700">
@@ -687,19 +709,22 @@ export default function InventoryCheckListPage() {
                                 <Pencil size={14} />
                               </Button>
                             )}
-                            {getWorkflowStatus(item) === "DRAFT" && hasPermission(P.CHECK_DELETE) && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-slate-500 hover:text-rose-600"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmDeleteId(item.id);
-                                }}
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            )}
+                            {["DRAFT", "COUNTING", "RECOUNT_REQUIRED", "PENDING_APPROVAL", "CANCELLED"].includes(
+                              getWorkflowStatus(item),
+                            ) &&
+                              hasPermission(P.CHECK_DELETE) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-slate-500 hover:text-rose-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmDeleteId(item.id);
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>

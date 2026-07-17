@@ -14,7 +14,10 @@ export class EmployeeService {
     size?: number;
     sort?: string;
   }): Promise<PageResponse<UserResponse>> {
-    const response = await apiJava.get<PageResponse<UserResponse>>(`${this.PREFIX}`, { params })
+    const response = await apiJava.get<PageResponse<UserResponse>>(`${this.PREFIX}`, {
+      params,
+      timeout: 60000,
+    })
     return response.data
   }
 
