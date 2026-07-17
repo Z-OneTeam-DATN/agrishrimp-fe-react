@@ -38,6 +38,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import {
   DeliveryStatusBadge,
   getNextOrderWorkflowAction,
+  getOrderBranchNames,
   getOrderBranchSummary,
   getOrderCode,
   hasOrderShortage,
@@ -322,16 +323,16 @@ export default function AdminOrderListPage({
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-[12px]">
-            <div className="rounded-full bg-blue-50 px-3 py-1.5 font-semibold text-blue-700">
+            <div className="rounded-full border border-blue-600 bg-blue-600 px-3 py-1.5 font-semibold text-white">
               Hiển thị {filteredOrders.length} đơn
             </div>
-            <div className="rounded-full bg-rose-50 px-3 py-1.5 font-semibold text-rose-700">
+            <div className="rounded-full border border-blue-200 bg-white px-3 py-1.5 font-semibold text-blue-700">
               Thiếu hàng {shortageCount}
             </div>
-            <div className="rounded-full bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">
+            <div className="rounded-full border border-blue-200 bg-white px-3 py-1.5 font-semibold text-blue-700">
               Chưa thanh toán {unpaidCount}
             </div>
-            <div className="rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
+            <div className="rounded-full border border-blue-200 bg-white px-3 py-1.5 font-semibold text-blue-700">
               Tổng giá trị {formatCurrency(totalFilteredValue)}
             </div>
           </div>
@@ -433,7 +434,7 @@ export default function AdminOrderListPage({
 
       <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
         <div className="w-full overflow-x-auto">
-          <Table>
+          <Table className="min-w-max [&_th]:whitespace-nowrap">
             <TableHeader className="bg-slate-50">
               <TableRow className="border-b border-slate-200">
                 <TableHead className="w-[42px] pl-4">
@@ -563,16 +564,22 @@ export default function AdminOrderListPage({
                           {formatCurrency(order.finalAmount ?? order.totalAmount)}
                         </TableCell>
                         <TableCell className="text-[13px] text-slate-700">
-                          {getOrderBranchSummary(order)}
+                          {getOrderBranchNames(order)[0] ?? getOrderBranchSummary(order)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <InventoryStatusBadge order={order} />
+                          <InventoryStatusBadge order={order} variant="monochrome" />
                         </TableCell>
                         <TableCell className="text-center">
-                          <PaymentStatusBadge status={order.paymentStatus} />
+                          <PaymentStatusBadge
+                            status={order.paymentStatus}
+                            variant="monochrome"
+                          />
                         </TableCell>
                         <TableCell className="text-center">
-                          <OrderWorkflowBadge status={order.status} />
+                          <OrderWorkflowBadge
+                            status={order.status}
+                            variant="monochrome"
+                          />
                         </TableCell>
                         <TableCell
                           className="text-center"
@@ -676,7 +683,8 @@ export default function AdminOrderListPage({
                                         Chi nhánh phụ trách
                                       </p>
                                       <p className="mt-2 text-[13px] text-slate-800">
-                                        {getOrderBranchSummary(orderDetail)}
+                                        {getOrderBranchNames(orderDetail)[0] ??
+                                          getOrderBranchSummary(orderDetail)}
                                       </p>
                                     </div>
                                     <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
@@ -684,7 +692,10 @@ export default function AdminOrderListPage({
                                         Tình trạng hàng
                                       </p>
                                       <div className="mt-2">
-                                        <InventoryStatusBadge order={orderDetail} />
+                                        <InventoryStatusBadge
+                                          order={orderDetail}
+                                          variant="monochrome"
+                                        />
                                       </div>
                                     </div>
                                     <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
@@ -692,7 +703,10 @@ export default function AdminOrderListPage({
                                         Trạng thái đơn
                                       </p>
                                       <div className="mt-2">
-                                        <OrderWorkflowBadge status={order.status} />
+                                        <OrderWorkflowBadge
+                                          status={order.status}
+                                          variant="monochrome"
+                                        />
                                       </div>
                                     </div>
                                     <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-3">
@@ -700,7 +714,10 @@ export default function AdminOrderListPage({
                                         Giao hàng
                                       </p>
                                       <div className="mt-2">
-                                        <DeliveryStatusBadge status={order.status} />
+                                        <DeliveryStatusBadge
+                                          status={order.status}
+                                          variant="monochrome"
+                                        />
                                       </div>
                                     </div>
                                   </div>
@@ -772,8 +789,8 @@ export default function AdminOrderListPage({
                                             className="border-t border-slate-100 text-[13px]"
                                           >
                                             <td className="px-3 py-3">
-                                              <div className="flex items-center gap-3">
-                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-slate-200 bg-slate-50">
+                                              <div className="flex items-start gap-3.5">
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[6px] border border-slate-200 bg-slate-50">
                                                   {item.image ? (
                                                     <img
                                                       src={item.image}
@@ -782,13 +799,16 @@ export default function AdminOrderListPage({
                                                     />
                                                   ) : (
                                                     <Package
-                                                      size={14}
+                                                      size={18}
                                                       className="text-slate-300"
                                                     />
                                                   )}
                                                 </div>
-                                                <div>
-                                                  <p className="font-medium text-slate-800">
+                                                <div className="min-w-0 flex-1">
+                                                  <p
+                                                    className="line-clamp-2 max-w-[320px] text-[13px] font-medium leading-5 text-slate-800 sm:max-w-[380px] xl:max-w-[440px]"
+                                                    title={item.productName}
+                                                  >
                                                     {item.productName}
                                                   </p>
                                                   <p className="text-[11px] text-slate-500">
@@ -802,7 +822,7 @@ export default function AdminOrderListPage({
                                             </td>
                                             <td className="px-3 py-3 text-center">
                                               {(item.missingQuantity ?? 0) > 0 ? (
-                                                <span className="rounded-full bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700">
+                                                <span className="rounded-full border border-blue-200 bg-white px-2 py-1 text-[11px] font-semibold text-blue-700">
                                                   {item.missingQuantity}
                                                 </span>
                                               ) : (

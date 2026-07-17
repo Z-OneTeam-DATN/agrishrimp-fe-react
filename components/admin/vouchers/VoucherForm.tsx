@@ -9,6 +9,23 @@ import {
   voucherService,
   VoucherUpsertPayload,
 } from "@/app/services/voucher.service";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  LiveValidationErrors,
+  useLiveValidationForm,
+} from "@/hooks/useLiveValidationForm";
+import { cn } from "@/lib/utils";
+
+const VOUCHER_STATUS_PLACEHOLDER = "__VOUCHER_STATUS_PLACEHOLDER__";
+type VoucherStatusOption =
+  | Voucher["status"]
+  | typeof VOUCHER_STATUS_PLACEHOLDER;
 
 type VoucherFormData = {
   code: string;
@@ -21,7 +38,7 @@ type VoucherFormData = {
   endDate: string;
   quantity: string;
   usageLimit: string;
-  status: Voucher["status"];
+  status: VoucherStatusOption;
 };
 
 type VoucherFormErrors = Partial<
@@ -34,10 +51,13 @@ type VoucherFormErrors = Partial<
     | "quantity"
     | "usageLimit"
     | "startDate"
-    | "endDate",
+    | "endDate"
+    | "status",
     string
   >
 >;
+
+type VoucherFormField = keyof VoucherFormErrors;
 
 type VoucherApiErrorItem = {
   field?: string;
@@ -105,6 +125,7 @@ const getFieldErrorsFromApiMessage = (message: string): VoucherFormErrors => {
 
   if (normalizedMessage.includes("ma voucher")) return { code: message };
   if (normalizedMessage.includes("ten chuong trinh")) return { title: message };
+  if (normalizedMessage.includes("trang thai")) return { status: message };
   if (
     normalizedMessage.includes("giam toi da") ||
     normalizedMessage.includes("max discount")
@@ -160,7 +181,7 @@ const createEmptyFormData = (): VoucherFormData => {
     endDate: nextWeek.toISOString().slice(0, 16),
     quantity: "",
     usageLimit: "",
-    status: "ACTIVE",
+    status: VOUCHER_STATUS_PLACEHOLDER,
   };
 };
 
@@ -233,6 +254,9 @@ const validateVoucherForm = (
   const quantity = toNumber(formData.quantity);
   const usageLimit = toNumber(formData.usageLimit);
 
+  if (formData.status === VOUCHER_STATUS_PLACEHOLDER) {
+    nextErrors.status = "Vui lĂ²ng chá»n tráº¡ng thĂ¡i";
+  }
   if (!formData.code.trim()) {
     nextErrors.code = "Mã voucher không hợp lệ, vui lòng tạo lại";
   }
@@ -300,22 +324,29 @@ const errorClass = "mt-1 text-[11px] font-medium text-red-500";
 export default function VoucherForm({ initialData }: VoucherFormProps) {
   const router = useRouter();
   const isEdit = Boolean(initialData?.id);
-  const initialFormData = useMemo(
-    () => (initialData ? mapVoucherToFormData(initialData) : null),
+  const initialFormData = useMemo<VoucherFormData>(
+    () => (initialData ? mapVoucherToFormData(initialData) : createEmptyFormData()),
     [initialData],
   );
-  const [formData, setFormData] = useState<VoucherFormData>(() =>
-    initialFormData ?? createEmptyFormData(),
-  );
-  const [errors, setErrors] = useState<VoucherFormErrors>({});
   const [dateError, setDateError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (initialFormData) {
-      setFormData(initialFormData);
-    }
-  }, [initialFormData]);
+  const validateFormData = useCallback(
+    (nextFormData: VoucherFormData): LiveValidationErrors<VoucherFormField> =>
+      validateVoucherForm(nextFormData, dateError),
+    [dateError],
+  );
+  const {
+    formData,
+    errors,
+    updateFormData,
+    clearApiFieldErrors,
+    mergeApiErrors,
+    markFieldsTouched,
+    validateBeforeSubmit,
+  } = useLiveValidationForm<VoucherFormData, VoucherFormField>({
+    initialValues: initialFormData,
+    validate: validateFormData,
+  });
 
   const canKeepExpiredEndDate = useMemo(() => {
     if (!isEdit || !initialFormData?.endDate || !formData.endDate) {
@@ -360,10 +391,6 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
     );
   }, [formData.endDate, formData.startDate]);
 
-  const clearFieldError = useCallback((field: keyof VoucherFormErrors) => {
-    setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
-  }, []);
-
   const updateNumericField = useCallback(
     (
       field:
@@ -374,13 +401,24 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
         | "usageLimit",
       value: string,
     ) => {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: normalizeDigitString(value),
-      }));
-      clearFieldError(field);
+      updateFormData(
+        (prev) => ({
+          ...prev,
+          [field]: normalizeDigitString(value),
+        }),
+        {
+          touchFields:
+            field === "discountValue" || field === "minOrderValue"
+              ? ["discountValue", "minOrderValue"]
+              : [field],
+          clearApiErrors:
+            field === "discountValue" || field === "minOrderValue"
+              ? ["discountValue", "minOrderValue"]
+              : [field],
+        },
+      );
     },
-    [clearFieldError],
+    [updateFormData],
   );
 
   const actionLabel = useMemo(
@@ -390,19 +428,31 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const nextErrors = validateVoucherForm(formData, dateError);
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
+    if (!validateBeforeSubmit()) {
       return;
     }
 
-    setErrors({});
+    clearApiFieldErrors(
+      "code",
+      "title",
+      "discountValue",
+      "minOrderValue",
+      "maxDiscount",
+      "quantity",
+      "usageLimit",
+      "startDate",
+      "endDate",
+      "status",
+    );
     setIsSubmitting(true);
 
     try {
       const maxDiscount =
         formData.maxDiscount === "" ? 0 : toNumber(formData.maxDiscount);
+      const resolvedStatus =
+        formData.status === VOUCHER_STATUS_PLACEHOLDER
+          ? "ACTIVE"
+          : formData.status;
       const payload: VoucherUpsertPayload = {
         code: formData.code.trim().toUpperCase(),
         title: formData.title.trim(),
@@ -420,7 +470,7 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
             : formData.endDate,
         quantity: toNumber(formData.quantity),
         maxUsagePerUser: toNumber(formData.usageLimit),
-        status: formData.status,
+        status: resolvedStatus,
       };
 
       if (payload.discountType === "FIXED") {
@@ -462,7 +512,7 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
 
       const fieldErrors = getFieldErrorsFromApiMessage(message);
       if (Object.keys(fieldErrors).length > 0) {
-        setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        mergeApiErrors(fieldErrors);
       }
       toast.error(message);
     } finally {
@@ -497,8 +547,13 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
             <input
               value={formData.title}
               onChange={(event) => {
-                setFormData((prev) => ({ ...prev, title: event.target.value }));
-                clearFieldError("title");
+                updateFormData(
+                  (prev) => ({ ...prev, title: event.target.value }),
+                  {
+                    touchFields: ["title"],
+                    clearApiErrors: ["title"],
+                  },
+                );
               }}
               placeholder="VD: Khuyến mãi mùa hè 2026..."
               className={`${fieldClass} ${
@@ -509,21 +564,59 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
           </div>
 
           <div>
-            <label className={fieldLabelClass}>Trạng thái</label>
-            <select
+            <label className={fieldLabelClass}>
+              Trạng thái <span className="text-rose-500">*</span>
+            </label>
+            <Select
               value={formData.status}
-              onChange={(event) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  status: event.target.value as VoucherFormData["status"],
-                }))
-              }
-              className={`${fieldClass} border-slate-200 bg-white`}
+              onValueChange={(value) => {
+                updateFormData(
+                  (prev) => ({
+                    ...prev,
+                    status: value as VoucherStatusOption,
+                  }),
+                  {
+                    touchFields: ["status"],
+                    clearApiErrors: ["status"],
+                  },
+                );
+              }}
             >
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="INACTIVE">Tạm ẩn</option>
-              {isEdit && <option value="EXPIRED">Đã hết hạn</option>}
-            </select>
+              <SelectTrigger
+                className={cn(
+                  fieldClass,
+                  "border-slate-200 bg-white font-semibold",
+                  formData.status === VOUCHER_STATUS_PLACEHOLDER &&
+                    "text-slate-400",
+                  formData.status === "ACTIVE" && "text-blue-600",
+                  formData.status === "INACTIVE" && "text-amber-600",
+                  formData.status === "EXPIRED" && "text-slate-500",
+                  errors.status && "border-red-500 focus-visible:ring-red-200",
+                )}
+              >
+                <SelectValue placeholder="-- Chọn trạng thái --" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value={VOUCHER_STATUS_PLACEHOLDER}
+                  className="text-[13px] text-slate-400"
+                >
+                  -- Chọn trạng thái --
+                </SelectItem>
+                <SelectItem value="ACTIVE" className="text-[13px]">
+                  Đang hoạt động
+                </SelectItem>
+                <SelectItem value="INACTIVE" className="text-[13px]">
+                  Tạm ẩn
+                </SelectItem>
+                {isEdit && (
+                  <SelectItem value="EXPIRED" className="text-[13px]">
+                    Đã hết hạn
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {errors.status && <p className={errorClass}>{errors.status}</p>}
           </div>
 
           <div>
@@ -531,18 +624,18 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
             <select
               value={formData.discountType}
               onChange={(event) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  discountType: event.target
-                    .value as VoucherFormData["discountType"],
-                  discountValue: "",
-                  maxDiscount: "",
-                }));
-                setErrors((prev) => ({
-                  ...prev,
-                  discountValue: "",
-                  maxDiscount: "",
-                }));
+                updateFormData(
+                  (prev) => ({
+                    ...prev,
+                    discountType: event.target
+                      .value as VoucherFormData["discountType"],
+                    discountValue: "",
+                    maxDiscount: "",
+                  }),
+                  {
+                    clearApiErrors: ["discountValue", "maxDiscount"],
+                  },
+                );
               }}
               className={`${fieldClass} border-slate-200 bg-white`}
             >
@@ -673,11 +766,16 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
               type="datetime-local"
               value={formData.startDate}
               onChange={(event) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  startDate: event.target.value,
-                }));
-                setErrors((prev) => ({ ...prev, startDate: "", endDate: "" }));
+                updateFormData(
+                  (prev) => ({
+                    ...prev,
+                    startDate: event.target.value,
+                  }),
+                  {
+                    touchFields: ["startDate", "endDate"],
+                    clearApiErrors: ["startDate", "endDate"],
+                  },
+                );
               }}
               className={`${fieldClass} ${
                 errors.startDate ? "border-red-400" : "border-slate-200"
@@ -694,21 +792,22 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
               type="datetime-local"
               value={formData.endDate}
               onChange={(event) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  endDate: event.target.value,
-                }));
-                clearFieldError("endDate");
+                updateFormData(
+                  (prev) => ({
+                    ...prev,
+                    endDate: event.target.value,
+                  }),
+                  {
+                    touchFields: ["startDate", "endDate"],
+                    clearApiErrors: ["startDate", "endDate"],
+                  },
+                );
               }}
               className={`${fieldClass} ${
-                errors.endDate || dateError
-                  ? "border-red-400"
-                  : "border-slate-200"
+                errors.endDate ? "border-red-400" : "border-slate-200"
               }`}
             />
-            {(errors.endDate || dateError) && (
-              <p className={errorClass}>{errors.endDate || dateError}</p>
-            )}
+            {errors.endDate && <p className={errorClass}>{errors.endDate}</p>}
             <p className="mt-1 text-[11px] font-medium text-slate-500">
               {voucherDurationHint}
             </p>
