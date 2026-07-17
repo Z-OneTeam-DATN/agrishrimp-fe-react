@@ -54,6 +54,7 @@ import type {
 import { PublicBranchService } from "@/app/services/publicBranch.service";
 import { formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string };
 
@@ -119,6 +120,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function FinancialReportListPage() {
   const router = useRouter();
   const { user, warehouseId } = useAuthStore();
+  const isAdmin = isAdminRole(user?.role);
   const canSelectAllBranches = !user?.branch?.id && !warehouseId;
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [branches, setBranches] = useState<BranchOption[]>([]);
