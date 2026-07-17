@@ -5,7 +5,6 @@ import { AdminTransferTable } from "@/components/admin/AdminTransferTable";
 import { apiJava } from "@/lib/axios";
 import { toast } from "sonner";
 import {
-  Loader2,
   AlertCircle,
   ArrowLeftRight,
   Plus,
@@ -88,7 +87,7 @@ export default function AdminTransferListPage() {
 
       const rawData = Array.isArray(res.data) ? res.data : res.data?.content || [];
       setTransfers(rawData);
-    } catch (error: any) {
+    } catch {
       toast.error("Không thể tải danh sách phiếu điều chuyển");
     } finally {
       setIsLoading(false);
@@ -330,27 +329,27 @@ export default function AdminTransferListPage() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="relative w-full sm:w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+            <div className="relative w-full sm:w-[280px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+              <Input
+                placeholder="Tìm mã lệnh, chi nhánh..."
+                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
             <Input
-              placeholder="Tìm mã lệnh, chi nhánh..."
-              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
             />
-          </div>
-          <Input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
-          />
-          <Input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
-          />
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
+            />
           </div>
         </div>
 
@@ -358,7 +357,7 @@ export default function AdminTransferListPage() {
           {isLoading ? (
             <AdminDataSyncLoader />
           ) : filteredData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white text-slate-400">
+            <div className="flex flex-col items-center justify-center bg-white py-20 text-slate-400">
               <ArrowLeftRight className="mb-2 opacity-20" size={40} />
               <p className="text-xs font-medium uppercase">{emptyMessage}</p>
             </div>
@@ -385,27 +384,27 @@ export default function AdminTransferListPage() {
       </div>
 
       <AlertDialog open={!!deleteTransfer} onOpenChange={() => setDeleteTransfer(null)}>
-        <AlertDialogContent className="bg-white rounded-[6px] border border-slate-200 shadow-xl max-w-[400px]">
+        <AlertDialogContent className="max-w-[400px] rounded-[6px] border border-slate-200 bg-white shadow-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold text-[16px] uppercase tracking-tight flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 text-[16px] font-bold uppercase tracking-tight text-red-600">
               <AlertCircle size={20} /> Xác nhận xóa lệnh điều chuyển
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-600 text-[13px]">
+            <AlertDialogDescription className="text-[13px] text-slate-600">
               Bạn có chắc chắn muốn xóa lệnh{" "}
               <span className="font-bold text-slate-900">"{deleteTransfer?.code}"</span>?
               <br />
-              <span className="text-[11px] text-rose-500 font-medium italic">
+              <span className="text-[11px] font-medium italic text-rose-500">
                 *Hành động này không thể hoàn tác.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-[32px] text-[12px] font-bold border-slate-300 rounded-[3px]">
+            <AlertDialogCancel className="h-[32px] rounded-[3px] border-slate-300 text-[12px] font-bold">
               HỦY BỎ
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white h-[32px] text-[12px] font-bold rounded-[3px]"
+              className="h-[32px] rounded-[3px] bg-red-600 text-[12px] font-bold text-white hover:bg-red-700"
             >
               ĐỒNG Ý XÓA
             </AlertDialogAction>
@@ -415,4 +414,3 @@ export default function AdminTransferListPage() {
     </div>
   );
 }
-

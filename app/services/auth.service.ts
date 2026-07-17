@@ -6,7 +6,7 @@ import {
   LoginFormValues,
 } from "@/app/types/auth.schema";
 
-import { LoginFormValues as LegacyLoginFormValues, UserType } from "../types/user.schema";
+import { UserType } from "../types/user.schema";
 export class AuthService {
   private static readonly PREFIX = "/auth";
 
@@ -34,7 +34,7 @@ export class AuthService {
       return response.data;
     }
 
-  static async login(userData: LegacyLoginFormValues): Promise<AuthResponse> {
+  static async login(userData: LoginFormValues): Promise<AuthResponse> {
     const response = await apiJava.post<AuthResponse>(
       `${this.PREFIX}/login`,
       userData,

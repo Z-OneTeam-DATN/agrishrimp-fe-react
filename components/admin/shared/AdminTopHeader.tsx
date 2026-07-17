@@ -120,6 +120,8 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/vouchers/add": "Thêm voucher",
   "/admin/vouchers/edit": "Cập nhật voucher",
   "/admin/shipping/overview": "Tổng quan giao hàng",
+  "/admin/ai-knowledge/approvals": "Duyệt phác đồ",
+  "/admin/ai-knowledge/chatbot": "Chatbot mở đầu",
 };
 
 const HIDDEN_BREADCRUMB_PATHS = new Set([

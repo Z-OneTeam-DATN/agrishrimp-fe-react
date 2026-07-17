@@ -39,14 +39,55 @@ import {
 } from "@/components/ui/table";
 import { TransferSchema } from "@/app/types/inventory.schema";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
+
+function normalizeBranchText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isSystemDefectBranch(branch: any) {
+  const code = String(branch?.branchCode || branch?.code || "")
+    .trim()
+    .toUpperCase();
+  return code === "SYSTEM_DEFECT";
+}
+
+function isWarehouseBranch(branch: any) {
+  if (!branch) return false;
+
+  const code = String(branch?.branchCode || branch?.code || "")
+    .trim()
+    .toUpperCase();
+  const type = String(branch?.branchType || branch?.type || "")
+    .trim()
+    .toUpperCase();
+  const name = normalizeBranchText(branch?.name || branch?.branchName);
+
+  if (code === "SYSTEM_DEFECT") return false;
+  if (code === "MAIN_WH") return true;
+  if (type === "WAREHOUSE") return true;
+
+  return name.includes("kho tong") || name.includes("warehouse");
+}
+
+function isSellingBranch(branch: any) {
+  return !isSystemDefectBranch(branch) && !isWarehouseBranch(branch);
+}
 
 export default function NewTransferPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sourceCode = searchParams.get("source");
+  const editId = searchParams.get("editId");
+  const isEditMode = Boolean(editId);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(Boolean(editId));
   const [branches, setBranches] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -105,6 +146,7 @@ export default function NewTransferPage() {
 
   const transferBusinessType = watch("transferBusinessType");
   const currentSourceBranch = watch("sourceBranch");
+  const currentDestinationBranch = watch("destBranch");
   const watchedItems = watch("items");
   const isInternalSale = transferBusinessType === "INTERNAL_SALE";
   const totalTransferQuantity = (watchedItems || []).reduce(
@@ -118,6 +160,11 @@ export default function NewTransferPage() {
         return sum + qty * price;
       }, 0)
     : 0;
+  const availableSourceBranches =
+    transferBusinessType === "STOCK_TRANSFER"
+      ? branches.filter(isWarehouseBranch)
+      : branches.filter(isSellingBranch);
+  const availableDestinationBranches = branches.filter(isSellingBranch);
 
   useEffect(() => {
     setValue(
@@ -127,10 +174,113 @@ export default function NewTransferPage() {
     );
   }, [isInternalSale, setValue]);
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "items",
   });
+
+  useEffect(() => {
+    if (!currentSourceBranch) {
+      return;
+    }
+
+    const sourceStillValid = availableSourceBranches.some(
+      (branch) => branch.id.toString() === currentSourceBranch,
+    );
+
+    if (!sourceStillValid) {
+      setValue("sourceBranch", "", { shouldValidate: true, shouldDirty: true });
+      setValue("sourceAddress", "");
+      setValue("destBranch", "", { shouldValidate: true, shouldDirty: true });
+      setValue("destAddress", "");
+      replace([]);
+    }
+  }, [availableSourceBranches, currentSourceBranch, replace, setValue]);
+
+  useEffect(() => {
+    if (!currentDestinationBranch) {
+      return;
+    }
+
+    const destinationStillValid = availableDestinationBranches.some(
+      (branch) =>
+        branch.id.toString() === currentDestinationBranch &&
+        branch.id.toString() !== currentSourceBranch,
+    );
+
+    if (!destinationStillValid) {
+      setValue("destBranch", "", { shouldValidate: true, shouldDirty: true });
+      setValue("destAddress", "");
+    }
+  }, [
+    availableDestinationBranches,
+    currentDestinationBranch,
+    currentSourceBranch,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    if (!editId) {
+      setIsBootstrapping(false);
+      return;
+    }
+
+    const fetchTransfer = async () => {
+      try {
+        const transfer = await transferService.getById(editId);
+        setValue(
+          "transferBusinessType",
+          transfer.transferBusinessType || "STOCK_TRANSFER",
+        );
+        setValue(
+          "transferType",
+          transfer.transferType === "INTERNAL" ? "INTERNAL" : "BETWEEN_WAREHOUSES",
+        );
+        setValue("sourceBranch", String(transfer.sourceBranchId || ""));
+        setValue("destBranch", String(transfer.destinationBranchId || ""));
+        setValue("description", transfer.description || "");
+        setValue("transporter", transfer.transporter || "");
+        setValue("vehicle", transfer.vehicle || "");
+        setValue("dispatchOrder", transfer.dispatchOrder || "");
+        setValue("referenceCode", transfer.referenceCode || "");
+        setValue("importStatus", transfer.importStatus || "PENDING");
+        setValue(
+          "transferDate",
+          transfer.transferDate
+            ? new Date(transfer.transferDate).toISOString().slice(0, 16)
+            : new Date().toISOString().slice(0, 16),
+        );
+
+        replace(
+          (transfer.items || []).map((item: any) => ({
+            variantId: item.variantId,
+            productCode: item.sku,
+            productName: item.productName,
+            unit: item.unit || "Cái",
+            quantity: Number(item.quantityRequested || 0),
+            availableQuantity: Number(item.quantityRequested || 0),
+            receivedQuantity: Number(item.quantityReal || 0),
+            itemNote: item.note || "",
+            unitTransferPrice:
+              item.unitTransferPrice != null
+                ? Number(item.unitTransferPrice)
+                : undefined,
+          })),
+        );
+      } catch (error) {
+        console.error("Lỗi tải phiếu điều chuyển", error);
+        toast.error(
+          getErrorMessage(error as any) ||
+            "Không thể tải phiếu điều chuyển để chỉnh sửa",
+        );
+        router.push("/admin/transfers");
+      } finally {
+        setIsBootstrapping(false);
+      }
+    };
+
+    void fetchTransfer();
+  }, [editId, replace, router, setValue]);
 
   const onSubmit = async (formData: any) => {
     setIsSubmitting(true);
@@ -170,15 +320,17 @@ export default function NewTransferPage() {
         })),
       };
 
-      await transferService.create(payload);
-      toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
-      router.push("/admin/transfers");
+      if (isEditMode && editId) {
+        await transferService.update(editId, payload);
+        toast.success("Đã cập nhật phiếu điều chuyển thành công!");
+        router.push(`/admin/transfers/${editId}`);
+      } else {
+        await transferService.create(payload);
+        toast.success("Đã tạo phiếu và gửi yêu cầu duyệt chuyển kho!");
+        router.push("/admin/transfers");
+      }
     } catch (error: any) {
-      const errMsg =
-        error.response?.data?.message ||
-        error.response?.data ||
-        "Không thể tạo phiếu";
-      toast.error("Lỗi: " + errMsg);
+      toast.error(getErrorMessage(error) || "Không thể tạo phiếu");
     } finally {
       setIsSubmitting(false);
     }
@@ -241,6 +393,14 @@ export default function NewTransferPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, currentSourceBranch, showDropdown]);
 
+  if (isBootstrapping) {
+    return (
+      <div className="p-10 text-center italic text-slate-400">
+        Đang tải phiếu điều chuyển...
+      </div>
+    );
+  }
+
   const handleSelectProduct = (variant: any) => {
     const isExist = fields.some((f: any) => f.productCode === variant.sku);
     if (isExist) {
@@ -298,7 +458,9 @@ export default function NewTransferPage() {
       <div className="mt-2 mb-8 space-y-4 px-1">
         <div className="flex items-center gap-3">
           <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
-            Lập phiếu điều chuyển hàng hóa
+            {isEditMode
+              ? "Chỉnh sửa phiếu điều chuyển hàng hóa"
+              : "Lập phiếu điều chuyển hàng hóa"}
           </h1>
         </div>
       </div>
@@ -423,24 +585,7 @@ export default function NewTransferPage() {
                         <SelectValue placeholder="Chọn kho xuất..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-md">
-                        {(transferBusinessType === "STOCK_TRANSFER"
-                          ? branches.filter((b) => {
-                              const code = String(
-                                b.branchCode || "",
-                              ).toUpperCase();
-                              const type = String(
-                                b.branchType || "",
-                              ).toUpperCase();
-                              const name = String(b.name || "").toLowerCase();
-                              if (code === "SYSTEM_DEFECT") return false;
-                              if (code === "MAIN_WH") return true;
-                              return (
-                                type === "WAREHOUSE" &&
-                                name.includes("kho tổng")
-                              );
-                            })
-                          : branches
-                        ).map((b) => (
+                        {availableSourceBranches.map((b) => (
                           <SelectItem key={b.id} value={b.id.toString()}>
                             {b.name}
                           </SelectItem>
@@ -491,7 +636,7 @@ export default function NewTransferPage() {
                         <SelectValue placeholder="Chọn kho nhận..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-md">
-                        {branches.map((b) => (
+                        {availableDestinationBranches.map((b) => (
                           <SelectItem
                             key={b.id}
                             value={b.id.toString()}
@@ -577,7 +722,7 @@ export default function NewTransferPage() {
                   name="importStatus"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select value={field.value} disabled>
                       <SelectTrigger className={cn(selectTriggerClass, "border-slate-200")}>
                         <SelectValue placeholder="Chọn trạng thái nhập" />
                       </SelectTrigger>
@@ -1036,7 +1181,11 @@ export default function NewTransferPage() {
               ) : (
                 <Save size={16} className="mr-2" />
               )}
-              {isSubmitting ? "Đang lưu..." : "Lưu & gửi duyệt"}
+              {isSubmitting
+                ? "Đang lưu..."
+                : isEditMode
+                  ? "Cập nhật phiếu"
+                  : "Lưu & gửi duyệt"}
             </Button>
           </div>
         </div>

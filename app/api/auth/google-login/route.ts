@@ -1,6 +1,6 @@
 import { AuthService } from "@/app/services/auth.service";
 import { getErrorMessage } from "@/lib/axios";
-import { AxiosError } from "axios";
+import { isAxiosError } from "axios";
 import { jwtDecode, JwtPayload } from "jwt-decode";
 import { NextResponse } from "next/server";
 
@@ -61,14 +61,19 @@ export async function POST(request: Request) {
 
     return response;
   } catch (e) {
-    if (e instanceof AxiosError) {
+    if (isAxiosError(e)) {
       return NextResponse.json(
         { message: getErrorMessage(e) },
         { status: e.response?.status || 500 },
       );
     }
     return NextResponse.json(
-      { message: "Internal server error" },
+      {
+        message:
+          e instanceof Error && e.message
+            ? e.message
+            : "Internal server error",
+      },
       { status: 500 },
     );
   }
