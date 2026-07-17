@@ -53,6 +53,7 @@ export default function ChatWindow() {
   const [pickerProducts, setPickerProducts] = useState<any[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -103,10 +104,47 @@ export default function ChatWindow() {
     return () => { cancelled = true; };
   }, [isOpen, user?.id, setActiveConversation, setMessages]);
 
-  // Auto scroll to bottom on new messages
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto"
+      });
+      return;
+    }
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+    }
+  }, []);
+
+  // Instant scroll and repeat scroll on open / change conversation
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [convMessages.length]);
+    if (isOpen && !isMinimized && convMessages.length > 0) {
+      scrollToBottom(false);
+      let count = 0;
+      const interval = setInterval(() => {
+        scrollToBottom(false);
+        count++;
+        if (count >= 6) {
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, isMinimized, activeConversationId, scrollToBottom]);
+
+  // Smooth scroll when new messages arrive
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      const timer = setTimeout(() => {
+        scrollToBottom(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [convMessages.length, isOpen, isMinimized, scrollToBottom]);
 
   // Focus input when opened
   useEffect(() => {
@@ -267,7 +305,7 @@ export default function ChatWindow() {
       {!isMinimized && (
         <>
           {/* Messages area */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
+          <div ref={messagesContainerRef} onLoadCapture={() => scrollToBottom(false)} className="flex-1 min-h-0 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
             {isLoadingConv ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
