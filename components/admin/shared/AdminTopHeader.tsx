@@ -37,6 +37,10 @@ import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
 import { P } from "@/lib/permissions";
 import {
+  ADVISOR_WORKSPACE_PERMISSIONS,
+  AGRONOMIST_WORKSPACE_PERMISSIONS,
+} from "@/lib/workspace-permissions";
+import {
   ADMIN_ORDER_STATUS_PAGES,
   getAdminOrderStatusHref,
 } from "@/lib/admin-order-status-pages";
@@ -137,7 +141,7 @@ export default function AdminTopHeader() {
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const accessToken = useAuthStore((state) => state.accessToken);
   const canAccessAdvisorWorkspace = hasAnyPermission(
