@@ -52,6 +52,12 @@ export default function ChatWindow() {
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [pickerProducts, setPickerProducts] = useState<any[]>([]);
 
+  // Image/video preview before sending
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [pendingVideoPreview, setPendingVideoPreview] = useState<string | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -154,21 +160,47 @@ export default function ChatWindow() {
   }, [isOpen, isMinimized]);
 
   const handleSend = useCallback(async () => {
+    // If media pending, send it
+    if (pendingImage || pendingVideo) {
+      const file = pendingImage || pendingVideo!;
+      const isImg = !!pendingImage;
+      setPendingImage(null); setPendingImagePreview(null);
+      setPendingVideo(null); setPendingVideoPreview(null);
+      setIsSending(true);
+      try {
+        const msg = await ChatService.sendImage(activeConversationId!, file);
+        addMessage(msg);
+      } catch {
+        toast.error(isImg ? "Gửi ảnh thất bại" : "Gửi video thất bại");
+      } finally { setIsSending(false); }
+      return;
+    }
     const text = input.trim();
-    if (!text || !activeConversationId || isSending) return;
+    if (!text || !activeConversationId) return;
 
     setInput("");
-    setIsSending(true);
+    // Optimistic send
+    const localId = `local-${Date.now()}`;
+    const optimistic = {
+      id: -Date.now() as number,
+      localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content: text,
+      messageType: "TEXT" as const,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending" as const,
+    };
+    addMessage(optimistic);
     try {
       const msg = await ChatService.sendMessage(activeConversationId, text);
-      addMessage(msg);
+      addMessage({ ...msg, localId, status: "sent" as const });
     } catch {
-      toast.error("Gửi tin nhắn thất bại");
-      setInput(text);
-    } finally {
-      setIsSending(false);
+      addMessage({ ...optimistic, status: "error" as const });
     }
-  }, [input, activeConversationId, isSending, addMessage]);
+  }, [input, activeConversationId, pendingImage, pendingVideo, user, addMessage]);
 
   const handleSendProduct = useCallback(async () => {
     if (!consultProduct || !activeConversationId || isSending) return;
@@ -192,20 +224,27 @@ export default function ChatWindow() {
     }
   }, [consultProduct, activeConversationId, isSending, addMessage, setConsultProduct]);
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image: show preview first
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeConversationId) return;
+    if (!file) return;
     e.target.value = "";
-    setIsSending(true);
-    try {
-      const msg = await ChatService.sendImage(activeConversationId, file);
-      addMessage(msg);
-    } catch {
-      toast.error("Gửi ảnh thất bại");
-    } finally {
-      setIsSending(false);
-    }
+    setPendingImage(file);
+    setPendingImagePreview(URL.createObjectURL(file));
+    setPendingVideo(null); setPendingVideoPreview(null);
   };
+
+  // Retry failed message
+  const handleRetryMessage = useCallback(async (failedMsg: any) => {
+    if (!activeConversationId) return;
+    addMessage({ ...failedMsg, status: "sending" });
+    try {
+      const msg = await ChatService.sendMessage(activeConversationId, failedMsg.content);
+      addMessage({ ...msg, localId: failedMsg.localId, status: "sent" });
+    } catch {
+      addMessage({ ...failedMsg, status: "error" });
+    }
+  }, [activeConversationId, addMessage]);
 
   // Load products for picker popup
   useEffect(() => {
@@ -233,19 +272,13 @@ export default function ChatWindow() {
     }
   };
 
-  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeConversationId) return;
+    if (!file) return;
     e.target.value = "";
-    setIsSending(true);
-    try {
-      const msg = await ChatService.sendImage(activeConversationId, file);
-      addMessage(msg);
-    } catch {
-      toast.error("Gửi video thất bại");
-    } finally {
-      setIsSending(false);
-    }
+    setPendingVideo(file);
+    setPendingVideoPreview(URL.createObjectURL(file));
+    setPendingImage(null); setPendingImagePreview(null);
   };
 
   const handleGoToOrders = () => {
@@ -319,10 +352,11 @@ export default function ChatWindow() {
             ) : (
               convMessages.map((msg, index) => (
                 <MessageBubble
-                  key={msg.id}
+                  key={msg.localId ?? msg.id}
                   message={msg}
                   isOwn={msg.senderId === user?.id}
                   isLast={index === convMessages.length - 1}
+                  onRetry={handleRetryMessage}
                 />
               ))
             )}
@@ -443,6 +477,29 @@ export default function ChatWindow() {
             </div>
           )}
 
+          {/* Image / Video Preview Strip */}
+          {(pendingImagePreview || pendingVideoPreview) && (
+            <div className="bg-gray-50 dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 px-3 py-2 flex items-center gap-2">
+              <div className="relative w-12 h-12 shrink-0 rounded-lg overflow-hidden border border-gray-200 dark:border-slate-600">
+                {pendingImagePreview && <img src={pendingImagePreview} alt="preview" className="w-full h-full object-cover" />}
+                {pendingVideoPreview && <video src={pendingVideoPreview} className="w-full h-full object-cover" />}
+                <button onClick={() => { setPendingImage(null); setPendingImagePreview(null); setPendingVideo(null); setPendingVideoPreview(null); }}
+                  className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-gray-800/70 hover:bg-red-500 text-white rounded-full flex items-center justify-center">
+                  <X className="w-2 h-2" />
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-gray-500 truncate">{pendingImage?.name ?? pendingVideo?.name}</p>
+                <p className="text-[9px] text-gray-400">Nhấn gửi để upload</p>
+              </div>
+              <button onClick={handleSend} disabled={isSending}
+                className="flex items-center gap-1 px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-[10px] font-bold transition-colors disabled:opacity-50">
+                {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                Gửi
+              </button>
+            </div>
+          )}
+
           {/* Input area (Shopee style layout) */}
           <div className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700 p-2.5 flex flex-col gap-2">
             {/* Input Row */}
@@ -458,7 +515,7 @@ export default function ChatWindow() {
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || isSending}
+                disabled={(!input.trim() && !pendingImage && !pendingVideo) || isSending}
                 className="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
               >
                 {isSending ? (

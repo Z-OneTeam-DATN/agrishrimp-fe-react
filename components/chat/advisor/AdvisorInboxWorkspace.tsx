@@ -42,12 +42,13 @@ import { Button } from "@/components/ui/button";
 import { ADMIN_WORKSPACE_PERMISSIONS } from "@/lib/workspace-permissions";
 import { toast } from "sonner";
 
-type InboxTab = "all" | "unread" | "assigned";
+type InboxTab = "all" | "unread" | "assigned" | "attention";
 
 const FILTER_TABS: Array<{ id: InboxTab; label: string }> = [
   { id: "all", label: "Tất cả" },
   { id: "unread", label: "Chưa đọc" },
-  { id: "assigned", label: "Đã phân công" },
+  { id: "assigned", label: "Phân công" },
+  { id: "attention", label: "Chú ý" },
 ];
 
 export default function AdvisorInboxWorkspace() {
@@ -71,6 +72,7 @@ export default function AdvisorInboxWorkspace() {
 
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [input, setInput] = useState("");
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -276,6 +278,17 @@ export default function AdvisorInboxWorkspace() {
     return () => clearTimeout(timer);
   }, [activeMessages.length, scrollToBottom]);
 
+  const isAttentionConversation = (c: Conversation) => {
+    if (!c.lastMessageAt || c.status !== "OPEN") return false;
+    try {
+      const lastMsgTime = parseLocalDateTime(c.lastMessageAt);
+      const elapsedHours = (Date.now() - lastMsgTime.getTime()) / (1000 * 60 * 60);
+      return elapsedHours > 5;
+    } catch {
+      return false;
+    }
+  };
+
   const filteredConversations = conversations.filter((conversation) => {
     const normalizedQuery = query.trim().toLowerCase();
     const matchesQuery =
@@ -286,13 +299,21 @@ export default function AdvisorInboxWorkspace() {
     const matchesTab =
       activeTab === "all" ||
       (activeTab === "unread" && conversation.unreadByShop > 0) ||
-      (activeTab === "assigned" && Boolean(conversation.assignedStaffId));
+      (activeTab === "assigned" && Boolean(conversation.assignedStaffId)) ||
+      (activeTab === "attention" && isAttentionConversation(conversation));
 
     return matchesQuery && matchesTab;
   });
 
+  const sortedConversations = [...filteredConversations].sort((a, b) => {
+    const timeA = a.lastMessageAt ? parseLocalDateTime(a.lastMessageAt).getTime() : 0;
+    const timeB = b.lastMessageAt ? parseLocalDateTime(b.lastMessageAt).getTime() : 0;
+    return sortBy === "newest" ? timeB - timeA : timeA - timeB;
+  });
+
   const unreadCount = conversations.filter((conversation) => conversation.unreadByShop > 0).length;
   const assignedCount = conversations.filter((conversation) => Boolean(conversation.assignedStaffId)).length;
+  const attentionCount = conversations.filter(isAttentionConversation).length;
   const mineCount = conversations.filter((conversation) => conversation.assignedStaffId === user?.id).length;
 
   const quickReplies = cannedResponses.slice(0, 4);
@@ -539,8 +560,13 @@ export default function AdvisorInboxWorkspace() {
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
                   Danh sách hội thoại
                 </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                <h2 className="mt-1 text-base font-bold text-slate-900 flex items-center gap-1.5">
                   Inbox đội tư vấn
+                  {conversations.filter(c => c.status === "OPEN").length > 0 && (
+                    <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0">
+                      {conversations.filter(c => c.status === "OPEN").length} chưa xử lý
+                    </span>
+                  )}
                 </h2>
               </div>
               <div className="rounded-2xl bg-slate-100 px-3 py-2 text-right">
@@ -551,40 +577,55 @@ export default function AdvisorInboxWorkspace() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Tìm theo tên khách hoặc nội dung..."
-                className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-              />
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Tìm theo tên khách hoặc nội dung..."
+                  className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                />
+              </div>
+              <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+                <span>Sắp xếp thời gian:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "newest" | "oldest")}
+                  className="bg-transparent font-bold text-slate-600 outline-none cursor-pointer hover:text-blue-600 border-none p-0 focus:ring-0 text-[11px]"
+                >
+                  <option value="newest">Mới nhất trước</option>
+                  <option value="oldest">Cũ nhất trước</option>
+                </select>
+              </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-4 gap-1 sm:gap-2">
               {FILTER_TABS.map((tab) => {
                 const count =
                   tab.id === "all"
                     ? conversations.length
                     : tab.id === "unread"
                       ? unreadCount
-                      : assignedCount;
+                      : tab.id === "assigned"
+                        ? assignedCount
+                        : attentionCount;
 
                 return (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`rounded-2xl px-3 py-3 text-left transition ${
+                    className={`rounded-2xl px-1.5 py-2.5 text-center transition flex flex-col items-center justify-between ${
                       activeTab === tab.id
                         ? "bg-slate-900 text-white shadow-lg"
                         : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <p className="text-xs font-medium uppercase tracking-[0.16em]">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.05em] truncate w-full">
                       {tab.label}
                     </p>
-                    <p className="mt-2 text-lg font-semibold">{count}</p>
+                    <p className="mt-1 text-sm font-black">{count}</p>
                   </button>
                 );
               })}
@@ -608,7 +649,7 @@ export default function AdvisorInboxWorkspace() {
                     </div>
                   ))}
                 </div>
-              ) : filteredConversations.length === 0 ? (
+              ) : sortedConversations.length === 0 ? (
                 <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
                   <Users className="mx-auto h-10 w-10 text-slate-300" />
                   <p className="mt-4 text-sm font-medium text-slate-600">
@@ -619,7 +660,7 @@ export default function AdvisorInboxWorkspace() {
                   </p>
                 </div>
               ) : (
-                filteredConversations.map((conversation) => {
+                sortedConversations.map((conversation) => {
                   const isActive = conversation.id === activeConversationId;
                   return (
                     <button
@@ -697,6 +738,17 @@ export default function AdvisorInboxWorkspace() {
                             >
                               {conversation.assignedStaffName || "Chưa phân công"}
                             </span>
+                            {isAttentionConversation(conversation) && (
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-bold animate-pulse ${
+                                  isActive
+                                    ? "bg-rose-500/30 text-rose-100 border border-rose-400/40"
+                                    : "bg-rose-50 text-rose-600 border border-rose-100"
+                                }`}
+                              >
+                                ⚠️ Chờ &gt; 5h
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

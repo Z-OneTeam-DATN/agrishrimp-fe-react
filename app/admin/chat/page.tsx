@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Pin, Send, Loader2, MessageCircle, ImageIcon,
-  Bell, Trash2, Star, Mail, CheckCircle2, BellOff, Archive,
+  Bell, Star, Mail, CheckCircle2, BellOff, Archive, Smile, Video, X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
@@ -11,7 +11,7 @@ import { EmployeeService } from "@/app/services/employee.service";
 import { useChatStore } from "@/stores/useChatStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTypingStore } from "@/stores/useTypingStore";
-import { Conversation } from "@/app/types/chat.types";
+import { Conversation, ChatMessage } from "@/app/types/chat.types";
 import { UserResponse } from "@/app/types/employee.schema";
 import ConversationSidebar from "@/components/chat/ConversationSidebar";
 import MessageBubble, { TypingBubble } from "@/components/chat/MessageBubble";
@@ -40,6 +40,28 @@ export default function AdminChatPage() {
 
   const [mutedConvs, setMutedConvs] = useState<number[]>([]);
   const [starredConvs, setStarredConvs] = useState<number[]>([]);
+
+  // Image/video preview state (show preview before sending)
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+  const [pendingVideo, setPendingVideo] = useState<File | null>(null);
+  const [pendingVideoPreview, setPendingVideoPreview] = useState<string | null>(null);
+
+  // Sticker picker
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const STICKERS = [
+    { id: 1, url: "https://media.giphy.com/media/3oz8xAFtqoOUUrsh7W/giphy.gif", label: "wave" },
+    { id: 2, url: "https://media.giphy.com/media/l0MYC0LajbaPoEADu/giphy.gif", label: "cool" },
+    { id: 3, url: "https://media.giphy.com/media/xT9IgG50Lg7rusRgqY/giphy.gif", label: "happy" },
+    { id: 4, url: "https://media.giphy.com/media/3o7TKMt1VVNkHV2PaE/giphy.gif", label: "thumbsup" },
+    { id: 5, url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif", label: "fire" },
+    { id: 6, url: "https://media.giphy.com/media/xT9IgxU3lPSfOEZNBK/giphy.gif", label: "clap" },
+    { id: 7, url: "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif", label: "love" },
+    { id: 8, url: "https://media.giphy.com/media/3oKIPqsXYcdjcBcXL2/giphy.gif", label: "ok" },
+  ];
 
   useEffect(() => {
     try {
@@ -114,6 +136,15 @@ export default function AdminChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear pending media when conversation changes
+  useEffect(() => {
+    setPendingImage(null);
+    setPendingImagePreview(null);
+    setPendingVideo(null);
+    setPendingVideoPreview(null);
+    setShowStickerPicker(false);
+  }, [activeConversationId]);
 
   const activeConv = conversations.find((c) => c.id === activeConversationId) ?? null;
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
@@ -200,18 +231,90 @@ export default function AdminChatPage() {
     }
   }, [activeConversationId, conversations, setConversations]);
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image: show preview first, send on submit
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeConversationId) return;
     e.target.value = "";
-    setIsSending(true);
+    const objectUrl = URL.createObjectURL(file);
+    setPendingImage(file);
+    setPendingImagePreview(objectUrl);
+    setPendingVideo(null);
+    setPendingVideoPreview(null);
+  };
+
+  // Video: show preview first, send on submit
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeConversationId) return;
+    e.target.value = "";
+    const objectUrl = URL.createObjectURL(file);
+    setPendingVideo(file);
+    setPendingVideoPreview(objectUrl);
+    setPendingImage(null);
+    setPendingImagePreview(null);
+  };
+
+  // Send sticker
+  const handleSendSticker = async (stickerUrl: string) => {
+    if (!activeConversationId) return;
+    setShowStickerPicker(false);
+    const localId = `local-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: -Date.now(), localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content: `[STICKER:${stickerUrl}]`,
+      messageType: "TEXT",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+    };
+    addMessage(optimistic);
     try {
-      const msg = await ChatService.sendImage(activeConversationId, file);
-      addMessage(msg);
+      const msg = await ChatService.sendMessage(activeConversationId, `[STICKER:${stickerUrl}]`);
+      addMessage({ ...msg, localId });
     } catch {
-      toast.error("Gửi ảnh thất bại");
-    } finally {
-      setIsSending(false);
+      addMessage({ ...optimistic, status: "error" });
+    }
+  };
+
+  // Retry sending a failed message
+  const handleRetryMessage = useCallback(async (failedMsg: ChatMessage) => {
+    if (!activeConversationId) return;
+    addMessage({ ...failedMsg, status: "sending" });
+    try {
+      const msg = await ChatService.sendMessage(activeConversationId, failedMsg.content);
+      addMessage({ ...msg, localId: failedMsg.localId });
+    } catch {
+      addMessage({ ...failedMsg, status: "error" });
+    }
+  }, [activeConversationId, addMessage]);
+
+  // Send pending image/video or text
+  const handleSendMedia = async () => {
+    if (!activeConversationId) return;
+    if (pendingImage) {
+      const file = pendingImage;
+      setPendingImage(null); setPendingImagePreview(null);
+      setIsSending(true);
+      try {
+        const msg = await ChatService.sendImage(activeConversationId, file);
+        addMessage(msg);
+      } catch {
+        toast.error("Gửi ảnh thất bại");
+      } finally { setIsSending(false); }
+    } else if (pendingVideo) {
+      const file = pendingVideo;
+      setPendingVideo(null); setPendingVideoPreview(null);
+      setIsSending(true);
+      try {
+        const msg = await ChatService.sendImage(activeConversationId, file);
+        addMessage(msg);
+      } catch {
+        toast.error("Gửi video thất bại");
+      } finally { setIsSending(false); }
     }
   };
 
@@ -238,22 +341,38 @@ export default function AdminChatPage() {
   };
 
   const handleSend = useCallback(async () => {
+    // If there's pending media, send that first
+    if (pendingImage || pendingVideo) {
+      await handleSendMedia();
+      return;
+    }
     const text = input.trim();
-    if (!text || !activeConversationId || isSending) return;
+    if (!text || !activeConversationId) return;
     setInput("");
     setCannedSuggestions([]);
-    setIsSending(true);
+    // Optimistic: push a "sending" message immediately
+    const localId = `local-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: -Date.now(), localId,
+      conversationId: activeConversationId,
+      senderId: user?.id ?? 0,
+      senderName: user?.fullName ?? "",
+      content: text,
+      messageType: "TEXT",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      status: "sending",
+    };
+    addMessage(optimistic);
     try {
       const msg = await ChatService.sendMessage(activeConversationId, text);
-      addMessage(msg);
+      addMessage({ ...msg, localId, status: "sent" });
     } catch {
-      toast.error("Gửi thất bại");
-      setInput(text);
+      addMessage({ ...optimistic, status: "error" });
     } finally {
-      setIsSending(false);
       inputRef.current?.focus();
     }
-  }, [input, activeConversationId, isSending, addMessage]);
+  }, [input, activeConversationId, pendingImage, pendingVideo, user, addMessage]);
 
   const assignedStaffName = activeConv?.assignedStaffName;
 
@@ -282,19 +401,29 @@ export default function AdminChatPage() {
           <>
             {/* ── Chat header ── */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white">
-              {/* Customer info */}
-              <Avatar className="w-10 h-10">
-                <AvatarImage src={activeConv.customerAvatar} />
-                <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
-                  {activeConv.customerName?.charAt(0) ?? "K"}
-                </AvatarFallback>
-              </Avatar>
+              {/* Customer avatar > handler avatar breadcrumb */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Avatar className="w-9 h-9">
+                  <AvatarImage src={activeConv.customerAvatar} />
+                  <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
+                    {activeConv.customerName?.charAt(0) ?? "K"}
+                  </AvatarFallback>
+                </Avatar>
+                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                {/* Staff (handler) avatar */}
+                <Avatar className="w-9 h-9 ring-2 ring-[#0084ff] ring-offset-1">
+                  <AvatarImage src={user?.avatar?.imageUrl ?? undefined} />
+                  <AvatarFallback className="bg-[#0084ff] text-white font-semibold text-sm">
+                    {user?.fullName?.charAt(0) ?? "A"}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-[15px] text-gray-900 truncate">
                   {activeConv.customerName}
                 </p>
                 <p className="text-xs text-[#0084ff] font-medium">
-                  Khách hàng liên hệ
+                  Đang xử lý bởi <span className="font-semibold">{user?.fullName ?? "Bạn"}</span>
                 </p>
               </div>
 
@@ -389,10 +518,11 @@ export default function AdminChatPage() {
               ) : (
                 convMessages.map((msg, index) => (
                   <MessageBubble
-                    key={msg.id}
+                    key={msg.localId ?? msg.id}
                     message={msg}
                     isOwn={msg.senderId === user?.id}
                     isLast={index === convMessages.length - 1}
+                    onRetry={handleRetryMessage}
                   />
                 ))
               )}
@@ -418,6 +548,56 @@ export default function AdminChatPage() {
               </div>
             )}
 
+            {/* ── Sticker Picker ── */}
+            {showStickerPicker && (
+              <div className="bg-white border-t border-gray-100 px-3 py-2 flex flex-col gap-1.5 max-h-[160px] overflow-y-auto">
+                <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                  <span className="text-[10px] font-bold text-gray-500">Stickers dễ thương</span>
+                  <button onClick={() => setShowStickerPicker(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {STICKERS.map((sticker) => (
+                    <button key={sticker.id} onClick={() => handleSendSticker(sticker.url)}
+                      className="hover:bg-slate-100 p-1.5 rounded-xl transition-all active:scale-95 flex items-center justify-center">
+                      <img src={sticker.url} alt={sticker.label} className="w-10 h-10 object-contain" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Image / Video Preview Strip ── */}
+            {(pendingImagePreview || pendingVideoPreview) && (
+              <div className="bg-gray-50 border-t border-gray-100 px-4 py-2 flex items-center gap-3">
+                <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                  {pendingImagePreview && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={pendingImagePreview} alt="preview" className="w-full h-full object-cover" />
+                  )}
+                  {pendingVideoPreview && (
+                    <video src={pendingVideoPreview} className="w-full h-full object-cover" />
+                  )}
+                  <button
+                    onClick={() => { setPendingImage(null); setPendingImagePreview(null); setPendingVideo(null); setPendingVideoPreview(null); }}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-gray-800/70 hover:bg-red-500 text-white rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-600 truncate font-medium">{pendingImage?.name ?? pendingVideo?.name}</p>
+                  <p className="text-[10px] text-gray-400">Nhấn Gửi để upload {pendingImage ? "ảnh" : "video"}</p>
+                </div>
+                <button onClick={handleSend} disabled={isSending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0084ff] hover:bg-blue-600 text-white rounded-full text-xs font-semibold transition-colors disabled:opacity-50">
+                  {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  Gửi
+                </button>
+              </div>
+            )}
+
             {/* ── Input bar ── */}
             <div className="px-4 py-3 border-t border-gray-200 bg-white flex items-center gap-3">
               {/* Page avatar */}
@@ -426,9 +606,17 @@ export default function AdminChatPage() {
                 <AvatarFallback className="bg-gray-200 text-gray-600 text-xs font-bold">AS</AvatarFallback>
               </Avatar>
 
-              {/* Input field */}
+              {/* Hidden file inputs */}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-              <div className="flex-1 flex items-center bg-[#f0f2f5] rounded-full px-4 py-2">
+              <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoSelect} />
+
+              <div className="flex-1 flex items-center bg-[#f0f2f5] rounded-full px-4 py-2.5 gap-2.5 border border-gray-100 shadow-sm">
+                {/* 1. Sticker Picker */}
+                <button onClick={() => setShowStickerPicker(v => !v)}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0" title="Stickers">
+                  <Smile className="w-5 h-5" />
+                </button>
+
                 <input
                   ref={inputRef}
                   value={input}
@@ -437,43 +625,40 @@ export default function AdminChatPage() {
                   placeholder="Trả lời trong Messenger..."
                   className="flex-1 bg-transparent text-sm outline-none text-gray-800 placeholder-gray-500"
                 />
-              </div>
 
-              {/* Action icons */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSending}
-                  className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
-                  title="Đính kèm ảnh"
-                >
+                {/* 2. Image Select */}
+                <button onClick={() => fileInputRef.current?.click()} disabled={isSending}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 disabled:opacity-40"
+                  title="Gửi ảnh">
                   <ImageIcon className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={() => setIsPinModalOpen(true)}
-                  className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors"
-                  title="Ghim sản phẩm"
-                >
-                  <Pin className="w-5 h-5" />
+
+                {/* 3. Video Select */}
+                <button onClick={() => videoInputRef.current?.click()} disabled={isSending}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0 disabled:opacity-40"
+                  title="Gửi video">
+                  <Video className="w-5 h-5" />
                 </button>
-                {input.trim() ? (
-                  <button
-                    onClick={handleSend}
-                    disabled={isSending}
-                    className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
-                  >
-                    {isSending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
+
+                {/* 4. Pin Product */}
+                <button onClick={() => setIsPinModalOpen(true)}
+                  className="text-gray-400 hover:text-blue-500 transition-colors shrink-0"
+                  title="Ghim sản phẩm">
+                  <Pin className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+
+              {/* Action icons (outside the pill) */}
+              <div className="flex items-center shrink-0">
+                {(input.trim() || pendingImage || pendingVideo) ? (
+                  <button onClick={handleSend} disabled={isSending}
+                    className="w-10 h-10 flex items-center justify-center bg-[#0084ff] hover:bg-blue-600 text-white rounded-full transition-all disabled:opacity-50 active:scale-95 shadow-sm">
+                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   </button>
                 ) : (
-                  <button
-                    className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors"
-                    title="Gửi like"
-                  >
-                    <span className="text-lg">👍</span>
+                  <button onClick={() => handleSendSticker("https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif")}
+                    className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all active:scale-95" title="Gửi like">
+                    <span className="text-xl">👍</span>
                   </button>
                 )}
               </div>

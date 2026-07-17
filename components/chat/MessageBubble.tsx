@@ -1,18 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { Check, CheckCheck } from "lucide-react";
+import { Check, CheckCheck, Loader2, AlertCircle, RotateCcw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage } from "@/app/types/chat.types";
 import PinnedProductCard from "./PinnedProductCard";
-import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { formatDate } from "@/lib/dateUtils";
 
 interface Props {
   message: ChatMessage;
   isOwn: boolean;
   isLast?: boolean;
+  onRetry?: (message: ChatMessage) => void;
 }
 
 const getFullImageUrl = (url?: string) => {
@@ -46,14 +45,12 @@ function parseMessageContent(content: string): { cleanText: string; cardMeta: Pa
       cleanText = content.replace(/\[CARD_META:[^\]]+\]/, "").trim();
     } catch {}
   }
-
   const stickerMatch = cleanText.match(/^\[STICKER:([^\]]+)\]$/);
   let stickerUrl = "";
   if (stickerMatch) {
     stickerUrl = stickerMatch[1];
     cleanText = "";
   }
-
   return { cleanText, cardMeta, stickerUrl };
 }
 
@@ -62,24 +59,27 @@ const isVideoFile = (url?: string) => {
   return url.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi|3gp)$/) || url.includes("/video/upload/");
 };
 
-export default function MessageBubble({ message, isOwn, isLast }: Props) {
-  const time = message.createdAt
-    ? formatDate(message.createdAt, "HH:mm")
-    : "";
-
+export default function MessageBubble({ message, isOwn, isLast, onRetry }: Props) {
+  const time = message.createdAt ? formatDate(message.createdAt, "HH:mm") : "";
   const { cleanText, cardMeta, stickerUrl } = parseMessageContent(message.content || "");
+  const sendStatus = message.status;
+  const isError = sendStatus === "error";
+  const isSending = sendStatus === "sending";
 
   return (
     <div className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
-      {!isOwn && (
+      {!isOwn ? (
         <Avatar className="w-7 h-7 shrink-0">
           <AvatarImage src={message.senderAvatar} />
           <AvatarFallback className="text-xs bg-gray-200 text-gray-600 font-medium">
             {message.senderName?.charAt(0) ?? "?"}
           </AvatarFallback>
         </Avatar>
+      ) : (
+        <div className="relative w-7 h-7 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
+          <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" unoptimized />
+        </div>
       )}
-
       <div className={`flex flex-col gap-0.5 max-w-[65%] ${isOwn ? "items-end" : "items-start"}`}>
         {stickerUrl ? (
           <div className="relative overflow-hidden max-w-[80px] select-none p-1">
@@ -88,11 +88,7 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
         ) : message.messageType === "PINNED_PRODUCT" && message.pinnedProduct ? (
           <div className="flex flex-col gap-1">
             {message.content && (
-              <div className={`px-3 py-2 text-[15px] leading-relaxed ${
-                isOwn
-                  ? "bg-[#0084ff] text-white rounded-[18px] rounded-br-[4px]"
-                  : "bg-[#f0f0f0] text-gray-900 rounded-[18px] rounded-bl-[4px]"
-              }`}>
+              <div className={`px-3 py-2 text-[15px] leading-relaxed ${isOwn ? "bg-[#0084ff] text-white rounded-[18px] rounded-br-[4px]" : "bg-[#f0f0f0] text-gray-900 rounded-[18px] rounded-bl-[4px]"}`}>
                 {message.content}
               </div>
             )}
@@ -101,49 +97,29 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
         ) : message.messageType === "IMAGE" && message.imageUrl ? (
           isVideoFile(message.imageUrl) ? (
             <div className="relative overflow-hidden max-w-[220px] rounded-lg">
-              <video 
-                controls 
-                src={message.imageUrl} 
-                className="w-full max-h-[220px] object-cover bg-black" 
-              />
+              <video controls src={message.imageUrl} className="w-full max-h-[220px] object-cover bg-black" />
             </div>
           ) : (
-            <div
-              className="relative overflow-hidden max-w-[220px] cursor-pointer rounded-lg"
-              onClick={() => window.open(message.imageUrl, "_blank")}
-            >
-              <Image
-                src={message.imageUrl}
-                alt="Ảnh chat"
-                width={220}
-                height={220}
-                className="object-cover hover:opacity-90 transition-opacity"
-              />
+            <div className="relative overflow-hidden max-w-[220px] cursor-pointer rounded-lg" onClick={() => window.open(message.imageUrl, "_blank")}>
+              <Image src={message.imageUrl} alt="Ảnh chat" width={220} height={220} className="object-cover hover:opacity-90 transition-opacity" />
             </div>
           )
         ) : (
           <div className="flex flex-col gap-1.5">
             {cleanText && (
-              <div className={`px-3 py-2 text-[15px] leading-relaxed ${
-                isOwn
-                  ? "bg-[#0084ff] text-white rounded-[18px] rounded-br-[4px]"
-                  : "bg-[#f0f0f0] text-gray-900 rounded-[18px] rounded-bl-[4px]"
-              }`}>
+              <div className={`px-3 py-2 text-[15px] leading-relaxed ${isOwn ? (isError ? "bg-red-50 border border-red-200 text-gray-900 rounded-[18px] rounded-br-[4px]" : "bg-[#0084ff] text-white rounded-[18px] rounded-br-[4px]") : "bg-[#f0f0f0] text-gray-900 rounded-[18px] rounded-bl-[4px]"}`}>
                 {cleanText}
               </div>
             )}
             {cardMeta && (
-              <div 
-                onClick={() => window.open(`/san-pham/${cardMeta.slug}`, "_blank")}
-                className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-700 rounded-xl p-2.5 shadow-sm hover:shadow-md cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800/80 max-w-[280px]"
-              >
-                <div className="w-14 h-14 relative rounded bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 overflow-hidden shrink-0">
+              <div onClick={() => window.open(`/san-pham/${cardMeta.slug}`, "_blank")} className="flex items-center gap-3 bg-white border rounded-xl p-2.5 shadow-sm hover:shadow-md cursor-pointer transition-all hover:bg-slate-50 max-w-[280px]">
+                <div className="w-14 h-14 relative rounded bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
                   <img src={getFullImageUrl(cardMeta.imageUrl)} alt="product" className="object-contain w-full h-full p-0.5" />
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                  <h4 className="text-[12px] font-bold text-gray-800 dark:text-gray-100 line-clamp-2 leading-snug">{cardMeta.name}</h4>
+                  <h4 className="text-[12px] font-bold text-gray-800 line-clamp-2 leading-snug">{cardMeta.name}</h4>
                   <div className="flex items-baseline justify-between mt-1">
-                    <span className="text-[12px] font-extrabold text-red-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cardMeta.price)}</span>
+                    <span className="text-[12px] font-extrabold text-red-500">{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(cardMeta.price)}</span>
                     <span className="text-[9px] font-medium text-blue-500 hover:underline shrink-0">Xem chi tiết</span>
                   </div>
                 </div>
@@ -151,14 +127,22 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
             )}
           </div>
         )}
-
-        {/* Time + read receipt */}
         <div className={`flex items-center gap-1 px-0.5 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
           <span className="text-[11px] text-gray-400">{time}</span>
-          {isOwn && isLast && (
-            message.isRead
-              ? <CheckCheck className="w-3.5 h-3.5 text-[#0084ff]" />
-              : <Check className="w-3.5 h-3.5 text-gray-400" />
+          {isOwn && (
+            <>
+              {isSending && <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />}
+              {isError && (
+                <button onClick={() => onRetry?.(message)} className="flex items-center gap-1 text-[10px] text-red-500 hover:text-red-600 font-medium transition-colors" title="Gửi lại tin nhắn">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Lỗi · Gửi lại</span>
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              )}
+              {!isSending && !isError && isLast && (
+                message.isRead ? <CheckCheck className="w-3.5 h-3.5 text-[#0084ff]" /> : <Check className="w-3.5 h-3.5 text-gray-400" />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -166,14 +150,11 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
   );
 }
 
-/** Typing dots indicator */
 export function TypingBubble({ name }: { name?: string }) {
   return (
     <div className="flex items-end gap-2">
       <Avatar className="w-7 h-7 shrink-0">
-        <AvatarFallback className="text-xs bg-gray-200 text-gray-600 font-medium">
-          {name?.charAt(0) ?? "S"}
-        </AvatarFallback>
+        <AvatarFallback className="text-xs bg-gray-200 text-gray-600 font-medium">{name?.charAt(0) ?? "S"}</AvatarFallback>
       </Avatar>
       <div className="bg-[#f0f0f0] rounded-[18px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1">
         <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />

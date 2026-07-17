@@ -9,11 +9,12 @@ import { MessageCircle, Search, ArrowLeft, Star } from "lucide-react";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import Link from "next/link";
 
-type FilterTab = "all" | "unread";
+type FilterTab = "all" | "unread" | "attention";
 
 const TABS: Array<{ id: FilterTab; label: string }> = [
   { id: "all", label: "Tất cả" },
   { id: "unread", label: "Chưa đọc" },
+  { id: "attention", label: "Cần chú ý" },
 ];
 
 interface Props {
@@ -27,6 +28,18 @@ interface Props {
 export default function ConversationSidebar({ conversations, activeId, onSelect, isLoading, starredIds }: Props) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
+
+  const isAttentionConversation = (c: Conversation) => {
+    if (!c.lastMessageAt || c.status !== "OPEN") return false;
+    try {
+      const lastMsgTime = parseLocalDateTime(c.lastMessageAt);
+      const elapsedHours = (Date.now() - lastMsgTime.getTime()) / (1000 * 60 * 60);
+      return elapsedHours > 5;
+    } catch {
+      return false;
+    }
+  };
 
   const filtered = conversations.filter((c) => {
     const q = query.trim().toLowerCase();
@@ -37,10 +50,19 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
 
     const matchesTab =
       activeTab === "all" ||
-      (activeTab === "unread" && c.unreadByShop > 0);
+      (activeTab === "unread" && c.unreadByShop > 0) ||
+      (activeTab === "attention" && isAttentionConversation(c));
 
     return matchesQuery && matchesTab;
   });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const timeA = a.lastMessageAt ? parseLocalDateTime(a.lastMessageAt).getTime() : 0;
+    const timeB = b.lastMessageAt ? parseLocalDateTime(b.lastMessageAt).getTime() : 0;
+    return sortBy === "newest" ? timeB - timeA : timeA - timeB;
+  });
+
+  const unresolvedCount = conversations.filter((c) => c.status === "OPEN").length;
 
   if (isLoading) {
     return (
@@ -62,39 +84,55 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
     <div className="flex flex-col h-full">
       {/* Sidebar Header with Title & Back to Dashboard */}
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <img src="/images/logo_arishrimp_tachnen.png" className="w-6 h-6 object-contain" alt="AgriShrimp" />
-          <h2 className="text-lg font-bold text-gray-900">Đoạn chat</h2>
+          <h2 className="text-sm font-black text-gray-900 truncate">Đoạn chat</h2>
+          {unresolvedCount > 0 && (
+            <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0">
+              {unresolvedCount} chưa xử lý
+            </span>
+          )}
         </div>
         <Link
           href="/admin"
-          className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline"
+          className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline shrink-0"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Quản trị
         </Link>
       </div>
 
-      {/* Search */}
-      <div className="px-3 py-2 border-b border-gray-200">
+      {/* Search & Sort Row */}
+      <div className="px-3 py-2 border-b border-gray-200 flex flex-col gap-1.5 bg-white shrink-0">
         <div className="flex items-center gap-2 bg-[#f0f2f5] rounded-full px-3 py-1.5">
           <Search className="w-4 h-4 text-gray-500 shrink-0" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Tìm kiếm"
-            className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-500"
+            className="flex-1 bg-transparent text-xs outline-none text-gray-700 placeholder-gray-500"
           />
+        </div>
+        <div className="flex items-center justify-between px-1 text-[10px] text-gray-400">
+          <span>Sắp xếp:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "newest" | "oldest")}
+            className="bg-transparent font-bold text-gray-600 outline-none cursor-pointer hover:text-blue-600 border-none p-0 focus:ring-0 text-[10px]"
+          >
+            <option value="newest">Mới nhất trước</option>
+            <option value="oldest">Cũ nhất trước</option>
+          </select>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-0 border-b border-gray-200 px-1">
+      <div className="flex items-center gap-0 border-b border-gray-200 px-1 bg-white shrink-0">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 text-center py-2.5 text-[13px] font-medium transition-colors relative ${
+            className={`flex-1 text-center py-2 text-xs font-bold transition-colors relative ${
               activeTab === tab.id
                 ? "text-[#0084ff]"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -110,13 +148,13 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {sorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2">
             <MessageCircle className="w-8 h-8 opacity-40" />
             <p className="text-sm">{query ? "Không tìm thấy kết quả" : "Chưa có cuộc trò chuyện"}</p>
           </div>
         ) : (
-          filtered.map((conv) => {
+          sorted.map((conv) => {
             const isActive = conv.id === activeId;
             const hasUnread = conv.unreadByShop > 0;
             const timeAgo = conv.lastMessageAt
@@ -182,10 +220,15 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                     </p>
                   </div>
                   {/* Tags row */}
-                  <div className="flex items-center gap-1.5 mt-1">
+                  <div className="flex items-center justify-between gap-1.5 mt-1">
                     <span className="text-[11px] text-gray-400">
                       {conv.status === "OPEN" ? "● Tiếp nhận" : "○ Đã đóng"}
                     </span>
+                    {isAttentionConversation(conv) && (
+                      <span className="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-100 font-bold shrink-0 animate-pulse">
+                        ⚠️ Chờ &gt; 5h
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>
