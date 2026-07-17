@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowRight,
   BellDot,
@@ -231,9 +231,29 @@ export default function AdvisorInboxWorkspace() {
     };
   }, [activeConversationId, setMessages]);
 
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (!bottomRef.current) return;
+    bottomRef.current.scrollIntoView({
+      behavior: smooth ? "smooth" : "auto",
+      block: "end",
+    });
+  }, []);
+
+  // Instant scroll on active conversation change or load completion
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeMessages.length]);
+    const timer = setTimeout(() => {
+      scrollToBottom(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [activeConversationId, isLoadingMessages, scrollToBottom]);
+
+  // Smooth scroll when new messages are added
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToBottom(true);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [activeMessages.length, scrollToBottom]);
 
   const filteredConversations = conversations.filter((conversation) => {
     const normalizedQuery = query.trim().toLowerCase();
