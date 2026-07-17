@@ -32,7 +32,7 @@ export function formatMessageTimestamp(
   return format(messageDate, "P p", { locale: vi });
 }
 
-export function formatDate(date: string | number | Date, pattern: string = "dd/MM/yyyy HH:mm"): string {
+export function formatDate(date: unknown, pattern: string = "dd/MM/yyyy HH:mm"): string {
   try {
     const d = parseAppDate(date);
     if (isNaN(d.getTime())) return "N/A";
@@ -47,14 +47,20 @@ export function formatDate(date: string | number | Date, pattern: string = "dd/M
  * new Date("2026-07-17T14:51:00") would treat it as UTC and shift by +7h in Vietnam.
  * This function constructs the Date correctly in the browser's local timezone.
  */
-export function parseLocalDateTime(date: string | number | Date): Date {
+export function parseLocalDateTime(date: unknown): Date {
   return parseAppDate(date);
 }
 
-function parseAppDate(date: string | number | Date): Date {
+function parseAppDate(date: string | number | Date | unknown): Date {
 
   if (date instanceof Date) {
     return date;
+  }
+
+  // Handle Java LocalDateTime serialized as array: [year, month, day, hour, min, sec, nano?]
+  if (Array.isArray(date)) {
+    const [year, month, day, hour = 0, minute = 0, second = 0, nano = 0] = date as number[];
+    return new Date(year, month - 1, day, hour, minute, second, Math.floor(nano / 1_000_000));
   }
 
   if (typeof date === "number") {
@@ -62,6 +68,7 @@ function parseAppDate(date: string | number | Date): Date {
   }
 
   if (typeof date === "string") {
+    // Remove trailing Z to treat string as local time (not UTC)
     const trimmed = date.trim().replace(/Z$/, "");
     const localDateTimeMatch = trimmed.match(
       /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,9}))?$/
@@ -83,7 +90,7 @@ function parseAppDate(date: string | number | Date): Date {
     }
   }
 
-  // Handle case where Date constructors fallback to raw string, clean it first too
-  const rawDateStr = typeof date === "string" ? date.trim().replace(/Z$/, "") : date;
+  // Fallback: let browser parse - remove trailing Z to avoid UTC interpretation
+  const rawDateStr = typeof date === "string" ? date.trim().replace(/Z$/, "") : String(date);
   return new Date(rawDateStr);
 }

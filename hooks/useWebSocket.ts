@@ -23,7 +23,7 @@ export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const { user, accessToken, isAuthenticated } = useAuthStore();
-  const { addMessage, updateConversationLastMsg, addOrUpdateConversation } = useChatStore();
+  const { addMessage, updateConversationLastMsg, addOrUpdateConversation, markConvRead } = useChatStore();
   const { addNotification } = useNotificationStore();
   const { setTyping } = useTypingStore();
   const roleSlug = (user as any)?.role?.slug as string | undefined;
@@ -79,7 +79,13 @@ export function useWebSocket() {
           `/user/queue/messages`,
           (frame) => {
             try {
-              const msg: ChatMessage = JSON.parse(frame.body);
+              const payload = JSON.parse(frame.body);
+              // READ_RECEIPT: admin read our messages → update isRead state
+              if (payload.type === "READ_RECEIPT") {
+                markConvRead(payload.conversationId as number, false); // false = not customer read
+                return;
+              }
+              const msg: ChatMessage = payload as ChatMessage;
               addMessage(msg);
               updateConversationLastMsg(msg.conversationId, msg);
             } catch {}
@@ -152,7 +158,7 @@ export function useWebSocket() {
 
     clientRef.current = client;
     client.activate();
-  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage]);
+  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage, markConvRead]);
 
   useEffect(() => {
     connect();
