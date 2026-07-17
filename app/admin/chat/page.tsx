@@ -271,7 +271,7 @@ export default function AdminChatPage() {
                 ))
               )}
               {activeConversationId && typingByConv[activeConversationId] && (
-                <TypingBubble />
+                <TypingBubble name={activeConv?.customerName || "Khách hàng"} />
               )}
               <div ref={bottomRef} />
             </div>

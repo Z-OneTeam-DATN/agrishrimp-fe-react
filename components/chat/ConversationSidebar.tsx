@@ -5,8 +5,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Conversation } from "@/app/types/chat.types";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle, Search, ArrowLeft } from "lucide-react";
 import { parseLocalDateTime } from "@/lib/dateUtils";
+import Link from "next/link";
 
 type FilterTab = "all" | "unread" | "assigned";
 
@@ -60,6 +61,18 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
 
   return (
     <div className="flex flex-col h-full">
+      {/* Sidebar Header with Title & Back to Dashboard */}
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
+        <h2 className="text-lg font-bold text-gray-900">Đoạn chat</h2>
+        <Link
+          href="/admin"
+          className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Quản trị
+        </Link>
+      </div>
+
       {/* Search */}
       <div className="px-3 py-2 border-b border-gray-200">
         <div className="flex items-center gap-2 bg-[#f0f2f5] rounded-full px-3 py-1.5">

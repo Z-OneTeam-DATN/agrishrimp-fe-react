@@ -652,7 +652,7 @@ export default function AdvisorInboxWorkspace() {
                         />
                       ))}
                       {activeConversationId && typingByConv[activeConversationId] ? (
-                        <TypingBubble />
+                        <TypingBubble name={activeConversation?.customerName || "Khách hàng"} />
                       ) : null}
                       <div ref={bottomRef} />
                     </div>
