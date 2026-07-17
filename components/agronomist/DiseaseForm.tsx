@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import { ProductService } from "@/app/services/product.service";
+import ProductMultiSelect from "@/components/agronomist/ProductMultiSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ type KnowledgeStageForm = {
   stageTitle: string;
   instructionsText: string;
   productIds: number[];
+  extraProductNamesText: string;
 };
 
 type DiseaseFormState = {
@@ -46,7 +48,12 @@ type DiseaseFormState = {
   treatmentStages: KnowledgeStageForm[];
 };
 
-const EMPTY_STAGE: KnowledgeStageForm = { stageTitle: "", instructionsText: "", productIds: [] };
+const EMPTY_STAGE: KnowledgeStageForm = {
+  stageTitle: "",
+  instructionsText: "",
+  productIds: [],
+  extraProductNamesText: "",
+};
 
 function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
   if (!item) {
@@ -92,6 +99,7 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
             stageTitle: stage.stageTitle,
             instructionsText: stage.instructions.join("\n"),
             productIds: stage.productIds ?? [],
+            extraProductNamesText: (stage.extraProductNames ?? []).join("\n"),
           }))
         : [EMPTY_STAGE],
   };
@@ -141,6 +149,7 @@ export default function DiseaseForm({
           stageTitle: stage.stageTitle,
           instructions: stage.instructionsText.split("\n").map((item) => item.trim()).filter(Boolean),
           productIds: stage.productIds,
+          extraProductNames: stage.extraProductNamesText.split("\n").map((item) => item.trim()).filter(Boolean),
         })),
       };
       if (form.id) {
@@ -321,33 +330,36 @@ export default function DiseaseForm({
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10.5px] font-semibold text-slate-500">Sản phẩm áp dụng</Label>
-                  <select
-                    multiple
-                    value={stage.productIds.map(String)}
-                    onChange={(event) =>
-                      updateStage(index, {
-                        productIds: Array.from(event.target.selectedOptions).map((option) => Number(option.value)),
-                      })
-                    }
-                    className="min-h-[104px] w-full rounded-[4px] border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition focus:border-blue-500"
-                  >
-                    {productOptions.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.label}
-                      </option>
-                    ))}
-                  </select>
+                  <ProductMultiSelect
+                    options={productOptions}
+                    value={stage.productIds}
+                    onChange={(productIds) => updateStage(index, { productIds })}
+                  />
                 </div>
               </div>
-              <div className="mt-4 space-y-2">
-                <Label className="text-[10.5px] font-semibold text-slate-500">Hướng dẫn (mỗi dòng một ý)</Label>
-                <Textarea
-                  value={stage.instructionsText}
-                  onChange={(event) => updateStage(index, { instructionsText: event.target.value })}
-                  rows={4}
-                  placeholder={"Kiểm tra môi trường ao\nGiảm sốc\nTheo dõi sức ăn"}
-                  className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
-                />
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-[10.5px] font-semibold text-slate-500">Hướng dẫn (mỗi dòng một ý)</Label>
+                  <Textarea
+                    value={stage.instructionsText}
+                    onChange={(event) => updateStage(index, { instructionsText: event.target.value })}
+                    rows={4}
+                    placeholder={"Kiểm tra môi trường ao\nGiảm sốc\nTheo dõi sức ăn"}
+                    className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10.5px] font-semibold text-slate-500">
+                    Tên thuốc/sản phẩm khác (chưa có trong catalog, mỗi dòng một tên)
+                  </Label>
+                  <Textarea
+                    value={stage.extraProductNamesText}
+                    onChange={(event) => updateStage(index, { extraProductNamesText: event.target.value })}
+                    rows={4}
+                    placeholder={"Vitamin C bổ sung\nMen vi sinh XYZ"}
+                    className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
+                  />
+                </div>
               </div>
             </div>
           ))}

@@ -23,6 +23,7 @@ export interface AiKnowledgeTreatmentStage {
   instructions: string[];
   productIds: number[];
   products: AiSuggestedProduct[];
+  extraProductNames: string[];
 }
 
 export interface AiKeywordAnswerSet {

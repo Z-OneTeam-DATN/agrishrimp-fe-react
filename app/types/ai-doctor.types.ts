@@ -11,6 +11,7 @@ export interface AiDoctorTreatmentStage {
   stageTitle: string;
   instructions: string[];
   products: AiDoctorSuggestedProduct[];
+  extraProductNames?: string[];
 }
 
 export interface AiDoctorDiseaseInfo {

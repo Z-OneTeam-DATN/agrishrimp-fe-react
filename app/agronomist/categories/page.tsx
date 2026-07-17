@@ -29,7 +29,6 @@ interface FormState {
   name: string;
   slug: string;
   description: string;
-  sortOrder: number;
   enabled: boolean;
 }
 
@@ -38,7 +37,7 @@ interface FormErrors {
   general?: string;
 }
 
-const EMPTY_FORM: FormState = { name: "", slug: "", description: "", sortOrder: 0, enabled: true };
+const EMPTY_FORM: FormState = { name: "", slug: "", description: "", enabled: true };
 const PAGE_SIZE = 20;
 
 const ErrorMessage = ({ message }: { message?: string }) => {
@@ -101,7 +100,6 @@ export default function AgronomistCategoriesPage() {
       name: category.name,
       slug: category.slug,
       description: category.description ?? "",
-      sortOrder: category.sortOrder,
       enabled: category.enabled,
     });
     setFormErrors({});
@@ -127,7 +125,6 @@ export default function AgronomistCategoriesPage() {
         name: form.name.trim(),
         slug: form.slug.trim() || undefined,
         description: form.description.trim() || undefined,
-        sortOrder: Number(form.sortOrder || 0),
         enabled: form.enabled,
       };
       if (editingId) {
@@ -373,15 +370,6 @@ export default function AgronomistCategoriesPage() {
                 placeholder="Nhóm bệnh do virus hoặc tác nhân lây nhiễm nhanh."
                 rows={3}
                 className="min-h-[88px] resize-none rounded-[4px] bg-white text-[13px] shadow-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10.5px] font-semibold text-slate-500">Thứ tự</Label>
-              <Input
-                type="number"
-                value={form.sortOrder}
-                onChange={(event) => setForm((current) => ({ ...current, sortOrder: Number(event.target.value) }))}
-                className="h-[38px] rounded-[4px] bg-white text-[13px] shadow-none"
               />
             </div>
             <label className="flex items-center gap-2 text-[13px] text-slate-600">

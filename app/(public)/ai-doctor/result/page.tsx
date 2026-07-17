@@ -161,11 +161,22 @@ function StageCard({
               Tiền thuốc bước này: <span className="text-[#376E60]">{formatPrice(subtotal)}</span>
             </div>
           </div>
-        ) : (
+        ) : !stage.extraProductNames?.length ? (
           <div className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm italic text-slate-400">
             Bước này bác sĩ chưa có gợi ý sản phẩm cụ thể.
           </div>
-        )}
+        ) : null}
+
+        {stage.extraProductNames?.length ? (
+          <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+              Sản phẩm khác được đề xuất
+            </div>
+            <p className="text-sm leading-relaxed text-slate-600">
+              {stage.extraProductNames.join(", ")} — chưa có trên cửa hàng, vui lòng liên hệ để được tư vấn thêm.
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );
