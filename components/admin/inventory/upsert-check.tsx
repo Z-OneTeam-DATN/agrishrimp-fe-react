@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -683,7 +684,7 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("Đã gửi phiếu kiểm kê sang bước chờ admin duyệt cân bằng");
+      toast.success("Đã gửi phiếu kiểm kê sang bước chờ duyệt cân bằng");
       router.push("/admin/inventory-checks");
     } catch (error) {
       console.error(error);
@@ -852,17 +853,18 @@ export default function InventoryUpsert({
               <Label className="text-[10px] font-medium text-slate-400">
                 Ngày kiểm kê
               </Label>
-              <Input
-                type="date"
+              <SharedDatePicker
                 disabled={mode === "view"}
-                className="h-9 rounded-md border-slate-200 bg-white text-[13px]"
                 value={formData.checkDate}
-                onChange={(e) =>
+                onChange={(nextValue) =>
                   setFormData((prev) => ({
                     ...prev,
-                    checkDate: e.target.value,
+                    checkDate: nextValue,
                   }))
                 }
+                placeholder="Chọn ngày kiểm kê"
+                variant="compact"
+                buttonClassName="h-9 rounded-md border-slate-200 bg-white text-[13px]"
               />
             </div>
 

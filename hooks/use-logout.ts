@@ -2,48 +2,43 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AuthService } from "@/app/services/auth.service";
-import { useAuthStore } from "@/stores/useAuthStore";
-import { toast } from "sonner";
 
 /**
  * useLogout Hook
  * Handles:
  * 1. POST request to Next.js API route (/api/auth/logout)
- * 2. Clears Zustand auth store
- * 3. Clears React Query cache
- * 4. Redirects to /login
+ * 2. Clears client-side session cache
+ * 3. Redirects straight to /login without flashing admin access-denied UI
  */
 export const useLogout = () => {
   const queryClient = useQueryClient();
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  const redirectToLogin = () => {
+    // Do not clear the in-memory auth store before navigation.
+    // Clearing it while still on /admin makes the layout briefly render
+    // the "không có quyền truy cập" state before the browser leaves the page.
+    try {
+      sessionStorage.removeItem("_u");
+      sessionStorage.removeItem("_p");
+    } catch {
+      // ignore sessionStorage failures
+    }
+
+    queryClient.clear();
+    window.location.replace("/login");
+  };
 
   const mutation = useMutation({
     mutationFn: () => AuthService.logoutNext(), // Gọi API Route (Xóa Cookie)
     
     onSuccess: () => {
-      // 1. Xóa thông tin trong Zustand
-      clearAuth();
-
-      // 2. Xóa toàn bộ React Query cache (Queries + Mutations)
-      queryClient.clear();
-
-      // 3. Xóa cache user khỏi sessionStorage
-      try { sessionStorage.removeItem("_u"); } catch { /* ignore sessionStorage failures */ }
-
-      // 4. Thông báo cho người dùng
-      toast.success("Bạn đã đăng xuất thành công.");
-
-      // 5. Điều hướng cưỡng bức về trang Login (Hard redirect)
-      window.location.href = "/login";
+      redirectToLogin();
     },
 
     onError: (error) => {
       console.error("Logout process error:", error);
-      // Dù có lỗi API vẫn nên ép logout ở phía FE
-      clearAuth();
-      queryClient.clear();
-      try { sessionStorage.removeItem("_u"); } catch { /* ignore sessionStorage failures */ }
-      window.location.href = "/login";
+      // Dù có lỗi API vẫn điều hướng rời khỏi trang hiện tại để tránh flash forbidden UI
+      redirectToLogin();
     }
   });
 

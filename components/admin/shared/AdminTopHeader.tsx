@@ -35,7 +35,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
-import { isAdminRole } from "@/lib/roles";
 import { P } from "@/lib/permissions";
 import {
   ADMIN_ORDER_STATUS_PAGES,
@@ -141,6 +140,12 @@ export default function AdminTopHeader() {
   const { hasPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const canAccessAdvisorWorkspace = hasAnyPermission(
+    ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
+  const canAccessAgronomistWorkspace = hasAnyPermission(
+    AGRONOMIST_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
   const shouldFetchBranchDirectory =
     !!accessToken &&
     hasPermission(P.BRANCH_VIEW) &&
@@ -250,7 +255,7 @@ export default function AdminTopHeader() {
 
     if (user?.branch?.name) return user.branch.name;
 
-    if (isAdminRole(user?.role) && !warehouseId) {
+    if (!warehouseId) {
       return "Toàn hệ thống";
     }
 
@@ -270,7 +275,7 @@ export default function AdminTopHeader() {
       if (currentBranch) return currentBranch.name;
     }
 
-    if (isAdminRole(user?.role)) {
+    if (!warehouseId) {
       return branchList.length > 0 ? "Toàn hệ thống" : "Chưa có chi nhánh";
     }
 
@@ -324,6 +329,25 @@ export default function AdminTopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
+        {canAccessAdvisorWorkspace ? (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
+            <Link href="/chat">Qua chat</Link>
+          </Button>
+        ) : null}
+        {canAccessAgronomistWorkspace ? (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
+            <Link href="/agronomist">Qua AI Doctor</Link>
+          </Button>
+        ) : null}
+
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
           <MapPin size={14} className="text-blue-600" />
           <span className="text-[12px] font-bold text-blue-700">
@@ -369,7 +393,7 @@ export default function AdminTopHeader() {
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  {isAdminRole(user?.role)
+                  {!warehouseId
                     ? "Quyền hạn cao nhất"
                     : "Thông tin tài khoản"}
                 </span>

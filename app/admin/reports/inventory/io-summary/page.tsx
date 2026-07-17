@@ -7,9 +7,9 @@ import {
   Download,
   Printer,
   HelpCircle,
-  Calendar,
   Search,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -66,15 +66,13 @@ export default function InventoryIOSummaryReportPage() {
       <div className="px-6 py-2 flex items-center gap-4 bg-white/50">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium text-slate-700">Thời gian</span>
-          <div className="relative">
-            <Input
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              placeholder="dd/mm/yyyy"
-              className="h-8 w-[160px] pr-8 text-[13px] border-slate-300 rounded-none shadow-none"
-            />
-            <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-          </div>
+          <SharedDatePicker
+            value={selectedDate}
+            onChange={setSelectedDate}
+            placeholder="Chọn ngày"
+            variant="compact"
+            buttonClassName="h-8 w-[160px] border-slate-300 rounded-none text-[13px] shadow-none"
+          />
         </div>
         <Select defaultValue="all">
           <SelectTrigger className="h-8 w-[100px] text-[13px] border-slate-300 rounded-none shadow-none bg-white">

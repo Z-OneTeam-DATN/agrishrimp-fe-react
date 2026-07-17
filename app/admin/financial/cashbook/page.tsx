@@ -11,6 +11,7 @@ import {
   Search,
   Wallet,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -48,7 +49,6 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string };
 type ChartMode = "day" | "month";
@@ -91,12 +91,12 @@ const formatPaymentMethod = (value?: string) => {
 
 export default function CashbookPage() {
   const { user, warehouseId } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    isAdmin ? "all" : ownBranchId || "all",
+    canSelectAllBranches ? "all" : ownBranchId || "all",
   );
   const [startDate, setStartDate] = useState(toIso(defaultStart));
   const [endDate, setEndDate] = useState(toIso(today));
@@ -123,7 +123,7 @@ export default function CashbookPage() {
         const list = Array.isArray(branchRes)
           ? branchRes
           : branchRes?.data || branchRes?.content || [];
-        if (!isAdmin && ownBranchId) {
+        if (!canSelectAllBranches && ownBranchId) {
           setBranches(
             list.filter(
               (item: BranchOption) => item.id.toString() === ownBranchId,
@@ -141,13 +141,13 @@ export default function CashbookPage() {
     };
 
     fetchInitial();
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
-    if (!isAdmin && ownBranchId) {
+    if (!canSelectAllBranches && ownBranchId) {
       setSelectedBranchId(ownBranchId);
     }
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   const fetchCashbook = useCallback(async () => {
     try {
@@ -378,12 +378,12 @@ export default function CashbookPage() {
               <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
                 <SelectTrigger
                   className="h-[38px] w-full min-w-[220px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0 lg:w-[260px]"
-                  disabled={!isAdmin}
+                  disabled={!canSelectAllBranches}
                 >
                   <SelectValue placeholder="Tất cả chi nhánh" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {canSelectAllBranches && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id.toString()}>
                       {branch.name}
@@ -397,11 +397,12 @@ export default function CashbookPage() {
               <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Từ ngày
               </p>
-              <Input
-                type="date"
+              <SharedDatePicker
                 value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+                onChange={setStartDate}
+                placeholder="Chọn ngày"
+                variant="compact"
+                buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
               />
             </div>
 
@@ -409,11 +410,12 @@ export default function CashbookPage() {
               <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                 Đến ngày
               </p>
-              <Input
-                type="date"
+              <SharedDatePicker
                 value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+                onChange={setEndDate}
+                placeholder="Chọn ngày"
+                variant="compact"
+                buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
               />
             </div>
           </div>

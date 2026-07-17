@@ -118,7 +118,6 @@ export default function EmployeeManagementPage() {
     { label: "Tất cả trạng thái", value: "all" },
     { label: "Đang hoạt động", value: "ACTIVE" },
     { label: "Tạm khóa", value: "INACTIVE" },
-    { label: "Bị chặn", value: "BANNED" },
   ];
 
   return (
@@ -133,6 +132,7 @@ export default function EmployeeManagementPage() {
         <AdminSearchFilter 
           placeholder="Tìm tên, email, SĐT hoặc CCCD..." 
           containerClassName="bg-transparent border-b-0 px-0 pt-0"
+          hideSort
           filter1Placeholder="Tất cả chi nhánh"
           filter1Options={branches}
           onFilter1Change={(val) => setFilters(f => ({...f, branchId: val, page: 0}))}

@@ -1,5 +1,5 @@
 import { apiJava } from '@/lib/axios'
-import { UserRequest, UserResponse, PageResponse, CitizenLookupResponse } from '@/app/types/employee.schema'
+import { UserRequest, UserResponse, PageResponse, EmployeeCitizenIdOcrResponse } from '@/app/types/employee.schema'
 
 export class EmployeeService {
   private static readonly PREFIX = '/employees'
@@ -8,6 +8,7 @@ export class EmployeeService {
     keyword?: string;
     roleId?: number;
     branchId?: number;
+    permissionCode?: string;
     status?: string;
     page?: number;
     size?: number;
@@ -24,6 +25,18 @@ export class EmployeeService {
 
   static async create(data: UserRequest): Promise<UserResponse> {
     const response = await apiJava.post<UserResponse>(`${this.PREFIX}`, data)
+    return response.data
+  }
+
+  static async ocrCitizenId(file: File): Promise<EmployeeCitizenIdOcrResponse> {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    const response = await apiJava.post<EmployeeCitizenIdOcrResponse>(
+      `${this.PREFIX}/ocr-citizen-id`,
+      formData,
+    )
+
     return response.data
   }
 
@@ -45,8 +58,7 @@ export class EmployeeService {
     return response.data
   }
 
-  static async lookupByCitizenId(citizenId: string): Promise<CitizenLookupResponse> {
-    const response = await apiJava.get<CitizenLookupResponse>(`${this.PREFIX}/lookup-citizen/${citizenId}`)
-    return response.data
+  static async deletePermanently(id: number): Promise<void> {
+    await apiJava.delete(`${this.PREFIX}/${id}/permanent`)
   }
 }

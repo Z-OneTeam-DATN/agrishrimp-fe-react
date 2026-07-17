@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,7 +55,6 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -128,12 +128,14 @@ const formatCellValue = (value: unknown, key: string) => {
 export default function SalesReportPage() {
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const { user, warehouseId } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>(isAdmin ? "all" : ownBranchId || "all");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(
+    canSelectAllBranches ? "all" : ownBranchId || "all"
+  );
   const [startDate, setStartDate] = useState(toIso(defaultStart));
   const [endDate, setEndDate] = useState(toIso(today));
   const [summary, setSummary] = useState<SalesReportSummary | null>(null);
@@ -147,7 +149,7 @@ export default function SalesReportPage() {
       try {
         const branchRes = await branchService.getAll();
         const list = Array.isArray(branchRes) ? branchRes : branchRes?.data || branchRes?.content || [];
-        if (!isAdmin && ownBranchId) {
+        if (!canSelectAllBranches && ownBranchId) {
           setBranches(list.filter((item: BranchOption) => item.id.toString() === ownBranchId));
         } else {
           setBranches(list);
@@ -159,13 +161,13 @@ export default function SalesReportPage() {
     };
 
     fetchBranches();
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
-    if (!isAdmin && ownBranchId) {
+    if (!canSelectAllBranches && ownBranchId) {
       setSelectedBranchId(ownBranchId);
     }
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -419,11 +421,11 @@ export default function SalesReportPage() {
           <div className="space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Chi nhánh</p>
               <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-                <SelectTrigger className="h-[38px] w-full min-w-[240px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0 lg:w-[280px]" disabled={!isAdmin}>
+                <SelectTrigger className="h-[38px] w-full min-w-[240px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0 lg:w-[280px]" disabled={!canSelectAllBranches}>
                   <SelectValue placeholder="Tất cả chi nhánh" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {canSelectAllBranches && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id.toString()}>
                       {branch.name}
@@ -435,21 +437,23 @@ export default function SalesReportPage() {
 
           <div className="space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Từ ngày</p>
-            <Input
-              type="date"
+            <SharedDatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              onChange={setStartDate}
+              placeholder="Chọn ngày"
+              variant="compact"
+              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
             />
           </div>
 
           <div className="space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Đến ngày</p>
-            <Input
-              type="date"
+            <SharedDatePicker
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 lg:w-[190px]"
+              onChange={setEndDate}
+              placeholder="Chọn ngày"
+              variant="compact"
+              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
             />
           </div>
           </div>

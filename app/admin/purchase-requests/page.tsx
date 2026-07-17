@@ -5,9 +5,9 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Plus, Search, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole, isManagerRole } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import {
@@ -23,6 +23,7 @@ import {
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
 import { PR_STATUS_LABEL } from "@/app/types/purchase.schema";
+import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -32,12 +33,19 @@ const TABS = [
   { id: "APPROVED",         label: "Đã duyệt" },
   { id: "SENT_TO_SUPPLIER", label: "Gửi NCC" },
   { id: "SUPPLIER_CONFIRMED", label: "NCC xác nhận" },
-  { id: "PREPARING", label: "Đang chuẩn bị" },
-  { id: "DELIVERING", label: "Đang giao" },
+  { id: "DELIVERING", label: "Chờ giao" },
   { id: "PARTIALLY_RECEIVED", label: "Nhận một phần" },
   { id: "COMPLETED",        label: "Hoàn tất" },
   { id: "CANCELLED",        label: "Đã hủy" },
 ] as const;
+
+const PURCHASE_REQUEST_PERMISSIONS = [
+  P.PURCHASE_REQUEST_VIEW,
+  P.PURCHASE_REQUEST_CREATE,
+  P.PURCHASE_REQUEST_UPDATE,
+  P.PURCHASE_REQUEST_APPROVE,
+  P.PURCHASE_REQUEST_DELETE,
+];
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -51,23 +59,21 @@ function formatDate(dateStr?: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PurchaseRequestListPage() {
-  const { data: currentUser } = useCurrentUser();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const accessToken = useAuthStore((state) => state.accessToken);
   const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
-  const warehouseId = useAuthStore((state) => state.warehouseId);
+  const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [data, setData]           = useState<PurchaseRequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch]       = useState("");
+  const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
+  const [toDate, setToDate] = useState(defaultDateRange.toDate);
   const [cancelTarget, setCancelTarget] = useState<PurchaseRequestResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
-  const isWarehouseUser =
-    (currentUser?.branch?.name?.toLowerCase().includes("kho tổng") ?? false) ||
-    warehouseId === 1;
-  const canAccessPurchaseRequests =
-    isAdminRole(currentUser?.role) ||
-    (isWarehouseUser && isManagerRole(currentUser?.role));
+  const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
+  const canCreatePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_CREATE);
 
   const fetchAll = async () => {
     if (!accessToken) {
@@ -98,11 +104,10 @@ export default function PurchaseRequestListPage() {
 
     void fetchAll();
   }, [accessToken, canAccessPurchaseRequests, isLoadingAuth]);
-  useEffect(() => { setCurrentPage(1); }, [activeTab, search]);
+  useEffect(() => { setCurrentPage(1); }, [activeTab, search, fromDate, toDate]);
 
-  const filtered = useMemo(() => {
+  const baseFiltered = useMemo(() => {
     return data.filter((pr) => {
-      if (activeTab !== "all" && pr.status !== activeTab) return false;
       if (search) {
         const q = search.toLowerCase();
         if (
@@ -111,25 +116,33 @@ export default function PurchaseRequestListPage() {
           !pr.branchName?.toLowerCase().includes(q)
         ) return false;
       }
+      if (!isDateInRange(pr.createdAt, fromDate, toDate)) return false;
       return true;
     });
-  }, [data, activeTab, search]);
+  }, [data, search, fromDate, toDate]);
+
+  const filtered = useMemo(() => {
+    return baseFiltered.filter((pr) => {
+      if (activeTab !== "all" && pr.status !== activeTab) return false;
+      return true;
+    });
+  }, [baseFiltered, activeTab]);
 
   const totalPages  = Math.ceil(filtered.length / PAGE_SIZE);
   const displayData = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: data.length };
+    const c: Record<string, number> = { all: baseFiltered.length };
     TABS.slice(1).forEach((t) => {
-      c[t.id] = data.filter((pr) => pr.status === t.id).length;
+      c[t.id] = baseFiltered.filter((pr) => pr.status === t.id).length;
     });
     return c;
-  }, [data]);
+  }, [baseFiltered]);
 
   const summaryCards = useMemo(() => [
     {
       title: "Tổng yêu cầu",
-      value: data.length,
+      value: baseFiltered.length,
       description: "Toàn bộ phiếu yêu cầu đã lập",
     },
     {
@@ -142,7 +155,6 @@ export default function PurchaseRequestListPage() {
       value:
         (counts.SENT_TO_SUPPLIER ?? 0) +
         (counts.SUPPLIER_CONFIRMED ?? 0) +
-        (counts.PREPARING ?? 0) +
         (counts.DELIVERING ?? 0) +
         (counts.PARTIALLY_RECEIVED ?? 0),
       description: "Đã gửi NCC, đang xử lý hoặc đang nhận hàng",
@@ -150,11 +162,11 @@ export default function PurchaseRequestListPage() {
     {
       title: "Tổng giá trị",
       value: formatCurrency(
-        data.reduce((sum, pr) => sum + (Number(pr.totalAmount) || 0), 0),
+        baseFiltered.reduce((sum, pr) => sum + (Number(pr.totalAmount) || 0), 0),
       ),
       description: "Giá trị dự kiến của các yêu cầu",
     },
-  ], [counts, data]);
+  ], [counts, baseFiltered]);
 
   const confirmCancel = async () => {
     if (!cancelTarget) return;
@@ -174,18 +186,47 @@ export default function PurchaseRequestListPage() {
   return (
     <div className="space-y-4 px-1 pb-8 text-slate-900">
       <div className="mb-8 mt-2 space-y-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="space-y-3">
           <h1 className="text-[20px] font-semibold uppercase text-slate-900">
             Phiếu yêu cầu mua hàng NCC
           </h1>
-          {canAccessPurchaseRequests && (
-            <Link href="/admin/purchase-requests/new">
-              <Button className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
-                <Plus size={16} className="mr-2" />
-                Lập phiếu yêu cầu
-              </Button>
-            </Link>
-          )}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-[320px]">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Tìm mã phiếu, nhà cung cấp..."
+                  className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-blue-300"
+                />
+              </div>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
+              />
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
+              />
+            </div>
+            {canCreatePurchaseRequest && (
+              <Link href="/admin/purchase-requests/new" className="shrink-0">
+                <Button className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
+                  <Plus size={16} className="mr-2" />
+                  Lập phiếu yêu cầu
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
@@ -209,8 +250,24 @@ export default function PurchaseRequestListPage() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-3">
+          <div className="hidden">
+            <div className="relative w-full lg:w-[420px]">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="TĂ¬m mĂ£ phiáº¿u, nhĂ  cung cáº¥p..."
+                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-blue-300"
+              />
+            </div>
+          </div>
+
+          <div className="order-2 flex flex-wrap items-center gap-2">
             {TABS.map((tab) => {
               const count = counts[tab.id] ?? 0;
               return (
@@ -234,8 +291,8 @@ export default function PurchaseRequestListPage() {
             })}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative w-full xl:w-[300px]">
+          <div className="hidden">
+            <div className="relative w-full lg:w-[420px]">
               <Search
                 size={16}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"

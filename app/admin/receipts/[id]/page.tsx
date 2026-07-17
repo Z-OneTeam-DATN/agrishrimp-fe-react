@@ -12,7 +12,6 @@ import {
   Package,
   X,
   Ban,
-  CheckSquare,
   ImageIcon,
   AlertCircle,
   Wallet,
@@ -25,7 +24,6 @@ import { cn, formatNumber } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/axios";
 
@@ -47,7 +45,6 @@ export default function ReceiptDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const { hasPermission } = usePermissions();
-  const { user } = useAuthStore();
 
   // AlertDialog State
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -63,19 +60,44 @@ export default function ReceiptDetailPage() {
     action: () => {},
   });
 
-  const showConfirm = (title: string, description: string, action: () => void, variant: "default" | "destructive" = "default") => {
+  const showConfirm = (
+    title: string,
+    description: string,
+    action: () => void,
+    variant: "default" | "destructive" = "default",
+  ) => {
     setConfirmConfig({ open: true, title, description, action, variant });
   };
 
   // Kiểm tra quyền
-  const isAdmin = user?.role?.slug === "ADMIN";
-  const canSeePrice = isAdmin || hasPermission(P.IMPORT_VIEW) || hasPermission(P.CHECK_VIEW);
-  const canApprove = isAdmin || hasPermission(P.IMPORT_APPROVE);
-  const canCreateReturn = isAdmin || hasPermission(P.EXPORT_CREATE);
+  const canSeePrice =
+    hasPermission(P.IMPORT_VIEW) || hasPermission(P.CHECK_VIEW);
+  const canApprove = hasPermission(P.IMPORT_APPROVE);
+  const canCreateReturn = hasPermission(P.EXPORT_CREATE);
+  const displayText = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    return text && text.toUpperCase() !== "N/A" ? text : "-";
+  };
+  const formatDateTime = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    if (!text) return "-";
 
-  // Modal States
-  const [showInspectModal, setShowInspectModal] = useState(false);
-  const [inspectItems, setInspectItems] = useState<any[]>([]);
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? text : date.toLocaleString("vi-VN");
+  };
+  const getDefectiveNote = (item: any) => {
+    const rawNote =
+      item?.rejectedNote ||
+      item?.rejectionNote ||
+      item?.rejectReason ||
+      item?.defectNote ||
+      item?.returnReason ||
+      item?.note ||
+      "";
+    const text = String(rawNote).trim();
+    return text || "";
+  };
+
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
@@ -105,7 +127,10 @@ export default function ReceiptDetailPage() {
     }
   };
 
-  const handleApiCall = async (action: () => Promise<any>, successMsg: string) => {
+  const handleApiCall = async (
+    action: () => Promise<any>,
+    successMsg: string,
+  ) => {
     setIsProcessing(true);
     try {
       await action();
@@ -119,19 +144,18 @@ export default function ReceiptDetailPage() {
   };
 
   const currentDebt = Number(
-    receipt?.debtAmount ?? ((receipt?.totalAmount || 0) - (receipt?.paymentAmount || 0)),
+    receipt?.debtAmount ??
+      (receipt?.totalAmount || 0) - (receipt?.paymentAmount || 0),
   );
   const canRecordPayment =
-    (isAdmin || hasPermission(P.REPORT_FINANCE_VIEW) || hasPermission(P.IMPORT_APPROVE)) &&
+    (hasPermission(P.REPORT_FINANCE_VIEW) || hasPermission(P.IMPORT_APPROVE)) &&
     receipt?.status === "COMPLETED" &&
     currentDebt > 0;
   const hasRejectedItems = (receipt?.items || []).some(
     (item: any) => Number(item.quantityRejected || 0) > 0,
   );
   const canCreateSupplierReturn =
-    canCreateReturn &&
-    hasRejectedItems &&
-    receipt?.status === "COMPLETED";
+    canCreateReturn && hasRejectedItems && receipt?.status === "COMPLETED";
 
   const openPaymentModal = (payFull = false) => {
     setPaymentForm({
@@ -174,12 +198,57 @@ export default function ReceiptDetailPage() {
     }
   };
 
-  // GIAI ĐOẠN 2: Duyệt phiếu (POST)
-  const handleApprove = () => {
+  const buildCompletePayload = () => ({
+    items: (receipt?.items || [])
+      .filter(
+        (item: any) => Number(item.plannedQuantity || item.quantity || 0) > 0,
+      )
+      .map((item: any) => {
+        const rejected = Number(item.quantityRejected || 0);
+        const delivered = Number(
+          item.quantityDelivered ??
+            item.deliveredQuantity ??
+            item.quantityReal ??
+            item.plannedQuantity ??
+            0,
+        );
+        const accepted = Number(
+          item.quantityAccepted || Math.max(delivered - rejected, 0),
+        );
+
+        return {
+          productCode: item.productCode,
+          quantityReal: accepted,
+          quantityDelivered: delivered,
+          quantityRejected: rejected,
+          lotNumber: item.lotNumber || "",
+          expiryDate: item.expiryDate || "",
+          note: item.note || "",
+        };
+      }),
+  });
+
+  const handleApproveAndComplete = () => {
     showConfirm(
-      "Xác nhận duyệt phiếu",
-      "Phiếu sẽ chuyển sang trạng thái chờ kiểm hàng. Tồn kho và công nợ chỉ được ghi nhận khi hoàn tất nhập kho.",
-      () => handleApiCall(() => InventoryApiService.approveReceipt(id as string), "Đã duyệt phiếu thành công!")
+      receipt?.status === "PENDING"
+        ? "Xác nhận duyệt và nhập kho"
+        : "Xác nhận nhập kho",
+      "Phiếu sẽ được duyệt và nhập kho ngay theo số lượng đã kiểm trên phiếu. Không cần mở popup kiểm hàng riêng.",
+      () =>
+        handleApiCall(
+          async () => {
+            if (receipt?.status === "PENDING") {
+              await InventoryApiService.approveReceipt(id as string);
+            }
+            return InventoryApiService.completeReceipt(
+              id as string,
+              buildCompletePayload(),
+            );
+          },
+          receipt?.status === "PENDING"
+            ? "Đã duyệt và nhập kho thành công!"
+            : "Hoàn tất nhập kho thành công!",
+        ),
     );
   };
 
@@ -187,8 +256,12 @@ export default function ReceiptDetailPage() {
     showConfirm(
       "Xác nhận từ chối phiếu",
       "Hành động này sẽ từ chối kế hoạch nhập hàng hiện tại. Bạn có chắc chắn không?",
-      () => handleApiCall(() => InventoryApiService.rejectReceipt(id as string), "Đã từ chối phiếu nhập!"),
-      "destructive"
+      () =>
+        handleApiCall(
+          () => InventoryApiService.rejectReceipt(id as string),
+          "Đã từ chối phiếu nhập!",
+        ),
+      "destructive",
     );
   };
 
@@ -196,8 +269,12 @@ export default function ReceiptDetailPage() {
     showConfirm(
       "Xác nhận hủy phiếu",
       "Bạn có chắc chắn muốn hủy phiếu nhập hàng này không? Hành động này không thể hoàn tác.",
-      () => handleApiCall(() => InventoryApiService.rejectReceipt(id as string), "Đã hủy phiếu thành công!"),
-      "destructive"
+      () =>
+        handleApiCall(
+          () => InventoryApiService.rejectReceipt(id as string),
+          "Đã hủy phiếu thành công!",
+        ),
+      "destructive",
     );
   };
 
@@ -209,7 +286,6 @@ export default function ReceiptDetailPage() {
     });
     router.push(`/admin/exports/new-command?${query.toString()}`);
   };
-
 
   const handlePrintLabels = () => {
     if (!receipt) return;
@@ -286,72 +362,6 @@ export default function ReceiptDetailPage() {
     printWindow.focus();
     printWindow.print();
   };
-  // GIAI ĐOẠN 3: Kiểm đếm QC & Nhập kho
-  const openInspectModal = () => {
-    setInspectItems((receipt?.items || []).map((i: any) => ({
-      ...i,
-      plannedQuantity: i.plannedQuantity || i.quantity || 0,
-      quantityDelivered: i.quantityReal || i.plannedQuantity || i.quantity || 0,
-      quantityAccepted: i.quantityAccepted || i.plannedQuantity || i.quantity || 0,
-      quantityRejected: 0,
-      lotNumber: i.lotNumber || "",
-      expiryDate: i.expiryDate || "",
-      note: ""
-    })));
-    setShowInspectModal(true);
-  };
-
-  const submitInspect = () => {
-    // Validation logic QC: phân tách rõ NCC giao / đạt QC / lỗi
-    for (const item of inspectItems) {
-      const planned = Number(item.plannedQuantity) || 0;
-      const delivered = Number(item.quantityDelivered) || 0;
-      const accepted = Number(item.quantityAccepted) || 0;
-      const rejected = Number(item.quantityRejected) || 0;
-
-      if (delivered > planned) {
-        toast.error(`SP ${item.productName}: Số NCC giao (${delivered}) không được lớn hơn số lượng của đợt này (${planned})`);
-        return;
-      }
-      if (accepted + rejected !== delivered) {
-        toast.error(`SP ${item.productName}: Đạt QC + Lỗi phải đúng bằng số NCC giao`);
-        return;
-      }
-      if (delivered < 0 || accepted < 0 || rejected < 0) {
-        toast.error(`SP ${item.productName}: Số lượng giao/đạt/lỗi không được âm`);
-        return;
-      }
-
-      if (delivered > 0 && (!item.lotNumber?.trim() || !item.expiryDate)) {
-        toast.error(`SP ${item.productName}: Vui lòng điền đầy đủ Số lô và Hạn dùng`);
-        return;
-      }
-      if ((rejected > 0 || delivered < planned) && !item.note?.trim()) {
-        toast.error(`SP ${item.productName}: Vui lòng ghi rõ lý do lỗi hoặc phần giao thiếu`);
-        return;
-      }
-    }
-
-    showConfirm(
-      "Xác nhận nhập kho",
-      "Hệ thống sẽ cập nhật tồn kho thực tế ngay lập tức. Bạn đã kiểm tra kỹ số lượng thực nhận chưa?",
-      () => {
-        const payload = inspectItems.map((i) => ({
-          productCode: i.productCode,
-          quantityReal: Number(i.quantityAccepted || 0),
-          quantityDelivered: Number(i.quantityDelivered || 0),
-          quantityRejected: Number(i.quantityRejected || 0),
-          lotNumber: i.lotNumber,
-          expiryDate: i.expiryDate,
-          note: i.note || ""
-        }));
-
-        handleApiCall(() => InventoryApiService.completeReceipt(id as string, { items: payload }), "Hoàn tất nhập kho thành công!");
-        setShowInspectModal(false);
-      }
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -376,7 +386,30 @@ export default function ReceiptDetailPage() {
     REJECTED: "Đã từ chối",
     CANCELLED: "Đã hủy",
   };
-  const isQCMode = ["COMPLETED", "IMPORTED"].includes(receipt.status);
+  const totalRequested = (receipt.items || []).reduce(
+    (sum: number, item: any) =>
+      sum + Number(item.plannedQuantity || item.quantity || 0),
+    0,
+  );
+  const totalDelivered = (receipt.items || []).reduce(
+    (sum: number, item: any) =>
+      sum +
+      Number(
+        item.quantityReal ??
+          item.quantityDelivered ??
+          item.deliveredQuantity ??
+          0,
+      ),
+    0,
+  );
+  const totalAccepted = (receipt.items || []).reduce(
+    (sum: number, item: any) => sum + Number(item.quantityAccepted || 0),
+    0,
+  );
+  const totalRejected = (receipt.items || []).reduce(
+    (sum: number, item: any) => sum + Number(item.quantityRejected || 0),
+    0,
+  );
   const copyValue = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
     toast.success(`Đã sao chép ${label}`);
@@ -400,13 +433,18 @@ export default function ReceiptDetailPage() {
               Chi tiết phiếu nhập
             </h1>
             <p className="mt-1 text-[10.5px] text-slate-500">
-              {receipt.receiptCode || receipt.code} · {statusLabel[receipt.status] || receipt.status}
+              {receipt.receiptCode || receipt.code} ·{" "}
+              {statusLabel[receipt.status] || receipt.status}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="h-10 px-3 text-[12px] font-medium" onClick={() => window.print()}>
+          <Button
+            variant="outline"
+            className="h-10 px-3 text-[12px] font-medium"
+            onClick={() => window.print()}
+          >
             <Printer size={14} className="mr-2" />
             In phiếu
           </Button>
@@ -423,11 +461,11 @@ export default function ReceiptDetailPage() {
           {receipt.status === "PENDING" && canApprove ? (
             <>
               <Button
-                onClick={handleApprove}
+                onClick={handleApproveAndComplete}
                 disabled={isProcessing}
                 className="h-10 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
               >
-                Duyệt phiếu
+                Duyệt & nhập kho
               </Button>
               <Button
                 onClick={handleReject}
@@ -441,12 +479,12 @@ export default function ReceiptDetailPage() {
           ) : null}
           {receipt.status === "APPROVED" && canApprove ? (
             <Button
-              onClick={openInspectModal}
+              onClick={handleApproveAndComplete}
               disabled={isProcessing}
               className="h-10 bg-blue-600 px-4 text-[12px] font-semibold hover:bg-blue-700"
             >
-              <CheckSquare size={14} className="mr-2" />
-              Kiểm hàng và nhập kho
+              <CheckCircle2 size={14} className="mr-2" />
+              Nhập kho ngay
             </Button>
           ) : null}
           {receipt.status === "COMPLETED" ? (
@@ -494,14 +532,36 @@ export default function ReceiptDetailPage() {
         <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
           {[
             ["Mã phiếu", receipt.receiptCode || receipt.code, true],
-            ["Trạng thái", statusLabel[receipt.status] || receipt.status, false],
-            ["Phiếu yêu cầu", receipt.purchaseRequestCode || "Chưa liên kết", Boolean(receipt.purchaseRequestCode)],
+            [
+              "Trạng thái",
+              statusLabel[receipt.status] || receipt.status,
+              false,
+            ],
+            [
+              "Phiếu yêu cầu",
+              receipt.purchaseRequestCode || "Chưa liên kết",
+              Boolean(receipt.purchaseRequestCode),
+            ],
             ["Nhà cung cấp", receipt.supplierName || "-", false],
-            ["Mã nhà cung cấp", receipt.supplierCode || "-", Boolean(receipt.supplierCode)],
+            [
+              "Mã nhà cung cấp",
+              receipt.supplierCode || "-",
+              Boolean(receipt.supplierCode),
+            ],
             ["Kho nhập", receipt.branchName || "-", false],
-            ["Ngày nhập", receipt.entryDate ? new Date(receipt.entryDate).toLocaleDateString("vi-VN") : "-", false],
-            ["Người giao hàng", receipt.deliverer || "-", false],
-            ["Tổng giá trị", `${formatNumber(receipt.totalAmount || 0)} ₫`, false],
+            [
+              "Ngày nhập",
+              receipt.entryDate
+                ? new Date(receipt.entryDate).toLocaleDateString("vi-VN")
+                : "-",
+              false,
+            ],
+            ["Người giao hàng", displayText(receipt.deliverer), false],
+            [
+              "Tổng giá trị",
+              `${formatNumber(receipt.totalAmount || 0)} ₫`,
+              false,
+            ],
           ].map(([label, value, copyable]) => (
             <div key={String(label)} className="space-y-2">
               <Label className="text-[10.5px] font-semibold text-slate-500">
@@ -518,7 +578,9 @@ export default function ReceiptDetailPage() {
                     type="button"
                     className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-slate-400 hover:text-slate-700"
                     title={`Sao chép ${label}`}
-                    onClick={() => copyValue(String(value), String(label).toLowerCase())}
+                    onClick={() =>
+                      copyValue(String(value), String(label).toLowerCase())
+                    }
                   >
                     <Copy size={14} />
                   </button>
@@ -535,10 +597,57 @@ export default function ReceiptDetailPage() {
             </div>
           </div>
         </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-[11px] text-slate-500 sm:grid-cols-4 xl:grid-cols-6">
+          <div>
+            <p className="font-semibold text-slate-500">Yêu cầu</p>
+            <p className="mt-1 text-[13px] font-semibold text-slate-800">
+              {formatNumber(totalRequested)}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">Đã giao</p>
+            <p className="mt-1 text-[13px] font-semibold text-slate-800">
+              {formatNumber(totalDelivered)}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">Đạt</p>
+            <p className="mt-1 text-[13px] font-semibold text-slate-800">
+              {formatNumber(totalAccepted)}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">Lỗi</p>
+            <p className="mt-1 text-[13px] font-semibold text-slate-800">
+              {formatNumber(totalRejected)}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">Đã thanh toán</p>
+            <p className="mt-1 text-[13px] font-semibold text-slate-800">
+              {formatNumber(receipt.paymentAmount || 0)} ₫
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">Còn nợ</p>
+            <p className="mt-1 text-[13px] font-semibold text-slate-800">
+              {formatNumber(currentDebt)} ₫
+            </p>
+          </div>
+        </div>
         <p className="mt-5 border-t border-slate-100 pt-4 text-[10.5px] text-slate-400">
-          Tạo bởi {receipt.creatorName || "Không xác định"} · Ngày tạo{" "}
-          {receipt.createdAt ? new Date(receipt.createdAt).toLocaleString("vi-VN") : "-"} · Cập nhật{" "}
-          {receipt.updatedAt ? new Date(receipt.updatedAt).toLocaleString("vi-VN") : "-"}
+          Tạo bởi{" "}
+          {displayText(
+            receipt.creatorName || receipt.createdByName || receipt.creator,
+          )}{" "}
+          · Ngày tạo {formatDateTime(receipt.createdAt)} · Cập nhật{" "}
+          {displayText(
+            receipt.updatedByName ||
+              receipt.updatedBy ||
+              receipt.lastModifiedByName,
+          ) !== "-"
+            ? `bởi ${displayText(receipt.updatedByName || receipt.updatedBy || receipt.lastModifiedByName)} · ${formatDateTime(receipt.updatedAt)}`
+            : formatDateTime(receipt.updatedAt)}
         </p>
       </section>
 
@@ -552,58 +661,122 @@ export default function ReceiptDetailPage() {
           <table className="w-full min-w-[980px] table-fixed text-[12px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-500">
               <tr>
-                <th className="w-[28%] px-5 py-3 text-left font-medium">Sản phẩm</th>
-                <th className="w-[12%] px-3 py-3 text-left font-medium">Lô / hạn dùng</th>
-                <th className="w-[8%] px-3 py-3 text-right font-medium">Dự kiến</th>
-                {isQCMode ? (
-                  <>
-                    <th className="w-[8%] px-3 py-3 text-right font-medium">SL giao</th>
-                    <th className="w-[8%] px-3 py-3 text-right font-medium">SL đạt</th>
-                    <th className="w-[7%] px-3 py-3 text-right font-medium">SL lỗi</th>
-                  </>
-                ) : null}
-                <th className="w-[12%] px-3 py-3 text-right font-medium">Giá nhập</th>
-                <th className="w-[12%] px-5 py-3 text-right font-medium">Thành tiền</th>
+                <th className="w-[28%] px-5 py-3 text-left font-medium">
+                  Sản phẩm
+                </th>
+                <th className="w-[12%] px-3 py-3 text-left font-medium">
+                  Lô / hạn dùng
+                </th>
+                <th className="w-[8%] px-3 py-3 text-right font-medium">
+                  Dự kiến
+                </th>
+                <th className="w-[8%] px-3 py-3 text-right font-medium">
+                  Đã giao
+                </th>
+                <th className="w-[8%] px-3 py-3 text-right font-medium">Đạt</th>
+                <th className="w-[7%] px-3 py-3 text-right font-medium">Lỗi</th>
+                <th className="w-[12%] px-3 py-3 text-right font-medium">
+                  Giá nhập
+                </th>
+                <th className="w-[12%] px-5 py-3 text-right font-medium">
+                  Thành tiền
+                </th>
               </tr>
             </thead>
             <tbody>
               {(receipt.items || []).map((item: any, index: number) => {
-                const planned = Number(item.plannedQuantity || item.quantity || 0);
-                const delivered = Number(item.quantityReal || item.quantityDelivered || 0);
+                const planned = Number(
+                  item.plannedQuantity || item.quantity || 0,
+                );
                 const accepted = Number(item.quantityAccepted || 0);
                 const rejected = Number(item.quantityRejected || 0);
+                const defectiveNote = getDefectiveNote(item);
+                const delivered = Number(
+                  item.quantityDelivered ??
+                    item.deliveredQuantity ??
+                    item.quantityReal ??
+                    accepted + rejected,
+                );
+                const unitPrice =
+                  Number(
+                    item.importPrice ??
+                      item.price ??
+                      item.unitPrice ??
+                      item.cost ??
+                      0,
+                  ) || 0;
+                const lineQuantity =
+                  accepted > 0 || rejected > 0 ? accepted : planned;
                 return (
-                  <tr key={item.id || `${item.productCode}-${index}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                  <tr
+                    key={item.id || `${item.productCode}-${index}`}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                  >
                     <td className="px-5 py-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-slate-200 bg-white">
                           {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                            <img
+                              src={item.imageUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
                           ) : (
                             <ImageIcon size={15} className="text-slate-300" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-[12.5px] font-semibold text-slate-800">{item.productName}</p>
-                          <p className="mt-0.5 truncate text-[10px] text-slate-400">{item.productCode} · {item.unit || "Cái"}</p>
+                          <p className="truncate text-[12.5px] font-semibold text-slate-800">
+                            {item.productName}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                            {item.productCode} · {item.unit || "Cái"}
+                          </p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            Yêu cầu {formatNumber(planned)} · Đã giao{" "}
+                            {formatNumber(delivered)} · Đạt{" "}
+                            {formatNumber(accepted)} · Lỗi{" "}
+                            {formatNumber(rejected)}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-3 py-3 text-slate-600">
                       <p className="truncate">{item.lotNumber || "-"}</p>
-                      <p className="mt-0.5 text-[10px] text-slate-400">{item.expiryDate || "-"}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-400">
+                        {item.expiryDate || "-"}
+                      </p>
                     </td>
-                    <td className="px-3 py-3 text-right font-medium">{formatNumber(planned)}</td>
-                    {isQCMode ? (
-                      <>
-                        <td className="px-3 py-3 text-right">{formatNumber(delivered)}</td>
-                        <td className="px-3 py-3 text-right">{formatNumber(accepted)}</td>
-                        <td className="px-3 py-3 text-right">{rejected ? formatNumber(rejected) : "-"}</td>
-                      </>
-                    ) : null}
-                    <td className="px-3 py-3 text-right">{canSeePrice ? `${formatNumber(item.importPrice || 0)} ₫` : "-"}</td>
+                    <td className="px-3 py-3 text-right font-medium">
+                      {formatNumber(planned)}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {formatNumber(delivered)}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {formatNumber(accepted)}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {rejected ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span>{formatNumber(rejected)}</span>
+                          {defectiveNote ? (
+                            <span className="max-w-[160px] text-right text-[10px] leading-snug text-rose-500">
+                              {defectiveNote}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {canSeePrice ? `${formatNumber(unitPrice)} ₫` : "-"}
+                    </td>
                     <td className="px-5 py-3 text-right font-semibold text-slate-800">
-                      {canSeePrice ? `${formatNumber((isQCMode ? accepted : planned) * Number(item.importPrice || 0))} ₫` : "-"}
+                      {canSeePrice
+                        ? `${formatNumber(lineQuantity * unitPrice)} ₫`
+                        : "-"}
                     </td>
                   </tr>
                 );
@@ -620,11 +793,18 @@ export default function ReceiptDetailPage() {
           </h2>
           {canRecordPayment ? (
             <div className="flex gap-2">
-              <Button variant="outline" className="h-9 px-3 text-[11px] font-medium" onClick={() => openPaymentModal(true)}>
+              <Button
+                variant="outline"
+                className="h-9 px-3 text-[11px] font-medium"
+                onClick={() => openPaymentModal(true)}
+              >
                 <Wallet size={13} className="mr-2" />
                 Thanh toán đủ
               </Button>
-              <Button className="h-9 bg-blue-600 px-3 text-[11px] font-semibold hover:bg-blue-700" onClick={() => openPaymentModal(false)}>
+              <Button
+                className="h-9 bg-blue-600 px-3 text-[11px] font-semibold hover:bg-blue-700"
+                onClick={() => openPaymentModal(false)}
+              >
                 <PlusCircle size={13} className="mr-2" />
                 Ghi nhận thanh toán
               </Button>
@@ -633,30 +813,65 @@ export default function ReceiptDetailPage() {
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div>
-            <p className="text-[10.5px] font-semibold text-slate-500">Giá trị phải trả</p>
-            <p className="mt-2 text-[13px] font-semibold text-slate-800">{formatNumber(receipt.totalAmount || 0)} ₫</p>
+            <p className="text-[10.5px] font-semibold text-slate-500">
+              Giá trị phải trả
+            </p>
+            <p className="mt-2 text-[13px] font-semibold text-slate-800">
+              {formatNumber(receipt.totalAmount || 0)} ₫
+            </p>
           </div>
           <div>
-            <p className="text-[10.5px] font-semibold text-slate-500">Đã thanh toán</p>
-            <p className="mt-2 text-[13px] font-semibold text-slate-800">{formatNumber(receipt.paymentAmount || 0)} ₫</p>
+            <p className="text-[10.5px] font-semibold text-slate-500">
+              Đã thanh toán
+            </p>
+            <p className="mt-2 text-[13px] font-semibold text-slate-800">
+              {formatNumber(receipt.paymentAmount || 0)} ₫
+            </p>
           </div>
           <div>
             <p className="text-[10.5px] font-semibold text-slate-500">Còn nợ</p>
-            <p className="mt-2 text-[13px] font-semibold text-slate-800">{formatNumber(currentDebt)} ₫</p>
+            <p className="mt-2 text-[13px] font-semibold text-slate-800">
+              {formatNumber(currentDebt)} ₫
+            </p>
           </div>
         </div>
         <div className="mt-6 border-t border-slate-100 pt-4">
-          <p className="mb-3 text-[10.5px] font-semibold text-slate-500">Lịch sử thanh toán</p>
+          <p className="mb-3 text-[10.5px] font-semibold text-slate-500">
+            Lịch sử thanh toán
+          </p>
           {paymentHistory.length === 0 ? (
-            <p className="text-[11.5px] text-slate-400">Chưa có thanh toán nào được ghi nhận.</p>
+            <p className="text-[11.5px] text-slate-400">
+              Chưa có thanh toán nào được ghi nhận.
+            </p>
           ) : (
             <div className="divide-y divide-slate-100">
+              <div className="hidden sm:grid sm:grid-cols-4 sm:gap-2 sm:pb-2 sm:text-[10.5px] sm:font-semibold sm:uppercase sm:tracking-wide sm:text-slate-500">
+                <span>Số tiền</span>
+                <span>Hình thức thanh toán</span>
+                <span>Ngày thanh toán</span>
+                <span>Mã giao dịch</span>
+              </div>
               {paymentHistory.map((payment) => (
-                <div key={payment.id} className="grid grid-cols-1 gap-2 py-3 text-[11.5px] sm:grid-cols-4">
-                  <span className="font-semibold text-slate-800">{formatNumber(payment.amount || 0)} ₫</span>
-                  <span className="text-slate-500">{payment.paymentMethod}</span>
-                  <span className="text-slate-500">{payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString("vi-VN") : "-"}</span>
-                  <span className="text-slate-400">{payment.referenceCode || payment.note || "-"}</span>
+                <div
+                  key={payment.id}
+                  className="grid grid-cols-1 gap-2 py-3 text-[11.5px] sm:grid-cols-4"
+                >
+                  <span className="font-semibold text-slate-800">
+                    {formatNumber(payment.amount || 0)} ₫
+                  </span>
+                  <span className="text-slate-500">
+                    {payment.paymentMethod}
+                  </span>
+                  <span className="text-slate-500">
+                    {payment.paymentDate
+                      ? new Date(payment.paymentDate).toLocaleDateString(
+                          "vi-VN",
+                        )
+                      : "-"}
+                  </span>
+                  <span className="text-slate-400">
+                    {payment.referenceCode || "-"}
+                  </span>
                 </div>
               ))}
             </div>
@@ -664,184 +879,71 @@ export default function ReceiptDetailPage() {
         </div>
       </section>
 
-      {/* MODAL GIAI ĐOẠN 3: KIỂM ĐẾM QC & XÁC NHẬN NHẬP (Lời khuyên UI) */}
-      {showInspectModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-           <div className="flex max-h-[92vh] w-full max-w-[1150px] flex-col rounded-md border border-slate-200 bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-200 p-5">
-                <div className="flex flex-col">
-                   <h3 className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><CheckSquare size={18} className="text-blue-600"/> Kiểm hàng và nhập kho</h3>
-                   <p className="mt-1 text-[10.5px] text-slate-500">Xác nhận số lượng giao, số lượng đạt và hàng lỗi.</p>
-                </div>
-                <button onClick={() => setShowInspectModal(false)} className="text-slate-400 hover:text-slate-700"><X size={20}/></button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-                 <table className="w-full border border-slate-200 bg-white text-left text-[12px]">
-                    <thead className="sticky top-0 z-10 border-b bg-slate-50">
-                       <tr className="text-[10.5px] font-medium text-slate-500">
-                          <th className="p-4 border-r w-[240px]">Sản phẩm / SKU</th>
-                          <th className="p-4 text-center border-r w-[140px]">Số lô / hạn dùng</th>
-                          <th className="p-4 text-center border-r w-[90px]">Dự kiến</th>
-                          <th className="p-4 text-center border-r w-[120px]">SL giao</th>
-                          <th className="p-4 text-center border-r w-[120px]">SL đạt</th>
-                          <th className="p-4 text-center border-r w-[100px]">SL lỗi</th>
-                          <th className="p-4 text-left">Lý do lỗi / Ghi chú</th>
-                       </tr>
-                    </thead>
-                    <tbody>
-                       {inspectItems.map((item, idx) => {
-                           const planned = item.plannedQuantity || 0;
-                           const delivered = Number(item.quantityDelivered) || 0;
-                           const accepted = Number(item.quantityAccepted) || 0;
-                           const rejected = Number(item.quantityRejected) || 0;
-                           const isNoteRequired = rejected > 0 || delivered < planned;
-
-                          return (
-                         <tr key={idx} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4 border-r">
-                              <p className="font-semibold leading-tight text-slate-700">{item.productName}</p>
-                              <p className="text-[10px] font-mono text-slate-400 mt-1">#{item.productCode}</p>
-                            </td>
-                            
-                            <td className="p-2 border-r space-y-1 bg-slate-50/30">
-                               <Input 
-                                 placeholder="Số lô hàng..."
-                                 value={item.lotNumber || ""}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].lotNumber = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-9 rounded-md border-slate-200 bg-white text-[11px] font-medium shadow-none"
-                               />
-                               <Input 
-                                 type="date"
-                                 value={item.expiryDate || ""}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].expiryDate = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-9 rounded-md border-slate-200 bg-white text-[11px] shadow-none"
-                               />
-                            </td>
-
-                            <td className="border-r p-4 text-center text-[13px] font-semibold text-slate-600">{planned}</td>
-                            
-                            <td className="border-r p-2">
-                               <Input 
-                                 type="number"
-                                 min={0}
-                                 value={item.quantityDelivered}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityDelivered = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                  className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                                />
-                             </td>
-
-                            <td className="border-r p-2">
-                               <Input 
-                                 type="number"
-                                 min={0}
-                                 value={item.quantityAccepted} 
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityAccepted = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                               />
-                               <div className="mt-1 text-right text-[10.5px] text-slate-500">
-                                 Thực nhập kho <span className="font-semibold text-slate-700">{formatNumber(accepted)}</span>
-                               </div>
-                             </td>
-
-                            <td className="border-r p-2">
-                               <Input
-                                 type="number"
-                                 min={0}
-                                 value={item.quantityRejected}
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].quantityRejected = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 className="h-10 w-full rounded-md border-slate-200 bg-white text-right font-medium shadow-none"
-                               />
-                            </td>
-
-                            <td className="p-2">
-                               <Input 
-                                 value={item.note || ""} 
-                                 onChange={(e) => {
-                                   const newItems = [...inspectItems];
-                                   newItems[idx].note = e.target.value;
-                                   setInspectItems(newItems);
-                                 }}
-                                 placeholder={isNoteRequired ? "Bắt buộc: Nêu lý do lỗi hoặc giao thiếu..." : "Ghi chú thêm..."} 
-                                 className={cn(
-                                   "h-10 rounded-md border-slate-200 bg-white text-[11px] font-normal shadow-none",
-                                   isNoteRequired ? "border-rose-400 bg-rose-50 ring-1 ring-rose-200" : ""
-                                 )}
-                               />
-                            </td>
-                         </tr>
-                       )})}
-                    </tbody>
-                 </table>
-              </div>
-              <div className="flex justify-end gap-3 border-t bg-white p-5">
-                 <Button variant="outline" onClick={() => setShowInspectModal(false)} className="h-10 px-6 text-[12px] font-medium">Hủy</Button>
-                 <Button onClick={submitInspect} disabled={isProcessing} className="flex h-10 items-center gap-2 bg-blue-600 px-6 text-[12px] font-semibold text-white hover:bg-blue-700"><CheckCircle2 size={16}/> Hoàn tất nhập kho</Button>
-              </div>
-           </div>
-        </div>
-      )}
-
       {showPaymentModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-[560px] rounded-md border border-slate-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-5 py-4">
               <div>
-                <h3 className="text-[15px] font-semibold text-slate-900">Ghi nhận thanh toán NCC</h3>
-                <p className="text-[11px] text-slate-400 mt-1">Phiếu {receipt.code} · Còn nợ {formatNumber(currentDebt)} ₫</p>
+                <h3 className="text-[15px] font-semibold text-slate-900">
+                  Ghi nhận thanh toán NCC
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Phiếu {receipt.code} · Còn nợ {formatNumber(currentDebt)} ₫
+                </p>
               </div>
-              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X size={20} />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[10.5px] font-semibold text-slate-500">Số tiền thanh toán</Label>
+                  <Label className="text-[10.5px] font-semibold text-slate-500">
+                    Số tiền thanh toán
+                  </Label>
                   <Input
                     type="number"
                     min={0}
                     value={paymentForm.amount}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, amount: e.target.value })
+                    }
                     className="h-10 rounded-md border-slate-200 text-right text-[13px] font-normal shadow-none"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10.5px] font-semibold text-slate-500">Ngày thanh toán</Label>
+                  <Label className="text-[10.5px] font-semibold text-slate-500">
+                    Ngày thanh toán
+                  </Label>
                   <Input
                     type="date"
                     value={paymentForm.paymentDate}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
+                    onChange={(e) =>
+                      setPaymentForm({
+                        ...paymentForm,
+                        paymentDate: e.target.value,
+                      })
+                    }
                     className="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[10.5px] font-semibold text-slate-500">Phương thức</Label>
+                  <Label className="text-[10.5px] font-semibold text-slate-500">
+                    Phương thức
+                  </Label>
                   <select
                     value={paymentForm.paymentMethod}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+                    onChange={(e) =>
+                      setPaymentForm({
+                        ...paymentForm,
+                        paymentMethod: e.target.value,
+                      })
+                    }
                     className="h-10 w-full border border-slate-200 px-3 text-[13px] font-medium outline-none"
                   >
                     <option value="TRANSFER">Chuyển khoản</option>
@@ -850,20 +952,31 @@ export default function ReceiptDetailPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10.5px] font-semibold text-slate-500">Tham chiếu</Label>
+                  <Label className="text-[10.5px] font-semibold text-slate-500">
+                    Tham chiếu
+                  </Label>
                   <Input
                     value={paymentForm.referenceCode}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, referenceCode: e.target.value })}
+                    onChange={(e) =>
+                      setPaymentForm({
+                        ...paymentForm,
+                        referenceCode: e.target.value,
+                      })
+                    }
                     className="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
                     placeholder="UNC / mã giao dịch..."
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-[10.5px] font-semibold text-slate-500">Ghi chú</Label>
+                <Label className="text-[10.5px] font-semibold text-slate-500">
+                  Ghi chú
+                </Label>
                 <Input
                   value={paymentForm.note}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, note: e.target.value })
+                  }
                   className="h-10 rounded-md border-slate-200 text-[13px] shadow-none"
                   placeholder="Ví dụ: thanh toán đợt 1, chuyển khoản ngân hàng..."
                 />
@@ -891,11 +1004,21 @@ export default function ReceiptDetailPage() {
       )}
 
       {/* AlertDialog dành cho các xác nhận quan trọng */}
-      <AlertDialog open={confirmConfig.open} onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}>
+      <AlertDialog
+        open={confirmConfig.open}
+        onOpenChange={(o) => setConfirmConfig({ ...confirmConfig, open: o })}
+      >
         <AlertDialogContent className="rounded-md border border-slate-200 shadow-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-[15px] font-semibold text-slate-900">
-              <AlertCircle className={cn("h-5 w-5", confirmConfig.variant === "destructive" ? "text-rose-500" : "text-blue-600")} />
+              <AlertCircle
+                className={cn(
+                  "h-5 w-5",
+                  confirmConfig.variant === "destructive"
+                    ? "text-rose-500"
+                    : "text-blue-600",
+                )}
+              />
               {confirmConfig.title}
             </AlertDialogTitle>
             <AlertDialogDescription className="pt-2 text-[12px] font-normal leading-relaxed text-slate-500">
@@ -903,12 +1026,16 @@ export default function ReceiptDetailPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3 pt-4">
-            <AlertDialogCancel className="h-10 rounded-md border-slate-200 px-6 text-[12px] font-medium text-slate-600 hover:bg-slate-50">Quay lại</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel className="h-10 rounded-md border-slate-200 px-6 text-[12px] font-medium text-slate-600 hover:bg-slate-50">
+              Quay lại
+            </AlertDialogCancel>
+            <AlertDialogAction
               onClick={confirmConfig.action}
               className={cn(
                 "h-10 rounded-md px-8 text-[12px] font-semibold transition-colors",
-                confirmConfig.variant === "destructive" ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+                confirmConfig.variant === "destructive"
+                  ? "bg-rose-600 hover:bg-rose-700"
+                  : "bg-blue-600 hover:bg-blue-700",
               )}
             >
               Xác nhận
@@ -919,4 +1046,3 @@ export default function ReceiptDetailPage() {
     </div>
   );
 }
-

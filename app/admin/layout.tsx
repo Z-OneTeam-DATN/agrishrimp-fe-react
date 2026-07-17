@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -10,8 +10,11 @@ import AdminAccessDenied from "@/components/admin/shared/AdminAccessDenied";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
-import { normalizeRoleSlug } from "@/lib/roles";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
+import {
+  ADMIN_WORKSPACE_PERMISSIONS,
+  setLastWorkspace,
+} from "@/lib/workspace-permissions";
 
 const WebSocketProvider = dynamic(
   () => import("@/components/providers/WebSocketProvider"),
@@ -33,7 +36,7 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/financial", permission: P.REPORT_FINANCE_VIEW },
   { path: "/admin/employees/roles/add", permission: P.ROLE_CREATE },
   { path: "/admin/employees/roles/edit", permission: P.ROLE_UPDATE },
-  { path: "/admin/employees/roles", permission: P.ROLE_VIEW },
+  { path: "/admin/employees/roles", anyOf: [P.ROLE_VIEW, P.ROLE_CREATE, P.ROLE_UPDATE, P.ROLE_DELETE] },
   { path: "/admin/employees/add", permission: P.STAFF_CREATE },
   { path: "/admin/employees/edit", anyOf: [P.STAFF_VIEW, P.STAFF_UPDATE] },
   { path: "/admin/employees", permission: P.STAFF_VIEW },
@@ -51,13 +54,20 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/brands", permission: P.PRODUCT_VIEW },
   { path: "/admin/categories", permission: P.CATEGORY_VIEW },
   { path: "/admin/variants", permission: P.ATTRIBUTE_VIEW },
-  { path: "/admin/receipts", permission: P.IMPORT_VIEW },
-  { path: "/admin/exports", permission: P.EXPORT_VIEW },
-  { path: "/admin/transfers", permission: P.TRANSFER_VIEW },
-  { path: "/admin/inventory-checks", permission: P.CHECK_VIEW },
+  { path: "/admin/purchase-requests/new", permission: P.PURCHASE_REQUEST_CREATE },
+  { path: "/admin/purchase-requests", anyOf: [P.PURCHASE_REQUEST_VIEW, P.PURCHASE_REQUEST_CREATE, P.PURCHASE_REQUEST_UPDATE, P.PURCHASE_REQUEST_APPROVE, P.PURCHASE_REQUEST_DELETE] },
+  { path: "/admin/receipts/select-request", anyOf: [P.IMPORT_VIEW, P.IMPORT_CREATE] },
+  { path: "/admin/receipts/new", anyOf: [P.IMPORT_VIEW, P.IMPORT_CREATE, P.IMPORT_UPDATE] },
+  { path: "/admin/receipts", anyOf: [P.IMPORT_VIEW, P.IMPORT_CREATE, P.IMPORT_UPDATE, P.IMPORT_APPROVE, P.IMPORT_CANCEL, P.IMPORT_DELETE] },
+  { path: "/admin/exports/new-command", anyOf: [P.EXPORT_VIEW, P.EXPORT_CREATE, P.EXPORT_UPDATE] },
+  { path: "/admin/exports", anyOf: [P.EXPORT_VIEW, P.EXPORT_CREATE, P.EXPORT_UPDATE, P.EXPORT_APPROVE, P.EXPORT_CANCEL, P.EXPORT_DELETE] },
+  { path: "/admin/transfers/new", permission: P.TRANSFER_CREATE },
+  { path: "/admin/transfers", anyOf: [P.TRANSFER_VIEW, P.TRANSFER_CREATE, P.TRANSFER_UPDATE, P.TRANSFER_APPROVE, P.TRANSFER_CANCEL, P.TRANSFER_DELETE] },
+  { path: "/admin/inventory-checks/new", permission: P.CHECK_CREATE },
+  { path: "/admin/inventory-checks", anyOf: [P.CHECK_VIEW, P.CHECK_CREATE, P.CHECK_UPDATE, P.CHECK_APPROVE, P.CHECK_CANCEL, P.CHECK_DELETE] },
   { path: "/admin/settings", permission: P.SETTING_VIEW },
-  { path: "/admin/banners" },
-  { path: "/admin/blog" },
+  { path: "/admin/banners", permission: P.BANNER_VIEW },
+  { path: "/admin/blog", permission: P.BLOG_VIEW },
   { path: "/admin/chat", permission: P.CHAT_VIEW },
 ];
 
@@ -69,10 +79,11 @@ export default function AdminLayout({
   const pathname = usePathname();
   const { hasPermission, hasAnyPermission } = usePermissions();
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
-  const normalizedRole = normalizeRoleSlug(user?.role);
-  const isBlockedAdminRole = normalizedRole === "USER" || normalizedRole === "CUSTOMER";
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const shouldMountWebSocket = pathname.startsWith("/admin/chat");
+  const hasAdminWorkspaceAccess = hasAnyPermission(
+    ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
@@ -95,6 +106,12 @@ export default function AdminLayout({
     return true;
   }, [isBranchScopedOrderUser, matchedRule, hasAnyPermission, hasPermission, pathname]);
 
+  useEffect(() => {
+    if (!isLoadingAuth && hasAdminWorkspaceAccess) {
+      setLastWorkspace("/admin");
+    }
+  }, [hasAdminWorkspaceAccess, isLoadingAuth]);
+
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
@@ -103,11 +120,11 @@ export default function AdminLayout({
     );
   }
 
-  if (isBlockedAdminRole) {
+  if (!hasAdminWorkspaceAccess) {
     return (
       <AdminAccessDenied
         title="Bạn không có quyền truy cập"
-        description="Tài khoản khách hàng không được phép truy cập khu vực quản trị."
+        description="Tài khoản này chưa được cấp quyền cho khu vực quản trị."
       />
     );
   }

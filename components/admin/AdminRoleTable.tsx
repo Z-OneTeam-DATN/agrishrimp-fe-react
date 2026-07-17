@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { RoleService } from "@/app/services/RoleService";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 interface AdminRoleTableProps {
   roles: RoleType[];
@@ -47,8 +49,11 @@ export function AdminRoleTable({
   pageSize = 10,
   onPageChange 
 }: AdminRoleTableProps) {
+  const { hasPermission } = usePermissions();
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const canUpdateRole = hasPermission(P.ROLE_UPDATE);
+  const canDeleteRole = hasPermission(P.ROLE_DELETE);
 
   const formatRoleName = (value?: string) => {
     const source = (value || "").trim();
@@ -59,7 +64,7 @@ export function AdminRoleTable({
   };
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || !canDeleteRole) return;
     
     try {
       setIsDeleting(true);
@@ -125,6 +130,7 @@ export function AdminRoleTable({
               </TableCell>
               <TableCell className="p-2 text-right pr-4">
                 <div className="flex justify-end gap-1">
+                  {canUpdateRole && (
                   <Link href={role.isSystem ? "#" : `/admin/employees/roles/edit/${role.id}`}>
                     <Button 
                       variant="ghost" 
@@ -138,6 +144,8 @@ export function AdminRoleTable({
                       <Pencil size={14} className={role.isSystem ? "text-slate-400" : "text-blue-600"} />
                     </Button>
                   </Link>
+                  )}
+                  {canDeleteRole && (
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -150,6 +158,7 @@ export function AdminRoleTable({
                   >
                     <Trash2 size={14} className={role.isSystem ? "text-slate-400" : "text-rose-600"} />
                   </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
@@ -173,7 +182,7 @@ export function AdminRoleTable({
                 handleDelete();
               }}
               className="h-9 text-[11px] font-bold uppercase bg-rose-600 hover:bg-rose-700 text-white rounded-[4px]"
-              disabled={isDeleting}
+              disabled={isDeleting || !canDeleteRole}
             >
               {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
             </AlertDialogAction>

@@ -62,11 +62,8 @@ export default function TransferDetailPage() {
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
 
-  const isAdmin =
-    currentUser?.role?.id === 1 ||
-    currentUser?.role?.displayName === "Quản trị viên";
-  const canApproveTransfer = isAdmin || hasPermission(P.TRANSFER_APPROVE);
-  const canOperateTransfer = isAdmin || hasPermission(P.TRANSFER_CREATE);
+  const canApproveTransfer = hasPermission(P.TRANSFER_APPROVE);
+  const canOperateTransfer = hasPermission(P.TRANSFER_CREATE);
 
   // Chỉ user thuộc chi nhánh nguồn mới được xác nhận nguồn
   const isSourceBranchUser =

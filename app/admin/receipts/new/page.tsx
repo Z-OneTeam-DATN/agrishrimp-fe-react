@@ -15,6 +15,7 @@ import {
   Ban,
   FileText,
 } from "lucide-react";
+import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,7 @@ import { InventoryApiService } from "@/app/services/inventory.service";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 
 import {
@@ -59,6 +61,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+function normalizeLookupText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isWarehouseBranchLike(branch: any) {
+  const code = String(branch?.branchCode || branch?.code || "").trim().toUpperCase();
+  const type = String(branch?.branchType || branch?.type || "").trim().toUpperCase();
+  const name = normalizeLookupText(branch?.name || branch?.branchName);
+
+  if (code === "SYSTEM_DEFECT") return false;
+  if (code === "MAIN_WH") return true;
+  if (type === "WAREHOUSE") return true;
+
+  return name.includes("kho tong") || name.includes("warehouse");
+}
 
 function AdminReceiptFormContent() {
   const router = useRouter();
@@ -75,13 +97,13 @@ function AdminReceiptFormContent() {
 
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
+  const canCreateReceipt = hasPermission(P.IMPORT_CREATE);
+  const canUpdateReceipt = hasPermission(P.IMPORT_UPDATE);
   const isAdmin = hasPermission(P.IMPORT_APPROVE);
   const currentUserBranch = currentUser?.branch as
-    | { branchType?: string; branchCode?: string }
+    | { id?: number; name?: string; branchType?: string; branchCode?: string }
     | undefined;
-  const isWarehouseBranch =
-    currentUserBranch?.branchCode === "MAIN_WH" ||
-    currentUserBranch?.branchType === "WAREHOUSE";
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,6 +164,23 @@ function AdminReceiptFormContent() {
   const [selectedProductIds, setSelectedProductIds] = useState<(number | string)[]>([]);
   const [noteExpandedRows, setNoteExpandedRows] = useState<Record<string, boolean>>({});
 
+  const currentUserBranchFromList = useMemo(() => {
+    const currentBranchId = currentUserBranch?.id ?? warehouseId;
+    return branches.find((branch: any) => {
+      if (currentBranchId && String(branch.id) === String(currentBranchId)) {
+        return true;
+      }
+
+      const currentName = normalizeLookupText(currentUserBranch?.name);
+      if (!currentName) return false;
+      return normalizeLookupText(branch.name || branch.branchName) === currentName;
+    });
+  }, [branches, currentUserBranch?.id, currentUserBranch?.name, warehouseId]);
+
+  const isWarehouseBranch =
+    isWarehouseBranchLike(currentUserBranch) ||
+    isWarehouseBranchLike(currentUserBranchFromList);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -168,7 +207,7 @@ function AdminReceiptFormContent() {
       entryDate: new Date().toISOString().slice(0, 10),
       items: [],
       paymentAmount: 0,
-      deliverer: "N/A",
+      deliverer: "",
       creator: "",
     },
   });
@@ -184,11 +223,29 @@ function AdminReceiptFormContent() {
 
   useEffect(() => {
     if (!currentUser) return;
-    if (!isAdmin && !isWarehouseBranch) {
-      toast.error("Chỉ kho tổng hoặc admin mới được lập phiếu nhập từ nhà cung cấp.");
+    if (isEditMode) {
+      if (!canUpdateReceipt) {
+        toast.error("Bạn không có quyền sửa phiếu nhập.");
+        router.replace("/admin/forbidden");
+      }
+      return;
+    }
+
+    if (!canCreateReceipt) {
+      toast.error("Bạn không có quyền tạo phiếu nhập.");
+      router.replace("/admin/forbidden");
+      return;
+    }
+
+    if (!isWarehouseBranch) {
+      if (branches.length === 0 && !isWarehouseBranchLike(currentUserBranch)) {
+        return;
+      }
+
+      toast.error("Chỉ kho tổng mới được lập phiếu nhập từ nhà cung cấp.");
       router.replace("/admin/forbidden");
     }
-  }, [currentUser, isAdmin, isWarehouseBranch, router]);
+  }, [branches.length, canCreateReceipt, canUpdateReceipt, currentUser, currentUserBranch, isEditMode, isWarehouseBranch, router]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -198,6 +255,7 @@ function AdminReceiptFormContent() {
   const watchPurchaseRequestId = watch("purchaseRequestId");
   const watchStatus = watch("status") || "PENDING";
   const currentTargetBranch = watch("branchName");
+  const watchEntryDate = watch("entryDate");
 
   const isInfoReadOnly =
     isReadOnly || (isEditMode && (watchStatus || "").toUpperCase() !== "PENDING");
@@ -537,6 +595,10 @@ function AdminReceiptFormContent() {
             ...data,
             receiptCode: data.receiptCode || data.code || `PNK-${data.id}`,
             entryDate: data.entryDate?.slice(0, 10),
+            deliverer:
+              data.deliverer && data.deliverer !== "N/A"
+                ? data.deliverer
+                : "",
             creator:
               data.creatorName || data.createdByName || data.creator || "",
             items: mappedItems,
@@ -733,8 +795,8 @@ function AdminReceiptFormContent() {
       ? "Xác nhận lưu và duyệt phiếu"
       : "Xác nhận lưu phiếu chờ duyệt";
     const msg = isAdmin
-      ? "Phiếu nhập do admin tạo sẽ được duyệt ngay. Nếu đã nhập đủ số lượng đạt/lỗi, hệ thống sẽ chốt luôn tồn kho và công nợ nhà cung cấp."
-      : "Phiếu nhập sẽ được lưu ở trạng thái chờ admin duyệt. Khi duyệt, hệ thống mới cập nhật tồn kho và công nợ.";
+      ? "Phiếu nhập do người có quyền duyệt tạo sẽ được duyệt ngay. Nếu đã nhập đủ số lượng đạt/lỗi, hệ thống sẽ chốt luôn tồn kho và công nợ nhà cung cấp."
+      : "Phiếu nhập sẽ được lưu ở trạng thái chờ duyệt. Khi được duyệt, hệ thống mới cập nhật tồn kho và công nợ.";
 
     showConfirm(title, msg, () => {
       onSaveDraft(data);
@@ -897,28 +959,40 @@ function AdminReceiptFormContent() {
             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Ngày nhập
             </Label>
-            <div className="relative">
-              <input
-                type="date"
-                {...register("entryDate")}
-                className="h-10 w-full border border-slate-200 bg-white px-3 text-[13px] outline-none"
-                disabled={isInfoReadOnly}
-              />
-              <Clock
-                size={14}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-              />
-            </div>
+            <input type="hidden" {...register("entryDate")} />
+            <SharedDatePicker
+              value={watchEntryDate}
+              disabled={isInfoReadOnly}
+              onChange={(nextValue) =>
+                setValue("entryDate", nextValue, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                  shouldTouch: true,
+                })
+              }
+              placeholder="Chọn ngày nhập"
+              variant="compact"
+              buttonClassName="h-10 w-full border border-slate-200 bg-white text-[13px]"
+            />
           </div>
           <div>
             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
-              Người tạo
+              Người giao hàng *
             </Label>
             <Input
-              readOnly
-              value={watch("creator") || "..."}
-              className="h-10 border-slate-200 bg-slate-50 text-[13px] text-slate-500"
+              {...register("deliverer")}
+              disabled={isInfoReadOnly}
+              placeholder="Nhập tên người giao hàng"
+              className={cn(
+                "h-10 border-slate-200 text-[13px] shadow-none",
+                errors.deliverer && "border-rose-500",
+              )}
             />
+            {errors.deliverer && (
+              <p className="mt-1 text-[10px] text-rose-500">
+                {errors.deliverer.message}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1122,11 +1196,23 @@ function AdminReceiptFormContent() {
                                 {...register(`items.${idx}.lotNumber`)}
                                 disabled={isReadOnly}
                               />
-                              <Input
-                                type="date"
-                                className="h-9 border-slate-200 px-2 text-[11.5px] shadow-none"
+                              <input
+                                type="hidden"
                                 {...register(`items.${idx}.expiryDate`)}
+                              />
+                              <SharedDatePicker
+                                value={watchItems[idx]?.expiryDate || ""}
                                 disabled={isInfoReadOnly}
+                                onChange={(nextValue) =>
+                                  setValue(`items.${idx}.expiryDate`, nextValue, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                    shouldTouch: true,
+                                  })
+                                }
+                                placeholder="Hạn dùng"
+                                variant="compact"
+                                buttonClassName="h-9 border-slate-200 px-2 text-[11.5px] shadow-none"
                               />
                             </div>
                           </TableCell>

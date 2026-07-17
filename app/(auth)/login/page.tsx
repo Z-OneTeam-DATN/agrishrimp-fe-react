@@ -133,18 +133,18 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <GoogleLoginBtn />
+            {/* LOGIN FORM */}
+            <LoginForm />
 
-            <div className="relative flex items-center gap-4 py-1 mb-5">
+            <div className="relative flex items-center gap-4 py-1 mt-5 mb-5">
               <div className="flex-grow h-px bg-slate-200"></div>
               <span className="flex-shrink-0 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Hoặc Email
+                Hoặc Google
               </span>
               <div className="flex-grow h-px bg-slate-200"></div>
             </div>
 
-            {/* LOGIN FORM */}
-            <LoginForm />
+            <GoogleLoginBtn />
 
             <div className="mt-8 flex justify-center gap-6 text-xs text-slate-400 pb-4">
               <Link href="#" className="hover:text-blue-600 transition-colors">

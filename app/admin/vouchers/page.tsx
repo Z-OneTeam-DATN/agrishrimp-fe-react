@@ -13,7 +13,6 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number"
@@ -58,10 +57,17 @@ const getStatusLabel = (status: Voucher["status"]) => {
 
 export default function AdminVoucherPage() {
   const router = useRouter();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const { user: currentUser, isLoadingAuth } = useAuthStore();
   const canViewVoucher = hasPermission(P.VOUCHER_VIEW);
-  const canManageVoucher = isAdminRole(currentUser?.role);
+  const canCreateVoucher = hasPermission(P.VOUCHER_CREATE);
+  const canUpdateVoucher = hasPermission(P.VOUCHER_UPDATE);
+  const canDeleteVoucher = hasPermission(P.VOUCHER_DELETE);
+  const canManageVoucher = hasAnyPermission([
+    P.VOUCHER_CREATE,
+    P.VOUCHER_UPDATE,
+    P.VOUCHER_DELETE,
+  ]);
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +152,7 @@ export default function AdminVoucherPage() {
   }, [totalPages]);
 
   const confirmDelete = async () => {
-    if (!canManageVoucher || !deleteConfirmVoucher?.id) return;
+    if (!canDeleteVoucher || !deleteConfirmVoucher?.id) return;
 
     setIsDeleting(true);
     const isExpired =
@@ -205,7 +211,7 @@ export default function AdminVoucherPage() {
         <h1 className="text-[20px] font-semibold uppercase text-slate-900">
           Quản lý voucher
         </h1>
-        {canManageVoucher && (
+        {canCreateVoucher && (
           <Link
             href="/admin/vouchers/add"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-blue-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700"
@@ -340,7 +346,7 @@ export default function AdminVoucherPage() {
                     {canManageVoucher && (
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
-                          {voucher.id && (
+                          {voucher.id && canUpdateVoucher && (
                             <Link
                               href={`/admin/vouchers/edit/${voucher.id}`}
                               title="Cập nhật voucher"
@@ -349,14 +355,16 @@ export default function AdminVoucherPage() {
                               <Edit size={15} />
                             </Link>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmVoucher(voucher)}
-                            title="Xóa hoặc tạm ẩn voucher"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {canDeleteVoucher && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmVoucher(voucher)}
+                              title="Xóa hoặc tạm ẩn voucher"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}

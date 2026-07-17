@@ -54,6 +54,32 @@ const getWardId = (item: any) =>
   "";
 const getWardName = (item: any) =>
   item?.WardName ?? item?.ward_name ?? item?.full_name ?? item?.name ?? "";
+const getWardDistrictId = (item: any) =>
+  item?.districtId ?? item?.DistrictID ?? item?.district_id ?? item?.__districtId ?? "";
+const getWardDistrictName = (item: any) =>
+  item?.districtName ?? item?.DistrictName ?? item?.district_name ?? item?.__districtName ?? "";
+const withDistrictScope = (ward: any, district: any) => ({
+  ...ward,
+  districtId: getDistId(district),
+  districtName: getDistName(district),
+  __districtId: getDistId(district),
+  __districtName: getDistName(district),
+});
+
+const normalizeAddressText = (text: string) => {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(
+      /\b(huyen|h\.uyen|h\. |quan|q\.|tp|tp\.|thanh pho|thanh pho|thanh pho\.)\b/gi,
+      "",
+    )
+    .replace(/\b(phuong|phuong\.|xa|xa\.|thi tran|thi xa|thi xa\.)\b/gi, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
 const extractArray = (res: any) => {
   if (Array.isArray(res)) return res;
@@ -63,12 +89,110 @@ const extractArray = (res: any) => {
   return [];
 };
 
+const getConfirmedAddressDetail = (data: any) => {
+  const confirmedAddress =
+    data?.mapDisplayName || data?.fullAddress || data?.addressDetail || "";
+  if (!confirmedAddress) return "";
+
+  const ignored = [
+    data?.wardName,
+    data?.districtName,
+    data?.provinceName,
+    "Vietnam",
+    "Viet Nam",
+  ]
+    .filter(Boolean)
+    .map((value) => normalizeAddressText(String(value)));
+
+  const parts = confirmedAddress
+    .split(",")
+    .map((part: string) => part.trim())
+    .filter(Boolean)
+    .filter((part: string) => {
+      const normalizedPart = normalizeAddressText(part);
+      return !ignored.some(
+        (scope) =>
+          normalizedPart === scope ||
+          normalizedPart.includes(scope) ||
+          scope.includes(normalizedPart),
+      );
+    });
+
+  return parts.length > 0
+    ? parts.slice(0, 3).join(", ")
+    : confirmedAddress.split(",")[0]?.trim() || confirmedAddress;
+};
+
+const resolveLocationOption = (
+  list: any[],
+  ids: Array<string | number | null | undefined>,
+  names: Array<string | null | undefined>,
+  getId: (item: any) => string | number,
+  getName: (item: any) => string,
+) => {
+  const idCandidates = ids
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+    .map((value) => String(value));
+  const nameCandidates = names
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeAddressText(value));
+
+  return list.find((item) => {
+    const itemId = String(getId(item));
+    const itemName = normalizeAddressText(getName(item));
+    return (
+      idCandidates.includes(itemId) ||
+      nameCandidates.some(
+        (name) => itemName === name || itemName.includes(name) || name.includes(itemName),
+      )
+    );
+  });
+};
+
 const fetchProvinceOpenApi = async (url: string) => {
-  const response = await fetch(url, { method: "GET", cache: "no-store" });
+  const provinceUrl = new URL(url);
+  const apiPath = provinceUrl.pathname.replace("/api/v2", "") || "/";
+  const proxyPath = `${apiPath}${provinceUrl.search}`;
+  const proxyUrl = `/api/provinces-openapi?path=${encodeURIComponent(proxyPath)}`;
+
+  const response = await fetch(proxyUrl, { method: "GET", cache: "no-store" });
   if (!response.ok) {
     throw new Error("Failed to fetch Province Open API");
   }
   return response.json();
+};
+
+const loadProvinceAddressScopes = async (provinceValue: string) => {
+  const provinceDetail = await fetchProvinceOpenApi(
+    `${PROVINCE_API_BASE}/p/${provinceValue}?depth=2`,
+  );
+  const districtList = extractArray(provinceDetail?.districts);
+  const directWardList = extractArray(provinceDetail?.wards);
+
+  if (districtList.length === 0) {
+    return { districtList, wardList: directWardList };
+  }
+
+  const wardGroups = await Promise.all(
+    districtList.map(async (district: any) => {
+      try {
+        const districtId = getDistId(district);
+        const districtDetail = await fetchProvinceOpenApi(
+          `${PROVINCE_API_BASE}/d/${districtId}?depth=2`,
+        );
+        return extractArray(districtDetail?.wards).map((ward: any) =>
+          withDistrictScope(ward, district),
+        );
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  return {
+    districtList,
+    wardList: wardGroups.flat(),
+  };
 };
 
 export default function AddBranchPage() {
@@ -107,6 +231,7 @@ export default function AddBranchPage() {
     district: string;
     ward: string;
   } | null>(null);
+  const loadedProvinceRef = useRef("");
 
   const {
     register,
@@ -145,17 +270,26 @@ export default function AddBranchPage() {
     () => provinces.find((p) => String(getProvId(p)) === watchedProvince),
     [provinces, watchedProvince],
   );
-  const currentDistrict = useMemo(
-    () => districts.find((d) => String(getDistId(d)) === watchedDistrict),
-    [districts, watchedDistrict],
-  );
   const currentWard = useMemo(
     () => wards.find((w) => String(getWardId(w)) === watchedWard),
     [wards, watchedWard],
   );
+  const currentDistrict = useMemo(() => {
+    const explicitDistrict = districts.find(
+      (d) => String(getDistId(d)) === watchedDistrict,
+    );
+    if (explicitDistrict) return explicitDistrict;
+
+    const wardDistrictId = currentWard ? String(getWardDistrictId(currentWard)) : "";
+    return wardDistrictId
+      ? districts.find((d) => String(getDistId(d)) === wardDistrictId)
+      : undefined;
+  }, [districts, watchedDistrict, currentWard]);
   const hasDistrictLevel = districts.length > 0;
   const districtNameForAddress = currentDistrict
     ? getDistName(currentDistrict)
+    : currentWard
+      ? getWardDistrictName(currentWard)
     : "";
 
   const resolveWardSelectValue = (
@@ -212,17 +346,18 @@ export default function AddBranchPage() {
     const initData = async () => {
       try {
         const [empRes, provResponse, branchRes] = await Promise.all([
-          EmployeeService.getAll({ size: 500, status: "ACTIVE" }),
+          EmployeeService.getAll({
+            size: 500,
+            status: "ACTIVE",
+            permissionCode: "BRANCH_VIEW",
+          }),
           fetchProvinceOpenApi(`${PROVINCE_API_BASE}/`),
           branchService.getAll(),
         ]);
 
-        // Lọc chỉ lấy nhân viên có Role ID 1, 2, 3
+        // Backend filters employees by BRANCH_VIEW permission.
         const rawStaffs = extractArray(empRes);
-        const filtered = rawStaffs.filter((s: any) =>
-          [1, 2, 3].includes(s.roleId || s.role?.id),
-        );
-        setStaffs(filtered);
+        setStaffs(rawStaffs);
 
         const branches = extractArray(branchRes);
         const managerIdSet = new Set<number>();
@@ -264,6 +399,7 @@ export default function AddBranchPage() {
           const managerIds = Array.isArray(data.managerIds)
             ? data.managerIds
             : [];
+          const confirmedAddressDetail = getConfirmedAddressDetail(data);
 
           setCurrentBranchManagerIds(
             new Set(
@@ -274,29 +410,49 @@ export default function AddBranchPage() {
           );
 
           // Fetch districts/wards trước để reset form không bị mất label
-          if (data.provinceId) {
-            const provinceDetail = await fetchProvinceOpenApi(
-              `${PROVINCE_API_BASE}/p/${data.provinceId}?depth=2`,
+          const matchedProvince = resolveLocationOption(
+            provinces,
+            [data.provinceId, data.provinceCode],
+            [data.provinceName],
+            getProvId,
+            getProvName,
+          );
+          const provinceValue = matchedProvince ? String(getProvId(matchedProvince)) : "";
+
+          if (provinceValue) {
+            const { districtList, wardList } =
+              await loadProvinceAddressScopes(provinceValue);
+            const matchedDistrict = resolveLocationOption(
+              districtList,
+              [data.districtId, data.districtCode],
+              [data.districtName],
+              getDistId,
+              getDistName,
             );
-            const districtList = extractArray(provinceDetail?.districts);
-            let wardList: any[] = extractArray(provinceDetail?.wards);
-            if (districtList.length > 0 && data.districtId) {
-              const districtDetail = await fetchProvinceOpenApi(
-                `${PROVINCE_API_BASE}/d/${data.districtId}?depth=2`,
-              );
-              wardList = extractArray(districtDetail?.wards);
-            }
-            setDistricts(districtList);
-            setWards(wardList);
+            const matchedWard = resolveLocationOption(
+              wardList,
+              [data.wardCode, data.wardId],
+              [data.wardName],
+              getWardId,
+              getWardName,
+            );
 
             districtValue =
-              districtList.length > 0
-                ? resolveDistrictSelectValue(districtList, [data.districtId])
-                : NO_DISTRICT_VALUE;
-            wardValue = resolveWardSelectValue(wardList, [
-              data.wardCode,
-              data.wardId,
-            ]);
+              matchedWard && getWardDistrictId(matchedWard)
+                ? String(getWardDistrictId(matchedWard))
+                : districtList.length > 0
+                  ? matchedDistrict
+                    ? String(getDistId(matchedDistrict))
+                    : ""
+                  : NO_DISTRICT_VALUE;
+            wardValue = matchedWard ? String(getWardId(matchedWard)) : "";
+            setDistricts(districtList);
+            setWards(wardList);
+            loadedProvinceRef.current = provinceValue;
+          } else {
+            setDistricts([]);
+            setWards([]);
+            loadedProvinceRef.current = "";
           }
 
           reset({
@@ -305,8 +461,8 @@ export default function AddBranchPage() {
             branchType: data.branchType,
             phone: data.phone,
             email: data.email || "",
-            addressDetail: data.addressDetail,
-            province: String(data.provinceId ?? ""),
+            addressDetail: confirmedAddressDetail,
+            province: provinceValue,
             district: districtValue,
             ward: wardValue,
             status: (data.status || "active").toLowerCase(),
@@ -360,44 +516,35 @@ export default function AddBranchPage() {
   // Logic lấy huyện/xã khi thay đổi select tay
   useEffect(() => {
     if (watchedProvince && isInitialLoaded && isFormInitialized && !isLoading) {
-      fetchProvinceOpenApi(`${PROVINCE_API_BASE}/p/${watchedProvince}?depth=2`)
-        .then((data) => {
-          const districtList = extractArray(data?.districts);
-          const directWardList = extractArray(data?.wards);
+      if (loadedProvinceRef.current === watchedProvince) {
+        return;
+      }
+      loadProvinceAddressScopes(watchedProvince)
+        .then(({ districtList, wardList }) => {
           setDistricts(districtList);
-          if (districtList.length === 0) {
-            setValue("district", NO_DISTRICT_VALUE, { shouldDirty: true });
-            setWards(directWardList);
-          } else {
-            setWards([]);
-          }
+          setWards(wardList);
+          loadedProvinceRef.current = watchedProvince;
+          setValue("district", districtList.length === 0 ? NO_DISTRICT_VALUE : "", {
+            shouldDirty: true,
+          });
+          setValue("ward", "", { shouldDirty: true, shouldValidate: true });
         })
         .catch(() => {
           setDistricts([]);
           setWards([]);
+          loadedProvinceRef.current = "";
+          setValue("district", "", { shouldDirty: true });
+          setValue("ward", "", { shouldDirty: true, shouldValidate: true });
         });
     }
   }, [watchedProvince, isInitialLoaded, isFormInitialized, isLoading, setValue]);
-
-  useEffect(() => {
-    if (
-      watchedDistrict &&
-      watchedDistrict !== NO_DISTRICT_VALUE &&
-      isInitialLoaded &&
-      isFormInitialized &&
-      !isLoading
-    ) {
-      fetchProvinceOpenApi(`${PROVINCE_API_BASE}/d/${watchedDistrict}?depth=2`)
-        .then((data) => setWards(extractArray(data?.wards)))
-        .catch(() => setWards([]));
-    }
-  }, [watchedDistrict, isInitialLoaded, isFormInitialized, isLoading]);
 
   const getScopedAddressDetail = (label: string) => {
     const ignoredScopes = [
       currentWard ? normalizeText(getWardName(currentWard)) : "",
       currentDistrict ? normalizeText(getDistName(currentDistrict)) : "",
       currentProvince ? normalizeText(getProvName(currentProvince)) : "",
+      normalizeText("Vietnam"),
     ].filter(Boolean);
 
     const detailParts = label
@@ -432,53 +579,131 @@ export default function AddBranchPage() {
       .filter(Boolean)
       .join(", ");
 
+  const syncSelectedMapLocation = (item: any) => {
+    const typedDetail = addressDetailValue?.trim();
+    const fallbackDetail = getScopedAddressDetail(
+      item.sourceDisplayName || item.label || "",
+    );
+    const nextDetail = fallbackDetail || typedDetail;
+
+    if (fallbackDetail) {
+      setValue("addressDetail", fallbackDetail, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (typeof item.lat === "number" && typeof item.lng === "number") {
+      setValue("lat", item.lat, { shouldDirty: true, shouldValidate: true });
+      setValue("lng", item.lng, { shouldDirty: true, shouldValidate: true });
+      setMapDisplayName(
+        item.mapDisplayName || item.sourceDisplayName || buildFullAddress(nextDetail),
+      );
+    }
+  };
+
+  const syncSelectedAdministrativeScope = async (item: any) => {
+    if (!currentProvince || (!item?.district && !item?.ward)) return;
+
+    const scopes =
+      districts.length > 0 || wards.length > 0
+        ? { districtList: districts, wardList: wards }
+        : await loadProvinceAddressScopes(String(getProvId(currentProvince)));
+    const districtList = scopes.districtList;
+    const wardList = scopes.wardList;
+
+    setDistricts(districtList);
+    setWards(wardList);
+
+    const matchedDistrict = item.district
+      ? resolveLocationOption(
+          districtList,
+          [],
+          [item.district],
+          getDistId,
+          getDistName,
+        )
+      : undefined;
+
+    const matchedWard = item.ward
+      ? resolveLocationOption(
+          wardList,
+          [],
+          [item.ward],
+          getWardId,
+          getWardName,
+        )
+      : undefined;
+
+    const nextDistrict =
+      matchedWard && getWardDistrictId(matchedWard)
+        ? String(getWardDistrictId(matchedWard))
+        : matchedDistrict
+          ? String(getDistId(matchedDistrict))
+          : districtList.length === 0
+            ? NO_DISTRICT_VALUE
+            : "";
+
+    setValue("district", nextDistrict, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("ward", matchedWard ? String(getWardId(matchedWard)) : "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   const resetSelectedMapLocation = () => {
     setValue("lat", null, { shouldDirty: true });
     setValue("lng", null, { shouldDirty: true });
     setMapDisplayName("");
   };
 
-  const fetchNominatimAddressSuggestions = async (input: string) => {
-    if (!currentProvince || !currentWard) return [];
+  const fetchScopedAddressSuggestions = async (input: string) => {
+    if (!currentProvince) return [];
 
-    const fullAddress = buildFullAddress(input);
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=vn&limit=5&q=${encodeURIComponent(
-        fullAddress,
-      )}`,
-    );
+    const provinceName = getProvName(currentProvince);
+    const wardName = currentWard ? getWardName(currentWard) : "";
+    const districtName = districtNameForAddress;
+    const params = new URLSearchParams({ input });
+    params.set("province", provinceName);
+    if (districtName) params.set("district", districtName);
+    if (wardName) params.set("ward", wardName);
 
+    const response = await fetch(`/api/nominatim/search?${params.toString()}`, {
+      method: "GET",
+      cache: "no-store",
+    });
     if (!response.ok) return [];
 
-    const data = await response.json();
-    if (!Array.isArray(data)) return [];
+    const results = await response.json();
+    if (!Array.isArray(results)) return [];
 
-    return data
-      .map((item: any) => ({
-        label: item.display_name || "",
-        name: item.name || item.display_name || "",
-        province:
-          item.address?.city ||
-          item.address?.state ||
-          item.address?.province ||
-          getProvName(currentProvince),
-        district:
-          item.address?.city_district ||
-          item.address?.county ||
-          item.address?.district ||
-          getDistName(currentDistrict),
-        ward:
-          item.address?.suburb ||
-          item.address?.quarter ||
-          item.address?.village ||
-          item.address?.hamlet ||
-          item.address?.city_district ||
-          getWardName(currentWard),
-        lat: item.lat ? Number(item.lat) : undefined,
-        lng: item.lon ? Number(item.lon) : undefined,
-        mapDisplayName: item.display_name || "",
-      }))
-      .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+    return results
+      .map((item: any) => {
+        return {
+          label: item.label || input,
+          name: item.label || input,
+          sourceDisplayName: item.label || "",
+          province: item.province || provinceName,
+          district: item.district || districtName,
+          ward: item.ward || wardName,
+          lat: item.lat ? Number(item.lat) : undefined,
+          lng: item.lng ? Number(item.lng) : undefined,
+          mapDisplayName: item.label || buildFullAddress(input),
+        };
+      })
+      .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
+      .filter(
+        (item, index, array) =>
+          array.findIndex(
+            (current) =>
+              current.label === item.label ||
+              (`${current.lat},${current.lng}` === `${item.lat},${item.lng}`),
+          ) === index,
+      )
+      .slice(0, 5);
   };
 
   useEffect(() => {
@@ -487,7 +712,7 @@ export default function AddBranchPage() {
     }
 
     const input = addressDetailValue?.trim() || "";
-    if (!input || input.length < 3 || !currentProvince || !currentWard) {
+    if (!input || input.length < 3 || !currentProvince) {
       setAddressSuggestions([]);
       setShowSuggestions(false);
       setIsLoadingAddressSuggestions(false);
@@ -501,7 +726,7 @@ export default function AddBranchPage() {
       try {
         setIsLoadingAddressSuggestions(true);
 
-        const nextSuggestions = await fetchNominatimAddressSuggestions(input);
+        const nextSuggestions = await fetchScopedAddressSuggestions(input);
 
         if (requestId !== addressSuggestionRequestRef.current) {
           return;
@@ -548,20 +773,7 @@ export default function AddBranchPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const normalizeText = (text: string) => {
-    return text
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(
-        /\b(huyen|h\.uyen|h\. |quan|q\.|tp|tp\.|thanh pho|thanh pho|thanh pho\.)\b/gi,
-        "",
-      )
-      .replace(/\b(phuong|phuong\.|xa|xa\.|thi tran|thi xa|thi xa\.)\b/gi, "")
-      .replace(/[^a-z0-9 ]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
+  const normalizeText = normalizeAddressText;
 
   const onSubmit = async (data: AdminBranchForm) => {
     try {
@@ -581,8 +793,11 @@ export default function AddBranchPage() {
       const selectedWardObj = wards.find(
         (w: any) => String(getWardId(w)) === data.ward,
       );
+      const resolvedDistrictId = selectedWardObj
+        ? String(getWardDistrictId(selectedWardObj) || data.district || "")
+        : String(data.district || "");
       const hasSelectedDistrict =
-        data.district && data.district !== NO_DISTRICT_VALUE;
+        resolvedDistrictId && resolvedDistrictId !== NO_DISTRICT_VALUE;
       const fullAddress = buildFullAddress(data.addressDetail);
       const payload = {
         branchCode: data.id,
@@ -596,8 +811,8 @@ export default function AddBranchPage() {
         fullAddress,
         provinceId: Number(data.province),
         provinceCode: Number(data.province),
-        districtId: hasSelectedDistrict ? Number(data.district) : null,
-        districtCode: hasSelectedDistrict ? Number(data.district) : null,
+        districtId: hasSelectedDistrict ? Number(resolvedDistrictId) : null,
+        districtCode: hasSelectedDistrict ? Number(resolvedDistrictId) : null,
         wardId:
           selectedWardObj?.wardId ??
           selectedWardObj?.WardID ??
@@ -608,7 +823,9 @@ export default function AddBranchPage() {
           selectedWardObj?.wardCode ??
           String(data.ward),
         provinceName: currentProvince ? getProvName(currentProvince) : "",
-        districtName: currentDistrict ? getDistName(currentDistrict) : "",
+        districtName:
+          (selectedWardObj ? getWardDistrictName(selectedWardObj) : "") ||
+          (currentDistrict ? getDistName(currentDistrict) : ""),
         wardName: currentWard ? getWardName(currentWard) : "",
         status: data.status.toUpperCase(),
         managerId: data.managerId ? Number(data.managerId) : null,
@@ -807,7 +1024,7 @@ export default function AddBranchPage() {
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-12">
-              <div className="space-y-1.5 xl:col-span-4">
+              <div className="space-y-1.5 xl:col-span-6">
                 <Label className="text-[10px] font-medium text-slate-400">
                   Tỉnh / Thành phố *
                 </Label>
@@ -821,6 +1038,7 @@ export default function AddBranchPage() {
                       }}
                       onValueChange={(val) => {
                         field.onChange(val);
+                        loadedProvinceRef.current = "";
                         setSearchTerm("");
                         setValue("district", "");
                         setValue("ward", "");
@@ -856,7 +1074,7 @@ export default function AddBranchPage() {
                 )}
               </div>
 
-              <div className="space-y-1.5 xl:col-span-4">
+              <div className="hidden">
                 <Label className="text-[10px] font-medium text-slate-400">
                   Quận / Huyện *
                 </Label>
@@ -906,7 +1124,7 @@ export default function AddBranchPage() {
                 />
               </div>
 
-              <div className="space-y-1.5 xl:col-span-4">
+              <div className="space-y-1.5 xl:col-span-6">
                 <Label className="text-[10px] font-medium text-slate-400">
                   Phường / Xã *
                 </Label>
@@ -920,11 +1138,23 @@ export default function AddBranchPage() {
                       }}
                       onValueChange={(val) => {
                         field.onChange(val);
+                        const selectedWard = wards.find(
+                          (ward: any) => String(getWardId(ward)) === val,
+                        );
+                        setValue(
+                          "district",
+                          selectedWard && getWardDistrictId(selectedWard)
+                            ? String(getWardDistrictId(selectedWard))
+                            : districts.length === 0
+                              ? NO_DISTRICT_VALUE
+                              : "",
+                          { shouldDirty: true, shouldValidate: true },
+                        );
                         setSearchTerm("");
                         resetSelectedMapLocation();
                       }}
                       value={field.value}
-                      disabled={!watchedProvince || (hasDistrictLevel && !watchedDistrict)}
+                      disabled={!watchedProvince}
                     >
                       <SelectTrigger className="h-9 text-[12px]">
                         <SelectValue placeholder="Chọn phường / xã" />
@@ -973,7 +1203,7 @@ export default function AddBranchPage() {
                     placeholder={
                       currentProvince && currentWard
                         ? "Ví dụ: 12 Nguyễn Văn Cừ, hẻm 5, khu dân cư..."
-                        : "Chọn đủ Tỉnh / Quận / Phường trước để dùng gợi ý địa chỉ"
+                        : "Chọn đủ Tỉnh / Phường trước để dùng gợi ý địa chỉ"
                     }
                     className={`h-9 pr-9 text-[13px] ${errors.addressDetail ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
                   />
@@ -997,23 +1227,9 @@ export default function AddBranchPage() {
                       <div
                         key={idx}
                         className="cursor-pointer border-b px-4 py-2 text-[12px] hover:bg-slate-50"
-                        onClick={() => {
-                          setValue(
-                            "addressDetail",
-                            getScopedAddressDetail(item.label),
-                            {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            },
-                          );
-                          if (
-                            typeof item.lat === "number" &&
-                            typeof item.lng === "number"
-                          ) {
-                            setValue("lat", item.lat, { shouldDirty: true });
-                            setValue("lng", item.lng, { shouldDirty: true });
-                            setMapDisplayName(item.mapDisplayName || item.label);
-                          }
+                        onClick={async () => {
+                          syncSelectedMapLocation(item);
+                          await syncSelectedAdministrativeScope(item);
                           setShowSuggestions(false);
                           setAddressSuggestions([]);
                         }}
@@ -1163,4 +1379,3 @@ export default function AddBranchPage() {
     </>
   );
 }
-

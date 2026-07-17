@@ -29,6 +29,7 @@ import type {
   AiDoctorTreatmentStage,
 } from "@/app/types/ai-doctor.types";
 import { useCartStore } from "@/stores/useCartStore";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const formatPrice = (price?: number) => {
   if (!price || price <= 0) return "Liên hệ";
@@ -182,6 +183,7 @@ export default function TreatmentResultPage() {
   const [prescriptionData, setPrescriptionData] = useState<Partial<AiDoctorDiagnosisResponse> | null>(null);
   const variantIdCache = useRef<Map<number, number>>(new Map());
   const { fetchCartCount } = useCartStore();
+  const { isAuthenticated } = useCurrentUser();
 
   useEffect(() => {
     setDiagnosisId(rawDiagnosisId || aiDoctorService.getLastDiagnosisId());
@@ -195,7 +197,7 @@ export default function TreatmentResultPage() {
   const diagnosisQuery = useQuery<AiDoctorDiagnosisResponse>({
     queryKey: ["ai-doctor-diagnosis", diagnosisId],
     queryFn: () => aiDoctorService.getDiagnosisDetail(diagnosisId!),
-    enabled: !!diagnosisId,
+    enabled: !!diagnosisId && isAuthenticated,
     initialData: cachedDiagnosis,
   });
 

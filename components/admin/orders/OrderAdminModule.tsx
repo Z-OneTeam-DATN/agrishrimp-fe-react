@@ -1482,13 +1482,14 @@ export function AdminOrderEditorModule({
           </FormField>
 
           <FormField label="Ngày hẹn giao">
-            <Input
-              type="date"
+            <SharedDatePicker
               value={form.expectedDeliveryDate}
-              onChange={(event) =>
-                updateForm("expectedDeliveryDate", event.target.value)
+              onChange={(nextValue) =>
+                updateForm("expectedDeliveryDate", nextValue)
               }
-              className="h-10 border-slate-200 text-[13px] shadow-none"
+              placeholder="Chọn ngày giao"
+              variant="compact"
+              buttonClassName="h-10 border-slate-200 text-[13px] shadow-none"
             />
           </FormField>
         </div>

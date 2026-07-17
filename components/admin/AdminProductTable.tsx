@@ -34,9 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { usePermissions } from "@/hooks/usePermissions";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/roles";
 
 interface Batch {
     inventoryId: number;
@@ -84,6 +82,7 @@ interface Product {
 
 interface AdminProductTableProps {
     products: Product[];
+    canViewImportPrice?: boolean;
     currentPage: number;
     pageSize: number;
     onDelete?: (id: number) => void;
@@ -100,6 +99,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 
 export function AdminProductTable({
     products,
+    canViewImportPrice = false,
     currentPage,
     pageSize,
     onDelete,
@@ -108,8 +108,6 @@ export function AdminProductTable({
     onEnable,
 }: AdminProductTableProps) {
     const { hasPermission } = usePermissions();
-    const { user } = useAuthStore();
-    const isAdmin = isAdminRole(user?.role); // 👉 BIẾN QUYẾT ĐỊNH ẨN/HIỆN GIÁ VỐN
     const canAction = hasPermission(P.PRODUCT_UPDATE) || hasPermission(P.PRODUCT_DELETE);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
@@ -357,7 +355,7 @@ export function AdminProductTable({
                                                                 <th className="w-[110px] px-3 py-2 text-center text-[10px] font-normal text-slate-500">Lô hàng</th>
                                                                 <th className="w-[110px] px-3 py-2 text-center text-[10px] font-normal text-slate-500">Kho chứa</th>
                                                                 <th className="w-[80px] px-3 py-2 text-center text-[10px] font-normal text-slate-500">Tồn</th>
-                                                                {isAdmin && (
+                                                                {canViewImportPrice && (
                                                                     <th className="w-[120px] px-3 py-2 text-right text-[10px] font-normal text-slate-500">Giá vốn</th>
                                                                 )}
                                                                 <th className="w-[130px] px-3 py-2 text-right text-[10px] font-normal text-slate-500">Giá bán</th>
@@ -384,7 +382,7 @@ export function AdminProductTable({
                                                                 batches.find((batch) => batch.sellingPrice > 0)?.sellingPrice ||
                                                                 0;
                                                             const isVariantExpanded = expandedVariantRows.includes(v.id);
-                                                            const variantColumnCount = isAdmin ? 7 : 6;
+                                                            const variantColumnCount = canViewImportPrice ? 7 : 6;
 
                                                             return (
                                                                 <React.Fragment key={v.id}>
@@ -424,7 +422,7 @@ export function AdminProductTable({
                                                                         <td className="px-3 py-2 text-center text-[11px] font-medium text-slate-700">
                                                                             {v.quantity.toLocaleString("vi-VN")}
                                                                         </td>
-                                                                        {isAdmin && (
+                                                                        {canViewImportPrice && (
                                                                             <td className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-normal text-blue-600">
                                                                                 {importPrice != null ? `${importPrice.toLocaleString("vi-VN")} ₫` : "—"}
                                                                             </td>
@@ -444,7 +442,7 @@ export function AdminProductTable({
                                                                                                 <th className="w-[28%] px-3 py-2 text-left text-[10px] font-normal text-slate-500">Mã lô</th>
                                                                                                 <th className="px-3 py-2 text-left text-[10px] font-normal text-slate-500">Kho / chi nhánh</th>
                                                                                                 <th className="w-[90px] px-3 py-2 text-center text-[10px] font-normal text-slate-500">Tồn</th>
-                                                                                                {isAdmin && (
+                                                                                                {canViewImportPrice && (
                                                                                                     <th className="w-[130px] px-3 py-2 text-right text-[10px] font-normal text-slate-500">Giá vốn</th>
                                                                                                 )}
                                                                                                 <th className="w-[140px] px-3 py-2 text-right text-[10px] font-normal text-slate-500">Giá bán</th>
@@ -462,7 +460,7 @@ export function AdminProductTable({
                                                                                                     <td className="px-3 py-2 text-center text-[11px] font-medium text-slate-700">
                                                                                                         {batch.quantity.toLocaleString("vi-VN")}
                                                                                                     </td>
-                                                                                                    {isAdmin && (
+                                                                                                    {canViewImportPrice && (
                                                                                                         <td className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-normal text-blue-600">
                                                                                                             {batch.importPrice != null ? `${batch.importPrice.toLocaleString("vi-VN")} ₫` : "—"}
                                                                                                         </td>
