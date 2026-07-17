@@ -6,6 +6,8 @@ type BadgeTone = {
   styles: string;
 };
 
+type BadgeVariant = "default" | "monochrome";
+
 type DeliveryState =
   | "NOT_STARTED"
   | "PREPARING"
@@ -101,6 +103,23 @@ const PAYMENT_STATUS_MAP: Record<string, BadgeTone> = {
   },
 };
 
+PAYMENT_STATUS_MAP.PENDING = PAYMENT_STATUS_MAP.UNPAID;
+PAYMENT_STATUS_MAP.PARTIALLY_PAID = PAYMENT_STATUS_MAP.PARTIAL;
+PAYMENT_STATUS_MAP.PENDING_VERIFICATION =
+  PAYMENT_STATUS_MAP.PENDING_TRANSFER_CONFIRMATION;
+PAYMENT_STATUS_MAP.FAILED = {
+  label: "Thanh toán lỗi",
+  styles: "bg-rose-50 text-rose-700 border-rose-200",
+};
+PAYMENT_STATUS_MAP.EXPIRED = {
+  label: "Hết hạn thanh toán",
+  styles: "bg-slate-100 text-slate-600 border-slate-200",
+};
+PAYMENT_STATUS_MAP.REFUND_PENDING = {
+  label: "Chờ hoàn tiền",
+  styles: "bg-slate-100 text-slate-600 border-slate-200",
+};
+
 const DELIVERY_STATUS_MAP: Record<DeliveryState, BadgeTone> = {
   NOT_STARTED: {
     label: "Chưa giao",
@@ -143,11 +162,17 @@ const INVENTORY_STATUS_MAP: Record<"IN_STOCK" | "SHORTAGE", BadgeTone> = {
   },
 };
 
-const renderBadge = (tone: BadgeTone) => (
+const MONOCHROME_BADGE_STYLES =
+  "border-blue-200 bg-white text-blue-700";
+
+const renderBadge = (
+  tone: BadgeTone,
+  variant: BadgeVariant = "default",
+) => (
   <span
     className={cn(
-      "inline-flex items-center rounded-[10px] border px-2.5 py-0.5 text-[11px] font-medium",
-      tone.styles,
+      "inline-flex w-fit whitespace-nowrap items-center rounded-[10px] border px-2.5 py-0.5 text-[11px] font-medium",
+      variant === "monochrome" ? MONOCHROME_BADGE_STYLES : tone.styles,
     )}
   >
     {tone.label}
@@ -367,8 +392,10 @@ export const canApprovePackedAndShip = (order: MyOrder, detail?: MyOrder) => {
 
 export function OrderWorkflowBadge({
   status,
+  variant = "default",
 }: {
   status: OrderStatus | string;
+  variant?: BadgeVariant;
 }) {
   const tone =
     ORDER_WORKFLOW_STATUS_MAP[status] ??
@@ -377,30 +404,46 @@ export function OrderWorkflowBadge({
       styles: "bg-slate-100 text-slate-600 border-slate-200",
     };
 
-  return renderBadge(tone);
+  return renderBadge(tone, variant);
 }
 
-export function PaymentStatusBadge({ status }: { status: string }) {
+export function PaymentStatusBadge({
+  status,
+  variant = "default",
+}: {
+  status: string;
+  variant?: BadgeVariant;
+}) {
   const tone = PAYMENT_STATUS_MAP[status] ?? {
     label: status,
     styles: "bg-slate-100 text-slate-600 border-slate-200",
   };
 
-  return renderBadge(tone);
+  return renderBadge(tone, variant);
 }
 
 export function DeliveryStatusBadge({
   status,
+  variant = "default",
 }: {
   status: OrderStatus | string;
+  variant?: BadgeVariant;
 }) {
-  return renderBadge(DELIVERY_STATUS_MAP[getDeliveryStatusFromOrder(status)]);
+  return renderBadge(
+    DELIVERY_STATUS_MAP[getDeliveryStatusFromOrder(status)],
+    variant,
+  );
 }
 
 export function InventoryStatusBadge({
   order,
+  variant = "default",
 }: {
   order: Pick<MyOrder, "items" | "status">;
+  variant?: BadgeVariant;
 }) {
-  return renderBadge(INVENTORY_STATUS_MAP[getOrderInventoryStatus(order)]);
+  return renderBadge(
+    INVENTORY_STATUS_MAP[getOrderInventoryStatus(order)],
+    variant,
+  );
 }

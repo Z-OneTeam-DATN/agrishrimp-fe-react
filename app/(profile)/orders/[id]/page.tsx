@@ -286,6 +286,8 @@ export default function OrderDetailPage({
   const activeStep = getActiveStep(displayStatus);
   const showStepper = displayStatus !== "CANCELLED" && displayStatus !== "RETURNED";
   const progressPct = activeStep > 0 ? (activeStep / (steps.length - 1)) * 100 : 0;
+  const hasAppliedVoucher =
+    Boolean(order?.voucherCode) || (order?.discountAmount ?? 0) > 0;
 
   if (loading) {
     return <LoadingSkeleton />;
@@ -490,6 +492,21 @@ export default function OrderDetailPage({
               <span>Phí vận chuyển</span>
               <span>{formatCurrency(order.shippingFee)}</span>
             </div>
+            {hasAppliedVoucher && (
+              <div className="flex items-start justify-between gap-3 text-sm text-[#1965a2]">
+                <div className="flex flex-col">
+                  <span>Voucher áp dụng</span>
+                  {order.voucherCode && (
+                    <span className="mt-0.5 text-xs font-medium uppercase tracking-wide text-[#1965a2]/80">
+                      {order.voucherCode}
+                    </span>
+                  )}
+                </div>
+                <span className="shrink-0 font-medium">
+                  -{formatCurrency(order.discountAmount ?? 0)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-gray-200 pt-2.5">
               <span className="text-sm font-semibold text-gray-700">Tổng thanh toán</span>
               <span className="text-xl font-bold text-orange-500">
@@ -511,6 +528,21 @@ export default function OrderDetailPage({
                 {paymentLabel[order.paymentMethod] ?? order.paymentMethod}
               </span>
             </div>
+            {hasAppliedVoucher && (
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="shrink-0 text-gray-400">Voucher</span>
+                <div className="text-right">
+                  <p className="font-medium text-gray-800">
+                    {order.voucherCode || "Đã áp dụng voucher"}
+                  </p>
+                  {(order.discountAmount ?? 0) > 0 && (
+                    <p className="mt-0.5 text-xs text-[#1965a2]">
+                      Giảm {formatCurrency(order.discountAmount ?? 0)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Trạng thái</span>
               <span

@@ -27,18 +27,13 @@ interface OrderCardProps {
   onOrderCancelled?: () => void;
 }
 
-const cancellableStatuses: OrderStatus[] = [
+const cancellableStatuses = new Set<OrderStatus>([
   "PENDING_PAYMENT",
   "PENDING_AUTO_APPROVAL",
   "PENDING_SHORTAGE_REVIEW",
-  "PENDING_TRANSFER",
   "AWAITING_PAYMENT",
   "PENDING",
-  "AWAITING_REPLENISHMENT",
-  "CONFIRMED",
-  "PROCESSING",
-  "READY_FOR_PICKUP",
-];
+]);
 
 const isPaidPaymentStatus = (status: OrderPaymentStatus | string) =>
   status === "PAID" || status === "REFUNDED";
@@ -262,7 +257,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
               </a>
             )}
 
-          {cancellableStatuses.includes(order.status) && (
+          {cancellableStatuses.has(order.status) && (
             <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className={btnOutlineClass}>
