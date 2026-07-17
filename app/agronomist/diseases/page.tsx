@@ -1,512 +1,262 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, FilePenLine, Plus, Trash2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
+import { Plus, Edit, Trash2, Search, ClipboardCheck } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
-import { ProductService } from "@/app/services/product.service";
 import type { AiDiseaseKnowledge } from "@/app/types/ai-knowledge.types";
-import type { ProductListItem } from "@/app/types/product.schema";
 
-type KnowledgeStageForm = {
-  stageTitle: string;
-  instructionsText: string;
-  productIds: number[];
-};
+const PAGE_SIZE = 20;
 
-const DEFAULT_DISEASE_FORM = {
-  id: null as number | null,
-  code: "",
-  nameVi: "",
-  nameEn: "",
-  categoryId: "",
-  aliasesRaw: "",
-  symptomKeywordsRaw: "",
-  signsSummary: "",
-  causesText: "",
-  enabled: true,
-  confidenceThreshold: 0.65,
-  matchThreshold: 0.4,
-  priority: 0,
-  canonical: false,
-  status: "IN_REVIEW",
-  treatmentStages: [
-    {
-      stageTitle: "",
-      instructionsText: "",
-      productIds: [],
-    },
-  ] as KnowledgeStageForm[],
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  APPROVED: { label: "Đã duyệt", className: "border-emerald-100 bg-emerald-50 text-emerald-600" },
+  IN_REVIEW: { label: "Chờ duyệt", className: "border-amber-100 bg-amber-50 text-amber-600" },
+  DRAFT: { label: "Nháp / bị từ chối", className: "border-slate-200 bg-slate-100 text-slate-500" },
+  DISABLED: { label: "Đã tắt", className: "border-rose-100 bg-rose-50 text-rose-600" },
 };
 
 export default function AgronomistDiseasesPage() {
-  return (
-    <Suspense fallback={null}>
-      <AgronomistDiseasesView />
-    </Suspense>
-  );
-}
+  const [diseases, setDiseases] = useState<AiDiseaseKnowledge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
 
-function AgronomistDiseasesView() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const editingId = searchParams.get("id");
-  const queryClient = useQueryClient();
-  const [diseaseForm, setDiseaseForm] = useState(DEFAULT_DISEASE_FORM);
-  const [showForm, setShowForm] = useState(Boolean(editingId));
-
-  const categoriesQuery = useQuery({
-    queryKey: ["ai-knowledge", "categories"],
-    queryFn: () => aiKnowledgeService.getCategories(),
-  });
-  const diseasesQuery = useQuery({
-    queryKey: ["ai-knowledge", "diseases"],
-    queryFn: () => aiKnowledgeService.getDiseases(),
-  });
-  const productsQuery = useQuery({
-    queryKey: ["agronomist-products"],
-    queryFn: () => ProductService.getAll({ status: "ACTIVE" }),
-  });
-
-  const categories = categoriesQuery.data ?? [];
-  const diseases = diseasesQuery.data ?? [];
-  const products = productsQuery.data ?? [];
-
-  useEffect(() => {
-    if (!editingId || diseases.length === 0) return;
-    const item = diseases.find((disease) => String(disease.id) === editingId);
-    if (item) {
-      loadDiseaseToForm(item);
-      setShowForm(true);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      setDiseases(await aiKnowledgeService.getDiseases());
+    } catch {
+      toast.error("Không thể tải danh sách phác đồ");
+    } finally {
+      setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingId, diseases.length]);
-
-  const productOptions = useMemo(
-    () =>
-      products.map((product: ProductListItem) => ({
-        id: product.id,
-        label: `${product.name} #${product.id}`,
-      })),
-    [products],
-  );
-
-  const invalidateAll = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "diseases"] });
-    await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "keyword-sets"] });
   };
 
-  const diseaseMutation = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        code: diseaseForm.code,
-        nameVi: diseaseForm.nameVi,
-        nameEn: diseaseForm.nameEn || undefined,
-        categoryId: diseaseForm.categoryId ? Number(diseaseForm.categoryId) : undefined,
-        aliasesRaw: diseaseForm.aliasesRaw || undefined,
-        symptomKeywordsRaw: diseaseForm.symptomKeywordsRaw,
-        signsSummary: diseaseForm.signsSummary,
-        causes: diseaseForm.causesText
-          .split("\n")
-          .map((item) => item.trim())
-          .filter(Boolean),
-        enabled: diseaseForm.enabled,
-        confidenceThreshold: Number(diseaseForm.confidenceThreshold),
-        matchThreshold: Number(diseaseForm.matchThreshold),
-        priority: Number(diseaseForm.priority || 0),
-        canonical: diseaseForm.canonical,
-        status: diseaseForm.status,
-        treatmentStages: diseaseForm.treatmentStages.map((stage) => ({
-          stageTitle: stage.stageTitle,
-          instructions: stage.instructionsText
-            .split("\n")
-            .map((item) => item.trim())
-            .filter(Boolean),
-          productIds: stage.productIds,
-        })),
-      };
-      if (diseaseForm.id) {
-        return aiKnowledgeService.updateDisease(diseaseForm.id, payload);
-      }
-      return aiKnowledgeService.createDisease(payload);
-    },
-    onSuccess: async () => {
-      toast.success("Đã lưu phác đồ. Phác đồ đang ở trạng thái chờ Admin duyệt trước khi AI dùng để trả lời.");
-      setDiseaseForm(DEFAULT_DISEASE_FORM);
-      setShowForm(false);
-      await invalidateAll();
-      router.push("/agronomist/diseases");
-    },
-    onError: (error: any) => toast.error(error?.message || "Không thể lưu tri thức bệnh."),
-  });
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => { setPage(0); }, [keyword, statusFilter]);
 
-  const deleteDisease = async (id: number) => {
-    if (!confirm("Xóa phác đồ này?")) return;
-    await aiKnowledgeService.deleteDisease(id);
-    toast.success("Đã xóa phác đồ.");
-    await invalidateAll();
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await aiKnowledgeService.deleteDisease(deleteId);
+      toast.success("Đã xóa phác đồ");
+      await loadData();
+    } catch {
+      toast.error("Xóa phác đồ thất bại");
+    } finally {
+      setDeleteId(null);
+    }
   };
 
-  const loadDiseaseToForm = (item: AiDiseaseKnowledge) => {
-    setDiseaseForm({
-      id: item.id,
-      code: item.code,
-      nameVi: item.nameVi,
-      nameEn: item.nameEn || "",
-      categoryId: item.category?.id ? String(item.category.id) : "",
-      aliasesRaw: item.aliasesRaw || "",
-      symptomKeywordsRaw: item.symptomKeywordsRaw,
-      signsSummary: item.signsSummary,
-      causesText: item.causes.join("\n"),
-      enabled: item.enabled,
-      confidenceThreshold: item.confidenceThreshold,
-      matchThreshold: item.matchThreshold,
-      priority: item.priority,
-      canonical: item.canonical,
-      status: item.status,
-      treatmentStages:
-        item.treatmentStages.length > 0
-          ? item.treatmentStages.map((stage) => ({
-              stageTitle: stage.stageTitle,
-              instructionsText: stage.instructions.join("\n"),
-              productIds: stage.productIds ?? [],
-            }))
-          : DEFAULT_DISEASE_FORM.treatmentStages,
-    });
-  };
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  const filtered = diseases
+    .filter((item) => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (!normalizedKeyword) return true;
+      return [item.nameVi, item.nameEn, item.code].some((value) =>
+        String(value ?? "").toLowerCase().includes(normalizedKeyword),
+      );
+    })
+    .sort((left, right) => right.priority - left.priority || left.nameVi.localeCompare(right.nameVi));
 
-  const openCreateForm = () => {
-    setDiseaseForm(DEFAULT_DISEASE_FORM);
-    setShowForm(true);
-    router.push("/agronomist/diseases");
-  };
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const openEditForm = (item: AiDiseaseKnowledge) => {
-    loadDiseaseToForm(item);
-    setShowForm(true);
-    router.push(`/agronomist/diseases?id=${item.id}`);
-  };
-
-  const closeForm = () => {
-    setDiseaseForm(DEFAULT_DISEASE_FORM);
-    setShowForm(false);
-    router.push("/agronomist/diseases");
-  };
-
-  const updateStage = (index: number, patch: Partial<KnowledgeStageForm>) => {
-    setDiseaseForm((current) => ({
-      ...current,
-      treatmentStages: current.treatmentStages.map((stage, stageIndex) =>
-        stageIndex === index ? { ...stage, ...patch } : stage,
-      ),
-    }));
-  };
-
-  const addStage = () => {
-    setDiseaseForm((current) => ({
-      ...current,
-      treatmentStages: [
-        ...current.treatmentStages,
-        { stageTitle: "", instructionsText: "", productIds: [] },
-      ],
-    }));
-  };
-
-  const removeStage = (index: number) => {
-    setDiseaseForm((current) => ({
-      ...current,
-      treatmentStages:
-        current.treatmentStages.length === 1
-          ? current.treatmentStages
-          : current.treatmentStages.filter((_, stageIndex) => stageIndex !== index),
-    }));
-  };
+  const pendingCount = diseases.filter((item) => item.status === "IN_REVIEW").length;
+  const approvedCount = diseases.filter((item) => item.status === "APPROVED").length;
+  const miniReports = [
+    { label: "Tổng phác đồ", value: diseases.length, note: "Toàn bộ phác đồ đã tạo" },
+    { label: "Chờ Admin duyệt", value: pendingCount, note: "Chưa được AI Doctor dùng để trả lời" },
+    { label: "Đã duyệt", value: approvedCount, note: "AI Doctor đang dùng để trả lời" },
+  ];
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <SectionHeader
-            icon={<CheckCircle2 className="h-5 w-5 text-blue-600" />}
-            title="Phác đồ điều trị"
-            description="Bộ từ khóa & câu trả lời cho chatbot được hệ thống tự sinh từ chính phác đồ này. Sau khi lưu, phác đồ vào hàng chờ Admin duyệt."
-          />
-          <button onClick={openCreateForm} className={primaryButtonClassName}>
-            <Plus className="h-4 w-4" />
-            Thêm phác đồ
-          </button>
+    <div className="space-y-3">
+      <div className="mt-2 mb-8 px-1">
+        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+          Phác đồ điều trị
+        </h1>
+
+        <div className="mt-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+            <div className="relative w-full lg:max-w-[360px]">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+              <Input
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="Tìm mã bệnh, tên bệnh..."
+                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 lg:w-[200px]">
+                <SelectValue placeholder="Tất cả trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-[13px]">Tất cả trạng thái</SelectItem>
+                <SelectItem value="IN_REVIEW" className="text-[13px]">Chờ duyệt</SelectItem>
+                <SelectItem value="APPROVED" className="text-[13px]">Đã duyệt</SelectItem>
+                <SelectItem value="DRAFT" className="text-[13px]">Nháp / bị từ chối</SelectItem>
+                <SelectItem value="DISABLED" className="text-[13px]">Đã tắt</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link href="/agronomist/diseases/new">
+              <Button className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700">
+                <Plus size={15} className="mr-1.5" />
+                Thêm phác đồ
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          {diseasesQuery.isLoading ? (
-            <p className="text-sm text-slate-400">Đang tải...</p>
-          ) : diseases.length === 0 ? (
-            <p className="text-sm text-slate-400">Chưa có phác đồ nào. Bấm "Thêm phác đồ" để tạo mới.</p>
-          ) : (
-            diseases.map((item) => (
-              <div key={item.id} className="rounded-[4px] border border-slate-200 bg-slate-50 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-black text-slate-900">{item.nameVi}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.code}</p>
-                  </div>
-                  <StatusPill value={item.status} />
-                </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">{item.signsSummary}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button onClick={() => openEditForm(item)} className={secondaryButtonClassName}>
-                    <FilePenLine className="h-4 w-4" />
-                    Sửa
-                  </button>
-                  <button onClick={() => deleteDisease(item.id)} className={dangerButtonClassName}>
-                    <Trash2 className="h-4 w-4" />
-                    Xóa
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          {miniReports.map((report) => (
+            <div key={report.label} className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[11px] font-semibold text-slate-400">{report.label}</p>
+              <p className="mt-1 text-[18px] font-semibold leading-6 text-slate-900">{report.value}</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-500">{report.note}</p>
+            </div>
+          ))}
         </div>
-      </section>
-
-      {showForm ? (
-        <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900">
-            {diseaseForm.id ? "Cập nhật phác đồ" : "Tạo phác đồ mới"}
-          </h3>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-4">
-            <Field label="Mã bệnh">
-              <input
-                value={diseaseForm.code}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, code: event.target.value }))}
-                className={inputClassName}
-                placeholder="WSSV"
-              />
-            </Field>
-            <Field label="Tên bệnh">
-              <input
-                value={diseaseForm.nameVi}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, nameVi: event.target.value }))}
-                className={inputClassName}
-                placeholder="Bệnh đốm trắng"
-              />
-            </Field>
-            <Field label="Tên tiếng Anh">
-              <input
-                value={diseaseForm.nameEn}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, nameEn: event.target.value }))}
-                className={inputClassName}
-                placeholder="White Spot Syndrome Virus"
-              />
-            </Field>
-            <Field label="Danh mục">
-              <select
-                value={diseaseForm.categoryId}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, categoryId: event.target.value }))}
-                className={inputClassName}
-              >
-                <option value="">Chưa gán danh mục</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Field label="Alias / tên gọi khác">
-              <textarea
-                value={diseaseForm.aliasesRaw}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, aliasesRaw: event.target.value }))}
-                className={textareaClassName}
-                rows={3}
-                placeholder="white spot, đốm trắng, wssv"
-              />
-            </Field>
-            <Field label="Dấu hiệu / triệu chứng match">
-              <textarea
-                value={diseaseForm.symptomKeywordsRaw}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, symptomKeywordsRaw: event.target.value }))}
-                className={textareaClassName}
-                rows={3}
-                placeholder="đốm trắng trên vỏ, bơi lờ đờ, giảm ăn"
-              />
-            </Field>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Field label="Mô tả dấu hiệu">
-              <textarea
-                value={diseaseForm.signsSummary}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, signsSummary: event.target.value }))}
-                className={textareaClassName}
-                rows={4}
-                placeholder="Tôm có đốm trắng rõ ở vỏ, giảm ăn nhanh, bơi yếu..."
-              />
-            </Field>
-            <Field label="Nguyên nhân (mỗi dòng một ý)">
-              <textarea
-                value={diseaseForm.causesText}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, causesText: event.target.value }))}
-                className={textareaClassName}
-                rows={4}
-                placeholder={"môi trường biến động\nmật độ nuôi cao\nnhiễm virus"}
-              />
-            </Field>
-          </div>
-
-          <div className="mt-4">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={diseaseForm.enabled}
-                onChange={(event) => setDiseaseForm((current) => ({ ...current, enabled: event.target.checked }))}
-              />
-              Đang bật
-            </label>
-          </div>
-
-          <div className="mt-6 rounded-[4px] border border-slate-200 bg-slate-50 p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-black text-slate-900">Phác đồ điều trị theo giai đoạn</p>
-                <p className="text-xs text-slate-500">Mỗi giai đoạn có hướng dẫn và sản phẩm gắn trực tiếp từ catalog.</p>
-              </div>
-              <button onClick={addStage} className={secondaryButtonClassName}>
-                <Plus className="h-4 w-4" />
-                Thêm giai đoạn
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {diseaseForm.treatmentStages.map((stage, index) => (
-                <div key={`${index}-${stage.stageTitle}`} className="rounded-[4px] border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-slate-900">Giai đoạn {index + 1}</p>
-                    <button onClick={() => removeStage(index)} className={dangerButtonClassName}>
-                      Bỏ giai đoạn
-                    </button>
-                  </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <Field label="Tên giai đoạn">
-                      <input
-                        value={stage.stageTitle}
-                        onChange={(event) => updateStage(index, { stageTitle: event.target.value })}
-                        className={inputClassName}
-                        placeholder="Giai đoạn ổn định môi trường"
-                      />
-                    </Field>
-                    <Field label="Sản phẩm áp dụng">
-                      <select
-                        multiple
-                        value={stage.productIds.map(String)}
-                        onChange={(event) =>
-                          updateStage(index, {
-                            productIds: Array.from(event.target.selectedOptions).map((option) => Number(option.value)),
-                          })
-                        }
-                        className="min-h-[120px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500"
-                      >
-                        {productOptions.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  </div>
-                  <Field label="Hướng dẫn (mỗi dòng một ý)" className="mt-4">
-                    <textarea
-                      value={stage.instructionsText}
-                      onChange={(event) => updateStage(index, { instructionsText: event.target.value })}
-                      className={textareaClassName}
-                      rows={4}
-                      placeholder={"Kiểm tra môi trường ao\nGiảm sốc\nTheo dõi sức ăn"}
-                    />
-                  </Field>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button onClick={() => diseaseMutation.mutate()} className={primaryButtonClassName}>
-              {diseaseForm.id ? "Cập nhật phác đồ" : "Tạo phác đồ"}
-            </button>
-            <button onClick={closeForm} className={secondaryButtonClassName}>
-              Hủy
-            </button>
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-function SectionHeader({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-[4px] bg-blue-50">{icon}</div>
-      <div>
-        <h3 className="text-xl font-bold text-slate-900">{title}</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
       </div>
+
+      <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="table-custom min-w-[900px] w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#ccc] bg-[#f0f0f0]">
+                <th className="w-[56px] px-4 py-3 text-[10px] font-semibold text-[#1f1f1f]">STT</th>
+                <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">Bệnh / Danh mục</th>
+                <th className="px-2 py-3 text-[10px] font-semibold text-[#1f1f1f]">Dấu hiệu</th>
+                <th className="w-[130px] px-2 py-3 text-center text-[10px] font-semibold text-[#1f1f1f]">Trạng thái</th>
+                <th className="w-[104px] px-4 py-3 text-right text-[10px] font-semibold text-[#1f1f1f]">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-[#eee]">
+                    <td className="px-4 py-3"><div className="h-3.5 w-6 animate-pulse rounded bg-slate-100" /></td>
+                    <td className="px-2 py-3"><div className="h-3.5 w-40 animate-pulse rounded bg-slate-100" /></td>
+                    <td className="px-2 py-3"><div className="h-3.5 w-56 animate-pulse rounded bg-slate-100" /></td>
+                    <td className="px-2 py-3"><div className="mx-auto h-6 w-20 animate-pulse rounded bg-slate-100" /></td>
+                    <td className="px-4 py-3" />
+                  </tr>
+                ))
+              ) : paginated.length > 0 ? (
+                paginated.map((item, index) => (
+                  <tr key={item.id} className="border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]">
+                    <td className="px-4 py-3 text-[11px] font-medium text-slate-500">
+                      {page * PAGE_SIZE + index + 1}
+                    </td>
+                    <td className="px-2 py-3">
+                      <p className="text-[11px] font-semibold text-slate-800">
+                        {item.nameVi} <span className="font-normal text-slate-400">({item.code})</span>
+                      </p>
+                      {item.category && (
+                        <span className="mt-1 block text-[10px] font-medium text-slate-500">
+                          {item.category.name}
+                        </span>
+                      )}
+                    </td>
+                    <td className="max-w-[360px] truncate px-2 py-3 text-[11px] text-slate-500">
+                      {item.signsSummary}
+                    </td>
+                    <td className="px-2 py-3 text-center">
+                      <span className={cn(
+                        "inline-flex min-w-[90px] items-center justify-center rounded-[4px] border px-2 py-1 text-[10px] font-semibold",
+                        STATUS_META[item.status]?.className ?? STATUS_META.DRAFT.className,
+                      )}>
+                        {STATUS_META[item.status]?.label ?? item.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/agronomist/diseases/${item.id}/edit`}>
+                          <Button variant="ghost" size="icon" title="Chỉnh sửa"
+                            className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600">
+                            <Edit size={14} />
+                          </Button>
+                        </Link>
+                        <Button variant="ghost" size="icon" title="Xóa"
+                          className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                          onClick={() => setDeleteId(item.id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="h-[180px] text-center text-[12px] font-medium text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <ClipboardCheck size={20} className="text-slate-300" />
+                      {normalizedKeyword ? "Không tìm thấy phác đồ phù hợp." : "Chưa có phác đồ nào."}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex min-w-full shrink-0 items-center justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
+          <p className="text-[12px] font-semibold text-slate-500">Tổng số: {total} phác đồ</p>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" disabled={page === 0 || loading}
+              onClick={() => setPage((current) => current - 1)}
+              className="h-7 px-3 text-[11px] font-bold uppercase text-slate-400 hover:bg-slate-100">
+              Trước
+            </Button>
+            <span className="rounded-full bg-slate-100 px-4 py-1.5 text-[12px] font-bold text-slate-700">
+              {page + 1} / {totalPages}
+            </span>
+            <Button variant="ghost" disabled={page + 1 >= totalPages || loading}
+              onClick={() => setPage((current) => current + 1)}
+              className="h-7 px-3 text-[11px] font-bold uppercase text-slate-400 hover:bg-slate-100">
+              Sau
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent className="max-w-[400px] rounded-[6px] border border-slate-200 bg-white shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[16px] font-bold text-rose-600">Xác nhận xóa phác đồ</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] font-medium text-slate-500">
+              Phác đồ sẽ bị xóa vĩnh viễn và không thể khôi phục.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-9 rounded-[4px] text-[13px] font-medium">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="h-9 rounded-[4px] bg-rose-600 text-[13px] font-medium text-white hover:bg-rose-700">
+              Đồng ý xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-function StatusPill({ value }: { value: string }) {
-  const colorMap: Record<string, string> = {
-    APPROVED: "bg-emerald-100 text-emerald-700",
-    IN_REVIEW: "bg-amber-100 text-amber-700",
-    DRAFT: "bg-slate-200 text-slate-700",
-    DISABLED: "bg-rose-100 text-rose-700",
-  };
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${colorMap[value] ?? "bg-slate-200 text-slate-700"}`}>
-      {value}
-    </span>
-  );
-}
-
-const inputClassName =
-  "h-[38px] w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500";
-const textareaClassName =
-  "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500";
-const primaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700";
-const secondaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
-const dangerButtonClassName =
-  "inline-flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100";

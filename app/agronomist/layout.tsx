@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
-  ClipboardList,
   Clock,
   FileSpreadsheet,
   FlaskConical,
@@ -44,12 +43,6 @@ const AGRONOMIST_NAV_ITEMS = [
     label: "Quản lý phác đồ",
     icon: NotebookPen,
     permissions: [P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE],
-  },
-  {
-    href: "/agronomist/protocol-status",
-    label: "Trạng thái phác đồ",
-    icon: ClipboardList,
-    permissions: [P.AI_KNOWLEDGE_VIEW],
   },
   {
     href: "/agronomist/import",
