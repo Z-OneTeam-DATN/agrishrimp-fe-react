@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Send, X, Minimize2, MessageCircle, Loader2, ImageIcon } from "lucide-react";
+import { Send, X, Minimize2, MessageCircle, Loader2, ImageIcon, Smile, Video, ShoppingBag, ClipboardList } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useChatStore } from "@/stores/useChatStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -9,6 +9,8 @@ import { useTypingStore } from "@/stores/useTypingStore";
 import { ChatService } from "@/app/services/chat.service";
 import { toast } from "sonner";
 import MessageBubble, { TypingBubble } from "./MessageBubble";
+import { useRouter } from "next/navigation";
+import { PublicProductService } from "@/app/services/publicProduct.service";
 
 const getFullImageUrl = (url?: string) => {
   if (!url) return "/placeholder.svg";
@@ -19,8 +21,20 @@ const getFullImageUrl = (url?: string) => {
   return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
+const STICKERS = [
+  { id: "wow", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62e/512.gif", label: "Wow" },
+  { id: "haha", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif", label: "Haha" },
+  { id: "love", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif", label: "Love" },
+  { id: "like", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.gif", label: "Like" },
+  { id: "cry", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/512.gif", label: "Cry" },
+  { id: "think", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f914/512.gif", label: "Think" },
+  { id: "clap", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif", label: "Clap" },
+  { id: "fire", url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif", label: "Fire" },
+];
+
 export default function ChatWindow() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const {
     isOpen, closeChat,
     activeConversationId, setActiveConversation,
@@ -34,9 +48,15 @@ export default function ChatWindow() {
   const [isSending, setIsSending] = useState(false);
   const [isLoadingConv, setIsLoadingConv] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [showProductPicker, setShowProductPicker] = useState(false);
+  const [pickerProducts, setPickerProducts] = useState<any[]>([]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const typingThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
@@ -84,10 +104,47 @@ export default function ChatWindow() {
     return () => { cancelled = true; };
   }, [isOpen, user?.id, setActiveConversation, setMessages]);
 
-  // Auto scroll to bottom on new messages
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto"
+      });
+      return;
+    }
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+    }
+  }, []);
+
+  // Instant scroll and repeat scroll on open / change conversation
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [convMessages.length]);
+    if (isOpen && !isMinimized && convMessages.length > 0) {
+      scrollToBottom(false);
+      let count = 0;
+      const interval = setInterval(() => {
+        scrollToBottom(false);
+        count++;
+        if (count >= 6) {
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, isMinimized, activeConversationId, scrollToBottom]);
+
+  // Smooth scroll when new messages arrive
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      const timer = setTimeout(() => {
+        scrollToBottom(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [convMessages.length, isOpen, isMinimized, scrollToBottom]);
 
   // Focus input when opened
   useEffect(() => {
@@ -150,6 +207,52 @@ export default function ChatWindow() {
     }
   };
 
+  // Load products for picker popup
+  useEffect(() => {
+    if (showProductPicker && pickerProducts.length === 0) {
+      PublicProductService.getList({ page: 0, size: 10 })
+        .then((res) => {
+          setPickerProducts(res.content || []);
+        })
+        .catch(() => {});
+    }
+  }, [showProductPicker, pickerProducts.length]);
+
+  const handleSendSticker = async (stickerUrl: string) => {
+    if (!activeConversationId || isSending) return;
+    setIsSending(true);
+    setShowStickerPicker(false);
+    try {
+      const text = `[STICKER:${stickerUrl}]`;
+      const msg = await ChatService.sendMessage(activeConversationId, text);
+      addMessage(msg);
+    } catch {
+      toast.error("Gửi sticker thất bại");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeConversationId) return;
+    e.target.value = "";
+    setIsSending(true);
+    try {
+      const msg = await ChatService.sendImage(activeConversationId, file);
+      addMessage(msg);
+    } catch {
+      toast.error("Gửi video thất bại");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleGoToOrders = () => {
+    closeChat();
+    router.push("/orders/list");
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
     if (!activeConversationId || !sendWsMessage || typingThrottleRef.current) return;
@@ -202,7 +305,7 @@ export default function ChatWindow() {
       {!isMinimized && (
         <>
           {/* Messages area */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
+          <div ref={messagesContainerRef} onLoadCapture={() => scrollToBottom(false)} className="flex-1 min-h-0 overflow-y-auto px-4 py-3 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50">
             {isLoadingConv ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
@@ -250,47 +353,149 @@ export default function ChatWindow() {
                   <h4 className="text-xs font-bold text-gray-800 dark:text-gray-100 line-clamp-1 leading-tight">{consultProduct.name}</h4>
                   <span className="text-xs font-extrabold text-red-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(consultProduct.price)}</span>
                 </div>
-                <button 
-                  onClick={handleSendProduct}
-                  disabled={isSending}
-                  className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-colors shrink-0"
-                >
-                  Gửi Link
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button 
+                    onClick={() => setShowProductPicker(true)}
+                    className="px-2.5 py-1.5 border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-full font-bold text-[9px] uppercase tracking-wider transition-colors"
+                  >
+                    Thay đổi
+                  </button>
+                  <button 
+                    onClick={handleSendProduct}
+                    disabled={isSending}
+                    className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-full font-bold text-[9px] uppercase tracking-wider transition-colors"
+                  >
+                    Gửi sản phẩm
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Input area */}
-          <div className="px-3 py-3 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700 flex items-center gap-2">
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSending}
-              className="text-gray-400 hover:text-blue-500 disabled:opacity-40 transition-colors shrink-0"
-              title="Gửi ảnh"
-            >
-              <ImageIcon className="w-5 h-5" />
-            </button>
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Nhập tin nhắn..."
-              className="flex-1 bg-gray-100 dark:bg-slate-700 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 dark:text-gray-100 placeholder-gray-400"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || isSending}
-              className="w-9 h-9 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors"
-            >
-              {isSending ? (
-                <Loader2 className="w-4 h-4 text-white animate-spin" />
-              ) : (
-                <Send className="w-4 h-4 text-white" />
-              )}
-            </button>
+          {/* Sticker Picker Popover */}
+          {showStickerPicker && (
+            <div className="bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 px-3 py-2 flex flex-col gap-1.5 max-h-[160px] overflow-y-auto animate-fadeIn relative z-10">
+              <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-slate-700 mb-1">
+                <span className="text-[10px] font-bold text-gray-500">Stickers dễ thương</span>
+                <button onClick={() => setShowStickerPicker(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {STICKERS.map((sticker) => (
+                  <button 
+                    key={sticker.id} 
+                    onClick={() => handleSendSticker(sticker.url)}
+                    className="hover:bg-slate-100 dark:hover:bg-slate-700 p-1.5 rounded-xl transition-all active:scale-95 flex items-center justify-center"
+                  >
+                    <img src={sticker.url} alt={sticker.label} className="w-10 h-10 object-contain" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Picker Popover */}
+          {showProductPicker && (
+            <div className="bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 px-3 py-2 flex flex-col gap-1.5 max-h-[180px] overflow-y-auto animate-fadeIn relative z-10">
+              <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-gray-500">Chọn sản phẩm tư vấn</span>
+                <button onClick={() => setShowProductPicker(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {pickerProducts.length === 0 ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                  </div>
+                ) : (
+                  pickerProducts.map((p) => {
+                    const price = p.variants?.[0]?.price || p.price || 0;
+                    const imageUrl = p.variants?.[0]?.imageUrl || p.imageUrls?.[0] || "";
+                    return (
+                      <div 
+                        key={p.id}
+                        onClick={() => {
+                          setConsultProduct({
+                            id: p.id,
+                            name: p.name,
+                            price: price,
+                            imageUrl: imageUrl,
+                            slug: p.slug,
+                          });
+                          setShowProductPicker(false);
+                        }}
+                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors border border-transparent hover:border-slate-100 dark:hover:border-slate-700"
+                      >
+                        <div className="w-8 h-8 relative rounded bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 overflow-hidden shrink-0">
+                          <img src={getFullImageUrl(imageUrl)} alt={p.name} className="object-contain w-full h-full p-0.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[10px] font-bold text-gray-800 dark:text-gray-100 truncate">{p.name}</h4>
+                          <span className="text-[10px] font-extrabold text-red-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Input area (Shopee style layout) */}
+          <div className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700 p-2.5 flex flex-col gap-2">
+            {/* Input Row */}
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Nhập nội dung tin nhắn..."
+                disabled={isSending}
+                className="flex-1 px-3 py-2 bg-gray-100 dark:bg-slate-800 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-400 text-gray-900 dark:text-gray-100 placeholder-gray-400 animate-fadeIn"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isSending}
+                className="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
+              >
+                {isSending ? (
+                  <Loader2 className="w-4 h-4 text-white animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 text-white" />
+                )}
+              </button>
+            </div>
+
+            {/* Action Buttons Row */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-4 text-gray-400 dark:text-gray-500">
+                {/* 1. Stickers */}
+                <button onClick={() => { setShowStickerPicker(v => !v); setShowProductPicker(false); }} className="hover:text-blue-500 dark:hover:text-blue-400 transition-colors" title="Stickers">
+                  <Smile className="w-5 h-5" />
+                </button>
+                {/* 2. Gửi ảnh */}
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                <button onClick={() => fileInputRef.current?.click()} className="hover:text-blue-500 dark:hover:text-blue-400 transition-colors" title="Gửi ảnh">
+                  <ImageIcon className="w-5 h-5" />
+                </button>
+                {/* 3. Gửi video */}
+                <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoSelect} />
+                <button onClick={() => videoInputRef.current?.click()} className="hover:text-blue-500 dark:hover:text-blue-400 transition-colors" title="Gửi video">
+                  <Video className="w-5 h-5" />
+                </button>
+                {/* 4. Sản phẩm */}
+                <button onClick={() => { setShowProductPicker(v => !v); setShowStickerPicker(false); }} className="hover:text-blue-500 dark:hover:text-blue-400 transition-colors" title="Chọn sản phẩm tư vấn">
+                  <ShoppingBag className="w-5 h-5" />
+                </button>
+                {/* 5. Đơn hàng */}
+                <button onClick={handleGoToOrders} className="hover:text-blue-500 dark:hover:text-blue-400 transition-colors" title="Đơn hàng của tôi">
+                  <ClipboardList className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}

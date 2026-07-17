@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowRight,
   BellDot,
@@ -15,6 +15,12 @@ import {
   Tag,
   UserRoundSearch,
   Users,
+  Star,
+  Bell,
+  BellOff,
+  Trash2,
+  Mail,
+  CheckCircle2,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { parseLocalDateTime } from "@/lib/dateUtils";
@@ -73,9 +79,82 @@ export default function AdvisorInboxWorkspace() {
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
   const [cannedSuggestions, setCannedSuggestions] = useState<CannedResponse[]>([]);
 
+  const [mutedConvs, setMutedConvs] = useState<number[]>([]);
+  const [starredConvs, setStarredConvs] = useState<number[]>([]);
+
+  useEffect(() => {
+    try {
+      const muted = localStorage.getItem("agrishrimp_muted_convs");
+      if (muted) setMutedConvs(JSON.parse(muted));
+      const starred = localStorage.getItem("agrishrimp_starred_convs");
+      if (starred) setStarredConvs(JSON.parse(starred));
+    } catch {}
+  }, []);
+
+  const toggleMute = (convId: number) => {
+    const isCurrentlyMuted = mutedConvs.includes(convId);
+    const updated = isCurrentlyMuted
+      ? mutedConvs.filter((id) => id !== convId)
+      : [...mutedConvs, convId];
+    setMutedConvs(updated);
+    localStorage.setItem("agrishrimp_muted_convs", JSON.stringify(updated));
+    toast.success(isCurrentlyMuted ? "Đã bật âm thanh thông báo" : "Đã tắt âm thanh thông báo");
+  };
+
+  const toggleStar = (convId: number) => {
+    const isCurrentlyStarred = starredConvs.includes(convId);
+    const updated = isCurrentlyStarred
+      ? starredConvs.filter((id) => id !== convId)
+      : [...starredConvs, convId];
+    setStarredConvs(updated);
+    localStorage.setItem("agrishrimp_starred_convs", JSON.stringify(updated));
+    toast.success(isCurrentlyStarred ? "Đã bỏ đánh dấu sao" : "Đã đánh dấu sao hội thoại");
+  };
+
+  const handleMarkUnread = async (convId: number) => {
+    try {
+      await ChatService.markAsUnread(convId);
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, unreadByShop: 1 } : c))
+      );
+      toast.success("Đã đánh dấu chưa đọc");
+    } catch {
+      toast.error("Không thể đánh dấu chưa đọc");
+    }
+  };
+
+  const handleToggleStatus = async (convId: number, currentStatus: "OPEN" | "CLOSED") => {
+    const nextStatus = currentStatus === "OPEN" ? "CLOSED" : "OPEN";
+    try {
+      await ChatService.updateStatus(convId, nextStatus);
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, status: nextStatus } : c))
+      );
+      toast.success(nextStatus === "CLOSED" ? "Đã đóng cuộc trò chuyện" : "Đã mở lại cuộc trò chuyện");
+    } catch {
+      toast.error("Cập nhật trạng thái thất bại");
+    }
+  };
+
+  const handleDeleteConversation = async (convId: number) => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn đóng và ẩn cuộc trò chuyện này?");
+    if (!confirm) return;
+    try {
+      await ChatService.updateStatus(convId, "CLOSED");
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, status: "CLOSED" } : c))
+      );
+      setActiveConversation(null); // Bỏ chọn
+      toast.success("Đã xóa cuộc trò chuyện khỏi danh sách hoạt động");
+    } catch {
+      toast.error("Không thể xóa cuộc trò chuyện");
+    }
+  };
+
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeConversation =
@@ -153,9 +232,48 @@ export default function AdvisorInboxWorkspace() {
     };
   }, [activeConversationId, setMessages]);
 
+  const scrollToBottom = useCallback((smooth = false) => {
+    // 1. Prioritize messagesContainerRef.scrollTo (Most reliable in flex layouts)
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto"
+      });
+      return;
+    }
+    // 2. Fallback to bottomRef.scrollIntoView
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+    }
+  }, []);
+
+  // Instant scroll and repeat scrolling during initial rendering phase
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeMessages.length]);
+    scrollToBottom(false);
+
+    // Repeat scroll to prevent layout shift when images load
+    let count = 0;
+    const interval = setInterval(() => {
+      scrollToBottom(false);
+      count++;
+      if (count >= 8) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [activeConversationId, isLoadingMessages, scrollToBottom]);
+
+  // Smooth scroll when new messages are added
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToBottom(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [activeMessages.length, scrollToBottom]);
 
   const filteredConversations = conversations.filter((conversation) => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -536,8 +654,11 @@ export default function AdvisorInboxWorkspace() {
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-semibold">
+                            <p className="truncate text-sm font-semibold flex items-center gap-1">
                               {conversation.customerName}
+                              {starredConvs.includes(conversation.id) && (
+                                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                              )}
                             </p>
                             <span
                               className={`shrink-0 text-[11px] ${
@@ -625,6 +746,83 @@ export default function AdvisorInboxWorkspace() {
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                      {/* 5 action buttons */}
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-1 shrink-0">
+                        {/* 1. Chuông (Tắt/Bật tiếng) */}
+                        <button
+                          type="button"
+                          onClick={() => toggleMute(activeConversation.id)}
+                          className={`p-2 rounded-xl transition hover:bg-slate-200 dark:hover:bg-slate-700 ${
+                            mutedConvs.includes(activeConversation.id)
+                              ? "text-rose-500 hover:text-rose-600"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                          title={mutedConvs.includes(activeConversation.id) ? "Bật âm thanh" : "Tắt âm thanh"}
+                        >
+                          {mutedConvs.includes(activeConversation.id) ? (
+                            <BellOff className="h-4 w-4" />
+                          ) : (
+                            <Bell className="h-4 w-4" />
+                          )}
+                        </button>
+
+                        {/* 2. Thùng rác (Đóng & Ẩn cuộc trò chuyện) */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteConversation(activeConversation.id)}
+                          className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                          title="Đóng và ẩn cuộc trò chuyện"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+
+                        {/* 3. Ngôi sao (Đánh dấu sao) */}
+                        <button
+                          type="button"
+                          onClick={() => toggleStar(activeConversation.id)}
+                          className={`p-2 rounded-xl transition hover:bg-slate-200 dark:hover:bg-slate-700 ${
+                            starredConvs.includes(activeConversation.id)
+                              ? "text-amber-500 hover:text-amber-600"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                          title={starredConvs.includes(activeConversation.id) ? "Bỏ đánh dấu sao" : "Đánh dấu sao"}
+                        >
+                          <Star
+                            className={`h-4 w-4 ${
+                              starredConvs.includes(activeConversation.id) ? "fill-amber-400 text-amber-500" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {/* 4. Thư (Đánh dấu chưa đọc) */}
+                        <button
+                          type="button"
+                          onClick={() => handleMarkUnread(activeConversation.id)}
+                          className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                          title="Đánh dấu chưa đọc"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </button>
+
+                        {/* 5. Check (Hoàn thành / Đóng trạng thái status) */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(activeConversation.id, activeConversation.status)}
+                          className={`p-2 rounded-xl transition hover:bg-slate-200 dark:hover:bg-slate-700 ${
+                            activeConversation.status === "CLOSED"
+                              ? "text-emerald-500 hover:text-emerald-600"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                          title={activeConversation.status === "CLOSED" ? "Mở lại cuộc trò chuyện" : "Đóng cuộc trò chuyện"}
+                        >
+                          <CheckCircle2
+                            className={`h-4 w-4 ${
+                              activeConversation.status === "CLOSED" ? "fill-emerald-100 text-emerald-600" : ""
+                            }`}
+                          />
+                        </button>
+                      </div>
+
                       {canManageChat ? (
                         <select
                           value={activeConversation.assignedStaffId ?? ""}
@@ -658,7 +856,7 @@ export default function AdvisorInboxWorkspace() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,0.78),_rgba(255,255,255,0.96))] px-5 py-5 xl:px-6">
+                <div ref={messagesContainerRef} onLoadCapture={() => scrollToBottom(false)} className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,0.78),_rgba(255,255,255,0.96))] px-5 py-5 xl:px-6">
                   {isLoadingMessages ? (
                     <div className="flex justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-slate-400" />

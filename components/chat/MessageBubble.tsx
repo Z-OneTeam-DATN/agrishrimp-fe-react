@@ -32,28 +32,42 @@ interface ParsedCardMeta {
   slug: string;
 }
 
-function parseCardMeta(content: string): { cleanText: string; cardMeta: ParsedCardMeta | null } {
-  const match = content.match(/\[CARD_META:([^\]]+)\]/);
-  if (!match) return { cleanText: content, cardMeta: null };
-
-  try {
-    const rawJson = match[1];
-    const parsed = JSON.parse(rawJson) as ParsedCardMeta;
-    parsed.name = decodeURIComponent(parsed.name);
-    parsed.imageUrl = decodeURIComponent(parsed.imageUrl);
-    const cleanText = content.replace(/\[CARD_META:[^\]]+\]/, "").trim();
-    return { cleanText, cardMeta: parsed };
-  } catch {
-    return { cleanText: content, cardMeta: null };
+function parseMessageContent(content: string): { cleanText: string; cardMeta: ParsedCardMeta | null; stickerUrl: string } {
+  const cardMatch = content.match(/\[CARD_META:([^\]]+)\]/);
+  let cleanText = content;
+  let cardMeta = null;
+  if (cardMatch) {
+    try {
+      const rawJson = cardMatch[1];
+      const parsed = JSON.parse(rawJson) as ParsedCardMeta;
+      parsed.name = decodeURIComponent(parsed.name);
+      parsed.imageUrl = decodeURIComponent(parsed.imageUrl);
+      cardMeta = parsed;
+      cleanText = content.replace(/\[CARD_META:[^\]]+\]/, "").trim();
+    } catch {}
   }
+
+  const stickerMatch = cleanText.match(/^\[STICKER:([^\]]+)\]$/);
+  let stickerUrl = "";
+  if (stickerMatch) {
+    stickerUrl = stickerMatch[1];
+    cleanText = "";
+  }
+
+  return { cleanText, cardMeta, stickerUrl };
 }
+
+const isVideoFile = (url?: string) => {
+  if (!url) return false;
+  return url.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi|3gp)$/) || url.includes("/video/upload/");
+};
 
 export default function MessageBubble({ message, isOwn, isLast }: Props) {
   const time = message.createdAt
     ? formatDate(message.createdAt, "HH:mm")
     : "";
 
-  const { cleanText, cardMeta } = parseCardMeta(message.content || "");
+  const { cleanText, cardMeta, stickerUrl } = parseMessageContent(message.content || "");
 
   return (
     <div className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
@@ -67,7 +81,11 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
       )}
 
       <div className={`flex flex-col gap-0.5 max-w-[65%] ${isOwn ? "items-end" : "items-start"}`}>
-        {message.messageType === "PINNED_PRODUCT" && message.pinnedProduct ? (
+        {stickerUrl ? (
+          <div className="relative overflow-hidden max-w-[80px] select-none p-1">
+            <img src={stickerUrl} alt="Sticker" className="w-16 h-16 object-contain animate-pulse" />
+          </div>
+        ) : message.messageType === "PINNED_PRODUCT" && message.pinnedProduct ? (
           <div className="flex flex-col gap-1">
             {message.content && (
               <div className={`px-3 py-2 text-[15px] leading-relaxed ${
@@ -81,18 +99,28 @@ export default function MessageBubble({ message, isOwn, isLast }: Props) {
             <PinnedProductCard product={message.pinnedProduct} />
           </div>
         ) : message.messageType === "IMAGE" && message.imageUrl ? (
-          <div
-            className="relative overflow-hidden max-w-[220px] cursor-pointer rounded-lg"
-            onClick={() => window.open(message.imageUrl, "_blank")}
-          >
-            <Image
-              src={message.imageUrl}
-              alt="Ảnh chat"
-              width={220}
-              height={220}
-              className="object-cover hover:opacity-90 transition-opacity"
-            />
-          </div>
+          isVideoFile(message.imageUrl) ? (
+            <div className="relative overflow-hidden max-w-[220px] rounded-lg">
+              <video 
+                controls 
+                src={message.imageUrl} 
+                className="w-full max-h-[220px] object-cover bg-black" 
+              />
+            </div>
+          ) : (
+            <div
+              className="relative overflow-hidden max-w-[220px] cursor-pointer rounded-lg"
+              onClick={() => window.open(message.imageUrl, "_blank")}
+            >
+              <Image
+                src={message.imageUrl}
+                alt="Ảnh chat"
+                width={220}
+                height={220}
+                className="object-cover hover:opacity-90 transition-opacity"
+              />
+            </div>
+          )
         ) : (
           <div className="flex flex-col gap-1.5">
             {cleanText && (
