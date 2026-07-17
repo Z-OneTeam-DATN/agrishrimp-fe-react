@@ -143,7 +143,13 @@ export function useWebSocket() {
               }
             } catch {}
           });
-          subs.push(shopSub, shopTypingSub);
+          const shopViewersSub = client.subscribe("/topic/shop-viewers", (frame) => {
+            try {
+              const { conversationId, viewers } = JSON.parse(frame.body);
+              useChatStore.getState().setViewers(conversationId, viewers);
+            } catch {}
+          });
+          subs.push(shopSub, shopTypingSub, shopViewersSub);
         }
 
         subscriptionsRef.current = subs;

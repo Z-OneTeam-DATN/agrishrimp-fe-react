@@ -9,14 +9,20 @@ export interface ConsultProduct {
   slug: string;
 }
 
+export interface Viewer {
+  userId: number;
+  username: string;
+}
+
 interface ChatStore {
   isOpen: boolean;
   conversations: Conversation[];
   activeConversationId: number | null;
   messages: Record<number, ChatMessage[]>;
   unreadByConv: Record<number, number>;
-  sendWsMessage: ((destination: string, body: object) => void) | null;
+  sendWsMessage: ((destination: string, body: any) => void) | null;
   consultProduct: ConsultProduct | null;
+  viewersByConv: Record<number, Viewer[]>;
 
   openChat: () => void;
   closeChat: () => void;
@@ -28,8 +34,9 @@ interface ChatStore {
   markConvRead: (convId: number, isCustomer: boolean) => void;
   updateConversationLastMsg: (convId: number, msg: ChatMessage) => void;
   addOrUpdateConversation: (conv: Conversation) => void;
-  setSendWsMessage: (fn: ((destination: string, body: object) => void) | null) => void;
+  setSendWsMessage: (fn: ((destination: string, body: any) => void) | null) => void;
   setConsultProduct: (product: ConsultProduct | null) => void;
+  setViewers: (convId: number, viewers: Viewer[]) => void;
 }
 
 /** Sort conversations by lastMessageAt DESC so newest appears first */
@@ -49,6 +56,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   unreadByConv: {},
   sendWsMessage: null,
   consultProduct: null,
+  viewersByConv: {},
 
   openChat: () => set({ isOpen: true }),
   closeChat: () => set({ isOpen: false }),
@@ -102,6 +110,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               lastMessage: msg.content || (msg.messageType === "IMAGE" ? "[Hình ảnh]" : ""),
               lastMessageAt: msg.createdAt,
               status: "OPEN" as const,
+              lastSenderId: msg.senderId,
               // Only increment unread when not actively viewing this conversation
               unreadByShop: c.id === activeId ? 0 : (c.unreadByShop ?? 0) + 1,
             }
@@ -122,4 +131,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   setSendWsMessage: (fn) => set({ sendWsMessage: fn }),
 
   setConsultProduct: (product) => set({ consultProduct: product }),
+
+  setViewers: (convId, viewers) =>
+    set((s) => ({
+      viewersByConv: { ...s.viewersByConv, [convId]: viewers },
+    })),
 }));

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Pin, Send, Loader2, MessageCircle, ImageIcon,
-  Bell, Trash2, Star, Mail, CheckCircle2, BellOff,
+  Bell, Trash2, Star, Mail, CheckCircle2, BellOff, Archive,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
@@ -25,6 +25,7 @@ export default function AdminChatPage() {
     activeConversationId, setActiveConversation,
     messages, setMessages, addMessage,
     sendWsMessage,
+    viewersByConv,
   } = useChatStore();
   const { typingByConv } = useTypingStore();
 
@@ -56,7 +57,7 @@ export default function AdminChatPage() {
       : [...mutedConvs, convId];
     setMutedConvs(updated);
     localStorage.setItem("agrishrimp_muted_convs", JSON.stringify(updated));
-    toast.success(isCurrentlyMuted ? "Đã bật âm thanh thông báo" : "Đã tắt âm thanh thông báo");
+    toast.success(isCurrentlyMuted ? "Đã bật nhận thông báo cho cuộc hội thoại này" : "Đã tắt nhận thông báo cho cuộc hội thoại này");
   };
 
   const toggleStar = (convId: number) => {
@@ -94,8 +95,8 @@ export default function AdminChatPage() {
     }
   };
 
-  const handleDeleteConversation = async (convId: number) => {
-    const confirm = window.confirm("Bạn có chắc chắn muốn đóng và ẩn cuộc trò chuyện này?");
+  const handleArchiveConversation = async (convId: number) => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này?");
     if (!confirm) return;
     try {
       await ChatService.updateStatus(convId, "CLOSED");
@@ -103,9 +104,9 @@ export default function AdminChatPage() {
         conversations.map((c) => (c.id === convId ? { ...c, status: "CLOSED" } : c))
       );
       setActiveConversation(null); // Bỏ chọn
-      toast.success("Đã xóa cuộc trò chuyện khỏi danh sách hoạt động");
+      toast.success("Đã lưu trữ cuộc trò chuyện thành công");
     } catch {
-      toast.error("Không thể xóa cuộc trò chuyện");
+      toast.error("Không thể lưu trữ cuộc trò chuyện");
     }
   };
 
@@ -116,6 +117,27 @@ export default function AdminChatPage() {
 
   const activeConv = conversations.find((c) => c.id === activeConversationId) ?? null;
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
+  const currentViewers = activeConversationId ? (viewersByConv[activeConversationId] ?? []) : [];
+  const otherViewers = currentViewers
+    .filter((v) => v.userId !== user?.id)
+    .map((v) => v.username);
+
+  // Send JOIN/LEAVE messages for chat active viewers
+  useEffect(() => {
+    if (!activeConversationId || !sendWsMessage) return;
+
+    sendWsMessage("/app/chat.viewing", {
+      conversationId: activeConversationId,
+      status: "JOIN",
+    });
+
+    return () => {
+      sendWsMessage("/app/chat.viewing", {
+        conversationId: activeConversationId,
+        status: "LEAVE",
+      });
+    };
+  }, [activeConversationId, sendWsMessage]);
 
   // Load conversations + staff + canned responses
   useEffect(() => {
@@ -137,16 +159,15 @@ export default function AdminChatPage() {
     load();
   }, [setConversations]);
 
-  // Load messages (stale-while-revalidate)
+  // Load messages (clean reload to avoid flashing/stale data)
   useEffect(() => {
     if (!activeConversationId) return;
     let cancelled = false;
-    const hasCached = (useChatStore.getState().messages[activeConversationId]?.length ?? 0) > 0;
-    if (!hasCached) setIsLoadingMsgs(true);
+    setIsLoadingMsgs(true);
 
     ChatService.getMessages(activeConversationId)
       .then((msgs) => { if (!cancelled) setMessages(activeConversationId, msgs); })
-      .catch(() => { if (!hasCached && !cancelled) toast.error("Không thể tải tin nhắn"); })
+      .catch(() => { if (!cancelled) toast.error("Không thể tải tin nhắn"); })
       .finally(() => { if (!cancelled) setIsLoadingMsgs(false); });
 
     return () => { cancelled = true; };
@@ -253,9 +274,9 @@ export default function AdminChatPage() {
       <div className="flex-1 flex flex-col min-w-0 bg-white">
         {!activeConv ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-            <MessageCircle className="w-16 h-16 opacity-15" />
-            <p className="text-base font-medium text-gray-500">Chọn một cuộc trò chuyện</p>
-            <p className="text-sm text-gray-400">để bắt đầu tư vấn khách hàng</p>
+            <img src="/images/logo_arishrimp_tachnen.png" className="w-24 h-24 object-contain mb-2 opacity-80" alt="AgriShrimp Logo" />
+            <p className="text-base font-semibold text-gray-800">Hệ thống tư vấn AgriShrimp</p>
+            <p className="text-sm text-gray-500">Chọn một cuộc trò chuyện để bắt đầu tư vấn khách hàng</p>
           </div>
         ) : (
           <>
@@ -272,25 +293,8 @@ export default function AdminChatPage() {
                 <p className="font-semibold text-[15px] text-gray-900 truncate">
                   {activeConv.customerName}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {assignedStaffName
-                    ? `Đã chỉ định cho ${assignedStaffName}`
-                    : "Chưa phân công"}
-                  {staffList.length > 0 && (
-                    <>
-                      {" · "}
-                      <select
-                        value={activeConv.assignedStaffId ?? ""}
-                        onChange={(e) => handleAssign(e.target.value ? Number(e.target.value) : null)}
-                        className="text-xs text-[#0084ff] bg-transparent outline-none cursor-pointer hover:underline"
-                      >
-                        <option value="">Chọn nhân viên</option>
-                        {staffList.map((s) => (
-                          <option key={s.id} value={s.id}>{s.fullName}</option>
-                        ))}
-                      </select>
-                    </>
-                  )}
+                <p className="text-xs text-[#0084ff] font-medium">
+                  Khách hàng liên hệ
                 </p>
               </div>
 
@@ -304,7 +308,7 @@ export default function AdminChatPage() {
                       ? "text-rose-500 hover:bg-rose-50"
                       : "text-gray-500 hover:bg-gray-100"
                   }`}
-                  title={mutedConvs.includes(activeConv.id) ? "Bật âm thanh" : "Tắt âm thanh"}
+                  title={mutedConvs.includes(activeConv.id) ? "Bật thông báo" : "Tắt thông báo"}
                 >
                   {mutedConvs.includes(activeConv.id) ? (
                     <BellOff className="w-[18px] h-[18px]" />
@@ -314,11 +318,11 @@ export default function AdminChatPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDeleteConversation(activeConv.id)}
-                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-rose-600 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Đóng và ẩn cuộc trò chuyện"
+                  onClick={() => handleArchiveConversation(activeConv.id)}
+                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Đóng và lưu trữ cuộc trò chuyện"
                 >
-                  <Trash2 className="w-[18px] h-[18px]" />
+                  <Archive className="w-[18px] h-[18px]" />
                 </button>
                 <button
                   type="button"
@@ -362,6 +366,14 @@ export default function AdminChatPage() {
                 </button>
               </div>
             </div>
+
+            {/* ── Active viewers banner ── */}
+            {otherViewers.length > 0 && (
+              <div className="bg-amber-50 text-amber-700 px-4 py-2 text-xs font-semibold border-b border-amber-100 flex items-center gap-1.5 animate-pulse shrink-0">
+                <span>⚠️</span>
+                <span>{otherViewers.join(" và ")} đang xử lý đoạn chat này...</span>
+              </div>
+            )}
 
             {/* ── Messages ── */}
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2 bg-white">
