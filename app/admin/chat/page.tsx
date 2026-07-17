@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Pin, Send, Loader2, MessageCircle, ImageIcon,
-  Bell, Trash2, Star, Mail, CheckCircle2,
+  Bell, Trash2, Star, Mail, CheckCircle2, BellOff,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
@@ -36,6 +36,78 @@ export default function AdminChatPage() {
   const [staffList, setStaffList] = useState<UserResponse[]>([]);
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
   const [cannedSuggestions, setCannedSuggestions] = useState<CannedResponse[]>([]);
+
+  const [mutedConvs, setMutedConvs] = useState<number[]>([]);
+  const [starredConvs, setStarredConvs] = useState<number[]>([]);
+
+  useEffect(() => {
+    try {
+      const muted = localStorage.getItem("agrishrimp_muted_convs");
+      if (muted) setMutedConvs(JSON.parse(muted));
+      const starred = localStorage.getItem("agrishrimp_starred_convs");
+      if (starred) setStarredConvs(JSON.parse(starred));
+    } catch {}
+  }, []);
+
+  const toggleMute = (convId: number) => {
+    const isCurrentlyMuted = mutedConvs.includes(convId);
+    const updated = isCurrentlyMuted
+      ? mutedConvs.filter((id) => id !== convId)
+      : [...mutedConvs, convId];
+    setMutedConvs(updated);
+    localStorage.setItem("agrishrimp_muted_convs", JSON.stringify(updated));
+    toast.success(isCurrentlyMuted ? "Đã bật âm thanh thông báo" : "Đã tắt âm thanh thông báo");
+  };
+
+  const toggleStar = (convId: number) => {
+    const isCurrentlyStarred = starredConvs.includes(convId);
+    const updated = isCurrentlyStarred
+      ? starredConvs.filter((id) => id !== convId)
+      : [...starredConvs, convId];
+    setStarredConvs(updated);
+    localStorage.setItem("agrishrimp_starred_convs", JSON.stringify(updated));
+    toast.success(isCurrentlyStarred ? "Đã bỏ đánh dấu sao" : "Đã đánh dấu sao hội thoại");
+  };
+
+  const handleMarkUnread = async (convId: number) => {
+    try {
+      await ChatService.markAsUnread(convId);
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, unreadByShop: 1 } : c))
+      );
+      toast.success("Đã đánh dấu chưa đọc");
+    } catch {
+      toast.error("Không thể đánh dấu chưa đọc");
+    }
+  };
+
+  const handleToggleStatus = async (convId: number, currentStatus: "OPEN" | "CLOSED") => {
+    const nextStatus = currentStatus === "OPEN" ? "CLOSED" : "OPEN";
+    try {
+      await ChatService.updateStatus(convId, nextStatus);
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, status: nextStatus } : c))
+      );
+      toast.success(nextStatus === "CLOSED" ? "Đã đóng cuộc trò chuyện" : "Đã mở lại cuộc trò chuyện");
+    } catch {
+      toast.error("Cập nhật trạng thái thất bại");
+    }
+  };
+
+  const handleDeleteConversation = async (convId: number) => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn đóng và ẩn cuộc trò chuyện này?");
+    if (!confirm) return;
+    try {
+      await ChatService.updateStatus(convId, "CLOSED");
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, status: "CLOSED" } : c))
+      );
+      setActiveConversation(null); // Bỏ chọn
+      toast.success("Đã xóa cuộc trò chuyện khỏi danh sách hoạt động");
+    } catch {
+      toast.error("Không thể xóa cuộc trò chuyện");
+    }
+  };
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,10 +157,17 @@ export default function AdminChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages.length]);
 
-  const handleSelectConv = useCallback((conv: Conversation) => {
+  const handleSelectConv = useCallback(async (conv: Conversation) => {
     setActiveConversation(conv.id);
-    ChatService.markAsRead(conv.id).catch(() => {});
-  }, [setActiveConversation]);
+    try {
+      await ChatService.markAsRead(conv.id);
+      setConversations(
+        conversations.map((item) =>
+          item.id === conv.id ? { ...item, unreadByShop: 0 } : item
+        )
+      );
+    } catch {}
+  }, [setActiveConversation, conversations, setConversations]);
 
   const handleAssign = useCallback(async (staffId: number | null) => {
     if (!activeConversationId) return;
@@ -162,10 +241,11 @@ export default function AdminChatPage() {
       {/* ═══ LEFT: Conversation list ═══ */}
       <div className="w-[360px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
         <ConversationSidebar
-          conversations={conversations}
+          conversations={conversations.filter((c) => c.status !== "CLOSED")}
           activeId={activeConversationId}
           onSelect={handleSelectConv}
           isLoading={isLoadingConvs}
+          starredIds={starredConvs}
         />
       </div>
 
@@ -217,34 +297,68 @@ export default function AdminChatPage() {
               {/* Action icons — Messenger Business style */}
               <div className="flex items-center gap-1">
                 <button
-                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Thông báo"
+                  type="button"
+                  onClick={() => toggleMute(activeConv.id)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                    mutedConvs.includes(activeConv.id)
+                      ? "text-rose-500 hover:bg-rose-50"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                  title={mutedConvs.includes(activeConv.id) ? "Bật âm thanh" : "Tắt âm thanh"}
                 >
-                  <Bell className="w-[18px] h-[18px]" />
+                  {mutedConvs.includes(activeConv.id) ? (
+                    <BellOff className="w-[18px] h-[18px]" />
+                  ) : (
+                    <Bell className="w-[18px] h-[18px]" />
+                  )}
                 </button>
                 <button
-                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Xóa"
+                  type="button"
+                  onClick={() => handleDeleteConversation(activeConv.id)}
+                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-rose-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Đóng và ẩn cuộc trò chuyện"
                 >
                   <Trash2 className="w-[18px] h-[18px]" />
                 </button>
                 <button
-                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Đánh dấu"
+                  type="button"
+                  onClick={() => toggleStar(activeConv.id)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                    starredConvs.includes(activeConv.id)
+                      ? "text-amber-500 hover:bg-amber-50"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                  title={starredConvs.includes(activeConv.id) ? "Bỏ đánh dấu sao" : "Đánh dấu sao"}
                 >
-                  <Star className="w-[18px] h-[18px]" />
+                  <Star
+                    className={`w-[18px] h-[18px] ${
+                      starredConvs.includes(activeConv.id) ? "fill-amber-400 text-amber-500" : ""
+                    }`}
+                  />
                 </button>
                 <button
-                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Email"
+                  type="button"
+                  onClick={() => handleMarkUnread(activeConv.id)}
+                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Đánh dấu chưa đọc"
                 >
                   <Mail className="w-[18px] h-[18px]" />
                 </button>
                 <button
-                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Đánh dấu đã xử lý"
+                  type="button"
+                  onClick={() => handleToggleStatus(activeConv.id, activeConv.status)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                    activeConv.status === "CLOSED"
+                      ? "text-emerald-500 hover:bg-emerald-50"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                  title={activeConv.status === "CLOSED" ? "Mở lại cuộc trò chuyện" : "Đóng cuộc trò chuyện"}
                 >
-                  <CheckCircle2 className="w-[18px] h-[18px]" />
+                  <CheckCircle2
+                    className={`w-[18px] h-[18px] ${
+                      activeConv.status === "CLOSED" ? "fill-emerald-100 text-emerald-600" : ""
+                    }`}
+                  />
                 </button>
               </div>
             </div>

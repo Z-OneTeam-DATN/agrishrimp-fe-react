@@ -48,6 +48,10 @@ export function useWebSocket() {
    */
   const handleShopMessage = useCallback(async (msg: ChatMessage) => {
     addMessage(msg);
+    const activeId = useChatStore.getState().activeConversationId;
+    if (activeId === msg.conversationId) {
+      ChatService.markAsRead(msg.conversationId).catch(() => {});
+    }
     const convExists = useChatStore.getState().conversations.some((c) => c.id === msg.conversationId);
     if (convExists) {
       updateConversationLastMsg(msg.conversationId, msg);
@@ -87,6 +91,12 @@ export function useWebSocket() {
               }
               const msg: ChatMessage = payload as ChatMessage;
               addMessage(msg);
+              
+              const activeId = useChatStore.getState().activeConversationId;
+              if (activeId === msg.conversationId) {
+                ChatService.markAsRead(msg.conversationId).catch(() => {});
+              }
+              
               updateConversationLastMsg(msg.conversationId, msg);
             } catch {}
           }
@@ -165,7 +175,7 @@ export function useWebSocket() {
     return () => { disconnect(); };
   }, [connect, disconnect]);
 
-  const sendMessage = useCallback((destination: string, body: object) => {
+  const sendMessage = useCallback((destination: string, body: any) => {
     if (clientRef.current?.connected) {
       clientRef.current.publish({ destination, body: JSON.stringify(body) });
     }

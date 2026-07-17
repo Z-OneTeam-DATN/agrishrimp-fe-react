@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Conversation } from "@/app/types/chat.types";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
-import { MessageCircle, Search, ArrowLeft } from "lucide-react";
+import { MessageCircle, Search, ArrowLeft, Star } from "lucide-react";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import Link from "next/link";
 
@@ -22,9 +22,10 @@ interface Props {
   activeId: number | null;
   onSelect: (conv: Conversation) => void;
   isLoading?: boolean;
+  starredIds?: number[];
 }
 
-export default function ConversationSidebar({ conversations, activeId, onSelect, isLoading }: Props) {
+export default function ConversationSidebar({ conversations, activeId, onSelect, isLoading, starredIds }: Props) {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
@@ -154,8 +155,11 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <p className={`text-[14px] truncate ${hasUnread ? "font-bold text-gray-900" : "font-normal text-gray-700"}`}>
+                    <p className={`text-[14px] truncate flex items-center gap-1 ${hasUnread ? "font-bold text-gray-900" : "font-normal text-gray-700"}`}>
                       {conv.customerName}
+                      {starredIds?.includes(conv.id) && (
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                      )}
                     </p>
                     <span className="text-[12px] text-gray-400 shrink-0">{shortTime}</span>
                   </div>
