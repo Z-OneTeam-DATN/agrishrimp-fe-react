@@ -25,7 +25,7 @@ export default function ProfileLayout({
     if (path.includes("/address")) return "Sổ địa chỉ";
     if (path.includes("/orders/list")) return "Đơn hàng của tôi";
     if (path.includes("/voucher/create")) return "Nhập mã Voucher";
-    if (path.includes("/voucher")) return "Kho Voucher";
+    if (path.includes("/voucher")) return "Ví Voucher và Ưu đãi";
     if (path.includes("/orders/")) return "Chi tiết đơn hàng";
     if (path.includes("/orders/return/request/")) return "Yêu cầu hoàn tiền";
     if (path.includes("/address/")) return "Cập nhật địa chỉ";

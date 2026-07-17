@@ -35,7 +35,6 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
     icon: LayoutDashboard,
     screens: [
       { id: P.DASHBOARD_VIEW, label: "Bảng điều khiển trung tâm", advanced: [] },
-      { id: P.WORKSPACE_VIEW, label: "Bàn làm việc kho", advanced: [] },
     ],
   },
   {

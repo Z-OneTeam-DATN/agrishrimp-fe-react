@@ -40,6 +40,10 @@ import {
   ADVISOR_WORKSPACE_PERMISSIONS,
   AGRONOMIST_WORKSPACE_PERMISSIONS,
 } from "@/lib/workspace-permissions";
+import {
+  ADMIN_ORDER_STATUS_PAGES,
+  getAdminOrderStatusHref,
+} from "@/lib/admin-order-status-pages";
 
 type BranchSummary = {
   id: number;
@@ -48,9 +52,15 @@ type BranchSummary = {
 
 type BranchResponse = BranchSummary[] | { content?: BranchSummary[] };
 
+const ADMIN_ORDER_STATUS_ROUTE_LABELS = Object.fromEntries(
+  ADMIN_ORDER_STATUS_PAGES.map((page) => [
+    getAdminOrderStatusHref(page.slug),
+    page.label,
+  ]),
+) as Record<string, string>;
+
 const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin": "Trang chủ",
-  "/admin/inventory-dashboard": "Bàn làm việc kho",
   "/admin/employees": "Quản lý nhân sự",
   "/admin/employees/add": "Thêm nhân sự",
   "/admin/employees/edit": "Chỉnh sửa nhân sự",
@@ -75,8 +85,8 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/blog/posts/new": "Thêm bài viết",
   "/admin/blog/posts/edit": "Chỉnh sửa bài viết",
   "/admin/blog/categories": "Danh mục blog",
-  "/admin/orders": "Đơn hàng",
-  "/admin/orders-all": "Tất cả đơn hàng",
+  "/admin/orders": "Danh sách đơn hàng",
+  "/admin/orders-all": "Danh sách đơn hàng",
   "/admin/orders/add": "Tạo đơn hàng",
   "/admin/orders/draft": "Đơn hàng nháp",
   "/admin/orders/incomplete": "Đơn hàng chưa hoàn tất",
@@ -106,8 +116,7 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/reports/inventory": "Báo cáo nhập xuất tồn",
   "/admin/settings": "Cài đặt",
   "/admin/chat": "Chat khách hàng",
-  "/chat": "Chat khách hàng",
-  "/admin/vouchers": "Khuyến mãi & Voucher",
+  "/admin/vouchers": "Khuyến mãi",
   "/admin/vouchers/add": "Thêm voucher",
   "/admin/vouchers/edit": "Cập nhật voucher",
   "/admin/shipping/overview": "Tổng quan giao hàng",
@@ -192,6 +201,7 @@ export default function AdminTopHeader() {
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);
     const items: { href: string; label: string }[] = [];
+    const hideDetailBreadcrumb = pathname.startsWith("/admin/vouchers/edit/");
 
     if (segments[0] !== "admin") {
       return items;
@@ -201,11 +211,11 @@ export default function AdminTopHeader() {
 
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
-
       const exactLabel =
         currentPath === "/admin/branches/add" && editingBranchId
           ? "Cập nhật chi nhánh"
-          : ADMIN_ROUTE_LABELS[currentPath];
+          : ADMIN_ROUTE_LABELS[currentPath] ??
+            ADMIN_ORDER_STATUS_ROUTE_LABELS[currentPath];
       const isLast = index === segments.length - 1;
 
       if (pathname.startsWith("/admin/employees/roles") && HIDDEN_BREADCRUMB_PATHS.has(currentPath)) {
@@ -218,7 +228,7 @@ export default function AdminTopHeader() {
       }
 
       if (/^\d+$/.test(segment) || segment.startsWith("[")) {
-        if (isLast) {
+        if (isLast && !hideDetailBreadcrumb) {
           items.push({ href: currentPath, label: "Chi tiết" });
         }
         return;

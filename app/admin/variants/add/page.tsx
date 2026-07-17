@@ -1,15 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2, Save, X } from "lucide-react";
+import { toast } from "sonner";
+
 import {
   createAttribute,
   getAttributeById,
+  getAttributes,
   updateAttribute,
 } from "@/app/services/AttributeService";
-import { X, Save, Settings2, Loader2 } from "lucide-react";
+import { AdminAttributeSchema } from "@/app/types/admin.schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,132 +25,311 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
-import {
-  AdminAttributeSchema,
-  AdminAttributeForm,
-} from "@/app/types/admin.schema";
 
-// --- HÀM TIỆN ÍCH CHUYỂN ĐỔI TÊN THÀNH MÃ ---
-const generateCodeFromName = (name: string) => {
-  if (!name) return "";
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Z0-9_]/g, "");
+const ATTRIBUTE_STATUS_PLACEHOLDER = "__ATTRIBUTE_STATUS_PLACEHOLDER__";
+
+const AdminAttributePageSchema = AdminAttributeSchema.omit({
+  description: true,
+  code: true,
+}).extend({
+  status: z.preprocess(
+    (value) =>
+      value === "" || value === ATTRIBUTE_STATUS_PLACEHOLDER ? undefined : value,
+    z.enum(["ACTIVE", "INACTIVE"], {
+      required_error: "Vui lòng chọn trạng thái sử dụng",
+      invalid_type_error: "Vui lòng chọn trạng thái sử dụng",
+    }),
+  ),
+});
+
+type AdminAttributePageForm = z.infer<typeof AdminAttributePageSchema>;
+
+type AttributeLookupItem = {
+  id?: number;
+  name?: string;
+  values?: string[];
 };
+
+type ValueConflictInfo = {
+  attributeName: string;
+};
+
+const normalizeValueForCompare = (value: string) =>
+  value.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 
 export default function AddVariantPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [newValueInput, setNewValueInput] = useState("");
+  const [valueInputError, setValueInputError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allAttributes, setAllAttributes] = useState<AttributeLookupItem[]>([]);
 
   const idFromUrl = searchParams.get("id");
-  const isEditMode = Boolean(idFromUrl);
+  const currentAttributeId = idFromUrl ? Number(idFromUrl) : null;
+  const isEditMode = currentAttributeId !== null && !Number.isNaN(currentAttributeId);
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    setError,
     watch,
     reset,
+    clearErrors,
     formState: { errors },
-  } = useForm<AdminAttributeForm>({
-    resolver: zodResolver(AdminAttributeSchema),
+  } = useForm<AdminAttributePageForm>({
+    resolver: zodResolver(AdminAttributePageSchema),
     mode: "onTouched",
     defaultValues: {
       name: "",
-      code: "",
-      description: "",
-      status: "ACTIVE",
       values: [],
     },
   });
 
-  // Theo dõi tên để sinh mã tự động
-  const nameValue = watch("name");
-
   useEffect(() => {
-    // Chỉ tự động điền mã khi thêm mới
-    if (!isEditMode && nameValue) {
-      const autoCode = generateCodeFromName(nameValue);
-      setValue("code", autoCode, { shouldValidate: true });
-    }
-  }, [nameValue, isEditMode, setValue]);
+    let isMounted = true;
 
-  // Load dữ liệu cũ khi chỉnh sửa
-  useEffect(() => {
-    if (isEditMode && idFromUrl) {
-      const fetchDetail = async () => {
-        try {
-          const data = await getAttributeById(Number(idFromUrl));
-          reset({
-            name: data.name,
-            code: data.code,
-            description: data.description || "",
-            status: data.status,
-            values: data.values || [],
-          });
-        } catch (error) {
-          toast.error("Không tìm thấy thuộc tính yêu cầu!");
-          router.push("/admin/variants");
-        }
-      };
-      fetchDetail();
-    }
-  }, [isEditMode, idFromUrl, reset, router]);
+    const fetchPageData = async () => {
+      const [attributesResult, detailResult] = await Promise.allSettled([
+        getAttributes(),
+        isEditMode && currentAttributeId !== null
+          ? getAttributeById(currentAttributeId)
+          : Promise.resolve(null),
+      ]);
 
-  const values = watch("values") || [];
+      if (!isMounted) return;
+
+      if (attributesResult.status === "fulfilled") {
+        setAllAttributes(Array.isArray(attributesResult.value) ? attributesResult.value : []);
+      } else {
+        setAllAttributes([]);
+        toast.error("Không thể tải danh sách thuộc tính để kiểm tra trùng giá trị.");
+      }
+
+      if (!isEditMode) return;
+
+      if (detailResult.status === "fulfilled" && detailResult.value) {
+        reset({
+          name: detailResult.value.name,
+          status: detailResult.value.status,
+          values: detailResult.value.values || [],
+        });
+        return;
+      }
+
+      toast.error("Không tìm thấy thuộc tính yêu cầu!");
+      router.push("/admin/variants");
+    };
+
+    void fetchPageData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentAttributeId, isEditMode, reset, router]);
+
+  const values = watch("values", []);
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
   const fieldControlClass =
     "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
   const sectionCardClass = "border border-slate-200 bg-white p-6 shadow-sm";
   const sectionTitleClass = "text-[11px] font-bold text-slate-800";
 
-  const addValue = () => {
-    const val = newValueInput.trim();
-    if (!val) return;
-    if (values.includes(val)) {
-      toast.error("Giá trị này đã tồn tại");
+  const conflictingValueLookup = allAttributes.reduce<Record<string, ValueConflictInfo>>(
+    (acc, attribute) => {
+      if (!attribute) return acc;
+      if (
+        currentAttributeId !== null &&
+        typeof attribute.id === "number" &&
+        attribute.id === currentAttributeId
+      ) {
+        return acc;
+      }
+
+      const attributeName = attribute.name?.trim() || "thuộc tính khác";
+      for (const rawValue of attribute.values || []) {
+        const normalizedValue = normalizeValueForCompare(rawValue);
+        if (!normalizedValue || acc[normalizedValue]) continue;
+
+        acc[normalizedValue] = {
+          attributeName,
+        };
+      }
+
+      return acc;
+    },
+    {},
+  );
+
+  const getDuplicateMessage = () =>
+    "Giá trị này đã tồn tại trong thuộc tính này.";
+
+  const getConflictMessage = (conflict: ValueConflictInfo) =>
+    `Giá trị này đã tồn tại ở thuộc tính "${conflict.attributeName}".`;
+
+  const getCrossAttributeConflict = (value: string) =>
+    conflictingValueLookup[normalizeValueForCompare(value)] || null;
+
+  useEffect(() => {
+    const nextValue = newValueInput.trim();
+    if (!nextValue) {
+      setValueInputError("");
       return;
     }
-    setValue("values", [...values, val], { shouldValidate: true });
+
+    const isDuplicateInCurrentAttribute = values.some(
+      (item) => normalizeValueForCompare(item) === normalizeValueForCompare(nextValue),
+    );
+
+    if (isDuplicateInCurrentAttribute) {
+      setValueInputError(getDuplicateMessage());
+      return;
+    }
+
+    const crossAttributeConflict =
+      conflictingValueLookup[normalizeValueForCompare(nextValue)] || null;
+    if (crossAttributeConflict) {
+      setValueInputError(getConflictMessage(crossAttributeConflict));
+      return;
+    }
+
+    setValueInputError("");
+  }, [newValueInput, values, conflictingValueLookup]);
+
+  useEffect(() => {
+    if (values.length === 0) {
+      if (errors.values?.type === "manual") {
+        clearErrors("values");
+      }
+      return;
+    }
+
+    const seenValues = new Set<string>();
+    for (const value of values) {
+      const normalizedValue = normalizeValueForCompare(value);
+      if (seenValues.has(normalizedValue)) {
+        setError("values", {
+          type: "manual",
+          message: getDuplicateMessage(),
+        });
+        return;
+      }
+      seenValues.add(normalizedValue);
+    }
+
+    for (const value of values) {
+      const conflict = conflictingValueLookup[normalizeValueForCompare(value)] || null;
+      if (conflict) {
+        setError("values", {
+          type: "manual",
+          message: `Giá trị "${value}" đã tồn tại ở thuộc tính "${conflict.attributeName}".`,
+        });
+        return;
+      }
+    }
+
+    if (errors.values?.type === "manual") {
+      clearErrors("values");
+    }
+  }, [
+    clearErrors,
+    errors.values?.type,
+    setError,
+    values,
+    conflictingValueLookup,
+  ]);
+
+  const addValue = () => {
+    const nextValue = newValueInput.trim();
+    if (!nextValue) return;
+
+    const isDuplicateInCurrentAttribute = values.some(
+      (item) => normalizeValueForCompare(item) === normalizeValueForCompare(nextValue),
+    );
+    if (isDuplicateInCurrentAttribute) {
+      setValueInputError(getDuplicateMessage());
+      return;
+    }
+
+    const crossAttributeConflict = getCrossAttributeConflict(nextValue);
+    if (crossAttributeConflict) {
+      setValueInputError(getConflictMessage(crossAttributeConflict));
+      return;
+    }
+
+    setValue("values", [...values, nextValue], {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
     setNewValueInput("");
+    setValueInputError("");
   };
 
-  const removeValue = (val: string) => {
+  const removeValue = (valueToRemove: string) => {
     setValue(
       "values",
-      values.filter((v) => v !== val),
-      { shouldValidate: true },
+      values.filter((item) => item !== valueToRemove),
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      },
     );
   };
 
-  const onSave = async (data: AdminAttributeForm) => {
+  const onSave = async (data: AdminAttributePageForm) => {
+    const duplicatedValue = data.values.find((value, index, currentValues) => {
+      const normalizedValue = normalizeValueForCompare(value);
+      return (
+        currentValues.findIndex(
+          (item) => normalizeValueForCompare(item) === normalizedValue,
+        ) !== index
+      );
+    });
+
+    if (duplicatedValue) {
+      const message = getDuplicateMessage();
+      setError("values", {
+        type: "manual",
+        message,
+      });
+      toast.error(message);
+      return;
+    }
+
+    const conflictingValue = data.values.find((value) => getCrossAttributeConflict(value));
+    if (conflictingValue) {
+      const conflict = getCrossAttributeConflict(conflictingValue);
+      if (conflict) {
+        const message = `Giá trị "${conflictingValue}" đã tồn tại ở thuộc tính "${conflict.attributeName}".`;
+        setError("values", {
+          type: "manual",
+          message,
+        });
+        toast.error(message);
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
-      const payload = {
-        ...data,
-        code: data.code || generateCodeFromName(data.name),
-      };
-      if (isEditMode) {
-        await updateAttribute(Number(idFromUrl), payload);
+
+      if (isEditMode && currentAttributeId !== null) {
+        await updateAttribute(currentAttributeId, data);
         toast.success("Cập nhật thành công!");
       } else {
-        await createAttribute(payload);
+        await createAttribute(data);
         toast.success("Thêm mới thành công!");
       }
+
       router.push("/admin/variants");
     } catch (error) {
-      toast.error("Mã định danh (Code) đã tồn tại hoặc lỗi server!");
+      toast.error(getErrorMessage(error as never));
     } finally {
       setIsSubmitting(false);
     }
@@ -156,8 +340,8 @@ export default function AddVariantPage() {
       onSubmit={handleSubmit(onSave)}
       className="space-y-5 px-1 pb-[100px] text-slate-800"
     >
-      <div className="mt-2 mb-8 space-y-4">
-        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+      <div className="mb-8 mt-2 space-y-4">
+        <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
           {isEditMode ? "Chỉnh sửa thuộc tính" : "Thêm thuộc tính mới"}
         </h1>
       </div>
@@ -184,24 +368,38 @@ export default function AddVariantPage() {
             )}
           </div>
 
-          <input type="hidden" {...register("code")} />
-
           <div className="space-y-1.5 md:col-span-2">
-            <Label className={fieldLabelClass}>Trạng thái sử dụng</Label>
+            <Label className={fieldLabelClass}>
+              Trạng thái sử dụng <span className="text-rose-500">*</span>
+            </Label>
             <Controller
               name="status"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select
+                  onValueChange={(value) =>
+                    field.onChange(
+                      value === ATTRIBUTE_STATUS_PLACEHOLDER ? "" : value,
+                    )
+                  }
+                  value={field.value || ATTRIBUTE_STATUS_PLACEHOLDER}
+                >
                   <SelectTrigger
                     className={cn(
                       fieldControlClass,
                       "border-slate-200 bg-white",
+                      !field.value && "text-slate-400",
                     )}
                   >
-                    <SelectValue />
+                    <SelectValue placeholder="-- Chọn trạng thái --" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem
+                      value={ATTRIBUTE_STATUS_PLACEHOLDER}
+                      className="text-[13px] text-slate-400"
+                    >
+                      -- Chọn trạng thái --
+                    </SelectItem>
                     <SelectItem value="ACTIVE" className="text-[13px]">
                       Đang sử dụng
                     </SelectItem>
@@ -212,6 +410,11 @@ export default function AddVariantPage() {
                 </Select>
               )}
             />
+            {errors.status && (
+              <p className="text-[10px] font-medium text-rose-500">
+                {errors.status.message}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -227,13 +430,16 @@ export default function AddVariantPage() {
               placeholder="Nhập giá trị mới rồi nhấn Enter..."
               className={cn(
                 fieldControlClass,
-                "border-slate-200 bg-white sm:max-w-[420px]",
+                "bg-white sm:max-w-[420px]",
+                valueInputError
+                  ? "border-rose-300 focus-visible:ring-rose-500/20"
+                  : "border-slate-200",
               )}
               value={newValueInput}
-              onChange={(e) => setNewValueInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
+              onChange={(event) => setNewValueInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
                   addValue();
                 }
               }}
@@ -247,40 +453,49 @@ export default function AddVariantPage() {
             </Button>
           </div>
 
+          {valueInputError && (
+            <p className="text-[10px] font-medium text-rose-500">
+              {valueInputError}
+            </p>
+          )}
+
           <div
             className={cn(
               "flex min-h-[120px] flex-wrap content-start gap-2 rounded-[4px] border bg-slate-50 p-4",
               errors.values ? "border-rose-200" : "border-slate-200",
             )}
           >
-            {values.map((val) => (
+            {values.map((value) => (
               <div
-                key={val}
+                key={value}
                 className="flex h-8 items-center rounded-[4px] border border-slate-200 bg-white px-3 shadow-sm"
               >
                 <span className="mr-2 text-[12px] font-semibold text-slate-700">
-                  {val}
+                  {value}
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeValue(val)}
+                  onClick={() => removeValue(value)}
                   className="text-slate-300 transition-colors hover:text-rose-500"
                 >
                   <X size={13} />
                 </button>
               </div>
             ))}
+
             {values.length === 0 && (
               <span className="m-auto text-[12px] font-medium text-slate-300">
                 Chưa có giá trị nào
               </span>
             )}
           </div>
+
           {errors.values && (
             <p className="text-[10px] font-medium text-rose-500">
               {errors.values.message}
             </p>
           )}
+
           <p className="text-[10px] text-slate-400">
             Mẹo: nhấn Enter để thêm nhanh từng giá trị.
           </p>
@@ -314,4 +529,3 @@ export default function AddVariantPage() {
     </form>
   );
 }
-

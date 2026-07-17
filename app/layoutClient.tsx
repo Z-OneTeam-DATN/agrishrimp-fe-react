@@ -132,16 +132,26 @@ export default function LayoutClient({
   );
 
   const fetchFreshAuthSnapshot = useCallback(async () => {
-    const [tokenData, freshUser, permissions] = await Promise.all([
-      AuthService.meTokenNext().catch(() => null),
+    const [tokenResult, userResult, permissionsResult] = await Promise.allSettled([
+      AuthService.meTokenNext(),
       AuthService.meNext(),
       AuthService.getMyPermissionsNext(),
     ]);
 
-    applyTokenSnapshot(tokenData);
-    writeCache(freshUser);
+    if (tokenResult.status === "fulfilled") {
+      applyTokenSnapshot(tokenResult.value);
+    }
+
+    if (userResult.status !== "fulfilled") {
+      throw userResult.reason;
+    }
+
+    const permissions =
+      permissionsResult.status === "fulfilled" ? permissionsResult.value : [];
+
+    writeCache(userResult.value);
     writePermissionsCache(permissions);
-    setUser(freshUser);
+    setUser(userResult.value);
     setPermissions(permissions);
   }, [applyTokenSnapshot, setPermissions, setUser]);
 
@@ -190,7 +200,6 @@ export default function LayoutClient({
       if (cachedUser) {
         setUser(cachedUser as UserType);
         setPermissions(cachedPermissions);
-        setLoadingAuth(!background);
       } else if (background) {
         setLoadingAuth(false);
       } else {

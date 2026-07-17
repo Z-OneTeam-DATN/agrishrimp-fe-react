@@ -59,13 +59,20 @@ const sanitizeNumericInput = (value: string) => value.replace(/\D/g, "");
 const normalizeDigitString = (value: string) =>
   sanitizeNumericInput(value).replace(/^0+(?=\d)/, "");
 
+const formatCurrencyInput = (value: string) => {
+  const digits = normalizeDigitString(value);
+  if (!digits) return "";
+
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
 const normalizeNumericValue = (value: number | string | undefined | null) => {
   if (value === undefined || value === null || value === "") return "";
   if (typeof value === "number") {
     return Number.isFinite(value) ? String(Math.trunc(value)) : "";
   }
 
-  const normalized = value.replace(/,/g, "").trim();
+  const normalized = sanitizeNumericInput(value).trim();
   if (!normalized) return "";
 
   const parsed = Number(normalized);
@@ -81,7 +88,7 @@ const toNumber = (value: number | string | undefined | null) =>
     ? value
     : Number(
         typeof value === "string"
-          ? value.replace(/,/g, "").trim() || 0
+          ? sanitizeNumericInput(value).trim() || 0
           : value || 0,
       );
 
@@ -173,6 +180,47 @@ const mapVoucherToFormData = (voucher: Voucher): VoucherFormData => ({
   status: voucher.status || "ACTIVE",
 });
 
+const MINUTES_IN_MS = 60 * 1000;
+const HOURS_IN_MS = 60 * MINUTES_IN_MS;
+const DAYS_IN_MS = 24 * HOURS_IN_MS;
+
+const getDateTimestamp = (value: string) => {
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const formatVoucherDuration = (startDate: string, endDate: string) => {
+  const start = getDateTimestamp(startDate);
+  const end = getDateTimestamp(endDate);
+
+  if (start === null || end === null || end <= start) {
+    return "";
+  }
+
+  let remainingTime = end - start;
+  const days = Math.floor(remainingTime / DAYS_IN_MS);
+  remainingTime -= days * DAYS_IN_MS;
+
+  const hours = Math.floor(remainingTime / HOURS_IN_MS);
+  remainingTime -= hours * HOURS_IN_MS;
+
+  const minutes = Math.max(1, Math.floor(remainingTime / MINUTES_IN_MS));
+
+  if (days > 0 && hours > 0) {
+    return `Voucher có hiệu lực trong ${days} ngày ${hours} giờ.`;
+  }
+
+  if (days > 0) {
+    return `Voucher có hiệu lực trong ${days} ngày.`;
+  }
+
+  if (hours > 0) {
+    return `Voucher có hiệu lực trong ${hours} giờ.`;
+  }
+
+  return `Voucher có hiệu lực trong ${minutes} phút.`;
+};
+
 const validateVoucherForm = (
   formData: VoucherFormData,
   dateError: string,
@@ -252,26 +300,45 @@ const errorClass = "mt-1 text-[11px] font-medium text-red-500";
 export default function VoucherForm({ initialData }: VoucherFormProps) {
   const router = useRouter();
   const isEdit = Boolean(initialData?.id);
+  const initialFormData = useMemo(
+    () => (initialData ? mapVoucherToFormData(initialData) : null),
+    [initialData],
+  );
   const [formData, setFormData] = useState<VoucherFormData>(() =>
-    initialData ? mapVoucherToFormData(initialData) : createEmptyFormData(),
+    initialFormData ?? createEmptyFormData(),
   );
   const [errors, setErrors] = useState<VoucherFormErrors>({});
   const [dateError, setDateError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setFormData(mapVoucherToFormData(initialData));
+    if (initialFormData) {
+      setFormData(initialFormData);
     }
-  }, [initialData]);
+  }, [initialFormData]);
+
+  const canKeepExpiredEndDate = useMemo(() => {
+    if (!isEdit || !initialFormData?.endDate || !formData.endDate) {
+      return false;
+    }
+
+    const initialEndTime = getDateTimestamp(initialFormData.endDate);
+    if (initialEndTime === null) {
+      return false;
+    }
+
+    return initialEndTime <= Date.now() && formData.endDate === initialFormData.endDate;
+  }, [formData.endDate, initialFormData, isEdit]);
 
   useEffect(() => {
     if (formData.startDate && formData.endDate) {
-      const start = new Date(formData.startDate).getTime();
-      const end = new Date(formData.endDate).getTime();
-      if (end <= start) {
+      const start = getDateTimestamp(formData.startDate);
+      const end = getDateTimestamp(formData.endDate);
+      if (start === null || end === null) {
+        setDateError("");
+      } else if (end <= start) {
         setDateError("Ngày kết thúc phải lớn hơn ngày bắt đầu");
-      } else if (end <= new Date().getTime()) {
+      } else if (end <= Date.now() && !canKeepExpiredEndDate) {
         setDateError("Ngày kết thúc không được ở trong quá khứ");
       } else {
         setDateError("");
@@ -279,7 +346,19 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
     } else {
       setDateError("");
     }
-  }, [formData.startDate, formData.endDate]);
+  }, [canKeepExpiredEndDate, formData.endDate, formData.startDate]);
+
+  const voucherDurationHint = useMemo(() => {
+    const durationText = formatVoucherDuration(
+      formData.startDate,
+      formData.endDate,
+    );
+
+    return (
+      durationText ||
+      "Chọn ngày bắt đầu và ngày kết thúc để xem thời gian hiệu lực của voucher."
+    );
+  }, [formData.endDate, formData.startDate]);
 
   const clearFieldError = useCallback((field: keyof VoucherFormErrors) => {
     setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
@@ -480,11 +559,17 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={formData.discountValue}
+              value={
+                formData.discountType === "PERCENT"
+                  ? formData.discountValue
+                  : formatCurrencyInput(formData.discountValue)
+              }
               onChange={(event) =>
                 updateNumericField("discountValue", event.target.value)
               }
-              placeholder={formData.discountType === "PERCENT" ? "VD: 10" : "VD: 50000"}
+              placeholder={
+                formData.discountType === "PERCENT" ? "VD: 10" : "VD: 50.000"
+              }
               className={`${fieldClass} ${
                 errors.discountValue ? "border-red-400" : "border-slate-200"
               }`}
@@ -500,11 +585,11 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={formData.minOrderValue}
+              value={formatCurrencyInput(formData.minOrderValue)}
               onChange={(event) =>
                 updateNumericField("minOrderValue", event.target.value)
               }
-              placeholder="VD: 100000"
+              placeholder="VD: 100.000"
               className={`${fieldClass} ${
                 errors.minOrderValue ? "border-red-400" : "border-slate-200"
               }`}
@@ -522,11 +607,11 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  value={formData.maxDiscount}
+                  value={formatCurrencyInput(formData.maxDiscount)}
                   onChange={(event) =>
                     updateNumericField("maxDiscount", event.target.value)
                   }
-                  placeholder="VD: 30000"
+                  placeholder="VD: 30.000"
                   className={`${fieldClass} ${
                     errors.maxDiscount ? "border-red-400" : "border-slate-200"
                   }`}
@@ -624,6 +709,9 @@ export default function VoucherForm({ initialData }: VoucherFormProps) {
             {(errors.endDate || dateError) && (
               <p className={errorClass}>{errors.endDate || dateError}</p>
             )}
+            <p className="mt-1 text-[11px] font-medium text-slate-500">
+              {voucherDurationHint}
+            </p>
           </div>
         </div>
       </section>

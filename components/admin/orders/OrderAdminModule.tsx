@@ -21,8 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
-import type { MyOrder, MyOrderItem } from "@/app/types/order.types";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import type { MyOrder, MyOrderItem, OrderPaymentStatus } from "@/app/types/order.types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -71,7 +70,7 @@ type ManagedOrder = {
   items: ManagedOrderItem[];
   note: string;
   paymentMethod: string;
-  paymentStatus: "PAID" | "UNPAID";
+  paymentStatus: OrderPaymentStatus;
   receiverName: string;
   receiverPhone: string;
   shippingAddress: string;
@@ -99,7 +98,7 @@ type OrderFormState = {
   items: ManagedOrderItem[];
   note: string;
   paymentMethod: string;
-  paymentStatus: "PAID" | "UNPAID";
+  paymentStatus: OrderPaymentStatus;
   receiverName: string;
   receiverPhone: string;
   shippingAddress: string;
@@ -1390,7 +1389,7 @@ export function AdminOrderEditorModule({
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/admin/orders")}
+            onClick={() => router.push("/admin/orders-all")}
             className="h-9 border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 shadow-none hover:bg-slate-50"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -1829,7 +1828,7 @@ export function AdminOrderEditorModule({
         <div className="flex items-center justify-end gap-3 px-6 py-4">
           <Button
             variant="outline"
-            onClick={() => router.push("/admin/orders")}
+            onClick={() => router.push("/admin/orders-all")}
             className="h-10 border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-700 shadow-none hover:bg-slate-50"
           >
             Hủy

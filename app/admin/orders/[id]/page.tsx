@@ -1,4 +1,4 @@
-import { AdminOrderEditorModule } from "@/components/admin/orders/OrderAdminModule";
+import AdminOrderDetailView from "@/components/admin/orders/AdminOrderDetailView";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -7,5 +7,5 @@ export default async function AdminOrderDetailPage({
 }) {
   const { id } = await params;
 
-  return <AdminOrderEditorModule mode="edit" orderId={id} />;
+  return <AdminOrderDetailView orderId={id} />;
 }

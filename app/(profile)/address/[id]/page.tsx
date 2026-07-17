@@ -35,7 +35,7 @@ export default function EditAddressPage({ params }: { params: Promise<{ id: stri
           phone: currentAddress.receiverPhone,
           provinceId: String(currentAddress.provinceId || ""),
           districtId: String(currentAddress.districtId || ""),
-          wardCode: String(currentAddress.wardId || ""),
+          wardCode: String(currentAddress.wardCode ?? currentAddress.wardId ?? ""),
           specificAddress: currentAddress.addressDetail,
           isDefault: currentAddress.isDefault ?? false,
           addressType: currentAddress.addressType || "Home",

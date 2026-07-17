@@ -96,10 +96,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
       set({
         user: normalizedUser as UserType,
         isAuthenticated: true,
-        isLoadingAuth: false,
       });
     } else {
-      set({ user: undefined, isAuthenticated: false, isLoadingAuth: false });
+      set({ user: undefined, isAuthenticated: false });
     }
   },
   setAuth: (accessToken: string | null, refreshToken: string | null) =>

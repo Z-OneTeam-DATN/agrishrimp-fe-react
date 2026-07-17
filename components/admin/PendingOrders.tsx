@@ -58,7 +58,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       label: "Thiếu hàng",
       count: backorderCount,
       icon: AlertTriangle,
-      href: getOrderListPath(user, "AWAITING_REPLENISHMENT"),
+      href: getOrderListPath(user, "PENDING"),
     },
     {
       label: "Chờ duyệt",
@@ -66,12 +66,16 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       icon: FileSearch,
       href: getOrderListPath(user, "PENDING"),
     },
-    {
-      label: "Chờ thanh toán",
-      count: data?.pendingPayment ?? 0,
-      icon: CreditCard,
-      href: getOrderListPath(user, "AWAITING_PAYMENT"),
-    },
+    ...(isAdmin
+      ? [
+          {
+            label: "Chờ thanh toán",
+            count: data?.pendingPayment ?? 0,
+            icon: CreditCard,
+            href: getOrderListPath(user, "AWAITING_PAYMENT"),
+          },
+        ]
+      : []),
     {
       label: "Chờ đóng gói",
       count: data?.pendingPacking ?? 0,
@@ -79,7 +83,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
       href: getOrderListPath(user, "PROCESSING"),
     },
     {
-      label: "Chờ lấy hàng",
+      label: "Chờ bàn giao",
       count: data?.pendingPickup ?? 0,
       icon: Truck,
       href: getOrderListPath(user, "READY_FOR_PICKUP"),
@@ -126,7 +130,7 @@ export default function PendingOrders({ branchId }: PendingOrdersProps) {
               </div>
             </div>
             <Link
-              href={getOrderListPath(user, "AWAITING_REPLENISHMENT")}
+              href={getOrderListPath(user, "PENDING")}
               className="inline-flex h-9 items-center justify-center rounded-[4px] border border-rose-200 bg-white px-3.5 text-[12px] font-semibold text-rose-700 transition hover:bg-rose-100"
             >
               Xem đơn thiếu hàng

@@ -25,8 +25,7 @@ export default function EditVoucherPage() {
 
       try {
         setLoading(true);
-        const vouchers = await voucherService.getAllAdmin();
-        const found = vouchers.find((item) => item.id === voucherId);
+        const found = await voucherService.getById(voucherId);
 
         if (!found) {
           toast.error("Không tìm thấy voucher");

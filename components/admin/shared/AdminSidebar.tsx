@@ -19,7 +19,6 @@ import {
   ArrowRightLeft,
   ArrowUpFromLine,
   ShieldCheck,
-  ClipboardList,
   ChevronRight,
   ShoppingCart,
   List,
@@ -50,6 +49,11 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
+import { isAdminRole } from "@/lib/roles";
+import {
+  ADMIN_ORDER_STATUS_PAGES,
+  getAdminOrderStatusHref,
+} from "@/lib/admin-order-status-pages";
 
 const SIDEBAR_COUNTS_CACHE_KEY = "admin_sidebar_counts_v1";
 const SIDEBAR_COUNTS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -121,6 +125,7 @@ export default function AdminSidebar() {
   const { user, accessToken, isLoadingAuth } = useAuthStore();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
+  const isAdmin = isAdminRole(user?.role);
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
   const canAccessImports = hasAnyPermission(IMPORT_PERMISSIONS);
@@ -134,13 +139,19 @@ export default function AdminSidebar() {
     P.ROLE_DELETE,
   ]);
   const orderListHref = getOrderListPath(user);
+  const orderListBasePath = orderListHref.split("?")[0];
+  const isAdminOrderDetailActive = /^\/admin\/orders\/\d+$/.test(pathname);
   const isOrderListActive =
     pathname === "/admin/orders" ||
-    pathname === "/admin/orders-all" ||
-    (pathname.startsWith("/admin/orders/") && !pathname.includes("return"));
+    pathname === orderListBasePath ||
+    (isAdmin && isAdminOrderDetailActive) ||
+    (pathname.startsWith("/admin/orders-processing") &&
+      orderListBasePath === "/admin/orders-processing") ||
+    (pathname.startsWith("/admin/orders-all") &&
+      orderListBasePath === "/admin/orders-all");
   const canViewSystemSection = hasAnyPermission([
     P.DASHBOARD_VIEW,
-    P.WORKSPACE_VIEW,
+    P.REPORT_FINANCE_VIEW,
   ]);
   const canViewAdminSection = hasAnyPermission([
     P.STAFF_VIEW,
@@ -225,7 +236,11 @@ export default function AdminSidebar() {
   }, []);
 
   useEffect(() => {
-    if (pathname.startsWith("/admin/orders")) {
+    if (
+      pathname.startsWith("/admin/orders") ||
+      pathname.startsWith("/admin/orders-processing") ||
+      pathname.startsWith("/admin/orders-handover")
+    ) {
       setOpenGroups((prev) =>
         prev.includes("orders") ? prev : [...prev, "orders"],
       );
@@ -239,7 +254,7 @@ export default function AdminSidebar() {
 
     try {
       const results = await Promise.allSettled([
-        hasPermission(P.SUPPLIER_VIEW)
+        hasPermission(P.SUPPLIER_VIEW) && !isBranchAccount
           ? supplierService.getAll(undefined, undefined, 0, 1)
           : Promise.resolve(null),
         hasPermission(P.CUSTOMER_VIEW)
@@ -248,13 +263,13 @@ export default function AdminSidebar() {
         hasPermission(P.PRODUCT_VIEW)
           ? ProductService.getAll({ status: "ACTIVE" })
           : Promise.resolve(null),
-        hasPermission(P.CATEGORY_VIEW)
+        hasPermission(P.CATEGORY_VIEW) && !isBranchAccount
           ? getCategories().catch(() => [])
           : Promise.resolve(null),
-        hasPermission(P.PRODUCT_VIEW)
+        hasPermission(P.PRODUCT_VIEW) && !isBranchAccount
           ? getAdminBrands().catch(() => [])
           : Promise.resolve(null),
-        hasPermission(P.ATTRIBUTE_VIEW)
+        hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount
           ? ProductService.getAttributes()
           : Promise.resolve(null),
         hasPermission(P.STAFF_VIEW)
@@ -581,15 +596,6 @@ export default function AdminSidebar() {
                   color="text-emerald-400"
                 />
               )}
-              {hasPermission(P.WORKSPACE_VIEW) && (
-                <SidebarLink
-                  href="/admin/inventory-dashboard"
-                  icon={ClipboardList}
-                  label="Bàn làm việc kho"
-                  active={isActive("/admin/inventory-dashboard")}
-                  color="text-amber-400"
-                />
-              )}
             </div>
           </section>
         )}
@@ -611,14 +617,24 @@ export default function AdminSidebar() {
                   <SidebarLink
                     href={orderListHref}
                     icon={List}
-                    label={
-                      isBranchScopedOrderUser
-                        ? "Đơn hàng chi nhánh"
-                        : "Tất cả đơn hàng"
-                    }
+                    label={isAdmin ? "Danh sách đơn hàng" : "Đơn hàng chi nhánh"}
                     active={isOrderListActive}
                     isChild
                   />
+                  {isAdmin &&
+                    ADMIN_ORDER_STATUS_PAGES.map((page) => {
+                      const href = getAdminOrderStatusHref(page.slug);
+                      return (
+                        <SidebarLink
+                          key={page.slug}
+                          href={href}
+                          icon={List}
+                          label={page.label}
+                          active={pathname === href}
+                          isChild
+                        />
+                      );
+                    })}
                   <SidebarLink
                     href="/admin/orders/return"
                     icon={RotateCcw}
@@ -633,7 +649,7 @@ export default function AdminSidebar() {
                 <SidebarLink
                   href="/admin/vouchers"
                   icon={Ticket}
-                  label="Khuyến mãi & Voucher"
+                  label="Khuyến mãi"
                   active={isActive("/admin/vouchers")}
                   color="text-pink-400"
                 />

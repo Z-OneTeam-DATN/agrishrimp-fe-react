@@ -80,6 +80,9 @@ export class AuthService {
     const response = await apiJava.post<AuthResponse>(
       `${this.PREFIX}/refresh`,
       { refreshToken },
+      {
+        timeout: 8000,
+      },
     );
     return response.data;
   }

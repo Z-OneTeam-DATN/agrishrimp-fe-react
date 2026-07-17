@@ -1,15 +1,14 @@
 "use client"
 
-import { AlertTriangle, ShoppingCart, ArrowRight } from "lucide-react"
+import { AlertTriangle, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import type { OutOfStockItem } from "@/app/types/order.types"
 
 interface OutOfStockWarningProps {
   items: OutOfStockItem[]
-  onOrderPartial?: () => void
 }
 
-export function OutOfStockWarning({ items, onOrderPartial }: OutOfStockWarningProps) {
+export function OutOfStockWarning({ items }: OutOfStockWarningProps) {
   return (
     <div className="border border-amber-200 bg-amber-50 rounded-xl overflow-hidden">
       {/* Header */}
@@ -37,26 +36,15 @@ export function OutOfStockWarning({ items, onOrderPartial }: OutOfStockWarningPr
       </div>
 
       {/* CTAs */}
-      <div className="px-4 pb-4 flex flex-col sm:flex-row gap-2">
+      <div className="px-4 pb-4">
         <Link
           href="/user/cart"
-          className="flex items-center justify-center gap-2 flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+          className="flex items-center justify-center gap-2 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
         >
           <ShoppingCart size={14} />
           Quay lại giỏ hàng
         </Link>
-        {onOrderPartial && (
-          <button
-            type="button"
-            onClick={onOrderPartial}
-            className="flex items-center justify-center gap-2 flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
-          >
-            Đặt phần còn hàng
-            <ArrowRight size={14} />
-          </button>
-        )}
       </div>
     </div>
   )
 }
-

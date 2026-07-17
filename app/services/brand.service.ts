@@ -20,12 +20,9 @@ const isRequestAborted = (error: unknown) => {
 
 export const getPublicBrands = async (): Promise<BrandDTO[]> => {
   try {
-    const response = await apiJava.get(
-      buildJavaApiUrl("/public/brands"),
-      {
-        isPublic: true,
-      } as any,
-    );
+    const response = await apiJava.get(buildJavaApiUrl("/public/brands"), {
+      isPublic: true,
+    } as any);
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lấy danh sách thương hiệu:", error);
@@ -52,24 +49,27 @@ export const getAdminBrands = async (keyword?: string): Promise<BrandDTO[]> => {
   try {
     const queryParams = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
     const response = await apiJava.get(
-      buildJavaApiUrl(`/brands${queryParams}` as ApiPath)
+      buildJavaApiUrl(`/brands${queryParams}` as ApiPath),
     );
-    // Backend API response is wrapped in ApiResponse success structure: { code: 200, data: [...] }
+
+    // Backend response can be wrapped as { code, data } or returned directly.
     return response.data?.data || response.data || [];
   } catch (error) {
     if (isRequestAborted(error)) {
       return [];
     }
 
-    console.error("Lỗi khi lấy danh sách thương hiệu admin:", error);
+    console.warn("Không thể tải danh sách thương hiệu admin:", error);
     throw error;
   }
 };
 
-export const getAdminBrandById = async (id: number): Promise<BrandDTO | null> => {
+export const getAdminBrandById = async (
+  id: number,
+): Promise<BrandDTO | null> => {
   try {
     const response = await apiJava.get(
-      buildJavaApiUrl(`/brands/${id}` as ApiPath)
+      buildJavaApiUrl(`/brands/${id}` as ApiPath),
     );
     return response.data?.data || response.data || null;
   } catch (error) {
@@ -78,12 +78,11 @@ export const getAdminBrandById = async (id: number): Promise<BrandDTO | null> =>
   }
 };
 
-export const createBrand = async (data: Omit<BrandDTO, "id">): Promise<BrandDTO | null> => {
+export const createBrand = async (
+  data: Omit<BrandDTO, "id">,
+): Promise<BrandDTO | null> => {
   try {
-    const response = await apiJava.post(
-      buildJavaApiUrl("/brands"),
-      data
-    );
+    const response = await apiJava.post(buildJavaApiUrl("/brands"), data);
     return response.data?.data || response.data || null;
   } catch (error) {
     console.error("Lỗi khi tạo thương hiệu:", error);
@@ -91,11 +90,14 @@ export const createBrand = async (data: Omit<BrandDTO, "id">): Promise<BrandDTO 
   }
 };
 
-export const updateBrand = async (id: number, data: Omit<BrandDTO, "id">): Promise<BrandDTO | null> => {
+export const updateBrand = async (
+  id: number,
+  data: Omit<BrandDTO, "id">,
+): Promise<BrandDTO | null> => {
   try {
     const response = await apiJava.put(
       buildJavaApiUrl(`/brands/${id}` as ApiPath),
-      data
+      data,
     );
     return response.data?.data || response.data || null;
   } catch (error) {
@@ -106,13 +108,10 @@ export const updateBrand = async (id: number, data: Omit<BrandDTO, "id">): Promi
 
 export const deleteBrand = async (id: number): Promise<boolean> => {
   try {
-    await apiJava.delete(
-      buildJavaApiUrl(`/brands/${id}` as ApiPath)
-    );
+    await apiJava.delete(buildJavaApiUrl(`/brands/${id}` as ApiPath));
     return true;
   } catch (error) {
     console.error(`Lỗi khi xóa thương hiệu ${id}:`, error);
     throw error;
   }
 };
-

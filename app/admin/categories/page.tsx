@@ -11,7 +11,7 @@ import {
   type CategoryPayload
 } from "@/app/services/CategoryService";
 import { toast } from "sonner";
-import { Tag, ChevronDown, ChevronLeft, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff, XCircle, Search } from "lucide-react";
+import { Tag, ChevronDown, ChevronRight, Plus, Image as ImageIcon, Loader2, Save, Edit, Trash2, Eye, EyeOff, XCircle, Search } from "lucide-react";
 
 import {
   AlertDialog,
@@ -356,6 +356,7 @@ export default function CategoryManagementPage() {
     const isExpanded = expandedRows[category.id];
     const hasChildren = category.children && category.children.length > 0;
     const rowNumber = level === 0 ? ++categoryRowIndex : null;
+    const treeIndent = level * 18;
 
     return (
       <React.Fragment key={category.id}>
@@ -364,15 +365,27 @@ export default function CategoryManagementPage() {
             {rowNumber}
           </td>
           <td className="px-4 py-3">
-            <div className="flex min-h-[44px] items-center gap-3" style={{ paddingLeft: `${level * 20}px` }}>
-              {hasChildren ? (
-                <button
-                  onClick={() => toggleExpand(category.id)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] transition-colors hover:bg-slate-100"
-                >
-                  {isExpanded ? <ChevronDown size={14} className="text-blue-600" /> : <ChevronRight size={14} />}
-                </button>
-              ) : null}
+            <div
+              className="flex min-h-[44px] items-center"
+              style={{ paddingLeft: `${treeIndent}px` }}
+            >
+              <div className="mr-1 flex h-8 w-6 shrink-0 items-center justify-center">
+                {hasChildren ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(category.id)}
+                    className="flex h-6 w-6 items-center justify-center rounded-[4px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-blue-600"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown size={14} className="text-blue-600" />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
+                  </button>
+                ) : (
+                  <span className="block h-6 w-6" aria-hidden="true" />
+                )}
+              </div>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
                 {category.imageUrl ? (
                   <Image
@@ -386,8 +399,13 @@ export default function CategoryManagementPage() {
                   <ImageIcon size={16} className="text-slate-300" />
                 )}
               </div>
-              <div className="flex min-w-0 items-center gap-2">
-                {level > 0 && <span className="shrink-0 text-sm leading-none text-slate-400">&bull;</span>}
+              <div className="ml-2.5 flex min-w-0 items-center gap-2">
+                {level > 0 && (
+                  <span
+                    className="h-px w-3 shrink-0 bg-slate-300"
+                    aria-hidden="true"
+                  />
+                )}
                 <span className={cn("truncate text-[12px] tracking-tight", level === 0 ? "font-semibold text-slate-800" : "font-medium text-slate-600")}>
                   {category.name}
                 </span>
@@ -537,44 +555,47 @@ export default function CategoryManagementPage() {
           </table>
         </div>
         </TooltipProvider>
-        <div className="flex min-w-full shrink-0 items-center justify-between border-t border-slate-100 bg-[#f8f9fa] px-5 py-3">
+        <div className="flex min-w-full shrink-0 flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[12px] font-semibold text-slate-500">
-            Tổng số: {allCategories.length} danh mục
+            Tổng số: {categories.length} danh mục (Trang {categories.length === 0 ? 0 : currentPage + 1}/{categories.length === 0 ? 0 : totalPages})
           </p>
-          {totalPages > 1 && (
+
+          {categories.length > pageSize && (
             <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage === 0}
+              <button
+                type="button"
                 onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                className="h-7 px-2 text-[11px] font-medium"
+                disabled={currentPage === 0}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <ChevronLeft size={14} className="mr-0.5" /> Trước
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <Button
-                  key={i}
-                  variant={currentPage === i ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(i)}
-                  className={cn(
-                    "h-7 w-7 p-0 text-[11px] font-semibold",
-                    currentPage === i && "bg-blue-600 text-white hover:bg-blue-700"
-                  )}
-                >
-                  {i + 1}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= totalPages - 1}
+                Trước
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setCurrentPage(i)}
+                    className={`h-7 min-w-[28px] rounded-[4px] border px-2 text-[11px] font-bold shadow-sm transition-all ${
+                      currentPage === i
+                        ? "border-[#1965a2] bg-gradient-to-r from-[#1965a2] to-[#1965a2] text-white hover:from-[#145486] hover:to-[#145486]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                className="h-7 px-2 text-[11px] font-medium"
+                disabled={currentPage >= totalPages - 1}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Sau <ChevronRight size={14} className="ml-0.5" />
-              </Button>
+                Sau
+              </button>
             </div>
           )}
         </div>

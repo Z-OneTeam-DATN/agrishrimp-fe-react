@@ -1,3 +1,5 @@
+import { isAdminRole } from "./roles";
+
 type RoleLike =
   | string
   | {
@@ -28,7 +30,9 @@ export function getOrderListPath(
   user: OrderRouteUser,
   status?: string | null,
 ): string {
-  const basePath = isBranchOrderUser(user) ? "/admin/orders" : "/admin/orders-all";
+  const basePath = isAdminRole(user?.role)
+    ? "/admin/orders-all"
+    : "/admin/orders-processing";
 
   if (!status) return basePath;
 

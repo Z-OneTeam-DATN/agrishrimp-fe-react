@@ -1,126 +1,149 @@
 export interface CartItem {
-  productVariantId: number;
-  quantity: number;
-  cartItemId?: number; // ID từ cart backend
-  // Dùng cho hiển thị UI — lấy từ cart store
-  productName?: string;
-  variantName?: string;
-  unitPrice?: number;
-  imageUrl?: string;
-  weightGram?: number;
+  productVariantId: number
+  quantity: number
+  cartItemId?: number
+  productName?: string
+  variantName?: string
+  unitPrice?: number
+  imageUrl?: string
+  weightGram?: number
 }
 
 export interface DeliveryInfo {
-  address: string;
-  districtId: number;
-  wardCode: string;
-  districtName?: string;
-  wardName?: string;
-  receiverName?: string;
-  receiverPhone?: string;
-  userAddressId?: number;
+  address: string
+  districtId: number
+  wardCode: string
+  districtName?: string
+  wardName?: string
+  receiverName?: string
+  receiverPhone?: string
+  userAddressId?: number
 }
 
-/** Item trong mỗi sub-order — khớp response BE */
 export interface OrderItemDetail {
-  productVariantId: number;
-  variantName: string;
-  variantSku?: string;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
+  productVariantId: number
+  variantName: string
+  variantSku?: string
+  quantity: number
+  allocatedQuantity?: number
+  missingQuantity?: number
+  unitPrice: number
+  subtotal: number
 }
 
 export interface MissingItemReport {
-  productVariantId: number;
-  sku: string;
-  productName: string;
-  variantName?: string | null;
-  totalMissingQuantity: number;
-  affectedSubOrders: number;
+  productVariantId: number
+  sku: string
+  productName: string
+  variantName?: string | null
+  totalMissingQuantity: number
+  affectedSubOrders: number
 }
 
-/** Đơn con theo chi nhánh — khớp response /orders/prepare */
 export interface SubOrderDraft {
-  branchId: number;
-  branchName: string;
-  branchAddress: string;
-  distanceKm: number;
-  durationMinutes: number;
-  items: OrderItemDetail[];
-  subtotal: number;
-  shippingFee: number;
-  /** true = phí ship là ước tính (GHN lỗi, fallback 30.000đ) */
-  shippingEstimate: boolean;
-  estimatedDays: string;
-  carrier: string;
+  branchId: number
+  branchName: string
+  branchAddress: string
+  distanceKm: number
+  durationMinutes: number
+  items: OrderItemDetail[]
+  subtotal: number
+  shippingFee: number
+  shippingEstimate: boolean
+  estimatedDays: string
+  carrier: string
 }
 
 export interface OutOfStockItem {
-  productVariantId: number;
-  variantSku: string;
-  variantName?: string;
-  requestedQty: number;
-  availableQty: number;
+  productVariantId: number
+  variantSku: string
+  variantName?: string
+  requestedQty: number
+  availableQty: number
+}
+
+export type PrepareStockStatus =
+  | "FULLY_AVAILABLE"
+  | "AVAILABLE_AFTER_TRANSFER"
+  | "PARTIALLY_AVAILABLE"
+  | "OUT_OF_STOCK"
+
+export interface PreparePrimaryBranch {
+  id: number
+  name: string
+  distanceKm: number
+}
+
+export interface SuggestedTransfer {
+  fromBranchId: number
+  fromBranchName: string
+  toBranchId: number
+  productVariantId: number
+  quantity: number
 }
 
 export interface PrepareOrderPayload {
-  userAddressId: number;
-  /** GPS tùy chọn — nếu có thì phí ship chính xác hơn */
-  userLat?: number;
-  userLng?: number;
-  voucherCode?: string;
-  /** Không gửi / gửi null → BE lấy toàn bộ giỏ hàng từ DB */
-  cart?: Array<{ productVariantId: number; quantity: number }>;
+  userAddressId: number
+  userLat?: number
+  userLng?: number
+  voucherCode?: string
+  cart?: Array<{ productVariantId: number; quantity: number }>
 }
 
-/** Response từ POST /api/orders/prepare */
 export interface PrepareOrderResponse {
-  /** Token dùng ở bước confirm — hết hạn sau 30 phút */
-  prepareToken: string;
-  canFulfill: boolean;
-  voucherCode?: string | null;
-  subOrders: SubOrderDraft[];
-  totalSubtotal: number;
-  discountAmount: number;
-  totalShippingFee: number;
-  totalAmount: number;
-  outOfStockItems: OutOfStockItem[];
+  prepareToken: string
+  expiresAt?: string | null
+  canFulfill: boolean
+  canPlaceOrder?: boolean
+  requiresManualApproval?: boolean
+  voucherCode?: string | null
+  stockStatus?: PrepareStockStatus
+  primaryBranch?: PreparePrimaryBranch | null
+  suggestedTransfers?: SuggestedTransfer[]
+  subOrders: SubOrderDraft[]
+  totalSubtotal: number
+  discountAmount: number
+  totalShippingFee: number
+  totalAmount: number
+  outOfStockItems: OutOfStockItem[]
 }
 
 export interface ConfirmOrderPayload {
-  prepareToken: string;
-  paymentMethod: PaymentMethod;
-  note?: string;
+  prepareToken: string
+  idempotencyKey: string
+  paymentMethod: PaymentMethod
+  note?: string
 }
 
-/** Response từ POST /api/orders/confirm */
 export interface ConfirmOrderResponse {
-  orderId: number;
-  orderCode: string;
-  status: OrderStatus;
-  voucherCode?: string | null;
-  totalAmount: number;
-  discountAmount: number;
-  totalShippingFee: number;
-  /** Có giá trị khi paymentMethod = PAYOS, null với COD/CASH/TRANSFER */
-  checkoutUrl: string | null;
+  orderId: number
+  orderCode: string
+  status: OrderStatus
+  legacyStatus?: LegacyOrderStatus | null
+  paymentStatus?: OrderPaymentStatus | null
+  fulfillmentStatus?: FulfillmentStatus | null
+  stockStatus?: PrepareStockStatus | null
+  autoApproveAt?: string | null
+  voucherCode?: string | null
+  totalAmount: number
+  discountAmount: number
+  totalShippingFee: number
+  checkoutUrl: string | null
   subOrders: Array<{
-    subOrderId: number;
-    branchId: number;
-    branchName: string;
-    status: string;
-    subtotal: number;
-    shippingFee: number;
-    estimatedDays: string;
-    carrier: string;
-  }>;
+    subOrderId: number
+    branchId: number
+    branchName: string
+    status: string
+    subtotal: number
+    shippingFee: number
+    estimatedDays: string
+    carrier: string
+  }>
 }
 
-/** COD: tiền mặt khi nhận | CASH: tiền mặt tại cửa hàng | TRANSFER: chuyển khoản | PAYOS: thanh toán online */
-export type PaymentMethod = "COD" | "CASH" | "TRANSFER" | "PAYOS";
+export type PaymentMethod = "COD" | "CASH" | "TRANSFER" | "PAYOS"
 
-export type OrderStatus =
+export type LegacyOrderStatus =
   | "PENDING"
   | "AWAITING_PAYMENT"
   | "AWAITING_REPLENISHMENT"
@@ -131,99 +154,134 @@ export type OrderStatus =
   | "RECEIVED"
   | "COMPLETED"
   | "CANCELLED"
-  | "RETURNED";
+  | "RETURNED"
+
+export type OrderStatus =
+  | "PENDING_PAYMENT"
+  | "PENDING_AUTO_APPROVAL"
+  | "PENDING_SHORTAGE_REVIEW"
+  | "PENDING_TRANSFER"
+  | LegacyOrderStatus
+
+export type FulfillmentStatus =
+  | "NOT_STARTED"
+  | "PREPARING"
+  | "PACKED"
+  | "READY_TO_SHIP"
+  | "HANDED_TO_CARRIER"
+  | "SHIPPING"
+  | "DELIVERED"
+  | "DELIVERY_FAILED"
+  | "RETURNING"
+  | "RETURNED"
+
+export type OrderPaymentStatus =
+  | "UNPAID"
+  | "PENDING"
+  | "PENDING_VERIFICATION"
+  | "PARTIALLY_PAID"
+  | "PAID"
+  | "FAILED"
+  | "EXPIRED"
+  | "REFUND_PENDING"
+  | "REFUNDED"
 
 export interface SubOrderSummary {
-  subOrderId: number;
-  branchId: number | null;
-  branchName: string | null;
-  status: OrderStatus;
-  subtotal: number;
-  shippingFee: number;
-  estimatedDays: string | null;
-  carrier: string | null;
-  carrierOrderId?: string | null;
+  subOrderId: number
+  branchId: number | null
+  branchName: string | null
+  status: OrderStatus
+  subtotal: number
+  shippingFee: number
+  estimatedDays: string | null
+  carrier: string | null
+  carrierOrderId?: string | null
 }
 
 export interface MyOrder {
-  id: number;
-  code: string;
-  orderCode?: string;
-  customerName: string;
-  customerPhone: string;
-  receiverName?: string | null;
-  receiverPhone: string;
-  shippingAddress: string;
-  totalAmount: number;
-  shippingFee: number;
-  totalShippingFee?: number;
-  finalAmount: number;
-  branchName: string;
-  branchPhone: string | null;
-  branchAddress: string | null;
-  paymentMethod: PaymentMethod;
-  paymentStatus: "PAID" | "UNPAID";
-  status: OrderStatus;
-  createdAt: string;
-  note?: string | null;
-  checkoutUrl: string | null;
-  items: MyOrderItem[];
-  subOrders?: SubOrderSummary[];
-  canReview?: boolean;
+  id: number
+  code: string
+  orderCode?: string
+  customerName: string
+  customerPhone: string
+  receiverName?: string | null
+  receiverPhone: string
+  shippingAddress: string
+  totalAmount: number
+  shippingFee: number
+  totalShippingFee?: number
+  finalAmount: number
+  branchName: string
+  branchPhone: string | null
+  branchAddress: string | null
+  paymentMethod: PaymentMethod
+  paymentStatus: OrderPaymentStatus
+  status: OrderStatus
+  legacyStatus?: LegacyOrderStatus | null
+  fulfillmentStatus?: FulfillmentStatus | null
+  stockStatus?: PrepareStockStatus | null
+  autoApproveAt?: string | null
+  autoApprovalPaused?: boolean | null
+  createdAt: string
+  note?: string | null
+  checkoutUrl: string | null
+  items: MyOrderItem[]
+  subOrders?: SubOrderSummary[]
+  canReview?: boolean
 }
 
 export interface MyOrderItem {
-  id: number;
-  productId?: number;
-  productSlug?: string;
-  productName: string;
-  sku: string;
-  image: string | null;
-  quantity: number;
-  allocatedQuantity?: number;
-  missingQuantity?: number;
-  price: number;
-  totalPrice: number;
-  canReview?: boolean;
+  id: number
+  productId?: number
+  productSlug?: string
+  productName: string
+  sku: string
+  image: string | null
+  quantity: number
+  allocatedQuantity?: number
+  missingQuantity?: number
+  price: number
+  totalPrice: number
+  canReview?: boolean
 }
 
-// ============================================
-// BRANCH ORDER MANAGEMENT (API /branch/orders)
-// ============================================
-
 export interface BranchOrderItem {
-  id: number;
-  productId?: number;
-  productSlug?: string;
-  productName: string;
-  sku: string;
-  image: string | null;
-  quantity: number;
-  allocatedQuantity?: number;
-  missingQuantity?: number;
-  price: number;
-  totalPrice: number;
+  id: number
+  productId?: number
+  productSlug?: string
+  productName: string
+  sku: string
+  image: string | null
+  quantity: number
+  allocatedQuantity?: number
+  missingQuantity?: number
+  price: number
+  totalPrice: number
 }
 
 export interface BranchOrder {
-  orderId: number;
-  orderCode: string;
-  customerName: string;
-  customerPhone: string;
-  shippingAddress: string;
-  createdAt: string;
-  paymentMethod: string;
-  paymentStatus: "PAID" | "UNPAID";
-  orderStatus: OrderStatus;
-  subOrderId: number;
-  subOrderStatus: OrderStatus;
-  subtotal: number;
-  shippingFee: number;
-  estimatedDays: string | null;
-  carrier: string | null;
-  statusUpdatedAt?: string | null;
-  shippingOverdue?: boolean;
-  canMarkReceived?: boolean;
-  overdueShippingDays?: number;
-  items: BranchOrderItem[];
+  orderId: number
+  orderCode: string
+  customerName: string
+  customerPhone: string
+  shippingAddress: string
+  createdAt: string
+  paymentMethod: string
+  paymentStatus: OrderPaymentStatus
+  orderStatus: OrderStatus
+  orderLegacyStatus?: LegacyOrderStatus | null
+  fulfillmentStatus?: FulfillmentStatus | null
+  stockStatus?: PrepareStockStatus | null
+  autoApproveAt?: string | null
+  subOrderId: number
+  subOrderStatus: OrderStatus
+  subtotal: number
+  shippingFee: number
+  estimatedDays: string | null
+  carrier: string | null
+  statusUpdatedAt?: string | null
+  shippingOverdue?: boolean
+  canMarkReceived?: boolean
+  overdueShippingDays?: number
+  items: BranchOrderItem[]
 }

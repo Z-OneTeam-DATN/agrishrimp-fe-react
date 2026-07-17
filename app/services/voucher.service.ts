@@ -19,6 +19,15 @@ export interface Voucher {
   status: "ACTIVE" | "INACTIVE" | "EXPIRED";
 }
 
+export interface UserVoucher extends Voucher {
+  saved?: boolean;
+  usageCount?: number;
+  remainingUsageCount?: number;
+  canApply?: boolean;
+  availabilityReason?: string | null;
+  previewDiscountAmount?: number | string | null;
+}
+
 export type VoucherUpsertPayload = {
   code: string;
   title: string;
@@ -49,23 +58,29 @@ const buildVoucherPayload = (data: VoucherUpsertPayload) => ({
   status: data.status,
 });
 
-const normalizeVoucherList = (responseData: unknown): Voucher[] => {
-  if (Array.isArray(responseData)) {
-    return responseData as Voucher[];
-  }
-
+const unwrapApiData = <T>(responseData: unknown): T | null => {
   if (
     responseData &&
     typeof responseData === "object" &&
     "data" in responseData
   ) {
-    const data = (responseData as { data?: unknown }).data;
-    if (Array.isArray(data)) return data as Voucher[];
+    return ((responseData as { data?: unknown }).data as T | undefined) ?? null;
+  }
 
-    if (data && typeof data === "object" && "content" in data) {
-      const content = (data as { content?: unknown }).content;
-      if (Array.isArray(content)) return content as Voucher[];
-    }
+  return (responseData as T | undefined) ?? null;
+};
+
+const normalizeVoucherList = <T extends Voucher>(responseData: unknown): T[] => {
+  if (Array.isArray(responseData)) {
+    return responseData as T[];
+  }
+
+  const data = unwrapApiData<unknown>(responseData);
+  if (Array.isArray(data)) return data as T[];
+
+  if (data && typeof data === "object" && "content" in data) {
+    const content = (data as { content?: unknown }).content;
+    if (Array.isArray(content)) return content as T[];
   }
 
   if (
@@ -74,11 +89,14 @@ const normalizeVoucherList = (responseData: unknown): Voucher[] => {
     "content" in responseData
   ) {
     const content = (responseData as { content?: unknown }).content;
-    if (Array.isArray(content)) return content as Voucher[];
+    if (Array.isArray(content)) return content as T[];
   }
 
   return [];
 };
+
+const normalizeVoucherItem = <T>(responseData: unknown): T | null =>
+  unwrapApiData<T>(responseData);
 
 type VoucherListParams = Record<
   string,
@@ -89,6 +107,11 @@ export const voucherService = {
   getAllAdmin: async (params?: VoucherListParams) => {
     const response = await apiJava.get("/vouchers", { params });
     return normalizeVoucherList(response.data);
+  },
+
+  getById: async (id: number) => {
+    const response = await apiJava.get(`/vouchers/${id}`);
+    return normalizeVoucherItem<Voucher>(response.data);
   },
 
   create: async (data: VoucherUpsertPayload) => {
@@ -114,8 +137,44 @@ export const voucherService = {
     return normalizeVoucherList(response.data);
   },
 
-  getByCode: async (code: string) => {
-    const response = await apiJava.get(`/vouchers/${code}`);
+  getAvailableForMe: async (orderSubtotal?: number) => {
+    const response = await apiJava.get("/vouchers/me/available", {
+      params:
+        typeof orderSubtotal === "number"
+          ? { orderSubtotal }
+          : undefined,
+    });
+    return normalizeVoucherList<UserVoucher>(response.data);
+  },
+
+  getSavedForMe: async (orderSubtotal?: number) => {
+    const response = await apiJava.get("/vouchers/me/saved", {
+      params:
+        typeof orderSubtotal === "number"
+          ? { orderSubtotal }
+          : undefined,
+    });
+    return normalizeVoucherList<UserVoucher>(response.data);
+  },
+
+  saveToWallet: async (code: string) => {
+    const response = await apiJava.post(
+      `/vouchers/me/saved/${encodeURIComponent(code)}`,
+    );
+    return normalizeVoucherItem<UserVoucher>(response.data);
+  },
+
+  removeFromWallet: async (code: string) => {
+    const response = await apiJava.delete(
+      `/vouchers/me/saved/${encodeURIComponent(code)}`,
+    );
     return response.data;
+  },
+
+  getByCode: async (code: string) => {
+    const response = await apiJava.get(
+      `/vouchers/public/code/${encodeURIComponent(code)}`,
+    );
+    return normalizeVoucherItem<Voucher>(response.data);
   },
 };
