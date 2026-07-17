@@ -6,13 +6,42 @@ import {
   FrequentlyBoughtTogetherItem,
 } from "@/app/types/product.schema";
 
+const PUBLIC_CONTENT_TIMEOUT_MS = 10_000;
+
+const withPublicRequest = <T extends Record<string, unknown>>(config?: T) => ({
+  ...config,
+  isPublic: true as const,
+  timeout: PUBLIC_CONTENT_TIMEOUT_MS,
+});
+
+const createEmptyPage = (
+  page = 0,
+  size = 18,
+): PageResponse<PublicProductListItem> => ({
+  content: [],
+  totalPages: 0,
+  totalElements: 0,
+  number: page,
+  size,
+});
+
+const isTimeoutError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const typedError = error as {
+    code?: string;
+    message?: string;
+  };
+
+  return (
+    typedError.code === "ECONNABORTED" ||
+    typedError.message?.toLowerCase().includes("timeout")
+  );
+};
+
 export const PublicProductService = {
   PREFIX: "/public/products" as const,
 
-  /**
-   * Lấy danh sách sản phẩm (Public)
-   * Endpoint: GET /api/public/products
-   */
   getList: async (params?: {
     keyword?: string;
     categoryId?: number | string | null;
@@ -27,49 +56,42 @@ export const PublicProductService = {
   }): Promise<PageResponse<PublicProductListItem>> => {
     const cleanParams = Object.fromEntries(
       Object.entries(params ?? {}).filter(
-        ([, v]) => v !== null && v !== undefined && v !== ""
-      )
+        ([, value]) => value !== null && value !== undefined && value !== "",
+      ),
     );
-    const response = await apiJava.get(
-      buildJavaApiUrl(PublicProductService.PREFIX),
-      {
-        params: cleanParams,
-        isPublic: true,
-      } as any,
-    );
-    return response.data;
+
+    try {
+      const response = await apiJava.get(
+        buildJavaApiUrl(PublicProductService.PREFIX),
+        withPublicRequest({
+          params: cleanParams,
+        }),
+      );
+      return response.data;
+    } catch (error) {
+      if (!isTimeoutError(error)) {
+        console.error("Failed to load public products:", error);
+      }
+      return createEmptyPage(params?.page ?? 0, params?.size ?? 18);
+    }
   },
 
-  /**
-   * Lấy chi tiết sản phẩm theo Slug (Public)
-   * Endpoint: GET /api/public/products/slug/{slug}
-   */
   getBySlug: async (slug: string): Promise<PublicProductDetail> => {
     const response = await apiJava.get(
-      buildJavaApiUrl(
-        `${PublicProductService.PREFIX}/slug/${slug}` as ApiPath,
-      ),
-      { isPublic: true } as any
+      buildJavaApiUrl(`${PublicProductService.PREFIX}/slug/${slug}` as ApiPath),
+      withPublicRequest(),
     );
     return response.data;
   },
 
-  /**
-   * Lấy thông tin sản phẩm theo ID (Public)
-   * Endpoint: GET /api/public/products/{id}
-   */
   getById: async (id: number | string): Promise<PublicProductDetail> => {
     const response = await apiJava.get(
       buildJavaApiUrl(`${PublicProductService.PREFIX}/${id}` as ApiPath),
-      { isPublic: true } as any
+      withPublicRequest(),
     );
     return response.data;
   },
 
-  /**
-   * Lấy danh sách "Khách hàng thường mua kèm" đã được backend precompute.
-   * Endpoint: GET /api/public/products/{id}/frequently-bought-together
-   */
   getFrequentlyBoughtTogether: async (
     id: number | string,
     limit = 4,
@@ -78,10 +100,9 @@ export const PublicProductService = {
       buildJavaApiUrl(
         `${PublicProductService.PREFIX}/${id}/frequently-bought-together` as ApiPath,
       ),
-      {
+      withPublicRequest({
         params: { limit },
-        isPublic: true,
-      } as any,
+      }),
     );
     return response.data || [];
   },
@@ -99,36 +120,40 @@ export const PublicProductService = {
         recommendedProductId,
         source,
       },
-      { isPublic: true } as any,
+      withPublicRequest(),
     );
   },
 
-  getByCategory: async (categoryId: number | string): Promise<PublicProductListItem[]> => {
+  getByCategory: async (
+    categoryId: number | string,
+  ): Promise<PublicProductListItem[]> => {
     try {
       const response = await apiJava.get(
         buildJavaApiUrl(`/public/categories/${categoryId}/products` as ApiPath),
-        {
-          isPublic: true,
-        } as any,
+        withPublicRequest(),
       );
       return response.data || [];
     } catch (error) {
-      console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
+      if (!isTimeoutError(error)) {
+        console.error("Failed to load public products by category:", error);
+      }
       return [];
     }
   },
 
-  getByBrand: async (brandId: number | string): Promise<PublicProductListItem[]> => {
+  getByBrand: async (
+    brandId: number | string,
+  ): Promise<PublicProductListItem[]> => {
     try {
       const response = await apiJava.get(
         buildJavaApiUrl(`/public/brands/${brandId}/products` as ApiPath),
-        {
-          isPublic: true,
-        } as any,
+        withPublicRequest(),
       );
       return response.data || [];
     } catch (error) {
-      console.error("Lỗi khi lấy sản phẩm theo thương hiệu:", error);
+      if (!isTimeoutError(error)) {
+        console.error("Failed to load public products by brand:", error);
+      }
       return [];
     }
   },

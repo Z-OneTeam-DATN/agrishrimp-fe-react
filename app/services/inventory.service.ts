@@ -132,13 +132,24 @@ export const InventoryCheckApiService = {
   // B. Tạo hoặc Cập nhật phiếu
   // Payload có 'id' -> Cập nhật, không 'id' -> Tạo mới
   saveCheck: async (payload: any) => {
-    const response = await apiJava.post("/inventory-checks", payload);
+    const checkId =
+      payload?.id === null || payload?.id === undefined || payload?.id === ""
+        ? null
+        : Number(payload.id);
+    const requestPayload =
+      checkId == null ? payload : { ...payload, id: undefined };
+    const response =
+      checkId == null
+        ? await apiJava.post("/inventory-checks", requestPayload)
+        : await apiJava.put(`/inventory-checks/${checkId}`, requestPayload);
     return response.data;
   },
 
   // C. Lấy chi tiết phiếu theo ID hoặc Mã (Code)
   getDetail: async (codeOrId: string | number) => {
-    const response = await apiJava.get(`/inventory-checks/${codeOrId}`);
+    const response = await apiJava.get(`/inventory-checks/${codeOrId}`, {
+      timeout: 60000,
+    });
     return response.data;
   },
 
@@ -148,13 +159,28 @@ export const InventoryCheckApiService = {
     return response.data;
   },
 
+  startCheck: async (id: number | string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/start`);
+    return response.data;
+  },
+
   submitForApproval: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/submit-for-approval`);
     return response.data;
   },
 
+  requestRecount: async (id: number | string, reason: string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/request-recount`, { reason });
+    return response.data;
+  },
+
   approveAdjustment: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/approve-adjustment`);
+    return response.data;
+  },
+
+  cancelCheck: async (id: number | string, reason?: string) => {
+    const response = await apiJava.post(`/inventory-checks/${id}/cancel`, { reason });
     return response.data;
   },
 

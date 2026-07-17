@@ -1,6 +1,14 @@
 import { apiJava, buildJavaApiUrl, type ApiPath } from "@/lib/axios";
 import { BrandDTO } from "@/app/types/brand.type";
 
+const PUBLIC_CONTENT_TIMEOUT_MS = 10_000;
+
+const withPublicRequest = <T extends Record<string, unknown>>(config?: T) => ({
+  ...config,
+  isPublic: true as const,
+  timeout: PUBLIC_CONTENT_TIMEOUT_MS,
+});
+
 const isRequestAborted = (error: unknown) => {
   if (!error || typeof error !== "object") return false;
 
@@ -18,29 +26,47 @@ const isRequestAborted = (error: unknown) => {
   );
 };
 
+const isTimeoutError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const typedError = error as {
+    code?: string;
+    message?: string;
+  };
+
+  return (
+    typedError.code === "ECONNABORTED" ||
+    typedError.message?.toLowerCase().includes("timeout")
+  );
+};
+
 export const getPublicBrands = async (): Promise<BrandDTO[]> => {
   try {
-    const response = await apiJava.get(buildJavaApiUrl("/public/brands"), {
-      isPublic: true,
-    } as any);
+
+    const response = await apiJava.get(
+      buildJavaApiUrl("/public/brands"),
+      withPublicRequest(),
+    );
     return response.data;
   } catch (error) {
-    console.error("Lỗi khi lấy danh sách thương hiệu:", error);
+    if (!isRequestAborted(error) && !isTimeoutError(error)) {
+      console.error("Failed to load public brands:", error);
+    }
     return [];
   }
 };
 
-export const getProductsByBrand = async (brandId: number): Promise<any[]> => {
+export const getProductsByBrand = async (brandId: number): Promise<unknown[]> => {
   try {
     const response = await apiJava.get(
       buildJavaApiUrl(`/public/brands/${brandId}/products` as ApiPath),
-      {
-        isPublic: true,
-      } as any,
+      withPublicRequest(),
     );
     return response.data;
   } catch (error) {
-    console.error(`Lỗi khi lấy sản phẩm của thương hiệu ${brandId}:`, error);
+    if (!isTimeoutError(error)) {
+      console.error(`Failed to load products for brand ${brandId}:`, error);
+    }
     return [];
   }
 };
@@ -51,15 +77,13 @@ export const getAdminBrands = async (keyword?: string): Promise<BrandDTO[]> => {
     const response = await apiJava.get(
       buildJavaApiUrl(`/brands${queryParams}` as ApiPath),
     );
-
-    // Backend response can be wrapped as { code, data } or returned directly.
     return response.data?.data || response.data || [];
   } catch (error) {
     if (isRequestAborted(error)) {
       return [];
     }
+    console.error("Failed to load admin brands:", error);
 
-    console.warn("Không thể tải danh sách thương hiệu admin:", error);
     throw error;
   }
 };
@@ -73,7 +97,7 @@ export const getAdminBrandById = async (
     );
     return response.data?.data || response.data || null;
   } catch (error) {
-    console.error(`Lỗi khi lấy chi tiết thương hiệu ${id}:`, error);
+    console.error(`Failed to load brand ${id}:`, error);
     return null;
   }
 };
@@ -85,7 +109,7 @@ export const createBrand = async (
     const response = await apiJava.post(buildJavaApiUrl("/brands"), data);
     return response.data?.data || response.data || null;
   } catch (error) {
-    console.error("Lỗi khi tạo thương hiệu:", error);
+    console.error("Failed to create brand:", error);
     throw error;
   }
 };
@@ -101,7 +125,7 @@ export const updateBrand = async (
     );
     return response.data?.data || response.data || null;
   } catch (error) {
-    console.error(`Lỗi khi cập nhật thương hiệu ${id}:`, error);
+    console.error(`Failed to update brand ${id}:`, error);
     throw error;
   }
 };
@@ -111,7 +135,7 @@ export const deleteBrand = async (id: number): Promise<boolean> => {
     await apiJava.delete(buildJavaApiUrl(`/brands/${id}` as ApiPath));
     return true;
   } catch (error) {
-    console.error(`Lỗi khi xóa thương hiệu ${id}:`, error);
+    console.error(`Failed to delete brand ${id}:`, error);
     throw error;
   }
 };
