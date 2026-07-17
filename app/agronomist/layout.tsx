@@ -151,10 +151,10 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-900">
       <div className="flex min-h-screen">
-        <aside className="sticky top-0 z-30 flex h-screen w-[260px] shrink-0 flex-col border-r border-slate-800/40 bg-[#020617] text-slate-400">
+        <aside className="sticky top-0 z-30 flex h-screen w-[260px] shrink-0 flex-col border-r border-slate-200 bg-white text-slate-600">
           <div className="mb-4 flex h-[64px] items-center px-7">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-700/60 bg-white shadow-lg ring-1 ring-slate-700/50">
+              <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <img
                   src="/images/logo_arishrimp.jpg"
                   alt="AgriShrimp Logo"
@@ -162,10 +162,10 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                 />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-[18px] font-black uppercase leading-none tracking-[0.15em] text-white">
-                  AGRI<span className="text-blue-500">SHRIMP</span>
+                <h1 className="text-[18px] font-black uppercase leading-none tracking-[0.15em] text-slate-900">
+                  AGRI<span className="text-blue-600">SHRIMP</span>
                 </h1>
-                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-600">
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-400">
                   AI Doctor
                 </span>
               </div>
@@ -183,8 +183,8 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                   className={cn(
                     "group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-all duration-200",
                     active
-                      ? "bg-slate-800/60 text-white shadow-sm"
-                      : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200",
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                   )}
                 >
                   {active && (
@@ -193,12 +193,12 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                   <div
                     className={cn(
                       "rounded-md p-1 transition-colors",
-                      active ? "bg-slate-700" : "bg-transparent group-hover:bg-slate-800",
+                      active ? "bg-blue-100" : "bg-transparent group-hover:bg-slate-100",
                     )}
                   >
                     <Icon
                       size={16}
-                      className={cn(active ? "text-blue-400" : "text-slate-500 group-hover:text-slate-400")}
+                      className={cn(active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")}
                     />
                   </div>
                   <span className="truncate">{item.label}</span>
@@ -207,15 +207,15 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
             })}
           </nav>
 
-          <div className="mt-auto space-y-3 border-t border-slate-800/40 bg-[#020617]/50 p-4">
-            <p className="px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+          <div className="mt-auto space-y-3 border-t border-slate-200 bg-slate-50/60 p-4">
+            <p className="px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               Chuyển workspace
             </p>
             <div className="grid gap-1">
               {canGoAdmin ? (
                 <Link
                   href="/admin"
-                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-300 transition-colors hover:bg-slate-800/30 hover:text-slate-200"
+                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                 >
                   Qua quản trị
                 </Link>
@@ -223,13 +223,13 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
               {canGoChat ? (
                 <Link
                   href="/chat"
-                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-300 transition-colors hover:bg-slate-800/30 hover:text-slate-200"
+                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                 >
                   Qua chat
                 </Link>
               ) : null}
             </div>
-            <div className="rounded-md bg-slate-800/40 px-3 py-2 text-[11px] font-medium text-slate-500">
+            <div className="rounded-md bg-slate-100 px-3 py-2 text-[11px] font-medium text-slate-500">
               Quyền hiện có: {permissions.filter(Boolean).length}
             </div>
           </div>
