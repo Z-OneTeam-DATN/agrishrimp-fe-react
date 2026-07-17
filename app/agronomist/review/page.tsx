@@ -46,15 +46,15 @@ export default function AgronomistReviewPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm">
+      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7f0e9]">
-              <MessageSquareWarning className="h-5 w-5 text-[#325b48]" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-[4px] bg-blue-50">
+              <MessageSquareWarning className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-[12px] font-black uppercase tracking-[0.34em] text-[#7b8c80]">Human Review Queue</p>
-              <h3 className="mt-2 text-2xl font-black text-[#203126]">Case không match hoặc confidence thấp</h3>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400">Human Review Queue</p>
+              <h3 className="mt-2 text-2xl font-bold text-slate-900">Case không match hoặc confidence thấp</h3>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
                 Đây là nơi kỹ sư chốt lại các câu hỏi mà AI không được phép trả lời chắc chắn trong production.
               </p>
@@ -64,7 +64,7 @@ export default function AgronomistReviewPage() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-12 rounded-2xl border border-[#d7dfd8] bg-white px-4 text-sm text-slate-800 outline-none"
+            className="h-[38px] rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="NEW">NEW</option>
@@ -77,18 +77,18 @@ export default function AgronomistReviewPage() {
 
       <section className="space-y-4">
         {reviewCasesQuery.isLoading ? (
-          <div className="flex min-h-[240px] items-center justify-center rounded-[28px] border border-[#d6ded5] bg-white">
-            <Loader2 className="h-8 w-8 animate-spin text-[#325b48]" />
+          <div className="flex min-h-[240px] items-center justify-center rounded-[4px] border border-slate-200 bg-white">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
           </div>
         ) : (
           reviewCases.map((item) => (
-            <div key={item.id} className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm">
+            <div key={item.id} className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-slate-900">Case #{item.id}</p>
                   <p className="mt-1 text-xs text-slate-500">{item.sourceChannel || "UNKNOWN_SOURCE"}</p>
                 </div>
-                <span className="rounded-full bg-[#eef4ef] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#365847]">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-blue-700">
                   {item.status}
                 </span>
               </div>
@@ -113,10 +113,10 @@ export default function AgronomistReviewPage() {
               </div>
 
               {editingCaseId === item.id ? (
-                <div className="mt-5 rounded-[24px] border border-[#dce5dc] bg-[#f8fbf8] p-5">
+                <div className="mt-5 rounded-[4px] border border-slate-200 bg-slate-50 p-5">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#738676]">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Mã knowledge xử lý
                       </p>
                       <input
@@ -127,7 +127,7 @@ export default function AgronomistReviewPage() {
                       />
                     </div>
                     <div>
-                      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#738676]">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                         Ghi chú xử lý
                       </p>
                       <textarea
@@ -161,20 +161,20 @@ export default function AgronomistReviewPage() {
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-[#e3ebe2] bg-[#f8fbf8] p-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#738676]">{label}</p>
+    <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
       <p className="mt-3 text-sm leading-6 text-slate-700">{value}</p>
     </div>
   );
 }
 
 const inputClassName =
-  "h-12 w-full rounded-2xl border border-[#d7dfd8] bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-[#335848]";
+  "h-[38px] w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500";
 const textareaClassName =
-  "w-full rounded-2xl border border-[#d7dfd8] bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#335848]";
+  "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500";
 const primaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl bg-[#2f4e3f] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#274338]";
+  "inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700";
 const secondaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl border border-[#d2ddd3] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#f4f7f4]";
+  "inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
 const successButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100";
+  "inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100";

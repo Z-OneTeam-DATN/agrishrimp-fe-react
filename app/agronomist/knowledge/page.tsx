@@ -354,11 +354,11 @@ export default function AgronomistKnowledgePage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-4 xl:grid-cols-4">
-        <div className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm xl:col-span-2">
-          <p className="text-[12px] font-black uppercase tracking-[0.34em] text-[#7b8c80]">
+        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400">
             Approved Knowledge Hub
           </p>
-          <h3 className="mt-3 text-3xl font-black leading-tight text-[#203126]">
+          <h3 className="mt-3 text-3xl font-bold leading-tight text-slate-900">
             Xây kho tri thức có duyệt cho AI Doctor
           </h3>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
@@ -374,9 +374,9 @@ export default function AgronomistKnowledgePage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-12">
-        <div className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm xl:col-span-4">
+        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm xl:col-span-4">
           <SectionHeader
-            icon={<Database className="h-5 w-5 text-[#325b48]" />}
+            icon={<Database className="h-5 w-5 text-blue-600" />}
             title="Danh mục tri thức"
             description="Nhóm các bộ FAQ và bệnh theo mảng chuyên môn để bot gợi ý đúng ngữ cảnh."
           />
@@ -438,7 +438,7 @@ export default function AgronomistKnowledgePage() {
 
           <div className="mt-6 space-y-3">
             {categories.map((category) => (
-              <div key={category.id} className="rounded-2xl border border-[#e4ebe2] bg-[#f8fbf8] p-4">
+              <div key={category.id} className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-slate-900">{category.name}</p>
@@ -471,9 +471,9 @@ export default function AgronomistKnowledgePage() {
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm xl:col-span-8">
+        <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm xl:col-span-8">
           <SectionHeader
-            icon={<RefreshCw className="h-5 w-5 text-[#325b48]" />}
+            icon={<RefreshCw className="h-5 w-5 text-blue-600" />}
             title="Bộ từ khóa & câu trả lời"
             description="Dùng cho các câu FAQ, fallback theo ngữ cảnh và những case không cần suy luận bệnh."
           />
@@ -595,7 +595,7 @@ export default function AgronomistKnowledgePage() {
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             {keywordSets.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-[#e4ebe2] bg-[#fafcf9] p-4">
+              <div key={item.id} className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-black text-slate-900">{item.name}</p>
@@ -621,9 +621,9 @@ export default function AgronomistKnowledgePage() {
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm">
+      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
         <SectionHeader
-          icon={<CheckCircle2 className="h-5 w-5 text-[#325b48]" />}
+          icon={<CheckCircle2 className="h-5 w-5 text-blue-600" />}
           title="Bệnh & phác đồ điều trị"
           description="AI ảnh chỉ được map sang tri thức APPROVED tại đây. Nếu không có tri thức, hệ thống phải hỏi thêm dấu hiệu hoặc đưa case sang hàng chờ."
         />
@@ -774,7 +774,7 @@ export default function AgronomistKnowledgePage() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-[#e1e8df] bg-[#f8fbf8] p-5">
+        <div className="mt-6 rounded-[4px] border border-slate-200 bg-slate-50 p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm font-black text-slate-900">Phác đồ điều trị theo giai đoạn</p>
@@ -788,7 +788,7 @@ export default function AgronomistKnowledgePage() {
 
           <div className="space-y-4">
             {diseaseForm.treatmentStages.map((stage, index) => (
-              <div key={`${index}-${stage.stageTitle}`} className="rounded-2xl border border-[#dfe7dc] bg-white p-4">
+              <div key={`${index}-${stage.stageTitle}`} className="rounded-[4px] border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-slate-900">Giai đoạn {index + 1}</p>
                   <button onClick={() => removeStage(index)} className={dangerButtonClassName}>
@@ -813,7 +813,7 @@ export default function AgronomistKnowledgePage() {
                           productIds: Array.from(event.target.selectedOptions).map((option) => Number(option.value)),
                         })
                       }
-                      className="min-h-[120px] w-full rounded-2xl border border-[#d7dfd8] bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#335848]"
+                      className="min-h-[120px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500"
                     >
                       {productOptions.map((product) => (
                         <option key={product.id} value={product.id}>
@@ -850,7 +850,7 @@ export default function AgronomistKnowledgePage() {
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           {diseases.map((item) => (
-            <div key={item.id} className="rounded-2xl border border-[#e4ebe2] bg-[#fafcf9] p-5">
+            <div key={item.id} className="rounded-[4px] border border-slate-200 bg-slate-50 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-slate-900">{item.nameVi}</p>
@@ -875,9 +875,9 @@ export default function AgronomistKnowledgePage() {
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm">
+      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
         <SectionHeader
-          icon={<FilePenLine className="h-5 w-5 text-[#325b48]" />}
+          icon={<FilePenLine className="h-5 w-5 text-blue-600" />}
           title="Chào mở đầu & fallback mặc định"
           description="Giữ phản hồi production an toàn: khi không đủ chắc chắn, bot phải dùng fallback đã duyệt thay vì trả lời tự do."
         />
@@ -926,11 +926,11 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-start gap-4">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7f0e9]">
+      <div className="flex h-10 w-10 items-center justify-center rounded-[4px] bg-blue-50">
         {icon}
       </div>
       <div>
-        <h3 className="text-xl font-black text-[#203126]">{title}</h3>
+        <h3 className="text-xl font-bold text-slate-900">{title}</h3>
         <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
       </div>
     </div>
@@ -948,7 +948,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#738676]">{label}</p>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
       {children}
     </div>
   );
@@ -956,9 +956,9 @@ function Field({
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[28px] border border-[#d6ded5] bg-white p-6 shadow-sm">
-      <p className="text-[12px] font-black uppercase tracking-[0.3em] text-[#7e8d82]">{label}</p>
-      <p className="mt-4 text-4xl font-black text-[#203126]">{value}</p>
+    <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+      <p className="mt-3 text-[22px] font-bold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -979,16 +979,16 @@ function StatusPill({ value }: { value: string }) {
 }
 
 const inputClassName =
-  "h-12 w-full rounded-2xl border border-[#d7dfd8] bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-[#335848]";
+  "h-[38px] w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500";
 const textareaClassName =
-  "w-full rounded-2xl border border-[#d7dfd8] bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#335848]";
+  "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500";
 const primaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl bg-[#2f4e3f] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#274338]";
+  "inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700";
 const secondaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl border border-[#d2ddd3] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#f4f7f4]";
+  "inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
 const dangerButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100";
+  "inline-flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100";
 const successButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100";
+  "inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100";
 const iconButtonClassName =
-  "inline-flex items-center justify-center rounded-xl border border-[#d2ddd3] bg-white p-2 text-slate-600 transition-colors hover:bg-[#f4f7f4]";
+  "inline-flex items-center justify-center rounded-md border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:bg-slate-50";

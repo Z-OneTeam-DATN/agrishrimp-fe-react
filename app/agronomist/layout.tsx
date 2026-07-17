@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, Database, FileSpreadsheet, FlaskConical, Loader2, ShieldAlert, Stethoscope } from "lucide-react";
+import { BarChart3, Clock, Database, FileSpreadsheet, FlaskConical, Loader2, ShieldAlert, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -51,6 +51,8 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
   const pathname = usePathname();
   const { isLoadingAuth, permissions } = useAuthStore();
   const { hasPermission, hasAnyPermission } = usePermissions();
+  const [time, setTime] = useState(new Date());
+  const [mounted, setMounted] = useState(false);
 
   const hasWorkspaceAccess = hasPermission(P.AGRONOMIST_WORKSPACE_USE);
   const canGoAdmin = hasAnyPermission(ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]);
@@ -62,19 +64,46 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
     }
   }, [hasWorkspaceAccess, isLoadingAuth]);
 
+  useEffect(() => {
+    setMounted(true);
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDate = mounted
+    ? time.toLocaleDateString("vi-VN", {
+        weekday: "short",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })
+    : "";
+
+  const formattedTime = mounted
+    ? time.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "--:--:--";
+
+  const activeNavItem = AGRONOMIST_NAV_ITEMS.find(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+
   if (isLoadingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f5ef]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#325b48]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   if (!hasWorkspaceAccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3f5ef] px-6">
-        <div className="w-full max-w-md rounded-[28px] border border-[#d7dfd8] bg-white p-8 text-center shadow-[0_24px_80px_rgba(28,55,46,0.08)]">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+      <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9] px-6">
+        <div className="w-full max-w-md rounded-[4px] border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[4px] bg-rose-50 text-rose-500">
             <ShieldAlert className="h-7 w-7" />
           </div>
           <h1 className="mt-5 text-xl font-semibold text-slate-900">
@@ -90,22 +119,30 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f5ef] text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-[1800px]">
-        <aside className="sticky top-0 flex h-screen w-[280px] shrink-0 flex-col border-r border-[#d9dfd4] bg-[#243127] px-5 py-6 text-white">
-          <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.38em] text-[#b9c8bc]">
-              AgriShrimp AI Doctor
-            </p>
-            <h1 className="mt-3 text-2xl font-black leading-tight text-white">
-              Workspace kỹ sư nông nghiệp
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-[#c8d5cb]">
-              Nhập tri thức, duyệt ca khó và kiểm thử câu trả lời trước khi đưa ra production.
-            </p>
+    <div className="min-h-screen bg-[#f1f5f9] text-slate-900">
+      <div className="flex min-h-screen">
+        <aside className="sticky top-0 z-30 flex h-screen w-[260px] shrink-0 flex-col border-r border-slate-800/40 bg-[#020617] text-slate-400">
+          <div className="mb-4 flex h-[64px] items-center px-7">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-700/60 bg-white shadow-lg ring-1 ring-slate-700/50">
+                <img
+                  src="/images/logo_arishrimp.jpg"
+                  alt="AgriShrimp Logo"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-[18px] font-black uppercase leading-none tracking-[0.15em] text-white">
+                  AGRI<span className="text-blue-500">SHRIMP</span>
+                </h1>
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-600">
+                  AI Doctor
+                </span>
+              </div>
+            </div>
           </div>
 
-          <nav className="mt-8 space-y-2">
+          <nav className="flex-1 space-y-0.5 overflow-y-auto px-4 no-scrollbar">
             {AGRONOMIST_NAV_ITEMS.filter((item) => item.permissions.some(hasPermission)).map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -114,28 +151,41 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-colors",
+                    "group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-all duration-200",
                     active
-                      ? "bg-[#d9e9dd] text-[#203126]"
-                      : "text-[#d5ddd4] hover:bg-white/10 hover:text-white",
+                      ? "bg-slate-800/60 text-white shadow-sm"
+                      : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200",
                   )}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.label}</span>
+                  {active && (
+                    <div className="absolute left-0 h-4 w-1 rounded-r-full bg-blue-500" />
+                  )}
+                  <div
+                    className={cn(
+                      "rounded-md p-1 transition-colors",
+                      active ? "bg-slate-700" : "bg-transparent group-hover:bg-slate-800",
+                    )}
+                  >
+                    <Icon
+                      size={16}
+                      className={cn(active ? "text-blue-400" : "text-slate-500 group-hover:text-slate-400")}
+                    />
+                  </div>
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="mt-auto space-y-3 rounded-[24px] border border-white/10 bg-white/5 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#aab9ad]">
+          <div className="mt-auto space-y-3 border-t border-slate-800/40 bg-[#020617]/50 p-4">
+            <p className="px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
               Chuyển workspace
             </p>
-            <div className="grid gap-2">
+            <div className="grid gap-1">
               {canGoAdmin ? (
                 <Link
                   href="/admin"
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-[#edf3ee] transition-colors hover:bg-white/10"
+                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-300 transition-colors hover:bg-slate-800/30 hover:text-slate-200"
                 >
                   Qua quản trị
                 </Link>
@@ -143,36 +193,48 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
               {canGoChat ? (
                 <Link
                   href="/chat"
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-[#edf3ee] transition-colors hover:bg-white/10"
+                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-300 transition-colors hover:bg-slate-800/30 hover:text-slate-200"
                 >
                   Qua chat
                 </Link>
               ) : null}
             </div>
-            <div className="rounded-xl bg-black/10 px-3 py-2 text-xs text-[#b9c7bc]">
+            <div className="rounded-md bg-slate-800/40 px-3 py-2 text-[11px] font-medium text-slate-500">
               Quyền hiện có: {permissions.filter(Boolean).length}
             </div>
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-20 border-b border-[#d7dfd8] bg-[#f3f5ef]/90 px-8 py-5 backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[12px] font-black uppercase tracking-[0.32em] text-[#6f8174]">
-                  Approved Knowledge Workspace
-                </p>
-                <h2 className="mt-2 text-2xl font-black text-[#203126]">
-                  {AGRONOMIST_NAV_ITEMS.find((item) => pathname.startsWith(item.href))?.label ?? "AI Doctor"}
-                </h2>
+          <header className="sticky top-0 z-20 flex h-[64px] items-center justify-between border-b border-slate-200 bg-white/80 px-6 shadow-sm backdrop-blur-md">
+            <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-slate-400">
+              <span className="text-slate-400">AI Doctor</span>
+              <span className="text-slate-300">/</span>
+              <span className="truncate text-[13px] font-bold text-slate-800">
+                {activeNavItem?.label ?? "Tổng quan"}
+              </span>
+            </div>
+
+            <div className="hidden items-center gap-4 text-slate-500 xl:flex">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-100/50 bg-slate-50 px-3 py-1.5">
+                <Clock size={14} className="text-slate-400" />
+                <span className="font-mono text-[13px] font-bold tracking-wider text-slate-700">
+                  {formattedTime}
+                </span>
+                <div className="mx-1 h-3 w-[1px] bg-slate-200" />
+                <span className="text-[12px] font-medium text-slate-500">{formattedDate}</span>
               </div>
-              <div className="rounded-full border border-[#d4ddd5] bg-white px-4 py-2 text-sm font-semibold text-[#47634f]">
-                Deterministic mode only
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 lg:flex">
+                <span className="text-[12px] font-bold text-blue-700">Deterministic mode only</span>
+                <div className="ml-1 h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"></div>
               </div>
             </div>
           </header>
 
-          <main className="p-8">{children}</main>
+          <main className="p-6">{children}</main>
         </div>
       </div>
     </div>
