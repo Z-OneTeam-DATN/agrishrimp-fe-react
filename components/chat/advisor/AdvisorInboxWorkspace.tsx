@@ -21,6 +21,7 @@ import {
   Trash2,
   Mail,
   CheckCircle2,
+  Archive,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { parseLocalDateTime } from "@/lib/dateUtils";
@@ -98,7 +99,7 @@ export default function AdvisorInboxWorkspace() {
       : [...mutedConvs, convId];
     setMutedConvs(updated);
     localStorage.setItem("agrishrimp_muted_convs", JSON.stringify(updated));
-    toast.success(isCurrentlyMuted ? "Đã bật âm thanh thông báo" : "Đã tắt âm thanh thông báo");
+    toast.success(isCurrentlyMuted ? "Đã bật nhận thông báo cho cuộc hội thoại này" : "Đã tắt nhận thông báo cho cuộc hội thoại này");
   };
 
   const toggleStar = (convId: number) => {
@@ -136,8 +137,8 @@ export default function AdvisorInboxWorkspace() {
     }
   };
 
-  const handleDeleteConversation = async (convId: number) => {
-    const confirm = window.confirm("Bạn có chắc chắn muốn đóng và ẩn cuộc trò chuyện này?");
+  const handleArchiveConversation = async (convId: number) => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này?");
     if (!confirm) return;
     try {
       await ChatService.updateStatus(convId, "CLOSED");
@@ -145,9 +146,9 @@ export default function AdvisorInboxWorkspace() {
         conversations.map((c) => (c.id === convId ? { ...c, status: "CLOSED" } : c))
       );
       setActiveConversation(null); // Bỏ chọn
-      toast.success("Đã xóa cuộc trò chuyện khỏi danh sách hoạt động");
+      toast.success("Đã lưu trữ cuộc trò chuyện thành công");
     } catch {
-      toast.error("Không thể xóa cuộc trò chuyện");
+      toast.error("Không thể lưu trữ cuộc trò chuyện");
     }
   };
 
@@ -757,7 +758,7 @@ export default function AdvisorInboxWorkspace() {
                               ? "text-rose-500 hover:text-rose-600"
                               : "text-slate-500 hover:text-slate-700"
                           }`}
-                          title={mutedConvs.includes(activeConversation.id) ? "Bật âm thanh" : "Tắt âm thanh"}
+                          title={mutedConvs.includes(activeConversation.id) ? "Bật thông báo" : "Tắt thông báo"}
                         >
                           {mutedConvs.includes(activeConversation.id) ? (
                             <BellOff className="h-4 w-4" />
@@ -766,14 +767,14 @@ export default function AdvisorInboxWorkspace() {
                           )}
                         </button>
 
-                        {/* 2. Thùng rác (Đóng & Ẩn cuộc trò chuyện) */}
+                        {/* 2. Lưu trữ (Đóng & Lưu trữ cuộc trò chuyện) */}
                         <button
                           type="button"
-                          onClick={() => handleDeleteConversation(activeConversation.id)}
-                          className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                          title="Đóng và ẩn cuộc trò chuyện"
+                          onClick={() => handleArchiveConversation(activeConversation.id)}
+                          className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                          title="Đóng và lưu trữ cuộc trò chuyện"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Archive className="h-4 w-4" />
                         </button>
 
                         {/* 3. Ngôi sao (Đánh dấu sao) */}

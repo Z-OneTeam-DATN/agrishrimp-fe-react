@@ -9,12 +9,11 @@ import { MessageCircle, Search, ArrowLeft, Star } from "lucide-react";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import Link from "next/link";
 
-type FilterTab = "all" | "unread" | "assigned";
+type FilterTab = "all" | "unread";
 
 const TABS: Array<{ id: FilterTab; label: string }> = [
   { id: "all", label: "Tất cả" },
   { id: "unread", label: "Chưa đọc" },
-  { id: "assigned", label: "Đã phân công" },
 ];
 
 interface Props {
@@ -38,8 +37,7 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
 
     const matchesTab =
       activeTab === "all" ||
-      (activeTab === "unread" && c.unreadByShop > 0) ||
-      (activeTab === "assigned" && Boolean(c.assignedStaffId));
+      (activeTab === "unread" && c.unreadByShop > 0);
 
     return matchesQuery && matchesTab;
   });
@@ -64,7 +62,10 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
     <div className="flex flex-col h-full">
       {/* Sidebar Header with Title & Back to Dashboard */}
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
-        <h2 className="text-lg font-bold text-gray-900">Đoạn chat</h2>
+        <div className="flex items-center gap-2">
+          <img src="/images/logo_arishrimp_tachnen.png" className="w-6 h-6 object-contain" alt="AgriShrimp" />
+          <h2 className="text-lg font-bold text-gray-900">Đoạn chat</h2>
+        </div>
         <Link
           href="/admin"
           className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline"
@@ -166,18 +167,22 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className={`text-[13px] truncate flex-1 ${hasUnread ? "font-semibold text-gray-800" : "text-gray-500"}`}>
                       {conv.lastMessage
-                        ? `Bạn: ${conv.lastMessage}`
+                        ? (conv.lastSenderId === conv.customerId || !conv.lastSenderId
+                            ? (conv.lastMessage.startsWith("[STICKER:")
+                                ? `${conv.customerName} đã gửi 1 sticker`
+                                : conv.lastMessage
+                              )
+                            : (conv.lastMessage.startsWith("[STICKER:")
+                                ? "Bạn: đã gửi 1 sticker"
+                                : `Bạn: ${conv.lastMessage}`
+                              )
+                          )
                         : "Bắt đầu cuộc trò chuyện"
                       }
                     </p>
                   </div>
                   {/* Tags row */}
                   <div className="flex items-center gap-1.5 mt-1">
-                    {conv.assignedStaffName && (
-                      <span className="text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-sm truncate max-w-[80px]">
-                        {conv.assignedStaffName}
-                      </span>
-                    )}
                     <span className="text-[11px] text-gray-400">
                       {conv.status === "OPEN" ? "● Tiếp nhận" : "○ Đã đóng"}
                     </span>

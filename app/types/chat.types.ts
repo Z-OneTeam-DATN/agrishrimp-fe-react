@@ -36,6 +36,7 @@ export interface Conversation {
   unreadByCustomer: number;
   assignedStaffId?: number;
   assignedStaffName?: string;
+  lastSenderId?: number;
 }
 
 export interface Notification {
