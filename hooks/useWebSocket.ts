@@ -7,6 +7,7 @@ import { useChatStore } from "@/stores/useChatStore";
 import { useNotificationStore } from "@/stores/useNotificationStore";
 import { useTypingStore } from "@/stores/useTypingStore";
 import { ChatMessage, Notification } from "@/app/types/chat.types";
+import { ChatService } from "@/app/services/chat.service";
 
 // Use SOCKET_URL (no /api suffix) to build the correct ws-native endpoint
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8004";
@@ -22,7 +23,7 @@ export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const { user, accessToken, isAuthenticated } = useAuthStore();
-  const { addMessage, updateConversationLastMsg } = useChatStore();
+  const { addMessage, updateConversationLastMsg, addOrUpdateConversation } = useChatStore();
   const { addNotification } = useNotificationStore();
   const { setTyping } = useTypingStore();
   const roleSlug = (user as any)?.role?.slug as string | undefined;
@@ -38,6 +39,29 @@ export function useWebSocket() {
   }, []);
 
   const attemptsRef = useRef(0);
+
+  /**
+   * Handle an incoming shop message (from /topic/shop-messages):
+   * 1. Add the message to the messages map
+   * 2. Update conversation's lastMessage + lastMessageAt + unreadByShop
+   * 3. If conversation is not yet in the store (brand-new customer), fetch it and add it
+   */
+  const handleShopMessage = useCallback(async (msg: ChatMessage) => {
+    addMessage(msg);
+    const convExists = useChatStore.getState().conversations.some((c) => c.id === msg.conversationId);
+    if (convExists) {
+      updateConversationLastMsg(msg.conversationId, msg);
+    } else {
+      // New conversation: fetch full details and add to store
+      try {
+        const conv = await ChatService.getConversationById(msg.conversationId);
+        addOrUpdateConversation(conv);
+      } catch {
+        // Fallback: still show message preview with minimal data
+        updateConversationLastMsg(msg.conversationId, msg);
+      }
+    }
+  }, [addMessage, updateConversationLastMsg, addOrUpdateConversation]);
 
   const connect = useCallback(() => {
     if (!isAuthenticated || !user?.id || !accessToken) return;
@@ -90,8 +114,7 @@ export function useWebSocket() {
           const shopSub = client.subscribe("/topic/shop-messages", (frame) => {
             try {
               const msg: ChatMessage = JSON.parse(frame.body);
-              addMessage(msg);
-              updateConversationLastMsg(msg.conversationId, msg);
+              void handleShopMessage(msg);
             } catch {}
           });
           const shopTypingSub = client.subscribe("/topic/shop-typing", (frame) => {
@@ -125,7 +148,7 @@ export function useWebSocket() {
 
     clientRef.current = client;
     client.activate();
-  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addNotification, setTyping]);
+  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage]);
 
   useEffect(() => {
     connect();
