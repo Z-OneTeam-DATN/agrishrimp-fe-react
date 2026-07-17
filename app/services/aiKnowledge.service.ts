@@ -68,6 +68,16 @@ export const aiKnowledgeService = {
     await apiJava.delete(`/ai-knowledge/diseases/${id}`);
   },
 
+  async approveDisease(id: number) {
+    const response = await apiJava.patch<AiDiseaseKnowledge>(`/ai-knowledge/diseases/${id}/approve`);
+    return response.data;
+  },
+
+  async rejectDisease(id: number) {
+    const response = await apiJava.patch<AiDiseaseKnowledge>(`/ai-knowledge/diseases/${id}/reject`);
+    return response.data;
+  },
+
   async getConfig() {
     const response = await apiJava.get<AiKnowledgeChatConfig>("/ai-knowledge/config");
     return response.data;

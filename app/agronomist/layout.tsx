@@ -3,7 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, Clock, Database, FileSpreadsheet, FlaskConical, Loader2, ShieldAlert, Stethoscope } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  Clock,
+  FileSpreadsheet,
+  FlaskConical,
+  LayoutDashboard,
+  Loader2,
+  NotebookPen,
+  ShieldAlert,
+  Stethoscope,
+  Tags,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -16,9 +28,27 @@ import {
 
 const AGRONOMIST_NAV_ITEMS = [
   {
-    href: "/agronomist/knowledge",
-    label: "Bệnh & tri thức",
-    icon: Database,
+    href: "/agronomist/overview",
+    label: "Trang tổng quan",
+    icon: LayoutDashboard,
+    permissions: [P.AI_KNOWLEDGE_VIEW],
+  },
+  {
+    href: "/agronomist/categories",
+    label: "Thêm danh mục",
+    icon: Tags,
+    permissions: [P.AI_KNOWLEDGE_VIEW],
+  },
+  {
+    href: "/agronomist/diseases",
+    label: "Quản lý phác đồ",
+    icon: NotebookPen,
+    permissions: [P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE],
+  },
+  {
+    href: "/agronomist/protocol-status",
+    label: "Trạng thái phác đồ",
+    icon: ClipboardList,
     permissions: [P.AI_KNOWLEDGE_VIEW],
   },
   {

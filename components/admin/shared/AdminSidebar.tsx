@@ -27,6 +27,8 @@ import {
   Image as ImageIcon,
   BookOpen,
   MessageCircle,
+  Stethoscope,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -190,6 +192,9 @@ export default function AdminSidebar() {
     hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
   const canViewBannerSection = hasPermission(P.BANNER_VIEW);
   const canViewBlogSection = hasPermission(P.BLOG_VIEW);
+  const canApproveAiKnowledge = hasPermission(P.AI_KNOWLEDGE_APPROVE);
+  const canManageAiChatbot = hasAnyPermission([P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_UPDATE]);
+  const canViewAiKnowledgeSection = canApproveAiKnowledge || canManageAiChatbot;
   const workspaceLabel = hasAnyPermission([P.ROLE_VIEW, P.STAFF_VIEW, P.BRANCH_VIEW])
     ? "Quản trị"
     : hasAnyPermission([
@@ -793,6 +798,34 @@ export default function AdminSidebar() {
                 active={isActive("/admin/blog/categories")}
                 color="text-violet-400"
               />
+            </div>
+          </section>
+        )}
+
+        {canViewAiKnowledgeSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              AI Doctor
+            </p>
+            <div className="space-y-0.5">
+              {canApproveAiKnowledge && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/approvals"
+                  icon={Stethoscope}
+                  label="Duyệt phác đồ"
+                  active={isActive("/admin/ai-knowledge/approvals")}
+                  color="text-emerald-400"
+                />
+              )}
+              {canManageAiChatbot && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/chatbot"
+                  icon={MessageSquareText}
+                  label="Chatbot mở đầu"
+                  active={isActive("/admin/ai-knowledge/chatbot")}
+                  color="text-blue-400"
+                />
+              )}
             </div>
           </section>
         )}
