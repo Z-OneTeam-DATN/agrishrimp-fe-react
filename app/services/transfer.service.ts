@@ -22,6 +22,11 @@ export const transferService = {
     return response.data;
   },
 
+  update: async (id: string, data: any) => {
+    const response = await apiJava.put(`${transferService.PREFIX}/${id}`, data);
+    return response.data;
+  },
+
   // 3. Lấy chi tiết phiếu
   getById: async (id: string) => {
     const response = await apiJava.get(`${transferService.PREFIX}/${id}`);
@@ -43,6 +48,13 @@ export const transferService = {
   // 6. Kiểm nhận hàng (gửi danh sách số lượng thực nhận lên) (Đổi sang COMPLETED)
   receive: async (id: string, items: any[]) => {
     const response = await apiJava.post(`${transferService.PREFIX}/${id}/receive`, items);
+    return response.data;
+  },
+
+  settlePayment: async (id: string, amount: number) => {
+    const response = await apiJava.post(`${transferService.PREFIX}/${id}/settle-payment`, {
+      amount,
+    });
     return response.data;
   },
 

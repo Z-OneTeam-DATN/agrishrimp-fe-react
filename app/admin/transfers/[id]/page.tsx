@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { isAxiosError } from "axios";
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -10,6 +11,7 @@ import {
   CheckCircle2,
   CheckSquare,
   ChevronLeft,
+  DollarSign,
   Edit,
   Package,
   Plus,
@@ -32,6 +34,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { getTransferStatusLabel } from "@/lib/transfer-status";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
 
 type InspectItem = {
@@ -44,8 +48,60 @@ type InspectItem = {
   note: string;
 };
 
+type AuditLog = {
+  time: string;
+  user: string;
+  action: string;
+  detail: string;
+};
+
 const DONE_STATUSES = ["COMPLETED"];
 const CANCELLABLE_STATUSES = ["PENDING", "SOURCE_CONFIRMED", "APPROVED"];
+
+const resolveTransferErrorMessage = (error: unknown) => {
+  if (isAxiosError(error)) {
+    const data = error.response?.data;
+
+    if (typeof data === "string" && data.trim()) {
+      return data;
+    }
+
+    if (data && typeof data === "object") {
+      const message =
+        (typeof data.detail === "string" && data.detail) ||
+        (typeof data.message === "string" && data.message) ||
+        (typeof data.error === "string" && data.error) ||
+        (typeof data.title === "string" && data.title);
+
+      if (message) {
+        return message;
+      }
+
+      if (Array.isArray(data.details) && data.details.length > 0) {
+        const detailMessage = data.details
+          .map((detail: any) =>
+            typeof detail === "string" ? detail : detail?.message,
+          )
+          .filter(Boolean)
+          .join(". ");
+
+        if (detailMessage) {
+          return detailMessage;
+        }
+      }
+    }
+
+    if (typeof error.message === "string" && error.message.trim()) {
+      return error.message;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "ÄĂ£ xáº£y ra lá»—i há»‡ thá»‘ng";
+};
 
 export default function TransferDetailPage() {
   const { id } = useParams();
@@ -58,16 +114,33 @@ export default function TransferDetailPage() {
   const [newBranchId, setNewBranchId] = useState("");
   const [showInspectModal, setShowInspectModal] = useState(false);
   const [inspectItems, setInspectItems] = useState<InspectItem[]>([]);
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState("");
 
   const { data: currentUser } = useCurrentUser();
   const { hasPermission } = usePermissions();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
 
   const canApproveTransfer = hasPermission(P.TRANSFER_APPROVE);
-  const canOperateTransfer = hasPermission(P.TRANSFER_CREATE);
+  const canUpdateTransfer = hasPermission(P.TRANSFER_UPDATE);
+  const canOperateTransfer =
+    hasPermission(P.TRANSFER_CREATE) || canUpdateTransfer;
+  const currentUserBranchId =
+    currentUser?.branch?.id ??
+    (currentUser as any)?.branchId ??
+    warehouseId ??
+    null;
+  const transferSourceBranchId =
+    transfer?.sourceBranchId ??
+    transfer?.fromBranchId ??
+    transfer?.sourceBranch?.id ??
+    null;
 
   // Chỉ user thuộc chi nhánh nguồn mới được xác nhận nguồn
   const isSourceBranchUser =
-    currentUser?.branch?.id === transfer?.sourceBranchId;
+    currentUserBranchId != null &&
+    transferSourceBranchId != null &&
+    String(currentUserBranchId) === String(transferSourceBranchId);
 
   useEffect(() => {
     void fetchData();
@@ -99,8 +172,8 @@ export default function TransferDetailPage() {
       toast.success(successMessage);
       afterSuccess?.();
       await fetchData();
-    } catch (error: any) {
-      const errData = error?.response?.data;
+    } catch (error: unknown) {
+      const errData = resolveTransferErrorMessage(error);
       if (typeof errData === "string") {
         toast.error(errData);
       } else {
@@ -190,6 +263,27 @@ export default function TransferDetailPage() {
     );
   };
 
+  const submitSettlement = async () => {
+    const amount = Number(settlementAmount || 0);
+    if (!amount || amount <= 0) {
+      toast.error("Vui lòng nhập số tiền thanh toán hợp lệ.");
+      return;
+    }
+    if (amount > outstandingAmount) {
+      toast.error("Số tiền thanh toán vượt quá công nợ còn lại.");
+      return;
+    }
+
+    await handleApiCall(
+      () => transferService.settlePayment(id as string, amount),
+      "Đã ghi nhận thanh toán nội bộ thành công!",
+      () => {
+        setShowSettlementModal(false);
+        setSettlementAmount("");
+      },
+    );
+  };
+
   if (loading) {
     return (
       <div className="p-10 text-center italic text-slate-400">
@@ -209,13 +303,18 @@ export default function TransferDetailPage() {
   const isInternalSale =
     String(transfer.transferBusinessType || "").toUpperCase() ===
     "INTERNAL_SALE";
+  const statusLabel = getTransferStatusLabel(
+    status,
+    transfer.transferBusinessType,
+  );
 
   const canSourceConfirm =
     isInternalSale &&
     status === "PENDING" &&
     canOperateTransfer &&
-    !canApproveTransfer &&
     isSourceBranchUser;
+  const canEdit =
+    canUpdateTransfer && ["PENDING", "SOURCE_CONFIRMED"].includes(status);
   const canApprove =
     canApproveTransfer &&
     ((!isInternalSale && status === "PENDING") ||
@@ -228,7 +327,14 @@ export default function TransferDetailPage() {
     CANCELLABLE_STATUSES.includes(status);
   const canChangeDestination =
     (canOperateTransfer || canApproveTransfer) &&
-    ["PENDING", "SOURCE_CONFIRMED", "APPROVED"].includes(status);
+    ["PENDING", "SOURCE_CONFIRMED"].includes(status);
+  const outstandingAmount = Number(transfer.outstandingAmount || 0);
+  const paidAmount = Number(transfer.paidAmount || 0);
+  const canSettlePayment =
+    isInternalSale &&
+    status === "COMPLETED" &&
+    canUpdateTransfer &&
+    outstandingAmount > 0;
 
   const steps = [
     {
@@ -277,70 +383,81 @@ export default function TransferDetailPage() {
     },
   ];
 
-  const auditLogs = (() => {
-    const logs = [
-      {
-        time: new Date(transfer.createdAt || Date.now()).toLocaleString(
-          "vi-VN",
-        ),
-        user: "Hệ thống",
-        action: "Khởi tạo phiếu",
-        detail: "Phiếu điều chuyển được tạo và chờ xử lý.",
-      },
-    ];
-
-    if (status === "SOURCE_CONFIRMED") {
-      logs.unshift({
-        time: new Date().toLocaleString("vi-VN"),
-        user: "Chi nhánh nguồn",
-        action: "Xác nhận nguồn",
-        detail: "Đã xác nhận có hàng để chờ Admin duyệt.",
-      });
-    }
-    if (["APPROVED", "SHIPPING", "INSPECTING", "COMPLETED"].includes(status)) {
-      logs.unshift({
-        time: new Date().toLocaleString("vi-VN"),
-        user: "Admin",
-        action: "Duyệt phiếu",
-        detail: "Đã reserve hàng ở kho nguồn.",
-      });
-    }
-    if (["SHIPPING", "INSPECTING", "COMPLETED"].includes(status)) {
-      logs.unshift({
-        time: new Date().toLocaleString("vi-VN"),
-        user: "Kho nguồn",
-        action: "Xuất kho vận chuyển",
-        detail: "Hàng đã rời kho nguồn và đang trên đường giao tới kho nhận.",
-      });
-    }
-    if (status === "INSPECTING") {
-      logs.unshift({
-        time: new Date().toLocaleString("vi-VN"),
-        user: "Kho nhận",
-        action: "Bắt đầu kiểm hàng",
-        detail: "Kho nhận đang nhập số lượng đạt và số lượng lỗi/thiếu.",
-      });
-    }
-    if (status === "COMPLETED") {
-      logs.unshift({
-        time: new Date().toLocaleString("vi-VN"),
-        user: "Kho nhận",
-        action: "Hoàn tất QC",
-        detail:
-          "Đã cộng kho nhận theo số lượng đạt và ghi nhận phần lỗi/thiếu.",
-      });
-    }
-    if (status === "CANCELLED") {
-      logs.unshift({
-        time: new Date().toLocaleString("vi-VN"),
-        user: "Hệ thống",
-        action: "Hủy phiếu",
-        detail: "Phiếu đã bị hủy trước khi hoàn tất điều chuyển.",
-      });
-    }
-
-    return logs;
-  })();
+  const auditLogs: AuditLog[] = [
+    {
+      time: transfer.createdAt,
+      user: transfer.createdByName || "Hệ thống",
+      action: "Khởi tạo phiếu",
+      detail: transfer.createdByBranchName
+        ? `Chi nhánh tạo phiếu: ${transfer.createdByBranchName}.`
+        : "Phiếu điều chuyển đã được khởi tạo và chờ xử lý.",
+    },
+    transfer.sourceConfirmedAt
+      ? {
+          time: transfer.sourceConfirmedAt,
+          user:
+            transfer.sourceConfirmedByName ||
+            transfer.fromBranchName ||
+            "Chi nhánh nguồn",
+          action: "Chi nhánh nguồn đồng ý điều chuyển",
+          detail: `Đã xác nhận xuất từ ${transfer.fromBranchName || "chi nhánh nguồn"} sang ${transfer.toBranchName || "chi nhánh nhận"}.`,
+        }
+      : null,
+    transfer.approvedAt
+      ? {
+          time: transfer.approvedAt,
+          user: transfer.approvedByName || "Người duyệt",
+          action: "Duyệt phiếu",
+          detail: "Phiếu đã đủ thông tin và được phép điều chuyển.",
+        }
+      : null,
+    transfer.shippedAt
+      ? {
+          time: transfer.shippedAt,
+          user:
+            transfer.shippedByName ||
+            transfer.fromBranchName ||
+            "Chi nhánh xuất",
+          action: "Xuất kho vận chuyển",
+          detail: "Hàng đã rời kho nguồn và chuyển sang trạng thái vận chuyển.",
+        }
+      : null,
+    transfer.inspectionStartedAt
+      ? {
+          time: transfer.inspectionStartedAt,
+          user:
+            transfer.inspectionStartedByName ||
+            transfer.toBranchName ||
+            "Chi nhánh nhận",
+          action: "Bắt đầu kiểm hàng",
+          detail: "Chi nhánh nhận bắt đầu kiểm đếm và đối soát hàng thực nhận.",
+        }
+      : null,
+    transfer.receivedAt
+      ? {
+          time: transfer.receivedAt,
+          user:
+            transfer.receivedByName ||
+            transfer.toBranchName ||
+            "Chi nhánh nhận",
+          action: "Hoàn tất kiểm nhận",
+          detail: "Đã nhập hàng đạt và chuyển hàng lỗi hoặc thiếu sang kho rủi ro.",
+        }
+      : null,
+    transfer.settledAt
+      ? {
+          time: transfer.settledAt,
+          user: transfer.settledByName || "Kế toán nội bộ",
+          action: "Ghi nhận thanh toán",
+          detail: `Đã ghi nhận thanh toán ${paidAmount.toLocaleString("vi-VN")}đ cho phiếu điều chuyển nội bộ.`,
+        }
+      : null,
+  ]
+    .filter((log): log is AuditLog => Boolean(log))
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.time).getTime() - new Date(a.time).getTime(),
+    );
 
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
   const fieldControlClass =
@@ -600,7 +717,11 @@ export default function TransferDetailPage() {
 
               <div className="space-y-1.5 md:col-span-3">
                 <Label className={fieldLabelClass}>Trạng thái phiếu</Label>
-                <Input value={status} readOnly className={readOnlyInputClass} />
+                <Input
+                  value={statusLabel}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
               </div>
             </div>
           </div>
@@ -620,6 +741,9 @@ export default function TransferDetailPage() {
                   {log.action}
                 </p>
                 <p className="mt-1 text-[10px] text-slate-400">{log.time}</p>
+                <p className="mt-1 text-[10px] font-medium text-slate-500">
+                  {log.user}
+                </p>
                 <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
                   {log.detail}
                 </p>
@@ -726,6 +850,40 @@ export default function TransferDetailPage() {
             </table>
           </div>
         </div>
+
+        {isInternalSale && (
+          <div className={sectionCardClass}>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <span className={sectionTitleClass}>4. Thanh toán nội bộ</span>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-[10px] font-semibold text-slate-400">Tổng giá trị hàng đạt</p>
+                <p className="mt-2 text-[16px] font-semibold text-slate-900">
+                  {Number(transfer.transferAmount || 0).toLocaleString("vi-VN")}đ
+                </p>
+              </div>
+              <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-[10px] font-semibold text-slate-400">Đã thanh toán</p>
+                <p className="mt-2 text-[16px] font-semibold text-emerald-700">
+                  {paidAmount.toLocaleString("vi-VN")}đ
+                </p>
+              </div>
+              <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-[10px] font-semibold text-slate-400">Còn phải thanh toán</p>
+                <p className="mt-2 text-[16px] font-semibold text-amber-700">
+                  {outstandingAmount.toLocaleString("vi-VN")}đ
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-[11px] text-slate-500">
+              Biên lợi nhuận tối thiểu áp dụng:{" "}
+              <span className="font-semibold text-slate-700">
+                Nhap tay theo thoa thuan
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
@@ -738,6 +896,17 @@ export default function TransferDetailPage() {
             <Printer size={15} className="mr-2" />
             In phiếu
           </Button>
+          {canEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/admin/transfers/new?editId=${id}`)}
+              className="h-10 min-w-[130px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <Edit size={15} className="mr-2" />
+              Sửa phiếu
+            </Button>
+          )}
           {canSourceConfirm && (
             <Button
               onClick={() =>
@@ -845,6 +1014,17 @@ export default function TransferDetailPage() {
               Hủy phiếu
             </Button>
           )}
+          {canSettlePayment && (
+            <Button
+              type="button"
+              onClick={() => setShowSettlementModal(true)}
+              disabled={isProcessing}
+              className="h-10 min-w-[170px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+            >
+              <DollarSign size={15} className="mr-2" />
+              Ghi nhận thanh toán
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -910,6 +1090,48 @@ export default function TransferDetailPage() {
                 className="rounded-none bg-blue-600 text-[11px] font-black text-white hover:bg-blue-700"
               >
                 XÁC NHẬN ĐỔI
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSettlementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-none bg-white p-6 shadow-2xl">
+            <h3 className="border-b pb-2 text-[14px] font-black uppercase">
+              Ghi nhận thanh toán nội bộ
+            </h3>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-500">
+                Số tiền thanh toán:
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                value={settlementAmount}
+                onChange={(e) => setSettlementAmount(e.target.value)}
+                placeholder={`Tối đa ${outstandingAmount.toLocaleString("vi-VN")}đ`}
+                className="rounded-none border-slate-300"
+              />
+              <p className="text-[11px] text-slate-400">
+                Còn phải thanh toán: {outstandingAmount.toLocaleString("vi-VN")}đ
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowSettlementModal(false)}
+                className="rounded-none text-[11px] font-bold"
+              >
+                HỦY
+              </Button>
+              <Button
+                onClick={() => void submitSettlement()}
+                disabled={isProcessing}
+                className="rounded-none bg-emerald-600 text-[11px] font-black text-white hover:bg-emerald-700"
+              >
+                XÁC NHẬN THANH TOÁN
               </Button>
             </div>
           </div>
@@ -1028,4 +1250,3 @@ export default function TransferDetailPage() {
     </div>
   );
 }
-
