@@ -101,6 +101,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               ...c,
               lastMessage: msg.content || (msg.messageType === "IMAGE" ? "[Hình ảnh]" : ""),
               lastMessageAt: msg.createdAt,
+              status: "OPEN",
               // Only increment unread when not actively viewing this conversation
               unreadByShop: c.id === activeId ? 0 : (c.unreadByShop ?? 0) + 1,
             }
