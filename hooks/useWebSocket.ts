@@ -23,7 +23,7 @@ export function useWebSocket() {
   const clientRef = useRef<Client | null>(null);
   const subscriptionsRef = useRef<StompSubscription[]>([]);
   const { user, accessToken, isAuthenticated } = useAuthStore();
-  const { addMessage, updateConversationLastMsg, addOrUpdateConversation } = useChatStore();
+  const { addMessage, updateConversationLastMsg, addOrUpdateConversation, markConvRead } = useChatStore();
   const { addNotification } = useNotificationStore();
   const { setTyping } = useTypingStore();
   const roleSlug = (user as any)?.role?.slug as string | undefined;
@@ -48,6 +48,10 @@ export function useWebSocket() {
    */
   const handleShopMessage = useCallback(async (msg: ChatMessage) => {
     addMessage(msg);
+    const activeId = useChatStore.getState().activeConversationId;
+    if (activeId === msg.conversationId) {
+      ChatService.markAsRead(msg.conversationId).catch(() => {});
+    }
     const convExists = useChatStore.getState().conversations.some((c) => c.id === msg.conversationId);
     if (convExists) {
       updateConversationLastMsg(msg.conversationId, msg);
@@ -79,8 +83,20 @@ export function useWebSocket() {
           `/user/queue/messages`,
           (frame) => {
             try {
-              const msg: ChatMessage = JSON.parse(frame.body);
+              const payload = JSON.parse(frame.body);
+              // READ_RECEIPT: admin read our messages → update isRead state
+              if (payload.type === "READ_RECEIPT") {
+                markConvRead(payload.conversationId as number, false); // false = not customer read
+                return;
+              }
+              const msg: ChatMessage = payload as ChatMessage;
               addMessage(msg);
+              
+              const activeId = useChatStore.getState().activeConversationId;
+              if (activeId === msg.conversationId) {
+                ChatService.markAsRead(msg.conversationId).catch(() => {});
+              }
+              
               updateConversationLastMsg(msg.conversationId, msg);
             } catch {}
           }
@@ -152,14 +168,14 @@ export function useWebSocket() {
 
     clientRef.current = client;
     client.activate();
-  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage]);
+  }, [isAuthenticated, user?.id, accessToken, isStaff, addMessage, updateConversationLastMsg, addOrUpdateConversation, addNotification, setTyping, handleShopMessage, markConvRead]);
 
   useEffect(() => {
     connect();
     return () => { disconnect(); };
   }, [connect, disconnect]);
 
-  const sendMessage = useCallback((destination: string, body: object) => {
+  const sendMessage = useCallback((destination: string, body: any) => {
     if (clientRef.current?.connected) {
       clientRef.current.publish({ destination, body: JSON.stringify(body) });
     }

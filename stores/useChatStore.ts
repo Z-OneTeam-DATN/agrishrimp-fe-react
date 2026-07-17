@@ -85,6 +85,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             }
           : c
       ),
+      // Also mark all messages in this conversation as read
+      messages: {
+        ...s.messages,
+        [convId]: (s.messages[convId] ?? []).map((m) => ({ ...m, isRead: true })),
+      },
     })),
 
   updateConversationLastMsg: (convId, msg) =>
