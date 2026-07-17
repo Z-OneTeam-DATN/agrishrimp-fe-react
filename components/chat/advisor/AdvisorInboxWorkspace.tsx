@@ -250,12 +250,21 @@ export default function AdvisorInboxWorkspace() {
     }
   }, []);
 
-  // Instant scroll on active conversation change or load completion
+  // Instant scroll and repeat scrolling during initial rendering phase
   useEffect(() => {
-    const timer = setTimeout(() => {
+    scrollToBottom(false);
+
+    // Repeat scroll to prevent layout shift when images load
+    let count = 0;
+    const interval = setInterval(() => {
       scrollToBottom(false);
-    }, 60);
-    return () => clearTimeout(timer);
+      count++;
+      if (count >= 8) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
   }, [activeConversationId, isLoadingMessages, scrollToBottom]);
 
   // Smooth scroll when new messages are added
@@ -847,7 +856,7 @@ export default function AdvisorInboxWorkspace() {
                   </div>
                 </div>
 
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,0.78),_rgba(255,255,255,0.96))] px-5 py-5 xl:px-6">
+                <div ref={messagesContainerRef} onLoadCapture={() => scrollToBottom(false)} className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(248,250,252,0.78),_rgba(255,255,255,0.96))] px-5 py-5 xl:px-6">
                   {isLoadingMessages ? (
                     <div className="flex justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
