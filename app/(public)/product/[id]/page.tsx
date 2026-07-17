@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Star, Minus, Plus, ShoppingCart, Phone, ChevronRight,
-  Loader2
+  Loader2, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 import { HomeService } from "@/app/services/home.service";
@@ -17,6 +17,8 @@ import { useCartStore } from "@/stores/useCartStore";
 import { ProductDetail, PublicProductListItem } from "@/app/types/product.schema";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { ProductReviews } from "@/components/site/ProductReviews";
+import { useChatStore } from "@/stores/useChatStore";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -182,6 +184,30 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     
       setIsAdding(false);
     }
+  };
+
+  const { isAuthenticated } = useAuthStore();
+  const openChat = useChatStore((s) => s.openChat);
+  const setConsultProduct = useChatStore((s) => s.setConsultProduct);
+
+  const handleChatConsult = () => {
+    if (!isAuthenticated) {
+      toast.error("Vui lòng đăng nhập để chat với shop!");
+      setTimeout(() => {
+        router.push("/login");
+      }, 1000);
+      return;
+    }
+    if (!product) return;
+    const currentVar = product.variants?.[selectedVariantIndex] || product.variants?.[0];
+    setConsultProduct({
+      id: product.id,
+      name: product.name,
+      price: currentVar?.price || 0,
+      imageUrl: product.imageUrls?.[0] || "",
+      slug: id,
+    });
+    openChat();
   };
 
   if (loading) return (
@@ -357,6 +383,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                   {/* CÁC NÚT ĐẶT HÀNG & THÊM GIỎ HÀNG */}
                   <div className="flex gap-3">
+                    <button
+                      onClick={handleChatConsult}
+                      className="px-5 border border-teal-600 text-teal-700 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-teal-50 transition-all flex items-center justify-center gap-1.5 shrink-0"
+                      title="Chat tư vấn sản phẩm"
+                    >
+                      <MessageSquare size={16} />
+                      <span>Chat</span>
+                    </button>
                     <button 
                       onClick={(e) => handleAddToCart(e, true)}  // Truyền event và true (mua ngay)
                       disabled={isAdding}
@@ -439,7 +473,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-white/30"><Phone size={24} /></div>
               <h6 className="font-bold text-sm mb-1 uppercase tracking-wide">Tư vấn miễn phí</h6>
               <p className="text-[10px] text-teal-50/80 font-medium mb-4">Hỗ trợ kỹ thuật 24/7</p>
-              <a href="tel:18001234" className="block w-full py-2.5 bg-white text-teal-600 rounded-lg font-bold text-xs uppercase tracking-widest transition-transform active:scale-95">1800 1234</a>
+              <a href="tel:18001234" className="block w-full py-2.5 bg-white text-teal-600 rounded-lg font-bold text-xs uppercase tracking-widest transition-transform active:scale-95 mb-2.5">1800 1234</a>
+              <button 
+                onClick={handleChatConsult}
+                className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 border border-teal-500/30 text-white rounded-lg font-bold text-xs uppercase tracking-widest transition-transform active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <MessageSquare size={14} />
+                <span>Chat trực tuyến</span>
+              </button>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">

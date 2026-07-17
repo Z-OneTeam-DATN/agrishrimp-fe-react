@@ -24,7 +24,7 @@ const getVoucherLabel = (voucher: Voucher) => {
   const value = Number(voucher.value ?? voucher.discountValue ?? 0);
   if (voucher.discountType === "PERCENT") {
     const maxDiscount = voucher.maxDiscount
-      ? ` tối đa ${formatMoney(voucher.maxDiscount)}`
+      ? `, tối đa ${formatMoney(voucher.maxDiscount)}`
       : "";
     return `Giảm ${value}%${maxDiscount}`;
   }
@@ -55,10 +55,15 @@ const persistSavedVoucherCodes = (codes: string[]) => {
 
 const isVoucherVisible = (voucher: Voucher) => {
   const now = Date.now();
-  const startOk = !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
-  const endOk = !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
+  const startOk =
+    !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
+  const endOk =
+    !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
   return voucher.status === "ACTIVE" && startOk && endOk;
 };
+
+const actionTextClass =
+  "text-[15px] font-medium text-[#1965a2] transition-colors hover:text-[#145486]";
 
 export default function VoucherWalletPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -90,7 +95,7 @@ export default function VoucherWalletPage() {
       }
     };
 
-    fetchPublicVouchers();
+    void fetchPublicVouchers();
   }, []);
 
   const handleCopy = (code: string) => {
@@ -111,16 +116,6 @@ export default function VoucherWalletPage() {
     setSavedCodes(nextCodes);
     persistSavedVoucherCodes(nextCodes);
     toast.success(`Đã lưu voucher ${normalized} vào ví`);
-  };
-
-  const handleRemoveSaved = (code: string) => {
-    const normalized = code.trim().toUpperCase();
-    const nextCodes = savedCodes.filter(
-      (savedCode) => savedCode !== normalized,
-    );
-    setSavedCodes(nextCodes);
-    persistSavedVoucherCodes(nextCodes);
-    toast.success(`Đã gỡ voucher ${normalized} khỏi ví`);
   };
 
   const savedVouchers = vouchers.filter((voucher) =>
@@ -144,16 +139,17 @@ export default function VoucherWalletPage() {
       <div className="flex flex-col gap-4 border-b border-gray-100 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h5 className="text-[18px] font-medium text-gray-900">
-            Voucher của tôi
+            Ví Voucher và Ưu đãi
           </h5>
           <p className="mt-1 text-sm text-gray-500">
-            Lưu và quản lý các mã ưu đãi để dùng nhanh khi thanh toán
+            Voucher được lưu trên backend và đồng bộ theo tài khoản
           </p>
         </div>
 
         <Link href="/voucher/create">
           <button className="flex h-10 items-center justify-center bg-[#1965a2] px-4 text-sm font-medium text-white transition-colors hover:bg-[#145486]">
-            <Ticket size={16} className="mr-1.5" /> Nhập mã voucher
+            <Ticket size={16} className="mr-1.5" />
+            Nhập mã Voucher
           </button>
         </Link>
       </div>
@@ -169,7 +165,7 @@ export default function VoucherWalletPage() {
 
           {savedVouchers.length === 0 && (
             <div className="py-12 text-center text-gray-500">
-              Bạn chưa lưu voucher nào
+              Chưa có mã nào trong ví
             </div>
           )}
 
@@ -211,27 +207,20 @@ export default function VoucherWalletPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 items-start gap-4 text-[15px] md:min-w-[220px] md:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-4 md:min-w-[220px] md:justify-end">
                     <button
                       type="button"
                       onClick={() => handleCopy(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={actionTextClass}
                     >
                       Sao chép
                     </button>
                     <Link
                       href={`/checkout?voucher=${encodeURIComponent(voucher.code)}`}
-                      className="text-[#1965a2] hover:underline"
+                      className={actionTextClass}
                     >
                       Dùng ngay
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSaved(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
-                    >
-                      Gỡ khỏi ví
-                    </button>
                   </div>
                 </div>
               );
@@ -241,10 +230,10 @@ export default function VoucherWalletPage() {
 
         <div className="pt-8">
           <h6 className="mb-2 text-[15px] font-medium text-gray-900">
-            Voucher khả dụng
+            Voucher khả dụng từ hệ thống
           </h6>
           <p className="text-sm text-gray-500">
-            {availableToSave.length} mã có thể lưu thêm vào ví
+            {availableToSave.length} mã mới có thể lưu vào ví
           </p>
 
           {availableToSave.length === 0 && (
@@ -268,7 +257,7 @@ export default function VoucherWalletPage() {
                       <span className="text-[18px] font-medium text-gray-900">
                         {getVoucherLabel(voucher)}
                       </span>
-                      <span className="text-[15px] text-gray-500">
+                      <span className="inline-flex border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500">
                         {voucher.code}
                       </span>
                     </div>
@@ -291,18 +280,18 @@ export default function VoucherWalletPage() {
                     )}
                   </div>
 
-                  <div className="flex shrink-0 items-start gap-4 text-[15px] md:min-w-[170px] md:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-4 md:min-w-[220px] md:justify-end">
                     <button
                       type="button"
                       onClick={() => handleSave(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={actionTextClass}
                     >
                       Lưu mã
                     </button>
                     <button
                       type="button"
                       onClick={() => handleCopy(voucher.code)}
-                      className="text-[#1965a2] hover:underline"
+                      className={actionTextClass}
                     >
                       Sao chép
                     </button>
@@ -316,4 +305,3 @@ export default function VoucherWalletPage() {
     </div>
   );
 }
-

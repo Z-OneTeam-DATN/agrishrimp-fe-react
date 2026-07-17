@@ -24,6 +24,9 @@ const Footer = dynamic(() => import("@/components/site/SiteFooter"), {
 const AIChatButton = dynamic(() => import("@/components/site/AIChatButton"), {
   ssr: false,
 });
+const ChatWidget = dynamic(() => import("@/components/chat/ChatWidget"), {
+  ssr: false,
+});
 const WebSocketProvider = dynamic(() => import("@/components/providers/WebSocketProvider"), {
   ssr: false,
 });
@@ -95,14 +98,20 @@ export default function LayoutClient({
     pathname?.startsWith("/reset-password");
   const isChangePasswordPage = pathname === "/change-password";
   const isAdminPage = pathname?.startsWith("/admin");
+  const isAdvisorPage = pathname?.startsWith("/advisor");
+  const isChatPage = pathname?.startsWith("/chat");
+  const isAgronomistPage = pathname?.startsWith("/agronomist");
   const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
-  const isHideLayout = isAdminPage || isAuthPage || isAiDoctorPage;
+  const isHideLayout =
+    isAdminPage || isAdvisorPage || isChatPage || isAgronomistPage || isAuthPage || isAiDoctorPage;
   const isProtectedPath = [
     "/profile",
     "/orders",
     "/checkout",
     "/user/checkout",
-    "/ai-doctor",
+    "/advisor",
+    "/chat",
+    "/agronomist",
   ].some((p) => pathname?.startsWith(p));
   const hydratePromiseRef = useRef<Promise<void> | null>(null);
   const lastHydratedAtRef = useRef(0);
@@ -126,16 +135,26 @@ export default function LayoutClient({
   );
 
   const fetchFreshAuthSnapshot = useCallback(async () => {
-    const [tokenData, freshUser, permissions] = await Promise.all([
-      AuthService.meTokenNext().catch(() => null),
+    const [tokenResult, userResult, permissionsResult] = await Promise.allSettled([
+      AuthService.meTokenNext(),
       AuthService.meNext(),
       AuthService.getMyPermissionsNext(),
     ]);
 
-    applyTokenSnapshot(tokenData);
-    writeCache(freshUser);
+    if (tokenResult.status === "fulfilled") {
+      applyTokenSnapshot(tokenResult.value);
+    }
+
+    if (userResult.status !== "fulfilled") {
+      throw userResult.reason;
+    }
+
+    const permissions =
+      permissionsResult.status === "fulfilled" ? permissionsResult.value : [];
+
+    writeCache(userResult.value);
     writePermissionsCache(permissions);
-    setUser(freshUser);
+    setUser(userResult.value);
     setPermissions(permissions);
   }, [applyTokenSnapshot, setPermissions, setUser]);
 
@@ -184,7 +203,6 @@ export default function LayoutClient({
       if (cachedUser) {
         setUser(cachedUser as UserType);
         setPermissions(cachedPermissions);
-        setLoadingAuth(!background);
       } else if (background) {
         setLoadingAuth(false);
       } else {
@@ -373,6 +391,7 @@ export default function LayoutClient({
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
                 <AIChatButton />
+                <ChatWidget />
               </div>
             )}
             <Toaster position="top-right" richColors closeButton />

@@ -52,7 +52,6 @@ import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 
 type BranchOption = { id: number; name: string };
 type StaffOption = { id: number; displayName: string };
@@ -73,7 +72,7 @@ const toIsoDate = (date: Date) => {
 
 export default function SupplierDebtReportPage() {
   const { user, warehouseId } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
   const [loading, setLoading] = useState(false);
@@ -85,7 +84,7 @@ export default function SupplierDebtReportPage() {
   );
   const [endDate, setEndDate] = useState(() => toIsoDate(today));
   const [branchId, setBranchId] = useState<string>(
-    isAdmin ? "all" : ownBranchId || "all",
+    canSelectAllBranches ? "all" : ownBranchId || "all",
   );
   const [staffId, setStaffId] = useState<string>("all");
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -150,7 +149,7 @@ export default function SupplierDebtReportPage() {
             name: item.name || "Chi nhánh",
           }),
         );
-        if (!isAdmin && ownBranchId) {
+        if (!canSelectAllBranches && ownBranchId) {
           setBranches(
             normalizedBranches.filter(
               (item) => String(item.id) === ownBranchId,
@@ -181,13 +180,13 @@ export default function SupplierDebtReportPage() {
     };
 
     void loadOptions();
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
-    if (!isAdmin && ownBranchId) {
+    if (!canSelectAllBranches && ownBranchId) {
       setBranchId(ownBranchId);
     }
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -330,12 +329,12 @@ export default function SupplierDebtReportPage() {
           <Select value={branchId} onValueChange={setBranchId}>
             <SelectTrigger
               className="h-[38px] w-[220px] rounded-md border-slate-200 text-[13px] shadow-none"
-              disabled={!isAdmin}
+              disabled={!canSelectAllBranches}
             >
               <SelectValue placeholder="Chi nhánh" />
             </SelectTrigger>
             <SelectContent>
-              {isAdmin && (
+              {canSelectAllBranches && (
                 <SelectItem value="all">Tất cả chi nhánh</SelectItem>
               )}
               {branches.map((branch) => (

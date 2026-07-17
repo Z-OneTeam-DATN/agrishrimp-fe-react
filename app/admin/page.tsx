@@ -28,11 +28,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import WarehouseWorkflowCards from "@/components/admin/WarehouseWorkflowCards";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { normalizeRoleSlug } from "@/lib/roles";
 
 const AdminDashboardCharts = dynamic(
   () => import("@/components/admin/AdminDashboardCharts"),
@@ -102,27 +103,27 @@ const orderStatusRows = (pending?: PendingOrdersSummary) => [
   {
     label: "Chờ duyệt",
     value: pending?.pendingApproval ?? 0,
-    href: "/admin/orders-all",
+    href: "/admin/orders/pending",
   },
   {
     label: "Chờ thanh toán",
     value: pending?.pendingPayment ?? 0,
-    href: "/admin/orders-all",
+    href: "/admin/orders/awaiting-payment",
   },
   {
     label: "Chờ đóng gói",
     value: pending?.pendingPacking ?? 0,
-    href: "/admin/orders-processing",
+    href: "/admin/orders/processing",
   },
   {
     label: "Chờ lấy hàng",
     value: pending?.pendingPickup ?? 0,
-    href: "/admin/orders-handover",
+    href: "/admin/orders/ready-for-pickup",
   },
   {
     label: "Đang giao",
     value: pending?.shipping ?? 0,
-    href: "/admin/orders-handover",
+    href: "/admin/orders/shipping",
   },
   {
     label: "Hủy giao chờ nhận",
@@ -138,30 +139,41 @@ export default function AdminDashboard() {
     isLoading: isUserLoading,
     error: userError,
   } = useCurrentUser();
-  const { hasPermission, isLoadingAuth } = usePermissions();
+  const { hasPermission, hasAnyPermission, isLoadingAuth } = usePermissions();
   const accessToken = useAuthStore((state) => state.accessToken);
+  const warehouseId = useAuthStore((state) => state.warehouseId);
   const [selectedBranchId, setSelectedBranchId] = useState<
     string | undefined
   >();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const roleSlug = normalizeRoleSlug(user?.role);
-  const isAdmin = isAdminRole(user?.role);
+  const scopedBranchId = (user?.branch?.id ?? warehouseId)?.toString();
+  const canSelectAllBranches = !scopedBranchId;
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
+  const canViewWarehouseWorkflows = hasAnyPermission([
+    P.IMPORT_VIEW,
+    P.EXPORT_VIEW,
+    P.TRANSFER_VIEW,
+    P.CHECK_VIEW,
+  ]);
+  const roleSlug = normalizeRoleSlug(user?.role);
   const isRestricted = ["MANAGER", "STAFF", "EMPLOYEE"].includes(roleSlug);
   const canRunProtectedQueries =
     !isLoadingAuth && !!user && !!accessToken && canViewDashboard;
 
   useEffect(() => {
-    if (user && isRestricted && user.branch?.id) {
-      setSelectedBranchId(user.branch.id.toString());
+    if (scopedBranchId) {
+      setSelectedBranchId(scopedBranchId);
     }
-  }, [isRestricted, user]);
+  }, [scopedBranchId]);
 
   const { data: branches = [] } = useQuery<BranchOption[]>({
     queryKey: ["branches-list"],
     queryFn: () => branchService.getAll(),
-    enabled: canRunProtectedQueries && isAdmin && hasPermission(P.BRANCH_VIEW),
+    enabled:
+      canRunProtectedQueries &&
+      canSelectAllBranches &&
+      hasPermission(P.BRANCH_VIEW),
   });
 
   const { data: customerInsights } = useQuery<CustomerInsights>({
@@ -214,18 +226,19 @@ export default function AdminDashboard() {
   });
 
   const { data: backorders = [] } = useQuery<OrderRisk[]>({
-    queryKey: ["backorder-report", isAdmin],
+    queryKey: ["backorder-report", canSelectAllBranches],
     queryFn: () => orderService.getBackorderReport(),
-    enabled: canRunProtectedQueries && isAdmin,
+    enabled: canRunProtectedQueries && canSelectAllBranches,
     refetchInterval: 60000,
   });
 
-  const branchLabel = isAdmin
+  const branchLabel = canSelectAllBranches
     ? selectedBranchId
       ? branches.find((branch) => branch.id.toString() === selectedBranchId)
           ?.name || "Chi nhánh đã chọn"
       : "Tất cả chi nhánh"
-    : user?.branch?.name || "Chi nhánh của bạn";
+    : user?.branch?.name ||
+      (scopedBranchId ? `Chi nhánh #${scopedBranchId}` : "Chi nhánh của bạn");
 
   const backorderCount = useMemo(
     () =>
@@ -390,7 +403,7 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {isAdmin && (
+          {canSelectAllBranches && (
             <Select
               value={selectedBranchId || "all"}
               onValueChange={(value) =>
@@ -623,6 +636,12 @@ export default function AdminDashboard() {
           )}
         </Panel>
       </div>
+
+      {canViewWarehouseWorkflows && (
+        <Panel title="Phiếu kho cần xử lý">
+          <WarehouseWorkflowCards />
+        </Panel>
+      )}
 
       <Panel title="Ưu tiên hôm nay">
         <div className="grid gap-3 md:grid-cols-3">

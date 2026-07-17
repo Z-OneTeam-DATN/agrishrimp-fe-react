@@ -1,24 +1,51 @@
 import { create } from "zustand";
 import { ChatMessage, Conversation } from "@/app/types/chat.types";
 
+export interface ConsultProduct {
+  id: number;
+  name: string;
+  price: number;
+  imageUrl: string;
+  slug: string;
+}
+
+export interface Viewer {
+  userId: number;
+  username: string;
+}
+
 interface ChatStore {
   isOpen: boolean;
   conversations: Conversation[];
   activeConversationId: number | null;
   messages: Record<number, ChatMessage[]>;
   unreadByConv: Record<number, number>;
-  sendWsMessage: ((destination: string, body: object) => void) | null;
+  sendWsMessage: ((destination: string, body: any) => void) | null;
+  consultProduct: ConsultProduct | null;
+  viewersByConv: Record<number, Viewer[]>;
 
   openChat: () => void;
   closeChat: () => void;
   toggleChat: () => void;
   setConversations: (convs: Conversation[]) => void;
-  setActiveConversation: (id: number) => void;
+  setActiveConversation: (id: number | null) => void;
   setMessages: (convId: number, msgs: ChatMessage[]) => void;
   addMessage: (msg: ChatMessage) => void;
   markConvRead: (convId: number, isCustomer: boolean) => void;
   updateConversationLastMsg: (convId: number, msg: ChatMessage) => void;
-  setSendWsMessage: (fn: ((destination: string, body: object) => void) | null) => void;
+  addOrUpdateConversation: (conv: Conversation) => void;
+  setSendWsMessage: (fn: ((destination: string, body: any) => void) | null) => void;
+  setConsultProduct: (product: ConsultProduct | null) => void;
+  setViewers: (convId: number, viewers: Viewer[]) => void;
+}
+
+/** Sort conversations by lastMessageAt DESC so newest appears first */
+function sortConversations(convs: Conversation[]): Conversation[] {
+  return [...convs].sort((a, b) => {
+    const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return tb - ta;
+  });
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -28,12 +55,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: {},
   unreadByConv: {},
   sendWsMessage: null,
+  consultProduct: null,
+  viewersByConv: {},
 
   openChat: () => set({ isOpen: true }),
   closeChat: () => set({ isOpen: false }),
   toggleChat: () => set((s) => ({ isOpen: !s.isOpen })),
 
-  setConversations: (convs) => set({ conversations: convs }),
+  setConversations: (convs) => set({ conversations: sortConversations(convs) }),
 
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
@@ -57,19 +86,54 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((s) => ({
       conversations: s.conversations.map((c) =>
         c.id === convId
-          ? { ...c, unreadByCustomer: isCustomer ? 0 : c.unreadByCustomer, unreadByShop: !isCustomer ? 0 : c.unreadByShop }
+          ? {
+              ...c,
+              unreadByCustomer: isCustomer ? 0 : c.unreadByCustomer,
+              unreadByShop: !isCustomer ? 0 : c.unreadByShop,
+            }
           : c
       ),
+      // Also mark all messages in this conversation as read
+      messages: {
+        ...s.messages,
+        [convId]: (s.messages[convId] ?? []).map((m) => ({ ...m, isRead: true })),
+      },
     })),
 
   updateConversationLastMsg: (convId, msg) =>
-    set((s) => ({
-      conversations: s.conversations.map((c) =>
+    set((s) => {
+      const activeId = s.activeConversationId;
+      const updated = s.conversations.map((c) =>
         c.id === convId
-          ? { ...c, lastMessage: msg.content, lastMessageAt: msg.createdAt }
+          ? {
+              ...c,
+              lastMessage: msg.content || (msg.messageType === "IMAGE" ? "[Hình ảnh]" : ""),
+              lastMessageAt: msg.createdAt,
+              status: "OPEN" as const,
+              lastSenderId: msg.senderId,
+              // Only increment unread when not actively viewing this conversation
+              unreadByShop: c.id === activeId ? 0 : (c.unreadByShop ?? 0) + 1,
+            }
           : c
-      ),
-    })),
+      );
+      return { conversations: sortConversations(updated) };
+    }),
+
+  addOrUpdateConversation: (conv) =>
+    set((s) => {
+      const exists = s.conversations.some((c) => c.id === conv.id);
+      const next = exists
+        ? s.conversations.map((c) => (c.id === conv.id ? { ...c, ...conv } : c))
+        : [conv, ...s.conversations];
+      return { conversations: sortConversations(next) };
+    }),
 
   setSendWsMessage: (fn) => set({ sendWsMessage: fn }),
+
+  setConsultProduct: (product) => set({ consultProduct: product }),
+
+  setViewers: (convId, viewers) =>
+    set((s) => ({
+      viewersByConv: { ...s.viewersByConv, [convId]: viewers },
+    })),
 }));

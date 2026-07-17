@@ -35,8 +35,15 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useQuery } from "@tanstack/react-query";
 import { branchService } from "@/app/services/branchService";
-import { isAdminRole } from "@/lib/roles";
 import { P } from "@/lib/permissions";
+import {
+  ADVISOR_WORKSPACE_PERMISSIONS,
+  AGRONOMIST_WORKSPACE_PERMISSIONS,
+} from "@/lib/workspace-permissions";
+import {
+  ADMIN_ORDER_STATUS_PAGES,
+  getAdminOrderStatusHref,
+} from "@/lib/admin-order-status-pages";
 
 type BranchSummary = {
   id: number;
@@ -45,9 +52,15 @@ type BranchSummary = {
 
 type BranchResponse = BranchSummary[] | { content?: BranchSummary[] };
 
+const ADMIN_ORDER_STATUS_ROUTE_LABELS = Object.fromEntries(
+  ADMIN_ORDER_STATUS_PAGES.map((page) => [
+    getAdminOrderStatusHref(page.slug),
+    page.label,
+  ]),
+) as Record<string, string>;
+
 const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin": "Trang chủ",
-  "/admin/inventory-dashboard": "Bàn làm việc kho",
   "/admin/employees": "Quản lý nhân sự",
   "/admin/employees/add": "Thêm nhân sự",
   "/admin/employees/edit": "Chỉnh sửa nhân sự",
@@ -72,8 +85,8 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/blog/posts/new": "Thêm bài viết",
   "/admin/blog/posts/edit": "Chỉnh sửa bài viết",
   "/admin/blog/categories": "Danh mục blog",
-  "/admin/orders": "Đơn hàng",
-  "/admin/orders-all": "Tất cả đơn hàng",
+  "/admin/orders": "Danh sách đơn hàng",
+  "/admin/orders-all": "Danh sách đơn hàng",
   "/admin/orders/add": "Tạo đơn hàng",
   "/admin/orders/draft": "Đơn hàng nháp",
   "/admin/orders/incomplete": "Đơn hàng chưa hoàn tất",
@@ -103,10 +116,12 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/reports/inventory": "Báo cáo nhập xuất tồn",
   "/admin/settings": "Cài đặt",
   "/admin/chat": "Chat khách hàng",
-  "/admin/vouchers": "Khuyến mãi & Voucher",
+  "/admin/vouchers": "Khuyến mãi",
   "/admin/vouchers/add": "Thêm voucher",
   "/admin/vouchers/edit": "Cập nhật voucher",
   "/admin/shipping/overview": "Tổng quan giao hàng",
+  "/admin/ai-knowledge/approvals": "Duyệt phác đồ",
+  "/admin/ai-knowledge/chatbot": "Chatbot mở đầu",
 };
 
 const HIDDEN_BREADCRUMB_PATHS = new Set([
@@ -128,9 +143,15 @@ export default function AdminTopHeader() {
   const [mounted, setMounted] = useState(false);
   const { logout, isLoading: isLoggingOut } = useLogout();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
-  const { hasPermission, isLoadingAuth } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const canAccessAdvisorWorkspace = hasAnyPermission(
+    ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
+  const canAccessAgronomistWorkspace = hasAnyPermission(
+    AGRONOMIST_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
   const shouldFetchBranchDirectory =
     !!accessToken &&
     hasPermission(P.BRANCH_VIEW) &&
@@ -182,6 +203,7 @@ export default function AdminTopHeader() {
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);
     const items: { href: string; label: string }[] = [];
+    const hideDetailBreadcrumb = pathname.startsWith("/admin/vouchers/edit/");
 
     if (segments[0] !== "admin") {
       return items;
@@ -191,11 +213,11 @@ export default function AdminTopHeader() {
 
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
-
       const exactLabel =
         currentPath === "/admin/branches/add" && editingBranchId
           ? "Cập nhật chi nhánh"
-          : ADMIN_ROUTE_LABELS[currentPath];
+          : ADMIN_ROUTE_LABELS[currentPath] ??
+            ADMIN_ORDER_STATUS_ROUTE_LABELS[currentPath];
       const isLast = index === segments.length - 1;
 
       if (pathname.startsWith("/admin/employees/roles") && HIDDEN_BREADCRUMB_PATHS.has(currentPath)) {
@@ -208,7 +230,7 @@ export default function AdminTopHeader() {
       }
 
       if (/^\d+$/.test(segment) || segment.startsWith("[")) {
-        if (isLast) {
+        if (isLast && !hideDetailBreadcrumb) {
           items.push({ href: currentPath, label: "Chi tiết" });
         }
         return;
@@ -239,7 +261,7 @@ export default function AdminTopHeader() {
 
     if (user?.branch?.name) return user.branch.name;
 
-    if (isAdminRole(user?.role) && !warehouseId) {
+    if (!warehouseId) {
       return "Toàn hệ thống";
     }
 
@@ -259,7 +281,7 @@ export default function AdminTopHeader() {
       if (currentBranch) return currentBranch.name;
     }
 
-    if (isAdminRole(user?.role)) {
+    if (!warehouseId) {
       return branchList.length > 0 ? "Toàn hệ thống" : "Chưa có chi nhánh";
     }
 
@@ -313,6 +335,25 @@ export default function AdminTopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
+        {canAccessAdvisorWorkspace ? (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
+            <Link href="/chat">Qua chat</Link>
+          </Button>
+        ) : null}
+        {canAccessAgronomistWorkspace ? (
+          <Button
+            asChild
+            variant="outline"
+            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
+            <Link href="/agronomist">Qua AI Doctor</Link>
+          </Button>
+        ) : null}
+
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
           <MapPin size={14} className="text-blue-600" />
           <span className="text-[12px] font-bold text-blue-700">
@@ -358,7 +399,7 @@ export default function AdminTopHeader() {
             <DropdownMenuLabel className="px-3 py-3">
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  {isAdminRole(user?.role)
+                  {!warehouseId
                     ? "Quyền hạn cao nhất"
                     : "Thông tin tài khoản"}
                 </span>

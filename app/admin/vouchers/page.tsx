@@ -13,7 +13,6 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 
 const toNumber = (value: number | string | undefined | null) =>
   typeof value === "number"
@@ -33,6 +32,8 @@ const formatDate = (value: string) => {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("vi-VN");
 };
+
+const pageSize = 5;
 
 const getDiscountValue = (voucher: Voucher) =>
   toNumber(voucher.value ?? voucher.discountValue);
@@ -56,10 +57,17 @@ const getStatusLabel = (status: Voucher["status"]) => {
 
 export default function AdminVoucherPage() {
   const router = useRouter();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasAnyPermission } = usePermissions();
   const { user: currentUser, isLoadingAuth } = useAuthStore();
   const canViewVoucher = hasPermission(P.VOUCHER_VIEW);
-  const canManageVoucher = isAdminRole(currentUser?.role);
+  const canCreateVoucher = hasPermission(P.VOUCHER_CREATE);
+  const canUpdateVoucher = hasPermission(P.VOUCHER_UPDATE);
+  const canDeleteVoucher = hasPermission(P.VOUCHER_DELETE);
+  const canManageVoucher = hasAnyPermission([
+    P.VOUCHER_CREATE,
+    P.VOUCHER_UPDATE,
+    P.VOUCHER_DELETE,
+  ]);
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +75,7 @@ export default function AdminVoucherPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | Voucher["status"]>(
     "ALL",
   );
+  const [currentPage, setCurrentPage] = useState(0);
   const [deleteConfirmVoucher, setDeleteConfirmVoucher] =
     useState<Voucher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -131,8 +140,19 @@ export default function AdminVoucherPage() {
     [vouchers],
   );
 
+  const totalPages = Math.max(1, Math.ceil(filteredVouchers.length / pageSize));
+
+  const paginatedVouchers = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredVouchers.slice(start, start + pageSize);
+  }, [currentPage, filteredVouchers]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
   const confirmDelete = async () => {
-    if (!canManageVoucher || !deleteConfirmVoucher?.id) return;
+    if (!canDeleteVoucher || !deleteConfirmVoucher?.id) return;
 
     setIsDeleting(true);
     const isExpired =
@@ -191,7 +211,7 @@ export default function AdminVoucherPage() {
         <h1 className="text-[20px] font-semibold uppercase text-slate-900">
           Quản lý voucher
         </h1>
-        {canManageVoucher && (
+        {canCreateVoucher && (
           <Link
             href="/admin/vouchers/add"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] bg-blue-600 px-5 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700"
@@ -291,7 +311,7 @@ export default function AdminVoucherPage() {
                   </td>
                 </tr>
               ) : (
-                filteredVouchers.map((voucher) => (
+                paginatedVouchers.map((voucher) => (
                   <tr
                     key={voucher.id ?? voucher.code}
                     className="border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50"
@@ -326,7 +346,7 @@ export default function AdminVoucherPage() {
                     {canManageVoucher && (
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
-                          {voucher.id && (
+                          {voucher.id && canUpdateVoucher && (
                             <Link
                               href={`/admin/vouchers/edit/${voucher.id}`}
                               title="Cập nhật voucher"
@@ -335,14 +355,16 @@ export default function AdminVoucherPage() {
                               <Edit size={15} />
                             </Link>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmVoucher(voucher)}
-                            title="Xóa hoặc tạm ẩn voucher"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {canDeleteVoucher && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmVoucher(voucher)}
+                              title="Xóa hoặc tạm ẩn voucher"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -351,6 +373,53 @@ export default function AdminVoucherPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex min-w-full shrink-0 flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12px] font-semibold text-slate-500">
+            Tổng số: {filteredVouchers.length} voucher (Trang {filteredVouchers.length === 0 ? 0 : currentPage + 1}/{filteredVouchers.length === 0 ? 0 : totalPages})
+          </p>
+
+          {filteredVouchers.length > pageSize && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                disabled={currentPage === 0}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Trước
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setCurrentPage(index)}
+                    className={`h-7 min-w-[28px] rounded-[4px] border px-2 text-[11px] font-bold shadow-sm transition-all ${
+                      currentPage === index
+                        ? "border-[#1965a2] bg-gradient-to-r from-[#1965a2] to-[#1965a2] text-white hover:from-[#145486] hover:to-[#145486]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
+                }
+                disabled={currentPage >= totalPages - 1}
+                className="h-7 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Sau
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { AuthService } from "@/app/services/auth.service";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole, isManagerRole, normalizeRoleSlug } from "@/lib/roles";
+import { getPostLoginDestination } from "@/lib/workspace-permissions";
 
 export default function GoogleLoginBtn() {
   const setAccessAndRefreshToken = useAuthStore((state) => state.setAccessAndRefreshToken);
@@ -22,7 +22,7 @@ export default function GoogleLoginBtn() {
     mutationFn: (googleAccessToken: string) => {
       return AuthService.loginWithGoogleNext(googleAccessToken);
     },
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       // 1. Lưu token + user data vào zustand
       try {
         sessionStorage.removeItem("_u");
@@ -31,9 +31,14 @@ export default function GoogleLoginBtn() {
       useAuthStore.getState().setPermissions([]);
       setAccessAndRefreshToken(res);
 
+      let permissions: string[] = [];
+      try {
+        permissions = await AuthService.getMyPermissionsNext();
+        useAuthStore.getState().setPermissions(permissions);
+      } catch {}
+
       // Full page reload để layoutClient hydrate lại user đầy đủ từ API
-      const role = normalizeRoleSlug(res.role);
-      window.location.href = (isAdminRole(role) || isManagerRole(role)) ? "/admin" : "/";
+      window.location.href = getPostLoginDestination(permissions);
     },
     onError: (error: any) => {
       console.error("Google Login Backend Error:", error);

@@ -38,7 +38,6 @@ import { branchService } from "@/app/services/branchService";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { isAdminRole } from "@/lib/roles";
 
 const toIsoDate = (date: Date) => {
   const y = date.getFullYear();
@@ -72,7 +71,7 @@ const formatDateVN = (dateStr: string) => {
 
 export default function ProfitLossReportPage() {
   const { user, warehouseId } = useAuthStore();
-  const isAdmin = isAdminRole(user?.role);
+  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
   const today = new Date();
@@ -82,7 +81,9 @@ export default function ProfitLossReportPage() {
     toIsoDate(firstDayOfMonth)
   );
   const [endDate, setEndDate] = useState(toIsoDate(today));
-  const [branchId, setBranchId] = useState(isAdmin ? "all" : ownBranchId || "all");
+  const [branchId, setBranchId] = useState(
+    canSelectAllBranches ? "all" : ownBranchId || "all"
+  );
   const [branches, setBranches] = useState<Array<{ id: number; name: string }>>(
     []
   );
@@ -153,7 +154,7 @@ export default function ProfitLossReportPage() {
         const list = Array.isArray(res)
           ? res
           : res?.data || res?.content || [];
-        if (!isAdmin && ownBranchId) {
+        if (!canSelectAllBranches && ownBranchId) {
           setBranches(
             list.filter((b: { id: number }) => String(b.id) === ownBranchId)
           );
@@ -165,13 +166,13 @@ export default function ProfitLossReportPage() {
       }
     };
     fetchBranches();
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
-    if (!isAdmin && ownBranchId) {
+    if (!canSelectAllBranches && ownBranchId) {
       setBranchId(ownBranchId);
     }
-  }, [isAdmin, ownBranchId]);
+  }, [canSelectAllBranches, ownBranchId]);
 
   useEffect(() => {
     const fetchReportData = async () => {
@@ -477,12 +478,12 @@ export default function ProfitLossReportPage() {
               <Select value={branchId} onValueChange={setBranchId}>
                 <SelectTrigger
                   className="h-[38px] w-full min-w-[220px] text-[13px] font-medium shadow-none focus:ring-0 lg:w-[260px]"
-                  disabled={!isAdmin}
+                  disabled={!canSelectAllBranches}
                 >
                   <SelectValue placeholder="Tất cả chi nhánh" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isAdmin && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
+                  {canSelectAllBranches && <SelectItem value="all">Tất cả chi nhánh</SelectItem>}
                   {branches.map((b) => (
                     <SelectItem key={b.id} value={String(b.id)}>
                       {b.name}

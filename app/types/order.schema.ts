@@ -12,9 +12,15 @@ export const OrderItemSchema = z.object({
 
 export const OrderStatusEnum = z.enum([
   "ALL",
+  "PENDING_PAYMENT",
+  "PENDING_AUTO_APPROVAL",
+  "PENDING_SHORTAGE_REVIEW",
+  "PENDING_TRANSFER",
   "AWAITING_PAYMENT",
   "AWAITING_REPLENISHMENT",
   "PENDING",
+  "CONFIRMED",
+  "PROCESSING",
   "READY_FOR_PICKUP",
   "SHIPPING",
   "RECEIVED",

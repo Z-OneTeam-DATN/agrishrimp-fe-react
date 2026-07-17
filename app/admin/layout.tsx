@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -10,8 +10,11 @@ import AdminAccessDenied from "@/components/admin/shared/AdminAccessDenied";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
-import { normalizeRoleSlug } from "@/lib/roles";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
+import {
+  ADMIN_WORKSPACE_PERMISSIONS,
+  setLastWorkspace,
+} from "@/lib/workspace-permissions";
 
 const WebSocketProvider = dynamic(
   () => import("@/components/providers/WebSocketProvider"),
@@ -28,7 +31,6 @@ type RouteRule = {
 const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/forbidden", exact: true },
   { path: "/admin", exact: true, permission: P.DASHBOARD_VIEW },
-  { path: "/admin/inventory-dashboard", permission: P.WORKSPACE_VIEW },
   { path: "/admin/reports/sales", permission: P.REPORT_REVENUE_VIEW },
   { path: "/admin/reports/inventory", permission: P.REPORT_INVENTORY_VIEW },
   { path: "/admin/financial", permission: P.REPORT_FINANCE_VIEW },
@@ -64,9 +66,11 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/inventory-checks/new", permission: P.CHECK_CREATE },
   { path: "/admin/inventory-checks", anyOf: [P.CHECK_VIEW, P.CHECK_CREATE, P.CHECK_UPDATE, P.CHECK_APPROVE, P.CHECK_CANCEL, P.CHECK_DELETE] },
   { path: "/admin/settings", permission: P.SETTING_VIEW },
-  { path: "/admin/banners" },
-  { path: "/admin/blog" },
+  { path: "/admin/banners", permission: P.BANNER_VIEW },
+  { path: "/admin/blog", permission: P.BLOG_VIEW },
   { path: "/admin/chat", permission: P.CHAT_VIEW },
+  { path: "/admin/ai-knowledge/approvals", permission: P.AI_KNOWLEDGE_APPROVE },
+  { path: "/admin/ai-knowledge/chatbot", anyOf: [P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_UPDATE] },
 ];
 
 export default function AdminLayout({
@@ -77,10 +81,11 @@ export default function AdminLayout({
   const pathname = usePathname();
   const { hasPermission, hasAnyPermission } = usePermissions();
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
-  const normalizedRole = normalizeRoleSlug(user?.role);
-  const isBlockedAdminRole = normalizedRole === "USER" || normalizedRole === "CUSTOMER";
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const shouldMountWebSocket = pathname.startsWith("/admin/chat");
+  const hasAdminWorkspaceAccess = hasAnyPermission(
+    ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
+  );
 
   const matchedRule = useMemo(() => {
     return ADMIN_ROUTE_RULES.find((rule) =>
@@ -90,9 +95,8 @@ export default function AdminLayout({
 
   const isAllowed = useMemo(() => {
     const isBranchOrderRoute =
-      pathname.startsWith("/admin/orders") &&
-      !pathname.startsWith("/admin/orders-all") &&
-      !pathname.startsWith("/admin/orders/add");
+      pathname.startsWith("/admin/orders-processing") ||
+      pathname.startsWith("/admin/orders-handover");
 
     if (isBranchScopedOrderUser && isBranchOrderRoute) {
       return true;
@@ -104,6 +108,12 @@ export default function AdminLayout({
     return true;
   }, [isBranchScopedOrderUser, matchedRule, hasAnyPermission, hasPermission, pathname]);
 
+  useEffect(() => {
+    if (!isLoadingAuth && hasAdminWorkspaceAccess) {
+      setLastWorkspace("/admin");
+    }
+  }, [hasAdminWorkspaceAccess, isLoadingAuth]);
+
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
@@ -112,11 +122,11 @@ export default function AdminLayout({
     );
   }
 
-  if (isBlockedAdminRole) {
+  if (!hasAdminWorkspaceAccess) {
     return (
       <AdminAccessDenied
         title="Bạn không có quyền truy cập"
-        description="Tài khoản khách hàng không được phép truy cập khu vực quản trị."
+        description="Tài khoản này chưa được cấp quyền cho khu vực quản trị."
       />
     );
   }

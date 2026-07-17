@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Pin, Send, Loader2, MessageCircle, Users, ImageIcon } from "lucide-react";
+import {
+  Pin, Send, Loader2, MessageCircle, ImageIcon,
+  Bell, Trash2, Star, Mail, CheckCircle2, BellOff, Archive,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
 import { EmployeeService } from "@/app/services/employee.service";
@@ -22,6 +25,7 @@ export default function AdminChatPage() {
     activeConversationId, setActiveConversation,
     messages, setMessages, addMessage,
     sendWsMessage,
+    viewersByConv,
   } = useChatStore();
   const { typingByConv } = useTypingStore();
 
@@ -34,6 +38,78 @@ export default function AdminChatPage() {
   const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
   const [cannedSuggestions, setCannedSuggestions] = useState<CannedResponse[]>([]);
 
+  const [mutedConvs, setMutedConvs] = useState<number[]>([]);
+  const [starredConvs, setStarredConvs] = useState<number[]>([]);
+
+  useEffect(() => {
+    try {
+      const muted = localStorage.getItem("agrishrimp_muted_convs");
+      if (muted) setMutedConvs(JSON.parse(muted));
+      const starred = localStorage.getItem("agrishrimp_starred_convs");
+      if (starred) setStarredConvs(JSON.parse(starred));
+    } catch {}
+  }, []);
+
+  const toggleMute = (convId: number) => {
+    const isCurrentlyMuted = mutedConvs.includes(convId);
+    const updated = isCurrentlyMuted
+      ? mutedConvs.filter((id) => id !== convId)
+      : [...mutedConvs, convId];
+    setMutedConvs(updated);
+    localStorage.setItem("agrishrimp_muted_convs", JSON.stringify(updated));
+    toast.success(isCurrentlyMuted ? "Đã bật nhận thông báo cho cuộc hội thoại này" : "Đã tắt nhận thông báo cho cuộc hội thoại này");
+  };
+
+  const toggleStar = (convId: number) => {
+    const isCurrentlyStarred = starredConvs.includes(convId);
+    const updated = isCurrentlyStarred
+      ? starredConvs.filter((id) => id !== convId)
+      : [...starredConvs, convId];
+    setStarredConvs(updated);
+    localStorage.setItem("agrishrimp_starred_convs", JSON.stringify(updated));
+    toast.success(isCurrentlyStarred ? "Đã bỏ đánh dấu sao" : "Đã đánh dấu sao hội thoại");
+  };
+
+  const handleMarkUnread = async (convId: number) => {
+    try {
+      await ChatService.markAsUnread(convId);
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, unreadByShop: 1 } : c))
+      );
+      toast.success("Đã đánh dấu chưa đọc");
+    } catch {
+      toast.error("Không thể đánh dấu chưa đọc");
+    }
+  };
+
+  const handleToggleStatus = async (convId: number, currentStatus: "OPEN" | "CLOSED") => {
+    const nextStatus = currentStatus === "OPEN" ? "CLOSED" : "OPEN";
+    try {
+      await ChatService.updateStatus(convId, nextStatus);
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, status: nextStatus } : c))
+      );
+      toast.success(nextStatus === "CLOSED" ? "Đã đóng cuộc trò chuyện" : "Đã mở lại cuộc trò chuyện");
+    } catch {
+      toast.error("Cập nhật trạng thái thất bại");
+    }
+  };
+
+  const handleArchiveConversation = async (convId: number) => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn lưu trữ cuộc trò chuyện này?");
+    if (!confirm) return;
+    try {
+      await ChatService.updateStatus(convId, "CLOSED");
+      setConversations(
+        conversations.map((c) => (c.id === convId ? { ...c, status: "CLOSED" } : c))
+      );
+      setActiveConversation(null); // Bỏ chọn
+      toast.success("Đã lưu trữ cuộc trò chuyện thành công");
+    } catch {
+      toast.error("Không thể lưu trữ cuộc trò chuyện");
+    }
+  };
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,8 +117,29 @@ export default function AdminChatPage() {
 
   const activeConv = conversations.find((c) => c.id === activeConversationId) ?? null;
   const convMessages = activeConversationId ? (messages[activeConversationId] ?? []) : [];
+  const currentViewers = activeConversationId ? (viewersByConv[activeConversationId] ?? []) : [];
+  const otherViewers = currentViewers
+    .filter((v) => v.userId !== user?.id)
+    .map((v) => v.username);
 
-  // Load all conversations + staff list
+  // Send JOIN/LEAVE messages for chat active viewers
+  useEffect(() => {
+    if (!activeConversationId || !sendWsMessage) return;
+
+    sendWsMessage("/app/chat.viewing", {
+      conversationId: activeConversationId,
+      status: "JOIN",
+    });
+
+    return () => {
+      sendWsMessage("/app/chat.viewing", {
+        conversationId: activeConversationId,
+        status: "LEAVE",
+      });
+    };
+  }, [activeConversationId, sendWsMessage]);
+
+  // Load conversations + staff + canned responses
   useEffect(() => {
     const load = async () => {
       try {
@@ -62,17 +159,15 @@ export default function AdminChatPage() {
     load();
   }, [setConversations]);
 
-  // Load messages when active conversation changes — stale-while-revalidate
+  // Load messages (clean reload to avoid flashing/stale data)
   useEffect(() => {
     if (!activeConversationId) return;
     let cancelled = false;
-
-    const hasCached = (useChatStore.getState().messages[activeConversationId]?.length ?? 0) > 0;
-    if (!hasCached) setIsLoadingMsgs(true);
+    setIsLoadingMsgs(true);
 
     ChatService.getMessages(activeConversationId)
       .then((msgs) => { if (!cancelled) setMessages(activeConversationId, msgs); })
-      .catch(() => { if (!hasCached && !cancelled) toast.error("Không thể tải tin nhắn"); })
+      .catch(() => { if (!cancelled) toast.error("Không thể tải tin nhắn"); })
       .finally(() => { if (!cancelled) setIsLoadingMsgs(false); });
 
     return () => { cancelled = true; };
@@ -83,10 +178,17 @@ export default function AdminChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages.length]);
 
-  const handleSelectConv = useCallback((conv: Conversation) => {
+  const handleSelectConv = useCallback(async (conv: Conversation) => {
     setActiveConversation(conv.id);
-    ChatService.markAsRead(conv.id).catch(() => {});
-  }, [setActiveConversation]);
+    try {
+      await ChatService.markAsRead(conv.id);
+      setConversations(
+        conversations.map((item) =>
+          item.id === conv.id ? { ...item, unreadByShop: 0 } : item
+        )
+      );
+    } catch {}
+  }, [setActiveConversation, conversations, setConversations]);
 
   const handleAssign = useCallback(async (staffId: number | null) => {
     if (!activeConversationId) return;
@@ -117,13 +219,13 @@ export default function AdminChatPage() {
     const val = e.target.value;
     setInput(val);
 
-    // Canned response suggestions: show when input starts with /
     if (val.startsWith("/")) {
       const query = val.slice(1).toLowerCase();
-      const matches = cannedResponses.filter((cr) =>
-        cr.shortcut.toLowerCase().includes(query) || cr.content.toLowerCase().includes(query)
+      setCannedSuggestions(
+        cannedResponses.filter((cr) =>
+          cr.shortcut.toLowerCase().includes(query) || cr.content.toLowerCase().includes(query)
+        )
       );
-      setCannedSuggestions(matches);
     } else {
       setCannedSuggestions([]);
     }
@@ -139,6 +241,7 @@ export default function AdminChatPage() {
     const text = input.trim();
     if (!text || !activeConversationId || isSending) return;
     setInput("");
+    setCannedSuggestions([]);
     setIsSending(true);
     try {
       const msg = await ChatService.sendMessage(activeConversationId, text);
@@ -152,77 +255,131 @@ export default function AdminChatPage() {
     }
   }, [input, activeConversationId, isSending, addMessage]);
 
+  const assignedStaffName = activeConv?.assignedStaffName;
+
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow border border-gray-100 dark:border-slate-700">
-      {/* Left: Conversation list */}
-      <div className="w-72 shrink-0 border-r border-gray-100 dark:border-slate-700 flex flex-col">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-700">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-blue-600" />
-            <h2 className="font-semibold text-gray-800 dark:text-white text-sm">Cuộc trò chuyện</h2>
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <ConversationSidebar
-            conversations={conversations}
-            activeId={activeConversationId}
-            onSelect={handleSelectConv}
-            isLoading={isLoadingConvs}
-          />
-        </div>
+    <div className="flex h-[calc(100vh-64px)] bg-white border-t border-gray-200">
+      {/* ═══ LEFT: Conversation list ═══ */}
+      <div className="w-[360px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
+        <ConversationSidebar
+          conversations={conversations.filter((c) => c.status !== "CLOSED")}
+          activeId={activeConversationId}
+          onSelect={handleSelectConv}
+          isLoading={isLoadingConvs}
+          starredIds={starredConvs}
+        />
       </div>
 
-      {/* Right: Chat area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ═══ RIGHT: Chat area ═══ */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white">
         {!activeConv ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-            <MessageCircle className="w-14 h-14 opacity-20" />
-            <p className="text-base font-medium">Chọn một cuộc trò chuyện</p>
-            <p className="text-sm">để bắt đầu tư vấn khách hàng</p>
+            <img src="/images/logo_arishrimp_tachnen.png" className="w-24 h-24 object-contain mb-2 opacity-80" alt="AgriShrimp Logo" />
+            <p className="text-base font-semibold text-gray-800">Hệ thống tư vấn AgriShrimp</p>
+            <p className="text-sm text-gray-500">Chọn một cuộc trò chuyện để bắt đầu tư vấn khách hàng</p>
           </div>
         ) : (
           <>
-            {/* Chat header */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900">
-              <Avatar className="w-9 h-9">
+            {/* ── Chat header ── */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white">
+              {/* Customer info */}
+              <Avatar className="w-10 h-10">
                 <AvatarImage src={activeConv.customerAvatar} />
-                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-sm">
+                <AvatarFallback className="bg-gray-300 text-gray-700 font-semibold text-sm">
                   {activeConv.customerName?.charAt(0) ?? "K"}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-semibold text-sm text-gray-800 dark:text-white">{activeConv.customerName}</p>
-                <p className="text-xs text-gray-400">Khách hàng</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-[15px] text-gray-900 truncate">
+                  {activeConv.customerName}
+                </p>
+                <p className="text-xs text-[#0084ff] font-medium">
+                  Khách hàng liên hệ
+                </p>
               </div>
-              <div className="ml-auto flex items-center gap-2">
-                {staffList.length > 0 && (
-                  <select
-                    value={activeConv.assignedStaffId ?? ""}
-                    onChange={(e) => handleAssign(e.target.value ? Number(e.target.value) : null)}
-                    className="text-xs bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
-                    title="Phân công nhân viên"
-                  >
-                    <option value="">— Chưa phân công —</option>
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.id}>{s.fullName}</option>
-                    ))}
-                  </select>
-                )}
+
+              {/* Action icons — Messenger Business style */}
+              <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setIsPinModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/40 rounded-lg transition-colors"
+                  type="button"
+                  onClick={() => toggleMute(activeConv.id)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                    mutedConvs.includes(activeConv.id)
+                      ? "text-rose-500 hover:bg-rose-50"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                  title={mutedConvs.includes(activeConv.id) ? "Bật thông báo" : "Tắt thông báo"}
                 >
-                  <Pin className="w-3.5 h-3.5" />
-                  Ghim sản phẩm
+                  {mutedConvs.includes(activeConv.id) ? (
+                    <BellOff className="w-[18px] h-[18px]" />
+                  ) : (
+                    <Bell className="w-[18px] h-[18px]" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleArchiveConversation(activeConv.id)}
+                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Đóng và lưu trữ cuộc trò chuyện"
+                >
+                  <Archive className="w-[18px] h-[18px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleStar(activeConv.id)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                    starredConvs.includes(activeConv.id)
+                      ? "text-amber-500 hover:bg-amber-50"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                  title={starredConvs.includes(activeConv.id) ? "Bỏ đánh dấu sao" : "Đánh dấu sao"}
+                >
+                  <Star
+                    className={`w-[18px] h-[18px] ${
+                      starredConvs.includes(activeConv.id) ? "fill-amber-400 text-amber-500" : ""
+                    }`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMarkUnread(activeConv.id)}
+                  className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Đánh dấu chưa đọc"
+                >
+                  <Mail className="w-[18px] h-[18px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleStatus(activeConv.id, activeConv.status)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                    activeConv.status === "CLOSED"
+                      ? "text-emerald-500 hover:bg-emerald-50"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                  title={activeConv.status === "CLOSED" ? "Mở lại cuộc trò chuyện" : "Đóng cuộc trò chuyện"}
+                >
+                  <CheckCircle2
+                    className={`w-[18px] h-[18px] ${
+                      activeConv.status === "CLOSED" ? "fill-emerald-100 text-emerald-600" : ""
+                    }`}
+                  />
                 </button>
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/40">
+            {/* ── Active viewers banner ── */}
+            {otherViewers.length > 0 && (
+              <div className="bg-amber-50 text-amber-700 px-4 py-2 text-xs font-semibold border-b border-amber-100 flex items-center gap-1.5 animate-pulse shrink-0">
+                <span>⚠️</span>
+                <span>{otherViewers.join(" và ")} đang xử lý đoạn chat này...</span>
+              </div>
+            )}
+
+            {/* ── Messages ── */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2 bg-white">
               {isLoadingMsgs ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#0084ff] animate-spin" />
                 </div>
               ) : convMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
@@ -240,57 +397,86 @@ export default function AdminChatPage() {
                 ))
               )}
               {activeConversationId && typingByConv[activeConversationId] && (
-                <TypingBubble />
+                <TypingBubble name={activeConv?.customerName || "Khách hàng"} />
               )}
               <div ref={bottomRef} />
             </div>
 
-            {/* Canned response suggestions */}
+            {/* ── Canned response suggestions ── */}
             {cannedSuggestions.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 max-h-48 overflow-y-auto">
+              <div className="border-t border-gray-200 bg-white max-h-48 overflow-y-auto">
                 {cannedSuggestions.map((cr) => (
                   <button
                     key={cr.id}
                     onClick={() => { setInput(cr.content); setCannedSuggestions([]); inputRef.current?.focus(); }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-50 dark:border-slate-700/50 last:border-0"
+                    className="w-full text-left px-4 py-2.5 hover:bg-[#f0f2f5] border-b border-gray-100 last:border-0 transition-colors"
                   >
-                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 mr-2">/{cr.shortcut}</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{cr.content}</span>
+                    <span className="text-xs font-semibold text-[#0084ff] mr-2">/{cr.shortcut}</span>
+                    <span className="text-sm text-gray-600 truncate">{cr.content}</span>
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Input */}
-            <div className="px-4 py-3 border-t border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center gap-2">
+            {/* ── Input bar ── */}
+            <div className="px-4 py-3 border-t border-gray-200 bg-white flex items-center gap-3">
+              {/* Page avatar */}
+              <Avatar className="w-8 h-8 shrink-0">
+                <AvatarImage src="/images/logo_arishrimp.jpg" />
+                <AvatarFallback className="bg-gray-200 text-gray-600 text-xs font-bold">AS</AvatarFallback>
+              </Avatar>
+
+              {/* Input field */}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSending}
-                className="text-gray-400 hover:text-blue-500 disabled:opacity-40 transition-colors shrink-0"
-                title="Gửi ảnh"
-              >
-                <ImageIcon className="w-5 h-5" />
-              </button>
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder={`Trả lời ${activeConv.customerName}...`}
-                className="flex-1 bg-gray-100 dark:bg-slate-700 text-sm rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400 dark:text-gray-100 placeholder-gray-400"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isSending}
-                className="w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 flex items-center justify-center transition-colors shrink-0"
-              >
-                {isSending ? (
-                  <Loader2 className="w-4 h-4 text-white animate-spin" />
+              <div className="flex-1 flex items-center bg-[#f0f2f5] rounded-full px-4 py-2">
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder="Trả lời trong Messenger..."
+                  className="flex-1 bg-transparent text-sm outline-none text-gray-800 placeholder-gray-500"
+                />
+              </div>
+
+              {/* Action icons */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSending}
+                  className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
+                  title="Đính kèm ảnh"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setIsPinModalOpen(true)}
+                  className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors"
+                  title="Ghim sản phẩm"
+                >
+                  <Pin className="w-5 h-5" />
+                </button>
+                {input.trim() ? (
+                  <button
+                    onClick={handleSend}
+                    disabled={isSending}
+                    className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
+                  >
+                    {isSending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </button>
                 ) : (
-                  <Send className="w-4 h-4 text-white" />
+                  <button
+                    className="w-8 h-8 flex items-center justify-center text-[#0084ff] hover:bg-gray-100 rounded-full transition-colors"
+                    title="Gửi like"
+                  >
+                    <span className="text-lg">👍</span>
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           </>
         )}
@@ -312,4 +498,3 @@ export default function AdminChatPage() {
     </div>
   );
 }
-

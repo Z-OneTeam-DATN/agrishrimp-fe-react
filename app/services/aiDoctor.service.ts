@@ -3,10 +3,13 @@ import type {
   AiDoctorChatResponse,
   AiDoctorDiagnosisResponse,
   AiDoctorHistoryListResponse,
+  AiDoctorPrompt,
 } from "@/app/types/ai-doctor.types";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const DIAGNOSIS_STORAGE_PREFIX = "ai-doctor:diagnosis:";
 const LAST_DIAGNOSIS_ID_KEY = "ai-doctor:last-id";
+const PUBLIC_SESSION_ID_KEY = "ai-doctor:public-session-id";
 
 const canUseStorage = () => typeof window !== "undefined" && !!window.sessionStorage;
 
@@ -49,6 +52,19 @@ const getLastDiagnosisId = () => {
   return window.sessionStorage.getItem(LAST_DIAGNOSIS_ID_KEY);
 };
 
+const getPublicSessionId = () => {
+  if (!canUseStorage()) return undefined;
+
+  let sessionId = window.localStorage.getItem(PUBLIC_SESSION_ID_KEY);
+  if (sessionId) return sessionId;
+
+  sessionId = crypto?.randomUUID?.() ?? `session_${Date.now()}`;
+  window.localStorage.setItem(PUBLIC_SESSION_ID_KEY, sessionId);
+  return sessionId;
+};
+
+const hasPrivateAccess = () => Boolean(useAuthStore.getState().accessToken);
+
 export const aiDoctorService = {
   async diagnose(image: File, userSymptoms?: string) {
     const formData = new FormData();
@@ -57,14 +73,21 @@ export const aiDoctorService = {
     if (userSymptoms?.trim()) {
       formData.append("userSymptoms", userSymptoms.trim());
     }
+    if (!hasPrivateAccess()) {
+      const sessionId = getPublicSessionId();
+      if (sessionId) {
+        formData.append("sessionId", sessionId);
+      }
+    }
 
     const response = await apiJava.post<AiDoctorDiagnosisResponse>(
-      "/miniapp/diagnosis",
+      hasPrivateAccess() ? "/ai-doctor/diagnosis" : "/public/ai-doctor/diagnosis",
       formData,
-      {
+      ({
         headers: { "Content-Type": "multipart/form-data" },
+        isPublic: !hasPrivateAccess(),
         timeout: 90000,
-      },
+      } as any),
     );
 
     persistDiagnosis(response.data);
@@ -72,7 +95,7 @@ export const aiDoctorService = {
   },
 
   async getHistory(page: number = 0, size: number = 20) {
-    const response = await apiJava.get<AiDoctorHistoryListResponse>("/miniapp/history", {
+    const response = await apiJava.get<AiDoctorHistoryListResponse>("/ai-doctor/history", {
       params: { page, size },
     });
     return response.data;
@@ -80,7 +103,7 @@ export const aiDoctorService = {
 
   async getDiagnosisDetail(diagnosisId: string | number) {
     const response = await apiJava.get<AiDoctorDiagnosisResponse>(
-      `/miniapp/diagnosis/${diagnosisId}`,
+      `/ai-doctor/diagnosis/${diagnosisId}`,
     );
     persistDiagnosis(response.data);
     return response.data;
@@ -88,7 +111,7 @@ export const aiDoctorService = {
 
   async generatePrescription(diagnosisId: string | number) {
     const response = await apiJava.post<AiDoctorDiagnosisResponse>(
-      `/miniapp/diagnosis/${diagnosisId}/prescription`,
+      `/ai-doctor/diagnosis/${diagnosisId}/prescription`,
       {},
       { timeout: 120000 },
     );
@@ -116,15 +139,29 @@ export const aiDoctorService = {
   },
 
   async chat(message: string, diagnosisContext?: { diseaseCode?: string; diseaseName?: string }) {
-    const response = await apiJava.post<AiDoctorChatResponse>("/miniapp/chat", {
+    const isPrivate = hasPrivateAccess();
+    const response = await apiJava.post<AiDoctorChatResponse>(
+      isPrivate ? "/ai-doctor/chat" : "/public/ai-doctor/chat",
+      {
       message,
-      diagnosis_context: diagnosisContext
-        ? { disease_code: diagnosisContext.diseaseCode, disease_name: diagnosisContext.diseaseName }
+      sessionId: isPrivate ? undefined : getPublicSessionId(),
+      diagnosisContext: diagnosisContext
+        ? { diseaseCode: diagnosisContext.diseaseCode, diseaseName: diagnosisContext.diseaseName }
         : undefined,
-    });
+    },
+      { isPublic: !isPrivate } as any,
+    );
+    return response.data;
+  },
+
+  async getPrompts() {
+    const response = await apiJava.get<AiDoctorPrompt[]>("/public/ai-doctor/prompts", {
+      isPublic: true,
+    } as any);
     return response.data;
   },
 
   getCachedDiagnosis,
   getLastDiagnosisId,
+  getPublicSessionId,
 };

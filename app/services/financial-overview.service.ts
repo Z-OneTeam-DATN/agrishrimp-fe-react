@@ -22,7 +22,7 @@ export const FinancialOverviewService = {
   async getReport(
     filters: FinancialOverviewFilters,
   ): Promise<FinancialOverviewData> {
-    const [profitLoss, supplierDebts] = await Promise.all([
+    const [profitLossResult, supplierDebtsResult] = await Promise.allSettled([
       ProfitLossService.getReport(
         filters.startDate,
         filters.endDate,
@@ -36,9 +36,17 @@ export const FinancialOverviewService = {
       }),
     ]);
 
+    if (profitLossResult.status !== "fulfilled") {
+      throw profitLossResult.reason;
+    }
+
     return {
-      profitLoss,
-      supplierDebts: Array.isArray(supplierDebts) ? supplierDebts : [],
+      profitLoss: profitLossResult.value,
+      supplierDebts:
+        supplierDebtsResult.status === "fulfilled" &&
+        Array.isArray(supplierDebtsResult.value)
+          ? supplierDebtsResult.value
+          : [],
     };
   },
 };

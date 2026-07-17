@@ -42,6 +42,7 @@ const isTimeoutError = (error: unknown) => {
 
 export const getPublicBrands = async (): Promise<BrandDTO[]> => {
   try {
+
     const response = await apiJava.get(
       buildJavaApiUrl("/public/brands"),
       withPublicRequest(),
@@ -81,13 +82,15 @@ export const getAdminBrands = async (keyword?: string): Promise<BrandDTO[]> => {
     if (isRequestAborted(error)) {
       return [];
     }
-
     console.error("Failed to load admin brands:", error);
+
     throw error;
   }
 };
 
-export const getAdminBrandById = async (id: number): Promise<BrandDTO | null> => {
+export const getAdminBrandById = async (
+  id: number,
+): Promise<BrandDTO | null> => {
   try {
     const response = await apiJava.get(
       buildJavaApiUrl(`/brands/${id}` as ApiPath),

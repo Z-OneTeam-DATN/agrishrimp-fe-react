@@ -34,16 +34,22 @@ import {
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/roles";
 
 export default function ProductsPage() {
     const router = useRouter();
 
     const { user, isLoadingAuth } = useAuthStore();
-    const isAdmin = isAdminRole(user?.role);
 
     // Hook phân quyền
-    const { hasPermission } = usePermissions();
+    const { hasPermission, hasAnyPermission } = usePermissions();
+    const canManagePricingSettings = hasPermission(P.SETTING_UPDATE);
+    const canViewImportPrice = hasAnyPermission([
+        P.REPORT_FINANCE_VIEW,
+        P.IMPORT_VIEW,
+        P.EXPORT_CREATE,
+        P.TRANSFER_CREATE,
+        P.PURCHASE_REQUEST_VIEW,
+    ]);
 
     const [products, setProducts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -193,7 +199,7 @@ export default function ProductsPage() {
 
                 setDbCategories(data);
 
-                if (isAdmin) {
+                if (canManagePricingSettings) {
                     const marginData = await SettingService.getProfitMargin();
                     if (marginData && marginData.margin) {
                         setProfitMargin(marginData.margin);
@@ -225,7 +231,7 @@ export default function ProductsPage() {
             }
         };
         fetchInitialData();
-    }, [isAdmin]);
+    }, [canManagePricingSettings]);
 
     const handleMarginInputChange = (value: string) => {
         const normalizedValue = value.replace(",", ".").trim();
@@ -704,7 +710,7 @@ export default function ProductsPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        {isAdmin && (
+                        {canManagePricingSettings && (
                             <>
                                 <Button
                                     type="button"
@@ -1026,6 +1032,7 @@ export default function ProductsPage() {
                         {viewMode === "product" ? (
                             <AdminProductTable
                                 products={paginatedProducts}
+                                canViewImportPrice={canViewImportPrice}
                                 currentPage={currentPage}
                                 pageSize={pageSize}
                                 onDelete={handleDelete}

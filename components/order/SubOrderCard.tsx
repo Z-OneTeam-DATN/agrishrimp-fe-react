@@ -74,6 +74,11 @@ export function SubOrderCard({
                   Phân loại: {item.variantSku}
                 </p>
               )}
+              {(item.missingQuantity ?? 0) > 0 && (
+                <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                  Thiếu {item.missingQuantity}. Hệ thống sẽ điều chuyển hoặc gom thêm trước khi giao.
+                </p>
+              )}
               {/* Mobile: show price inline */}
               <p className="md:hidden text-xs text-gray-400 mt-1">
                 {formatMoney(item.unitPrice)} × {item.quantity}

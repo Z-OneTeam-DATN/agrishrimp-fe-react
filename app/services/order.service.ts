@@ -9,6 +9,10 @@ import {
   OrderStatus as MyOrderStatus,
   BranchOrder,
   MissingItemReport,
+  PrepareOrderPayload,
+  PrepareOrderResponse,
+  ConfirmOrderPayload,
+  ConfirmOrderResponse,
 } from "@/app/types/order.types";
 
 export interface ReturnOrder {
@@ -125,12 +129,31 @@ export const orderService = {
   },
 
   // 5. ĐẶT HÀNG (CHECKOUT)
-  checkout: async (payload: CheckoutPayload): Promise<any> => {
-    const response = await apiJava.post(
-      `${orderService.PREFIX}/checkout`,
+  prepareOrder: async (
+    payload: PrepareOrderPayload,
+  ): Promise<PrepareOrderResponse> => {
+    const response = await apiJava.post<PrepareOrderResponse>(
+      `${orderService.PREFIX}/prepare`,
       payload,
     );
     return response.data;
+  },
+
+  confirmOrder: async (
+    payload: ConfirmOrderPayload,
+  ): Promise<ConfirmOrderResponse> => {
+    const response = await apiJava.post<ConfirmOrderResponse>(
+      `${orderService.PREFIX}/confirm`,
+      payload,
+    );
+    return response.data;
+  },
+
+  getPaymentLink: async (orderId: number | string): Promise<string> => {
+    const response = await apiJava.get<{ checkoutUrl: string }>(
+      `${orderService.PREFIX}/${orderId}/payment-link`,
+    );
+    return response.data.checkoutUrl;
   },
 
   // ==========================================

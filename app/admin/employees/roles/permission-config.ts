@@ -2,7 +2,9 @@ import {
   Building2,
   LayoutDashboard,
   LucideIcon,
+  MessageSquareText,
   Package,
+  Microscope,
   Settings,
   ShoppingCart,
   TrendingUp,
@@ -33,7 +35,6 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
     icon: LayoutDashboard,
     screens: [
       { id: P.DASHBOARD_VIEW, label: "Bảng điều khiển trung tâm", advanced: [] },
-      { id: P.WORKSPACE_VIEW, label: "Bàn làm việc kho", advanced: [] },
     ],
   },
   {
@@ -208,6 +209,16 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
           { id: P.INVENTORY_CHECK_DELETE, label: "Xóa phiếu kiểm kê" },
         ],
       },
+      {
+        id: P.PURCHASE_REQUEST_VIEW,
+        label: "Yêu cầu mua NCC",
+        advanced: [
+          { id: P.PURCHASE_REQUEST_CREATE, label: "Tạo yêu cầu mua" },
+          { id: P.PURCHASE_REQUEST_UPDATE, label: "Sửa yêu cầu mua" },
+          { id: P.PURCHASE_REQUEST_APPROVE, label: "Duyệt yêu cầu mua" },
+          { id: P.PURCHASE_REQUEST_DELETE, label: "Xóa yêu cầu mua" },
+        ],
+      },
     ],
   },
   {
@@ -227,6 +238,56 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
         id: P.SETTING_VIEW,
         label: "Cài đặt hệ thống",
         advanced: [{ id: P.SETTING_UPDATE, label: "Cập nhật cài đặt" }],
+      },
+      {
+        id: P.BANNER_VIEW,
+        label: "Banner",
+        advanced: [
+          { id: P.BANNER_CREATE, label: "Tạo banner" },
+          { id: P.BANNER_EDIT, label: "Sửa banner" },
+          { id: P.BANNER_DELETE, label: "Xóa banner" },
+        ],
+      },
+      {
+        id: P.BLOG_VIEW,
+        label: "Blog",
+        advanced: [
+          { id: P.BLOG_CREATE, label: "Tạo bài viết" },
+          { id: P.BLOG_EDIT, label: "Sửa nội dung blog" },
+          { id: P.BLOG_DELETE, label: "Xóa nội dung blog" },
+        ],
+      },
+    ],
+  },
+  {
+    group: "Tư vấn khách hàng",
+    icon: MessageSquareText,
+    screens: [
+      {
+        id: P.CUSTOMER_ADVISOR_USE,
+        label: "Workspace tư vấn khách hàng",
+        advanced: [
+          { id: P.CHAT_VIEW, label: "Xem danh sách hội thoại" },
+          { id: P.CHAT_MANAGE, label: "Phân công và ghim sản phẩm" },
+        ],
+      },
+    ],
+  },
+  {
+    group: "AI Doctor",
+    icon: Microscope,
+    screens: [
+      {
+        id: P.AGRONOMIST_WORKSPACE_USE,
+        label: "Workspace kỹ sư nông nghiệp",
+        advanced: [
+          { id: P.AI_KNOWLEDGE_VIEW, label: "Xem tri thức AI" },
+          { id: P.AI_KNOWLEDGE_CREATE, label: "Tạo tri thức AI" },
+          { id: P.AI_KNOWLEDGE_UPDATE, label: "Cập nhật tri thức AI" },
+          { id: P.AI_KNOWLEDGE_APPROVE, label: "Duyệt tri thức AI" },
+          { id: P.AI_IMPORT_KNOWLEDGE, label: "Import tri thức AI" },
+          { id: P.AI_CASE_REVIEW, label: "Xử lý case AI" },
+        ],
       },
     ],
   },

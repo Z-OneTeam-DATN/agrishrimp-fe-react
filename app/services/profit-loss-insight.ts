@@ -1,26 +1,40 @@
 import { apiJava } from "@/lib/axios";
 
-export interface ContributionBreakdownItem {
-  factor: "REVENUE" | "COGS" | "SHIPPING" | "DISCOUNT" | "RETURNS";
+const PREFIX = "/financial";
+
+export type ProfitLossInsightStatus = "SAFE" | "WARNING";
+export type ProfitLossContributionFactor =
+  | "REVENUE"
+  | "COGS"
+  | "SHIPPING"
+  | "DISCOUNT"
+  | "RETURNS";
+
+export interface ProfitLossContributionBreakdownItem {
+  factor: ProfitLossContributionFactor;
   currentValue: number;
-  previousValue: number | null;
-  changeAmount: number | null;
+  previousValue: number;
+  changeAmount: number;
   note: string;
 }
 
 export interface ProfitLossInsightResult {
-  netProfitChangePercent: number | "NO_PREVIOUS_DATA";
-  contributionBreakdown: ContributionBreakdownItem[];
   cogsRatio: number;
-  cogsRatioStatus: "NORMAL" | "WARNING";
+  cogsRatioStatus: ProfitLossInsightStatus;
   returnRatio: number;
-  returnRatioStatus: "NORMAL" | "WARNING";
-  isNetProfitNegative: boolean;
-  excludedZeroFields: string[];
+  returnRatioStatus: ProfitLossInsightStatus;
+  netProfitChangePercent: string;
   warnings: string[];
+  contributionBreakdown: ProfitLossContributionBreakdownItem[];
 }
 
-export interface ProfitLossAiAnalysis {
+export interface ProfitLossInsightFilters {
+  branchId?: string | number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ProfitLossAiExplanation {
   success: boolean;
   summary: string;
   keyDrivers: string;
@@ -28,42 +42,47 @@ export interface ProfitLossAiAnalysis {
 }
 
 export const ProfitLossInsightService = {
-  getInsightAnalysis: async (params: {
-    branchId: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<ProfitLossInsightResult> => {
-    const query = new URLSearchParams();
-    if (params.startDate) query.append("startDate", params.startDate);
-    if (params.endDate) query.append("endDate", params.endDate);
-    if (params.branchId && params.branchId !== "all") {
-      query.append("branchId", params.branchId);
-    }
+  async getInsightAnalysis(
+    filters: ProfitLossInsightFilters,
+  ): Promise<ProfitLossInsightResult> {
+    const response = await apiJava.get(`${PREFIX}/profit-loss/insight-analysis`, {
+      params: {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        branchId:
+          filters.branchId === "all" || filters.branchId === "ALL"
+            ? null
+            : filters.branchId,
+      },
+    });
 
-    const response = await apiJava.get<ProfitLossInsightResult>(
-      `/financial/profit-loss/insight-analysis?${query.toString()}`
-    );
     return response.data;
   },
 
-  getAiExplanation: async (
+  async getAiExplanation(
     insightResult: ProfitLossInsightResult,
     branchName: string,
-    startDate?: string,
-    endDate?: string
-  ): Promise<ProfitLossAiAnalysis> => {
-    const res = await fetch("/api/profit-loss-insight", {
+    startDate: string,
+    endDate: string,
+  ): Promise<ProfitLossAiExplanation> {
+    const response = await fetch("/api/profit-loss-analysis", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ insightResult, branchName, startDate, endDate }),
+      body: JSON.stringify({
+        insightResult,
+        branchName,
+        startDate,
+        endDate,
+      }),
     });
 
-    if (!res.ok) {
-      throw new Error("Không thể gọi API phân tích AI");
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || "Khong the phan tich lai lo bang AI");
     }
 
-    return res.json();
+    return data;
   },
 };

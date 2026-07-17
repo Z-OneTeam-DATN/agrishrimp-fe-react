@@ -1,5 +1,5 @@
-import { AdminOrdersListModule } from "@/components/admin/orders/OrderAdminModule";
+import { redirect } from "next/navigation";
 
 export default function AdminOrdersPage() {
-  return <AdminOrdersListModule />;
+  redirect("/admin/orders-all");
 }

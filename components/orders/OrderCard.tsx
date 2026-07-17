@@ -1,9 +1,23 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { Store, Truck, CheckCircle2, RotateCcw, XCircle, CreditCard, Clock, Package } from "lucide-react";
-import { MyOrder, OrderStatus } from "@/app/types/order.types";
+import {
+  Store,
+  Truck,
+  CheckCircle2,
+  RotateCcw,
+  XCircle,
+  CreditCard,
+  Clock,
+  Package,
+} from "lucide-react";
+import {
+  MyOrder,
+  OrderPaymentStatus,
+  OrderStatus,
+} from "@/app/types/order.types";
 import { cn } from "@/lib/utils";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { CancelOrderModal } from "./CancelOrderModal";
@@ -14,6 +28,10 @@ interface OrderCardProps {
 }
 
 const cancellableStatuses: OrderStatus[] = [
+  "PENDING_PAYMENT",
+  "PENDING_AUTO_APPROVAL",
+  "PENDING_SHORTAGE_REVIEW",
+  "PENDING_TRANSFER",
   "AWAITING_PAYMENT",
   "PENDING",
   "AWAITING_REPLENISHMENT",
@@ -21,6 +39,99 @@ const cancellableStatuses: OrderStatus[] = [
   "PROCESSING",
   "READY_FOR_PICKUP",
 ];
+
+const isPaidPaymentStatus = (status: OrderPaymentStatus | string) =>
+  status === "PAID" || status === "REFUNDED";
+
+const getPaymentLabel = (status: OrderPaymentStatus | string) => {
+  switch (status) {
+    case "PAID":
+      return "Đã thanh toán";
+    case "PENDING":
+      return "Chờ thanh toán";
+    case "PENDING_VERIFICATION":
+      return "Chờ xác nhận chuyển khoản";
+    case "PARTIALLY_PAID":
+      return "Đã thanh toán một phần";
+    case "EXPIRED":
+      return "Hết hạn thanh toán";
+    case "FAILED":
+      return "Thanh toán lỗi";
+    case "REFUND_PENDING":
+      return "Chờ hoàn tiền";
+    case "REFUNDED":
+      return "Đã hoàn tiền";
+    default:
+      return "Chưa thanh toán";
+  }
+};
+
+const getStatusConfig = (status: OrderStatus) => {
+  switch (status) {
+    case "PENDING_PAYMENT":
+      return {
+        label: "Chờ thanh toán",
+        className: "text-[#1965a2]",
+        icon: <CreditCard size={14} className="mr-1" />,
+      };
+    case "PENDING_AUTO_APPROVAL":
+    case "PENDING":
+      return {
+        label: "Chờ xác nhận",
+        className: "text-[#1965a2]",
+        icon: <Clock size={14} className="mr-1" />,
+      };
+    case "PENDING_SHORTAGE_REVIEW":
+    case "PENDING_TRANSFER":
+    case "AWAITING_REPLENISHMENT":
+    case "CONFIRMED":
+    case "PROCESSING":
+    case "READY_FOR_PICKUP":
+      return {
+        label: "Chờ lấy hàng",
+        className: "text-[#1965a2]",
+        icon: <Package size={14} className="mr-1" />,
+      };
+    case "AWAITING_PAYMENT":
+      return {
+        label: "Chờ thanh toán",
+        className: "text-[#1965a2]",
+        icon: <CreditCard size={14} className="mr-1" />,
+      };
+    case "SHIPPING":
+      return {
+        label: "Chờ giao hàng",
+        className: "text-[#1965a2]",
+        icon: <Truck size={14} className="mr-1" />,
+      };
+    case "RECEIVED":
+      return {
+        label: "Đã nhận hàng",
+        className: "text-[#1965a2]",
+        icon: <CheckCircle2 size={14} className="mr-1" />,
+      };
+    case "COMPLETED":
+      return {
+        label: "Đã giao",
+        className: "text-[#1965a2]",
+        icon: <CheckCircle2 size={14} className="mr-1" />,
+      };
+    case "CANCELLED":
+      return {
+        label: "Đã hủy",
+        className: "text-red-500",
+        icon: <XCircle size={14} className="mr-1" />,
+      };
+    case "RETURNED":
+      return {
+        label: "Trả hàng",
+        className: "text-orange-600",
+        icon: <RotateCcw size={14} className="mr-1" />,
+      };
+    default:
+      return { label: status, className: "text-gray-500", icon: null };
+  }
+};
 
 export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -30,69 +141,6 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
       style: "currency",
       currency: "VND",
     }).format(amount);
-
-  const getStatusConfig = (status: OrderStatus) => {
-    switch (status) {
-      case "AWAITING_PAYMENT":
-        return {
-          label: "Chờ thanh toán",
-          className: "text-[#1965a2]",
-          icon: <CreditCard size={14} className="mr-1" />,
-        };
-      case "AWAITING_REPLENISHMENT":
-        return {
-          label: "Chờ lấy hàng",
-          className: "text-[#1965a2]",
-          icon: <Package size={14} className="mr-1" />,
-        };
-      case "PENDING":
-        return {
-          label: "Chờ xác nhận",
-          className: "text-[#1965a2]",
-          icon: <Clock size={14} className="mr-1" />,
-        };
-      case "CONFIRMED":
-      case "PROCESSING":
-      case "READY_FOR_PICKUP":
-        return {
-          label: "Chờ lấy hàng",
-          className: "text-[#1965a2]",
-          icon: <Package size={14} className="mr-1" />,
-        };
-      case "SHIPPING":
-        return {
-          label: "Chờ giao hàng",
-          className: "text-[#1965a2]",
-          icon: <Truck size={14} className="mr-1" />,
-        };
-      case "RECEIVED":
-        return {
-          label: "Đã nhận hàng",
-          className: "text-[#1965a2]",
-          icon: <CheckCircle2 size={14} className="mr-1" />,
-        };
-      case "COMPLETED":
-        return {
-          label: "Đã giao",
-          className: "text-[#1965a2]",
-          icon: <CheckCircle2 size={14} className="mr-1" />,
-        };
-      case "CANCELLED":
-        return {
-          label: "Đã hủy",
-          className: "text-red-500",
-          icon: <XCircle size={14} className="mr-1" />,
-        };
-      case "RETURNED":
-        return {
-          label: "Trả hàng",
-          className: "text-orange-600",
-          icon: <RotateCcw size={14} className="mr-1" />,
-        };
-      default:
-        return { label: status, className: "text-gray-500", icon: null };
-    }
-  };
 
   const statusConfig = getStatusConfig(order.status);
 
@@ -107,7 +155,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
     <div className="mb-3 overflow-hidden border border-gray-100 bg-white transition-all duration-200 hover:shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-50 bg-gray-50/30 px-4 py-3">
         <div className="flex flex-col">
-          <div className="font-bold text-gray-800 flex items-center text-sm">
+          <div className="flex items-center text-sm font-bold text-gray-800">
             <Store size={16} className="mr-2 text-gray-500" /> Cửa hàng AgriShrimp
           </div>
           <div className="ml-6 text-[11px] font-mono text-gray-400">Mã đơn: {order.code}</div>
@@ -128,7 +176,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             <Link href={`/orders/${order.id}`} className="group flex min-w-0 flex-1 cursor-pointer gap-3">
               <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-100 transition-colors group-hover:border-[#1965a2]/30">
                 <Image
-                  src={item.image || "/placeholder.png"}
+                  src={resolveImageUrl(item.image, "/placeholder.png")}
                   alt={item.productName}
                   fill
                   className={`object-cover transition-transform duration-300 group-hover:scale-105 ${order.status === "CANCELLED" ? "grayscale opacity-70" : ""}`}
@@ -143,11 +191,6 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <span className="text-gray-300">|</span>
                   <span>SKU: {item.sku}</span>
                 </div>
-                {(item.missingQuantity ?? 0) > 0 && (
-                  <div className="mt-1 text-[11px] font-semibold text-[#1965a2]">
-                    Đang bổ sung thêm {item.missingQuantity} sản phẩm
-                  </div>
-                )}
                 <div className={`mt-1.5 text-sm font-bold sm:hidden ${order.status === "CANCELLED" ? "text-gray-400" : "text-red-500"}`}>
                   {formatCurrency(item.price)}
                 </div>
@@ -172,7 +215,7 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
                   <Link href={`/reviews/write/${item.productId}?orderId=${order.id}`}>
                     <Button
                       variant="outline"
-                      className={cn(btnOutlineClass, "h-7 border-[#1965a2] px-3 text-[10px] text-[#1965a2] hover:bg-blue-50 hover:text-[#1965a2]")}
+                      className={cn(btnOutlineClass, "h-7 border-[#1965a2] px-3 text-[10px] text-[#1965a2] hover:bg-[#1965a2]/10 hover:text-[#1965a2]")}
                     >
                       Viết đánh giá
                     </Button>
@@ -196,23 +239,28 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
             <span
               className={cn(
                 "ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase",
-                order.paymentStatus === "PAID" ? "bg-blue-100 text-blue-600" : "bg-orange-100 text-orange-600",
+                isPaidPaymentStatus(order.paymentStatus)
+                  ? "bg-[#1965a2]/10 text-[#1965a2]"
+                  : "bg-orange-100 text-orange-600",
               )}
             >
-              {order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
+              {getPaymentLabel(order.paymentStatus)}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          {order.paymentMethod === "PAYOS" && order.paymentStatus === "UNPAID" && order.checkoutUrl && ["PENDING", "AWAITING_PAYMENT"].includes(order.status) && (
-            <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer">
-              <Button className={btnPayClass}>
-                <CreditCard size={14} className="mr-1.5" />
-                Thanh toán ngay
-              </Button>
-            </a>
-          )}
+          {order.paymentMethod === "PAYOS" &&
+            ["UNPAID", "PENDING"].includes(order.paymentStatus) &&
+            order.checkoutUrl &&
+            ["PENDING_PAYMENT", "PENDING", "AWAITING_PAYMENT"].includes(order.status) && (
+              <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer">
+                <Button className={btnPayClass}>
+                  <CreditCard size={14} className="mr-1.5" />
+                  Thanh toán ngay
+                </Button>
+              </a>
+            )}
 
           {cancellableStatuses.includes(order.status) && (
             <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
@@ -243,4 +291,3 @@ export function OrderCard({ order, onOrderCancelled }: OrderCardProps) {
     </div>
   );
 }
-

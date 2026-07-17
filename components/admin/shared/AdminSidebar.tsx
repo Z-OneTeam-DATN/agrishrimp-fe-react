@@ -19,7 +19,6 @@ import {
   ArrowRightLeft,
   ArrowUpFromLine,
   ShieldCheck,
-  ClipboardList,
   ChevronRight,
   ShoppingCart,
   List,
@@ -28,6 +27,8 @@ import {
   Image as ImageIcon,
   BookOpen,
   MessageCircle,
+  Stethoscope,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -49,8 +50,12 @@ import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { isAdminRole, normalizeRoleSlug } from "@/lib/roles";
 import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
+import { isAdminRole } from "@/lib/roles";
+import {
+  ADMIN_ORDER_STATUS_PAGES,
+  getAdminOrderStatusHref,
+} from "@/lib/admin-order-status-pages";
 
 const SIDEBAR_COUNTS_CACHE_KEY = "admin_sidebar_counts_v1";
 const SIDEBAR_COUNTS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -120,9 +125,7 @@ export default function AdminSidebar() {
   const { user, accessToken, isLoadingAuth } = useAuthStore();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
-  const role = normalizeRoleSlug(user?.role) || "USER";
   const isAdmin = isAdminRole(user?.role);
-  const isManager = role === "MANAGER";
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const isBranchAccount = !isAdmin && Boolean(user?.branch?.id || warehouseId);
   const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
@@ -137,13 +140,19 @@ export default function AdminSidebar() {
     P.ROLE_DELETE,
   ]);
   const orderListHref = getOrderListPath(user);
+  const orderListBasePath = orderListHref.split("?")[0];
+  const isAdminOrderDetailActive = /^\/admin\/orders\/\d+$/.test(pathname);
   const isOrderListActive =
     pathname === "/admin/orders" ||
-    pathname === "/admin/orders-all" ||
-    (pathname.startsWith("/admin/orders/") && !pathname.includes("return"));
+    pathname === orderListBasePath ||
+    (isAdmin && isAdminOrderDetailActive) ||
+    (pathname.startsWith("/admin/orders-processing") &&
+      orderListBasePath === "/admin/orders-processing") ||
+    (pathname.startsWith("/admin/orders-all") &&
+      orderListBasePath === "/admin/orders-all");
   const canViewSystemSection = hasAnyPermission([
     P.DASHBOARD_VIEW,
-    P.WORKSPACE_VIEW,
+    P.REPORT_FINANCE_VIEW,
   ]);
   const canViewAdminSection = hasAnyPermission([
     P.STAFF_VIEW,
@@ -179,6 +188,22 @@ export default function AdminSidebar() {
   const canViewSettings = hasPermission(P.SETTING_VIEW);
   const canAccessOrderManagement =
     hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
+  const canViewBannerSection = hasPermission(P.BANNER_VIEW);
+  const canViewBlogSection = hasPermission(P.BLOG_VIEW);
+  const canApproveAiKnowledge = hasPermission(P.AI_KNOWLEDGE_APPROVE);
+  const canManageAiChatbot = hasAnyPermission([P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_UPDATE]);
+  const canViewAiKnowledgeSection = canApproveAiKnowledge || canManageAiChatbot;
+  const workspaceLabel = hasAnyPermission([P.ROLE_VIEW, P.STAFF_VIEW, P.BRANCH_VIEW])
+    ? "Quản trị"
+    : hasAnyPermission([
+          P.PURCHASE_REQUEST_VIEW,
+          P.IMPORT_VIEW,
+          P.EXPORT_VIEW,
+          P.TRANSFER_VIEW,
+          P.CHECK_VIEW,
+        ])
+      ? "Vận hành"
+      : "Workspace";
 
   const [supplierCount, setSupplierCount] = useState(0);
   const [customerCount, setCustomerCount] = useState(0);
@@ -215,7 +240,11 @@ export default function AdminSidebar() {
   }, []);
 
   useEffect(() => {
-    if (pathname.startsWith("/admin/orders")) {
+    if (
+      pathname.startsWith("/admin/orders") ||
+      pathname.startsWith("/admin/orders-processing") ||
+      pathname.startsWith("/admin/orders-handover")
+    ) {
       setOpenGroups((prev) =>
         prev.includes("orders") ? prev : [...prev, "orders"],
       );
@@ -229,7 +258,7 @@ export default function AdminSidebar() {
 
     try {
       const results = await Promise.allSettled([
-        hasPermission(P.SUPPLIER_VIEW)
+        hasPermission(P.SUPPLIER_VIEW) && !isBranchAccount
           ? supplierService.getAll(undefined, undefined, 0, 1)
           : Promise.resolve(null),
         hasPermission(P.CUSTOMER_VIEW)
@@ -238,13 +267,13 @@ export default function AdminSidebar() {
         hasPermission(P.PRODUCT_VIEW)
           ? ProductService.getAll({ status: "ACTIVE" })
           : Promise.resolve(null),
-        hasPermission(P.CATEGORY_VIEW)
+        hasPermission(P.CATEGORY_VIEW) && !isBranchAccount
           ? getCategories().catch(() => [])
           : Promise.resolve(null),
-        hasPermission(P.PRODUCT_VIEW)
+        hasPermission(P.PRODUCT_VIEW) && !isBranchAccount
           ? getAdminBrands().catch(() => [])
           : Promise.resolve(null),
-        hasPermission(P.ATTRIBUTE_VIEW)
+        hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount
           ? ProductService.getAttributes()
           : Promise.resolve(null),
         hasPermission(P.STAFF_VIEW)
@@ -540,7 +569,7 @@ export default function AdminSidebar() {
               AGRI<span className="text-blue-500">SHRIMP</span>
             </h1>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em] mt-1">
-              {isAdmin ? "Quản trị viên" : isManager ? "Quản lý" : "Người dùng"}
+              {workspaceLabel}
             </span>
           </div>
         </div>
@@ -571,15 +600,6 @@ export default function AdminSidebar() {
                   color="text-emerald-400"
                 />
               )}
-              {hasPermission(P.WORKSPACE_VIEW) && (
-                <SidebarLink
-                  href="/admin/inventory-dashboard"
-                  icon={ClipboardList}
-                  label="Bàn làm việc kho"
-                  active={isActive("/admin/inventory-dashboard")}
-                  color="text-amber-400"
-                />
-              )}
             </div>
           </section>
         )}
@@ -601,10 +621,24 @@ export default function AdminSidebar() {
                   <SidebarLink
                     href={orderListHref}
                     icon={List}
-                    label={isAdmin ? "Tất cả đơn hàng" : "Đơn hàng chi nhánh"}
+                    label={isAdmin ? "Danh sách đơn hàng" : "Đơn hàng chi nhánh"}
                     active={isOrderListActive}
                     isChild
                   />
+                  {isAdmin &&
+                    ADMIN_ORDER_STATUS_PAGES.map((page) => {
+                      const href = getAdminOrderStatusHref(page.slug);
+                      return (
+                        <SidebarLink
+                          key={page.slug}
+                          href={href}
+                          icon={List}
+                          label={page.label}
+                          active={pathname === href}
+                          isChild
+                        />
+                      );
+                    })}
                   <SidebarLink
                     href="/admin/orders/return"
                     icon={RotateCcw}
@@ -619,7 +653,7 @@ export default function AdminSidebar() {
                 <SidebarLink
                   href="/admin/vouchers"
                   icon={Ticket}
-                  label="Khuyến mãi & Voucher"
+                  label="Khuyến mãi"
                   active={isActive("/admin/vouchers")}
                   color="text-pink-400"
                 />
@@ -636,10 +670,10 @@ export default function AdminSidebar() {
               )}
               {hasPermission(P.CHAT_VIEW) && (
                 <SidebarLink
-                  href="/admin/chat"
+                  href="/chat"
                   icon={MessageCircle}
                   label="Chat khách hàng"
-                  active={isActive("/admin/chat")}
+                  active={pathname === "/chat" || isActive("/admin/chat")}
                   color="text-blue-400"
                 />
               )}
@@ -673,7 +707,7 @@ export default function AdminSidebar() {
                   color="text-blue-400"
                 />
               )}
-              {hasPermission(P.SUPPLIER_VIEW) && !isBranchAccount && (
+              {hasPermission(P.SUPPLIER_VIEW) && (
                 <SidebarLink
                   href="/admin/suppliers"
                   icon={Truck}
@@ -703,7 +737,7 @@ export default function AdminSidebar() {
                   badge={productCount}
                 />
               )}
-              {hasPermission(P.CATEGORY_VIEW) && !isBranchAccount && (
+              {hasPermission(P.CATEGORY_VIEW) && (
                 <SidebarLink
                   href="/admin/categories"
                   icon={Tags}
@@ -712,7 +746,7 @@ export default function AdminSidebar() {
                   badge={categoryCount}
                 />
               )}
-              {hasPermission(P.PRODUCT_VIEW) && !isBranchAccount && (
+              {hasPermission(P.PRODUCT_VIEW) && (
                 <SidebarLink
                   href="/admin/brands"
                   icon={Building2}
@@ -721,7 +755,7 @@ export default function AdminSidebar() {
                   badge={brandCount}
                 />
               )}
-              {hasPermission(P.ATTRIBUTE_VIEW) && !isBranchAccount && (
+              {hasPermission(P.ATTRIBUTE_VIEW) && (
                 <SidebarLink
                   href="/admin/variants"
                   icon={Layers}
@@ -730,7 +764,7 @@ export default function AdminSidebar() {
                   badge={attributeCount}
                 />
               )}
-              {!isBranchAccount && (
+              {canViewBannerSection && (
                 <SidebarLink
                   href="/admin/banners"
                   icon={ImageIcon}
@@ -742,7 +776,7 @@ export default function AdminSidebar() {
           </section>
         )}
 
-        {isAdmin && (
+        {canViewBlogSection && (
           <section>
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
               Blog
@@ -762,6 +796,34 @@ export default function AdminSidebar() {
                 active={isActive("/admin/blog/categories")}
                 color="text-violet-400"
               />
+            </div>
+          </section>
+        )}
+
+        {canViewAiKnowledgeSection && (
+          <section>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-3 mb-2">
+              AI Doctor
+            </p>
+            <div className="space-y-0.5">
+              {canApproveAiKnowledge && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/approvals"
+                  icon={Stethoscope}
+                  label="Duyệt phác đồ"
+                  active={isActive("/admin/ai-knowledge/approvals")}
+                  color="text-emerald-400"
+                />
+              )}
+              {canManageAiChatbot && (
+                <SidebarLink
+                  href="/admin/ai-knowledge/chatbot"
+                  icon={MessageSquareText}
+                  label="Chatbot mở đầu"
+                  active={isActive("/admin/ai-knowledge/chatbot")}
+                  color="text-blue-400"
+                />
+              )}
             </div>
           </section>
         )}

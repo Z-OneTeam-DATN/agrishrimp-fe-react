@@ -63,6 +63,29 @@ export class ChatService {
     return res.data;
   }
 
+  static async updateStatus(conversationId: number, status: "OPEN" | "CLOSED"): Promise<Conversation> {
+    const res = await apiJava.put<Conversation>(
+      `${PREFIX}/conversations/${conversationId}/status`,
+      {},
+      { ...getConfig(), params: { status } }
+    );
+    return res.data;
+  }
+
+  static async markAsUnread(conversationId: number): Promise<Conversation> {
+    const res = await apiJava.put<Conversation>(
+      `${PREFIX}/conversations/${conversationId}/unread`,
+      {},
+      getConfig()
+    );
+    return res.data;
+  }
+
+  static async getConversationById(conversationId: number): Promise<Conversation> {
+    const res = await apiJava.get<Conversation>(`${PREFIX}/conversations/${conversationId}`, getConfig());
+    return res.data;
+  }
+
   static async markAsRead(conversationId: number): Promise<void> {
     await apiJava.put(`${PREFIX}/conversations/${conversationId}/read`, {}, getConfig());
   }

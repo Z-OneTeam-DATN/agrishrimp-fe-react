@@ -18,6 +18,7 @@ export async function GET() {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        timeout: 8000,
       }
     );
 
