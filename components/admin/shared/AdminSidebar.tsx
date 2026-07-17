@@ -49,6 +49,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
+import { isAdminRole } from "@/lib/roles";
 import {
   ADMIN_ORDER_STATUS_PAGES,
   getAdminOrderStatusHref,
@@ -124,6 +125,7 @@ export default function AdminSidebar() {
   const { user, accessToken, isLoadingAuth } = useAuthStore();
   const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission, hasAnyPermission } = usePermissions();
+  const isAdmin = isAdminRole(user?.role);
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
   const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
   const canAccessImports = hasAnyPermission(IMPORT_PERMISSIONS);
