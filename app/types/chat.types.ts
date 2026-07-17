@@ -10,8 +10,11 @@ export interface PinnedProductInfo {
   thumbnailUrl?: string;
 }
 
+export type MessageSendStatus = "sending" | "sent" | "error";
+
 export interface ChatMessage {
   id: number;
+  localId?: string; // used for optimistic messages before server confirms
   conversationId: number;
   senderId: number;
   senderName: string;
@@ -22,6 +25,7 @@ export interface ChatMessage {
   imageUrl?: string;
   isRead: boolean;
   createdAt: string;
+  status?: MessageSendStatus; // undefined = normal server message (treated as "sent")
 }
 
 export interface Conversation {

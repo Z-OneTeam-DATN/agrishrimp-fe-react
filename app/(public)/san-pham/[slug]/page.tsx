@@ -849,32 +849,6 @@ export default function ProductDetailPage({
                         <div className="mt-5 flex gap-2 sm:gap-2.5">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    const isAuthenticated = useAuthStore.getState().isAuthenticated;
-                                    if (!isAuthenticated) {
-                                        toast.error("Vui lòng đăng nhập để chat với chăm sóc khách hàng!");
-                                        router.push(`/login?redirect=/san-pham/${slug}`);
-                                        return;
-                                    }
-                                    if (product) {
-                                        useChatStore.getState().setConsultProduct({
-                                            id: product.id,
-                                            name: product.name,
-                                            price: currentVariant?.price || 0,
-                                            imageUrl: currentVariant?.imageUrl || product.variants?.find((v) => v.imageUrl)?.imageUrl || product.imageUrls?.[0] || "",
-                                            slug: slug,
-                                        });
-                                    }
-                                    useChatStore.getState().openChat();
-                                }}
-                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-blue-800 bg-white px-4 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 shrink-0"
-                                title="Chat tư vấn sản phẩm"
-                            >
-                                <MessageCircle size={15} strokeWidth={2} />
-                                <span>Chat</span>
-                            </button>
-                            <button
-                                type="button"
                                 onClick={(event) => handleAddToCart(event, false)}
                                 disabled={isAdding || isCompletelyOutOfStock}
                                 className="flex-1 flex h-10 items-center justify-center gap-2 rounded-full border-2 border-blue-800 bg-white px-3 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
@@ -900,25 +874,25 @@ export default function ProductDetailPage({
                             ))}
                         </div>
 
-                        <div className="mt-5 grid grid-cols-1 min-[540px]:grid-cols-3 gap-2.5 sm:gap-3">
+                        <div className="mt-5 grid grid-cols-1 min-[540px]:grid-cols-3 gap-2 sm:gap-2.5">
                             <button
                                 type="button"
                                 onClick={() => window.open("https://zalo.me/0395024181", "_blank")}
-                                className="group flex min-h-[54px] w-full items-center justify-between border border-blue-100 bg-blue-50 px-2 py-2 text-left transition-colors hover:border-blue-300 hover:bg-blue-100/70 min-[420px]:px-3 sm:min-h-[66px] sm:px-3.5 sm:py-2.5"
+                                className="group flex h-11 sm:h-12 items-center justify-between border border-blue-100 bg-blue-50 px-2.5 py-1 rounded-xl transition-colors hover:border-blue-300 hover:bg-blue-100/70"
                             >
-                                <span className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100 min-[420px]:h-10 min-[420px]:w-10 sm:h-11 sm:w-11">
-                                        <span className="relative flex h-6 w-6 items-center justify-center rounded-lg bg-blue-600 text-[8px] font-black leading-none text-white min-[420px]:h-7 min-[420px]:w-7 min-[420px]:text-[9px] sm:h-8 sm:w-8 sm:text-[10px]">
+                                <span className="flex min-w-0 items-center gap-2">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100">
+                                        <span className="relative flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-[6.5px] font-black leading-none text-white">
                                             Zalo
-                                            <span className="absolute -bottom-0.5 left-1 h-2 w-2 rotate-45 rounded-[2px] bg-blue-600 min-[420px]:left-1.5 min-[420px]:h-2.5 min-[420px]:w-2.5" />
+                                            <span className="absolute -bottom-0.5 left-1 h-1.5 w-1.5 rotate-45 rounded-[1px] bg-blue-600" />
                                         </span>
                                     </span>
-                                    <span className="min-w-0">
-                                        <span className="block truncate text-[11px] font-medium leading-4 text-blue-900 min-[420px]:text-xs sm:text-sm sm:leading-5">Liên hệ Zalo</span>
-                                        <span className="mt-0.5 block truncate text-[10px] text-slate-600 min-[420px]:text-xs">Trao đổi trực tiếp với tư vấn viên</span>
+                                    <span className="min-w-0 text-left">
+                                        <span className="block truncate text-[11px] sm:text-xs font-bold leading-none text-blue-900">Liên hệ Zalo</span>
+                                        <span className="mt-0.5 block truncate text-[9px] text-slate-500 leading-none">Tư vấn viên</span>
                                     </span>
                                 </span>
-                                <ChevronRight className="h-4 w-4 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5 sm:h-5 sm:w-5" strokeWidth={2.4} />
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
                             </button>
 
                             <button
@@ -941,39 +915,39 @@ export default function ProductDetailPage({
                                     }
                                     useChatStore.getState().openChat();
                                 }}
-                                className="group flex min-h-[54px] w-full items-center justify-between border border-blue-100 bg-blue-50 px-2 py-2 text-left transition-colors hover:border-blue-300 hover:bg-blue-100/70 min-[420px]:px-3 sm:min-h-[66px] sm:px-3.5 sm:py-2.5"
+                                className="group flex h-11 sm:h-12 items-center justify-between border border-blue-100 bg-blue-50 px-2.5 py-1 rounded-xl transition-colors hover:border-blue-300 hover:bg-blue-100/70"
                             >
-                                <span className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100 min-[420px]:h-10 min-[420px]:w-10 sm:h-11 sm:w-11">
-                                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-teal-600 text-white min-[420px]:h-7 min-[420px]:w-7 sm:h-8 sm:w-8">
-                                            <MessageCircle size={15} strokeWidth={2.25} />
+                                <span className="flex min-w-0 items-center gap-2">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100">
+                                        <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-650 text-teal-600">
+                                            <MessageCircle size={15} strokeWidth={2.5} />
                                         </span>
                                     </span>
-                                    <span className="min-w-0">
-                                        <span className="block truncate text-[11px] font-medium leading-4 text-blue-900 min-[420px]:text-xs sm:text-sm sm:leading-5">Chat trực tuyến</span>
-                                        <span className="mt-0.5 block truncate text-[10px] text-slate-600 min-[420px]:text-xs">Nhắn tin trực tiếp với CSKH</span>
+                                    <span className="min-w-0 text-left">
+                                        <span className="block truncate text-[11px] sm:text-xs font-bold leading-none text-blue-900">Chat trực tuyến</span>
+                                        <span className="mt-0.5 block truncate text-[9px] text-slate-500 leading-none">Hỗ trợ CSKH</span>
                                     </span>
                                 </span>
-                                <ChevronRight className="h-4 w-4 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5 sm:h-5 sm:w-5" strokeWidth={2.4} />
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => window.open("tel:0395024181", "_self")}
-                                className="group flex min-h-[54px] w-full items-center justify-between border border-blue-100 bg-blue-50 px-2 py-2 text-left transition-colors hover:border-blue-300 hover:bg-blue-100/70 min-[420px]:px-3 sm:min-h-[66px] sm:px-3.5 sm:py-2.5"
+                                className="group flex h-11 sm:h-12 items-center justify-between border border-blue-100 bg-blue-50 px-2.5 py-1 rounded-xl transition-colors hover:border-blue-300 hover:bg-blue-100/70"
                             >
-                                <span className="flex min-w-0 items-center gap-2 sm:gap-3">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100 min-[420px]:h-10 min-[420px]:w-10 sm:h-11 sm:w-11">
-                                        <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-red-500 text-red-600 min-[420px]:h-7 min-[420px]:w-7 sm:h-8 sm:w-8">
-                                            <PhoneCall size={15} strokeWidth={2.25} />
+                                <span className="flex min-w-0 items-center gap-2">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-blue-100">
+                                        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-red-500 text-red-600">
+                                            <PhoneCall size={12} strokeWidth={2.5} />
                                         </span>
                                     </span>
-                                    <span className="min-w-0">
-                                        <span className="block truncate text-[11px] font-medium leading-4 text-blue-900 min-[420px]:text-xs sm:text-sm sm:leading-5">Gọi tư vấn</span>
-                                        <span className="mt-0.5 block truncate text-[10px] text-slate-600 min-[420px]:text-xs">Hotline: 0395 024 181</span>
+                                    <span className="min-w-0 text-left">
+                                        <span className="block truncate text-[11px] sm:text-xs font-bold leading-none text-blue-900">Gọi tư vấn</span>
+                                        <span className="mt-0.5 block truncate text-[9px] text-slate-500 leading-none">0395.024.181</span>
                                     </span>
                                 </span>
-                                <ChevronRight className="h-4 w-4 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5 sm:h-5 sm:w-5" strokeWidth={2.4} />
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-blue-800 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
                             </button>
                         </div>
 

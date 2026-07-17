@@ -72,8 +72,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   addMessage: (msg) =>
     set((s) => {
       const existing = s.messages[msg.conversationId] ?? [];
-      const alreadyExists = existing.some((m) => m.id === msg.id);
-      if (alreadyExists) return s;
+
+      // If msg has a localId, replace the optimistic placeholder with the same localId
+      if (msg.localId) {
+        const replaced = existing.map((m) =>
+          m.localId === msg.localId ? { ...msg } : m
+        );
+        // If nothing was replaced, just append
+        const found = existing.some((m) => m.localId === msg.localId);
+        return {
+          messages: {
+            ...s.messages,
+            [msg.conversationId]: found ? replaced : [...existing, msg],
+          },
+        };
+      }
+
+      // Regular server message: deduplicate by id, update if status changed
+      const existingIdx = existing.findIndex((m) => m.id === msg.id);
+      if (existingIdx >= 0) {
+        // Update in place (e.g. status change)
+        const updated = [...existing];
+        updated[existingIdx] = { ...existing[existingIdx], ...msg };
+        return { messages: { ...s.messages, [msg.conversationId]: updated } };
+      }
+
       return {
         messages: {
           ...s.messages,
@@ -81,6 +104,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         },
       };
     }),
+
 
   markConvRead: (convId, isCustomer) =>
     set((s) => ({

@@ -20,6 +20,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthStore } from "@/stores/useAuthStore";
 
+const getFullImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const origin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:8004";
+  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export default function ProfileSidebar({
   onLinkClick,
 }: {
@@ -86,6 +95,10 @@ export default function ProfileSidebar({
     try {
       const uploadedAvatar = await UserService.uploadAvatar(formData);
       if (user) {
+        if (uploadedAvatar.imageUrl) {
+          await UserService.updateAvatarUrl(uploadedAvatar.imageUrl);
+        }
+
         setUser({
           ...user,
           avatar: {
@@ -121,7 +134,7 @@ export default function ProfileSidebar({
               aria-label="Cập nhật ảnh đại diện"
             >
               <Avatar className="h-12 w-12 border border-gray-200">
-                <AvatarImage src={avatarUrl || undefined} alt={displayName} className="object-cover" />
+                <AvatarImage src={getFullImageUrl(avatarUrl) || undefined} alt={displayName} className="object-cover" />
                 <AvatarFallback className="bg-gray-50 text-gray-400 font-medium">
                   {initials}
                 </AvatarFallback>
