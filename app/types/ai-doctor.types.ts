@@ -41,6 +41,18 @@ export interface AiDoctorDiagnosisResponse {
   treatmentStages?: AiDoctorTreatmentStage[];
   purchaseUrl?: string;
   createdAt?: string;
+  /** true khi độ tin cậy quá thấp — FE cần gọi clarify() để bác sĩ AI hỏi thêm thay vì kết luận ngay. */
+  needsClarification?: boolean;
+}
+
+/** Response của POST /diagnosis/{id}/clarify — mỗi lượt hỏi-đáp làm rõ bệnh với AI. */
+export interface AiDoctorClarifyResponse {
+  diagnosisId: string;
+  type: "QUESTION" | "DECISION" | "ESCALATED";
+  message: string;
+  diagnosis?: AiDoctorDiagnosisResponse;
+  /** Chỉ để debug/log — không hiển thị như bộ đếm cho nông dân. */
+  turnsUsed?: number;
 }
 
 export interface AiDoctorHistoryItem {
@@ -48,6 +60,8 @@ export interface AiDoctorHistoryItem {
   createdAt: string;
   imageUrl?: string;
   disease?: AiDoctorDiseaseInfo;
+  /** true = còn đang chờ hỏi-đáp AI xác nhận, disease ở trên chỉ là dự đoán chưa chốt */
+  needsClarification?: boolean;
 }
 
 export interface AiDoctorChatResponse {

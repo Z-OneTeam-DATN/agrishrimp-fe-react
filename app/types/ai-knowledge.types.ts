@@ -50,7 +50,6 @@ export interface AiDiseaseKnowledge {
   symptomKeywordsRaw: string;
   signsSummary: string;
   causes: string[];
-  sampleImages: string[];
   treatmentStages: AiKnowledgeTreatmentStage[];
   confidenceThreshold: number;
   matchThreshold: number;

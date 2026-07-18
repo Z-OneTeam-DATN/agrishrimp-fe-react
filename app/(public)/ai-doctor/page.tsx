@@ -35,6 +35,15 @@ type SubmittedMessage = {
   symptoms: string;
 };
 
+type ClarifyTurn = {
+  role: "assistant" | "farmer";
+  text: string;
+};
+
+type ClarifySession = {
+  diagnosisId: string;
+};
+
 type DiagnosePayload = {
   image: File;
   userSymptoms?: string;
@@ -93,6 +102,8 @@ export default function AiDoctorChatPage() {
   const [result, setResult] = useState<AiDoctorDiagnosisResponse | null>(null);
   const [submittedMessage, setSubmittedMessage] = useState<SubmittedMessage | null>(null);
   const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
+  const [clarifySession, setClarifySession] = useState<ClarifySession | null>(null);
+  const [clarifyTranscript, setClarifyTranscript] = useState<ClarifyTurn[]>([]);
 
   const quickSymptoms = [
     "Tôm bơi lờ đờ, tấp mé",
@@ -105,7 +116,7 @@ export default function AiDoctorChatPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [previewUrl, symptoms, result, assistantMessage]);
+  }, [previewUrl, symptoms, result, assistantMessage, clarifyTranscript]);
 
   useEffect(() => {
     latestComposerPreviewRef.current = previewUrl;
@@ -142,6 +153,46 @@ export default function AiDoctorChatPage() {
     },
   });
 
+  const clarifyMutation = useMutation({
+    mutationFn: (payload: {
+      diagnosisId: string;
+      answer?: string;
+      candidateDiseaseCodes?: string[];
+      imageUrl?: string;
+      initialSymptoms?: string;
+    }) =>
+      aiDoctorService.clarify(payload.diagnosisId, {
+        answer: payload.answer,
+        candidateDiseaseCodes: payload.candidateDiseaseCodes,
+        imageUrl: payload.imageUrl,
+        initialSymptoms: payload.initialSymptoms,
+      }),
+    onSuccess: (data) => {
+      if (data.type === "DECISION" && data.diagnosis) {
+        setClarifyTranscript([]);
+        setClarifySession(null);
+        setResult(data.diagnosis);
+        toast.success("Bác sĩ đã có kết quả rồi đây!");
+        return;
+      }
+
+      setClarifyTranscript((prev) => [...prev, { role: "assistant", text: data.message }]);
+
+      if (data.type === "ESCALATED") {
+        setClarifySession(null);
+      }
+    },
+    onError: () => {
+      setClarifyTranscript((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc mô tả thêm dấu hiệu nhé.",
+        },
+      ]);
+    },
+  });
+
   const diagnoseMutation = useMutation({
     mutationFn: ({ image, userSymptoms }: DiagnosePayload) =>
       aiDoctorService.diagnose(image, userSymptoms),
@@ -154,10 +205,27 @@ export default function AiDoctorChatPage() {
         : data;
 
       setAssistantMessage(null);
-      setResult(hydratedDiagnosis);
       setSelectedImage(null);
       setPreviewUrl(null);
       setSymptoms("");
+
+      if (data.needsClarification) {
+        setResult(null);
+        setClarifyTranscript([]);
+        setClarifySession({ diagnosisId: data.diagnosisId });
+        clarifyMutation.mutate({
+          diagnosisId: data.diagnosisId,
+          candidateDiseaseCodes: (data.topPredictions ?? []).map((prediction) => prediction.diseaseCode),
+          // Chỉ có tác dụng với khách vãng lai (BE ưu tiên history nếu có) — để không mất ảnh/triệu
+          // chứng đã gửi trong suốt cuộc hỏi-đáp.
+          imageUrl: data.imageUrl || variables.clientPreviewUrl,
+          initialSymptoms: variables.userSymptoms,
+        });
+        return;
+      }
+
+      setClarifySession(null);
+      setResult(hydratedDiagnosis);
       toast.success("Bác sĩ đã có kết quả rồi đây!");
     },
     onError: (error: unknown) => {
@@ -200,6 +268,20 @@ export default function AiDoctorChatPage() {
     if (!selectedImage && !currentSymptoms) {
       toast.error("Bà con hãy nhập dấu hiệu hoặc gửi ảnh tôm để bác sĩ hỗ trợ nhé.");
       return;
+    }
+
+    // Đang trong hội thoại làm rõ bệnh và không gửi ảnh mới → trả lời tiếp câu hỏi của bác sĩ AI.
+    if (clarifySession && !selectedImage) {
+      setClarifyTranscript((prev) => [...prev, { role: "farmer", text: currentSymptoms }]);
+      setSymptoms("");
+      clarifyMutation.mutate({ diagnosisId: clarifySession.diagnosisId, answer: currentSymptoms });
+      return;
+    }
+
+    // Gửi ảnh mới trong lúc đang hỏi-đáp → coi như khám lại từ đầu, bỏ phiên cũ.
+    if (clarifySession && selectedImage) {
+      setClarifySession(null);
+      setClarifyTranscript([]);
     }
 
     if (!selectedImage || !previewUrl) {
@@ -412,6 +494,40 @@ export default function AiDoctorChatPage() {
             </div>
           )}
 
+          {clarifyTranscript.map((turn, index) =>
+            turn.role === "assistant" ? (
+              <div key={`clarify-${index}`} className="flex max-w-full justify-start gap-2.5 pr-12">
+                <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                  <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                </div>
+                <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
+                  {turn.text}
+                </div>
+              </div>
+            ) : (
+              <div
+                key={`clarify-${index}`}
+                className="ml-auto max-w-[88%] rounded-[18px] rounded-br-md bg-[#376E60] px-4 py-3 text-sm leading-relaxed text-white shadow-sm"
+              >
+                {turn.text}
+              </div>
+            ),
+          )}
+
+          {clarifyMutation.isPending && (
+            <div className="flex max-w-full justify-start gap-2.5 pr-12">
+              <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+              </div>
+              <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm text-gray-700 shadow-sm">
+                <div className="flex items-center gap-2 font-semibold text-[#376E60]">
+                  <Loader2 size={16} className="animate-spin" />
+                  Bác sĩ đang trả lời...
+                </div>
+              </div>
+            </div>
+          )}
+
           {assistantMessage && !diagnoseMutation.isPending && !result && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
@@ -533,7 +649,7 @@ export default function AiDoctorChatPage() {
         </div>
 
         <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
-          {!previewUrl && symptoms.length === 0 && !diagnoseMutation.isPending && (
+          {!previewUrl && symptoms.length === 0 && !diagnoseMutation.isPending && !clarifySession && (
             <div className="mb-3 flex flex-wrap gap-2">
               {quickSymptoms.map((s) => (
                 <button
@@ -595,7 +711,11 @@ export default function AiDoctorChatPage() {
               <textarea
                 value={symptoms}
                 onChange={(event) => setSymptoms(event.target.value.slice(0, 300))}
-                placeholder="Kể bệnh: tôm bỏ ăn, nổi đầu, có đốm trắng..."
+                placeholder={
+                  clarifySession
+                    ? "Nhập câu trả lời của bà con..."
+                    : "Kể bệnh: tôm bỏ ăn, nổi đầu, có đốm trắng..."
+                }
                 className="min-h-[48px] w-full resize-none bg-transparent text-sm text-gray-800 outline-none"
               />
               <div className="mt-1 flex items-center justify-between text-[11px] text-gray-400">
@@ -609,10 +729,10 @@ export default function AiDoctorChatPage() {
 
             <button
               onClick={handleDiagnose}
-              disabled={diagnoseMutation.isPending}
+              disabled={diagnoseMutation.isPending || clarifyMutation.isPending}
               className="mb-1 rounded-full bg-[#376E60] p-3 text-white transition-colors hover:bg-[#2f5c50] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {diagnoseMutation.isPending ? (
+              {diagnoseMutation.isPending || clarifyMutation.isPending ? (
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <Send size={20} />

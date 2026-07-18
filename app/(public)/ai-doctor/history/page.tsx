@@ -199,11 +199,20 @@ export default function AiHistoryPage() {
                       </div>
 
                       <h6 className="mb-2 truncate text-base font-bold text-gray-800 transition-colors group-hover:text-[#1965a2]">
-                        {item.disease?.nameVi || "Đang chờ bác sĩ kết luận..."}
+                        {item.needsClarification
+                          ? "Đang chờ xác nhận bệnh..."
+                          : item.disease?.nameVi || "Đang chờ bác sĩ kết luận..."}
                       </h6>
 
                       <div className="mb-2 flex items-center gap-3">
-                        {getSeverityBadge(item.disease)}
+                        {item.needsClarification ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                            <Clock size={12} />
+                            Chưa hoàn tất
+                          </span>
+                        ) : (
+                          getSeverityBadge(item.disease)
+                        )}
                         <span className="text-xs text-gray-400">
                           Độ tin cậy:{" "}
                           <span className="font-bold text-gray-600">

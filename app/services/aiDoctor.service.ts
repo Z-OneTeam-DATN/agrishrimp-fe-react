@@ -1,6 +1,7 @@
 import { apiJava } from "@/lib/axios";
 import type {
   AiDoctorChatResponse,
+  AiDoctorClarifyResponse,
   AiDoctorDiagnosisResponse,
   AiDoctorHistoryListResponse,
   AiDoctorPrompt,
@@ -151,6 +152,36 @@ export const aiDoctorService = {
     },
       { isPublic: !isPrivate } as any,
     );
+    return response.data;
+  },
+
+  async clarify(
+    diagnosisId: string,
+    payload: {
+      answer?: string;
+      candidateDiseaseCodes?: string[];
+      // Chỉ cần thiết ở lượt gọi đầu tiên cho khách vãng lai — họ không có history DB để
+      // BE tự lấy lại ảnh/triệu chứng, nên FE phải gửi kèm những gì đã có từ /diagnosis.
+      imageUrl?: string;
+      initialSymptoms?: string;
+    },
+  ) {
+    const isPrivate = hasPrivateAccess();
+    const response = await apiJava.post<AiDoctorClarifyResponse>(
+      isPrivate
+        ? `/ai-doctor/diagnosis/${diagnosisId}/clarify`
+        : `/public/ai-doctor/diagnosis/${diagnosisId}/clarify`,
+      payload,
+      { isPublic: !isPrivate } as any,
+    );
+
+    // Khi đã chốt bệnh, cập nhật lại cache — nếu không, /ai-doctor/result?id=X (đặc biệt với
+    // khách vãng lai, vốn chỉ đọc từ cache) sẽ vẫn hiển thị kết quả cũ (needsClarification=true,
+    // bệnh đoán ban đầu) thay vì kết luận thật vừa chốt.
+    if (response.data.type === "DECISION" && response.data.diagnosis) {
+      persistDiagnosis({ ...response.data.diagnosis, needsClarification: false });
+    }
+
     return response.data;
   },
 

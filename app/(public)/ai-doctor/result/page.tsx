@@ -224,11 +224,14 @@ export default function TreatmentResultPage() {
   const overallProducts = treatmentStages.flatMap((stage) => stage.products ?? []);
 
   useEffect(() => {
-    if (diagnosis && !hasPrescription && prescriptionState === "idle" && diagnosisId) {
+    // Ca đang chờ AI hỏi làm rõ bệnh (chưa xác nhận) — không được tự tạo phác đồ cho bệnh
+    // mới chỉ là dự đoán YOLO độ tin cậy thấp. BE cũng chặn ở generatePrescription(), đây
+    // là chặn sớm ở FE để không tốn 1 request chắc chắn bị từ chối.
+    if (diagnosis && !diagnosis.needsClarification && !hasPrescription && prescriptionState === "idle" && diagnosisId) {
       handleGetPrescription();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diagnosis?.diagnosisId, hasPrescription]);
+  }, [diagnosis?.diagnosisId, diagnosis?.needsClarification, hasPrescription]);
 
   const handleGetPrescription = async () => {
     if (!diagnosisId || prescriptionState === "loading") return;
@@ -401,6 +404,25 @@ export default function TreatmentResultPage() {
               className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white"
             >
               Khám tiếp ảnh khác
+            </Link>
+          </div>
+        ) : diagnosis?.needsClarification ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-amber-200 bg-white py-20 text-center">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-amber-50 text-5xl shadow-inner">
+              🩺
+            </div>
+            <h2 className="mb-2 text-2xl font-extrabold text-amber-700">Chưa có kết luận cuối cùng</h2>
+            <p className="mb-1 max-w-md text-sm text-slate-500">
+              Bác sĩ AI vẫn đang hỏi thêm để xác nhận bệnh, chưa thể kết luận chỉ từ tấm ảnh này.
+            </p>
+            <p className="mb-6 max-w-md text-sm text-slate-500">
+              Bà con hãy quay lại trò chuyện để trả lời nốt các câu hỏi nhé — kết quả sẽ chính xác hơn nhiều.
+            </p>
+            <Link
+              href="/ai-doctor"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#376E60] px-6 text-sm font-bold text-white"
+            >
+              Tiếp tục trò chuyện với bác sĩ
             </Link>
           </div>
         ) : diagnosis ? (
