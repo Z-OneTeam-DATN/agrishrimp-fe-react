@@ -46,9 +46,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { P } from "@/lib/permissions";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
-import { ProductService } from "@/app/services/product.service";
-import type { AiDiseaseKnowledge, AiKnowledgeCategory, AiKnowledgeImportPreview, AiKeywordAnswerSet } from "@/app/types/ai-knowledge.types";
-import type { ProductListItem } from "@/app/types/product.schema";
+import type { AiDiseaseKnowledge, AiKnowledgeCategory, AiKnowledgeImportPreview } from "@/app/types/ai-knowledge.types";
 
 const PAGE_SIZE = 20;
 
@@ -75,8 +73,6 @@ function AgronomistDiseasesContent() {
 
   const [diseases, setDiseases] = useState<AiDiseaseKnowledge[]>([]);
   const [categories, setCategories] = useState<AiKnowledgeCategory[]>([]);
-  const [keywordSets, setKeywordSets] = useState<AiKeywordAnswerSet[]>([]);
-  const [activeProducts, setActiveProducts] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -107,14 +103,10 @@ function AgronomistDiseasesContent() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [diseasesResult, categoriesResult, keywordSetsResult, productsResult] = await Promise.allSettled([
+      const [diseasesResult, categoriesResult] = await Promise.allSettled([
         aiKnowledgeService.getDiseases(),
         aiKnowledgeService.getCategories(),
-        aiKnowledgeService.getKeywordSets(),
-        ProductService.getAll({ status: "ACTIVE" }),
       ]);
-
-      let hasOverviewError = false;
 
       if (diseasesResult.status === "fulfilled") {
         setDiseases(diseasesResult.value);
@@ -125,23 +117,7 @@ function AgronomistDiseasesContent() {
       if (categoriesResult.status === "fulfilled") {
         setCategories(categoriesResult.value);
       } else {
-        hasOverviewError = true;
-      }
-
-      if (keywordSetsResult.status === "fulfilled") {
-        setKeywordSets(keywordSetsResult.value);
-      } else {
-        hasOverviewError = true;
-      }
-
-      if (productsResult.status === "fulfilled") {
-        setActiveProducts(productsResult.value);
-      } else {
-        hasOverviewError = true;
-      }
-
-      if (hasOverviewError) {
-        toast.error("Không thể tải một phần dữ liệu tổng quan.");
+        setCategories([]);
       }
     } finally {
       setLoading(false);
@@ -224,8 +200,6 @@ function AgronomistDiseasesContent() {
   const overviewCards = [
     { label: "Danh mục", value: categories.length },
     { label: "Tri thức bệnh", value: diseases.length },
-    { label: "Bộ từ khóa (tự động)", value: keywordSets.length },
-    { label: "Sản phẩm hoạt động", value: activeProducts.length },
     { label: "Đang chờ Admin duyệt", value: pendingCount, accent: "text-amber-600" },
     { label: "Đã được duyệt (AI đang dùng)", value: approvedCount, accent: "text-emerald-600" },
   ];
@@ -242,14 +216,8 @@ function AgronomistDiseasesContent() {
           </p>
         </div>
 
-        <section className="grid gap-4 xl:grid-cols-4">
-          {overviewCards.slice(0, 4).map((card) => (
-            <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
-          ))}
-        </section>
-
-        <section className="grid gap-4 sm:grid-cols-2">
-          {overviewCards.slice(4).map((card) => (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {overviewCards.map((card) => (
             <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
           ))}
         </section>
