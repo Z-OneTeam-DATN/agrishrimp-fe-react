@@ -209,16 +209,6 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
           { id: P.INVENTORY_CHECK_DELETE, label: "Xóa phiếu kiểm kê" },
         ],
       },
-      {
-        id: P.PURCHASE_REQUEST_VIEW,
-        label: "Yêu cầu mua NCC",
-        advanced: [
-          { id: P.PURCHASE_REQUEST_CREATE, label: "Tạo yêu cầu mua" },
-          { id: P.PURCHASE_REQUEST_UPDATE, label: "Sửa yêu cầu mua" },
-          { id: P.PURCHASE_REQUEST_APPROVE, label: "Duyệt yêu cầu mua" },
-          { id: P.PURCHASE_REQUEST_DELETE, label: "Xóa yêu cầu mua" },
-        ],
-      },
     ],
   },
   {
