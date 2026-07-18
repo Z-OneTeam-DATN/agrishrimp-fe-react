@@ -38,6 +38,8 @@ const SOURCE_LABELS: Record<string, string> = {
   AI_DOCTOR_PRIVATE: "Người dùng đã đăng nhập",
 };
 
+const emptyValues = new Set(["", "Chưa có", "Chưa gắn", "Chưa ghi nhận", "Chưa có nội dung"]);
+
 type UpdateReviewCasePayload = {
   id: number;
   status: AiReviewCaseStatus;
@@ -151,7 +153,7 @@ function AgronomistReviewContent() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         {reviewCasesQuery.isLoading ? (
           <LoadingState />
         ) : filteredCases.length === 0 ? (
@@ -209,8 +211,8 @@ function ReviewCaseCard({
   const statusClassName = REVIEW_STATUS_STYLES[item.status] ?? REVIEW_STATUS_STYLES.IGNORED;
 
   return (
-    <article className="rounded-[4px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <article className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className={cn("rounded-full border px-3 py-1 text-[11px] font-bold", statusClassName)}>
@@ -241,24 +243,23 @@ function ReviewCaseCard({
         </div>
       </div>
 
-      <div className="mt-5 rounded-[4px] border border-blue-100 bg-blue-50/60 p-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-500">Người dùng hỏi</p>
-        <p className="mt-2 whitespace-pre-wrap text-[15px] font-semibold leading-7 text-slate-900">
+      <div className="mt-3 rounded-[4px] border border-blue-100 bg-blue-50/50 px-3 py-2.5">
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-blue-500">Người dùng hỏi</span>
+        <span className="ml-3 whitespace-pre-wrap text-[14px] font-semibold leading-6 text-slate-900">
           {item.questionText || "Chưa có nội dung"}
-        </p>
+        </span>
       </div>
 
-      <div className="mt-4 grid gap-3 xl:grid-cols-4">
-        <InfoBlock label="Dấu hiệu người nuôi mô tả" value={item.userSymptoms || "Chưa ghi nhận"} />
-        <InfoBlock label="AI đã gợi ý" value={item.aiSuggestedDiseaseCode || "Chưa có"} />
-        <InfoBlock label="Phác đồ đang gắn" value={item.matchedKnowledgeCode || "Chưa gắn"} />
-        <InfoBlock label="Độ tin cậy" value={formatScore(item.matchScore)} />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <MetaPill label="Dấu hiệu" value={item.userSymptoms || "Chưa ghi nhận"} />
+        <MetaPill label="AI gợi ý" value={item.aiSuggestedDiseaseCode || "Chưa có"} />
+        <MetaPill label="Phác đồ" value={item.matchedKnowledgeCode || "Chưa gắn"} />
+        <MetaPill label="Tin cậy" value={formatScore(item.matchScore)} />
+        <MetaPill label="Lý do" value={resolveReasonLabel(item.reason)} />
       </div>
-
-      <InfoBlock className="mt-3" label="Lý do cần kiểm tra" value={resolveReasonLabel(item.reason)} />
 
       {editing ? (
-        <div className="mt-5 rounded-[4px] border border-slate-200 bg-slate-50 p-5">
+        <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -310,12 +311,14 @@ function ReviewCaseCard({
   );
 }
 
-function InfoBlock({ label, value, className }: { label: string; value: string; className?: string }) {
+function MetaPill({ label, value }: { label: string; value: string }) {
+  const muted = emptyValues.has(value);
+
   return (
-    <div className={cn("rounded-[4px] border border-slate-200 bg-slate-50 p-4", className)}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{value}</p>
-    </div>
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+      <span className="shrink-0 font-semibold text-slate-400">{label}:</span>
+      <span className={cn("truncate font-semibold", muted ? "text-slate-400" : "text-slate-700")}>{value}</span>
+    </span>
   );
 }
 
