@@ -535,7 +535,6 @@ export default function DiseaseForm({
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-black text-slate-900">Phác đồ điều trị theo giai đoạn</p>
-            <p className="text-xs text-slate-500">Mỗi giai đoạn có hướng dẫn và sản phẩm gắn trực tiếp từ catalog.</p>
           </div>
           <Button type="button" variant="outline" onClick={addStage}
             className="h-9 rounded-[4px] border-slate-300 text-[13px] font-medium text-slate-600 hover:bg-white">
