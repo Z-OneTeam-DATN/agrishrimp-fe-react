@@ -734,16 +734,7 @@ export default function AdminSidebar() {
                   color="text-orange-400"
                 />
               )}
-              {hasPermission(P.DRIVER_VIEW) && (
-                <SidebarLink
-                  href="/admin/drivers"
-                  icon={UserCircle}
-                  label="Quản lý tài xế"
-                  active={isActive("/admin/drivers")}
-                  badge={driverCount}
-                  color="text-teal-400"
-                />
-              )}
+
             </div>
           </section>
         )}

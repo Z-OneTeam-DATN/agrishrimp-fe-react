@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Copy, Pencil, Trash2, Loader2, Key, Truck } from "lucide-react";
+import { Copy, Pencil, Lock, Unlock, Loader2, Key, Truck } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -40,22 +40,38 @@ export function AdminDriverTable({
     pageSize = 5,
     onRefresh,
 }: AdminDriverTableProps) {
-    const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
+    const [driverToLock, setDriverToLock] = useState<Driver | null>(null);
+    const [isLocking, setIsLocking] = useState(false);
 
-    const handleDelete = async () => {
-        if (!driverToDelete) return;
-        setIsDeleting(true);
+    const handleToggleLock = async () => {
+        if (!driverToLock) return;
+        setIsLocking(true);
+        const newStatus: "ACTIVE" | "INACTIVE" | "BUSY" = driverToLock.status === "INACTIVE" ? "ACTIVE" : "INACTIVE";
+        const label = newStatus === "ACTIVE" ? "Mở khóa" : "Tạm khóa";
         try {
-            await driverService.delete(driverToDelete.id);
-            toast.success("Xóa tài xế thành công!");
-            setDriverToDelete(null);
+            const updatePayload = {
+                fullName: driverToLock.fullName,
+                phone: driverToLock.phone,
+                email: driverToLock.email || "",
+                idCard: driverToLock.idCard,
+                licenseNumber: driverToLock.licenseNumber,
+                licenseClass: driverToLock.licenseClass,
+                avatarUrl: driverToLock.avatarUrl || "",
+                licenseImageUrl: driverToLock.licenseImageUrl || "",
+                status: newStatus,
+                vehicleNumber: driverToLock.vehicleNumber || "",
+                vehicleType: driverToLock.vehicleType || "",
+            };
+            await driverService.update(driverToLock.id, updatePayload);
+            toast.success(`${label} tài xế thành công!`);
+            setDriverToLock(null);
             onRefresh?.();
+            window.dispatchEvent(new Event("driverUpdated"));
         } catch (error: any) {
-            const msg = error?.response?.data?.message || "Lỗi khi xóa tài xế";
+            const msg = error?.response?.data?.message || `Lỗi khi ${label.toLowerCase()} tài xế`;
             toast.error(msg);
         } finally {
-            setIsDeleting(false);
+            setIsLocking(false);
         }
     };
 
@@ -238,10 +254,15 @@ export function AdminDriverTable({
                                             type="button"
                                             variant="ghost"
                                             size="icon"
-                                            className="h-7 w-7 text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white transition-all rounded-[4px]"
-                                            onClick={() => setDriverToDelete(driver)}
+                                            className={cn(
+                                                "h-7 w-7 transition-all rounded-[4px]",
+                                                driver.status === "INACTIVE"
+                                                    ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white"
+                                                    : "text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white"
+                                            )}
+                                            onClick={() => setDriverToLock(driver)}
                                         >
-                                            <Trash2 size={13} />
+                                            {driver.status === "INACTIVE" ? <Unlock size={13} /> : <Lock size={13} />}
                                         </Button>
                                     </div>
                                 </TableCell>
@@ -251,31 +272,42 @@ export function AdminDriverTable({
                 </TableBody>
             </Table>
 
-            <AlertDialog open={!!driverToDelete} onOpenChange={(open) => !open && setDriverToDelete(null)}>
+            <AlertDialog open={!!driverToLock} onOpenChange={(open) => !open && setDriverToLock(null)}>
                 <AlertDialogContent className="rounded-[4px] border-slate-200 bg-white">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="text-[14px] font-semibold text-slate-900">Xóa tài xế</AlertDialogTitle>
+                        <AlertDialogTitle className="text-[14px] font-semibold text-slate-900">
+                            {driverToLock?.status === "INACTIVE" ? "Mở khóa tài xế" : "Tạm khóa tài xế"}
+                        </AlertDialogTitle>
                         <AlertDialogDescription className="text-[12px] text-slate-500">
-                            Bạn có chắc chắn muốn xóa tài xế <span className="font-semibold text-slate-800">{driverToDelete?.fullName}</span> không? Hành động này không thể hoàn tác.
+                            {driverToLock?.status === "INACTIVE"
+                                ? `Bạn có chắc chắn muốn mở khóa hoạt động cho tài xế ${driverToLock?.fullName}?`
+                                : `Bạn có chắc chắn muốn tạm khóa tài xế ${driverToLock?.fullName}? Tài xế bị khóa sẽ không thể tham gia các chuyến điều chuyển vận hành.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-[4px] h-9 text-[12px]" disabled={isDeleting}>Hủy</AlertDialogCancel>
+                        <AlertDialogCancel className="rounded-[4px] h-9 text-[12px]" disabled={isLocking}>Hủy</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={(e) => {
                                 e.preventDefault();
-                                void handleDelete();
+                                void handleToggleLock();
                             }}
-                            className="bg-rose-600 text-white hover:bg-rose-700 rounded-[4px] h-9 text-[12px]"
-                            disabled={isDeleting}
+                            className={cn(
+                                "text-white rounded-[4px] h-9 text-[12px]",
+                                driverToLock?.status === "INACTIVE"
+                                    ? "bg-emerald-600 hover:bg-emerald-700"
+                                    : "bg-amber-600 hover:bg-amber-700"
+                            )}
+                            disabled={isLocking}
                         >
-                            {isDeleting ? (
+                            {isLocking ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Đang xóa...
+                                    Đang xử lý...
                                 </>
+                            ) : driverToLock?.status === "INACTIVE" ? (
+                                "Mở khóa"
                             ) : (
-                                "Xác nhận xóa"
+                                "Tạm khóa"
                             )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
