@@ -44,6 +44,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import SafeChartViewport from "@/components/admin/SafeChartViewport";
 import {
   FinancialOverviewService,
 } from "@/app/services/financial-overview.service";
@@ -140,6 +141,11 @@ export default function FinancialReportListPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestLoadIdRef = useRef(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -297,11 +303,20 @@ export default function FinancialReportListPage() {
   const chartData = [
     {
       name: "Doanh thu",
-      "Doanh thu thuần": metrics.netRevenue,
-      "Tổng chi phí": metrics.totalExpense,
-      "Lợi nhuận": metrics.estimatedProfit > 0 ? metrics.estimatedProfit : 0,
+      netRevenue: metrics.netRevenue,
+      totalExpense: metrics.totalExpense,
+      estimatedProfit: metrics.estimatedProfit > 0 ? metrics.estimatedProfit : 0,
     },
   ];
+
+  // Dynamic tick calculation for YAxis
+  const maxChartVal = Math.max(
+    metrics.netRevenue,
+    metrics.totalExpense,
+    metrics.estimatedProfit
+  );
+  const roundedMax = Math.max(1000000, Math.ceil(maxChartVal / 1000000) * 1000000);
+  const chartTicks = [0, roundedMax / 2, roundedMax];
 
   // Chart expense breakdown
   const expenseBreakdown = [
@@ -458,28 +473,36 @@ export default function FinancialReportListPage() {
 
                 <div className="px-4 pt-4 pb-2">
                   {/* Main bar chart */}
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={chartData} barGap={8}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis dataKey="name" hide />
-                      <YAxis
-                        tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}tr`}
-                        tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={40}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend
-                        wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-                        iconType="square"
-                        iconSize={10}
-                      />
-                      <Bar dataKey="Doanh thu thuần" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={80} />
-                      <Bar dataKey="Tổng chi phí" fill="#f87171" radius={[3,3,0,0]} maxBarSize={80} />
-                      <Bar dataKey="Lợi nhuận" fill="#10b981" radius={[3,3,0,0]} maxBarSize={80} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <SafeChartViewport
+                    className="h-[180px] w-full"
+                    minHeight={100}
+                    minWidth={100}
+                  >
+                    {({ height, width }) => (
+                      <BarChart width={width} height={height} data={chartData} barGap={8}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                        <XAxis dataKey="name" hide />
+                        <YAxis
+                          tickFormatter={(v) => `${(v / 1_000_000).toFixed(1)}tr`}
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={40}
+                          domain={[0, roundedMax]}
+                          ticks={chartTicks}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend
+                          wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+                          iconType="square"
+                          iconSize={10}
+                        />
+                        <Bar dataKey="netRevenue" name="Doanh thu thuần" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={80} minPointSize={0} />
+                        <Bar dataKey="totalExpense" name="Tổng chi phí" fill="#f87171" radius={[3,3,0,0]} maxBarSize={80} minPointSize={0} />
+                        <Bar dataKey="estimatedProfit" name="Lợi nhuận" fill="#10b981" radius={[3,3,0,0]} maxBarSize={80} minPointSize={0} />
+                      </BarChart>
+                    )}
+                  </SafeChartViewport>
 
                   {/* Expense breakdown */}
                   {expenseBreakdown.length > 0 && (
