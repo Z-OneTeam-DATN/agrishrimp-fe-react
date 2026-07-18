@@ -2,12 +2,24 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MessageSquareWarning, Save } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { P } from "@/lib/permissions";
 import type { AiKnowledgeReviewCase } from "@/app/types/ai-knowledge.types";
+
+const REVIEW_STATUS_LABELS: Record<string, string> = {
+  NEW: "Mới",
+  IN_PROGRESS: "Đang xử lý",
+  RESOLVED: "Đã xử lý",
+  IGNORED: "Bỏ qua",
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  AI_DOCTOR_PUBLIC: "Người dùng ngoài website",
+  AI_DOCTOR_PRIVATE: "Người dùng đã đăng nhập",
+};
 
 export default function AgronomistReviewPage() {
   return (
@@ -35,15 +47,15 @@ function AgronomistReviewContent() {
         status: payload.status,
         matchedKnowledgeCode: matchedKnowledgeCode || undefined,
         resolutionNotes: resolutionNotes || undefined,
-      }),
+    }),
     onSuccess: async () => {
-      toast.success("Đã cập nhật review case.");
+      toast.success("Đã cập nhật câu hỏi cần kiểm tra.");
       setEditingCaseId(null);
       setResolutionNotes("");
       setMatchedKnowledgeCode("");
       await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "review-cases"] });
     },
-    onError: (error: unknown) => toast.error(getErrorMessage(error, "Không thể cập nhật review case.")),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Không thể cập nhật câu hỏi cần kiểm tra.")),
   });
 
   const reviewCases = reviewCasesQuery.data ?? [];
@@ -56,33 +68,25 @@ function AgronomistReviewContent() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[4px] bg-blue-50">
-              <MessageSquareWarning className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400">Human Review Queue</p>
-              <h3 className="mt-2 text-2xl font-bold text-slate-900">Case không match hoặc confidence thấp</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-                Đây là nơi kỹ sư chốt lại các câu hỏi mà AI không được phép trả lời chắc chắn trong production.
-              </p>
-            </div>
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-[38px] rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="NEW">NEW</option>
-            <option value="IN_PROGRESS">IN_PROGRESS</option>
-            <option value="RESOLVED">RESOLVED</option>
-            <option value="IGNORED">IGNORED</option>
-          </select>
+      <section className="flex flex-col gap-4 px-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-2xl font-bold text-slate-900">Câu hỏi AI cần kỹ sư kiểm tra</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+            Danh sách câu hỏi AI chưa đủ tự tin hoặc chưa tìm được phác đồ phù hợp.
+          </p>
         </div>
+
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          className="h-[38px] rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none"
+        >
+          <option value="">Tất cả trạng thái</option>
+          <option value="NEW">Mới</option>
+          <option value="IN_PROGRESS">Đang xử lý</option>
+          <option value="RESOLVED">Đã xử lý</option>
+          <option value="IGNORED">Bỏ qua</option>
+        </select>
       </section>
 
       <section className="space-y-4">
@@ -95,11 +99,13 @@ function AgronomistReviewContent() {
             <div key={item.id} className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-black text-slate-900">Case #{item.id}</p>
-                  <p className="mt-1 text-xs text-slate-500">{item.sourceChannel || "UNKNOWN_SOURCE"}</p>
+                  <p className="text-sm font-black text-slate-900">Câu hỏi #{item.id}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.sourceChannel ? SOURCE_LABELS[item.sourceChannel] ?? "Nguồn khác" : "Chưa rõ nguồn"}
+                  </p>
                 </div>
                 <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-blue-700">
-                  {item.status}
+                  {REVIEW_STATUS_LABELS[item.status] ?? item.status}
                 </span>
               </div>
 
@@ -107,18 +113,18 @@ function AgronomistReviewContent() {
                 <InfoBlock label="Câu hỏi" value={item.questionText || "Chưa có nội dung"} />
                 <InfoBlock label="Dấu hiệu người nuôi mô tả" value={item.userSymptoms || "Chưa ghi nhận"} />
                 <InfoBlock label="AI gợi ý" value={item.aiSuggestedDiseaseCode || "Chưa có"} />
-                <InfoBlock label="Knowledge đang match" value={item.matchedKnowledgeCode || "Chưa gắn"} />
+                <InfoBlock label="Phác đồ đang gắn" value={item.matchedKnowledgeCode || "Chưa gắn"} />
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => startEditing(item)} className={secondaryButtonClassName}>
-                  Xử lý case
+                  Xem và ghi chú
                 </button>
                 <button onClick={() => updateCaseMutation.mutate({ id: item.id, status: "IN_PROGRESS" })} className={secondaryButtonClassName}>
-                  Chuyển IN_PROGRESS
+                  Đánh dấu đang xử lý
                 </button>
                 <button onClick={() => updateCaseMutation.mutate({ id: item.id, status: "RESOLVED" })} className={successButtonClassName}>
-                  Đánh dấu RESOLVED
+                  Đánh dấu đã xử lý
                 </button>
               </div>
 
@@ -127,13 +133,12 @@ function AgronomistReviewContent() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                        Mã knowledge xử lý
+                        Mã phác đồ xử lý
                       </p>
                       <input
                         value={matchedKnowledgeCode}
                         onChange={(event) => setMatchedKnowledgeCode(event.target.value)}
                         className={inputClassName}
-                        placeholder="WSSV hoặc FAQ_WHITE_SPOT"
                       />
                     </div>
                     <div>
@@ -145,7 +150,6 @@ function AgronomistReviewContent() {
                         onChange={(event) => setResolutionNotes(event.target.value)}
                         className={textareaClassName}
                         rows={4}
-                        placeholder="Mô tả vì sao bot bị thiếu tri thức và hướng cập nhật..."
                       />
                     </div>
                   </div>
@@ -153,7 +157,7 @@ function AgronomistReviewContent() {
                   <div className="mt-4 flex gap-3">
                     <button onClick={() => updateCaseMutation.mutate({ id: item.id, status: "RESOLVED" })} className={primaryButtonClassName}>
                       <Save className="h-4 w-4" />
-                      Lưu & chốt case
+                      Lưu và chốt
                     </button>
                     <button onClick={() => setEditingCaseId(null)} className={secondaryButtonClassName}>
                       Đóng
