@@ -158,7 +158,7 @@ function validateDiseasePayload(payload: DiseasePayload, form: DiseaseFormState)
   }
   if (!payload.nameVi) errors.nameVi = "Vui lòng nhập tên bệnh.";
   if (!payload.symptomKeywordsRaw) {
-    errors.symptomKeywordsRaw = "Vui lòng nhập dấu hiệu / triệu chứng để AI match.";
+    errors.symptomKeywordsRaw = "Vui lòng nhập dấu hiệu / triệu chứng để AI nhận diện.";
   }
   if (!payload.signsSummary) errors.signsSummary = "Vui lòng nhập mô tả dấu hiệu.";
   if (payload.causes.length === 0) errors.causesText = "Vui lòng nhập ít nhất một nguyên nhân.";
@@ -472,7 +472,7 @@ export default function DiseaseForm({
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Alias / tên gọi khác</Label>
+          <Label className="text-[10.5px] font-semibold text-slate-500">Tên gọi khác</Label>
           <Textarea
             value={form.aliasesRaw}
             onChange={(event) => updateField("aliasesRaw", event.target.value)}
@@ -482,7 +482,7 @@ export default function DiseaseForm({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Dấu hiệu / triệu chứng match</Label>
+          <Label className="text-[10.5px] font-semibold text-slate-500">Dấu hiệu / triệu chứng</Label>
           <Textarea
             value={form.symptomKeywordsRaw}
             onChange={(event) => updateField("symptomKeywordsRaw", event.target.value)}
@@ -582,10 +582,7 @@ export default function DiseaseForm({
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <div>
-                      <Label className="text-[10.5px] font-semibold text-slate-500">Hướng dẫn điều trị</Label>
-                      <p className="mt-1 text-[11px] text-slate-400">Nhấn Enter để tách từng bước hướng dẫn.</p>
-                    </div>
+                    <Label className="text-[10.5px] font-semibold text-slate-500">Hướng dẫn điều trị</Label>
                     <Textarea
                       value={stage.instructionsText}
                       onChange={(event) => updateStage(index, { instructionsText: event.target.value })}
@@ -597,12 +594,7 @@ export default function DiseaseForm({
                     <FieldError message={stageErrors?.instructionsText} />
                   </div>
                   <div className="space-y-2">
-                    <div>
-                      <Label className="text-[10.5px] font-semibold text-slate-500">Tên thuốc/sản phẩm khác</Label>
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Chỉ nhập khi catalog chưa có. Nhấn Enter để thêm tên tiếp theo.
-                      </p>
-                    </div>
+                    <Label className="text-[10.5px] font-semibold text-slate-500">Tên thuốc/sản phẩm khác</Label>
                     <Textarea
                       value={stage.extraProductNamesText}
                       onChange={(event) => updateStage(index, { extraProductNamesText: event.target.value })}
