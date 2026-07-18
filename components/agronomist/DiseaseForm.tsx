@@ -420,7 +420,6 @@ export default function DiseaseForm({
           <Input
             value={form.code}
             onChange={(event) => updateField("code", event.target.value)}
-            placeholder="WSSV"
             aria-invalid={Boolean(formErrors.code)}
             className={cn(inputClassName, formErrors.code && invalidFieldClassName)}
           />
@@ -431,7 +430,6 @@ export default function DiseaseForm({
           <Input
             value={form.nameVi}
             onChange={(event) => updateField("nameVi", event.target.value)}
-            placeholder="Bệnh đốm trắng"
             aria-invalid={Boolean(formErrors.nameVi)}
             className={cn(inputClassName, formErrors.nameVi && invalidFieldClassName)}
           />
@@ -442,7 +440,6 @@ export default function DiseaseForm({
           <Input
             value={form.nameEn}
             onChange={(event) => updateField("nameEn", event.target.value)}
-            placeholder="White Spot Syndrome Virus"
             className={inputClassName}
           />
         </div>
@@ -477,7 +474,6 @@ export default function DiseaseForm({
             value={form.aliasesRaw}
             onChange={(event) => updateField("aliasesRaw", event.target.value)}
             rows={3}
-            placeholder="white spot, đốm trắng, wssv"
             className={textareaClassName}
           />
         </div>
@@ -487,7 +483,6 @@ export default function DiseaseForm({
             value={form.symptomKeywordsRaw}
             onChange={(event) => updateField("symptomKeywordsRaw", event.target.value)}
             rows={3}
-            placeholder="đốm trắng trên vỏ, bơi lờ đờ, giảm ăn"
             aria-invalid={Boolean(formErrors.symptomKeywordsRaw)}
             className={cn(textareaClassName, formErrors.symptomKeywordsRaw && invalidFieldClassName)}
           />
@@ -502,19 +497,17 @@ export default function DiseaseForm({
             value={form.signsSummary}
             onChange={(event) => updateField("signsSummary", event.target.value)}
             rows={4}
-            placeholder="Tôm có đốm trắng rõ ở vỏ, giảm ăn nhanh, bơi yếu..."
             aria-invalid={Boolean(formErrors.signsSummary)}
             className={cn(textareaClassName, formErrors.signsSummary && invalidFieldClassName)}
           />
           <FieldError message={formErrors.signsSummary} />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Nguyên nhân (mỗi dòng một ý)</Label>
+          <Label className="text-[10.5px] font-semibold text-slate-500">Nguyên nhân</Label>
           <Textarea
             value={form.causesText}
             onChange={(event) => updateField("causesText", event.target.value)}
             rows={4}
-            placeholder={"môi trường biến động\nmật độ nuôi cao\nnhiễm virus"}
             aria-invalid={Boolean(formErrors.causesText)}
             className={cn(textareaClassName, formErrors.causesText && invalidFieldClassName)}
           />
@@ -562,7 +555,6 @@ export default function DiseaseForm({
                     <Input
                       value={stage.stageTitle}
                       onChange={(event) => updateStage(index, { stageTitle: event.target.value })}
-                      placeholder="Giai đoạn ổn định môi trường"
                       aria-invalid={Boolean(stageErrors?.stageTitle)}
                       className={cn(inputClassName, stageErrors?.stageTitle && invalidFieldClassName)}
                     />
@@ -586,7 +578,6 @@ export default function DiseaseForm({
                       value={stage.instructionsText}
                       onChange={(event) => updateStage(index, { instructionsText: event.target.value })}
                       rows={4}
-                      placeholder={"Kiểm tra môi trường ao\nGiảm sốc\nTheo dõi sức ăn"}
                       aria-invalid={Boolean(stageErrors?.instructionsText)}
                       className={cn(textareaClassName, stageErrors?.instructionsText && invalidFieldClassName)}
                     />
@@ -598,7 +589,6 @@ export default function DiseaseForm({
                       value={stage.extraProductNamesText}
                       onChange={(event) => updateStage(index, { extraProductNamesText: event.target.value })}
                       rows={4}
-                      placeholder={"Vitamin C bổ sung\nMen vi sinh XYZ"}
                       className={textareaClassName}
                     />
                   </div>
