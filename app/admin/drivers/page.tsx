@@ -17,9 +17,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
+import { P } from "@/lib/permissions";
 
 export default function DriverListPage() {
     const router = useRouter();
+    const { hasPermission } = usePermissions();
+    const { user, isLoadingAuth } = useAuthStore();
+    const isAdmin = isAdminRole(user?.role);
+    const canViewDriver = hasPermission(P.DRIVER_VIEW) || isAdmin;
+    const canCreate = hasPermission(P.DRIVER_CREATE) || isAdmin;
+
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [keyword, setKeyword] = useState("");
@@ -31,6 +41,12 @@ export default function DriverListPage() {
     const pageSize = 20;
 
     useEffect(() => {
+        if (!isLoadingAuth && !canViewDriver) {
+            router.push("/admin/forbidden");
+        }
+    }, [isLoadingAuth, canViewDriver, router]);
+
+    useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
         }, 300);
@@ -38,6 +54,7 @@ export default function DriverListPage() {
     }, [keyword]);
 
     const fetchDrivers = useCallback(async () => {
+        if (!canViewDriver) return;
         setIsLoading(true);
         try {
             const data = await driverService.getAll(
@@ -55,11 +72,21 @@ export default function DriverListPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentPage, debouncedKeyword, status]);
+    }, [currentPage, debouncedKeyword, status, canViewDriver]);
 
     useEffect(() => {
-        void fetchDrivers();
-    }, [fetchDrivers]);
+        if (canViewDriver) {
+            void fetchDrivers();
+        }
+    }, [fetchDrivers, canViewDriver]);
+
+    if (isLoadingAuth || !canViewDriver) {
+        return (
+            <div className="flex h-[200px] items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+        );
+    }
 
     const handleSearch = (value: string) => {
         setKeyword(value);
@@ -113,13 +140,15 @@ export default function DriverListPage() {
                         </div>
                     </div>
 
-                    <Button
-                        onClick={() => router.push("/admin/drivers/add")}
-                        className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Thêm tài xế
-                    </Button>
+                    {canCreate && (
+                        <Button
+                            onClick={() => router.push("/admin/drivers/add")}
+                            className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Thêm tài xế
+                        </Button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
@@ -212,7 +241,7 @@ export default function DriverListPage() {
                                         </Button>
                                     ) : (
                                         <Button
-                                            className="h-9 bg-emerald-600 text-[11px] font-medium hover:bg-emerald-700 rounded-[4px]"
+                                            className="h-9 bg-blue-600 text-[11px] font-medium hover:bg-blue-700 rounded-[4px]"
                                             onClick={() => router.push("/admin/drivers/add")}
                                         >
                                             + Tạo tài xế đầu tiên

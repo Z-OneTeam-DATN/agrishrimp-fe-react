@@ -75,17 +75,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // If msg has a localId, replace the optimistic placeholder with the same localId
       if (msg.localId) {
-        const replaced = existing.map((m) =>
-          m.localId === msg.localId ? { ...msg } : m
-        );
-        // If nothing was replaced, just append
         const found = existing.some((m) => m.localId === msg.localId);
-        return {
-          messages: {
-            ...s.messages,
-            [msg.conversationId]: found ? replaced : [...existing, msg],
-          },
-        };
+        let next: typeof existing;
+        if (found) {
+          // Step 1: swap the optimistic placeholder with the confirmed message
+          const replaced = existing.map((m) =>
+            m.localId === msg.localId ? { ...msg } : m
+          );
+          // Step 2: remove any WS-echoed entry that has the same real id
+          // (arrived before or after the HTTP response — either way it's a duplicate now)
+          next = replaced.filter(
+            (m) => m.localId === msg.localId || !(m.id === msg.id && m.id > 0 && !m.localId)
+          );
+        } else {
+          // Nothing to replace: append, but skip if real id already present
+          const alreadyById = existing.some((m) => m.id === msg.id && m.id > 0);
+          next = alreadyById ? existing : [...existing, msg];
+        }
+        return { messages: { ...s.messages, [msg.conversationId]: next } };
       }
 
       // Regular server message: deduplicate by id, update if status changed

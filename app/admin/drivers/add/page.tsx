@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,9 +13,24 @@ import { toast } from "sonner";
 import { DriverSchema, DriverFormValues } from "@/app/types/driver.schema";
 import { driverService } from "@/app/services/driver.service";
 import { FileService } from "@/app/services/file.service";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
+import { P } from "@/lib/permissions";
 
 export default function AddDriverPage() {
     const router = useRouter();
+    const { hasPermission } = usePermissions();
+    const { user, isLoadingAuth } = useAuthStore();
+    const isAdmin = isAdminRole(user?.role);
+    const canCreate = hasPermission(P.DRIVER_CREATE) || isAdmin;
+
+    useEffect(() => {
+        if (!isLoadingAuth && !canCreate) {
+            router.push("/admin/forbidden");
+        }
+    }, [isLoadingAuth, canCreate, router]);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [licenseUploading, setLicenseUploading] = useState(false);

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Eye, User, ChevronLeft, ChevronRight, Mail, Trash2, Loader2 } from "lucide-react";
+import { Eye, User, ChevronLeft, ChevronRight, Mail, Lock, LockOpen, Loader2 } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -222,10 +222,15 @@ export function AdminCustomerTable({
                                                         variant="ghost"
                                                         size="icon"
                                                         title={cus.userStatus === "ACTIVE" ? "Tạm khóa tài khoản" : "Mở khóa tài khoản"}
-                                                        className="h-8 w-8 text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all rounded-[4px]"
+                                                        className={cn(
+                                                            "h-8 w-8 transition-all rounded-[4px]",
+                                                            cus.userStatus === "ACTIVE"
+                                                                ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                                                : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                                        )}
                                                         onClick={() => openDeleteDialog(cus)}
                                                     >
-                                                        <Trash2 size={15} />
+                                                        {cus.userStatus === "ACTIVE" ? <Lock size={15} /> : <LockOpen size={15} />}
                                                     </Button>
                                                 )}
                                             </div>
