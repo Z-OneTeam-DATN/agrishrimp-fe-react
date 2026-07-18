@@ -187,7 +187,7 @@ export default function AdminSidebar() {
     P.SUPPLIER_VIEW,
   ]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
-  const canViewSettings = hasPermission(P.SETTING_VIEW);
+  const canViewSettings = hasPermission(P.SETTING_VIEW) || hasPermission(P.DRIVER_VIEW) || isAdmin;
   const canAccessOrderManagement =
     hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
   const canViewBannerSection = hasPermission(P.BANNER_VIEW);
@@ -734,16 +734,7 @@ export default function AdminSidebar() {
                   color="text-orange-400"
                 />
               )}
-              {hasPermission(P.DRIVER_VIEW) && (
-                <SidebarLink
-                  href="/admin/drivers"
-                  icon={UserCircle}
-                  label="Quản lý tài xế"
-                  active={isActive("/admin/drivers")}
-                  badge={driverCount}
-                  color="text-teal-400"
-                />
-              )}
+
             </div>
           </section>
         )}
