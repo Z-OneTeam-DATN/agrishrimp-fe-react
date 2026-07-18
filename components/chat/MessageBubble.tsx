@@ -202,9 +202,11 @@ export default function MessageBubble({ message, isOwn, isLast, onRetry, isAdmin
         </div>
       ) : (
         <Avatar className="w-7 h-7 shrink-0">
-          <AvatarImage src={getFullImageUrl(message.senderAvatar)} />
-          <AvatarFallback className="text-xs bg-gray-200 text-gray-600 font-medium">
-            {message.senderName?.charAt(0) ?? "?"}
+          {message.senderAvatar && (
+            <AvatarImage src={getFullImageUrl(message.senderAvatar)} className="object-cover w-full h-full" />
+          )}
+          <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[10px] font-bold uppercase">
+            {(message.senderName?.charAt(0) ?? "?").toUpperCase()}
           </AvatarFallback>
         </Avatar>
       )}
@@ -360,8 +362,10 @@ export function TypingBubble({ name, avatarUrl, isAdmin }: { name?: string; avat
         </div>
       ) : (
         <Avatar className="w-7 h-7 shrink-0">
-          {avatarUrl && <AvatarImage src={getFullImageUrl(avatarUrl)} />}
-          <AvatarFallback className="text-xs bg-gray-200 text-gray-600 font-medium">{name?.charAt(0) ?? "S"}</AvatarFallback>
+          {avatarUrl && <AvatarImage src={getFullImageUrl(avatarUrl)} className="object-cover w-full h-full" />}
+          <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[10px] font-bold uppercase">
+            {(name?.charAt(0) ?? "S").toUpperCase()}
+          </AvatarFallback>
         </Avatar>
       )}
       <div className="bg-[#f0f0f0] rounded-[18px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1">
