@@ -203,7 +203,7 @@ export default function MessageBubble({ message, isOwn, isLast, onRetry, isAdmin
       ) : (
         <Avatar className="w-7 h-7 shrink-0">
           {message.senderAvatar && (
-            <AvatarImage src={getFullImageUrl(message.senderAvatar)} />
+            <AvatarImage src={getFullImageUrl(message.senderAvatar)} className="object-cover w-full h-full" />
           )}
           <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[10px] font-bold uppercase">
             {(message.senderName?.charAt(0) ?? "?").toUpperCase()}
@@ -362,7 +362,7 @@ export function TypingBubble({ name, avatarUrl, isAdmin }: { name?: string; avat
         </div>
       ) : (
         <Avatar className="w-7 h-7 shrink-0">
-          {avatarUrl && <AvatarImage src={getFullImageUrl(avatarUrl)} />}
+          {avatarUrl && <AvatarImage src={getFullImageUrl(avatarUrl)} className="object-cover w-full h-full" />}
           <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-[10px] font-bold uppercase">
             {(name?.charAt(0) ?? "S").toUpperCase()}
           </AvatarFallback>
