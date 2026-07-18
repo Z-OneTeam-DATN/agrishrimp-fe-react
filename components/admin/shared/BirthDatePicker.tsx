@@ -45,6 +45,30 @@ const parseValueToDate = (value?: string | null) => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
+const getInitialDisplayMonth = ({
+  selectedDate,
+  fromDate,
+  toDate,
+}: {
+  selectedDate?: Date;
+  fromDate?: Date;
+  toDate?: Date;
+}) => {
+  if (selectedDate) return selectedDate;
+
+  const today = new Date();
+
+  if (fromDate && today < fromDate) {
+    return fromDate;
+  }
+
+  if (toDate && today > toDate) {
+    return toDate;
+  }
+
+  return today;
+};
+
 export function BirthDatePicker({
   value,
   onChange,
@@ -85,7 +109,7 @@ export function SharedDatePicker({
   const selectedDate = React.useMemo(() => parseValueToDate(value), [value]);
   const [open, setOpen] = React.useState(false);
   const [displayMonth, setDisplayMonth] = React.useState<Date>(
-    selectedDate ?? new Date(2000, 0, 1),
+    getInitialDisplayMonth({ selectedDate, fromDate, toDate }),
   );
   const isCompact = variant === "compact";
   const minYear = fromDate?.getFullYear() ?? MIN_YEAR;
@@ -117,6 +141,7 @@ export function SharedDatePicker({
               ? "border-rose-500 focus-visible:ring-rose-500"
               : "border-slate-200 hover:border-slate-300",
             !formattedValue && "text-slate-400",
+            buttonClassName,
           )}
         >
           <span className="flex items-center gap-2 overflow-hidden">

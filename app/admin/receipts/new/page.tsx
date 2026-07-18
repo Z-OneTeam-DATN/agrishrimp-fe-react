@@ -82,6 +82,8 @@ function isWarehouseBranchLike(branch: any) {
   return name.includes("kho tong") || name.includes("warehouse");
 }
 
+const MAX_EXPIRY_PICKER_DATE = new Date(new Date().getFullYear() + 50, 11, 31);
+
 function AdminReceiptFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1211,6 +1213,9 @@ function AdminReceiptFormContent() {
                                   })
                                 }
                                 placeholder="Hạn dùng"
+                                heading="Hạn dùng"
+                                emptyStateLabel="Chưa chọn hạn dùng"
+                                toDate={MAX_EXPIRY_PICKER_DATE}
                                 variant="compact"
                                 buttonClassName="h-9 border-slate-200 px-2 text-[11.5px] shadow-none"
                               />

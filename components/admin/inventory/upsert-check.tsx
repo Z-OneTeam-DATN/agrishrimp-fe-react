@@ -58,7 +58,9 @@ import { EmployeeService } from "@/app/services/employee.service";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
 import { cn, formatNumber } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface InventoryUpsertProps {
   mode: "create" | "edit" | "view";
@@ -509,9 +511,13 @@ export default function InventoryUpsert({
   code,
 }: InventoryUpsertProps) {
   const router = useRouter();
-  const { data: user } = useCurrentUser();
+  const { data: user, isLoading: isCurrentUserLoading } = useCurrentUser();
+  const warehouseId = useAuthStore((state) => state.warehouseId);
   const { hasPermission } = usePermissions();
   const canViewEmployees = hasPermission(P.STAFF_VIEW);
+  const isAdmin = isAdminRole(user?.role);
+  const currentUserBranchId =
+    user?.branch?.id ?? (user as any)?.branchId ?? warehouseId ?? null;
 
   const [loading, setLoading] = useState(mode !== "create");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -629,22 +635,47 @@ export default function InventoryUpsert({
   }, [user]);
 
   useEffect(() => {
-    fetchBranches();
+    if (isCurrentUserLoading) return;
+    void fetchBranches();
+  }, [currentUserBranchId, isAdmin, isCurrentUserLoading]);
+
+  useEffect(() => {
     if (mode !== "create" && !initialData && code) {
-      fetchDetail();
+      void fetchDetail();
     } else if (mode === "create") {
       setLoading(false);
     }
-  }, [code]);
+  }, [code, initialData, mode]);
 
   const fetchBranches = async () => {
     try {
       const res = await branchService.getAll();
-      const list = Array.isArray(res) ? res : res?.content || [];
+      const rawList = Array.isArray(res) ? res : res?.content || [];
+      const list =
+        !isAdmin
+          ? rawList.filter(
+              (branch: any) =>
+                currentUserBranchId != null &&
+                String(branch.id) === String(currentUserBranchId),
+            )
+          : rawList;
       setBranches(list);
-      if (mode === "create" && list.length > 0 && !formData.branchId) {
-        setFormData((prev) => ({ ...prev, branchId: String(list[0].id) }));
-      }
+      if (list.length === 0) return;
+      setFormData((prev) => {
+        const hasSelectedBranch = list.some(
+          (branch: any) => String(branch.id) === String(prev.branchId),
+        );
+        if (hasSelectedBranch) return prev;
+
+        const defaultBranchId =
+          !isAdmin && currentUserBranchId != null
+            ? String(currentUserBranchId)
+            : String(list[0].id);
+
+        if (!isAdmin && currentUserBranchId === null) return prev;
+        if (!defaultBranchId || prev.branchId === defaultBranchId) return prev;
+        return { ...prev, branchId: defaultBranchId };
+      });
     } catch {
       toast.error("Không thể tải danh sách chi nhánh");
     }

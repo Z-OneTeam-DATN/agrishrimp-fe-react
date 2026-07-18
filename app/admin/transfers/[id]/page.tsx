@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
+import { formatDate } from "@/lib/dateUtils";
 import { P } from "@/lib/permissions";
 import { getTransferStatusLabel } from "@/lib/transfer-status";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -470,6 +471,45 @@ export default function TransferDetailPage() {
   );
   const sectionCardClass = "border border-slate-200 bg-white p-6 shadow-sm";
   const sectionTitleClass = "text-[11px] font-bold text-slate-800";
+  const formatAuditLogTime = (value?: string) => {
+    if (!value) return "---";
+    const formatted = formatDate(value, "dd/MM/yyyy HH:mm:ss");
+    return formatted === "N/A" ? value : formatted;
+  };
+  const getAuditLogActionLabel = (log: AuditLog) => {
+    if (log.time === transfer.createdAt) return "Tạo phiếu";
+    if (log.time === transfer.sourceConfirmedAt) return "Xác nhận nguồn";
+    if (log.time === transfer.approvedAt) return "Duyệt phiếu";
+    if (log.time === transfer.shippedAt) return "Xuất hàng";
+    if (log.time === transfer.inspectionStartedAt) return "Bắt đầu kiểm hàng";
+    if (log.time === transfer.receivedAt) return "Nhập hàng";
+    if (log.time === transfer.settledAt) return "Ghi nhận thanh toán";
+    return log.action;
+  };
+  const getAuditLogBranch = (log: AuditLog) => {
+    if (log.time === transfer.createdAt) {
+      return transfer.createdByBranchName || transfer.fromBranchName || "---";
+    }
+    if (log.time === transfer.sourceConfirmedAt || log.time === transfer.shippedAt) {
+      return transfer.fromBranchName || "---";
+    }
+    if (
+      log.time === transfer.inspectionStartedAt ||
+      log.time === transfer.receivedAt ||
+      log.time === transfer.settledAt
+    ) {
+      return transfer.toBranchName || transfer.fromBranchName || "---";
+    }
+    if (log.time === transfer.approvedAt) {
+      return (
+        transfer.createdByBranchName ||
+        transfer.fromBranchName ||
+        transfer.toBranchName ||
+        "---"
+      );
+    }
+    return "---";
+  };
   const formatDateTimeLocal = (value?: string) => {
     if (!value) return "";
     const date = new Date(value);
@@ -665,19 +705,6 @@ export default function TransferDetailPage() {
                 />
               </div>
 
-              <div className="space-y-1.5 md:col-span-3">
-                <Label className={fieldLabelClass}>Trạng thái nhập</Label>
-                <Select value={transfer.importStatus || "PENDING"} disabled>
-                  <SelectTrigger className={cn(selectTriggerClass, "border-slate-200 bg-slate-50")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">Chờ nhập</SelectItem>
-                    <SelectItem value="PARTIAL">Nhập một phần</SelectItem>
-                    <SelectItem value="COMPLETED">Đã nhập đủ</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="space-y-1.5 md:col-span-3">
                 <Label className={fieldLabelClass}>Tham chiếu chứng từ *</Label>
@@ -731,23 +758,15 @@ export default function TransferDetailPage() {
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <span className={sectionTitleClass}>2. Nhật ký xử lý</span>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 space-y-1.5">
             {auditLogs.map((log, idx) => (
-              <div
+              <p
                 key={`${log.action}-${idx}`}
-                className="rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-2.5"
+                className="border-b border-slate-100 py-2 text-[12px] text-slate-700 last:border-b-0"
               >
-                <p className="text-[11px] font-semibold text-slate-800">
-                  {log.action}
-                </p>
-                <p className="mt-1 text-[10px] text-slate-400">{log.time}</p>
-                <p className="mt-1 text-[10px] font-medium text-slate-500">
-                  {log.user}
-                </p>
-                <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
-                  {log.detail}
-                </p>
-              </div>
+                {formatAuditLogTime(log.time)} - {log.user} - {getAuditLogActionLabel(log)} -{" "}
+                {getAuditLogBranch(log)}
+              </p>
             ))}
           </div>
         </div>
