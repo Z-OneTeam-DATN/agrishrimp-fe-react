@@ -333,6 +333,7 @@ export default function DiseaseForm({
       (productsQuery.data ?? []).map((product: PublicProductListItem) => ({
         id: product.id,
         label: `${product.name} #${product.id}`,
+        imageUrl: product.variants?.find((variant) => variant.imageUrl)?.imageUrl || product.imageUrls?.[0] || null,
       })),
     [productsQuery.data],
   );

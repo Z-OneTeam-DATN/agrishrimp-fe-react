@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import Image from "next/image";
+import { Check, ChevronDown, ImageOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 export interface ProductOption {
   id: number;
   label: string;
+  imageUrl?: string | null;
 }
 
 export default function ProductMultiSelect({
@@ -77,10 +79,11 @@ export default function ProductMultiSelect({
                       key={option.id}
                       value={option.label}
                       onSelect={() => toggle(option.id)}
-                      className="text-[13px]"
+                      className="flex items-center gap-2 text-[13px]"
                     >
-                      <Check className={cn("mr-2 h-4 w-4", checked ? "opacity-100" : "opacity-0")} />
-                      {option.label}
+                      <Check className={cn("h-4 w-4 shrink-0", checked ? "opacity-100" : "opacity-0")} />
+                      <ProductThumb imageUrl={option.imageUrl} label={option.label} className="h-9 w-9" />
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
                     </CommandItem>
                   );
                 })}
@@ -96,9 +99,10 @@ export default function ProductMultiSelect({
             <Badge
               key={option.id}
               variant="secondary"
-              className="gap-1 rounded-[4px] bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100"
+              className="gap-1.5 rounded-[4px] bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100"
             >
-              {option.label}
+              <ProductThumb imageUrl={option.imageUrl} label={option.label} className="h-5 w-5" />
+              <span className="max-w-[220px] truncate">{option.label}</span>
               <button
                 type="button"
                 onClick={() => remove(option.id)}
@@ -111,5 +115,30 @@ export default function ProductMultiSelect({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ProductThumb({
+  imageUrl,
+  label,
+  className,
+}: {
+  imageUrl?: string | null;
+  label: string;
+  className: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 text-slate-300",
+        className,
+      )}
+    >
+      {imageUrl ? (
+        <Image src={imageUrl} alt={label} fill sizes="36px" className="object-cover" />
+      ) : (
+        <ImageOff className="h-4 w-4" />
+      )}
+    </span>
   );
 }
