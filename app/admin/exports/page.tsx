@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { InventoryExportTable } from "@/components/inventory/InventoryExportTable";
-import { cn } from "@/lib/utils";
+import { cn, resolveExportPartnerName } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Plus, Search, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,12 +84,7 @@ export default function AdminExportListPage() {
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const displayPartner = (
-        item.displayPartnerName ||
-        item.supplierName ||
-        item.partnerBranchName ||
-        ""
-      ).toLowerCase();
+      const displayPartner = resolveExportPartnerName(item).toLowerCase();
       if (
         !String(item.code || "")
           .toLowerCase()
@@ -240,24 +235,28 @@ export default function AdminExportListPage() {
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
           <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
             {tabs.map((tab) => {
-              const hasItems = (counts as any)[tab.id] > 0;
-              const showRedDot = tab.id === "pending" && hasItems;
+              const count = (counts as any)[tab.id] ?? 0;
 
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "relative h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                    "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
                     activeTab === tab.id
                       ? "border-blue-200 bg-blue-50 text-blue-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
                   )}
                 >
                   {tab.label}
-                  {showRedDot && (
-                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
-                  )}
+                  <span
+                    className={cn(
+                      "ml-2 text-[11px]",
+                      activeTab === tab.id ? "text-blue-500" : "text-slate-400",
+                    )}
+                  >
+                    {count}
+                  </span>
                 </button>
               );
             })}

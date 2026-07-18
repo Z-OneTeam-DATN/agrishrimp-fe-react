@@ -895,7 +895,7 @@ export default function NewTransferPage() {
                             </div>
                             <div>
                               <p className="text-[12px] font-semibold text-slate-800">
-                                {variant.productName || variant.unit}
+                                {variant.productName || "Sản phẩm"}
                               </p>
                               <p className="text-[10px] text-slate-500">
                                 SKU:{" "}
@@ -916,7 +916,6 @@ export default function NewTransferPage() {
                             >
                               Tồn: {variant.quantity || 0}
                             </p>
-                            <p className="text-[10px] text-slate-400">Cái</p>
                           </div>
                         </div>
                       ))
@@ -946,9 +945,6 @@ export default function NewTransferPage() {
                     </TableHead>
                     <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
                       Sản phẩm
-                    </TableHead>
-                    <TableHead className="w-[54px] px-1.5 py-2 text-[10px] font-semibold text-slate-700">
-                      ĐVT
                     </TableHead>
                     <TableHead className="w-[70px] px-1.5 py-2 text-right text-[10px] font-semibold text-slate-700">
                       Tồn kho
@@ -987,7 +983,7 @@ export default function NewTransferPage() {
                     const hasRowError = Boolean(
                       itemErrors?.quantity || itemErrors?.unitTransferPrice,
                     );
-                    const colSpan = isInternalSale ? 10 : 8;
+                    const colSpan = isInternalSale ? 9 : 7;
 
                     return (
                       <React.Fragment key={field.id}>
@@ -999,13 +995,6 @@ export default function NewTransferPage() {
                             <Input
                               {...register(`items.${index}.productName`)}
                               className="h-7 truncate border-none bg-transparent px-0 text-[11px] font-semibold focus-visible:ring-0"
-                              readOnly
-                            />
-                          </TableCell>
-                          <TableCell className="px-1.5 py-1.5">
-                            <Input
-                              {...register(`items.${index}.unit`)}
-                              className="h-7 truncate border-none bg-transparent px-0 text-[11px] focus-visible:ring-0"
                               readOnly
                             />
                           </TableCell>

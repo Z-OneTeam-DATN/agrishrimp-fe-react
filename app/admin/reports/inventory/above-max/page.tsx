@@ -97,7 +97,6 @@ export default function InventoryAboveMaxReportPage() {
               <TableRow className="bg-[#5c7293] hover:bg-[#5c7293]">
                 <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[50px]">STT</TableHead>
                 <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[220px]">Phiên bản sản phẩm</TableHead>
-                <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[100px]">Đơn vị tính</TableHead>
                 <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[120px]">Mã SKU</TableHead>
                 <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[100px]">Tồn kho</TableHead>
                 <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[140px]">Định mức tối đa</TableHead>
@@ -106,7 +105,7 @@ export default function InventoryAboveMaxReportPage() {
             </TableHeader>
             <TableBody>
               <TableRow className="bg-white border-b border-[#eee] font-black">
-                <TableCell colSpan={7} className="p-3 pl-6 text-[13px] text-slate-800">
+                <TableCell colSpan={6} className="p-3 pl-6 text-[13px] text-slate-800">
                   Tổng 0 sản phẩm
                 </TableCell>
               </TableRow>

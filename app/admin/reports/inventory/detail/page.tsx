@@ -110,12 +110,6 @@ export default function InventoryDetailReportPage() {
                 </TableHead>
                 <TableHead
                   rowSpan={2}
-                  className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[100px]"
-                >
-                  Đơn vị tính
-                </TableHead>
-                <TableHead
-                  rowSpan={2}
                   className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[120px]"
                 >
                   Loại sản phẩm
@@ -156,7 +150,7 @@ export default function InventoryDetailReportPage() {
               {/* Summary Row */}
               <TableRow className="bg-white border-b border-[#eee] font-black">
                 <TableCell
-                  colSpan={5}
+                  colSpan={4}
                   className="p-3 pl-6 text-[13px] text-slate-800 uppercase tracking-tight"
                 >
                   Tổng 0 sản phẩm

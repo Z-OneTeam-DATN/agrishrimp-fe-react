@@ -31,9 +31,6 @@ export function InventoryProductTable({ products }: any) {
               Tên hàng
             </TableHead>
             <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">
-              ĐVT
-            </TableHead>
-            <TableHead className="font-bold text-slate-500 text-[11px] uppercase p-[10px]">
               Nhóm
             </TableHead>
             <TableHead className="text-right font-bold text-slate-500 text-[11px] uppercase p-[10px]">
@@ -66,9 +63,6 @@ export function InventoryProductTable({ products }: any) {
                 >
                   {product.name}
                 </Link>
-              </TableCell>
-              <TableCell className="p-[10px] text-slate-500 font-medium">
-                {product.unit}
               </TableCell>
               <TableCell className="p-[10px]">
                 <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-black">

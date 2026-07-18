@@ -1,5 +1,6 @@
 
 import { apiJava } from "@/lib/axios";
+import { repairVietnameseData } from "@/lib/utils";
 import type { FindNearestBranchPayload, NearestBranch } from "@/app/types/branch.types";
 
 /** Tìm chi nhánh gần nhất theo tọa độ — gọi POST /branches/nearest */
@@ -7,7 +8,7 @@ export async function findNearestBranches(
   payload: FindNearestBranchPayload
 ): Promise<NearestBranch[]> {
   const res = await apiJava.post("/branches/nearest", payload, { isPublic: true } as any);
-  return res.data;
+  return repairVietnameseData(res.data);
 }
 
 export const branchService = {
@@ -15,12 +16,12 @@ export const branchService = {
 
   getAll: async () => {
     const response = await apiJava.get(`${branchService.PREFIX}`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getById: async (id: string | number) => {
     const response = await apiJava.get(`${branchService.PREFIX}/${id}`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   create: async (data: any) => {
@@ -40,7 +41,7 @@ export const branchService = {
 
   getAllStaff: async () => {
     const response = await apiJava.get(`/users`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   checkStock: async (items: { variantId: number; quantity: number }[]) => {

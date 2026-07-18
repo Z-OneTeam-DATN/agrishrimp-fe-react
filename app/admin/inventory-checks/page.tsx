@@ -176,17 +176,13 @@ export default function InventoryCheckListPage() {
     P.CHECK_DELETE,
   ]);
 
-  const filteredData = useMemo(() => {
+  const baseFilteredData = useMemo(() => {
     return inventoryChecks.filter((item: any) => {
-      const status = getWorkflowStatus(item);
       const branchId = String(item.branchId || "");
       const branchName = normalizeText(item.branchName || "Kho tổng");
       const q = normalizeText(searchTerm);
       const scopeLabel = normalizeText(getScopeTypeLabel(item.scopeType));
 
-      const matchTab = activeTab === "ALL" || status === activeTab;
-
-      if (!matchTab) return false;
       if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
       if (!isDateInRange(item.checkDate || item.createdAt, fromDate, toDate)) return false;
 
@@ -200,7 +196,33 @@ export default function InventoryCheckListPage() {
         normalizeText(item.createdByName || item.checkedByName).includes(q)
       );
     });
-  }, [inventoryChecks, activeTab, selectedBranchId, searchTerm, fromDate, toDate]);
+  }, [inventoryChecks, selectedBranchId, searchTerm, fromDate, toDate]);
+
+  const filteredData = useMemo(() => {
+    return baseFilteredData.filter((item: any) => {
+      const status = getWorkflowStatus(item);
+      return activeTab === "ALL" || status === activeTab;
+    });
+  }, [activeTab, baseFilteredData]);
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<InventoryCheckStatus, number> = {
+      ALL: baseFilteredData.length,
+      DRAFT: 0,
+      COUNTING: 0,
+      PENDING_APPROVAL: 0,
+      RECOUNT_REQUIRED: 0,
+      COMPLETED: 0,
+      CANCELLED: 0,
+    };
+
+    baseFilteredData.forEach((item: any) => {
+      const status = getWorkflowStatus(item);
+      counts[status] += 1;
+    });
+
+    return counts;
+  }, [baseFilteredData]);
 
   const stats = useMemo(() => {
     const pending = inventoryChecks.filter((item: any) => {
@@ -533,6 +555,14 @@ export default function InventoryCheckListPage() {
                 )}
               >
                 {tab.label}
+                <span
+                  className={cn(
+                    "ml-2 text-[11px]",
+                    activeTab === tab.id ? "text-blue-500" : "text-slate-400",
+                  )}
+                >
+                  {tabCounts[tab.id] ?? 0}
+                </span>
               </button>
             ))}
           </div>

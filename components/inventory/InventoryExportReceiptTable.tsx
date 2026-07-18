@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Eye, Printer, Calendar, ArrowRight, User, FileText, Warehouse, Trash2 } from "lucide-react";
-import { cn, formatNumber } from "@/lib/utils";
+import {
+  cn,
+  formatNumber,
+  repairVietnameseText,
+  resolveExportPartnerName,
+} from "@/lib/utils";
 
 export function InventoryExportReceiptTable({ receipts }: any) {
   const router = useRouter();
@@ -36,16 +41,8 @@ export function InventoryExportReceiptTable({ receipts }: any) {
           <TableBody>
             {receipts && receipts.length > 0 ? (
               receipts.map((item: any) => {
-                const isInternal = item.exportType === "INTERNAL" || (item.displayPartnerName && item.displayPartnerName.includes("Nội bộ"));
-                let displayPartner = item.displayPartnerName;
-
-                if (!displayPartner || displayPartner === "N/A") {
-                    if (isInternal) {
-                        displayPartner = item.partnerBranchName ? `[Nội bộ] ${item.partnerBranchName}` : "[Nội bộ] Chi nhánh nhận";
-                    } else {
-                        displayPartner = item.supplierName ? `[Trả NCC] ${item.supplierName}` : "N/A";
-                    }
-                }
+                const isInternal = String(item.exportType || "").toUpperCase() === "INTERNAL";
+                const displayPartner = resolveExportPartnerName(item);
 
                 return (
                   <TableRow key={item.id || item.code} className="hover:bg-[#f0f8ff] border-b border-[#eee] transition-colors cursor-pointer group h-[52px]">
@@ -71,14 +68,14 @@ export function InventoryExportReceiptTable({ receipts }: any) {
                           {displayPartner}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
-                          <User size={10} /> Người lập: {item.creatorName || "Hệ thống"}
+                          <User size={10} /> Người lập: {repairVietnameseText(item.creatorName || "Hệ thống")}
                         </span>
                       </div>
                     </TableCell>
 
                     <TableCell className="p-2" onClick={() => router.push(`/admin/exports/new-command?id=${item.id}`)}>
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-bold">
-                        <Warehouse size={12} className="text-slate-400" /> {item.branchName || "N/A"}
+                        <Warehouse size={12} className="text-slate-400" /> {repairVietnameseText(item.branchName || "N/A")}
                       </div>
                     </TableCell>
 

@@ -1,4 +1,5 @@
 import { apiJava } from "@/lib/axios";
+import { repairVietnameseData } from "@/lib/utils";
 import { SupplierFormValues } from "@/app/types/admin.schema";
 import { Supplier, PageResponse, SupplierProductCatalogItem, SupplierProductCatalogStatus } from "@/app/types/supplier.type";
 
@@ -23,7 +24,7 @@ export const supplierService = {
                 },
             },
         );
-        return response.data;
+        return repairVietnameseData(response.data);
     },
 
     // 2. LẤY CHI TIẾT
@@ -31,7 +32,7 @@ export const supplierService = {
         const response = await apiJava.get<Supplier>(
             `${supplierService.PREFIX}/${id}`,
         );
-        return response.data;
+        return repairVietnameseData(response.data);
     },
 
     // 3. TẠO MỚI (Đã xóa category và paymentTerms)
@@ -81,12 +82,12 @@ export const supplierService = {
     // Lấy lịch sử nhập hàng của 1 NCC
     getImportHistory: async (id: number) => {
         const response = await apiJava.get(`${supplierService.PREFIX}/${id}/imports`);
-        return response.data;
+        return repairVietnameseData(response.data);
     },
 
     getProductCatalog: async (id: number): Promise<SupplierProductCatalogItem[]> => {
         const response = await apiJava.get(`${supplierService.PREFIX}/${id}/product-catalog`);
-        return response.data;
+        return repairVietnameseData(response.data);
     },
 
     saveProductCatalog: async (
@@ -100,6 +101,6 @@ export const supplierService = {
         }>,
     ): Promise<SupplierProductCatalogItem[]> => {
         const response = await apiJava.put(`${supplierService.PREFIX}/${id}/product-catalog`, items);
-        return response.data;
+        return repairVietnameseData(response.data);
     },
 };

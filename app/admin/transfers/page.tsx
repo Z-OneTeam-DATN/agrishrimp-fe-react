@@ -304,25 +304,28 @@ export default function AdminTransferListPage() {
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             {tabs.map((tab) => {
-              const hasItems = (counts as Record<string, number>)[tab.id] > 0;
-              const showRedDot =
-                (tab.id === "pending" || tab.id === "approved") && hasItems;
+              const count = (counts as Record<string, number>)[tab.id] ?? 0;
 
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "relative h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                    "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
                     activeTab === tab.id
                       ? "border-blue-200 bg-blue-50 text-blue-700"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-blue-50 hover:text-blue-600",
                   )}
                 >
                   {tab.label}
-                  {showRedDot && (
-                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                  )}
+                  <span
+                    className={cn(
+                      "ml-2 text-[11px]",
+                      activeTab === tab.id ? "text-blue-500" : "text-slate-400",
+                    )}
+                  >
+                    {count}
+                  </span>
                 </button>
               );
             })}
