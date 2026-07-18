@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
-import { ProductService } from "@/app/services/product.service";
+import { PublicProductService } from "@/app/services/publicProduct.service";
 import ProductMultiSelect from "@/components/agronomist/ProductMultiSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { AiDiseaseKnowledge, AiKnowledgeCategory } from "@/app/types/ai-knowledge.types";
-import type { ProductListItem } from "@/app/types/product.schema";
+import type { PublicProductListItem } from "@/app/types/product.schema";
 
 type KnowledgeStageForm = {
   stageTitle: string;
@@ -319,11 +319,18 @@ export default function DiseaseForm({
 
   const productsQuery = useQuery({
     queryKey: ["agronomist-products"],
-    queryFn: () => ProductService.getAll({ status: "ACTIVE" }),
+    queryFn: async () => {
+      const page = await PublicProductService.getList({
+        page: 0,
+        size: 200,
+        sort: "name-asc",
+      });
+      return page.content;
+    },
   });
   const productOptions = useMemo(
     () =>
-      (productsQuery.data ?? []).map((product: ProductListItem) => ({
+      (productsQuery.data ?? []).map((product: PublicProductListItem) => ({
         id: product.id,
         label: `${product.name} #${product.id}`,
       })),
@@ -567,6 +574,8 @@ export default function DiseaseForm({
                       options={productOptions}
                       value={stage.productIds}
                       onChange={(productIds) => updateStage(index, { productIds })}
+                      loading={productsQuery.isLoading}
+                      emptyMessage="Chưa có sản phẩm đang hoạt động trong catalog."
                     />
                   </div>
                 </div>

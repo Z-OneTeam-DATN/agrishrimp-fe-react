@@ -25,11 +25,15 @@ export default function ProductMultiSelect({
   value,
   onChange,
   placeholder = "Tìm sản phẩm trong catalog...",
+  loading = false,
+  emptyMessage = "Không tìm thấy sản phẩm trong catalog — liên hệ admin để thêm sản phẩm mới.",
 }: {
   options: ProductOption[];
   value: number[];
   onChange: (ids: number[]) => void;
   placeholder?: string;
+  loading?: boolean;
+  emptyMessage?: string;
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.filter((option) => value.includes(option.id));
@@ -63,10 +67,10 @@ export default function ProductMultiSelect({
             <CommandInput placeholder="Tìm theo tên sản phẩm..." className="h-9 text-[13px]" />
             <CommandList>
               <CommandEmpty className="px-3 py-4 text-center text-[12px] text-slate-400">
-                Không tìm thấy sản phẩm trong catalog — liên hệ admin để thêm sản phẩm mới.
+                {loading ? "Đang tải sản phẩm..." : emptyMessage}
               </CommandEmpty>
               <CommandGroup>
-                {options.map((option) => {
+                {!loading && options.map((option) => {
                   const checked = value.includes(option.id);
                   return (
                     <CommandItem
