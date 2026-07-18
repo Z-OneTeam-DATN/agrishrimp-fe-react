@@ -47,6 +47,7 @@ import {
 } from "@/app/services/inventory.service";
 import { transferService } from "@/app/services/transfer.service";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
+import { driverService } from "@/app/services/driver.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
@@ -76,6 +77,7 @@ type SidebarCountsCache = {
   exportPendingCount: number;
   transferPendingCount: number;
   checkPendingCount: number;
+  driverCount: number;
 };
 
 const PURCHASE_REQUEST_PERMISSIONS = [
@@ -220,6 +222,7 @@ export default function AdminSidebar() {
   const [exportPendingCount, setExportPendingCount] = useState(0);
   const [transferPendingCount, setTransferPendingCount] = useState(0);
   const [checkPendingCount, setCheckPendingCount] = useState(0);
+  const [driverCount, setDriverCount] = useState(0);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   const applyCounts = useCallback((snapshot: SidebarCountsCache) => {
@@ -237,6 +240,7 @@ export default function AdminSidebar() {
     setExportPendingCount(snapshot.exportPendingCount);
     setTransferPendingCount(snapshot.transferPendingCount);
     setCheckPendingCount(snapshot.checkPendingCount);
+    setDriverCount(snapshot.driverCount ?? 0);
   }, []);
 
   useEffect(() => {
@@ -300,6 +304,9 @@ export default function AdminSidebar() {
         canAccessInventoryChecks
           ? InventoryCheckApiService.getAll()
           : Promise.resolve(null),
+        hasPermission(P.DRIVER_VIEW)
+          ? driverService.getAll(undefined, undefined, 0, 1)
+          : Promise.resolve(null),
       ]);
 
       const [
@@ -317,6 +324,7 @@ export default function AdminSidebar() {
         exportResult,
         transferResult,
         checkResult,
+        driverResult,
       ] = results;
 
       const supplierValue =
@@ -423,6 +431,12 @@ export default function AdminSidebar() {
         (item: any) => item.status === "PENDING",
       ).length;
 
+      const driverValue =
+        driverResult.status === "fulfilled"
+          ? (driverResult.value as any)
+          : null;
+      const nextDriverCount = driverValue?.totalElements || 0;
+
       const snapshot: SidebarCountsCache = {
         fetchedAt: Date.now(),
         supplierCount: nextSupplierCount,
@@ -439,6 +453,7 @@ export default function AdminSidebar() {
         exportPendingCount: nextExportPendingCount,
         transferPendingCount: nextTransferPendingCount,
         checkPendingCount: nextCheckPendingCount,
+        driverCount: nextDriverCount,
       };
 
       applyCounts(snapshot);
@@ -515,6 +530,7 @@ export default function AdminSidebar() {
     window.addEventListener("customerUpdated", handleUpdate);
     window.addEventListener("orderUpdated", handleUpdate);
     window.addEventListener("brandUpdated", handleUpdate);
+    window.addEventListener("driverUpdated", handleUpdate);
 
     return () => {
       if (idleId !== null && "cancelIdleCallback" in browserWindow) {
@@ -527,6 +543,7 @@ export default function AdminSidebar() {
       window.removeEventListener("customerUpdated", handleUpdate);
       window.removeEventListener("orderUpdated", handleUpdate);
       window.removeEventListener("brandUpdated", handleUpdate);
+      window.removeEventListener("driverUpdated", handleUpdate);
     };
   }, [accessToken, fetchCounts]);
 
@@ -715,6 +732,16 @@ export default function AdminSidebar() {
                   active={isActive("/admin/suppliers")}
                   badge={supplierCount}
                   color="text-orange-400"
+                />
+              )}
+              {hasPermission(P.DRIVER_VIEW) && (
+                <SidebarLink
+                  href="/admin/drivers"
+                  icon={UserCircle}
+                  label="Quản lý tài xế"
+                  active={isActive("/admin/drivers")}
+                  badge={driverCount}
+                  color="text-teal-400"
                 />
               )}
             </div>

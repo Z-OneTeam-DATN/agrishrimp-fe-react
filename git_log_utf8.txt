@@ -1,0 +1,36 @@
+﻿commit de2550e075e04eaeac96ecbe63330763e2591ceb
+Merge: c9560dc 749d2e5
+Author: Nguyß╗àn Ho├áng Gia Huy <huy64443@gmail.com>
+Date:   Sat Jul 18 17:23:31 2026 +0700
+
+    Merge pull request #133 from Z-OneTeam-DATN/fix/admin-chat-layout
+    
+    fix_date_timezone_parsing
+
+commit 749d2e5281b481fa434c034192b7a20876ad0ff9
+Author: GiaHuy06 <huy64443@gmail.com>
+Date:   Sat Jul 18 17:20:59 2026 +0700
+
+    fix_date_timezone_parsing
+
+commit c9560dc1cc199583b442d8e8b411120117481093
+Merge: fd17cdd 68b5d49
+Author: Nguyß╗àn Ho├áng Gia Huy <huy64443@gmail.com>
+Date:   Sat Jul 18 16:17:19 2026 +0700
+
+    Merge pull request #132 from Z-OneTeam-DATN/fix/admin-chat-layout
+    
+    Fix/admin chat layout
+
+commit 68b5d493a2616b3a9b6f4016a19596236468032a
+Author: GiaHuy06 <huy64443@gmail.com>
+Date:   Sat Jul 18 16:15:36 2026 +0700
+
+    fix_pinned_product_image_load_and_avatar_fitting
+
+commit ca425fb484d31cbaebd66b89c7effd99bfedc678
+Author: GiaHuy06 <huy64443@gmail.com>
+Date:   Sat Jul 18 16:10:58 2026 +0700
+
+    update_chat_fallback_and_hide_pinned_image
+
