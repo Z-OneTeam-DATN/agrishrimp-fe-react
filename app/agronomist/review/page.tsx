@@ -27,15 +27,10 @@ const REVIEW_STATUS_LABELS: Record<string, string> = {
 };
 
 const REVIEW_STATUS_STYLES: Record<string, string> = {
-  NEW: "border-blue-100 bg-blue-50 text-blue-700",
-  IN_PROGRESS: "border-amber-100 bg-amber-50 text-amber-700",
-  RESOLVED: "border-emerald-100 bg-emerald-50 text-emerald-700",
-  IGNORED: "border-slate-200 bg-slate-100 text-slate-500",
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  AI_DOCTOR_PUBLIC: "Người dùng ngoài website",
-  AI_DOCTOR_PRIVATE: "Người dùng đã đăng nhập",
+  NEW: "border-slate-200 bg-slate-50 text-slate-700",
+  IN_PROGRESS: "border-slate-200 bg-slate-50 text-slate-700",
+  RESOLVED: "border-slate-200 bg-slate-50 text-slate-700",
+  IGNORED: "border-slate-200 bg-slate-50 text-slate-500",
 };
 
 const emptyValues = new Set(["", "Chưa có", "Chưa gắn", "Chưa ghi nhận", "Chưa có nội dung"]);
@@ -221,9 +216,6 @@ function ReviewCaseCard({
             <span className="text-xs font-semibold text-slate-400">Câu hỏi #{item.id}</span>
             {createdAt ? <span className="text-xs text-slate-400">{createdAt}</span> : null}
           </div>
-          <p className="mt-2 text-xs font-semibold text-slate-500">
-            {item.sourceChannel ? SOURCE_LABELS[item.sourceChannel] ?? "Nguồn khác" : "Chưa rõ nguồn"}
-          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -243,8 +235,8 @@ function ReviewCaseCard({
         </div>
       </div>
 
-      <div className="mt-3 rounded-[4px] border border-blue-100 bg-blue-50/50 px-3 py-2.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-blue-500">Người dùng hỏi</span>
+      <div className="mt-3 rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-2.5">
+        <span className="text-xs font-semibold text-slate-500">Người dùng hỏi</span>
         <span className="ml-3 whitespace-pre-wrap text-[14px] font-semibold leading-6 text-slate-900">
           {item.questionText || "Chưa có nội dung"}
         </span>
@@ -366,6 +358,7 @@ function formatScore(value?: number | null) {
 function resolveReasonLabel(reason?: string | null) {
   if (!reason) return "AI chưa ghi nhận lý do cụ thể.";
   const normalized = reason.toUpperCase();
+  if (normalized.includes("NO_KNOWLEDGE_MATCH")) return "AI chưa tìm thấy phác đồ phù hợp.";
   if (normalized.includes("LOW_CONFIDENCE")) return "AI chưa đủ tự tin để trả lời chắc chắn.";
   if (normalized.includes("NO_MATCH") || normalized.includes("UNMATCHED")) return "AI chưa tìm được phác đồ phù hợp.";
   return reason;
