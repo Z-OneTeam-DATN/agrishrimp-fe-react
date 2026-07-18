@@ -68,8 +68,10 @@ function parseAppDate(date: string | number | Date | unknown): Date {
   }
 
   if (typeof date === "string") {
-    // Remove trailing Z to treat string as local time (not UTC)
-    const trimmed = date.trim().replace(/Z$/, "");
+    // Remove trailing Z and offset (like +00:00 or -0500) to treat string strictly as local time (not UTC)
+    const trimmed = date.trim()
+      .replace(/Z$/, "")
+      .replace(/([+-]\d{2}):?(\d{2})$/, "");
     const localDateTimeMatch = trimmed.match(
       /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,9}))?$/
     );
@@ -90,7 +92,9 @@ function parseAppDate(date: string | number | Date | unknown): Date {
     }
   }
 
-  // Fallback: let browser parse - remove trailing Z to avoid UTC interpretation
-  const rawDateStr = typeof date === "string" ? date.trim().replace(/Z$/, "") : String(date);
+  // Fallback: let browser parse - remove trailing Z and offset to avoid UTC interpretation
+  const rawDateStr = typeof date === "string"
+    ? date.trim().replace(/Z$/, "").replace(/([+-]\d{2}):?(\d{2})$/, "")
+    : String(date);
   return new Date(rawDateStr);
 }
