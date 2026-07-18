@@ -115,7 +115,7 @@ export default function DriverListPage() {
 
                     <Button
                         onClick={() => router.push("/admin/drivers/add")}
-                        className="h-[38px] rounded-[4px] bg-emerald-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700"
+                        className="h-[38px] rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         Thêm tài xế
@@ -212,7 +212,7 @@ export default function DriverListPage() {
                                         </Button>
                                     ) : (
                                         <Button
-                                            className="h-9 bg-emerald-600 text-[11px] font-medium hover:bg-emerald-700 rounded-[4px]"
+                                            className="h-9 bg-blue-600 text-[11px] font-medium hover:bg-blue-700 rounded-[4px]"
                                             onClick={() => router.push("/admin/drivers/add")}
                                         >
                                             + Tạo tài xế đầu tiên
