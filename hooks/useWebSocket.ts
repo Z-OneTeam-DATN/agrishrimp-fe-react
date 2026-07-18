@@ -90,6 +90,13 @@ export function useWebSocket() {
                 return;
               }
               const msg: ChatMessage = payload as ChatMessage;
+
+              // Deduplicate: skip WS echo if this message (by real id) is already
+              // in the store — happens when the HTTP response commits before WS push.
+              const alreadyInStore = (useChatStore.getState().messages[msg.conversationId] ?? [])
+                .some((m) => m.id === msg.id && m.id > 0);
+              if (alreadyInStore) return;
+
               addMessage(msg);
               
               const activeId = useChatStore.getState().activeConversationId;
