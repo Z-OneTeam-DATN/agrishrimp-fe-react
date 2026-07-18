@@ -15,27 +15,16 @@ export default function PinnedProductCard({ product }: Props) {
       href={`/san-pham/${product.slug}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 p-2 mt-1 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-xl hover:border-blue-400 transition-colors shadow-sm max-w-xs"
+      className="flex flex-col gap-1.5 p-3.5 mt-1 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-xl hover:border-blue-400 transition-colors shadow-sm max-w-xs"
     >
-      <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-        {product.imageUrl ? (
-          <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ShoppingBag className="w-6 h-6 text-gray-400" />
-          </div>
-        )}
+      <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium">
+        <Tag className="w-3.5 h-3.5" />
+        <span>Sản phẩm được ghim</span>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium mb-0.5">
-          <Tag className="w-3 h-3" />
-          <span>Sản phẩm được ghim</span>
-        </div>
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 line-clamp-2 leading-tight">
-          {product.name}
-        </p>
-        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Xem sản phẩm →</p>
-      </div>
+      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 line-clamp-2 leading-tight">
+        {product.name}
+      </p>
+      <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 font-semibold">Xem sản phẩm →</p>
     </Link>
   );
 }
