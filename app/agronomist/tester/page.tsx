@@ -4,8 +4,18 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, MessageSquareDashed, Send } from "lucide-react";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
 
 export default function AgronomistTesterPage() {
+  return (
+    <PermissionGuard permission={P.AI_KNOWLEDGE_APPROVE}>
+      <AgronomistTesterContent />
+    </PermissionGuard>
+  );
+}
+
+function AgronomistTesterContent() {
   const [message, setMessage] = useState("");
 
   const testChatMutation = useMutation({

@@ -6,35 +6,24 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Clock,
-  FileSpreadsheet,
   FlaskConical,
-  LayoutDashboard,
   Loader2,
   NotebookPen,
   ShieldAlert,
   Stethoscope,
   Tags,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
-import {
-  ADMIN_WORKSPACE_PERMISSIONS,
-  ADVISOR_WORKSPACE_PERMISSIONS,
-  setLastWorkspace,
-} from "@/lib/workspace-permissions";
+import { setLastWorkspace } from "@/lib/workspace-permissions";
 
 const AGRONOMIST_NAV_ITEMS = [
   {
-    href: "/agronomist/overview",
-    label: "Trang tổng quan",
-    icon: LayoutDashboard,
-    permissions: [P.AI_KNOWLEDGE_VIEW],
-  },
-  {
     href: "/agronomist/categories",
-    label: "Thêm danh mục",
+    label: "Quản lý danh mục",
     icon: Tags,
     permissions: [P.AI_KNOWLEDGE_VIEW],
   },
@@ -42,44 +31,36 @@ const AGRONOMIST_NAV_ITEMS = [
     href: "/agronomist/diseases",
     label: "Quản lý phác đồ",
     icon: NotebookPen,
-    permissions: [P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE],
-  },
-  {
-    href: "/agronomist/import",
-    label: "Import Excel",
-    icon: FileSpreadsheet,
-    permissions: [P.AI_IMPORT_KNOWLEDGE],
+    permissions: [P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE, P.AI_IMPORT_KNOWLEDGE],
   },
   {
     href: "/agronomist/review",
     label: "Case cần duyệt",
     icon: Stethoscope,
-    permissions: [P.AI_CASE_REVIEW, P.AI_KNOWLEDGE_VIEW],
+    permissions: [P.AI_CASE_REVIEW],
   },
   {
     href: "/agronomist/tester",
     label: "Chat thử nghiệm",
     icon: FlaskConical,
-    permissions: [P.AI_KNOWLEDGE_VIEW],
+    permissions: [P.AI_KNOWLEDGE_APPROVE],
   },
   {
     href: "/agronomist/reports",
     label: "Báo cáo câu hỏi",
     icon: BarChart3,
-    permissions: [P.AI_KNOWLEDGE_VIEW],
+    permissions: [P.AI_KNOWLEDGE_APPROVE],
   },
 ] as const;
 
 export default function AgronomistLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isLoadingAuth, permissions } = useAuthStore();
-  const { hasPermission, hasAnyPermission } = usePermissions();
+  const { isLoadingAuth, user } = useAuthStore();
+  const { hasPermission } = usePermissions();
   const [time, setTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
 
   const hasWorkspaceAccess = hasPermission(P.AGRONOMIST_WORKSPACE_USE);
-  const canGoAdmin = hasAnyPermission(ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]);
-  const canGoChat = hasAnyPermission(ADVISOR_WORKSPACE_PERMISSIONS as unknown as string[]);
 
   useEffect(() => {
     if (!isLoadingAuth && hasWorkspaceAccess) {
@@ -113,6 +94,20 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
   const activeNavItem = AGRONOMIST_NAV_ITEMS.find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
+
+  const displayName =
+    user?.fullName ||
+    user?.displayName ||
+    user?.phoneNumber ||
+    user?.email ||
+    "Người dùng";
+
+  const roleName =
+    typeof user?.role === "object" && user.role !== null
+      ? user.role.displayName || "Kỹ sư nông nghiệp"
+      : user?.role || "Kỹ sư nông nghiệp";
+
+  const avatarFallback = displayName.trim().charAt(0).toUpperCase() || "A";
 
   if (isLoadingAuth) {
     return (
@@ -199,33 +194,6 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
               );
             })}
           </nav>
-
-          <div className="mt-auto space-y-3 border-t border-slate-200 bg-slate-50/60 p-4">
-            <p className="px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              Chuyển workspace
-            </p>
-            <div className="grid gap-1">
-              {canGoAdmin ? (
-                <Link
-                  href="/admin"
-                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                >
-                  Qua quản trị
-                </Link>
-              ) : null}
-              {canGoChat ? (
-                <Link
-                  href="/chat"
-                  className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                >
-                  Qua chat
-                </Link>
-              ) : null}
-            </div>
-            <div className="rounded-md bg-slate-100 px-3 py-2 text-[11px] font-medium text-slate-500">
-              Quyền hiện có: {permissions.filter(Boolean).length}
-            </div>
-          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
@@ -249,11 +217,21 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 lg:flex">
-                <span className="text-[12px] font-bold text-blue-700">Deterministic mode only</span>
-                <div className="ml-1 h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"></div>
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+              <div className="hidden text-right sm:block">
+                <p className="max-w-[180px] truncate text-[13px] font-bold leading-none text-slate-800">
+                  {displayName}
+                </p>
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  {roleName}
+                </p>
               </div>
+              <Avatar className="h-9 w-9 border border-white shadow-sm ring-1 ring-slate-200">
+                <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={displayName} className="object-cover" />
+                <AvatarFallback className="bg-blue-100 text-[11px] font-bold text-blue-700">
+                  {avatarFallback}
+                </AvatarFallback>
+              </Avatar>
             </div>
           </header>
 

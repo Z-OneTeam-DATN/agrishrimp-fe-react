@@ -3,8 +3,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Loader2 } from "lucide-react";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
 
 export default function AgronomistReportsPage() {
+  return (
+    <PermissionGuard permission={P.AI_KNOWLEDGE_APPROVE}>
+      <AgronomistReportsContent />
+    </PermissionGuard>
+  );
+}
+
+function AgronomistReportsContent() {
   const reportQuery = useQuery({
     queryKey: ["ai-knowledge", "reports"],
     queryFn: () => aiKnowledgeService.getReport(),

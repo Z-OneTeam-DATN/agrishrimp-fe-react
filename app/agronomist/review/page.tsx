@@ -5,9 +5,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, MessageSquareWarning, Save } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
 import type { AiKnowledgeReviewCase } from "@/app/types/ai-knowledge.types";
 
 export default function AgronomistReviewPage() {
+  return (
+    <PermissionGuard permission={P.AI_CASE_REVIEW}>
+      <AgronomistReviewContent />
+    </PermissionGuard>
+  );
+}
+
+function AgronomistReviewContent() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("");
   const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
@@ -33,7 +43,7 @@ export default function AgronomistReviewPage() {
       setMatchedKnowledgeCode("");
       await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "review-cases"] });
     },
-    onError: (error: any) => toast.error(error?.message || "Không thể cập nhật review case."),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Không thể cập nhật review case.")),
   });
 
   const reviewCases = reviewCasesQuery.data ?? [];
@@ -178,3 +188,10 @@ const secondaryButtonClassName =
   "inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
 const successButtonClassName =
   "inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return fallback;
+}
