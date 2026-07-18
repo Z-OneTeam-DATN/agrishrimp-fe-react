@@ -186,7 +186,7 @@ function AdminExportFormContent() {
       item.variantId ?? item.productVariantId ?? item.id,
     ),
     sku: item.sku,
-    name: `${item.productName || item.name || item.unit}${item.receiptCode ? ` - Phiếu nhập ${item.receiptCode}` : ""}`,
+    name: `${item.productName || item.name || "Sản phẩm"}${item.receiptCode ? ` - Phiếu nhập ${item.receiptCode}` : ""}`,
     unit: item.unit || "Cái",
     stock: Number(item.defectiveQuantity || 0),
     quantity: Number(item.defectiveQuantity || 0),
@@ -675,7 +675,7 @@ function AdminExportFormContent() {
       return;
     }
     selectedVariants.forEach((variant) =>
-      addVariantToTable(variant, variant.productName || variant.unit),
+      addVariantToTable(variant, variant.productName || "Sản phẩm"),
     );
     setShowDropdown(false);
     setSearchTerm("");
@@ -1152,7 +1152,7 @@ function AdminExportFormContent() {
                               onClick={() =>
                                 addVariantToTable(
                                   variant,
-                                  variant.productName || variant.unit,
+                                  variant.productName || "Sản phẩm",
                                 )
                               }
                             >
@@ -1190,7 +1190,7 @@ function AdminExportFormContent() {
                                 </div>
                                 <div>
                                   <p className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600">
-                                    {variant.productName || variant.unit}{" "}
+                                    {variant.productName || "Sản phẩm"}{" "}
                                     {variant.packaging
                                       ? `- ${variant.packaging}`
                                       : ""}

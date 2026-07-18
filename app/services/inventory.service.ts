@@ -1,4 +1,5 @@
 import { apiJava } from "@/lib/axios";
+import { repairVietnameseData } from "@/lib/utils";
 
 // Sửa lại đường dẫn khớp với @RequestMapping("/api/v1/inventory") của Java
 // Lưu ý: Nếu trong lib/axios bạn đã có sẵn tiền tố "/api" rồi thì chỉ cần thêm "/v1/inventory"
@@ -9,12 +10,12 @@ export const InventoryApiService = {
   getAllReceipts: async () => {
     // Browser đi qua /be-api, còn SSR dùng JAVA_API_URL tới Spring Boot
     const response = await apiJava.get(`${BASE_URL}/receipts`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   getReceiptDetail: async (id: number | string) => {
     const response = await apiJava.get(`${BASE_URL}/receipts/${id}`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   createReceipt: async (payload: any) => {
@@ -66,13 +67,13 @@ export const InventoryExportApiService = {
   // Lấy danh sách lệnh xuất
   getAllExportCommands: async () => {
     const response = await apiJava.get(`${BASE_URL}/export-commands`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   // Lấy danh sách phiếu xuất (lịch sử)
   getAllExportReceipts: async () => {
     const response = await apiJava.get(`${BASE_URL}/export-receipts`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   // Xóa lệnh xuất
@@ -94,7 +95,7 @@ getAllProductsForExport: async () => {
     const response = await apiJava.get(`${BASE_URL}/defective-items`, {
       params: { supplierId, branchId }
     });
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   // Duyệt lệnh xuất (Chuyển sang APPROVED)
@@ -110,11 +111,11 @@ getAllProductsForExport: async () => {
   },
 getExportCommandDetail: async (id: number | string) => {
     const response = await apiJava.get(`${BASE_URL}/export-commands/${id}`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 updateExportCommand: async (id: number | string, payload: any) => {
   const response = await apiJava.put(`${BASE_URL}/export-commands/${id}`, payload);
-  return response.data;
+  return repairVietnameseData(response.data);
 },
 
 rejectExportCommand: async (id: number | string) => {
@@ -142,7 +143,7 @@ export const InventoryCheckApiService = {
       checkId == null
         ? await apiJava.post("/inventory-checks", requestPayload)
         : await apiJava.put(`/inventory-checks/${checkId}`, requestPayload);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   // C. Lấy chi tiết phiếu theo ID hoặc Mã (Code)
@@ -150,33 +151,33 @@ export const InventoryCheckApiService = {
     const response = await apiJava.get(`/inventory-checks/${codeOrId}`, {
       timeout: 60000,
     });
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   // D. Chốt phiếu - Cập nhật kho
   completeCheck: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/complete`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   startCheck: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/start`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   submitForApproval: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/submit-for-approval`);
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   requestRecount: async (id: number | string, reason: string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/request-recount`, { reason });
-    return response.data;
+    return repairVietnameseData(response.data);
   },
 
   approveAdjustment: async (id: number | string) => {
     const response = await apiJava.post(`/inventory-checks/${id}/approve-adjustment`);
-    return response.data;
+  return repairVietnameseData(response.data);
   },
 
   cancelCheck: async (id: number | string, reason?: string) => {

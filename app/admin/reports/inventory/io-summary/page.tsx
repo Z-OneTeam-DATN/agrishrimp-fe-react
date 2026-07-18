@@ -110,7 +110,6 @@ export default function InventoryIOSummaryReportPage() {
               <TableRow className="bg-[#5c7293] hover:bg-[#5c7293] border-b border-white/20">
                 <TableHead rowSpan={2} className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[50px]">STT</TableHead>
                 <TableHead rowSpan={2} className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[220px]">Phiên bản sản phẩm</TableHead>
-                <TableHead rowSpan={2} className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[100px]">Đơn vị tính</TableHead>
                 <TableHead rowSpan={2} className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[120px]">Mã SKU</TableHead>
                 <TableHead colSpan={2} className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center bg-[#4a5d7a]">Tồn đầu kỳ</TableHead>
                 <TableHead colSpan={2} className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center bg-[#4a5d7a]">Nhập trong kỳ</TableHead>
@@ -130,7 +129,7 @@ export default function InventoryIOSummaryReportPage() {
             </TableHeader>
             <TableBody>
               <TableRow className="bg-white border-b border-[#eee] font-black">
-                <TableCell colSpan={12} className="p-3 pl-6 text-[13px] text-slate-800">
+                <TableCell colSpan={11} className="p-3 pl-6 text-[13px] text-slate-800">
                   Tổng 0 sản phẩm
                 </TableCell>
               </TableRow>

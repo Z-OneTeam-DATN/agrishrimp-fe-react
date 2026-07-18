@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Check, Eye, Pencil, Trash2 } from "lucide-react";
-import { cn, formatNumber } from "@/lib/utils";
+import {
+  cn,
+  formatNumber,
+  repairVietnameseText,
+  resolveExportPartnerName,
+} from "@/lib/utils";
 import { toast } from "sonner";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -160,7 +165,7 @@ export function InventoryExportTable({
           <TableBody>
             {exports.map((item: any, index: number) => {
               const status = (item.status || "").toUpperCase();
-              const displayPartner = item.displayPartnerName || item.supplierName || item.partnerBranchName || "N/A";
+              const displayPartner = resolveExportPartnerName(item);
 
               return (
                 <TableRow key={item.id} className="group cursor-pointer border-b border-[#eee] transition-colors hover:bg-[#f0f8ff]">
@@ -181,7 +186,7 @@ export function InventoryExportTable({
 
                   <TableCell className="px-1.5 py-2">
                     <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-slate-500">
-                      {item.creatorName || "Hệ thống"}
+                      {repairVietnameseText(item.creatorName || "Hệ thống")}
                     </span>
                   </TableCell>
 
@@ -195,7 +200,7 @@ export function InventoryExportTable({
 
                   <TableCell className="px-1.5 py-2">
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-slate-500">
-                      {item.branchName || "N/A"}
+                      {repairVietnameseText(item.branchName || "N/A")}
                     </div>
                   </TableCell>
 

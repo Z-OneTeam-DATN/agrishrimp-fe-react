@@ -321,9 +321,6 @@ export default function NewExportReceiptPage() {
                   <TableHead className="p-3 text-[10px] font-black uppercase text-slate-500">
                     Thông tin hàng hóa
                   </TableHead>
-                  <TableHead className="w-[80px] text-center p-3 text-[10px] font-black uppercase text-slate-500">
-                    ĐVT
-                  </TableHead>
                   <TableHead className="w-[150px] p-3 text-[10px] font-black uppercase text-slate-500">
                     Vị trí kho
                   </TableHead>
@@ -368,9 +365,6 @@ export default function NewExportReceiptPage() {
                             {item.sku}
                           </span>
                         </div>
-                      </TableCell>
-                      <TableCell className="p-3 text-center text-[12px] font-medium text-slate-500">
-                        {item.unit}
                       </TableCell>
                       <TableCell className="p-3">
                         <div className="flex items-center gap-1.5 text-[11px] font-black text-slate-600 bg-slate-100 px-2 py-1 rounded-sm w-fit">
@@ -442,10 +436,7 @@ export default function NewExportReceiptPage() {
               Tổng thực xuất
             </span>
             <p className="text-[18px] font-black text-slate-800 tracking-tighter">
-              {totalActual}{" "}
-              <span className="text-[12px] font-bold text-slate-400 uppercase">
-                Đơn vị
-              </span>
+              {totalActual}
             </p>
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-sm">
