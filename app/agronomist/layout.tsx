@@ -91,10 +91,6 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
       })
     : "--:--:--";
 
-  const activeNavItem = AGRONOMIST_NAV_ITEMS.find(
-    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
-  );
-
   const displayName =
     user?.fullName ||
     user?.displayName ||
@@ -198,14 +194,6 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
 
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-20 flex h-[64px] items-center justify-between border-b border-slate-200 bg-white/80 px-6 shadow-sm backdrop-blur-md">
-            <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-slate-400">
-              <span className="text-slate-400">AI Doctor</span>
-              <span className="text-slate-300">/</span>
-              <span className="truncate text-[13px] font-bold text-slate-800">
-                {activeNavItem?.label ?? "Tổng quan"}
-              </span>
-            </div>
-
             <div className="hidden items-center gap-4 text-slate-500 xl:flex">
               <div className="flex items-center gap-2 rounded-lg border border-slate-100/50 bg-slate-50 px-3 py-1.5">
                 <Clock size={14} className="text-slate-400" />
@@ -217,18 +205,18 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+            <div className="flex cursor-pointer items-center gap-3 rounded-xl border border-transparent py-1 pl-2 pr-1 transition-all hover:border-slate-100 hover:bg-slate-50">
               <div className="hidden text-right sm:block">
-                <p className="max-w-[180px] truncate text-[13px] font-bold leading-none text-slate-800">
+                <p className="max-w-[180px] truncate text-[13px] font-black leading-none text-slate-800 transition-colors">
                   {displayName}
                 </p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                   {roleName}
                 </p>
               </div>
-              <Avatar className="h-9 w-9 border border-white shadow-sm ring-1 ring-slate-200">
+              <Avatar className="h-11 w-11 border-2 border-white shadow-md ring-1 ring-slate-100">
                 <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={displayName} className="object-cover" />
-                <AvatarFallback className="bg-blue-100 text-[11px] font-bold text-blue-700">
+                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-[14px] font-bold text-white">
                   {avatarFallback}
                 </AvatarFallback>
               </Avatar>

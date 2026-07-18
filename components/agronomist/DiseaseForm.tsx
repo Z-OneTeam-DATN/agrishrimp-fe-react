@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getErrorMessage } from "@/lib/axios";
 import {
   Select,
   SelectContent,
@@ -48,12 +49,113 @@ type DiseaseFormState = {
   treatmentStages: KnowledgeStageForm[];
 };
 
+type DiseasePayload = {
+  code: string;
+  nameVi: string;
+  nameEn?: string;
+  categoryId?: number;
+  aliasesRaw?: string;
+  symptomKeywordsRaw: string;
+  signsSummary: string;
+  causes: string[];
+  enabled: boolean;
+  confidenceThreshold: number;
+  matchThreshold: number;
+  priority: number;
+  canonical: boolean;
+  status: string;
+  treatmentStages: {
+    stageTitle: string;
+    instructions: string[];
+    productIds: number[];
+    extraProductNames: string[];
+  }[];
+};
+
 const EMPTY_STAGE: KnowledgeStageForm = {
   stageTitle: "",
   instructionsText: "",
   productIds: [],
   extraProductNamesText: "",
 };
+
+const splitLines = (value: string) =>
+  value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const optionalText = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const numberOrFallback = (value: number, fallback: number) =>
+  Number.isFinite(Number(value)) ? Number(value) : fallback;
+
+function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
+  return {
+    code: form.code.trim().toUpperCase(),
+    nameVi: form.nameVi.trim(),
+    nameEn: optionalText(form.nameEn),
+    categoryId: form.categoryId ? Number(form.categoryId) : undefined,
+    aliasesRaw: optionalText(form.aliasesRaw),
+    symptomKeywordsRaw: form.symptomKeywordsRaw.trim(),
+    signsSummary: form.signsSummary.trim(),
+    causes: splitLines(form.causesText),
+    enabled: form.enabled,
+    confidenceThreshold: numberOrFallback(form.confidenceThreshold, 0.65),
+    matchThreshold: numberOrFallback(form.matchThreshold, 0.4),
+    priority: numberOrFallback(form.priority, 0),
+    canonical: form.canonical,
+    status: form.status,
+    treatmentStages: form.treatmentStages
+      .map((stage) => ({
+        stageTitle: stage.stageTitle.trim(),
+        instructions: splitLines(stage.instructionsText),
+        productIds: stage.productIds,
+        extraProductNames: splitLines(stage.extraProductNamesText),
+      }))
+      .filter(
+        (stage) =>
+          stage.stageTitle ||
+          stage.instructions.length > 0 ||
+          stage.productIds.length > 0 ||
+          stage.extraProductNames.length > 0,
+      ),
+  };
+}
+
+function validateDiseasePayload(payload: DiseasePayload) {
+  const errors: string[] = [];
+
+  if (!payload.code) errors.push("Vui lòng nhập mã bệnh.");
+  if (payload.code && !/^[A-Z0-9_-]{2,50}$/.test(payload.code)) {
+    errors.push("Mã bệnh chỉ gồm chữ in hoa, số, dấu gạch ngang/gạch dưới và dài 2-50 ký tự.");
+  }
+  if (!payload.nameVi) errors.push("Vui lòng nhập tên bệnh.");
+  if (!payload.symptomKeywordsRaw) errors.push("Vui lòng nhập dấu hiệu / triệu chứng để AI match.");
+  if (!payload.signsSummary) errors.push("Vui lòng nhập mô tả dấu hiệu.");
+  if (payload.causes.length === 0) errors.push("Vui lòng nhập ít nhất một nguyên nhân.");
+  if (payload.treatmentStages.length === 0) {
+    errors.push("Vui lòng thêm ít nhất một giai đoạn điều trị.");
+  }
+
+  payload.treatmentStages.forEach((stage, index) => {
+    const stageLabel = `Giai đoạn ${index + 1}`;
+    if (!stage.stageTitle) errors.push(`${stageLabel}: vui lòng nhập tên giai đoạn.`);
+    if (stage.instructions.length === 0) errors.push(`${stageLabel}: vui lòng nhập ít nhất một hướng dẫn.`);
+  });
+
+  if (payload.confidenceThreshold < 0 || payload.confidenceThreshold > 1) {
+    errors.push("Ngưỡng tin cậy phải nằm trong khoảng 0 đến 1.");
+  }
+  if (payload.matchThreshold < 0 || payload.matchThreshold > 1) {
+    errors.push("Ngưỡng match phải nằm trong khoảng 0 đến 1.");
+  }
+
+  return errors;
+}
 
 function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
   if (!item) {
@@ -114,6 +216,7 @@ export default function DiseaseForm({
 }) {
   const router = useRouter();
   const [form, setForm] = useState<DiseaseFormState>(() => buildFormState(initialData));
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   const productsQuery = useQuery({
     queryKey: ["agronomist-products"],
@@ -129,29 +232,7 @@ export default function DiseaseForm({
   );
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        code: form.code,
-        nameVi: form.nameVi,
-        nameEn: form.nameEn || undefined,
-        categoryId: form.categoryId ? Number(form.categoryId) : undefined,
-        aliasesRaw: form.aliasesRaw || undefined,
-        symptomKeywordsRaw: form.symptomKeywordsRaw,
-        signsSummary: form.signsSummary,
-        causes: form.causesText.split("\n").map((item) => item.trim()).filter(Boolean),
-        enabled: form.enabled,
-        confidenceThreshold: Number(form.confidenceThreshold),
-        matchThreshold: Number(form.matchThreshold),
-        priority: Number(form.priority || 0),
-        canonical: form.canonical,
-        status: form.status,
-        treatmentStages: form.treatmentStages.map((stage) => ({
-          stageTitle: stage.stageTitle,
-          instructions: stage.instructionsText.split("\n").map((item) => item.trim()).filter(Boolean),
-          productIds: stage.productIds,
-          extraProductNames: stage.extraProductNamesText.split("\n").map((item) => item.trim()).filter(Boolean),
-        })),
-      };
+    mutationFn: async (payload: DiseasePayload) => {
       if (form.id) {
         return aiKnowledgeService.updateDisease(form.id, payload);
       }
@@ -161,10 +242,20 @@ export default function DiseaseForm({
       toast.success("Đã lưu phác đồ. Phác đồ đang ở trạng thái chờ Admin duyệt trước khi AI dùng để trả lời.");
       router.push("/agronomist/diseases");
     },
-    onError: (error: any) => toast.error(error?.message || "Không thể lưu tri thức bệnh."),
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error) || "Không thể lưu phác đồ.";
+      setFormErrors([message]);
+      toast.error(message);
+    },
   });
 
+  const updateField = (patch: Partial<DiseaseFormState>) => {
+    setFormErrors([]);
+    setForm((current) => ({ ...current, ...patch }));
+  };
+
   const updateStage = (index: number, patch: Partial<KnowledgeStageForm>) => {
+    setFormErrors([]);
     setForm((current) => ({
       ...current,
       treatmentStages: current.treatmentStages.map((stage, stageIndex) =>
@@ -174,6 +265,7 @@ export default function DiseaseForm({
   };
 
   const addStage = () => {
+    setFormErrors([]);
     setForm((current) => ({
       ...current,
       treatmentStages: [...current.treatmentStages, { ...EMPTY_STAGE }],
@@ -181,6 +273,7 @@ export default function DiseaseForm({
   };
 
   const removeStage = (index: number) => {
+    setFormErrors([]);
     setForm((current) => ({
       ...current,
       treatmentStages:
@@ -190,14 +283,39 @@ export default function DiseaseForm({
     }));
   };
 
+  const handleSubmit = () => {
+    const payload = buildDiseasePayload(form);
+    const errors = validateDiseasePayload(payload);
+
+    if (errors.length > 0) {
+      setFormErrors(errors);
+      toast.error(errors[0]);
+      return;
+    }
+
+    setFormErrors([]);
+    saveMutation.mutate(payload);
+  };
+
   return (
     <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-6 shadow-sm">
+      {formErrors.length > 0 && (
+        <div className="mb-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+          <p className="font-semibold">Vui lòng kiểm tra lại thông tin phác đồ.</p>
+          <div className="mt-2 space-y-1">
+            {formErrors.slice(0, 4).map((error) => (
+              <p key={error}>- {error}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-4">
         <div className="space-y-2">
           <Label className="text-[10.5px] font-semibold text-slate-500">Mã bệnh</Label>
           <Input
             value={form.code}
-            onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
+            onChange={(event) => updateField({ code: event.target.value })}
             placeholder="WSSV"
             className="h-[38px] rounded-[4px] bg-white text-[13px] shadow-none"
           />
@@ -206,7 +324,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Tên bệnh</Label>
           <Input
             value={form.nameVi}
-            onChange={(event) => setForm((current) => ({ ...current, nameVi: event.target.value }))}
+            onChange={(event) => updateField({ nameVi: event.target.value })}
             placeholder="Bệnh đốm trắng"
             className="h-[38px] rounded-[4px] bg-white text-[13px] shadow-none"
           />
@@ -215,7 +333,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Tên tiếng Anh</Label>
           <Input
             value={form.nameEn}
-            onChange={(event) => setForm((current) => ({ ...current, nameEn: event.target.value }))}
+            onChange={(event) => updateField({ nameEn: event.target.value })}
             placeholder="White Spot Syndrome Virus"
             className="h-[38px] rounded-[4px] bg-white text-[13px] shadow-none"
           />
@@ -224,7 +342,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Danh mục</Label>
           <Select
             value={form.categoryId || undefined}
-            onValueChange={(value) => setForm((current) => ({ ...current, categoryId: value }))}
+            onValueChange={(value) => updateField({ categoryId: value })}
           >
             <SelectTrigger className="h-[38px] rounded-[4px] bg-white text-[13px] shadow-none">
               <SelectValue placeholder="Chưa gán danh mục" />
@@ -245,7 +363,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Alias / tên gọi khác</Label>
           <Textarea
             value={form.aliasesRaw}
-            onChange={(event) => setForm((current) => ({ ...current, aliasesRaw: event.target.value }))}
+            onChange={(event) => updateField({ aliasesRaw: event.target.value })}
             rows={3}
             placeholder="white spot, đốm trắng, wssv"
             className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
@@ -255,7 +373,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Dấu hiệu / triệu chứng match</Label>
           <Textarea
             value={form.symptomKeywordsRaw}
-            onChange={(event) => setForm((current) => ({ ...current, symptomKeywordsRaw: event.target.value }))}
+            onChange={(event) => updateField({ symptomKeywordsRaw: event.target.value })}
             rows={3}
             placeholder="đốm trắng trên vỏ, bơi lờ đờ, giảm ăn"
             className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
@@ -268,7 +386,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Mô tả dấu hiệu</Label>
           <Textarea
             value={form.signsSummary}
-            onChange={(event) => setForm((current) => ({ ...current, signsSummary: event.target.value }))}
+            onChange={(event) => updateField({ signsSummary: event.target.value })}
             rows={4}
             placeholder="Tôm có đốm trắng rõ ở vỏ, giảm ăn nhanh, bơi yếu..."
             className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
@@ -278,7 +396,7 @@ export default function DiseaseForm({
           <Label className="text-[10.5px] font-semibold text-slate-500">Nguyên nhân (mỗi dòng một ý)</Label>
           <Textarea
             value={form.causesText}
-            onChange={(event) => setForm((current) => ({ ...current, causesText: event.target.value }))}
+            onChange={(event) => updateField({ causesText: event.target.value })}
             rows={4}
             placeholder={"môi trường biến động\nmật độ nuôi cao\nnhiễm virus"}
             className="resize-none rounded-[4px] bg-white text-[13px] shadow-none"
@@ -290,7 +408,7 @@ export default function DiseaseForm({
         <input
           type="checkbox"
           checked={form.enabled}
-          onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
+          onChange={(event) => updateField({ enabled: event.target.checked })}
         />
         Đang bật
       </label>
@@ -371,9 +489,9 @@ export default function DiseaseForm({
           className="h-10 rounded-md border-slate-300 px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50">
           Hủy
         </Button>
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}
+        <Button onClick={handleSubmit} disabled={saveMutation.isPending}
           className="h-10 rounded-md bg-blue-600 px-8 text-[13px] font-semibold text-white hover:bg-blue-700">
-          {form.id ? "Cập nhật phác đồ" : "Tạo phác đồ"}
+          {saveMutation.isPending ? "Đang lưu..." : form.id ? "Cập nhật phác đồ" : "Tạo phác đồ"}
         </Button>
       </div>
     </div>

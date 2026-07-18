@@ -45,8 +45,9 @@ import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { P } from "@/lib/permissions";
+import { getErrorMessage as getApiErrorMessage } from "@/lib/axios";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
-import type { AiDiseaseKnowledge, AiKnowledgeCategory, AiKnowledgeImportPreview } from "@/app/types/ai-knowledge.types";
+import type { AiDiseaseKnowledge, AiKnowledgeImportPreview } from "@/app/types/ai-knowledge.types";
 
 const PAGE_SIZE = 20;
 
@@ -72,7 +73,6 @@ function AgronomistDiseasesContent() {
   const canImportKnowledge = hasPermission(P.AI_IMPORT_KNOWLEDGE);
 
   const [diseases, setDiseases] = useState<AiDiseaseKnowledge[]>([]);
-  const [categories, setCategories] = useState<AiKnowledgeCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -103,22 +103,9 @@ function AgronomistDiseasesContent() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [diseasesResult, categoriesResult] = await Promise.allSettled([
-        aiKnowledgeService.getDiseases(),
-        aiKnowledgeService.getCategories(),
-      ]);
-
-      if (diseasesResult.status === "fulfilled") {
-        setDiseases(diseasesResult.value);
-      } else {
-        toast.error("Không thể tải danh sách phác đồ");
-      }
-
-      if (categoriesResult.status === "fulfilled") {
-        setCategories(categoriesResult.value);
-      } else {
-        setCategories([]);
-      }
+      setDiseases(await aiKnowledgeService.getDiseases());
+    } catch {
+      toast.error("Không thể tải danh sách phác đồ");
     } finally {
       setLoading(false);
     }
@@ -195,15 +182,6 @@ function AgronomistDiseasesContent() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const pendingCount = diseases.filter((item) => item.status === "IN_REVIEW").length;
-  const approvedCount = diseases.filter((item) => item.status === "APPROVED").length;
-  const overviewCards = [
-    { label: "Danh mục", value: categories.length },
-    { label: "Tri thức bệnh", value: diseases.length },
-    { label: "Đang chờ Admin duyệt", value: pendingCount, accent: "text-amber-600" },
-    { label: "Đã được duyệt (AI đang dùng)", value: approvedCount, accent: "text-emerald-600" },
-  ];
-
   return (
     <div className="space-y-5">
       <div className="mt-2 space-y-5 px-1">
@@ -215,12 +193,6 @@ function AgronomistDiseasesContent() {
             Quản lý toàn bộ tri thức bệnh, theo dõi số lượng phác đồ đang dùng và nạp dữ liệu Excel ngay tại một nơi.
           </p>
         </div>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {overviewCards.map((card) => (
-            <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} />
-          ))}
-        </section>
 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-1 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
@@ -551,15 +523,6 @@ function AgronomistDiseasesContent() {
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  return (
-    <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className={`mt-3 text-[22px] font-bold ${accent ?? "text-slate-900"}`}>{value}</p>
-    </div>
-  );
-}
-
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-[4px] border border-slate-200 bg-slate-50 p-4">
@@ -577,8 +540,6 @@ const downloadButtonClassName =
   "inline-flex items-center justify-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100";
 
 function getErrorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
-    return error.message;
-  }
-  return fallback;
+  const message = getApiErrorMessage(error);
+  return message || fallback;
 }

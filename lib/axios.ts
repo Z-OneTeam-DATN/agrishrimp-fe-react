@@ -99,33 +99,56 @@ const processQueue = (error: unknown, token: NullableToken = null) => {
   failedQueue = [];
 };
 
-const getErrorMessage = (error: AxiosError<any>) => {
-  const data = error.response?.data;
-  if (!data) return "Lỗi hệ thống, vui lòng thử lại.";
+const joinErrorList = (value: unknown) => {
+  if (!Array.isArray(value) || value.length === 0) return "";
 
-  if (Array.isArray(data.fieldErrors) && data.fieldErrors.length > 0) {
-    return data.fieldErrors
-      .filter((fieldError: unknown) => typeof fieldError === "string" && fieldError.trim())
-      .join(". ");
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        if (typeof record.message === "string") return record.message.trim();
+        if (typeof record.detail === "string") return record.detail.trim();
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join(". ");
+};
+
+const getErrorMessage = (error: unknown) => {
+  const axiosError = error as AxiosError<unknown> | undefined;
+  const data = axiosError?.response?.data;
+
+  if (typeof data === "string" && data.trim()) {
+    return data.trim();
   }
 
-  // Nếu có mảng chi tiết lỗi (Validation errors)
-  if (Array.isArray(data.details) && data.details.length > 0) {
-    return data.details
-      .map((detail: any) => (typeof detail === "string" ? detail : detail?.message))
-      .filter(Boolean)
-      .join(". ");
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    const listMessage =
+      joinErrorList(record.fieldErrors) ||
+      joinErrorList(record.details) ||
+      joinErrorList(record.errors);
+    if (listMessage) return listMessage;
+
+    for (const key of ["detail", "message", "error_description", "error", "title"]) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
   }
 
-  return (
-    data.detail ||
-    data.message ||
-    data.error_description ||
-    data.error ||
-    data.title ||
-    (typeof data === "string" ? data : null) ||
-    "Lỗi hệ thống, vui lòng thử lại."
-  );
+  const message =
+    error && typeof error === "object" && "message" in error && typeof error.message === "string"
+      ? error.message
+      : "";
+  if (message && !message.startsWith("Request failed with status code")) return message;
+
+  if (axiosError?.response?.status === 400) {
+    return "Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+  }
+
+  return "Lỗi hệ thống, vui lòng thử lại.";
 };
 
 const isAuthRefreshUrl = (url?: string | null) =>
