@@ -29,6 +29,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { usePathname } from "next/navigation";
+
 const getFullImageUrl = (url?: string) => {
   if (!url) return undefined;
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
@@ -39,6 +41,10 @@ const getFullImageUrl = (url?: string) => {
 };
 
 export default function AdminChatPage() {
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith("/admin");
+  const containerHeightClass = isAdminRoute ? "h-[calc(100vh-64px)] border-t border-gray-200" : "h-screen";
+
   const { user } = useAuthStore();
   const {
     conversations, setConversations,
@@ -442,11 +448,11 @@ export default function AdminChatPage() {
   const assignedStaffName = activeConv?.assignedStaffName;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-white border-t border-gray-200">
+    <div className={`flex bg-white ${containerHeightClass}`}>
       {/* ═══ LEFT: Conversation list ═══ */}
       <div className="w-[360px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
         <ConversationSidebar
-          conversations={conversations.filter((c) => c.status !== "CLOSED")}
+          conversations={conversations}
           activeId={activeConversationId}
           onSelect={handleSelectConv}
           isLoading={isLoadingConvs}

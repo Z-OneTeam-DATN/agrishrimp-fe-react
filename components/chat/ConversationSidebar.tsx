@@ -8,13 +8,15 @@ import { vi } from "date-fns/locale";
 import { MessageCircle, Search, ArrowLeft, Star } from "lucide-react";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-type FilterTab = "all" | "unread" | "attention";
+type FilterTab = "all" | "unread" | "attention" | "closed";
 
 const TABS: Array<{ id: FilterTab; label: string }> = [
   { id: "all", label: "Tất cả" },
   { id: "unread", label: "Chưa đọc" },
   { id: "attention", label: "Cần chú ý" },
+  { id: "closed", label: "Đã đóng" },
 ];
 
 interface Props {
@@ -70,6 +72,9 @@ function formatLastMessage(content: string, isFromCustomer: boolean, customerNam
 }
 
 export default function ConversationSidebar({ conversations, activeId, onSelect, isLoading, starredIds }: Props) {
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith("/admin");
+
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -93,9 +98,10 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
       c.lastMessage?.toLowerCase().includes(q);
 
     const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "unread" && c.unreadByShop > 0) ||
-      (activeTab === "attention" && isAttentionConversation(c));
+      (activeTab === "all" && c.status !== "CLOSED") ||
+      (activeTab === "unread" && c.unreadByShop > 0 && c.status !== "CLOSED") ||
+      (activeTab === "attention" && isAttentionConversation(c) && c.status !== "CLOSED") ||
+      (activeTab === "closed" && c.status === "CLOSED");
 
     return matchesQuery && matchesTab;
   });
@@ -144,13 +150,23 @@ export default function ConversationSidebar({ conversations, activeId, onSelect,
             </span>
           )}
         </div>
-        <Link
-          href="/admin"
-          className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline shrink-0"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Quản trị
-        </Link>
+        {isAdminRoute ? (
+          <Link
+            href="/admin"
+            className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline shrink-0"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Quản trị
+          </Link>
+        ) : (
+          <Link
+            href="/"
+            className="text-xs font-semibold text-[#0084ff] hover:text-blue-700 flex items-center gap-1 hover:underline shrink-0"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Trang chủ
+          </Link>
+        )}
       </div>
 
       {/* Search & Sort Row */}

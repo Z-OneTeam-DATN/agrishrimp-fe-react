@@ -137,7 +137,7 @@ export default function AdminLayout({
       <AdminSidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <AdminTopHeader />
-        <main className="flex-1 overflow-y-auto p-[15px] pt-[20px]">
+        <main className={`flex-1 overflow-y-auto ${pathname?.startsWith("/admin/chat") ? "p-0 overflow-y-hidden" : "p-[15px] pt-[20px]"}`}>
           <div className="w-full min-w-0">
             {isAllowed ? (
               children
