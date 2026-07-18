@@ -26,6 +26,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
+import { P } from "@/lib/permissions";
 
 interface AdminDriverTableProps {
     drivers: Driver[];
@@ -40,6 +44,11 @@ export function AdminDriverTable({
     pageSize = 5,
     onRefresh,
 }: AdminDriverTableProps) {
+    const { hasPermission } = usePermissions();
+    const { user } = useAuthStore();
+    const isAdmin = isAdminRole(user?.role);
+    const canUpdate = hasPermission(P.DRIVER_UPDATE) || isAdmin;
+
     const [driverToLock, setDriverToLock] = useState<Driver | null>(null);
     const [isLocking, setIsLocking] = useState(false);
 
@@ -245,25 +254,29 @@ export function AdminDriverTable({
 
                                 <TableCell className="p-2 text-right pr-4 align-top">
                                     <div className="flex justify-end gap-1.5 mt-0.5">
-                                        <Link href={`/admin/drivers/${driver.id}`}>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-[4px]">
-                                                <Pencil size={13} />
+                                        {canUpdate && (
+                                            <Link href={`/admin/drivers/${driver.id}`}>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-[4px]">
+                                                    <Pencil size={13} />
+                                                </Button>
+                                            </Link>
+                                        )}
+                                        {canUpdate && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className={cn(
+                                                    "h-7 w-7 transition-all rounded-[4px]",
+                                                    driver.status === "INACTIVE"
+                                                        ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white"
+                                                        : "text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white"
+                                                )}
+                                                onClick={() => setDriverToLock(driver)}
+                                            >
+                                                {driver.status === "INACTIVE" ? <Unlock size={13} /> : <Lock size={13} />}
                                             </Button>
-                                        </Link>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className={cn(
-                                                "h-7 w-7 transition-all rounded-[4px]",
-                                                driver.status === "INACTIVE"
-                                                    ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white"
-                                                    : "text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white"
-                                            )}
-                                            onClick={() => setDriverToLock(driver)}
-                                        >
-                                            {driver.status === "INACTIVE" ? <Unlock size={13} /> : <Lock size={13} />}
-                                        </Button>
+                                        )}
                                     </div>
                                 </TableCell>
                             </TableRow>

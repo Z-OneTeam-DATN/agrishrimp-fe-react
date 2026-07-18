@@ -240,6 +240,15 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
         advanced: [{ id: P.SETTING_UPDATE, label: "Cập nhật cài đặt" }],
       },
       {
+        id: P.DRIVER_VIEW,
+        label: "Quản lý tài xế",
+        advanced: [
+          { id: P.DRIVER_CREATE, label: "Thêm tài xế" },
+          { id: P.DRIVER_UPDATE, label: "Sửa tài xế" },
+          { id: P.DRIVER_DELETE, label: "Xóa tài xế" },
+        ],
+      },
+      {
         id: P.BANNER_VIEW,
         label: "Banner",
         advanced: [

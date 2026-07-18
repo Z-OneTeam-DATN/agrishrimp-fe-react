@@ -14,6 +14,10 @@ import { DriverSchema, DriverFormValues } from "@/app/types/driver.schema";
 import { driverService } from "@/app/services/driver.service";
 import { FileService } from "@/app/services/file.service";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { isAdminRole } from "@/lib/roles";
+import { P } from "@/lib/permissions";
 
 interface AuditInfo {
     createdByName?: string;
@@ -26,6 +30,10 @@ export default function EditDriverPage() {
     const router = useRouter();
     const params = useParams();
     const driverId = params?.id ? Number(params.id) : null;
+    const { hasPermission } = usePermissions();
+    const { user, isLoadingAuth } = useAuthStore();
+    const isAdmin = isAdminRole(user?.role);
+    const canUpdate = hasPermission(P.DRIVER_UPDATE) || isAdmin;
 
     const [loadingData, setLoadingData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);

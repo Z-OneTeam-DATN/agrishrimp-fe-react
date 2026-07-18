@@ -187,7 +187,7 @@ export default function AdminSidebar() {
     P.SUPPLIER_VIEW,
   ]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
-  const canViewSettings = hasPermission(P.SETTING_VIEW);
+  const canViewSettings = hasPermission(P.SETTING_VIEW) || hasPermission(P.DRIVER_VIEW) || isAdmin;
   const canAccessOrderManagement =
     hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
   const canViewBannerSection = hasPermission(P.BANNER_VIEW);
