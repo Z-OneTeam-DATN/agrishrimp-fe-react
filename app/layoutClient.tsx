@@ -98,7 +98,7 @@ export default function LayoutClient({
   const isAdvisorPage = pathname?.startsWith("/advisor");
   const isChatPage = pathname?.startsWith("/chat");
   const isAgronomistPage = pathname?.startsWith("/agronomist");
-  const isAiDoctorPage = pathname?.startsWith("/ai-doctor");
+  const isAiDoctorPage = pathname === "/ai-doctor";
   const isHideLayout =
     isAdminPage || isAdvisorPage || isChatPage || isAgronomistPage || isAuthPage || isAiDoctorPage;
   const isProtectedPath = [

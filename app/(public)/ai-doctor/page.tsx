@@ -12,7 +12,6 @@ import {
   ImageIcon,
   Loader2,
   MoreVertical,
-  PlusCircle,
   Send,
   ShieldAlert,
   Sparkles,
@@ -376,21 +375,6 @@ export default function AiDoctorChatPage() {
             </div>
           </div>
 
-          {entries.length === 0 && (
-            <div className="ml-auto flex max-w-[78%] flex-col items-center gap-3 rounded-2xl bg-white px-5 py-5 text-center shadow-sm">
-              <p className="text-xs text-slate-500">
-                Bà con gửi 1 tấm ảnh tôm chụp rõ nét để bác sĩ khám bệnh nhanh hơn nhé.
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1965A2] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#15588D]"
-              >
-                <PlusCircle size={16} />
-                Chụp hoặc Chọn ảnh
-              </button>
-            </div>
-          )}
-
           {entries.map((entry) => {
             if (entry.kind === "user") {
               return (
@@ -658,10 +642,10 @@ export default function AiDoctorChatPage() {
               className="mb-3 text-[#1965A2]"
               title="Chọn ảnh"
             >
-              <PlusCircle size={26} />
+              <ImageIcon size={24} />
             </button>
 
-            <div className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 px-4 py-2">
               <textarea
                 value={symptoms}
                 onChange={(event) => setSymptoms(event.target.value.slice(0, 300))}
@@ -670,9 +654,9 @@ export default function AiDoctorChatPage() {
                     ? "Nhập câu trả lời của bà con..."
                     : "Kể bệnh: tôm bỏ ăn, nổi đầu, có đốm trắng..."
                 }
-                className="min-h-[48px] w-full resize-none bg-transparent text-sm text-gray-800 outline-none"
+                className="min-h-[28px] w-full resize-none bg-transparent text-sm text-gray-800 outline-none"
               />
-              <div className="mt-1 flex items-center justify-between text-[11px] text-gray-400">
+              <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-400">
                 <span className="inline-flex items-center gap-1">
                   <Sparkles size={12} />
                   Gửi ảnh để bác sĩ xem bệnh kỹ hơn
