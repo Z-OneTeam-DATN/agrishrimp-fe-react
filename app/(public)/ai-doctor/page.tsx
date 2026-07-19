@@ -369,9 +369,13 @@ export default function AiDoctorChatPage() {
             </div>
 
             <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
-              Chào bà con {user?.displayName || user?.fullName || "mình"}! Tôi là Bác sĩ Tôm. 🦐
+              {user?.displayName || user?.fullName ? (
+                <>Xin chào {user.displayName || user.fullName}! Tôi là Bác sĩ Tôm 🦐</>
+              ) : (
+                <>Chào bà con! Tôi là Bác sĩ Tôm 🦐</>
+              )}
               <br /><br />
-              Bà con hãy gửi cho tôi 1 tấm ảnh chụp rõ tôm bị bệnh và kể thêm các dấu hiệu lạ thấy trong ao. Tôi sẽ giúp bà con nhận diện bệnh và đưa ra cách chữa trị hiệu quả nhất nhé!
+              Bà con gửi cho tôi 1 tấm ảnh tôm kèm mô tả dấu hiệu, tôi sẽ giúp chẩn đoán bệnh và đưa ra cách chữa trị hiệu quả nhé!
             </div>
           </div>
 
@@ -588,12 +592,12 @@ export default function AiDoctorChatPage() {
 
         <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
           {!previewUrl && symptoms.length === 0 && !diagnoseMutation.isPending && !clarifySession && (
-            <div className="mb-3 flex flex-wrap gap-2">
+            <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {quickSymptoms.map((s) => (
                 <button
                   key={s}
                   onClick={() => handleQuickSymptom(s)}
-                  className="rounded-full border border-[#c8d7f1] bg-[#eaf2fc] px-3 py-1.5 text-[11px] font-medium text-[#1965A2] transition-colors hover:bg-[#d8e5ff]"
+                  className="shrink-0 whitespace-nowrap rounded-full border border-[#c8d7f1] bg-[#eaf2fc] px-3 py-1.5 text-[11px] font-medium text-[#1965A2] transition-colors hover:bg-[#d8e5ff]"
                 >
                   {s}
                 </button>
