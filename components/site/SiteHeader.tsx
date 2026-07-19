@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronDown,
   Menu,
+  NotebookPen,
   PackageSearch,
   ShieldCheck,
   Truck,
@@ -25,6 +26,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { useCartStore } from "@/stores/useCartStore";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { CategoryDTO } from "@/app/types/category.type";
@@ -90,6 +93,8 @@ export default function Header() {
   const router = useRouter();
   const { data: user, isAuthenticated, isLoading } = useCurrentUser();
   const { logout, isLoading: isLoggingOut } = useLogout();
+  const { hasPermission } = usePermissions();
+  const isAgronomist = hasPermission(P.AGRONOMIST_WORKSPACE_USE);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false);
@@ -318,6 +323,14 @@ export default function Header() {
               <span className="text-sm text-gray-700">Đơn hàng của tôi</span>
             </Link>
           </DropdownMenuItem>
+          {isAgronomist && (
+            <DropdownMenuItem asChild className="p-0 rounded-lg">
+              <Link href="/agronomist/diseases" className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <NotebookPen size={15} className="text-gray-500" />
+                <span className="text-sm text-gray-700">Quản lý phác đồ</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator className="bg-gray-100 my-1" />
           <DropdownMenuItem
             className="flex items-center gap-3 px-3 py-2.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"

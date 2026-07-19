@@ -99,7 +99,7 @@ export default async function Home() {
   return (
     <div className="bg-[#f5f5f5] pb-10">
       <div className="w-full pt-0">
-        <div className={HOME_CONTENT_CONTAINER_CLASS}>
+        <div className="mx-auto w-full max-w-[1440px] px-0 sm:px-4 md:px-6 xl:px-8">
           <div className="overflow-hidden">
             <Banner banners={banners} />
           </div>
