@@ -12,7 +12,9 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 
-const BANNER_HEIGHT_CLASS = "h-[240px] sm:h-[320px] md:h-[400px] lg:h-[500px]";
+const BANNER_HEIGHT_CLASS = "h-[210px] min-[420px]:h-[250px] sm:h-[320px] md:h-[400px] lg:h-[500px]";
+const BANNER_IMAGE_CLASS =
+  "h-full w-full bg-white object-cover object-center md:object-contain";
 
 interface SiteBannerCarouselProps {
   banners: BannerDTO[];
@@ -56,7 +58,7 @@ export default function SiteBannerCarousel({
                         src={banner.imageUrl ?? banner.mobileImageUrl ?? ""}
                         alt={banner.title ?? ""}
                         loading="eager"
-                        className="h-full w-full bg-white object-contain object-center"
+                        className={BANNER_IMAGE_CLASS}
                       />
                     </picture>
                   </a>
@@ -70,7 +72,7 @@ export default function SiteBannerCarousel({
                       src={banner.imageUrl ?? banner.mobileImageUrl ?? ""}
                       alt={banner.title ?? ""}
                       loading="eager"
-                      className="h-full w-full bg-white object-contain object-center"
+                      className={BANNER_IMAGE_CLASS}
                     />
                   </picture>
                 )}

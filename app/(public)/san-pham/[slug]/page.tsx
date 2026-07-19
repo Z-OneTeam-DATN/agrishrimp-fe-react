@@ -674,7 +674,7 @@ export default function ProductDetailPage({
     );
 
     return (
-        <div className="min-h-screen bg-[#f5f6f8] pb-20 font-sans text-slate-950">
+        <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] pb-20 font-sans text-slate-950">
             {breadcrumbHost
                 ? createPortal(breadcrumbBar, breadcrumbHost)
                 : (
@@ -684,8 +684,8 @@ export default function ProductDetailPage({
                 )}
 
             <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 lg:py-8">
-                <section className="grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,430px)_minmax(0,1fr)] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,500px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
-                    <div className="lg:col-start-1 lg:row-start-1">
+                <section className="grid min-w-0 gap-5 sm:gap-6 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)] xl:grid-rows-[auto_1fr] 2xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
+                    <div className="mx-auto w-full max-w-[560px] xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
                         <div className="bg-white p-3 shadow-sm sm:p-4">
                             <div className="grid gap-3 sm:grid-cols-[76px_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[72px_minmax(0,1fr)] 2xl:grid-cols-[84px_minmax(0,1fr)]">
                                 <div className="order-2 flex gap-2.5 overflow-x-auto pb-1 sm:order-1 sm:flex-col sm:overflow-visible sm:pb-0">
@@ -729,7 +729,7 @@ export default function ProductDetailPage({
                         </div>
                     </div>
 
-                    <section className="bg-white p-4 shadow-sm sm:p-5 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:p-6 xl:p-7">
+                    <section className="min-w-0 bg-white p-4 shadow-sm sm:p-5 lg:p-6 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:p-7">
                         <div className="text-base font-medium leading-snug text-slate-950 sm:text-lg md:text-xl">
                             <span
                                 className={`mb-1.5 mr-2 inline-flex translate-y-[-2px] rounded-md px-2.5 py-1 align-middle text-[11px] font-black sm:mb-0 sm:mr-3 sm:text-xs ${
@@ -795,7 +795,7 @@ export default function ProductDetailPage({
                         </div>
 
                         <div className="mt-4 bg-[#f7fbff] px-4 py-3 sm:mt-5 sm:px-6 sm:py-3.5">
-                            <span className="text-2xl font-semibold tracking-normal text-blue-900 sm:text-3xl">
+                            <span className="block break-words text-2xl font-semibold tracking-normal text-blue-900 sm:text-3xl">
                                 {currentPrice > 0 ? formatPrice(currentPrice) : isCompletelyOutOfStock ? "Tạm hết hàng" : "Liên hệ"}
                             </span>
                         </div>
@@ -856,7 +856,7 @@ export default function ProductDetailPage({
                                                             : "border-slate-200 bg-white text-slate-700 hover:border-blue-500 hover:text-blue-900"
                                                     }`}
                                                 >
-                                                    <span className="truncate">{getVariantLabel(variant)}</span>
+                                                    <span className="min-w-0 truncate">{getVariantLabel(variant)}</span>
                                                     {isSelected && (
                                                         <span className="absolute right-0 top-0 flex h-full w-7 items-center justify-center rounded-r-full bg-blue-800 text-white">
                                                             <CheckCircle2 size={13} strokeWidth={2.4} />
@@ -874,12 +874,12 @@ export default function ProductDetailPage({
                             </div>
                         </div>
 
-                        <div className="mt-5 flex gap-2 sm:gap-2.5">
+                        <div className="mt-5 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:gap-2.5">
                             <button
                                 type="button"
                                 onClick={(event) => handleAddToCart(event, false)}
                                 disabled={isAdding || isCompletelyOutOfStock}
-                                className="flex-1 flex h-10 items-center justify-center gap-2 rounded-full border-2 border-blue-800 bg-white px-3 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                                className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-full border-2 border-blue-800 bg-white px-3 text-xs font-bold text-blue-900 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                             >
                                 {isAdding ? <Loader2 className="animate-spin" size={15} /> : <><ShoppingCart size={15} /> Thêm vào giỏ hàng</>}
                             </button>
@@ -887,7 +887,7 @@ export default function ProductDetailPage({
                                 type="button"
                                 onClick={(event) => handleAddToCart(event, true)}
                                 disabled={isAdding || isCompletelyOutOfStock}
-                                className="flex-1 flex h-10 items-center justify-center rounded-full bg-blue-900 px-3 text-xs font-bold text-white transition-colors hover:bg-blue-950 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                className="flex h-10 min-w-0 items-center justify-center rounded-full bg-blue-900 px-3 text-xs font-bold text-white transition-colors hover:bg-blue-950 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                                 {isAdding ? <Loader2 className="animate-spin" size={15} /> : "Mua ngay"}
                             </button>
@@ -993,14 +993,14 @@ export default function ProductDetailPage({
                                         return (
                                             <div
                                                 key={voucher.id ?? voucher.code}
-                                                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"
+                                                className="grid min-w-0 grid-cols-1 items-start gap-2 min-[460px]:grid-cols-[minmax(0,1fr)_auto] min-[460px]:items-center sm:gap-3"
                                             >
                                                 <div className="flex min-w-0 items-center gap-2 text-[11px] text-slate-800 sm:gap-3 sm:text-xs">
                                                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 sm:h-9 sm:w-9">
                                                         <Gift size={15} />
                                                     </span>
-                                                    <span className="min-w-0 truncate leading-5 sm:leading-6">
-                                                        <span className="truncate">{getVoucherDisplayText(voucher)}</span>
+                                                    <span className="min-w-0 leading-5 sm:leading-6">
+                                                        <span className="break-words">{getVoucherDisplayText(voucher)}</span>
                                                         <span className="ml-1.5 inline-flex max-w-[86px] align-middle rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-800 sm:ml-2 sm:max-w-none sm:px-2 sm:text-xs">
                                                             {voucher.code}
                                                         </span>
@@ -1035,7 +1035,7 @@ export default function ProductDetailPage({
                     </section>
 
                     {relatedProducts.length > 0 && (
-                        <section className="space-y-3 lg:col-start-1 lg:row-start-2">
+                        <section className="mx-auto w-full max-w-[560px] space-y-3 xl:col-start-1 xl:row-start-2 xl:mx-0 xl:max-w-none">
                             <h2 className="text-base font-black text-slate-950">Khách hàng thường mua kèm:</h2>
                             <div className="grid grid-cols-2 gap-2.5 min-[420px]:grid-cols-3">
                                 {relatedProducts.map((item) => (

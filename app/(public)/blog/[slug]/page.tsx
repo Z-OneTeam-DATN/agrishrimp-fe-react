@@ -71,9 +71,6 @@ const normalizeDisplayTitle = (title: string) => {
   return normalized.charAt(0).toLocaleUpperCase("vi-VN") + normalized.slice(1);
 };
 
-const stripHtml = (html?: string | null) =>
-  (html ?? "").replace(/<[^>]*>?/gm, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-
 const escapeHtml = (text: string) =>
   text
     .replace(/&/g, "&amp;")
@@ -749,7 +746,7 @@ export default function BlogDetailPage() {
 
           </div>
 
-          <aside className="w-full flex-shrink-0 space-y-6 lg:sticky lg:top-52 lg:self-start lg:h-fit lg:w-[320px]">
+          <aside className="w-full flex-shrink-0 space-y-6 lg:sticky lg:top-[calc(var(--site-header-height,96px)+1rem)] lg:max-h-[calc(100vh-var(--site-header-height,96px)-2rem)] lg:w-[320px] lg:self-start lg:overflow-y-auto lg:pr-1">
             <LatestBlogPostsCard
               posts={latestPosts}
               currentSlug={slug}
