@@ -41,6 +41,8 @@ type DiseaseFormState = {
   symptomKeywordsRaw: string;
   signsSummary: string;
   causesText: string;
+  engineerName: string;
+  engineerPhone: string;
   enabled: boolean;
   confidenceThreshold: number;
   matchThreshold: number;
@@ -59,6 +61,8 @@ type DiseasePayload = {
   symptomKeywordsRaw: string;
   signsSummary: string;
   causes: string[];
+  engineerName?: string;
+  engineerPhone?: string;
   enabled: boolean;
   confidenceThreshold: number;
   matchThreshold: number;
@@ -126,6 +130,8 @@ function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
     symptomKeywordsRaw: form.symptomKeywordsRaw.trim(),
     signsSummary: form.signsSummary.trim(),
     causes: splitLines(form.causesText),
+    engineerName: optionalText(form.engineerName),
+    engineerPhone: optionalText(form.engineerPhone),
     enabled: form.enabled,
     confidenceThreshold: numberOrFallback(form.confidenceThreshold, 0.65),
     matchThreshold: numberOrFallback(form.matchThreshold, 0.4),
@@ -268,6 +274,8 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
       symptomKeywordsRaw: "",
       signsSummary: "",
       causesText: "",
+      engineerName: "",
+      engineerPhone: "",
       enabled: true,
       confidenceThreshold: 0.65,
       matchThreshold: 0.4,
@@ -288,6 +296,8 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
     symptomKeywordsRaw: item.symptomKeywordsRaw,
     signsSummary: item.signsSummary,
     causesText: item.causes.join("\n"),
+    engineerName: item.engineerName || "",
+    engineerPhone: item.engineerPhone || "",
     enabled: item.enabled,
     confidenceThreshold: item.confidenceThreshold,
     matchThreshold: item.matchThreshold,
@@ -512,6 +522,27 @@ export default function DiseaseForm({
             className={cn(textareaClassName, formErrors.causesText && invalidFieldClassName)}
           />
           <FieldError message={formErrors.causesText} />
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label className="text-[10.5px] font-semibold text-slate-500">Tên kỹ sư phụ trách</Label>
+          <Input
+            value={form.engineerName}
+            onChange={(event) => updateField("engineerName", event.target.value)}
+            placeholder="Hiển thị làm nguồn khi AI trả lời — để trống nếu không cần nêu tên cụ thể."
+            className={inputClassName}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-[10.5px] font-semibold text-slate-500">SĐT liên hệ khẩn cấp</Label>
+          <Input
+            value={form.engineerPhone}
+            onChange={(event) => updateField("engineerPhone", event.target.value)}
+            placeholder="Hiển thị kèm phác đồ để bà con liên hệ khi cần gấp — để trống nếu không cần."
+            className={inputClassName}
+          />
         </div>
       </div>
 

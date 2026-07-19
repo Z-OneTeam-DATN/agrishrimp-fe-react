@@ -51,6 +51,10 @@ export interface AiDiseaseKnowledge {
   signsSummary: string;
   causes: string[];
   treatmentStages: AiKnowledgeTreatmentStage[];
+  /** Tên kỹ sư/đội ngũ đứng sau tri thức bệnh này — hiển thị làm nguồn khi AI trả lời chat. */
+  engineerName?: string | null;
+  /** SĐT liên hệ khẩn cấp gắn với đúng bệnh này — hiển thị kèm phác đồ khi AI trả lời chat. */
+  engineerPhone?: string | null;
   confidenceThreshold: number;
   matchThreshold: number;
   enabled: boolean;
