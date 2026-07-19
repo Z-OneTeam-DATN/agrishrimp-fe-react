@@ -170,6 +170,34 @@ function removeDescriptionOverflowStyles(html: string): string {
         .replace(/\s(width|height)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 }
 
+function extractVideoEmbedUrl(href: string): string | null {
+    const youtubeMatch = href.match(
+        /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i,
+    );
+    if (youtubeMatch) {
+        return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    }
+
+    const vimeoMatch = href.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+    if (vimeoMatch) {
+        return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
+    return null;
+}
+
+function embedVideoLinks(html: string): string {
+    return html.replace(
+        /<a\b[^>]*\shref=(["'])(.*?)\1[^>]*>[\s\S]*?<\/a>/gi,
+        (match: string, _quote: string, href: string) => {
+            const embedUrl = extractVideoEmbedUrl(href);
+            if (!embedUrl) return match;
+
+            return `<div style="position:relative;width:100%;padding-top:56.25%;margin:1rem 0;border-radius:0.75rem;overflow:hidden;background:#000;"><iframe src="${embedUrl}" title="Video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;"></iframe></div>`;
+        },
+    );
+}
+
 function normalizeDescriptionHtml(description?: string): string {
     if (!description?.trim()) {
         return "<p class='text-slate-500'>Nội dung chi tiết đang được cập nhật.</p>";
@@ -195,7 +223,7 @@ function normalizeDescriptionHtml(description?: string): string {
             .replace(/\n/g, "<br />");
     }
 
-    return removeDescriptionOverflowStyles(normalized);
+    return embedVideoLinks(removeDescriptionOverflowStyles(normalized));
 }
 
 function animateFlyToCart(e: React.MouseEvent) {
