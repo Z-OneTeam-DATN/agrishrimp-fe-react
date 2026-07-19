@@ -7,16 +7,25 @@ import React, {
   useMemo,
   useCallback,
 } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cartService } from "@/app/services/cart.service";
 import {
   voucherService,
-  UserVoucher as UserVoucherApi,
+  Voucher as VoucherApi,
 } from "@/app/services/voucher.service";
-import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCartStore } from "@/stores/useCartStore";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuthStore } from "@/stores/useAuthStore";
 import {
   Minus,
   Plus,
@@ -32,6 +41,8 @@ import {
 
 interface CartItem {
   id: number;
+  productId?: number;
+  productSlug?: string;
   variantId: number;
   name: string;
   variant: string;
@@ -45,11 +56,69 @@ interface CartItem {
   productForm?: string;
 }
 
-type Voucher = UserVoucherApi;
+type Voucher = VoucherApi;
 
-const formatMoney = (amount: number | undefined | null) => {
+const SAVED_VOUCHERS_KEY = "agrishrimp.savedVoucherCodes";
+
+const formatMoney = (amount: number | string | undefined | null) => {
   if (amount === undefined || amount === null) return "0₫";
   return Number(amount).toLocaleString("vi-VN") + "₫";
+};
+
+const toVoucherAmount = (value: string | number | null | undefined) =>
+  Number(value ?? 0);
+
+const loadSavedVoucherCodes = () => {
+  if (typeof window === "undefined") return [] as string[];
+
+  try {
+    const raw = window.localStorage.getItem(SAVED_VOUCHERS_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.map((code) => String(code).trim().toUpperCase()).filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const isVoucherActive = (voucher: Voucher) => {
+  const now = Date.now();
+  const startOk = !voucher.startDate || new Date(voucher.startDate).getTime() <= now;
+  const endOk = !voucher.endDate || new Date(voucher.endDate).getTime() >= now;
+  return voucher.status === "ACTIVE" && startOk && endOk;
+};
+
+const getVoucherDiscountForSubtotal = (voucher: Voucher, amount: number) => {
+  const minOrderValue = toVoucherAmount(voucher.minOrderValue);
+  if (amount < minOrderValue) {
+    return 0;
+  }
+
+  const value = Number(voucher.value ?? voucher.discountValue ?? 0);
+  if (voucher.discountType === "PERCENT") {
+    const calculatedDiscount = (amount * value) / 100;
+    return voucher.maxDiscount
+      ? Math.min(calculatedDiscount, Number(voucher.maxDiscount))
+      : calculatedDiscount;
+  }
+
+  return value;
+};
+
+const formatVoucherBenefit = (voucher: Voucher) => {
+  const value = Number(voucher.value ?? voucher.discountValue ?? 0);
+
+  if (voucher.discountType === "PERCENT") {
+    const maxDiscount = voucher.maxDiscount
+      ? `, tối đa ${formatMoney(voucher.maxDiscount)}`
+      : "";
+    return `Giảm ${value}%${maxDiscount}`;
+  }
+
+  return `Giảm ${formatMoney(value)}`;
 };
 
 function CartSkeleton() {
@@ -95,10 +164,12 @@ function QtyInput({
   value,
   onUpdate,
   disabled,
+  compact = false,
 }: {
   value: number;
   onUpdate: (delta: number) => void;
   disabled: boolean;
+  compact?: boolean;
 }) {
   const [draft, setDraft] = useState(String(value));
   const prevValue = useRef(value);
@@ -121,12 +192,14 @@ function QtyInput({
 
   return (
     <div
-      className={`inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white ${disabled ? "opacity-50" : ""}`}
+      className={`inline-flex items-center overflow-hidden border border-slate-200 bg-white ${disabled ? "opacity-50" : ""}`}
     >
       <button
         onClick={() => !disabled && onUpdate(-1)}
         disabled={disabled || value <= 1}
-        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+        className={`flex items-center justify-center border-r border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40 ${
+          compact ? "h-7 w-7" : "h-8 w-8"
+        }`}
       >
         <Minus size={13} />
       </button>
@@ -138,12 +211,16 @@ function QtyInput({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
-        className="w-11 h-8 text-center text-sm font-bold border-x border-slate-200 focus:outline-none bg-white"
+        className={`bg-white text-center font-semibold focus:outline-none ${
+          compact ? "h-7 w-9 text-[12px]" : "h-8 w-11 text-[14px]"
+        }`}
       />
       <button
         onClick={() => !disabled && onUpdate(1)}
         disabled={disabled}
-        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+        className={`flex items-center justify-center border-l border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-40 ${
+          compact ? "h-7 w-7" : "h-8 w-8"
+        }`}
       >
         <Plus size={13} />
       </button>
@@ -154,17 +231,34 @@ function QtyInput({
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [breadcrumbHost, setBreadcrumbHost] = useState<HTMLElement | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Record<number, boolean>>(
     {},
   );
 
   const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
-  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [voucherInput, setVoucherInput] = useState("");
+  const [savedVoucherCodes, setSavedVoucherCodes] = useState<string[]>([]);
+  const [isVoucherDialogOpen, setIsVoucherDialogOpen] = useState(false);
 
-  const router = useRouter();
   const { fetchCartCount } = useCartStore();
+  const { isAuthenticated, data: user, isLoading: isLoadingAuth } = useCurrentUser();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const isLoggedIn = isAuthenticated && !!user;
+
+  const resolveProductHref = useCallback((item: CartItem) => {
+    if (item.productSlug) {
+      return `/san-pham/${item.productSlug}`;
+    }
+
+    if (item.productId) {
+      return `/product/${item.productId}`;
+    }
+
+    return "/san-pham";
+  }, []);
 
   const fetchCart = useCallback(async () => {
     try {
@@ -178,32 +272,63 @@ export default function CartPage() {
         response?: { status?: number; data?: { message?: string } };
       };
 
-      if (
-        apiError.response?.status === 401 ||
-        apiError.response?.status === 403
-      ) {
-        toast.error("Vui lòng đăng nhập để xem giỏ hàng!");
-        router.push("/login");
+      if (apiError.response?.status === 401 || apiError.response?.status === 403) {
+        clearAuth();
+        setItems([]);
         return;
       }
       toast.error("Không thể tải giỏ hàng!");
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [clearAuth]);
 
-  const fetchAvailableVouchers = useCallback(async (orderSubtotal: number) => {
+  const fetchPublicVouchers = useCallback(async () => {
     try {
-      const vouchers = await voucherService.getAvailableForMe(orderSubtotal);
-      setAvailableVouchers(Array.isArray(vouchers) ? vouchers : []);
+      const res = await voucherService.getPublicVouchers();
+      let arr = Array.isArray(res) ? res : [];
+      arr = arr.filter((v: Voucher) => isVoucherActive(v));
+
+      setAvailableVouchers(arr);
     } catch (error: unknown) {
       console.error("Lỗi tải voucher", error);
     }
   }, []);
 
   useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+    setSavedVoucherCodes(loadSavedVoucherCodes());
+
+    const syncSavedCodes = () => {
+      setSavedVoucherCodes(loadSavedVoucherCodes());
+    };
+
+    window.addEventListener("storage", syncSavedCodes);
+    return () => window.removeEventListener("storage", syncSavedCodes);
+  }, []);
+
+  useEffect(() => {
+    void fetchPublicVouchers();
+
+    if (isLoadingAuth) {
+      return;
+    }
+
+    if (!isLoggedIn || !accessToken) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+
+    void fetchCart();
+  }, [accessToken, fetchCart, fetchPublicVouchers, isLoadingAuth, isLoggedIn]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    setBreadcrumbHost(document.getElementById("site-breadcrumb-slot"));
+  }, []);
 
   const updateQuantity = async (
     variantId: number,
@@ -261,32 +386,102 @@ export default function CartPage() {
   const subTotal = checkedItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const totalCount = checkedItems.reduce((s, i) => s + i.quantity, 0);
   const isAllChecked = items.length > 0 && items.every((i) => i.checked);
+  const savedVoucherCodeSet = useMemo(
+    () => new Set(savedVoucherCodes),
+    [savedVoucherCodes],
+  );
+
+  const recommendedVouchers = useMemo(() => {
+    return availableVouchers
+      .map((voucher) => ({
+        voucher,
+        estimatedDiscount: getVoucherDiscountForSubtotal(voucher, subTotal),
+      }))
+      .filter(({ estimatedDiscount }) => estimatedDiscount > 0)
+      .sort((left, right) => {
+        if (right.estimatedDiscount !== left.estimatedDiscount) {
+          return right.estimatedDiscount - left.estimatedDiscount;
+        }
+
+        const leftMin = toVoucherAmount(left.voucher.minOrderValue);
+        const rightMin = toVoucherAmount(right.voucher.minOrderValue);
+        if (leftMin !== rightMin) {
+          return leftMin - rightMin;
+        }
+
+        return (right.voucher.id || 0) - (left.voucher.id || 0);
+      })
+      .slice(0, 3);
+  }, [availableVouchers, subTotal]);
+
+  const voucherDialogOptions = useMemo(() => {
+    return availableVouchers
+      .map((voucher) => ({
+        voucher,
+        estimatedDiscount: getVoucherDiscountForSubtotal(voucher, subTotal),
+      }))
+      .sort((left, right) => {
+        const leftSelected = selectedVoucher?.code === left.voucher.code ? 1 : 0;
+        const rightSelected = selectedVoucher?.code === right.voucher.code ? 1 : 0;
+
+        const leftEligible = left.estimatedDiscount > 0 ? 1 : 0;
+        const rightEligible = right.estimatedDiscount > 0 ? 1 : 0;
+        if (rightEligible !== leftEligible) {
+          return rightEligible - leftEligible;
+        }
+
+        if (right.estimatedDiscount !== left.estimatedDiscount) {
+          return right.estimatedDiscount - left.estimatedDiscount;
+        }
+
+        if (rightSelected !== leftSelected) {
+          return rightSelected - leftSelected;
+        }
+
+        return (right.voucher.id || 0) - (left.voucher.id || 0);
+      });
+  }, [availableVouchers, selectedVoucher?.code, subTotal]);
 
   useEffect(() => {
-    if (loading) return;
-    void fetchAvailableVouchers(subTotal);
-  }, [fetchAvailableVouchers, loading, subTotal]);
+    if (
+      selectedVoucher &&
+      subTotal < toVoucherAmount(selectedVoucher.minOrderValue)
+    ) {
+      setSelectedVoucher(null);
+    }
+  }, [selectedVoucher, subTotal]);
 
-  useEffect(() => {
-    if (!selectedVoucher) return;
-
-    const refreshedVoucher = availableVouchers.find(
-      (voucher) => voucher.code === selectedVoucher.code,
+  let discountValue = 0;
+  if (
+    selectedVoucher &&
+    subTotal >= toVoucherAmount(selectedVoucher.minOrderValue)
+  ) {
+    const actualValue = Number(
+      selectedVoucher.value || selectedVoucher.discountValue || 0,
     );
 
-    if (!refreshedVoucher || !refreshedVoucher.canApply) {
-      setSelectedVoucher(null);
-      return;
+    if (selectedVoucher.discountType === "PERCENT") {
+      const calculatedDiscount = (subTotal * actualValue) / 100;
+      discountValue = selectedVoucher.maxDiscount
+        ? Math.min(calculatedDiscount, Number(selectedVoucher.maxDiscount))
+        : calculatedDiscount;
+    } else {
+      discountValue = actualValue;
     }
-
-    if (refreshedVoucher !== selectedVoucher) {
-      setSelectedVoucher(refreshedVoucher);
-    }
-  }, [availableVouchers, selectedVoucher]);
-
-  const discountValue = Number(selectedVoucher?.previewDiscountAmount ?? 0);
+  }
 
   const finalTotal = Math.max(0, subTotal - discountValue);
+
+  const applyVoucherSelection = (voucher: Voucher) => {
+    const minOrderValue = toVoucherAmount(voucher.minOrderValue);
+    if (subTotal < minOrderValue) {
+      toast.error(`Đơn chưa đạt ${formatMoney(minOrderValue)}`);
+      return;
+    }
+    setSelectedVoucher(voucher);
+    setVoucherInput(voucher.code);
+    toast.success("Áp dụng voucher thành công!");
+  };
 
   const applyVoucherByCode = () => {
     const found = availableVouchers.find(
@@ -296,15 +491,7 @@ export default function CartPage() {
       toast.error("Mã voucher không hợp lệ hoặc đã hết hạn");
       return;
     }
-    if (!found.canApply) {
-      return void toast.error(
-        found.availabilityReason || "Voucher chưa đủ điều kiện",
-      );
-    }
-    setSelectedVoucher(found);
-    setIsVoucherModalOpen(false);
-    setVoucherInput(found.code);
-    toast.success("Áp dụng voucher thành công!");
+    applyVoucherSelection(found);
   };
 
   const checkoutUrl = useMemo(() => {
@@ -340,7 +527,7 @@ export default function CartPage() {
           </p>
           <Link
             href="/san-pham"
-            className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 bg-blue-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
           >
             Mua sắm ngay <ArrowRight size={15} />
           </Link>
@@ -349,448 +536,520 @@ export default function CartPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 pb-24 md:pb-10">
-      <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <nav className="flex items-center gap-1.5 py-4 text-sm text-gray-500">
-            <Link href="/" className="hover:text-teal-600 transition-colors">
-              Trang chủ
-            </Link>
-            <ChevronRight size={13} className="text-gray-300" />
-            <span className="text-gray-800 font-medium">
-              Giỏ hàng ({items.length})
-            </span>
-          </nav>
-        </div>
+  const breadcrumbBar = (
+    <div className="border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur">
+      <div className="container mx-auto max-w-[1320px] px-4">
+        <nav className="flex items-center gap-1.5 py-3 text-[13px] text-gray-500">
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            Trang chủ
+          </Link>
+          <ChevronRight size={13} className="text-gray-300" />
+          <span className="text-gray-800 font-medium">
+            Giỏ hàng ({items.length})
+          </span>
+        </nav>
       </div>
+    </div>
+  );
 
-      <div className="container mx-auto px-4 max-w-5xl py-5">
-        <div className="space-y-3">
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-              <input
-                type="checkbox"
-                id="check-all"
-                className="w-4 h-4 accent-teal-600 cursor-pointer"
-                checked={isAllChecked}
-                onChange={(e) => toggleCheckAll(e.target.checked)}
-              />
-              <label
-                htmlFor="check-all"
-                className="text-sm text-gray-600 cursor-pointer select-none"
+  return (
+    <div className="min-h-screen bg-slate-50 pb-10">
+      {breadcrumbHost
+        ? createPortal(breadcrumbBar, breadcrumbHost)
+        : (
+          <div
+            className="sticky z-[49]"
+            style={{ top: "var(--site-header-height, 96px)" }}
+          >
+            {breadcrumbBar}
+          </div>
+        )}
+
+      <div className="container mx-auto max-w-[1320px] px-4 py-5">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <section className="space-y-4">
+            <div className="border border-slate-200 bg-white">
+              <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
+                <input
+                  type="checkbox"
+                  id="check-all"
+                  className="h-4 w-4 cursor-pointer accent-blue-700"
+                  checked={isAllChecked}
+                  onChange={(e) => toggleCheckAll(e.target.checked)}
+                />
+                <label
+                  htmlFor="check-all"
+                  className="cursor-pointer select-none text-[12px] font-medium text-slate-700"
+                >
+                  Chọn tất cả
+                </label>
+                <span className="ml-auto text-[11px] text-slate-500">
+                  {checkedItems.length}/{items.length} sản phẩm được chọn
+                </span>
+              </div>
+
+              <div
+                className="hidden border-b border-slate-200 px-4 py-4 lg:grid"
+                style={{ gridTemplateColumns: "minmax(0,1fr) 140px 156px 160px" }}
               >
-                Chọn tất cả
-              </label>
-              <span className="text-xs text-gray-400 ml-auto">
-                {checkedItems.length}/{items.length} sản phẩm được chọn
-              </span>
-            </div>
+                <span className="text-[13px] font-semibold text-slate-950">Sản phẩm</span>
+                <span className="text-center text-[13px] font-semibold text-slate-950">Giá</span>
+                <span className="text-center text-[13px] font-semibold text-slate-950">Số lượng</span>
+                <span className="text-right text-[13px] font-semibold text-slate-950">Tạm tính</span>
+              </div>
 
-            <div
-              className="hidden md:grid px-5 py-2 border-b border-gray-100"
-              style={{
-                gridTemplateColumns: "1.5rem 1fr 120px 140px 110px 2rem",
-              }}
-            >
-              {["", "Sản phẩm", "Đơn giá", "Số lượng", "Thành tiền", ""].map(
-                (h, i) => (
-                  <span
-                    key={i}
-                    className={`text-[11px] font-semibold uppercase tracking-wide text-gray-400 ${i >= 2 && i <= 4 ? "text-center" : ""} ${i === 4 ? "text-right" : ""}`}
-                  >
-                    {h}
-                  </span>
-                ),
-              )}
-            </div>
+              <div className="divide-y divide-slate-200">
+                {items.map((item) => {
+                  const isUpdating = updatingItems[item.variantId];
+                  const meta = [item.categoryName, item.brandName, item.productForm]
+                    .filter(Boolean)
+                    .join(" · ");
 
-            <div className="divide-y divide-gray-100">
-              {items.map((item) => {
-                const isUpdating = updatingItems[item.variantId];
-                const meta = [
-                  item.categoryName,
-                  item.brandName,
-                  item.productForm,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
-                const variantMeta = item.variant || "";
-
-                return (
+                  return (
                   <div
                     key={item.id}
-                    className={`px-5 py-4 transition-colors hover:bg-gray-50 ${isUpdating ? "opacity-50 pointer-events-none" : ""}`}
+                    className={`px-4 py-4 transition-colors ${isUpdating ? "pointer-events-none opacity-50" : ""}`}
                   >
-                    <div
-                      className="hidden md:grid items-center gap-3"
-                      style={{
-                        gridTemplateColumns:
-                          "1.5rem 1fr 120px 140px 110px 2rem",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-teal-600 cursor-pointer"
-                        checked={item.checked}
-                        onChange={() => toggleCheck(item.id)}
-                      />
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                          <Image
-                            src={item.image || "/placeholder.svg"}
-                            alt={item.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug mb-0.5">
-                            {item.name}
-                          </p>
-                          {meta && (
-                            <p className="text-xs text-gray-400 truncate">
-                              {meta}
-                            </p>
-                          )}
-                          {variantMeta && (
-                            <p className="text-xs text-gray-400 truncate">
-                              {variantMeta}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-center text-sm font-medium text-gray-700">
-                        {formatMoney(item.price)}
-                      </div>
-                      <div className="flex justify-center">
-                        {isUpdating ? (
-                          <Loader2
-                            size={16}
-                            className="animate-spin text-teal-600"
-                          />
-                        ) : (
-                          <QtyInput
-                            value={item.quantity}
-                            disabled={isUpdating}
-                            onUpdate={(delta) =>
-                              updateQuantity(
-                                item.variantId,
-                                item.quantity,
-                                delta,
-                              )
-                            }
-                          />
-                        )}
-                      </div>
-                      <div className="text-right text-sm font-bold text-gray-900">
-                        {formatMoney(item.price * item.quantity)}
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.id, item.variantId)}
-                        className="flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors"
+                      <div
+                        className="hidden items-center gap-4 lg:grid"
+                        style={{ gridTemplateColumns: "minmax(0,1fr) 140px 156px 160px" }}
                       >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                        <div className="flex min-w-0 items-center gap-4">
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => toggleCheck(item.id)}
+                            className="h-4 w-4 shrink-0 cursor-pointer accent-blue-700"
+                          />
+                          <Link href={resolveProductHref(item)} className="flex min-w-0 items-center gap-4 group">
+                            <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-slate-200 bg-slate-50">
+                              <Image
+                                src={item.image || "/placeholder.svg"}
+                                alt={item.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="line-clamp-2 text-[14px] font-medium leading-snug text-blue-800 transition-colors group-hover:text-blue-900">
+                                {item.name}
+                              </p>
+                              {meta && <p className="mt-1 truncate text-[11px] text-slate-500">{meta}</p>}
+                            </div>
+                          </Link>
+                        </div>
 
-                    <div className="flex md:hidden gap-3">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-teal-600 cursor-pointer mt-0.5 shrink-0"
-                        checked={item.checked}
-                        onChange={() => toggleCheck(item.id)}
-                      />
-                      <div className="relative w-[68px] h-[68px] rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                        <Image
-                          src={item.image || "/placeholder.svg"}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between gap-2 mb-0.5">
-                          <p className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">
-                            {item.name}
-                          </p>
+                        <div className="text-center text-[14px] font-semibold text-blue-800">
+                          {formatMoney(item.price)}
+                        </div>
+
+                        <div className="flex justify-center">
+                          {isUpdating ? (
+                            <Loader2 size={18} className="animate-spin text-blue-700" />
+                          ) : (
+                            <QtyInput
+                              value={item.quantity}
+                              disabled={isUpdating}
+                              onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)}
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3">
+                          <span className="text-right text-[14px] font-semibold text-blue-800">
+                            {formatMoney(item.price * item.quantity)}
+                          </span>
                           <button
                             onClick={() => removeItem(item.id, item.variantId)}
-                            className="text-gray-300 hover:text-red-400 shrink-0 mt-0.5"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-red-500"
                           >
                             {isUpdating ? (
-                              <Loader2
-                                size={14}
-                                className="animate-spin text-teal-600"
-                              />
+                              <Loader2 size={14} className="animate-spin text-blue-700" />
                             ) : (
-                              <X size={15} />
+                              <Trash2 size={15} />
                             )}
                           </button>
                         </div>
-                        {meta && (
-                          <p className="text-xs text-gray-400 truncate">
-                            {meta}
-                          </p>
-                        )}
-                        {variantMeta && (
-                          <p className="text-xs text-gray-400 mb-2 truncate">
-                            {variantMeta}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">
-                            {formatMoney(item.price)}
-                          </span>
-                          <QtyInput
-                            value={item.quantity}
-                            disabled={isUpdating}
-                            onUpdate={(delta) =>
-                              updateQuantity(
-                                item.variantId,
-                                item.quantity,
-                                delta,
-                              )
-                            }
+                      </div>
+
+                      <div className="lg:hidden">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => toggleCheck(item.id)}
+                            className="mt-7 h-4 w-4 shrink-0 cursor-pointer accent-blue-700"
                           />
+
+                          <Link href={resolveProductHref(item)} className="group relative h-[84px] w-[84px] shrink-0 overflow-hidden border border-slate-200 bg-slate-50">
+                            <Image
+                              src={item.image || "/placeholder.svg"}
+                              alt={item.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </Link>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start gap-2">
+                              <Link href={resolveProductHref(item)} className="min-w-0 flex-1">
+                                <p className="truncate text-[13px] font-medium leading-snug text-blue-800 transition-colors hover:text-blue-900">
+                                  {item.name}
+                                </p>
+                              </Link>
+                            </div>
+
+                            {meta && <p className="mt-1 truncate text-[10px] text-slate-500">{meta}</p>}
+
+                            <div className="mt-3 flex items-end justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="whitespace-nowrap text-[16px] font-semibold text-blue-800">
+                                  {formatMoney(item.price * item.quantity)}
+                                </p>
+                                {item.quantity > 1 && (
+                                  <p className="mt-0.5 text-[10px] text-slate-400">
+                                    {formatMoney(item.price)} x {item.quantity}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-2">
+                                {isUpdating ? (
+                                  <Loader2 size={18} className="animate-spin text-blue-700" />
+                                ) : (
+                                  <QtyInput
+                                    value={item.quantity}
+                                    disabled={isUpdating}
+                                    compact
+                                    onUpdate={(delta) => updateQuantity(item.variantId, item.quantity, delta)}
+                                  />
+                                )}
+                                <button
+                                  onClick={() => removeItem(item.id, item.variantId)}
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-red-500"
+                                >
+                                  {isUpdating ? (
+                                    <Loader2 size={13} className="animate-spin text-blue-700" />
+                                  ) : (
+                                    <Trash2 size={15} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-right text-sm font-bold text-gray-900 mt-1">
-                          {formatMoney(item.price * item.quantity)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex">
+              <Link
+                href="/san-pham"
+                className="inline-flex h-10 items-center gap-2 border-2 border-blue-700 px-4 text-[12px] font-semibold text-blue-800 transition-colors hover:bg-blue-50"
+              >
+                <ArrowRight size={14} className="rotate-180" />
+                Tiếp tục xem sản phẩm
+              </Link>
+            </div>
+          </section>
+
+          <aside className="h-fit border border-slate-200 bg-white xl:sticky xl:top-28">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-[18px] font-semibold text-slate-950">Tổng cộng giỏ hàng</h2>
+            </div>
+
+            <div className="px-5 py-4">
+              <div className="border-b border-slate-200 pb-3">
+                <div className="flex items-center justify-between py-2 text-[14px] text-slate-700">
+                  <span>Tạm tính</span>
+                  <span className="font-semibold text-blue-800">{formatMoney(subTotal)}</span>
+                </div>
+                {discountValue > 0 && (
+                  <div className="flex items-center justify-between py-2 text-[14px] text-slate-700">
+                    <span>Giảm giá</span>
+                    <span className="font-semibold text-emerald-700">-{formatMoney(discountValue)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2 text-[14px] text-slate-900">
+                  <span className="font-semibold">Tổng</span>
+                  <span className="text-[16px] font-semibold text-blue-800">{formatMoney(finalTotal)}</span>
+                </div>
+              </div>
+
+              <Link
+                href={checkoutUrl}
+                className={`mt-5 flex h-14 w-full items-center justify-center bg-[rgb(25,101,162)] px-4 text-center text-[14px] font-semibold uppercase tracking-wide text-white shadow-[0_8px_20px_rgba(25,101,162,0.18)] transition-colors ${
+                  totalCount > 0
+                    ? "hover:bg-[rgb(21,88,141)]"
+                    : "pointer-events-none bg-slate-300 shadow-none"
+                }`}
+              >
+                Tiến hành thanh toán
+              </Link>
+
+              <div className="mt-8">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Tag size={16} className="text-slate-500" />
+                    <h3 className="text-[15px] font-semibold text-slate-950">Mã ưu đãi</h3>
+                  </div>
+
+                  {selectedVoucher && (
+                    <button
+                      type="button"
+                      onClick={() => setIsVoucherDialogOpen(true)}
+                      className="shrink-0 text-[11px] font-medium text-blue-800 transition-colors hover:text-blue-900"
+                    >
+                      Đổi voucher
+                    </button>
+                  )}
+                </div>
+
+                {selectedVoucher && (
+                  <div className="mt-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">
+                          Đã áp dụng voucher
                         </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-[13px] font-semibold">
+                            {selectedVoucher.code}
+                          </span>
+                          <span className="text-[11px] text-emerald-800">
+                            {formatVoucherBenefit(selectedVoucher)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-emerald-800">
+                          Tiết kiệm {formatMoney(discountValue)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3 pl-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedVoucher(null);
+                            setVoucherInput("");
+                          }}
+                          className="text-slate-400 transition-colors hover:text-red-500"
+                        >
+                          <X size={15} />
+                        </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                )}
 
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-              <Link
-                href="/san-pham"
-                className="text-sm text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1.5 transition-colors"
-              >
-                <ShoppingBag size={14} /> Tiếp tục mua sắm
-              </Link>
-            </div>
-          </div>
+                {!selectedVoucher && (
+                  <>
+                    <div className="mt-4 space-y-3">
+                      <input
+                        type="text"
+                        value={voucherInput}
+                        onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === "Enter" && applyVoucherByCode()}
+                        placeholder="Nhập mã giảm giá"
+                        className="h-11 w-full border border-slate-200 bg-white px-4 text-[13px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={applyVoucherByCode}
+                        className="flex h-11 w-full items-center justify-center border border-slate-200 bg-white text-[14px] font-medium text-slate-700 transition-colors hover:border-blue-700 hover:text-blue-800"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
 
-          <div className="hidden md:flex items-center gap-5 bg-white border border-gray-200 rounded-xl px-5 py-4">
-            <button
-              onClick={() => setIsVoucherModalOpen(true)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-teal-600 transition-colors border border-gray-200 rounded-lg px-3 py-2 hover:border-teal-400"
-            >
-              <Tag size={14} />
-              {selectedVoucher ? (
-                <span className="font-medium">
-                  {selectedVoucher.code} ·{" "}
-                  <span className="text-teal-600">
-                    -{formatMoney(discountValue)}
-                  </span>
-                </span>
-              ) : (
-                "Mã giảm giá"
-              )}
-              <ChevronRight size={13} className="text-gray-400" />
-            </button>
+                    {availableVouchers.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                              Mã ưu đãi phù hợp nhất
+                            </p>
+                          </div>
 
-            <div className="flex-1" />
+                          <button
+                            type="button"
+                            onClick={() => setIsVoucherDialogOpen(true)}
+                            className="shrink-0 text-[11px] font-medium text-blue-800 transition-colors hover:text-blue-900"
+                          >
+                            Chọn voucher khác
+                          </button>
+                        </div>
 
-            <div className="flex items-center gap-6 text-sm text-gray-600">
-              <span>
-                Tạm tính ({totalCount} sp):{" "}
-                <span className="font-medium text-gray-900">
-                  {formatMoney(subTotal)}
-                </span>
-              </span>
-              {discountValue > 0 && (
-                <span className="text-gray-500">
-                  Giảm:{" "}
-                  <span className="font-medium text-gray-700">
-                    -{formatMoney(discountValue)}
-                  </span>
-                </span>
-              )}
-              <span className="text-gray-700">
-                Tổng:{" "}
-                <span className="text-lg font-bold text-gray-900">
-                  {formatMoney(finalTotal)}
-                </span>
-              </span>
-            </div>
+                        <div className="space-y-2">
+                          {recommendedVouchers.length > 0 ? (
+                            recommendedVouchers.map(({ voucher, estimatedDiscount }) => (
+                              <button
+                                key={voucher.code}
+                                type="button"
+                                onClick={() => applyVoucherSelection(voucher)}
+                                className="flex w-full items-center justify-between gap-3 border border-slate-200 bg-white px-3 py-3 text-left text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-800"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="truncate text-[12px] font-semibold">{voucher.code}</p>
+                                    <span className="shrink-0 text-[10px] text-emerald-700">
+                                      Dùng được ngay
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-[11px] leading-snug text-slate-600">
+                                    {formatVoucherBenefit(voucher)}
+                                  </p>
+                                  <p className="mt-1 text-[10px] text-slate-500">
+                                    Đơn từ {formatMoney(voucher.minOrderValue)}
+                                  </p>
+                                </div>
 
-            {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
-            <Link
-              href={checkoutUrl}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}
-            >
-              Thanh toán <ArrowRight size={15} />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex-1">
-            <p className="text-xs text-gray-400">Tổng thanh toán</p>
-            <p className="text-base font-bold text-gray-900">
-              {formatMoney(finalTotal)}
-            </p>
-          </div>
-          {/* ĐÃ SỬA: Bọc Link kèm theo mã Voucher */}
-          <Link
-            href={checkoutUrl}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors ${totalCount > 0 ? "bg-teal-600 hover:bg-teal-700" : "bg-gray-300 pointer-events-none"}`}
-          >
-            Thanh toán ({totalCount}) <ArrowRight size={14} />
-          </Link>
-        </div>
-      </div>
-
-      {isVoucherModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setIsVoucherModalOpen(false)}
-          />
-          <div className="relative z-10 bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <span className="font-semibold text-gray-800">Mã giảm giá</span>
-              <button
-                onClick={() => setIsVoucherModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="px-5 py-3 border-b border-gray-100">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={voucherInput}
-                  onChange={(e) =>
-                    setVoucherInput(e.target.value.toUpperCase())
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && applyVoucherByCode()}
-                  placeholder="Nhập mã voucher..."
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-400 text-sm"
-                />
-                <button
-                  onClick={applyVoucherByCode}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                  Áp dụng
-                </button>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                                    Tiết kiệm
+                                  </p>
+                                  <p className="mt-1 whitespace-nowrap text-[12px] font-semibold text-blue-800">
+                                    {formatMoney(estimatedDiscount)}
+                                  </p>
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="border border-dashed border-slate-200 px-3 py-3 text-[11px] text-slate-500">
+                              Chưa có voucher nào đáp ứng điều kiện của đơn hàng hiện tại.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
+          </aside>
+        </div>
+      </div>
 
-            <div className="overflow-y-auto flex-1 p-4 space-y-2">
-              {availableVouchers.map((voucher) => {
-                const eligible = Boolean(voucher.canApply);
-                const isSelected = selectedVoucher?.code === voucher.code;
-                const minOrderValue = Number(voucher.minOrderValue || 0);
+      <Dialog open={isVoucherDialogOpen} onOpenChange={setIsVoucherDialogOpen}>
+        <DialogContent className="max-w-[680px] rounded-none border border-slate-200 bg-white p-0">
+          <DialogHeader className="border-b border-slate-200 px-5 py-4">
+            <DialogTitle className="text-[16px] font-semibold text-slate-950">
+              Đổi voucher
+            </DialogTitle>
+            <DialogDescription className="text-[12px] text-slate-500">
+              Tất cả voucher khả dụng được sắp theo mức tiết kiệm giảm dần cho đơn hàng hiện tại.
+            </DialogDescription>
+          </DialogHeader>
 
-                const actualValue = Number(
-                  voucher.value || voucher.discountValue || 0,
-                );
+          <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+            {voucherDialogOptions.length > 0 ? (
+              <div className="space-y-2">
+                {voucherDialogOptions.map(({ voucher, estimatedDiscount }) => {
+                  const eligible = estimatedDiscount > 0;
+                  const isSelected = selectedVoucher?.code === voucher.code;
+                  const isSaved = savedVoucherCodeSet.has(
+                    voucher.code.toUpperCase(),
+                  );
 
-                const discountString =
-                  voucher.discountType === "PERCENT"
-                    ? `${actualValue}%`
-                    : `-${formatMoney(actualValue)}`;
+                  return (
+                    <button
+                      key={voucher.code}
+                      type="button"
+                      onClick={() => {
+                        if (!eligible) {
+                          toast.error(
+                            `Đơn chưa đạt ${formatMoney(voucher.minOrderValue)}`,
+                          );
+                          return;
+                        }
 
-                return (
-                  <button
-                    key={voucher.code}
-                    onClick={() => {
-                      if (!eligible) {
-                        return void toast.error(
-                          voucher.availabilityReason ||
-                            "Voucher chưa đủ điều kiện áp dụng",
-                        );
-                      }
-                      setSelectedVoucher(voucher);
-                      setIsVoucherModalOpen(false);
-                      setVoucherInput(voucher.code);
-                      return void toast.success("Áp dụng voucher thành công!");
-                      /*
-                      if (!eligible) {
-                        toast.error(
-                          `Đơn chưa đạt ${formatMoney(minOrderValue)}`,
-                        );
-                        return;
-                      }
-                      setSelectedVoucher(voucher);
-                      setIsVoucherModalOpen(false);
-                      toast.success("Áp dụng voucher thành công!");
-                      */
-                    }}
-                    className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? "border-teal-500 bg-teal-50 ring-1 ring-teal-400"
-                        : eligible
-                          ? "border-gray-200 hover:border-gray-300"
-                          : "border-gray-200 opacity-50"
-                    }`}
-                  >
-                    <div className="shrink-0 text-center min-w-[60px]">
-                      <p className="text-base font-bold text-teal-600">
-                        {discountString}
-                      </p>
-                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                        {voucher.code}
-                      </p>
-                    </div>
-                    <div className="w-px h-10 bg-gray-200 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">
-                        {voucher.discountType === "PERCENT"
-                          ? `Giảm ${actualValue}%`
-                          : `Giảm ${actualValue.toLocaleString("vi-VN")}đ`}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Đơn tối thiểu {formatMoney(minOrderValue)}
-                      </p>
-                      {!eligible && (
-                        <p className="text-xs text-red-400 mt-1">
-                          Cần thêm{" "}
-                          {formatMoney(Math.max(0, minOrderValue - subTotal))}
+                        applyVoucherSelection(voucher);
+                        setIsVoucherDialogOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between gap-3 border px-3 py-3 text-left transition-colors ${
+                        isSelected
+                          ? "border-blue-700 bg-blue-50 text-blue-800"
+                          : eligible
+                            ? "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-800"
+                            : "border-slate-200 bg-slate-50 text-slate-500"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-[12px] font-semibold">{voucher.code}</p>
+                          {isSelected && (
+                            <span className="shrink-0 text-[10px] text-blue-800">
+                              Đang chọn
+                            </span>
+                          )}
+                          {isSaved && (
+                            <span className="shrink-0 text-[10px] text-slate-500">
+                              Đã lưu
+                            </span>
+                          )}
+                          {!isSelected && (
+                            <span
+                              className={`shrink-0 text-[10px] ${
+                                eligible ? "text-emerald-700" : "text-amber-600"
+                              }`}
+                            >
+                              {eligible ? "Dùng được" : "Chưa đủ điều kiện"}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[11px] leading-snug text-slate-600">
+                          {formatVoucherBenefit(voucher)}
                         </p>
-                      )}
-                    </div>
-                    {isSelected && (
-                      <CheckCircle2
-                        size={16}
-                        className="text-teal-600 shrink-0"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-              {availableVouchers.length === 0 && (
-                <p className="text-center py-4 text-sm text-gray-400">
-                  Không có mã giảm giá nào vào lúc này.
-                </p>
-              )}
-            </div>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          Đơn từ {formatMoney(voucher.minOrderValue)}
+                        </p>
+                      </div>
 
-            {selectedVoucher && (
-              <div className="px-5 py-3 border-t border-gray-100">
-                <button
-                  onClick={() => {
-                    setSelectedVoucher(null);
-                    setIsVoucherModalOpen(false);
-                  }}
-                  className="w-full text-sm text-gray-400 hover:text-red-500 py-1 transition-colors"
-                >
-                  Bỏ chọn voucher
-                </button>
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                          {eligible ? "Tiết kiệm" : "Cần thêm"}
+                        </p>
+                        <p className="mt-1 whitespace-nowrap text-[12px] font-semibold text-blue-800">
+                          {eligible
+                            ? formatMoney(estimatedDiscount)
+                            : formatMoney(
+                                Math.max(
+                                  0,
+                                  toVoucherAmount(voucher.minOrderValue) - subTotal,
+                                ),
+                              )}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3 py-6 text-center">
+                <p className="text-[13px] font-medium text-slate-700">
+                  Hiện chưa có voucher khả dụng
+                </p>
+                <p className="text-[12px] text-slate-500">
+                  Hãy quay lại sau hoặc kiểm tra thêm ở ví voucher.
+                </p>
+                <div className="flex justify-center">
+                  <Link
+                    href="/voucher"
+                    onClick={() => setIsVoucherDialogOpen(false)}
+                    className="inline-flex h-10 items-center border border-blue-700 px-4 text-[12px] font-medium text-blue-800 transition-colors hover:bg-blue-50"
+                  >
+                    Mở ví voucher
+                  </Link>
+                </div>
               </div>
             )}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
