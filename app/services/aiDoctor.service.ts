@@ -4,7 +4,6 @@ import type {
   AiDoctorClarifyResponse,
   AiDoctorDiagnosisResponse,
   AiDoctorHistoryListResponse,
-  AiDoctorPrompt,
 } from "@/app/types/ai-doctor.types";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -182,13 +181,6 @@ export const aiDoctorService = {
       persistDiagnosis({ ...response.data.diagnosis, needsClarification: false });
     }
 
-    return response.data;
-  },
-
-  async getPrompts() {
-    const response = await apiJava.get<AiDoctorPrompt[]>("/public/ai-doctor/prompts", {
-      isPublic: true,
-    } as any);
     return response.data;
   },
 

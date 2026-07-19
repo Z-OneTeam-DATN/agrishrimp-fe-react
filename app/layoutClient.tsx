@@ -21,9 +21,6 @@ const Navbar = dynamic(() => import("@/components/site/SiteNavbar"), {
 const Footer = dynamic(() => import("@/components/site/SiteFooter"), {
   ssr: false,
 });
-const AIChatButton = dynamic(() => import("@/components/site/AIChatButton"), {
-  ssr: false,
-});
 const ChatWidget = dynamic(() => import("@/components/chat/ChatWidget"), {
   ssr: false,
 });
@@ -390,7 +387,6 @@ export default function LayoutClient({
                 </div>
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
                 <Footer />
-                <AIChatButton />
                 <ChatWidget />
               </div>
             )}

@@ -71,13 +71,6 @@ export interface AiDoctorChatResponse {
   suggestedActions?: string[];
 }
 
-export interface AiDoctorPrompt {
-  id: string;
-  category: string;
-  label: string;
-  question: string;
-}
-
 export interface AiDoctorHistoryListResponse {
   items: AiDoctorHistoryItem[];
   total: number;
