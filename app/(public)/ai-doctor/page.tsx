@@ -30,15 +30,19 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_STORED_PREVIEW_EDGE = 960;
 const STORED_PREVIEW_QUALITY = 0.82;
 
-type SubmittedMessage = {
-  previewUrl?: string | null;
-  symptoms: string;
-};
+// Toàn bộ hội thoại là MỘT danh sách theo thứ tự thời gian — mỗi tin nhắn/gửi ảnh/kết quả là
+// một entry được nối vào cuối, không bao giờ bị entry sau ghi đè lên entry trước (khác với thiết
+// kế cũ dùng các state rời rạc như "assistantMessage"/"result" chỉ giữ được tin nhắn gần nhất).
+type ChatEntry =
+  | { id: string; kind: "user"; text?: string; previewUrl?: string | null }
+  | { id: string; kind: "bot-html"; html: string }
+  | { id: string; kind: "bot-plain"; text: string }
+  | { id: string; kind: "bot-result"; diagnosis: AiDoctorDiagnosisResponse };
 
-type ClarifyTurn = {
-  role: "assistant" | "farmer";
-  text: string;
-};
+// Omit<Union, K> collapses to the merged member keys instead of distributing per-variant, which
+// breaks the discriminated-union excess-property check on the object literals passed to
+// pushEntry() below. This variant distributes over each member of the union first.
+type DistributiveOmit<T, K extends keyof any> = T extends unknown ? Omit<T, K> : never;
 
 type ClarifySession = {
   diagnosisId: string;
@@ -93,17 +97,18 @@ export default function AiDoctorChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const latestComposerPreviewRef = useRef<string | null>(null);
-  const latestSubmittedPreviewRef = useRef<string | null>(null);
+  const entryIdRef = useRef(0);
   const { data: user, isAuthenticated } = useCurrentUser();
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [symptoms, setSymptoms] = useState("");
-  const [result, setResult] = useState<AiDoctorDiagnosisResponse | null>(null);
-  const [submittedMessage, setSubmittedMessage] = useState<SubmittedMessage | null>(null);
-  const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
+  const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [clarifySession, setClarifySession] = useState<ClarifySession | null>(null);
-  const [clarifyTranscript, setClarifyTranscript] = useState<ClarifyTurn[]>([]);
+
+  const nextEntryId = () => `e${entryIdRef.current++}`;
+  const pushEntry = (entry: DistributiveOmit<ChatEntry, "id">) =>
+    setEntries((prev) => [...prev, { ...entry, id: nextEntryId() } as ChatEntry]);
 
   const quickSymptoms = [
     "Tôm bơi lờ đờ, tấp mé",
@@ -116,27 +121,16 @@ export default function AiDoctorChatPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [previewUrl, symptoms, result, assistantMessage, clarifyTranscript]);
+  }, [entries, previewUrl, symptoms]);
 
   useEffect(() => {
     latestComposerPreviewRef.current = previewUrl;
   }, [previewUrl]);
 
   useEffect(() => {
-    latestSubmittedPreviewRef.current = submittedMessage?.previewUrl ?? null;
-  }, [submittedMessage]);
-
-  useEffect(() => {
     return () => {
       if (latestComposerPreviewRef.current?.startsWith("blob:")) {
         URL.revokeObjectURL(latestComposerPreviewRef.current);
-      }
-
-      if (
-        latestSubmittedPreviewRef.current?.startsWith("blob:") &&
-        latestSubmittedPreviewRef.current !== latestComposerPreviewRef.current
-      ) {
-        URL.revokeObjectURL(latestSubmittedPreviewRef.current);
       }
     };
   }, []);
@@ -144,12 +138,13 @@ export default function AiDoctorChatPage() {
   const chatMutation = useMutation({
     mutationFn: (message: string) => aiDoctorService.chat(message),
     onSuccess: (data) => {
-      setAssistantMessage(data.reply);
+      pushEntry({ kind: "bot-html", html: data.reply });
     },
     onError: () => {
-      setAssistantMessage(
-        "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc gửi ảnh tôm để được hỗ trợ nhanh hơn nhé.",
-      );
+      pushEntry({
+        kind: "bot-html",
+        html: "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc gửi ảnh tôm để được hỗ trợ nhanh hơn nhé.",
+      });
     },
   });
 
@@ -169,27 +164,23 @@ export default function AiDoctorChatPage() {
       }),
     onSuccess: (data) => {
       if (data.type === "DECISION" && data.diagnosis) {
-        setClarifyTranscript([]);
         setClarifySession(null);
-        setResult(data.diagnosis);
+        pushEntry({ kind: "bot-result", diagnosis: data.diagnosis });
         toast.success("Bác sĩ đã có kết quả rồi đây!");
         return;
       }
 
-      setClarifyTranscript((prev) => [...prev, { role: "assistant", text: data.message }]);
+      pushEntry({ kind: "bot-plain", text: data.message });
 
       if (data.type === "ESCALATED") {
         setClarifySession(null);
       }
     },
     onError: () => {
-      setClarifyTranscript((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc mô tả thêm dấu hiệu nhé.",
-        },
-      ]);
+      pushEntry({
+        kind: "bot-plain",
+        text: "Bác sĩ đang bận, bà con vui lòng thử lại sau hoặc mô tả thêm dấu hiệu nhé.",
+      });
     },
   });
 
@@ -204,14 +195,7 @@ export default function AiDoctorChatPage() {
           })
         : data;
 
-      setAssistantMessage(null);
-      setSelectedImage(null);
-      setPreviewUrl(null);
-      setSymptoms("");
-
       if (data.needsClarification) {
-        setResult(null);
-        setClarifyTranscript([]);
         setClarifySession({ diagnosisId: data.diagnosisId });
         clarifyMutation.mutate({
           diagnosisId: data.diagnosisId,
@@ -225,7 +209,7 @@ export default function AiDoctorChatPage() {
       }
 
       setClarifySession(null);
-      setResult(hydratedDiagnosis);
+      pushEntry({ kind: "bot-result", diagnosis: hydratedDiagnosis });
       toast.success("Bác sĩ đã có kết quả rồi đây!");
     },
     onError: (error: unknown) => {
@@ -257,8 +241,6 @@ export default function AiDoctorChatPage() {
 
     setSelectedImage(file);
     setPreviewUrl(URL.createObjectURL(file));
-    setAssistantMessage(null);
-    setResult(null);
     event.target.value = "";
   };
 
@@ -272,7 +254,7 @@ export default function AiDoctorChatPage() {
 
     // Đang trong hội thoại làm rõ bệnh và không gửi ảnh mới → trả lời tiếp câu hỏi của bác sĩ AI.
     if (clarifySession && !selectedImage) {
-      setClarifyTranscript((prev) => [...prev, { role: "farmer", text: currentSymptoms }]);
+      pushEntry({ kind: "user", text: currentSymptoms });
       setSymptoms("");
       clarifyMutation.mutate({ diagnosisId: clarifySession.diagnosisId, answer: currentSymptoms });
       return;
@@ -281,18 +263,10 @@ export default function AiDoctorChatPage() {
     // Gửi ảnh mới trong lúc đang hỏi-đáp → coi như khám lại từ đầu, bỏ phiên cũ.
     if (clarifySession && selectedImage) {
       setClarifySession(null);
-      setClarifyTranscript([]);
     }
 
     if (!selectedImage || !previewUrl) {
-      setResult(null);
-      setSubmittedMessage((current) => {
-        if (current?.previewUrl?.startsWith("blob:")) {
-          URL.revokeObjectURL(current.previewUrl);
-        }
-        return { previewUrl: null, symptoms: currentSymptoms };
-      });
-      setAssistantMessage(null);
+      pushEntry({ kind: "user", text: currentSymptoms });
       setSymptoms("");
       chatMutation.mutate(currentSymptoms);
       return;
@@ -308,19 +282,11 @@ export default function AiDoctorChatPage() {
       clientPreviewUrl = undefined;
     }
 
-    setResult(null);
-    setAssistantMessage(null);
-    setSubmittedMessage((current) => {
-      // Chỉ revoke nếu là blob URL cũ và khác với cái đang dùng
-      if (current?.previewUrl?.startsWith("blob:") && current.previewUrl !== currentPreviewUrl) {
-        URL.revokeObjectURL(current.previewUrl);
-      }
-
-      return {
-        // Ưu tiên dùng clientPreviewUrl (base64) để ảnh không bị mất khi revoke blob
-        previewUrl: clientPreviewUrl || currentPreviewUrl,
-        symptoms: currentSymptoms,
-      };
+    pushEntry({
+      kind: "user",
+      text: currentSymptoms,
+      // Ưu tiên dùng clientPreviewUrl (base64) để ảnh không bị mất khi revoke blob
+      previewUrl: clientPreviewUrl || currentPreviewUrl,
     });
 
     setSelectedImage(null);
@@ -343,9 +309,9 @@ export default function AiDoctorChatPage() {
     setSelectedImage(null);
   };
 
-  const openReport = () => {
-    if (!result?.diagnosisId) return;
-    router.push(`/ai-doctor/result?id=${result.diagnosisId}`);
+  const openReport = (diagnosisId?: string) => {
+    if (!diagnosisId) return;
+    router.push(`/ai-doctor/result?id=${diagnosisId}`);
   };
 
   const handleQuickSymptom = (symptom: string) => {
@@ -411,7 +377,7 @@ export default function AiDoctorChatPage() {
             </div>
           </div>
 
-          {!previewUrl && !submittedMessage && !result && !assistantMessage && (
+          {entries.length === 0 && (
             <div className="ml-auto max-w-[88%] rounded-[22px] rounded-br-md border border-dashed border-blue-700/30 bg-blue-50 px-5 py-6 text-center shadow-sm">
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#376E60] shadow-sm">
                 <ImageIcon size={24} />
@@ -432,30 +398,162 @@ export default function AiDoctorChatPage() {
             </div>
           )}
 
-          {submittedMessage && (
-            <div className="ml-auto flex max-w-[88%] flex-col items-end gap-2">
-              {submittedMessage.previewUrl && (
-                <div className="overflow-hidden rounded-2xl border-[3px] border-blue-100 bg-white shadow-sm">
-                  <div className="relative w-[260px] max-w-full">
-                    <Image
-                      src={submittedMessage.previewUrl}
-                      alt="Ảnh tôm bà con gửi"
-                      width={260}
-                      height={220}
-                      className="h-auto w-full object-cover"
-                      unoptimized
-                    />
+          {entries.map((entry) => {
+            if (entry.kind === "user") {
+              return (
+                <div key={entry.id} className="ml-auto flex max-w-[88%] flex-col items-end gap-2">
+                  {entry.previewUrl && (
+                    <div className="overflow-hidden rounded-2xl border-[3px] border-blue-100 bg-white shadow-sm">
+                      <div className="relative w-[260px] max-w-full">
+                        <Image
+                          src={entry.previewUrl}
+                          alt="Ảnh tôm bà con gửi"
+                          width={260}
+                          height={220}
+                          className="h-auto w-full object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {entry.text && (
+                    <div className="max-w-[88%] rounded-[18px] rounded-br-md bg-[#376E60] px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
+                      {entry.text}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (entry.kind === "bot-html") {
+              return (
+                <div key={entry.id} className="flex max-w-full justify-start gap-2.5 pr-12">
+                  <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                    <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                  </div>
+                  <div
+                    className="prose prose-sm max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-gray-700 shadow-sm prose-p:my-2 prose-strong:text-[#1f3125] prose-li:my-1"
+                    dangerouslySetInnerHTML={{ __html: entry.html }}
+                  />
+                </div>
+              );
+            }
+
+            if (entry.kind === "bot-plain") {
+              return (
+                <div key={entry.id} className="flex max-w-full justify-start gap-2.5 pr-12">
+                  <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                    <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                  </div>
+                  <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
+                    {entry.text}
                   </div>
                 </div>
-              )}
+              );
+            }
 
-              {submittedMessage.symptoms && (
-                <div className="max-w-[88%] rounded-[18px] rounded-br-md bg-[#376E60] px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
-                  {submittedMessage.symptoms}
+            // entry.kind === "bot-result"
+            const diagnosis = entry.diagnosis;
+            return (
+              <div key={entry.id} className="flex max-w-full justify-start gap-2.5 pr-12">
+                <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                  <Image
+                    src="/images/logo_arishrimp.jpg"
+                    alt="AI"
+                    fill
+                    className="object-cover"
+                  />
                 </div>
-              )}
-            </div>
-          )}
+
+                {diagnosis.status === "HEALTHY" ? (
+                  <div className="max-w-[78%] overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-lg">
+                    <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2.5">
+                      <span className="text-xl">🦐</span>
+                      <span className="text-[13px] font-bold text-blue-700">
+                        TÔM KHỎE MẠNH
+                      </span>
+                    </div>
+                    {(diagnosis.imageUrl || diagnosis.clientImageUrl) && (
+                      <div className="relative h-[220px] w-full bg-blue-50">
+                        <Image
+                          src={diagnosis.imageUrl || diagnosis.clientImageUrl || ""}
+                          alt="Ảnh tôm đã được AI phân tích"
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    )}
+                    <div className="p-4 text-[13px] leading-relaxed text-gray-600">
+                      Bác sĩ không thấy dấu hiệu bệnh gì lạ trên ảnh này. Bà con cứ yên tâm tiếp tục chăm sóc ao thật tốt nhé!
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex max-w-[78%] flex-col gap-2">
+                    <div className="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-lg">
+                      <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-2.5">
+                        <span className="flex items-center gap-1.5 text-[13px] font-bold text-red-600">
+                          <ShieldAlert size={14} />
+                          KẾT QUẢ KHÁM BỆNH
+                        </span>
+                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-red-500">
+                          {Number(diagnosis.disease?.confidencePercent || 0).toFixed(0)}% tin cậy
+                        </span>
+                      </div>
+
+                      <div className="space-y-3 p-4">
+                        {(diagnosis.imageUrl || diagnosis.clientImageUrl) && (
+                          <div className="overflow-hidden rounded-xl border border-red-100 bg-slate-50">
+                            <div className="relative h-[220px] w-full">
+                              <Image
+                                src={diagnosis.imageUrl || diagnosis.clientImageUrl || ""}
+                                alt={diagnosis.disease?.nameVi ?? "Ảnh tôm đã được AI phân tích"}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <h3 className="mb-1 text-[15px] font-extrabold uppercase text-red-600">
+                            {diagnosis.disease?.nameVi}
+                          </h3>
+                        </div>
+
+                        <p className="text-[13px] leading-relaxed text-gray-600">
+                          {diagnosis.signsSummary ||
+                            "Bác sĩ đã xem xong, bà con nhấn vào nút bên dưới để xem cách chữa trị chi tiết nhé."}
+                        </p>
+
+                        {diagnosis.causes && diagnosis.causes.length > 0 && (
+                          <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                            <div className="mb-1 flex items-center gap-1 font-bold">
+                              <AlertTriangle size={13} />
+                              Nguyên nhân chính
+                            </div>
+                            <p className="line-clamp-2">{diagnosis.causes[0]}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-gray-100 p-3">
+                        <button
+                          onClick={() => openReport(diagnosis.diagnosisId)}
+                          className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#376E60] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#2f5c50]"
+                        >
+                          {isAuthenticated ? "Xem cách chữa trị ngay" : "Mở hồ sơ điều trị"}
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {chatMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
@@ -494,26 +592,6 @@ export default function AiDoctorChatPage() {
             </div>
           )}
 
-          {clarifyTranscript.map((turn, index) =>
-            turn.role === "assistant" ? (
-              <div key={`clarify-${index}`} className="flex max-w-full justify-start gap-2.5 pr-12">
-                <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                  <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
-                </div>
-                <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
-                  {turn.text}
-                </div>
-              </div>
-            ) : (
-              <div
-                key={`clarify-${index}`}
-                className="ml-auto max-w-[88%] rounded-[18px] rounded-br-md bg-[#376E60] px-4 py-3 text-sm leading-relaxed text-white shadow-sm"
-              >
-                {turn.text}
-              </div>
-            ),
-          )}
-
           {clarifyMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
@@ -525,123 +603,6 @@ export default function AiDoctorChatPage() {
                   Bác sĩ đang trả lời...
                 </div>
               </div>
-            </div>
-          )}
-
-          {assistantMessage && !diagnoseMutation.isPending && !result && (
-            <div className="flex max-w-full justify-start gap-2.5 pr-12">
-              <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                <Image
-                  src="/images/logo_arishrimp.jpg"
-                  alt="AI"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              <div
-                className="prose prose-sm max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-gray-700 shadow-sm prose-p:my-2 prose-strong:text-[#1f3125] prose-li:my-1"
-                dangerouslySetInnerHTML={{ __html: assistantMessage }}
-              />
-            </div>
-          )}
-
-          {result && (
-            <div className="flex max-w-full justify-start gap-2.5 pr-12">
-              <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                <Image
-                  src="/images/logo_arishrimp.jpg"
-                  alt="AI"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-
-              {result.status === "HEALTHY" ? (
-                <div className="max-w-[78%] overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-lg">
-                  <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2.5">
-                    <span className="text-xl">🦐</span>
-                    <span className="text-[13px] font-bold text-blue-700">
-                      TÔM KHỎE MẠNH
-                    </span>
-                  </div>
-                  {(result.imageUrl || result.clientImageUrl) && (
-                    <div className="relative h-[220px] w-full bg-blue-50">
-                      <Image
-                        src={result.imageUrl || result.clientImageUrl || ""}
-                        alt="Ảnh tôm đã được AI phân tích"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  <div className="p-4 text-[13px] leading-relaxed text-gray-600">
-                    Bác sĩ không thấy dấu hiệu bệnh gì lạ trên ảnh này. Bà con cứ yên tâm tiếp tục chăm sóc ao thật tốt nhé!
-                  </div>
-                </div>
-              ) : (
-                <div className="flex max-w-[78%] flex-col gap-2">
-                  <div className="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-lg">
-                    <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-2.5">
-                      <span className="flex items-center gap-1.5 text-[13px] font-bold text-red-600">
-                        <ShieldAlert size={14} />
-                        KẾT QUẢ KHÁM BỆNH
-                      </span>
-                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-red-500">
-                        {Number(result.disease?.confidencePercent || 0).toFixed(0)}% tin cậy
-                      </span>
-                    </div>
-
-                    <div className="space-y-3 p-4">
-                      {(result.imageUrl || result.clientImageUrl) && (
-                        <div className="overflow-hidden rounded-xl border border-red-100 bg-slate-50">
-                          <div className="relative h-[220px] w-full">
-                            <Image
-                              src={result.imageUrl || result.clientImageUrl || ""}
-                              alt={result.disease?.nameVi ?? "Ảnh tôm đã được AI phân tích"}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <h3 className="mb-1 text-[15px] font-extrabold uppercase text-red-600">
-                          {result.disease?.nameVi}
-                        </h3>
-                      </div>
-
-                      <p className="text-[13px] leading-relaxed text-gray-600">
-                        {result.signsSummary ||
-                          "Bác sĩ đã xem xong, bà con nhấn vào nút bên dưới để xem cách chữa trị chi tiết nhé."}
-                      </p>
-
-                      {result.causes && result.causes.length > 0 && (
-                        <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-                          <div className="mb-1 flex items-center gap-1 font-bold">
-                            <AlertTriangle size={13} />
-                            Nguyên nhân chính
-                          </div>
-                          <p className="line-clamp-2">{result.causes[0]}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border-t border-gray-100 p-3">
-                      <button
-                        onClick={openReport}
-                        className="flex h-12 w-full items-center justify-center gap-1 rounded-xl bg-[#376E60] text-[13px] font-bold uppercase text-white transition-colors hover:bg-[#2f5c50]"
-                      >
-                        {isAuthenticated ? "Xem cách chữa trị ngay" : "Mở hồ sơ điều trị"}
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -752,4 +713,3 @@ export default function AiDoctorChatPage() {
     </div>
   );
 }
-
