@@ -97,7 +97,7 @@ export default function AiDoctorChatPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const latestComposerPreviewRef = useRef<string | null>(null);
   const entryIdRef = useRef(0);
-  const { data: user, isAuthenticated } = useCurrentUser();
+  const { isAuthenticated } = useCurrentUser();
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -369,11 +369,7 @@ export default function AiDoctorChatPage() {
             </div>
 
             <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
-              {user?.displayName || user?.fullName ? (
-                <>Xin chào {user.displayName || user.fullName}! Tôi là Bác sĩ Tôm 🦐</>
-              ) : (
-                <>Chào bà con! Tôi là Bác sĩ Tôm 🦐</>
-              )}
+              Xin chào bà con! Tôi là Bác sĩ Tôm 🦐
               <br /><br />
               Bà con gửi cho tôi 1 tấm ảnh tôm kèm mô tả dấu hiệu, tôi sẽ giúp chẩn đoán bệnh và đưa ra cách chữa trị hiệu quả nhé!
             </div>
