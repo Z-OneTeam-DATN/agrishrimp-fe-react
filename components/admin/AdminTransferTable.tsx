@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { getTransferStatusLabel } from "@/lib/transfer-status";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTimeVN } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface AdminTransferTableProps {
@@ -157,7 +157,7 @@ export function AdminTransferTable({
 
                     <TableCell className="px-1.5 py-2">
                       <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
-                        {item.date || new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                        {formatDateTimeVN(item.createdAt)}
                       </span>
                     </TableCell>
 

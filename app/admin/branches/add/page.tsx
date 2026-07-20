@@ -734,9 +734,6 @@ export default function AddBranchPage() {
 
         setAddressSuggestions(nextSuggestions);
         setShowSuggestions(nextSuggestions.length > 0);
-        if (nextSuggestions.length === 0) {
-          toast.error("Không tìm thấy vị trí, vui lòng nhập cụ thể hơn");
-        }
       } catch (e) {
         if (requestId !== addressSuggestionRequestRef.current) {
           return;

@@ -59,7 +59,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/roles";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, repairVietnameseText } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 interface InventoryUpsertProps {
@@ -255,14 +255,24 @@ const buildCheckPayloadDetails = (items: CheckItem[]) =>
     systemQuantity: toNumber(item.systemQuantity),
     quantityReal: getEffectiveQuantityReal(item),
     quantityRejected: getEffectiveQuantityRejected(item),
-    note: item.reason,
+    note: item.reason.trim() || null,
   }));
 
-const getInventoryCheckErrorMessage = (error: any, fallback: string) =>
-  error?.response?.data?.message ||
-  error?.response?.data?.detail ||
-  error?.response?.data?.error ||
-  fallback;
+const getInventoryCheckErrorMessage = (error: any, fallback: string) => {
+  const fieldErrors = Array.isArray(error?.response?.data?.fieldErrors)
+    ? error.response.data.fieldErrors
+        .filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+        .join(". ")
+    : "";
+
+  return repairVietnameseText(
+    error?.response?.data?.message ||
+      error?.response?.data?.detail ||
+      fieldErrors ||
+      error?.response?.data?.error ||
+      fallback,
+  );
+};
 
 const normalizeOptionalQuantity = (value: unknown) => {
   if (value === null || value === undefined || value === "") {
@@ -300,6 +310,15 @@ const getUncheckedCheckItems = (items: CheckItem[]) =>
 
 const getInvalidRejectedCheckItems = (items: CheckItem[]) =>
   items.filter((item) => toNumber(item.quantityRejected, 0) > (getEffectiveQuantityReal(item) ?? 0));
+
+const getMissingReasonCheckItems = (items: CheckItem[]) =>
+  items.filter((item) => {
+    const realQty = getEffectiveQuantityReal(item);
+    const rejectedQty = getEffectiveQuantityRejected(item);
+    const diffQty = (realQty ?? 0) - Math.max(0, toNumber(item.systemQuantity));
+
+    return (diffQty !== 0 || rejectedQty > 0) && item.reason.trim().length === 0;
+  });
 
 const getItemMetrics = (item: CheckItem) => {
   const realQty = Math.max(0, toNumber(item.quantityReal, 0));
@@ -373,7 +392,7 @@ const mergeMetrics = (
 });
 
 const normalizeViText = (value: string) => {
-  return String(value || "");
+  return repairVietnameseText(String(value || ""));
 };
 
 
@@ -991,6 +1010,19 @@ export default function InventoryUpsert({
     setNoteDraft("");
   };
 
+  const revealInvalidItems = (invalidItems: CheckItem[]) => {
+    if (invalidItems.length === 0) return;
+
+    setShowZeroStockLots(true);
+    setExpandedGroups((prev) => {
+      const next = { ...prev };
+      invalidItems.forEach((item) => {
+        next[getSkuGroupIdentity(item)] = true;
+      });
+      return next;
+    });
+  };
+
   const saveNoteDialog = () => {
     if (noteDialogIndex === null) return;
     updateItem(noteDialogIndex, "reason", noteDraft);
@@ -1351,6 +1383,7 @@ export default function InventoryUpsert({
 
     const invalidRejectedItems = getInvalidRejectedCheckItems(items);
     if (invalidRejectedItems.length > 0) {
+      revealInvalidItems(invalidRejectedItems);
       setFormErrors((prev) => ({
         ...prev,
         items:
@@ -1359,6 +1392,29 @@ export default function InventoryUpsert({
             : `So luong hu hong khong duoc lon hon so luong thuc te. Hien con ${invalidRejectedItems.length} dong chua hop le.`,
       }));
       toast.error("So luong hu hong khong duoc lon hon so luong thuc te.");
+      return false;
+    }
+
+    const missingReasonItems = getMissingReasonCheckItems(items);
+    if (missingReasonItems.length > 0) {
+      const sampleLabels = missingReasonItems
+        .slice(0, 3)
+        .map((item) => `${item.sku}${item.batchNumber ? ` (${item.batchNumber})` : ""}`)
+        .join(", ");
+
+      revealInvalidItems(missingReasonItems);
+      setFormErrors((prev) => ({
+        ...prev,
+        items:
+          missingReasonItems.length === 1
+            ? `Vui lòng nhập ghi chú hoặc nguyên nhân cho dòng lệch/hư hỏng trước khi gửi duyệt: ${sampleLabels}.`
+            : `Vui lòng nhập ghi chú hoặc nguyên nhân cho ${missingReasonItems.length} dòng lệch/hư hỏng trước khi gửi duyệt. Ví dụ: ${sampleLabels}.`,
+      }));
+      toast.error(
+        missingReasonItems.length === 1
+          ? `Dòng ${sampleLabels} đang lệch hoặc có hàng hư nhưng chưa có ghi chú.`
+          : `${missingReasonItems.length} dòng đang lệch hoặc có hàng hư nhưng chưa có ghi chú.`,
+      );
       return false;
     }
 

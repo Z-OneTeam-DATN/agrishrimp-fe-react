@@ -13,7 +13,6 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
@@ -49,7 +48,7 @@ import { ProductService } from "@/app/services/product.service";
 import { branchService } from "@/app/services/branchService";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTimeVN } from "@/lib/utils";
 import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 type InventoryCheckStatus =
@@ -184,7 +183,7 @@ export default function InventoryCheckListPage() {
       const scopeLabel = normalizeText(getScopeTypeLabel(item.scopeType));
 
       if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
-      if (!isDateInRange(item.checkDate || item.createdAt, fromDate, toDate)) return false;
+      if (!isDateInRange(item.createdAt, fromDate, toDate)) return false;
 
       if (!q) return true;
 
@@ -615,7 +614,7 @@ export default function InventoryCheckListPage() {
                       Mã phiếu
                     </TableHead>
                     <TableHead className="w-[124px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
-                      Ngày kiểm kê
+                      Ngày tạo
                     </TableHead>
                     <TableHead className="w-[220px] px-1.5 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">
                       Kho kiểm kê
@@ -671,9 +670,7 @@ export default function InventoryCheckListPage() {
                           {item.code || `PKK-${item.id}`}
                         </TableCell>
                         <TableCell className="px-1.5 py-2 text-[11px] text-slate-600 whitespace-nowrap">
-                          {item.checkDate || item.createdAt
-                            ? format(new Date(item.checkDate || item.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })
-                            : "N/A"}
+                          {formatDateTimeVN(item.createdAt)}
                         </TableCell>
                         <TableCell className="px-1.5 py-2 text-[11px] text-slate-600">
                           {item.branchName || "Kho tổng"}

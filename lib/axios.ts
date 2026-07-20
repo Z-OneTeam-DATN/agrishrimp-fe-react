@@ -6,6 +6,7 @@ import axios, {
 } from "axios";
 import { toast } from "sonner";
 import { jwtDecode, JwtPayload } from "jwt-decode";
+import { repairVietnameseText } from "@/lib/utils";
 
 type Token = string;
 type NullableToken = Token | null;
@@ -104,11 +105,15 @@ const joinErrorList = (value: unknown) => {
 
   return value
     .map((item) => {
-      if (typeof item === "string") return item.trim();
+      if (typeof item === "string") return repairVietnameseText(item).trim();
       if (item && typeof item === "object") {
         const record = item as Record<string, unknown>;
-        if (typeof record.message === "string") return record.message.trim();
-        if (typeof record.detail === "string") return record.detail.trim();
+        if (typeof record.message === "string") {
+          return repairVietnameseText(record.message).trim();
+        }
+        if (typeof record.detail === "string") {
+          return repairVietnameseText(record.detail).trim();
+        }
       }
       return "";
     })
@@ -121,7 +126,7 @@ const getErrorMessage = (error: unknown) => {
   const data = axiosError?.response?.data;
 
   if (typeof data === "string" && data.trim()) {
-    return data.trim();
+    return repairVietnameseText(data).trim();
   }
 
   if (data && typeof data === "object") {
@@ -134,17 +139,22 @@ const getErrorMessage = (error: unknown) => {
 
     for (const key of ["detail", "message", "error_description", "error", "title"]) {
       const value = record[key];
-      if (typeof value === "string" && value.trim()) return value.trim();
+      if (typeof value === "string" && value.trim()) {
+        return repairVietnameseText(value).trim();
+      }
     }
   }
 
   const message =
     error && typeof error === "object" && "message" in error && typeof error.message === "string"
-      ? error.message
+      ? repairVietnameseText(error.message)
       : "";
   if (message && !message.startsWith("Request failed with status code")) return message;
 
   if (axiosError?.response?.status === 400) {
+    return repairVietnameseText(
+      "Du lieu gui len khong hop le. Vui long kiem tra lai thong tin.",
+    );
     return "Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra lại thông tin.";
   }
 
