@@ -65,50 +65,6 @@ export default function AdminSettingsPage() {
             </div>
           </Link>
         )}
-
-        {/* Card: Cấu hình chung (Disabled) */}
-        {canViewSetting && (
-          <div className="bg-white border border-slate-200 rounded-[4px] p-5 shadow-sm opacity-60 flex flex-col justify-between h-[160px]">
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 bg-slate-50 text-slate-400 rounded-[4px]">
-                <Settings size={24} />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-[14px] font-semibold text-slate-500">
-                  Cấu hình chung
-                </h2>
-                <p className="text-[12px] text-slate-400 line-clamp-2 leading-relaxed">
-                  Thiết lập các tham số hệ thống, múi giờ hạch toán, đơn vị tiền tệ và định dạng hiển thị mặc định.
-                </p>
-              </div>
-            </div>
-            <div className="text-[10px] font-medium text-slate-400 text-right pt-2">
-              Đang phát triển
-            </div>
-          </div>
-        )}
-
-        {/* Card: Thông tin chi nhánh (Disabled) */}
-        {canViewBranch && (
-          <div className="bg-white border border-slate-200 rounded-[4px] p-5 shadow-sm opacity-60 flex flex-col justify-between h-[160px]">
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 bg-slate-50 text-slate-400 rounded-[4px]">
-                <Building2 size={24} />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-[14px] font-semibold text-slate-500">
-                  Thông tin chi nhánh
-                </h2>
-                <p className="text-[12px] text-slate-400 line-clamp-2 leading-relaxed">
-                  Cập nhật thông tin liên hệ, sơ đồ kho bãi và mã số thuế phục vụ hóa đơn vận chuyển nội bộ.
-                </p>
-              </div>
-            </div>
-            <div className="text-[10px] font-medium text-slate-400 text-right pt-2">
-              Đang phát triển
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

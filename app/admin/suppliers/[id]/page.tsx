@@ -988,7 +988,7 @@ export default function SupplierDetailPage() {
                                         </div>
                                         <div>
                                             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">Ngày cấp / Thành lập *</Label>
-                                            <div className="flex gap-2">
+                                            <div className="relative">
                                                 <Controller
                                                     name="issueDate"
                                                     control={control}
@@ -1005,7 +1005,7 @@ export default function SupplierDetailPage() {
                                                             toDate={new Date()}
                                                             disabledDate={(date) => date > new Date() || date < new Date("1900-01-01")}
                                                             buttonClassName={cn(
-                                                                "w-full h-[40px] border-slate-200 px-3 text-[13px] bg-white hover:bg-slate-50",
+                                                                "w-full h-[40px] border-slate-200 pl-3 pr-9 text-[13px] bg-white hover:bg-slate-50",
                                                                 !field.value && "text-muted-foreground"
                                                             )}
                                                         />
