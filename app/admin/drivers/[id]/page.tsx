@@ -439,7 +439,7 @@ export default function EditDriverPage() {
                 <Button
                     type="submit"
                     disabled={isSubmitting || avatarUploading || licenseUploading}
-                    className="h-10 min-w-[180px] rounded-[4px] bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700"
+                    className="h-10 min-w-[180px] rounded-[4px] bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700"
                 >
                     {isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}
                 </Button>

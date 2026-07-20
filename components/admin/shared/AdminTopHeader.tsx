@@ -71,6 +71,8 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/branches/add": "Thêm chi nhánh",
   "/admin/customers": "Khách hàng",
   "/admin/customers/add": "Thêm khách hàng",
+  "/admin/drivers": "Quản lý tài xế",
+  "/admin/drivers/add": "Thêm tài xế",
   "/admin/suppliers": "Nhà cung cấp",
   "/admin/suppliers/add": "Thêm nhà cung cấp",
   "/admin/products": "Sản phẩm",
