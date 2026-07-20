@@ -41,10 +41,12 @@ function fmtCurrency(n: number) {
 }
 function fmtDate(d?: string | null) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("vi-VN", {
+  return new Date(d).toLocaleString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 function fmtDateTime(d?: string | null) {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTimeVN } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import {
   AlertDialog,
@@ -53,7 +53,7 @@ function formatCurrency(amount: number) {
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("vi-VN");
+  return formatDateTimeVN(dateStr);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

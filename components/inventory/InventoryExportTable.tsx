@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Check, Eye, Pencil, Trash2 } from "lucide-react";
 import {
   cn,
+  formatDateTimeVN,
   formatNumber,
   repairVietnameseText,
   resolveExportPartnerName,
@@ -70,9 +71,7 @@ export function InventoryExportTable({
   const canApprove = hasPermission(P.EXPORT_APPROVE);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "---";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return formatDateTimeVN(dateString);
   };
 
   const handleApprove = async (id: number, code: string) => {

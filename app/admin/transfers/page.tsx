@@ -139,7 +139,7 @@ export default function AdminTransferListPage() {
         if (from !== selectedWarehouse && to !== selectedWarehouse) return false;
       }
 
-      if (!isDateInRange(item.transferDate || item.deadline || item.createdAt || item.updatedAt, fromDate, toDate)) {
+      if (!isDateInRange(item.createdAt, fromDate, toDate)) {
         return false;
       }
 

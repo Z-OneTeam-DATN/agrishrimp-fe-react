@@ -21,6 +21,21 @@ export function formatCurrency(value: number | string) {
   }).format(num);
 }
 
+export function formatDateTimeVN(value?: string | null) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function cleanSupplierName(name: string): string {
   if (!name) return "";
   return name

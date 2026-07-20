@@ -1,4 +1,5 @@
 import axios from "axios"
+import { repairVietnameseText } from "@/lib/utils"
 
 /** BE trả về lỗi dạng: { status: 400, message: "..." } */
 export function parseApiError(error: unknown): { code: string; message: string; retryAfterSeconds?: number } {
@@ -7,21 +8,26 @@ export function parseApiError(error: unknown): { code: string; message: string; 
     const data = error.response?.data
     const fieldErrors =
       Array.isArray(data?.fieldErrors) && data.fieldErrors.length > 0
-        ? data.fieldErrors.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+        ? data.fieldErrors
+            .filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0)
+            .map((value: string) => repairVietnameseText(value).trim())
         : []
     const message: string =
-      data?.message ||
-      data?.detail ||
-      data?.error_description ||
+      (typeof data?.message === "string" ? repairVietnameseText(data.message).trim() : undefined) ||
+      (typeof data?.detail === "string" ? repairVietnameseText(data.detail).trim() : undefined) ||
+      (typeof data?.error_description === "string"
+        ? repairVietnameseText(data.error_description).trim()
+        : undefined) ||
       (fieldErrors.length > 0 ? fieldErrors.join(". ") : undefined) ||
       data?.title ||
       "Lỗi không xác định"
+    const normalizedMessage = repairVietnameseText(message)
     const backendCode = typeof data?.code === "string" ? data.code : undefined
     const backendRetryAfter =
       typeof data?.retryAfterSeconds === "number"
         ? data.retryAfterSeconds
         : undefined
-    const retryAfterMatch = message.match(/\((\d+)s\)/i)
+    const retryAfterMatch = normalizedMessage.match(/\((\d+)s\)/i)
     const retryAfterSeconds =
       backendRetryAfter ?? (retryAfterMatch ? Number(retryAfterMatch[1]) : undefined)
 
@@ -30,7 +36,7 @@ export function parseApiError(error: unknown): { code: string; message: string; 
     if (backendCode === "ORDER_RATE_LIMITED") {
       code = "RATE_LIMITED"
     } else if (httpStatus === 409) {
-      const lower = message.toLowerCase()
+      const lower = normalizedMessage.toLowerCase()
       code = lower.includes("quá nhanh") || lower.includes("kiểm soát cao")
         ? "RATE_LIMITED"
         : "CONFLICT"
@@ -38,7 +44,7 @@ export function parseApiError(error: unknown): { code: string; message: string; 
       code = "NOT_FOUND"
     } else if (httpStatus === 400) {
       // Phân biệt token hết hạn vs lỗi 400 khác
-      const lower = message.toLowerCase()
+      const lower = normalizedMessage.toLowerCase()
       if (lower.includes("token") && (lower.includes("hết hạn") || lower.includes("không hợp lệ"))) {
         code = "TOKEN_EXPIRED"
       } else {
@@ -54,7 +60,7 @@ export function parseApiError(error: unknown): { code: string; message: string; 
       code = "UNKNOWN"
     }
 
-    return { code, message, retryAfterSeconds }
+    return { code, message: normalizedMessage, retryAfterSeconds }
   }
 
   return { code: "NETWORK_ERROR", message: "Không thể kết nối đến máy chủ" }

@@ -78,7 +78,7 @@ export default function AdminExportListPage() {
       return false;
     }
 
-    if (!isDateInRange(item.exportDate || item.entryDate || item.createdAt || item.updatedAt, fromDate, toDate)) {
+    if (!isDateInRange(item.createdAt, fromDate, toDate)) {
       return false;
     }
 

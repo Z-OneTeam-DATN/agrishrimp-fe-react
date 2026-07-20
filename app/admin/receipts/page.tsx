@@ -68,6 +68,7 @@ export default function AdminReceiptListPage() {
         debt: Number(item.debtAmount ?? ((item.totalAmount || 0) - (item.paymentAmount || 0))) || 0,
         status: String(item.status || "PENDING").toUpperCase(),
         creator: item.creatorName || item.createdByName || item.creator || "Hệ thống",
+        createdAtRaw: item.createdAt || "",
       })));
     } catch {
       toast.error("Không thể tải danh sách phiếu nhập");
@@ -103,7 +104,7 @@ export default function AdminReceiptListPage() {
         || item.code.toLowerCase().includes(keyword)
         || item.supplier.toLowerCase().includes(keyword);
       const matchesWarehouse = selectedWarehouse === "all" || item.warehouse === selectedWarehouse;
-      const matchesDate = isDateInRange(item.dateValue, fromDate, toDate);
+      const matchesDate = isDateInRange(item.createdAtRaw || item.dateValue, fromDate, toDate);
       return matchesKeyword && matchesWarehouse && matchesDate;
     });
   }, [receipts, searchQuery, selectedWarehouse, fromDate, toDate]);
