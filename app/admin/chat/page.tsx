@@ -6,7 +6,7 @@ import {
   Bell, Star, Mail, CheckCircle2, BellOff, Archive, Smile, Video, X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
+import { ChatService } from "@/app/services/chat.service";
 import { EmployeeService } from "@/app/services/employee.service";
 import { useChatStore } from "@/stores/useChatStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -200,15 +200,13 @@ export default function AdminChatPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [convData, staffData, cannedData] = await Promise.allSettled([
+        const [convData, staffData] = await Promise.allSettled([
           ChatService.getAllConversations(0, 50),
           EmployeeService.getAll({ size: 100 }),
-          CannedResponseService.getAll(),
         ]);
         if (convData.status === "fulfilled") setConversations(convData.value.content);
         else toast.error("Không thể tải danh sách chat");
         if (staffData.status === "fulfilled") setStaffList(staffData.value.content ?? []);
-        if (cannedData.status === "fulfilled") setCannedResponses(cannedData.value);
       } finally {
         setIsLoadingConvs(false);
       }

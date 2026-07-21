@@ -55,13 +55,6 @@ export interface ProductListItem {
   reviewCount?: number;
 }
 
-export interface UnitConversion {
-  id?: number;
-  fromUnit: string;
-  toUnit: string;
-  rate: number;
-}
-
 export interface ProductVariant {
   id?: number;
   sku: string;
@@ -75,7 +68,6 @@ export interface ProductVariant {
   imageUrl?: string;
   attributeValueIds?: number[];
   attributeValues?: VariantAttributeValue[];
-  unitConversions: UnitConversion[];
 }
 
 export interface ProductDetail extends ProductListItem {
@@ -102,7 +94,6 @@ export interface UpdateProductVariantRequest {
   shippingWeight?: number;
   image?: string;
   attributeValueIds?: number[];
-  unitConversions?: UnitConversion[];
 }
 
 export interface UpdateProductRequest {
@@ -146,7 +137,6 @@ export interface PublicProductVariant {
   imageUrl: string;
   status: string;
   attributeValues: PublicVariantAttributeValue[];
-  unitConversions: UnitConversion[];
 
     batches?: {
         inventoryId: number;

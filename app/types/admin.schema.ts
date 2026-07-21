@@ -16,14 +16,6 @@ export const AdminCustomSpecSchema = z.object({
 
 export type AdminCustomSpec = z.infer<typeof AdminCustomSpecSchema>;
 
-export const UnitConversionSchema = z.object({
-    fromUnit: z.string().min(1, "Đơn vị nguồn không được để trống"),
-    toUnit: z.string().min(1, "Đơn vị đích không được để trống"),
-    rate: z.coerce.number().min(1, "Tỷ lệ quy đổi phải ít nhất là 1"),
-});
-
-export type UnitConversion = z.infer<typeof UnitConversionSchema>;
-
 export const AdminProductVariantSchema = z.object({
     sku: z.string().min(1, "Vui lòng nhập mã SKU cho biến thể"),
     barcode: z.string().optional(),

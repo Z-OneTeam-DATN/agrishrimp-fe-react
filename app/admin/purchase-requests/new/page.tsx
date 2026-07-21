@@ -166,7 +166,7 @@ function buildSupplierCatalogVariants(
         quantity: variant?.quantity,
         customSpecs: specs,
         specs,
-        unit: variant?.unitConversions?.[0]?.fromUnit || "Cái",
+        unit: "Cái",
       };
     })
     .filter((variant) => Boolean(variant.id) && Boolean(variant.sku))
