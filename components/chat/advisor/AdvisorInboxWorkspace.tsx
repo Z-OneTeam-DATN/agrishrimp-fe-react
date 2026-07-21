@@ -27,9 +27,7 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import { vi } from "date-fns/locale";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChatService, CannedResponseService, CannedResponse } from "@/app/services/chat.service";
-import { EmployeeService } from "@/app/services/employee.service";
+import { ChatService } from "@/app/services/chat.service";
 import { Conversation } from "@/app/types/chat.types";
 import { UserResponse } from "@/app/types/employee.schema";
 import MessageBubble, { TypingBubble, parseReactionsAndMessages } from "@/components/chat/MessageBubble";
@@ -221,10 +219,9 @@ export default function AdvisorInboxWorkspace() {
   useEffect(() => {
     const loadWorkspace = async () => {
       try {
-        const [conversationResult, staffResult, cannedResult] = await Promise.allSettled([
+        const [conversationResult, staffResult] = await Promise.allSettled([
           ChatService.getAllConversations(0, 100),
           EmployeeService.getAll({ size: 100 }),
-          CannedResponseService.getAll(),
         ]);
 
         if (conversationResult.status === "fulfilled") {
@@ -235,10 +232,6 @@ export default function AdvisorInboxWorkspace() {
 
         if (staffResult.status === "fulfilled") {
           setStaffList(staffResult.value.content ?? []);
-        }
-
-        if (cannedResult.status === "fulfilled") {
-          setCannedResponses(cannedResult.value);
         }
       } finally {
         setIsLoadingConversations(false);

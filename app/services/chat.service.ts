@@ -96,36 +96,6 @@ export class ChatService {
   }
 }
 
-export interface CannedResponse {
-  id: number;
-  shortcut: string;
-  content: string;
-}
-
-export class CannedResponseService {
-  static async getAll(keyword?: string): Promise<CannedResponse[]> {
-    const res = await apiJava.get<CannedResponse[]>(`${PREFIX}/canned-responses`, {
-      ...getConfig(),
-      params: keyword ? { keyword } : {},
-    });
-    return res.data;
-  }
-
-  static async create(shortcut: string, content: string): Promise<CannedResponse> {
-    const res = await apiJava.post<CannedResponse>(`${PREFIX}/canned-responses`, { shortcut, content }, getConfig());
-    return res.data;
-  }
-
-  static async update(id: number, shortcut: string, content: string): Promise<CannedResponse> {
-    const res = await apiJava.put<CannedResponse>(`${PREFIX}/canned-responses/${id}`, { shortcut, content }, getConfig());
-    return res.data;
-  }
-
-  static async delete(id: number): Promise<void> {
-    await apiJava.delete(`${PREFIX}/canned-responses/${id}`, getConfig());
-  }
-}
-
 export class NotificationService {
   static async getNotifications(page = 0, size = 15): Promise<NotificationPage> {
     const res = await apiJava.get<NotificationPage>("/v1/notifications", {

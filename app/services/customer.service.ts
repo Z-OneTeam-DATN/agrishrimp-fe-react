@@ -1,10 +1,6 @@
 import { apiJava } from "@/lib/axios";
 import { CustomerFormValues } from "@/app/types/admin.schema";
 
-interface CustomerInternalNoteRequest {
-  content: string;
-}
-
 interface CustomerDuplicateCheck {
   emailExists: boolean;
   phoneExists: boolean;
@@ -68,26 +64,6 @@ export const customerService = {
   getCustomerOrders: async (userId: number) => {
     const response = await apiJava.get(`/admin/orders/user/${userId}`);
     return response.data; 
-  },
-
-  getInternalNotes: async (userId: number) => {
-    const response = await apiJava.get(`${customerService.PREFIX}/${userId}/internal-notes`);
-    return response.data;
-  },
-
-  addInternalNote: async (userId: number, payload: CustomerInternalNoteRequest) => {
-    const response = await apiJava.post(`${customerService.PREFIX}/${userId}/internal-notes`, payload);
-    return response.data;
-  },
-
-  deleteInternalNote: async (noteId: number) => {
-    const response = await apiJava.delete(`${customerService.PREFIX}/internal-notes/${noteId}`);
-    return response.data;
-  },
-
-  getStatusLogs: async (userId: number) => {
-    const response = await apiJava.get(`${customerService.PREFIX}/${userId}/status-logs`);
-    return response.data;
   },
 
   checkDuplicate: async (email?: string, phone?: string): Promise<CustomerDuplicateCheck> => {
