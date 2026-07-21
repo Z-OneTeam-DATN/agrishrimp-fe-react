@@ -97,8 +97,6 @@ export default function AdvisorInboxWorkspace() {
   const [isSending, setIsSending] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [staffList, setStaffList] = useState<UserResponse[]>([]);
-  const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
-  const [cannedSuggestions, setCannedSuggestions] = useState<CannedResponse[]>([]);
 
   const [mutedConvs, setMutedConvs] = useState<number[]>([]);
   const [starredConvs, setStarredConvs] = useState<number[]>([]);
@@ -370,8 +368,6 @@ export default function AdvisorInboxWorkspace() {
   const attentionCount = conversations.filter(isAttentionConversation).length;
   const mineCount = conversations.filter((conversation) => conversation.assignedStaffId === user?.id).length;
 
-  const quickReplies = cannedResponses.slice(0, 4);
-
   const handleSelectConversation = async (conversation: Conversation) => {
     setActiveConversation(conversation.id);
     try {
@@ -427,19 +423,6 @@ export default function AdvisorInboxWorkspace() {
 
   const handleInputChange = (value: string) => {
     setInput(value);
-
-    if (value.startsWith("/")) {
-      const keyword = value.slice(1).toLowerCase();
-      setCannedSuggestions(
-        cannedResponses.filter(
-          (response) =>
-            response.shortcut.toLowerCase().includes(keyword) ||
-            response.content.toLowerCase().includes(keyword)
-        )
-      );
-    } else {
-      setCannedSuggestions([]);
-    }
 
     if (!activeConversationId || !sendWsMessage || typingThrottleRef.current) {
       return;
@@ -1065,34 +1048,6 @@ export default function AdvisorInboxWorkspace() {
                     </div>
                   )}
                 </div>
-
-                {cannedSuggestions.length > 0 ? (
-                  <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 xl:px-6">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Gợi ý phản hồi
-                    </div>
-                    <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
-                      {cannedSuggestions.map((response) => (
-                        <button
-                          key={response.id}
-                          type="button"
-                          onClick={() => {
-                            setInput(response.content);
-                            setCannedSuggestions([]);
-                            composerRef.current?.focus();
-                          }}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                        >
-                          <span className="text-xs font-semibold text-[#0f766e]">
-                            /{response.shortcut}
-                          </span>
-                          <p className="mt-1 text-sm text-slate-600">{response.content}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
 
                 <div className="border-t border-slate-100 bg-white px-4 py-4 xl:px-6">
                   {replyingTo && (
