@@ -61,8 +61,6 @@ export default function AdminChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [staffList, setStaffList] = useState<UserResponse[]>([]);
-  const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
-  const [cannedSuggestions, setCannedSuggestions] = useState<CannedResponse[]>([]);
 
   const [mutedConvs, setMutedConvs] = useState<number[]>([]);
   const [starredConvs, setStarredConvs] = useState<number[]>([]);
@@ -371,17 +369,6 @@ export default function AdminChatPage() {
     const val = e.target.value;
     setInput(val);
 
-    if (val.startsWith("/")) {
-      const query = val.slice(1).toLowerCase();
-      setCannedSuggestions(
-        cannedResponses.filter((cr) =>
-          cr.shortcut.toLowerCase().includes(query) || cr.content.toLowerCase().includes(query)
-        )
-      );
-    } else {
-      setCannedSuggestions([]);
-    }
-
     if (!activeConversationId || !sendWsMessage || typingThrottleRef.current) return;
     sendWsMessage("/app/chat.typing", { conversationId: activeConversationId });
     typingThrottleRef.current = setTimeout(() => {
@@ -610,22 +597,6 @@ export default function AdminChatPage() {
               )}
               <div ref={bottomRef} />
             </div>
-
-            {/* ── Canned response suggestions ── */}
-            {cannedSuggestions.length > 0 && (
-              <div className="border-t border-gray-200 bg-white max-h-48 overflow-y-auto">
-                {cannedSuggestions.map((cr) => (
-                  <button
-                    key={cr.id}
-                    onClick={() => { setInput(cr.content); setCannedSuggestions([]); inputRef.current?.focus(); }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-[#f0f2f5] border-b border-gray-100 last:border-0 transition-colors"
-                  >
-                    <span className="text-xs font-semibold text-[#0084ff] mr-2">/{cr.shortcut}</span>
-                    <span className="text-sm text-gray-600 truncate">{cr.content}</span>
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* ── Sticker Picker ── */}
             {showStickerPicker && (
