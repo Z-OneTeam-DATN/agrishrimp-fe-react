@@ -460,7 +460,6 @@ export default function AdvisorInboxWorkspace() {
     }
 
     setInput("");
-    setCannedSuggestions([]);
     setIsSending(true);
 
     try {

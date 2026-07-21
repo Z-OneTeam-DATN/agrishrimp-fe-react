@@ -405,7 +405,6 @@ export default function AdminChatPage() {
     }
 
     setInput("");
-    setCannedSuggestions([]);
     // Optimistic: push a "sending" message immediately
     const localId = `local-${Date.now()}`;
     const optimistic: ChatMessage = {
