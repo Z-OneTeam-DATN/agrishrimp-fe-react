@@ -28,8 +28,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import { parseLocalDateTime } from "@/lib/dateUtils";
 import { vi } from "date-fns/locale";
 import { ChatService } from "@/app/services/chat.service";
+import { EmployeeService } from "@/app/services/employee.service";
 import { Conversation } from "@/app/types/chat.types";
 import { UserResponse } from "@/app/types/employee.schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import MessageBubble, { TypingBubble, parseReactionsAndMessages } from "@/components/chat/MessageBubble";
 import PinProductModal from "@/components/chat/PinProductModal";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -1196,42 +1198,6 @@ export default function AdvisorInboxWorkspace() {
               ) : (
                 <p className="mt-4 text-sm leading-6 text-slate-500">
                   Chọn một hội thoại để xem thông tin khách hàng và trạng thái xử lý.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-4 rounded-[24px] border border-slate-200 bg-white p-4">
-              <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4 text-slate-500" />
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Phản hồi nhanh
-                </h3>
-              </div>
-
-              {quickReplies.length > 0 ? (
-                <div className="mt-4 space-y-2">
-                  {quickReplies.map((response) => (
-                    <button
-                      key={response.id}
-                      type="button"
-                      onClick={() => {
-                        setInput(response.content);
-                        composerRef.current?.focus();
-                      }}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                    >
-                      <p className="text-xs font-semibold text-[#0f766e]">
-                        /{response.shortcut}
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                        {response.content}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm leading-6 text-slate-500">
-                  Chưa có phản hồi mẫu. Bạn có thể tạo nhanh bằng chức năng quản lý chat hiện tại.
                 </p>
               )}
             </div>
