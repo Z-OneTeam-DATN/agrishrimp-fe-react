@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, MessageSquareDashed, Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { P } from "@/lib/permissions";
@@ -22,58 +22,73 @@ function AgronomistTesterContent() {
     mutationFn: () => aiKnowledgeService.testChat(message),
   });
 
+  const canSubmit = message.trim().length > 0 && !testChatMutation.isPending;
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.9fr,1.1fr]">
-      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[4px] bg-blue-50">
-            <MessageSquareDashed className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400">Internal Tester</p>
-            <h3 className="mt-2 text-2xl font-bold text-slate-900">Kiểm thử câu trả lời trước khi publish</h3>
-            <p className="mt-2 text-sm leading-7 text-slate-600">
-              Gõ đúng câu hỏi người nuôi thường hỏi để xem engine deterministic sẽ chọn knowledge nào.
+    <div className="space-y-5">
+      <section className="mt-2 px-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
+              Chat thử nghiệm
+            </h1>
+            <p className="text-[13px] leading-6 text-slate-500">
+              Nhập câu hỏi để xem AI trả lời trước khi dùng thật.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => testChatMutation.mutate()}
+            disabled={!canSubmit}
+            className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-[4px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {testChatMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Chạy thử
+          </button>
         </div>
+      </section>
 
-        <div className="mt-6">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Câu hỏi thử</p>
+      <section className="grid gap-4 xl:grid-cols-[0.86fr,1.14fr]">
+        <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-4 shadow-sm">
+          <label className="mb-2 block text-[11px] font-semibold text-slate-500">
+            Câu hỏi
+          </label>
           <textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            className="min-h-[200px] w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500"
-            placeholder="Ví dụ: Tôm có đốm trắng trên vỏ và giảm ăn thì xử lý thế nào?"
+            className="min-h-[170px] w-full resize-y rounded-[4px] border border-slate-200 bg-white px-3 py-3 text-[13px] leading-6 text-slate-800 outline-none transition focus:border-blue-500"
+            placeholder="Nhập câu hỏi người nuôi..."
           />
+          <div className="mt-3 flex items-center justify-between text-[12px] text-slate-400">
+            <span>{message.trim().length} ký tự</span>
+            {testChatMutation.isError ? <span className="font-medium text-rose-500">Chạy thử thất bại</span> : null}
+          </div>
         </div>
 
-        <button
-          onClick={() => testChatMutation.mutate()}
-          className="mt-5 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-        >
-          {testChatMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Chạy test
-        </button>
-      </section>
+        <div className="rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-[#f8f9fa] px-4 py-3">
+            <h2 className="text-[13px] font-semibold text-slate-900">Kết quả</h2>
+            <span className="text-[11px] font-medium text-slate-400">
+              {testChatMutation.data ? "Đã có phản hồi" : "Chưa chạy"}
+            </span>
+          </div>
 
-      <section className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400">Bot Output</p>
-        <div className="mt-5 min-h-[360px] rounded-[4px] border border-slate-200 bg-slate-50 p-5">
-          {testChatMutation.isPending ? (
-            <div className="flex h-full min-h-[300px] items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            </div>
-          ) : testChatMutation.data ? (
-            <div
-              className="prose prose-sm max-w-none prose-p:text-slate-700 prose-strong:text-slate-900"
-              dangerouslySetInnerHTML={{ __html: testChatMutation.data.reply }}
-            />
-          ) : (
-            <div className="flex h-full min-h-[300px] items-center justify-center text-sm text-slate-400">
-              Chưa có kết quả test.
-            </div>
-          )}
+          <div className="min-h-[260px] p-4">
+            {testChatMutation.isPending ? (
+              <div className="flex min-h-[220px] items-center justify-center">
+                <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
+              </div>
+            ) : testChatMutation.data ? (
+              <div
+                className="prose prose-sm max-w-none break-words text-[13px] leading-6 prose-p:my-2 prose-p:text-slate-700 prose-strong:text-slate-900 prose-ul:my-2 prose-li:my-1 [overflow-wrap:anywhere]"
+                dangerouslySetInnerHTML={{ __html: testChatMutation.data.reply }}
+              />
+            ) : (
+              <div className="flex min-h-[220px] items-center justify-center rounded-[4px] border border-dashed border-slate-200 bg-slate-50 text-[13px] font-medium text-slate-400">
+                Kết quả sẽ hiển thị tại đây.
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>

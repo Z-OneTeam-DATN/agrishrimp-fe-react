@@ -4,7 +4,6 @@ import type {
   AiKnowledgeCategory,
   AiKnowledgeChatConfig,
   AiKnowledgeImportPreview,
-  AiKnowledgeReport,
   AiKnowledgeReviewCase,
   AiKeywordAnswerSet,
 } from "@/app/types/ai-knowledge.types";
@@ -121,11 +120,6 @@ export const aiKnowledgeService = {
 
   getTemplateDownloadUrl() {
     return buildJavaApiUrl("/ai-knowledge/import/template");
-  },
-
-  async getReport() {
-    const response = await apiJava.get<AiKnowledgeReport>("/ai-knowledge/reports");
-    return response.data;
   },
 
   async testChat(message: string) {

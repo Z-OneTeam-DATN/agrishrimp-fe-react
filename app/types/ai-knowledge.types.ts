@@ -115,12 +115,3 @@ export interface AiKnowledgeImportPreview {
   invalidRows: number;
   rows: AiKnowledgeImportRow[];
 }
-
-export interface AiKnowledgeReport {
-  totalQuestions: number;
-  matchedQuestions: number;
-  unmatchedQuestions: number;
-  reviewCaseCount: number;
-  matchedTypeCounts: Record<string, number>;
-  topUnmatchedQuestions: { question: string; count: number }[];
-}

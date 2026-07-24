@@ -27,10 +27,10 @@ const REVIEW_STATUS_LABELS: Record<string, string> = {
 };
 
 const REVIEW_STATUS_STYLES: Record<string, string> = {
-  NEW: "border-slate-200 bg-slate-50 text-slate-700",
-  IN_PROGRESS: "border-slate-200 bg-slate-50 text-slate-700",
-  RESOLVED: "border-slate-200 bg-slate-50 text-slate-700",
-  IGNORED: "border-slate-200 bg-slate-50 text-slate-500",
+  NEW: "border-blue-100 bg-blue-50 text-blue-700",
+  IN_PROGRESS: "border-amber-100 bg-amber-50 text-amber-700",
+  RESOLVED: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  IGNORED: "border-slate-200 bg-slate-100 text-slate-500",
 };
 
 const emptyValues = new Set(["", "Chưa có", "Chưa gắn", "Chưa ghi nhận", "Chưa có nội dung"]);
@@ -70,11 +70,11 @@ function AgronomistReviewContent() {
         resolutionNotes: payload.resolutionNotes || undefined,
       }),
     onSuccess: async () => {
-      toast.success("Đã cập nhật câu hỏi cần kiểm tra.");
+      toast.success("Đã cập nhật case.");
       closeEditor();
       await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "review-cases"] });
     },
-    onError: (error: unknown) => toast.error(getErrorMessage(error) || "Không thể cập nhật câu hỏi cần kiểm tra."),
+    onError: (error: unknown) => toast.error(getErrorMessage(error) || "Không thể cập nhật case."),
   });
 
   const reviewCases = useMemo(() => reviewCasesQuery.data ?? [], [reviewCasesQuery.data]);
@@ -110,18 +110,17 @@ function AgronomistReviewContent() {
 
   return (
     <div className="space-y-5">
-      <section className="px-1">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h3 className="text-2xl font-black text-slate-900">Câu hỏi cần kỹ sư kiểm tra</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-              Những câu hỏi AI chưa đủ chắc chắn sẽ nằm ở đây. Kỹ sư xem nội dung, bổ sung ghi chú nếu cần,
-              rồi đánh dấu kết quả xử lý.
+      <section className="mt-2 px-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-[20px] font-semibold uppercase tracking-tight text-slate-900">
+              Case cần duyệt
+            </h1>
+            <p className="text-[13px] leading-6 text-slate-500">
+              Kiểm tra các câu hỏi AI chưa chắc chắn.
             </p>
           </div>
-          <p className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600">
-            {filteredCases.length} câu hỏi
-          </p>
+          <p className="text-[13px] font-semibold text-slate-500">{filteredCases.length} case</p>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -135,13 +134,14 @@ function AgronomistReviewContent() {
                 type="button"
                 onClick={() => setStatusFilter(filter.value)}
                 className={cn(
-                  "rounded-full border px-4 py-2 text-sm font-semibold transition",
+                  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
                   active
-                    ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                    ? "border-blue-600 bg-blue-600 text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700",
                 )}
               >
-                {filter.label} <span className={active ? "text-blue-100" : "text-slate-400"}>{count}</span>
+                {filter.label}
+                <span className={active ? "text-blue-100" : "text-slate-400"}>{count}</span>
               </button>
             );
           })}
@@ -201,116 +201,115 @@ function ReviewCaseCard({
   onUpdateStatus: (status: AiReviewCaseStatus) => void;
   onSaveNotes: (status?: AiReviewCaseStatus) => void;
 }) {
-  const createdAt = formatDateTime(item.createdAt);
-  const statusLabel = REVIEW_STATUS_LABELS[item.status] ?? "Trạng thái khác";
+  const statusLabel = REVIEW_STATUS_LABELS[item.status] ?? item.status;
   const statusClassName = REVIEW_STATUS_STYLES[item.status] ?? REVIEW_STATUS_STYLES.IGNORED;
+  const metaItems = buildMetaItems(item);
 
   return (
-    <article className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={cn("rounded-full border px-3 py-1 text-[11px] font-bold", statusClassName)}>
-              {statusLabel}
-            </span>
-            <span className="text-xs font-semibold text-slate-400">Câu hỏi #{item.id}</span>
-            {createdAt ? <span className="text-xs text-slate-400">{createdAt}</span> : null}
-          </div>
+    <article className="rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold", statusClassName)}>
+            {statusLabel}
+          </span>
+          <span className="text-[12px] font-semibold text-slate-400">#{item.id}</span>
+          {item.createdAt ? <span className="text-[12px] text-slate-400">{formatDateTime(item.createdAt)}</span> : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
           {item.status !== "IN_PROGRESS" && item.status !== "RESOLVED" ? (
             <button type="button" onClick={() => onUpdateStatus("IN_PROGRESS")} className={secondaryButtonClassName}>
-              Bắt đầu xử lý
+              Bắt đầu
             </button>
           ) : null}
           <button type="button" onClick={onStartEditing} className={secondaryButtonClassName}>
-            Ghi chú xử lý
+            Ghi chú
           </button>
           {item.status !== "RESOLVED" ? (
             <button type="button" onClick={() => onUpdateStatus("RESOLVED")} className={successButtonClassName}>
-              Đã xử lý xong
+              Xong
             </button>
           ) : null}
         </div>
       </div>
 
-      <div className="mt-3 rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-2.5">
-        <span className="text-xs font-semibold text-slate-500">Người dùng hỏi</span>
-        <span className="ml-3 whitespace-pre-wrap text-[14px] font-semibold leading-6 text-slate-900">
+      <div className="px-4 py-3">
+        <p className="whitespace-pre-wrap text-[14px] font-semibold leading-6 text-slate-900">
           {item.questionText || "Chưa có nội dung"}
-        </span>
-      </div>
+        </p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <MetaPill label="Dấu hiệu" value={item.userSymptoms || "Chưa ghi nhận"} />
-        <MetaPill label="AI gợi ý" value={item.aiSuggestedDiseaseCode || "Chưa có"} />
-        <MetaPill label="Phác đồ" value={item.matchedKnowledgeCode || "Chưa gắn"} />
-        <MetaPill label="Tin cậy" value={formatScore(item.matchScore)} />
-        <MetaPill label="Lý do" value={resolveReasonLabel(item.reason)} />
-      </div>
+        {metaItems.length > 0 ? (
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {metaItems.map((meta) => (
+              <MetaBox key={meta.label} label={meta.label} value={meta.value} />
+            ))}
+          </div>
+        ) : null}
 
-      {editing ? (
-        <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Mã phác đồ liên quan
-              </label>
-              <input
-                value={matchedKnowledgeCode}
-                onChange={(event) => onMatchedKnowledgeCodeChange(event.target.value)}
-                className={inputClassName}
-              />
+        {editing ? (
+          <div className="mt-4 rounded-[4px] border border-slate-200 bg-slate-50 p-4">
+            <div className="grid gap-3 md:grid-cols-[0.8fr,1.2fr]">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">
+                  Mã phác đồ
+                </label>
+                <input
+                  value={matchedKnowledgeCode}
+                  onChange={(event) => onMatchedKnowledgeCodeChange(event.target.value)}
+                  className={inputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">
+                  Ghi chú
+                </label>
+                <textarea
+                  value={resolutionNotes}
+                  onChange={(event) => onResolutionNotesChange(event.target.value)}
+                  className={textareaClassName}
+                  rows={3}
+                />
+              </div>
             </div>
-            <div>
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Ghi chú xử lý
-              </label>
-              <textarea
-                value={resolutionNotes}
-                onChange={(event) => onResolutionNotesChange(event.target.value)}
-                className={textareaClassName}
-                rows={4}
-              />
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onSaveNotes(item.status)}
+                disabled={saving}
+                className={primaryButtonClassName}
+              >
+                Lưu
+              </button>
+              <button
+                type="button"
+                onClick={() => onSaveNotes("RESOLVED")}
+                disabled={saving}
+                className={successButtonClassName}
+              >
+                Lưu & xong
+              </button>
+              <button type="button" onClick={onCloseEditor} className={secondaryButtonClassName}>
+                Đóng
+              </button>
             </div>
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => onSaveNotes(item.status)}
-              disabled={saving}
-              className={primaryButtonClassName}
-            >
-              Lưu ghi chú
-            </button>
-            <button
-              type="button"
-              onClick={() => onSaveNotes("RESOLVED")}
-              disabled={saving}
-              className={successButtonClassName}
-            >
-              Lưu và đánh dấu đã xử lý
-            </button>
-            <button type="button" onClick={onCloseEditor} className={secondaryButtonClassName}>
-              Đóng
-            </button>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </article>
   );
 }
 
-function MetaPill({ label, value }: { label: string; value: string }) {
+function MetaBox({ label, value }: { label: string; value: string }) {
   const muted = emptyValues.has(value);
 
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
-      <span className="shrink-0 font-semibold text-slate-400">{label}:</span>
-      <span className={cn("truncate font-semibold", muted ? "text-slate-400" : "text-slate-700")}>{value}</span>
-    </span>
+    <div className="min-w-0 rounded-[4px] border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+      <p className={cn("mt-1 truncate text-[13px] font-semibold", muted ? "text-slate-400" : "text-slate-800")}>
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -324,11 +323,19 @@ function LoadingState() {
 
 function EmptyState() {
   return (
-    <div className="rounded-[4px] border border-dashed border-slate-200 bg-white p-10 text-center">
-      <p className="text-base font-bold text-slate-900">Không có câu hỏi nào trong trạng thái này.</p>
-      <p className="mt-2 text-sm text-slate-500">Khi AI gặp câu hỏi cần kỹ sư kiểm tra, hệ thống sẽ hiển thị ở đây.</p>
+    <div className="rounded-[4px] border border-dashed border-slate-200 bg-white p-10 text-center text-[13px] font-medium text-slate-400">
+      Không có case trong trạng thái này.
     </div>
   );
+}
+
+function buildMetaItems(item: AiKnowledgeReviewCase) {
+  return [
+    { label: "Dấu hiệu", value: item.userSymptoms || "Chưa ghi nhận" },
+    { label: "AI gợi ý", value: item.aiSuggestedDiseaseCode || "Chưa có" },
+    { label: "Phác đồ", value: item.matchedKnowledgeCode || "Chưa gắn" },
+    { label: "Lý do", value: resolveReasonLabel(item.reason) },
+  ];
 }
 
 function getStatusCount(items: AiKnowledgeReviewCase[], status: "" | AiReviewCaseStatus) {
@@ -349,28 +356,22 @@ function formatDateTime(value?: string) {
   });
 }
 
-function formatScore(value?: number | null) {
-  if (value === null || value === undefined) return "Chưa có";
-  const percent = value <= 1 ? value * 100 : value;
-  return `${Math.round(percent)}%`;
-}
-
 function resolveReasonLabel(reason?: string | null) {
-  if (!reason) return "AI chưa ghi nhận lý do cụ thể.";
+  if (!reason) return "Chưa có";
   const normalized = reason.toUpperCase();
-  if (normalized.includes("NO_KNOWLEDGE_MATCH")) return "AI chưa tìm thấy phác đồ phù hợp.";
-  if (normalized.includes("LOW_CONFIDENCE")) return "AI chưa đủ tự tin để trả lời chắc chắn.";
-  if (normalized.includes("NO_MATCH") || normalized.includes("UNMATCHED")) return "AI chưa tìm được phác đồ phù hợp.";
+  if (normalized.includes("NO_KNOWLEDGE_MATCH")) return "Chưa có phác đồ phù hợp";
+  if (normalized.includes("LOW_CONFIDENCE")) return "Độ tin cậy thấp";
+  if (normalized.includes("NO_MATCH") || normalized.includes("UNMATCHED")) return "Chưa match";
   return reason;
 }
 
 const inputClassName =
-  "h-[38px] w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500";
+  "h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] text-slate-800 outline-none transition focus:border-blue-500";
 const textareaClassName =
-  "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-500";
+  "w-full rounded-[4px] border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition focus:border-blue-500";
 const primaryButtonClassName =
-  "inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-8 items-center justify-center rounded-[4px] bg-blue-600 px-3 text-[12px] font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60";
 const secondaryButtonClassName =
-  "inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50";
+  "inline-flex h-8 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 transition-colors hover:bg-slate-50";
 const successButtonClassName =
-  "inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-8 items-center justify-center rounded-[4px] border border-emerald-200 bg-emerald-50 px-3 text-[12px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60";

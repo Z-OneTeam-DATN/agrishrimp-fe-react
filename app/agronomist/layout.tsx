@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
   Clock,
   FlaskConical,
   Loader2,
@@ -43,12 +42,6 @@ const AGRONOMIST_NAV_ITEMS = [
     href: "/agronomist/tester",
     label: "Chat thử nghiệm",
     icon: FlaskConical,
-    permissions: [P.AI_KNOWLEDGE_APPROVE],
-  },
-  {
-    href: "/agronomist/reports",
-    label: "Báo cáo câu hỏi",
-    icon: BarChart3,
     permissions: [P.AI_KNOWLEDGE_APPROVE],
   },
 ] as const;
