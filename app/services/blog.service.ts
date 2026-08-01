@@ -58,6 +58,23 @@ export interface BlogPageDTO {
   last: boolean;
 }
 
+export interface BlogCommentDTO {
+  id: number;
+  parentId: number | null;
+  authorId: number | null;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  content: string;
+  mentionName: string | null;
+  createdAt: string;
+  replies: BlogCommentDTO[];
+}
+
+export interface BlogCommentPayload {
+  content: string;
+  parentId?: number | null;
+}
+
 // ─── PUBLIC ──────────────────────────────────────────────────────────────────
 
 export const getPublicBlogPosts = async (params?: {
@@ -97,6 +114,25 @@ export const getPublicBlogCategories = async (): Promise<BlogCategoryDTO[]> => {
   } catch {
     return [];
   }
+};
+
+export const getPublicBlogComments = async (slug: string): Promise<BlogCommentDTO[]> => {
+  try {
+    const res = await apiJava.get(buildJavaApiUrl(`/v1/public/blog/posts/${slug}/comments` as any), {
+      isPublic: true,
+    } as any);
+    return res.data ?? [];
+  } catch {
+    return [];
+  }
+};
+
+export const createPublicBlogComment = async (
+  slug: string,
+  payload: BlogCommentPayload
+): Promise<BlogCommentDTO> => {
+  const res = await apiJava.post(buildJavaApiUrl(`/v1/public/blog/posts/${slug}/comments` as any), payload);
+  return res.data;
 };
 
 // ─── ADMIN ───────────────────────────────────────────────────────────────────

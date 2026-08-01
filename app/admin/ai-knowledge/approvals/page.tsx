@@ -1,22 +1,106 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
+import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
+import type {
+  AiDiseaseKnowledge,
+  AiKnowledgeStatus,
+} from "@/app/types/ai-knowledge.types";
 
-const STATUS_FILTERS = [
-  { value: "IN_REVIEW", label: "Chờ duyệt" },
-  { value: "APPROVED", label: "Đã duyệt" },
-  { value: "DRAFT", label: "Nháp / Bị từ chối" },
-  { value: "DISABLED", label: "Đã tắt" },
-  { value: "ALL", label: "Tất cả" },
+const PAGE_SIZE = 20;
+
+type StatusTab = {
+  id: "all" | "inReview" | "approved" | "draft" | "disabled";
+  label: string;
+  statuses: readonly AiKnowledgeStatus[] | null;
+};
+
+const STATUS_TABS: readonly StatusTab[] = [
+  { id: "all", label: "Tất cả", statuses: null },
+  { id: "inReview", label: "Chờ duyệt", statuses: ["IN_REVIEW"] },
+  { id: "approved", label: "Đã duyệt", statuses: ["APPROVED"] },
+  { id: "draft", label: "Nháp / Bị từ chối", statuses: ["DRAFT"] },
+  { id: "disabled", label: "Đã tắt", statuses: ["DISABLED", "ARCHIVED"] },
 ] as const;
+
+type StatusTabId = StatusTab["id"];
+
+const STATUS_LABELS: Record<string, string> = {
+  APPROVED: "Đã duyệt",
+  IN_REVIEW: "Chờ duyệt",
+  DRAFT: "Nháp",
+  DISABLED: "Đã tắt",
+  ARCHIVED: "Lưu trữ",
+};
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+}
+
+function countProducts(item: AiDiseaseKnowledge) {
+  const productIds = new Set<number>();
+  const extraNames = new Set<string>();
+
+  (item.treatmentStages ?? []).forEach((stage) => {
+    (stage.products ?? []).forEach((product) => productIds.add(product.id));
+    (stage.productIds ?? []).forEach((productId) => productIds.add(productId));
+    (stage.extraProductNames ?? []).forEach((name) => {
+      const normalizedName = name.trim();
+      if (normalizedName) extraNames.add(normalizedName);
+    });
+  });
+
+  return productIds.size + extraNames.size;
+}
 
 export default function AdminAiKnowledgeApprovalsPage() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]["value"]>("IN_REVIEW");
+  const [statusFilter, setStatusFilter] = useState<StatusTabId>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDetail, setSelectedDetail] =
+    useState<AiDiseaseKnowledge | null>(null);
 
   const diseasesQuery = useQuery({
     queryKey: ["ai-knowledge", "diseases"],
@@ -24,18 +108,87 @@ export default function AdminAiKnowledgeApprovalsPage() {
   });
 
   const diseases = diseasesQuery.data ?? [];
+  const normalizedKeyword = normalizeSearch(searchQuery);
+
+  const baseFilteredDiseases = useMemo(() => {
+    if (!normalizedKeyword) return diseases;
+
+    return diseases.filter((item) =>
+      [
+        item.code,
+        item.nameVi,
+        item.nameEn,
+        item.category?.name,
+        item.signsSummary,
+      ].some((value) =>
+        normalizeSearch(String(value ?? "")).includes(normalizedKeyword),
+      ),
+    );
+  }, [diseases, normalizedKeyword]);
 
   const filteredDiseases = useMemo(() => {
-    if (statusFilter === "ALL") return diseases;
-    return diseases.filter((item) => item.status === statusFilter);
-  }, [diseases, statusFilter]);
+    const activeTab = STATUS_TABS.find((tab) => tab.id === statusFilter);
+    const statuses = activeTab?.statuses;
+    if (!statuses) return baseFilteredDiseases;
 
-  const pendingCount = useMemo(
-    () => diseases.filter((item) => item.status === "IN_REVIEW").length,
-    [diseases],
+    return baseFilteredDiseases.filter((item) =>
+      statuses.includes(item.status as AiKnowledgeStatus),
+    );
+  }, [baseFilteredDiseases, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const summary = useMemo(
+    () => ({
+      total: baseFilteredDiseases.length,
+      pending: baseFilteredDiseases.filter(
+        (item) => item.status === "IN_REVIEW",
+      ).length,
+      approved: baseFilteredDiseases.filter(
+        (item) => item.status === "APPROVED" && item.enabled,
+      ).length,
+      draft: baseFilteredDiseases.filter((item) => item.status === "DRAFT")
+        .length,
+    }),
+    [baseFilteredDiseases],
   );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "diseases"] });
+  const statusCounts = useMemo(
+    () =>
+      STATUS_TABS.reduce<Record<StatusTabId, number>>(
+        (result, tab) => {
+          const statuses = tab.statuses;
+          result[tab.id] = statuses
+            ? baseFilteredDiseases.filter((item) =>
+                statuses.includes(item.status as AiKnowledgeStatus),
+              ).length
+            : baseFilteredDiseases.length;
+          return result;
+        },
+        {
+          all: 0,
+          inReview: 0,
+          approved: 0,
+          draft: 0,
+          disabled: 0,
+        },
+      ),
+    [baseFilteredDiseases],
+  );
+
+  const totalPages = Math.ceil(filteredDiseases.length / PAGE_SIZE);
+  const displayData = filteredDiseases.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const firstItem =
+    filteredDiseases.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastItem = Math.min(currentPage * PAGE_SIZE, filteredDiseases.length);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "diseases"] });
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => aiKnowledgeService.approveDisease(id),
@@ -43,7 +196,8 @@ export default function AdminAiKnowledgeApprovalsPage() {
       toast.success("Đã duyệt phác đồ. AI Doctor có thể dùng để trả lời ngay.");
       await invalidate();
     },
-    onError: (error: any) => toast.error(error?.message || "Không thể duyệt phác đồ."),
+    onError: (error: any) =>
+      toast.error(error?.message || "Không thể duyệt phác đồ."),
   });
 
   const rejectMutation = useMutation({
@@ -52,131 +206,573 @@ export default function AdminAiKnowledgeApprovalsPage() {
       toast.success("Đã từ chối, chuyển về trạng thái nháp cho kỹ sư sửa lại.");
       await invalidate();
     },
-    onError: (error: any) => toast.error(error?.message || "Không thể từ chối phác đồ."),
+    onError: (error: any) =>
+      toast.error(error?.message || "Không thể từ chối phác đồ."),
   });
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-semibold uppercase text-slate-900">Duyệt phác đồ điều trị</h1>
-      </div>
+  const isMutating = approveMutation.isPending || rejectMutation.isPending;
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Chờ duyệt" value={pendingCount} accent="text-amber-600" />
-        <StatCard label="Đã duyệt" value={diseases.filter((item) => item.status === "APPROVED").length} accent="text-emerald-600" />
-        <StatCard label="Nháp / bị từ chối" value={diseases.filter((item) => item.status === "DRAFT").length} accent="text-slate-500" />
-        <StatCard label="Tổng số phác đồ" value={diseases.length} accent="text-blue-600" />
-      </div>
-
-      <div className="flex flex-wrap gap-2 rounded-[4px] border border-slate-200 bg-white p-2">
-        {STATUS_FILTERS.map((filter) => (
-          <button
-            key={filter.value}
-            onClick={() => setStatusFilter(filter.value)}
-            className={`rounded-[4px] px-3 py-1.5 text-[13px] font-medium transition-colors ${
-              statusFilter === filter.value
-                ? "bg-blue-600 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid gap-4">
-        {diseasesQuery.isLoading ? (
-          <div className="rounded-[4px] border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-            Đang tải...
-          </div>
-        ) : filteredDiseases.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-[4px] border border-slate-200 bg-white p-10 text-center">
-            <ShieldCheck className="h-8 w-8 text-slate-300" />
-            <p className="text-sm text-slate-500">Không có phác đồ nào ở trạng thái này.</p>
-          </div>
-        ) : (
-          filteredDiseases.map((item) => (
-            <div key={item.id} className="rounded-[4px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-slate-900">{item.nameVi}</p>
-                    {item.nameEn ? <p className="text-xs text-slate-400">({item.nameEn})</p> : null}
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Mã: {item.code} · Danh mục: {item.category?.name ?? "Chưa gán"}
-                  </p>
-                </div>
-                <StatusPill value={item.status} />
-              </div>
-
-              <p className="mt-3 text-sm leading-6 text-slate-600">{item.signsSummary}</p>
-
-              {item.causes?.length ? (
-                <div className="mt-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Nguyên nhân</p>
-                  <ul className="mt-1 list-inside list-disc text-sm text-slate-600">
-                    {item.causes.map((cause) => (
-                      <li key={cause}>{cause}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {item.treatmentStages?.length ? (
-                <p className="mt-3 text-xs text-slate-500">
-                  {item.treatmentStages.length} giai đoạn điều trị đã khai báo.
-                </p>
-              ) : null}
-
-              {item.status === "IN_REVIEW" ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => approveMutation.mutate(item.id)}
-                    disabled={approveMutation.isPending}
-                    className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Duyệt
-                  </button>
-                  <button
-                    onClick={() => rejectMutation.mutate(item.id)}
-                    disabled={rejectMutation.isPending}
-                    className="inline-flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Từ chối
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
-  return (
-    <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className={`mt-3 text-[22px] font-bold ${accent}`}>{value}</p>
-    </div>
-  );
-}
-
-function StatusPill({ value }: { value: string }) {
-  const colorMap: Record<string, string> = {
-    APPROVED: "bg-emerald-100 text-emerald-700",
-    IN_REVIEW: "bg-amber-100 text-amber-700",
-    DRAFT: "bg-slate-200 text-slate-700",
-    DISABLED: "bg-rose-100 text-rose-700",
+  const handleRefresh = async () => {
+    await diseasesQuery.refetch();
   };
 
   return (
-    <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] ${colorMap[value] ?? "bg-slate-200 text-slate-700"}`}>
-      {value}
+    <div className="space-y-4 px-1 pb-8">
+      <div className="mb-8 mt-2 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-[20px] font-semibold uppercase text-slate-900">
+            Duyệt phác đồ điều trị
+          </h1>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
+            onClick={() => void handleRefresh()}
+            disabled={diseasesQuery.isFetching}
+          >
+            <RefreshCcw
+              size={15}
+              className={cn("mr-2", diseasesQuery.isFetching && "animate-spin")}
+            />
+            Làm mới
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              title: "Tổng phác đồ",
+              value: summary.total,
+              description: "Theo bộ lọc tìm kiếm hiện tại",
+            },
+            {
+              title: "Chờ duyệt",
+              value: summary.pending,
+              description: "Cần quản trị viên xử lý",
+            },
+            {
+              title: "Đang sử dụng",
+              value: summary.approved,
+              description: "Đã duyệt và đang bật",
+            },
+            {
+              title: "Nháp / bị từ chối",
+              value: summary.draft,
+              description: "Cần kỹ sư chỉnh sửa lại",
+            },
+          ].map((card) => (
+            <div
+              key={card.title}
+              className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+            >
+              <p className="text-[11px] font-semibold text-slate-400">
+                {card.title}
+              </p>
+              <div className="mt-3 space-y-1">
+                <p className="text-[20px] font-semibold leading-none text-slate-900">
+                  {card.value}
+                </p>
+                <p className="text-[10px] leading-4 text-slate-500">
+                  {card.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setStatusFilter(tab.id)}
+                className={cn(
+                  "h-[34px] rounded-[4px] border px-3 text-[12px] font-medium transition-colors",
+                  statusFilter === tab.id
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                )}
+              >
+                {tab.label}
+                <span className="ml-2 text-[11px] text-slate-400">
+                  {statusCounts[tab.id]}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full sm:w-[340px]">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Tìm mã, tên bệnh, danh mục..."
+              className="h-[38px] border-slate-200 bg-white pl-10 text-[13px] shadow-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
+        {diseasesQuery.isLoading ? (
+          <AdminDataSyncLoader message="Đang tải phác đồ" />
+        ) : displayData.length > 0 ? (
+          <TooltipProvider delayDuration={150}>
+            <div className="w-full">
+              <Table className="table-custom w-full table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-[18%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[31%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[13%]" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+                    <TableHead className="p-3 pl-4 text-[10px] font-semibold text-[#1f1f1f]">
+                      Phác đồ
+                    </TableHead>
+                    <TableHead className="p-3 text-[10px] font-semibold text-[#1f1f1f]">
+                      Danh mục
+                    </TableHead>
+                    <TableHead className="p-3 text-[10px] font-semibold text-[#1f1f1f]">
+                      Dấu hiệu nhận biết
+                    </TableHead>
+                    <TableHead className="p-3 text-[10px] font-semibold text-[#1f1f1f]">
+                      Điều trị
+                    </TableHead>
+                    <TableHead className="p-3 text-[10px] font-semibold text-[#1f1f1f]">
+                      Trạng thái
+                    </TableHead>
+                    <TableHead className="p-3 pr-4 text-right text-[10px] font-semibold text-[#1f1f1f]">
+                      Thao tác
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayData.map((item) => {
+                    const stageCount = item.treatmentStages?.length ?? 0;
+                    const productCount = countProducts(item);
+
+                    return (
+                      <TableRow
+                        key={item.id}
+                        className="group border-b border-slate-100 hover:bg-slate-50/70"
+                      >
+                        <TableCell className="p-3 pl-4">
+                          <p className="line-clamp-1 text-[12px] font-semibold text-slate-800">
+                            {item.nameVi}
+                          </p>
+                          <p className="mt-1 text-[10px] text-slate-400">
+                            {item.code}
+                            {item.nameEn ? ` · ${item.nameEn}` : ""}
+                          </p>
+                        </TableCell>
+                        <TableCell className="p-3 text-[11.5px] text-slate-500">
+                          {item.category?.name ?? "Chưa gán"}
+                        </TableCell>
+                        <TableCell className="p-3">
+                          <p className="line-clamp-2 text-[11.5px] leading-5 text-slate-600">
+                            {item.signsSummary || "Chưa có mô tả dấu hiệu"}
+                          </p>
+                        </TableCell>
+                        <TableCell className="p-3 text-[11.5px] text-slate-500">
+                          <p>{stageCount} giai đoạn</p>
+                          <p className="mt-1 text-[10px] text-slate-400">
+                            {productCount} sản phẩm
+                          </p>
+                        </TableCell>
+                        <TableCell className="p-3">
+                          <StatusPill
+                            value={item.status}
+                            enabled={item.enabled}
+                          />
+                        </TableCell>
+                        <TableCell className="p-3 pr-4 text-right">
+                          <div className="flex justify-end">
+                            <TableActionButton
+                              label="Xem chi tiết"
+                              onClick={() => setSelectedDetail(item)}
+                            >
+                              <Eye size={15} />
+                            </TableActionButton>
+                            {item.status === "IN_REVIEW" ? (
+                              <>
+                                <TableActionButton
+                                  label="Duyệt phác đồ"
+                                  disabled={isMutating}
+                                  className="hover:text-emerald-600"
+                                  onClick={() =>
+                                    approveMutation.mutate(item.id)
+                                  }
+                                >
+                                  <CheckCircle2 size={15} />
+                                </TableActionButton>
+                                <TableActionButton
+                                  label="Từ chối phác đồ"
+                                  disabled={isMutating}
+                                  className="hover:text-rose-600"
+                                  onClick={() => rejectMutation.mutate(item.id)}
+                                >
+                                  <XCircle size={15} />
+                                </TableActionButton>
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              <div className="flex flex-col gap-3 border-t border-slate-100 bg-[#f8f9fa] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[11px] text-slate-500">
+                  Hiển thị {firstItem} - {lastItem} trong{" "}
+                  {filteredDiseases.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[11px] font-medium"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                  >
+                    Trước
+                  </Button>
+                  <span className="min-w-[60px] text-center text-[11px] text-slate-500">
+                    {currentPage} / {totalPages || 1}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[11px] font-medium"
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                  >
+                    Sau
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </TooltipProvider>
+        ) : (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <ShieldCheck className="h-8 w-8 text-slate-300" />
+            <p className="text-[12px] text-slate-400">
+              Không có phác đồ phù hợp bộ lọc
+            </p>
+          </div>
+        )}
+      </div>
+
+      <DiseaseDetailDialog
+        disease={selectedDetail}
+        onOpenChange={(open) => {
+          if (!open) setSelectedDetail(null);
+        }}
+      />
+    </div>
+  );
+}
+
+function TableActionButton({
+  label,
+  children,
+  onClick,
+  disabled,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={label}
+          disabled={disabled}
+          className={cn(
+            "h-8 w-8 text-slate-400 hover:bg-slate-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50",
+            className,
+          )}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function DetailField({
+  label,
+  value,
+}: {
+  label: string;
+  value?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[4px] border border-slate-100 bg-slate-50 px-3 py-2">
+      <p className="text-[10px] font-semibold text-slate-400">{label}</p>
+      <div className="mt-1 text-[12px] font-medium text-slate-700">
+        {value || "Chưa có"}
+      </div>
+    </div>
+  );
+}
+
+function TextList({
+  items,
+  emptyText = "Chưa có dữ liệu",
+}: {
+  items?: string[];
+  emptyText?: string;
+}) {
+  const visibleItems = (items ?? []).filter((item) => item.trim());
+
+  if (visibleItems.length === 0) {
+    return <p className="text-[12px] text-slate-400">{emptyText}</p>;
+  }
+
+  return (
+    <ul className="space-y-1.5 text-[12px] leading-5 text-slate-600">
+      {visibleItems.map((item, index) => (
+        <li key={`${item}-${index}`} className="flex gap-2">
+          <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DiseaseDetailDialog({
+  disease,
+  onOpenChange,
+}: {
+  disease: AiDiseaseKnowledge | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const treatmentStages = disease?.treatmentStages ?? [];
+
+  return (
+    <Dialog open={Boolean(disease)} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88vh] max-w-[860px] gap-0 overflow-hidden rounded-[4px] border-slate-200 bg-white p-0 shadow-xl">
+        <DialogHeader className="border-b border-slate-100 px-6 py-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+            <div>
+              <DialogTitle className="text-[18px] font-semibold text-slate-900">
+                {disease?.nameVi ?? "Chi tiết phác đồ"}
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-[12px] text-slate-500">
+                Chỉ xem thông tin phác đồ, không chỉnh sửa tại màn này.
+              </DialogDescription>
+            </div>
+            {disease ? (
+              <StatusPill value={disease.status} enabled={disease.enabled} />
+            ) : null}
+          </div>
+        </DialogHeader>
+
+        {disease ? (
+          <div className="max-h-[calc(88vh-92px)] overflow-y-auto px-6 py-5">
+            <div className="grid gap-3 md:grid-cols-3">
+              <DetailField label="Mã phác đồ" value={disease.code} />
+              <DetailField
+                label="Danh mục"
+                value={disease.category?.name ?? "Chưa gán"}
+              />
+              <DetailField
+                label="Trạng thái sử dụng"
+                value={disease.enabled ? "Đang bật" : "Đã tắt"}
+              />
+              <DetailField
+                label="Tên tiếng Anh"
+                value={disease.nameEn || "Chưa có"}
+              />
+              <DetailField label="Độ ưu tiên" value={disease.priority} />
+              <DetailField
+                label="Ngưỡng nhận diện"
+                value={`${Math.round((disease.matchThreshold ?? 0) * 100)}%`}
+              />
+            </div>
+
+            <section className="mt-5 rounded-[4px] border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+                <p className="text-[12px] font-semibold text-slate-700">
+                  Dấu hiệu và nguyên nhân
+                </p>
+              </div>
+              <div className="space-y-4 p-4">
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold text-slate-400">
+                    Dấu hiệu nhận biết
+                  </p>
+                  <p className="text-[12px] leading-6 text-slate-600">
+                    {disease.signsSummary || "Chưa có mô tả dấu hiệu"}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold text-slate-400">
+                    Nguyên nhân
+                  </p>
+                  <TextList items={disease.causes} />
+                </div>
+                {disease.symptomKeywordsRaw ? (
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold text-slate-400">
+                      Từ khóa triệu chứng
+                    </p>
+                    <p className="text-[12px] leading-6 text-slate-600">
+                      {disease.symptomKeywordsRaw}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="mt-5 rounded-[4px] border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+                <p className="text-[12px] font-semibold text-slate-700">
+                  Giai đoạn điều trị
+                </p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {treatmentStages.length > 0 ? (
+                  treatmentStages.map((stage, index) => (
+                    <div key={`${stage.stageTitle}-${index}`} className="p-4">
+                      <p className="text-[12px] font-semibold text-slate-800">
+                        {stage.stageTitle || `Giai đoạn ${index + 1}`}
+                      </p>
+                      <div className="mt-3">
+                        <p className="mb-2 text-[11px] font-semibold text-slate-400">
+                          Hướng dẫn
+                        </p>
+                        <TextList items={stage.instructions} />
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <DetailField
+                          label="Sản phẩm đã liên kết"
+                          value={
+                            stage.products?.length ? (
+                              <div className="space-y-1">
+                                {stage.products.map((product) => (
+                                  <p key={product.id}>{product.name}</p>
+                                ))}
+                              </div>
+                            ) : (
+                              "Chưa có"
+                            )
+                          }
+                        />
+                        <DetailField
+                          label="Sản phẩm nhập tay"
+                          value={
+                            stage.extraProductNames?.length ? (
+                              <div className="space-y-1">
+                                {stage.extraProductNames.map(
+                                  (name, itemIndex) => (
+                                    <p key={`${name}-${itemIndex}`}>{name}</p>
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              "Chưa có"
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="p-4 text-[12px] text-slate-400">
+                    Chưa có giai đoạn điều trị.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-5 grid gap-3 md:grid-cols-2">
+              <DetailField
+                label="Kỹ sư phụ trách"
+                value={disease.engineerName || "Chưa gán"}
+              />
+              <DetailField
+                label="SĐT liên hệ"
+                value={disease.engineerPhone || "Chưa gán"}
+              />
+            </section>
+
+            {disease.imageUrls?.length ? (
+              <section className="mt-5 rounded-[4px] border border-slate-200 bg-white">
+                <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-[12px] font-semibold text-slate-700">
+                    Ảnh minh họa
+                  </p>
+                </div>
+                <div className="grid gap-3 p-4 sm:grid-cols-2 md:grid-cols-3">
+                  {disease.imageUrls.map((url, index) => (
+                    <div
+                      key={`${url}-${index}`}
+                      className="overflow-hidden rounded-[4px] border border-slate-100 bg-slate-50"
+                    >
+                      <img
+                        src={url}
+                        alt={`${disease.nameVi} ${index + 1}`}
+                        className="h-32 w-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StatusPill({
+  value,
+  enabled,
+}: {
+  value: AiKnowledgeStatus;
+  enabled: boolean;
+}) {
+  const statusKey = !enabled && value === "APPROVED" ? "DISABLED" : value;
+  const colorMap: Record<string, string> = {
+    APPROVED: "bg-emerald-50 text-emerald-700",
+    IN_REVIEW: "bg-amber-50 text-amber-700",
+    DRAFT: "bg-slate-100 text-slate-600",
+    DISABLED: "bg-rose-50 text-rose-700",
+    ARCHIVED: "bg-slate-100 text-slate-500",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-[82px] items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-medium",
+        colorMap[statusKey] ?? "bg-slate-100 text-slate-600",
+      )}
+    >
+      {STATUS_LABELS[statusKey] ?? statusKey}
     </span>
   );
 }
