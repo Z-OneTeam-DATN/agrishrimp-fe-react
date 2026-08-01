@@ -13,7 +13,7 @@ const formatDate = (value: string | null) =>
     : "";
 
 const normalizeDisplayTitle = (title: string) => {
-  const trimmed = title.trim();
+  const trimmed = title.trim().replace(/([:;,])(?=\S)/g, "$1 ");
   if (!trimmed) return title;
 
   const letters = Array.from(trimmed).filter((char) => /\p{L}/u.test(char));
@@ -65,7 +65,7 @@ export default function HomeLatestBlogSection({
     <section className="mx-auto mt-10 w-full max-w-[1440px] px-3 sm:px-4 md:px-6 xl:px-8">
       <div className="mb-3 flex items-center gap-3">
         <span className="h-5 w-1 shrink-0 rounded-full bg-primary" />
-        <h2 className="text-[17px] font-black uppercase tracking-wide text-gray-900">
+        <h2 className="text-[18px] font-extrabold leading-tight tracking-normal text-gray-900">
           Cẩm nang kiến thức
         </h2>
       </div>
@@ -97,7 +97,7 @@ export default function HomeLatestBlogSection({
 
             <div className="flex flex-1 flex-col border border-slate-200 bg-white px-2.5 py-2.5 md:px-4 md:py-3">
               <div className="flex items-center justify-between gap-2 text-[10px] font-medium text-[#315f9c] md:gap-3 md:text-[12px]">
-                <span className="line-clamp-1">Cẩm Nang Kinh Nghiệm</span>
+                <span className="line-clamp-1">Cẩm nang kinh nghiệm</span>
                 <span className="shrink-0 text-slate-500">
                   {formatDate(post.publishedAt ?? post.createdAt)}
                 </span>
@@ -111,7 +111,8 @@ export default function HomeLatestBlogSection({
               </Link>
 
               <p className="mt-2 hidden flex-1 text-[13px] leading-6 text-slate-700 md:line-clamp-3">
-                {post.excerpt || "Bài viết đang được cập nhật nội dung chi tiết."}
+                {post.excerpt ||
+                  "Bài viết đang được cập nhật nội dung chi tiết."}
               </p>
             </div>
           </article>
