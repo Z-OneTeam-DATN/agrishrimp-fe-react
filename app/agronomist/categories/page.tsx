@@ -408,7 +408,7 @@ export default function AgronomistCategoriesPage() {
                       general: undefined,
                     }));
                   }}
-                  placeholder="Tuyển sinh"
+                  placeholder="Bệnh do vi khuẩn"
                   className={cn(
                     agronomistInputClassName,
                     formErrors.name && "border-rose-500",
@@ -429,7 +429,7 @@ export default function AgronomistCategoriesPage() {
                       slug: event.target.value,
                     }))
                   }
-                  placeholder="tuyen-sinh"
+                  placeholder="benh-do-vi-khuan"
                   className={agronomistInputClassName}
                 />
               </div>

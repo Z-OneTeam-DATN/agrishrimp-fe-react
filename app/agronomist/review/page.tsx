@@ -452,7 +452,7 @@ function AgronomistReviewContent() {
                         matchedKnowledgeCode: event.target.value,
                       })
                     }
-                    placeholder="VD: FAQ_HOC_PHI"
+                    placeholder="VD: FAQ_DOM_TRANG"
                     className={agronomistInputClassName}
                   />
                 </div>
