@@ -62,10 +62,13 @@ export default function MegaMenuDropdown() {
   const getChildren = (pid: number) => categories.filter((c) => c.parentId === pid && c.parentId !== 0);
   return (
     <div ref={wrapperRef} className="relative flex h-full items-center" onMouseLeave={scheduleClose}>
-      <button
-        type="button"
+      <Link
+        href="/san-pham"
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
         onMouseEnter={open}
-        onClick={() => { fetchData(); setIsOpen((v) => !v); }}
+        onFocus={open}
+        onClick={() => setIsOpen(false)}
         className={`flex items-center gap-1 py-4 text-[12px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap transition-colors ${
           isOpen
             ? "text-[#2f5f98]"
@@ -74,7 +77,7 @@ export default function MegaMenuDropdown() {
       >
         <span>Danh mục</span>
         <ChevronDown size={12} strokeWidth={2.2} />
-      </button>
+      </Link>
 
       <AnimatePresence>
         {isOpen && (
