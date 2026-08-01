@@ -26,6 +26,7 @@ import {
 import { PublicProductDetail, PublicProductVariant } from "@/app/types/product.schema";
 import { useCartStore } from "@/stores/useCartStore";
 import { cn } from "@/lib/utils";
+import BlogComments from "@/components/site/BlogComments";
 import LatestBlogPostsCard from "@/components/site/LatestBlogPostsCard";
 
 const RELATED_POST_LIMIT = 2;
@@ -742,6 +743,8 @@ export default function BlogDetailPage() {
                   </button>
                 </div>
               </div>
+
+              <BlogComments slug={slug} />
             </article>
 
           </div>
