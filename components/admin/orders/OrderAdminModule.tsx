@@ -578,7 +578,7 @@ export function AdminOrdersListModule() {
 
     try {
       const [apiOrders, localOrders] = await Promise.all([
-        orderService.getAdminOrders(),
+        orderService.getAdminOrders({ page: 0, size: 100 }).then((page) => page.content),
         Promise.resolve(readLocalManagedOrders()),
       ]);
 

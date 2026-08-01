@@ -163,7 +163,7 @@ const INVENTORY_STATUS_MAP: Record<"IN_STOCK" | "SHORTAGE", BadgeTone> = {
 };
 
 const MONOCHROME_BADGE_STYLES =
-  "border-blue-200 bg-white text-blue-700";
+  "w-[132px] justify-center border-blue-200 bg-white text-center text-blue-700";
 
 const renderBadge = (
   tone: BadgeTone,

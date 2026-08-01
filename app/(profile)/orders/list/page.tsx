@@ -1,24 +1,56 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { PackageX, Loader2, Search } from "lucide-react";
+import { Loader2, PackageX, Search } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { orderService } from "@/app/services/order.service";
 import { MyOrder } from "@/app/types/order.types";
 import { OrderCard } from "@/components/orders/OrderCard";
 import { OrderTabs } from "@/components/orders/OrderTabs";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  UserOrderFilter,
   matchesUserOrderFilter,
   normalizeUserOrderFilter,
-  UserOrderFilter,
 } from "@/components/orders/order-status-utils";
 
-const shouldRetryPendingPayos = (order: MyOrder) =>
-  order.paymentMethod === "PAYOS" &&
-  ["UNPAID", "PENDING"].includes(order.paymentStatus) &&
-  ["PENDING_PAYMENT", "AWAITING_PAYMENT", "PENDING"].includes(order.status);
+const PAGE_SIZE = 10;
+
+function buildPaginationItems(currentPage: number, totalPages: number) {
+  if (totalPages <= 1) return [1];
+
+  const pages = new Set<number>([
+    1,
+    totalPages,
+    currentPage,
+    currentPage - 1,
+    currentPage + 1,
+  ]);
+
+  const normalizedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+
+  const items: Array<number | "ellipsis"> = [];
+  normalizedPages.forEach((page, index) => {
+    if (index > 0 && page - normalizedPages[index - 1] > 1) {
+      items.push("ellipsis");
+    }
+    items.push(page);
+  });
+
+  return items;
+}
 
 export default function OrderingPage() {
   const searchParams = useSearchParams();
@@ -30,7 +62,7 @@ export default function OrderingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const payosRetryRef = useRef(0);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
@@ -49,23 +81,8 @@ export default function OrderingPage() {
   }, []);
 
   useEffect(() => {
-    payosRetryRef.current = 0;
     void fetchOrders();
   }, [fetchOrders]);
-
-  useEffect(() => {
-    const hasPendingPayos = orders.some(shouldRetryPendingPayos);
-    if (!hasPendingPayos || payosRetryRef.current >= 3) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      payosRetryRef.current += 1;
-      void fetchOrders();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [orders, fetchOrders]);
 
   const normalizedKeyword = searchKeyword.trim().toLowerCase();
 
@@ -96,6 +113,42 @@ export default function OrderingPage() {
       }),
     [normalizedKeyword, orders, statusFilter],
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [normalizedKeyword, statusFilter]);
+
+  const totalPages = Math.ceil(visibleOrders.length / PAGE_SIZE);
+
+  useEffect(() => {
+    if (totalPages === 0) {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+      return;
+    }
+
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return visibleOrders.slice(start, start + PAGE_SIZE);
+  }, [currentPage, visibleOrders]);
+
+  const paginationItems = useMemo(
+    () => buildPaginationItems(currentPage, totalPages),
+    [currentPage, totalPages],
+  );
+
+  const visibleFrom =
+    visibleOrders.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const visibleTo =
+    visibleOrders.length === 0
+      ? 0
+      : Math.min(currentPage * PAGE_SIZE, visibleOrders.length);
 
   return (
     <>
@@ -130,13 +183,82 @@ export default function OrderingPage() {
             </button>
           </div>
         ) : visibleOrders.length > 0 ? (
-          visibleOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onOrderCancelled={fetchOrders}
-            />
-          ))
+          <>
+            {paginatedOrders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onOrderCancelled={fetchOrders}
+              />
+            ))}
+
+            {totalPages > 1 ? (
+              <div className="border border-gray-100 bg-white px-4 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-gray-500">
+                    Hiển thị {visibleFrom}-{visibleTo} trong {visibleOrders.length} đơn hàng
+                  </p>
+
+                  <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (currentPage > 1) {
+                              setCurrentPage(currentPage - 1);
+                            }
+                          }}
+                          className={
+                            currentPage <= 1
+                              ? "pointer-events-none opacity-50"
+                              : ""
+                          }
+                        />
+                      </PaginationItem>
+
+                      {paginationItems.map((item, index) => (
+                        <PaginationItem key={`${item}-${index}`}>
+                          {item === "ellipsis" ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              href="#"
+                              isActive={currentPage === item}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCurrentPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (currentPage < totalPages) {
+                              setCurrentPage(currentPage + 1);
+                            }
+                          }}
+                          className={
+                            currentPage >= totalPages
+                              ? "pointer-events-none opacity-50"
+                              : ""
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="flex min-h-[350px] flex-col items-center justify-center border border-gray-100 bg-white p-10">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50">

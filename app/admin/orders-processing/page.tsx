@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Search,
   Settings,
@@ -10,7 +10,6 @@ import {
   PackageCheck,
   Package,
   Printer,
-  RefreshCw,
   CheckCircle2,
   Truck,
 } from "lucide-react";
@@ -26,8 +25,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { orderService } from "@/app/services/order.service";
+import {
+  getReplenishmentResultMessage,
+  orderService,
+} from "@/app/services/order.service";
 import { BranchOrder } from "@/app/types/order.types";
+import { formatDate, getCurrentMonthDateTimeRange } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -83,9 +86,13 @@ export default function OrderManagementPage() {
   const searchParams = useSearchParams();
   const { user, isLoadingAuth, warehouseId } = useAuthStore();
   const canUseBranchOrders = canUseBranchOrderRoutes(user, warehouseId);
+  const defaultMonthRange = useMemo(() => getCurrentMonthDateTimeRange(), []);
 
   const [activeTab, setActiveTab] = useState<string>(DEFAULT_TAB);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState(defaultMonthRange.start);
+  const [endDateFilter, setEndDateFilter] = useState(defaultMonthRange.end);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [orders, setOrders] = useState<BranchOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,14 +100,24 @@ export default function OrderManagementPage() {
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
 
   const fetchOrders = useCallback(
-    async (status: string, keyword?: string) => {
+    async (
+      status: string,
+      keyword?: string,
+      startDate?: string,
+      endDate?: string,
+    ) => {
       if (!canUseBranchOrders) {
         return;
       }
 
       setIsLoading(true);
       try {
-        const data = await orderService.getBranchOrders(status, keyword || undefined);
+        const data = await orderService.getBranchOrders(
+          status,
+          keyword || undefined,
+          startDate,
+          endDate,
+        );
         setOrders(data);
       } catch {
         toast.error("Không thể tải danh sách đơn hàng chi nhánh.");
@@ -110,6 +127,14 @@ export default function OrderManagementPage() {
     },
     [canUseBranchOrders],
   );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     if (isLoadingAuth) {
@@ -132,12 +157,21 @@ export default function OrderManagementPage() {
       return;
     }
 
-    fetchOrders(activeTab, search);
-  }, [activeTab, canUseBranchOrders, fetchOrders, isLoadingAuth]);
+    void fetchOrders(activeTab, search, startDateFilter, endDateFilter);
+  }, [
+    activeTab,
+    canUseBranchOrders,
+    endDateFilter,
+    fetchOrders,
+    isLoadingAuth,
+    search,
+    startDateFilter,
+  ]);
 
   const changeTab = (tabId: string) => {
     setActiveTab(tabId);
     setExpandedId(null);
+    setSearchInput("");
     setSearch("");
     router.replace(`/admin/orders-processing?status=${tabId}`);
   };
@@ -197,15 +231,25 @@ export default function OrderManagementPage() {
 
     try {
       const response = await orderService.requestBranchOrderReplenishment(order.orderId);
-      const transferSummary = response.transferCodes?.length
-        ? ` (${response.transferCodes.join(", ")})`
-        : "";
-      toast.success(`Đã tạo lệnh điều chuyển cho ${order.orderCode}${transferSummary}`);
-      fetchOrders(activeTab, search);
+      toast.success(getReplenishmentResultMessage(order.orderCode, response));
+      void fetchOrders(activeTab, search, startDateFilter, endDateFilter);
     } catch {
-      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
+      toast.error("Không thể xử lý yêu cầu bổ sung.");
     }
   };
+
+  const resetFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setStartDateFilter(defaultMonthRange.start);
+    setEndDateFilter(defaultMonthRange.end);
+  };
+
+  const hasActiveFilters = Boolean(
+    searchInput.trim() ||
+      startDateFilter !== defaultMonthRange.start ||
+      endDateFilter !== defaultMonthRange.end,
+  );
 
   const openHandoverCreate = (event: React.MouseEvent, subOrderId: number) => {
     event.stopPropagation();
@@ -214,19 +258,13 @@ export default function OrderManagementPage() {
 
   return (
     <div className="min-h-screen space-y-4 bg-slate-50 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[18px] font-bold uppercase tracking-wide text-slate-800">
-          Điều hành đơn hàng chi nhánh{" "}
-          <span className="text-[15px] font-normal text-slate-500">({orders.length} đơn)</span>
+      <div className="mt-2 space-y-1 px-1">
+        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+          Điều hành đơn hàng chi nhánh
         </h1>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-[32px] border-slate-300 bg-white text-[12px] text-slate-600 hover:bg-slate-50"
-          onClick={() => fetchOrders(activeTab, search)}
-        >
-          <RefreshCw size={13} className="mr-1.5" /> Làm mới
-        </Button>
+        <p className="text-[13px] text-slate-500">
+          Theo dõi các đơn đang xử lý tại chi nhánh hiện tại ({orders.length} đơn).
+        </p>
       </div>
 
       <div className="flex w-fit rounded-lg border border-[#dcdcdc] bg-white p-1 shadow-sm">
@@ -251,19 +289,48 @@ export default function OrderManagementPage() {
       </div>
 
       <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <Input
-            placeholder="Tìm theo mã đơn hoặc tên khách hàng, nhấn Enter để tìm"
-            className="h-[36px] border-slate-300 bg-white pl-9 text-[13px] focus:border-emerald-500 focus:ring-emerald-500"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                fetchOrders(activeTab, search);
-              }
-            }}
-          />
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+            <div className="relative w-full md:w-[360px]">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                size={16}
+              />
+              <Input
+                placeholder="Tìm theo mã đơn hoặc tên khách hàng..."
+                className="h-[36px] border-slate-300 bg-white pl-9 text-[13px] focus:border-emerald-500 focus:ring-emerald-500"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+            </div>
+
+            <Input
+              type="datetime-local"
+              step={60}
+              value={startDateFilter}
+              onChange={(event) => setStartDateFilter(event.target.value)}
+              className="h-[36px] w-full border-slate-300 bg-white text-[13px] focus:border-emerald-500 focus:ring-emerald-500 md:w-[220px]"
+            />
+
+            <Input
+              type="datetime-local"
+              step={60}
+              value={endDateFilter}
+              onChange={(event) => setEndDateFilter(event.target.value)}
+              className="h-[36px] w-full border-slate-300 bg-white text-[13px] focus:border-emerald-500 focus:ring-emerald-500 md:w-[220px]"
+            />
+          </div>
+
+          {hasActiveFilters ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[36px] rounded-[4px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-slate-50"
+              onClick={resetFilters}
+            >
+              Xóa bộ lọc
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -275,11 +342,21 @@ export default function OrderManagementPage() {
                 <TableHead className="w-[45px] pl-4">
                   <Settings size={14} className="text-slate-400" />
                 </TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Mã đơn hàng</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Ngày đặt</TableHead>
-                <TableHead className="text-[12px] font-bold text-slate-800">Khách hàng</TableHead>
-                <TableHead className="text-right text-[12px] font-bold text-slate-800">Tiền hàng</TableHead>
-                <TableHead className="text-right text-[12px] font-bold text-slate-800">Phí ship</TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800">
+                  Mã đơn hàng
+                </TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800">
+                  Ngày đặt
+                </TableHead>
+                <TableHead className="text-[12px] font-bold text-slate-800">
+                  Khách hàng
+                </TableHead>
+                <TableHead className="text-right text-[12px] font-bold text-slate-800">
+                  Tiền hàng
+                </TableHead>
+                <TableHead className="text-right text-[12px] font-bold text-slate-800">
+                  Phí ship
+                </TableHead>
                 <TableHead className="text-center text-[12px] font-bold text-slate-800">
                   Thanh toán
                 </TableHead>
@@ -309,7 +386,9 @@ export default function OrderManagementPage() {
                   const detail = detailCache[order.orderId];
                   const isLoadingDetail = loadingDetailId === order.orderId;
                   const hasMissingItems =
-                    (detail?.items ?? order.items).some((item) => (item.missingQuantity ?? 0) > 0);
+                    (detail?.items ?? order.items).some(
+                      (item) => (item.missingQuantity ?? 0) > 0,
+                    );
 
                   return (
                     <React.Fragment key={order.orderId}>
@@ -328,17 +407,21 @@ export default function OrderManagementPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <span className="text-[13px] font-bold text-blue-600">{order.orderCode}</span>
+                          <span className="text-[13px] font-bold text-blue-600">
+                            {order.orderCode}
+                          </span>
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-[13px] text-slate-700">
-                          {new Date(order.createdAt).toLocaleString("vi-VN")}
+                          {formatDate(order.createdAt, "dd/MM/yyyy HH:mm")}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
                             <span className="text-[13px] font-medium text-slate-800">
                               {order.customerName}
                             </span>
-                            <span className="text-[11px] text-slate-400">{order.customerPhone}</span>
+                            <span className="text-[11px] text-slate-400">
+                              {order.customerPhone}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right text-[13px] font-bold text-slate-800">
@@ -383,7 +466,7 @@ export default function OrderManagementPage() {
                                       Dự kiến giao
                                     </h3>
                                     <p className="text-[13px] font-medium text-slate-700">
-                                      {new Date(order.estimatedDays).toLocaleDateString("vi-VN")}
+                                      {formatDate(order.estimatedDays, "dd/MM/yyyy")}
                                     </p>
                                   </div>
                                 )}
@@ -410,8 +493,7 @@ export default function OrderManagementPage() {
                                       className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
-                                      <PackageCheck size={15} className="mr-1.5" />
-                                      Xin lệnh điều chuyển
+                                      Xin điều chuyển
                                     </Button>
                                   ) : activeTab === "PENDING" ? (
                                     <Button
@@ -428,8 +510,7 @@ export default function OrderManagementPage() {
                                       className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
                                       onClick={(event) => handleRequestReplenishment(event, order)}
                                     >
-                                      <PackageCheck size={15} className="mr-1.5" />
-                                      Xin lệnh điều chuyển
+                                      Xin điều chuyển
                                     </Button>
                                   ) : activeTab === "CONFIRMED" ? (
                                     <Button
@@ -474,8 +555,8 @@ export default function OrderManagementPage() {
 
                                 {hasMissingItems && (
                                   <div className="mb-4 rounded-[4px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] text-amber-800">
-                                    Đơn này đang có phần hàng thiếu. Hệ thống sẽ điều chuyển hoặc gom nội bộ trước khi
-                                    chuyển sang bước bàn giao vận chuyển.
+                                    Đơn này đang có phần hàng thiếu. Hệ thống sẽ điều chuyển hoặc gom nội bộ
+                                    trước khi chuyển sang bước bàn giao vận chuyển.
                                   </div>
                                 )}
 
@@ -585,7 +666,7 @@ function PaymentBadge({ status }: { status: string }) {
 
   return (
     <span className={cn("rounded-full border px-2.5 py-0.5 text-[10px] uppercase", styles)}>
-      ● {status === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
+      • {status === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}
     </span>
   );
 }

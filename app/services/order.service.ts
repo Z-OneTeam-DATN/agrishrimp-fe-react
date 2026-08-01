@@ -46,12 +46,122 @@ export interface CheckoutPayload {
   paymentMethod: string; // ✅ THÊM DÒNG NÀY ĐỂ CHỌN PT THANH TOÁN
 }
 
-interface PageResponse<T> {
+export interface PageResponse<T> {
   content: T[];
-  totalPages?: number;
-  number?: number;
-  last?: boolean;
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
 }
+
+export interface ReplenishmentRequestResult {
+  message: string;
+  transferCodes: string[];
+  purchaseRequestCodes: string[];
+}
+
+export interface AdminOrderSummaryResponse {
+  totalOrders: number;
+  shortageOrders: number;
+  unpaidOrders: number;
+  totalValue: number;
+}
+
+export const getReplenishmentResultMessage = (
+  orderCode: string,
+  result: ReplenishmentRequestResult,
+) => {
+  const details: string[] = [];
+
+  if (result.transferCodes?.length) {
+    details.push(`Phiếu điều chuyển: ${result.transferCodes.join(", ")}`);
+  }
+
+  if (result.purchaseRequestCodes?.length) {
+    details.push(`Yêu cầu mua: ${result.purchaseRequestCodes.join(", ")}`);
+  }
+
+  return details.length > 0
+    ? `Đã xử lý bổ sung cho ${orderCode}. ${details.join(". ")}.`
+    : `Đã ghi nhận yêu cầu bổ sung cho ${orderCode}.`;
+};
+
+export type AdminOrderListParams = {
+  status?: string;
+  search?: string;
+  paymentStatus?: "PAID" | "UNPAID";
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  size?: number;
+};
+
+const normalizeDateFilterParam = (
+  value: string | undefined,
+  boundary: "start" | "end",
+) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+    return `${trimmed}:${boundary === "start" ? "00" : "59"}`;
+  }
+
+  return trimmed;
+};
+
+const buildAdminOrderListQueryParams = ({
+  status,
+  search,
+  paymentStatus,
+  startDate,
+  endDate,
+  page,
+  size,
+}: AdminOrderListParams = {}) => {
+  const params: Record<string, string | number> = {};
+
+  if (typeof page === "number") {
+    params.page = page;
+  }
+
+  if (typeof size === "number") {
+    params.size = size;
+  }
+
+  if (status && status !== "ALL") {
+    params.status = status;
+  }
+
+  if (search) {
+    params.search = search;
+  }
+
+  if (paymentStatus) {
+    params.paymentStatus = paymentStatus;
+  }
+
+  const normalizedStartDate = normalizeDateFilterParam(startDate, "start");
+  const normalizedEndDate = normalizeDateFilterParam(endDate, "end");
+
+  if (normalizedStartDate) {
+    params.startDate = normalizedStartDate;
+  }
+
+  if (normalizedEndDate) {
+    params.endDate = normalizedEndDate;
+  }
+
+  return params;
+};
 
 export const orderService = {
   PREFIX: "/orders",
@@ -163,44 +273,42 @@ export const orderService = {
 
   // 6. LẤY TOÀN BỘ ĐƠN HÀNG (ADMIN)
   // Endpoint: GET /api/admin/all?status=...&search=...
-  getAdminOrders: async (
-    status?: string,
-    search?: string,
-  ): Promise<MyOrder[]> => {
-    const pageSize = 100;
-    const params: Record<string, string | number> = {
-      page: 0,
-      size: pageSize,
-    };
-    if (status && status !== "ALL") params.status = status;
-    if (search) params.search = search;
+  getAdminOrders: async ({
+    status,
+    search,
+    paymentStatus,
+    startDate,
+    endDate,
+    page = 0,
+    size = 20,
+  }: AdminOrderListParams = {}): Promise<PageResponse<MyOrder>> => {
+    const params = buildAdminOrderListQueryParams({
+      status,
+      search,
+      paymentStatus,
+      startDate,
+      endDate,
+      page,
+      size,
+    });
 
-    const orders: MyOrder[] = [];
-    let page = 0;
+    const response = await apiJava.get<PageResponse<MyOrder>>("/admin/all", {
+      params,
+    });
+    return response.data;
+  },
 
-    while (true) {
-      const response = await apiJava.get<PageResponse<MyOrder>>("/admin/all", {
-        params: {
-          ...params,
-          page,
-        },
-      });
+  getAdminOrderSummary: async (
+    params: AdminOrderListParams = {},
+  ): Promise<AdminOrderSummaryResponse> => {
+    const response = await apiJava.get<AdminOrderSummaryResponse>(
+      "/admin/all/summary",
+      {
+        params: buildAdminOrderListQueryParams(params),
+      },
+    );
 
-      const responseData = response.data;
-      orders.push(...(responseData.content ?? []));
-
-      if (
-        responseData.last === true ||
-        responseData.content?.length === 0 ||
-        (responseData.totalPages != null && page + 1 >= responseData.totalPages)
-      ) {
-        break;
-      }
-
-      page += 1;
-    }
-
-    return orders;
+    return response.data;
   },
 
   // 7. LẤY CHI TIẾT ĐƠN HÀNG (ADMIN VIEW)
@@ -236,7 +344,7 @@ export const orderService = {
 
   requestAdminOrderReplenishment: async (
     orderId: number | string,
-  ): Promise<{ message: string; transferCodes: string[] }> => {
+  ): Promise<ReplenishmentRequestResult> => {
     const response = await apiJava.post(
       `/admin/${orderId}/request-replenishment`,
     );
@@ -258,10 +366,16 @@ export const orderService = {
   getBranchOrders: async (
     status?: string,
     search?: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<BranchOrder[]> => {
     const params: any = {};
     if (status && status !== "ALL") params.status = status;
     if (search) params.search = search;
+    const normalizedStartDate = normalizeDateFilterParam(startDate, "start");
+    const normalizedEndDate = normalizeDateFilterParam(endDate, "end");
+    if (normalizedStartDate) params.startDate = normalizedStartDate;
+    if (normalizedEndDate) params.endDate = normalizedEndDate;
     const response = await apiJava.get<BranchOrder[]>("/branch/orders", {
       params,
     });
@@ -296,7 +410,7 @@ export const orderService = {
 
   requestBranchOrderReplenishment: async (
     orderId: number | string,
-  ): Promise<{ message: string; transferCodes: string[] }> => {
+  ): Promise<ReplenishmentRequestResult> => {
     const response = await apiJava.post(
       `/branch/orders/${orderId}/request-replenishment`,
     );

@@ -5,17 +5,32 @@ import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   ChevronsRight,
   Package,
+  Search,
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
-import { orderService } from "@/app/services/order.service";
+import {
+  getReplenishmentResultMessage,
+  orderService,
+  type AdminOrderSummaryResponse,
+  type PageResponse,
+} from "@/app/services/order.service";
 import { MyOrder, OrderStatus } from "@/app/types/order.types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -29,7 +44,7 @@ import {
   ADMIN_ORDER_STATUS_PAGES,
   AdminOrderPageStatus,
 } from "@/lib/admin-order-status-pages";
-import { formatDate } from "@/lib/dateUtils";
+import { formatDate, getCurrentMonthDateTimeRange } from "@/lib/dateUtils";
 import { P } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/roles";
 import { getOrderListPath } from "@/lib/order-routing";
@@ -44,9 +59,7 @@ import {
   hasOrderShortage,
   InventoryStatusBadge,
   canRequestReplenishmentAction,
-  matchesAdminOrderStatusFilter,
   OrderWorkflowBadge,
-  PaymentStatusBadge,
 } from "./OrderStateBadges";
 
 type AdminOrderListPageProps = {
@@ -57,7 +70,8 @@ type AdminOrderListPageProps = {
 type PaymentFilter = "ALL" | "PAID" | "UNPAID";
 type StatusFilter = "ALL" | OrderStatus;
 
-const TABLE_COL_SPAN = 11;
+const TABLE_COL_SPAN = 10;
+const PAGE_SIZE = 20;
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -74,22 +88,6 @@ const ORDER_STATUS_FILTER_OPTIONS: Array<{ label: string; value: StatusFilter }>
   { label: "Trả hàng", value: "RETURNED" },
 ];
 
-const normalizeText = (value: string | null | undefined) =>
-  (value || "").trim().toLowerCase();
-
-const getDateValueTimestamp = (value: string, endOfDay = false) => {
-  if (!value) {
-    return null;
-  }
-
-  const normalizedValue = endOfDay
-    ? `${value}T23:59:59.999`
-    : `${value}T00:00:00.000`;
-  const timestamp = new Date(normalizedValue).getTime();
-
-  return Number.isNaN(timestamp) ? null : timestamp;
-};
-
 export default function AdminOrderListPage({
   title,
   fixedStatus,
@@ -97,14 +95,20 @@ export default function AdminOrderListPage({
   const router = useRouter();
   const { hasPermission, isLoadingAuth } = usePermissions();
   const { user } = useAuthStore();
+  const defaultMonthRange = useMemo(() => getCurrentMonthDateTimeRange(), []);
 
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
-  const [startDateFilter, setStartDateFilter] = useState("");
-  const [endDateFilter, setEndDateFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState(defaultMonthRange.start);
+  const [endDateFilter, setEndDateFilter] = useState(defaultMonthRange.end);
+  const [currentPage, setCurrentPage] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [orders, setOrders] = useState<MyOrder[]>([]);
+  const [ordersPage, setOrdersPage] = useState<PageResponse<MyOrder> | null>(null);
+  const [orderSummary, setOrderSummary] =
+    useState<AdminOrderSummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [detailCache, setDetailCache] = useState<Record<number, MyOrder>>({});
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
@@ -129,6 +133,36 @@ export default function AdminOrderListPage({
     }
   }, [fixedStatus, hasPermission, isAdmin, isLoadingAuth, router, user]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [fixedStatus, search, statusFilter, paymentFilter, startDateFilter, endDateFilter]);
+
+  const adminOrderFilters = useMemo(
+    () => ({
+      status: fixedStatus ?? (statusFilter === "ALL" ? undefined : statusFilter),
+      search: search || undefined,
+      paymentStatus: paymentFilter === "ALL" ? undefined : paymentFilter,
+      startDate: startDateFilter || undefined,
+      endDate: endDateFilter || undefined,
+    }),
+    [
+      endDateFilter,
+      fixedStatus,
+      paymentFilter,
+      search,
+      startDateFilter,
+      statusFilter,
+    ],
+  );
+
   const fetchOrders = useCallback(async () => {
     if (!isAdmin) {
       return;
@@ -137,15 +171,27 @@ export default function AdminOrderListPage({
     setIsLoading(true);
     setExpandedId(null);
     try {
-      const data = await orderService.getAdminOrders(fixedStatus);
-      setOrders(data);
+      const [data, summary] = await Promise.all([
+        orderService.getAdminOrders({
+          ...adminOrderFilters,
+          page: currentPage,
+          size: PAGE_SIZE,
+        }),
+        isAllOrdersPage
+          ? orderService.getAdminOrderSummary(adminOrderFilters)
+          : Promise.resolve(null),
+      ]);
+      setOrdersPage(data);
+      setOrders(data.content ?? []);
+      setOrderSummary(summary);
       setSelectedItems([]);
     } catch {
+      setOrderSummary(null);
       toast.error("Không thể tải danh sách đơn hàng toàn hệ thống.");
     } finally {
       setIsLoading(false);
     }
-  }, [fixedStatus, isAdmin]);
+  }, [adminOrderFilters, currentPage, isAdmin, isAllOrdersPage]);
 
   useEffect(() => {
     if (isLoadingAuth || !isAdmin) {
@@ -155,76 +201,40 @@ export default function AdminOrderListPage({
     void fetchOrders();
   }, [fetchOrders, isAdmin, isLoadingAuth]);
 
-  const filteredOrders = useMemo(() => {
-    const normalizedKeyword = normalizeText(search);
-    const startTimestamp = getDateValueTimestamp(startDateFilter);
-    const endTimestamp = getDateValueTimestamp(endDateFilter, true);
-
-    return orders.filter((order) => {
-      const matchesKeyword =
-        !normalizedKeyword ||
-        normalizeText(getOrderCode(order)).includes(normalizedKeyword) ||
-        normalizeText(order.customerName).includes(normalizedKeyword) ||
-        normalizeText(order.customerPhone).includes(normalizedKeyword);
-
-      const matchesStatus =
-        !isAllOrdersPage ||
-        statusFilter === "ALL" ||
-        matchesAdminOrderStatusFilter(order.status, statusFilter);
-
-      const matchesPayment =
-        paymentFilter === "ALL" || order.paymentStatus === paymentFilter;
-
-      const createdAtTimestamp = new Date(order.createdAt).getTime();
-      const hasValidCreatedAt = !Number.isNaN(createdAtTimestamp);
-      const matchesStartDate =
-        !startTimestamp ||
-        (hasValidCreatedAt && createdAtTimestamp >= startTimestamp);
-      const matchesEndDate =
-        !endTimestamp || (hasValidCreatedAt && createdAtTimestamp <= endTimestamp);
-
-      return (
-        matchesKeyword &&
-        matchesStatus &&
-        matchesPayment &&
-        matchesStartDate &&
-        matchesEndDate
-      );
-    });
-  }, [
-    endDateFilter,
-    isAllOrdersPage,
-    orders,
-    paymentFilter,
-    search,
-    startDateFilter,
-    statusFilter,
-  ]);
-
-  const shortageCount = useMemo(
-    () => filteredOrders.filter(hasOrderShortage).length,
-    [filteredOrders],
+  const pageShortageCount = useMemo(
+    () => orders.filter(hasOrderShortage).length,
+    [orders],
   );
 
-  const unpaidCount = useMemo(
-    () => filteredOrders.filter((order) => order.paymentStatus !== "PAID").length,
-    [filteredOrders],
+  const pageUnpaidCount = useMemo(
+    () => orders.filter((order) => order.paymentStatus !== "PAID").length,
+    [orders],
   );
 
-  const totalFilteredValue = useMemo(
+  const pageTotalValue = useMemo(
     () =>
-      filteredOrders.reduce(
+      orders.reduce(
         (sum, order) => sum + Number(order.finalAmount ?? order.totalAmount ?? 0),
         0,
       ),
-    [filteredOrders],
+    [orders],
   );
 
   useEffect(() => {
     setSelectedItems((prev) =>
-      prev.filter((id) => filteredOrders.some((order) => order.id === id)),
+      prev.filter((id) => orders.some((order) => order.id === id)),
     );
-  }, [filteredOrders]);
+  }, [orders]);
+
+  useEffect(() => {
+    if (!ordersPage) {
+      return;
+    }
+
+    if (ordersPage.totalPages > 0 && currentPage >= ordersPage.totalPages) {
+      setCurrentPage(ordersPage.totalPages - 1);
+    }
+  }, [currentPage, ordersPage]);
 
   const handleToggleRow = async (orderId: number) => {
     if (expandedId === orderId) {
@@ -256,13 +266,10 @@ export default function AdminOrderListPage({
 
     try {
       const response = await orderService.requestAdminOrderReplenishment(orderId);
-      const transferSummary = response.transferCodes?.length
-        ? ` (${response.transferCodes.join(", ")})`
-        : "";
-      toast.success(`Đã gửi xin lệnh điều chuyển cho ${orderCode}${transferSummary}`);
+      toast.success(getReplenishmentResultMessage(orderCode, response));
       await fetchOrders();
     } catch {
-      toast.error("Không thể tạo lệnh điều chuyển bổ sung.");
+      toast.error("Không thể xử lý yêu cầu bổ sung.");
     }
   };
 
@@ -291,9 +298,9 @@ export default function AdminOrderListPage({
 
   const toggleSelectAll = () => {
     setSelectedItems((prev) =>
-      prev.length === filteredOrders.length
+      prev.length === orders.length
         ? []
-        : filteredOrders.map((order) => order.id),
+        : orders.map((order) => order.id),
     );
   };
 
@@ -304,133 +311,181 @@ export default function AdminOrderListPage({
   };
 
   const resetFilters = () => {
+    setSearchInput("");
     setSearch("");
     setStatusFilter("ALL");
     setPaymentFilter("ALL");
-    setStartDateFilter("");
-    setEndDateFilter("");
+    setStartDateFilter(defaultMonthRange.start);
+    setEndDateFilter(defaultMonthRange.end);
   };
 
+  const totalOrders =
+    orderSummary?.totalOrders ?? ordersPage?.totalElements ?? 0;
+  const shortageCount =
+    orderSummary?.shortageOrders ?? pageShortageCount;
+  const unpaidCount =
+    orderSummary?.unpaidOrders ?? pageUnpaidCount;
+  const totalFilteredValue =
+    orderSummary?.totalValue ?? pageTotalValue;
+  const totalPages = Math.max(ordersPage?.totalPages ?? 0, 1);
+  const hasActiveFilters = Boolean(
+    searchInput.trim() ||
+      paymentFilter !== "ALL" ||
+      startDateFilter !== defaultMonthRange.start ||
+      endDateFilter !== defaultMonthRange.end ||
+      (isAllOrdersPage && statusFilter !== "ALL"),
+  );
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Tổng đơn",
+        value: totalOrders.toLocaleString("vi-VN"),
+        note: "Số đơn khớp với bộ lọc hiện tại",
+      },
+      {
+        label: "Thiếu hàng",
+        value: shortageCount.toLocaleString("vi-VN"),
+        note: "Đơn thiếu hàng khớp với bộ lọc hiện tại",
+      },
+      {
+        label: "Chưa thanh toán",
+        value: unpaidCount.toLocaleString("vi-VN"),
+        note: "Đơn chưa thanh toán khớp với bộ lọc hiện tại",
+      },
+      {
+        label: "Giá trị lọc",
+        value: formatCurrency(totalFilteredValue),
+        note: "Tổng giá trị đơn khớp với bộ lọc hiện tại",
+      },
+    ],
+    [shortageCount, totalFilteredValue, totalOrders, unpaidCount],
+  );
+  const visibleFrom = totalOrders === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const visibleTo =
+    totalOrders === 0 ? 0 : currentPage * PAGE_SIZE + orders.length;
+  const hasPreviousPage = currentPage > 0;
+  const hasNextPage = currentPage + 1 < totalPages;
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-[22px] font-bold text-slate-900">{title}</h1>
-            <p className="mt-1 text-[13px] text-slate-500">
-              Quản lý theo đơn hàng, giao hàng, thanh toán và tình trạng thiếu
-              hàng trên cùng một màn hình.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-[12px]">
-            <div className="rounded-full border border-blue-600 bg-blue-600 px-3 py-1.5 font-semibold text-white">
-              Hiển thị {filteredOrders.length} đơn
-            </div>
-            <div className="rounded-full border border-blue-200 bg-white px-3 py-1.5 font-semibold text-blue-700">
-              Thiếu hàng {shortageCount}
-            </div>
-            <div className="rounded-full border border-blue-200 bg-white px-3 py-1.5 font-semibold text-blue-700">
-              Chưa thanh toán {unpaidCount}
-            </div>
-            <div className="rounded-full border border-blue-200 bg-white px-3 py-1.5 font-semibold text-blue-700">
-              Tổng giá trị {formatCurrency(totalFilteredValue)}
-            </div>
-          </div>
-        </div>
+    <div className="space-y-3 pb-[100px] text-slate-800">
+      <div className="mt-2 space-y-1 px-1">
+        <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+          {title}
+        </h1>
+        <p className="text-[13px] text-slate-500">
+          Quản lý theo đơn hàng, giao hàng, thanh toán và tình trạng thiếu hàng
+          trên cùng một màn hình.
+        </p>
       </div>
 
-      <div className="rounded-[4px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
-          <div className="space-y-1 xl:col-span-4">
-            <p className="text-[12px] font-semibold text-slate-600">
-              Tìm kiếm đơn hàng
-            </p>
+      <div className="flex flex-col gap-2 xl:flex-row xl:flex-nowrap xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:min-w-0 xl:flex-nowrap">
+          <div className="relative w-full sm:w-[300px] xl:w-[280px]">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+            />
             <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Tìm mã đơn, tên khách hàng, số điện thoại..."
-              className="h-10 border-slate-200 bg-white text-[13px] focus-visible:ring-blue-500"
+              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
             />
           </div>
 
           {isAllOrdersPage ? (
-            <div className="space-y-1 xl:col-span-2">
-              <p className="text-[12px] font-semibold text-slate-600">
-                Trạng thái đơn
-              </p>
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as StatusFilter)
-                }
-                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
-              >
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+            >
+              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[170px] xl:w-[165px]">
+                <SelectValue placeholder="Tất cả trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
                 {ORDER_STATUS_FILTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="text-[13px]"
+                  >
                     {option.label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
           ) : null}
 
-          <div className="space-y-1 xl:col-span-2">
-            <p className="text-[12px] font-semibold text-slate-600">
-              Thanh toán
-            </p>
-            <select
-              value={paymentFilter}
-              onChange={(event) =>
-                setPaymentFilter(event.target.value as PaymentFilter)
-              }
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+          <Select
+            value={paymentFilter}
+            onValueChange={(value) => setPaymentFilter(value as PaymentFilter)}
+          >
+            <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] font-medium text-slate-600 shadow-none focus:ring-0 sm:w-[170px] xl:w-[165px]">
+              <SelectValue placeholder="Tất cả thanh toán" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL" className="text-[13px]">
+                Tất cả thanh toán
+              </SelectItem>
+              <SelectItem value="PAID" className="text-[13px]">
+                Đã thanh toán
+              </SelectItem>
+              <SelectItem value="UNPAID" className="text-[13px]">
+                Chưa thanh toán
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Input
+            type="datetime-local"
+            step={60}
+            value={startDateFilter}
+            onChange={(event) => setStartDateFilter(event.target.value)}
+            className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[200px] xl:w-[190px]"
+          />
+
+          <Input
+            type="datetime-local"
+            step={60}
+            value={endDateFilter}
+            onChange={(event) => setEndDateFilter(event.target.value)}
+            className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[200px] xl:w-[190px]"
+          />
+        </div>
+
+        {hasActiveFilters ? (
+          <div className="flex flex-wrap justify-end gap-2 xl:shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[38px] rounded-[4px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-slate-50"
+              onClick={resetFilters}
             >
-              <option value="ALL">Tất cả thanh toán</option>
-              <option value="PAID">Đã thanh toán</option>
-              <option value="UNPAID">Chưa thanh toán</option>
-            </select>
+              Xóa bộ lọc
+            </Button>
           </div>
-
-          <div className="space-y-1 xl:col-span-2">
-            <p className="text-[12px] font-semibold text-slate-600">Từ ngày</p>
-            <Input
-              type="date"
-              value={startDateFilter}
-              onChange={(event) => setStartDateFilter(event.target.value)}
-              className="h-10 border-slate-200 bg-white text-[13px] focus-visible:ring-blue-500"
-            />
-          </div>
-
-          <div className="space-y-1 xl:col-span-2">
-            <p className="text-[12px] font-semibold text-slate-600">Đến ngày</p>
-            <Input
-              type="date"
-              value={endDateFilter}
-              onChange={(event) => setEndDateFilter(event.target.value)}
-              className="h-10 border-slate-200 bg-white text-[13px] focus-visible:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="border-slate-200"
-            onClick={resetFilters}
-          >
-            Xóa bộ lọc
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-slate-200"
-            onClick={() => void fetchOrders()}
-          >
-            Làm mới danh sách
-          </Button>
-        </div>
+        ) : null}
       </div>
+
+      {isAllOrdersPage ? (
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => (
+            <div
+              key={card.label}
+              className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm"
+            >
+              <p className="text-[11px] font-semibold text-slate-400">
+                {card.label}
+              </p>
+              <p className="mt-1 truncate text-[18px] font-semibold leading-6 text-slate-900">
+                {card.value}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                {card.note}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-[4px] border border-slate-200 bg-white shadow-sm">
         <div className="w-full overflow-x-auto">
@@ -444,35 +499,32 @@ export default function AdminOrderListPage({
                   <Checkbox
                     className="border-slate-300 data-[state=checked]:bg-blue-600"
                     checked={
-                      filteredOrders.length > 0 &&
-                      selectedItems.length === filteredOrders.length
+                      orders.length > 0 &&
+                      selectedItems.length === orders.length
                     }
                     onCheckedChange={() => toggleSelectAll()}
                   />
                 </TableHead>
                 <TableHead className="text-[12px] font-bold text-slate-800">
-                  Mã đơn hàng
+                  Mã đơn
                 </TableHead>
                 <TableHead className="text-[12px] font-bold text-slate-800">
                   Khách hàng
                 </TableHead>
                 <TableHead className="text-[12px] font-bold text-slate-800">
-                  Thời gian đặt
+                  Thời gian
                 </TableHead>
                 <TableHead className="text-right text-[12px] font-bold text-slate-800">
                   Tổng tiền
                 </TableHead>
                 <TableHead className="text-[12px] font-bold text-slate-800">
-                  Chi nhánh phụ trách
+                  Chi nhánh
                 </TableHead>
                 <TableHead className="text-center text-[12px] font-bold text-slate-800">
-                  Tình trạng hàng
+                  Tình trạng
                 </TableHead>
                 <TableHead className="text-center text-[12px] font-bold text-slate-800">
-                  Thanh toán
-                </TableHead>
-                <TableHead className="text-center text-[12px] font-bold text-slate-800">
-                  Trạng thái đơn
+                  Trạng thái
                 </TableHead>
                 <TableHead className="text-center text-[12px] font-bold text-slate-800">
                   Thao tác
@@ -489,7 +541,7 @@ export default function AdminOrderListPage({
                     Đang tải dữ liệu...
                   </TableCell>
                 </TableRow>
-              ) : filteredOrders.length === 0 ? (
+              ) : orders.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={TABLE_COL_SPAN}
@@ -499,7 +551,7 @@ export default function AdminOrderListPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOrders.map((order) => {
+                orders.map((order) => {
                   const orderId = order.id;
                   const orderCode = getOrderCode(order);
                   const isExpanded = expandedId === orderId;
@@ -570,12 +622,6 @@ export default function AdminOrderListPage({
                           <InventoryStatusBadge order={order} variant="monochrome" />
                         </TableCell>
                         <TableCell className="text-center">
-                          <PaymentStatusBadge
-                            status={order.paymentStatus}
-                            variant="monochrome"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
                           <OrderWorkflowBadge
                             status={order.status}
                             variant="monochrome"
@@ -586,18 +632,10 @@ export default function AdminOrderListPage({
                           onClick={(event) => event.stopPropagation()}
                         >
                           <div className="flex flex-col items-center gap-2">
-                            <Button
-                              asChild
-                              size="sm"
-                              variant="outline"
-                              className="h-8 border-slate-200 text-[12px]"
-                            >
-                              <Link href={`/admin/orders/${order.id}`}>Chi tiết</Link>
-                            </Button>
                             {nextAction ? (
                               <Button
                                 size="sm"
-                                className="h-8 bg-blue-600 text-[12px] hover:bg-blue-700"
+                                className="h-8 w-[124px] justify-center bg-blue-600 text-[12px] hover:bg-blue-700"
                                 disabled={advancingOrderId === orderId}
                                 onClick={(event) => void handleAdvanceStatus(event, orderDetail)}
                               >
@@ -606,7 +644,7 @@ export default function AdminOrderListPage({
                             ) : allowReplenishment ? (
                               <Button
                                 size="sm"
-                                className="h-8 bg-rose-600 text-[12px] hover:bg-rose-700"
+                                className="h-8 w-[124px] justify-center bg-rose-600 text-[12px] hover:bg-rose-700"
                                 onClick={(event) =>
                                   void handleRequestReplenishment(
                                     event,
@@ -615,8 +653,7 @@ export default function AdminOrderListPage({
                                   )
                                 }
                               >
-                                <Package className="mr-1 h-3.5 w-3.5" />
-                                Xin lệnh điều chuyển
+                                Xin điều chuyển
                               </Button>
                             ) : null}
                           </div>
@@ -871,6 +908,37 @@ export default function AdminOrderListPage({
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-[13px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            Hiển thị {visibleFrom}-{visibleTo} / {totalOrders} đơn hàng
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-slate-200"
+              disabled={!hasPreviousPage || isLoading}
+              onClick={() => setCurrentPage((page) => Math.max(0, page - 1))}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Trước
+            </Button>
+            <div className="min-w-[92px] text-center font-medium text-slate-700">
+              Trang {totalOrders === 0 ? 0 : currentPage + 1}/{totalPages}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-slate-200"
+              disabled={!hasNextPage || isLoading}
+              onClick={() => setCurrentPage((page) => page + 1)}
+            >
+              Sau
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

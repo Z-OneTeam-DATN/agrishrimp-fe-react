@@ -2,7 +2,6 @@ import { OrderStatus } from "@/app/types/order.types";
 
 export type UserOrderStage =
   | "PENDING"
-  | "AWAITING_REPLENISHMENT"
   | "READY_FOR_PICKUP"
   | "SHIPPING"
   | "COMPLETED"
@@ -14,7 +13,6 @@ export type UserOrderFilter = "ALL" | UserOrderStage;
 export const USER_ORDER_TABS: Array<{ label: string; value: UserOrderFilter }> = [
   { label: "Tất cả", value: "ALL" },
   { label: "Chờ xác nhận", value: "PENDING" },
-  { label: "Chờ điều chuyển", value: "AWAITING_REPLENISHMENT" },
   { label: "Chờ lấy hàng", value: "READY_FOR_PICKUP" },
   { label: "Chờ giao hàng", value: "SHIPPING" },
   { label: "Đã giao", value: "COMPLETED" },
@@ -58,7 +56,10 @@ export function getUserOrderStage(status: OrderStatus): UserOrderStage {
   return "CANCELLED";
 }
 
-export function matchesUserOrderFilter(status: OrderStatus, filter: UserOrderFilter): boolean {
+export function matchesUserOrderFilter(
+  status: OrderStatus,
+  filter: UserOrderFilter,
+): boolean {
   if (filter === "ALL") {
     return true;
   }
@@ -66,7 +67,9 @@ export function matchesUserOrderFilter(status: OrderStatus, filter: UserOrderFil
   return getUserOrderStage(status) === filter;
 }
 
-export function normalizeUserOrderFilter(value?: string | null): UserOrderFilter {
+export function normalizeUserOrderFilter(
+  value?: string | null,
+): UserOrderFilter {
   if (!value || value === "ALL") {
     return "ALL";
   }

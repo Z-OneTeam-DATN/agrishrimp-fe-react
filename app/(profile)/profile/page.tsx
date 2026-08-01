@@ -55,15 +55,6 @@ const orderQuickLinks: Array<{
     hoverClassName: "group-hover:text-[#2d9f8d]",
   },
   {
-    key: "AWAITING_REPLENISHMENT",
-    label: "Chờ điều chuyển",
-    href: "/orders/list?status=AWAITING_REPLENISHMENT",
-    icon: Package,
-    iconWrapClassName: "bg-amber-50",
-    iconClassName: "text-amber-600",
-    hoverClassName: "group-hover:text-amber-600",
-  },
-  {
     key: "READY_FOR_PICKUP",
     label: "Chờ lấy hàng",
     href: "/orders/list?status=READY_FOR_PICKUP",
@@ -116,7 +107,6 @@ export default function ProfilePage() {
   const [addressCount, setAddressCount] = useState(0);
   const [orderCounts, setOrderCounts] = useState<Record<UserOrderStage, number>>({
     PENDING: 0,
-    AWAITING_REPLENISHMENT: 0,
     READY_FOR_PICKUP: 0,
     SHIPPING: 0,
     COMPLETED: 0,
@@ -149,7 +139,6 @@ export default function ProfilePage() {
         const orders = await orderService.getMyOrders("ALL");
         const counts: Record<UserOrderStage, number> = {
           PENDING: 0,
-          AWAITING_REPLENISHMENT: 0,
           READY_FOR_PICKUP: 0,
           SHIPPING: 0,
           COMPLETED: 0,
@@ -206,7 +195,7 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {orderQuickLinks.map((item) => {
             const Icon = item.icon;
             const count = orderCounts[item.key];

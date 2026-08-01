@@ -46,10 +46,24 @@ export const OrderSchema = z.object({
 
 export type Order = z.infer<typeof OrderSchema>;
 
+export const CancelReasonCodeEnum = z.enum([
+  "CHANGE_PRODUCT",
+  "CHANGE_ADDRESS",
+  "FOUND_CHEAPER",
+  "OTHER",
+]);
+
 export const CancelReasonSchema = z.object({
-  orderId: z.string(),
-  reasonCode: z.string().min(1, { message: "Vui long chon ly do huy" }),
+  reasonCode: CancelReasonCodeEnum,
   otherReasonText: z.string().optional().nullable(),
+}).superRefine((value, ctx) => {
+  if (value.reasonCode === "OTHER" && !value.otherReasonText?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["otherReasonText"],
+      message: "Vui long nhap ly do huy chi tiet",
+    });
+  }
 });
 
 export type CancelReasonFormValues = z.infer<typeof CancelReasonSchema>;

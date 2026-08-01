@@ -16,7 +16,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
-import { orderService } from "@/app/services/order.service";
+import {
+  getReplenishmentResultMessage,
+  orderService,
+} from "@/app/services/order.service";
 import { MyOrder } from "@/app/types/order.types";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -130,15 +133,10 @@ export default function AdminOrderDetailView({
     try {
       setIsSubmitting("replenishment");
       const response = await orderService.requestAdminOrderReplenishment(order.id);
-      const transferSummary = response.transferCodes?.length
-        ? ` (${response.transferCodes.join(", ")})`
-        : "";
-      toast.success(
-        `Đã tạo lệnh điều chuyển cho ${getOrderCode(order)}${transferSummary}`,
-      );
+      toast.success(getReplenishmentResultMessage(getOrderCode(order), response));
       await fetchOrder();
     } catch {
-      toast.error("Không thể tạo lệnh điều chuyển bổ sung cho đơn hàng.");
+      toast.error("Không thể xử lý yêu cầu bổ sung cho đơn hàng.");
     } finally {
       setIsSubmitting(null);
     }
@@ -356,6 +354,15 @@ export default function AdminOrderDetailView({
               <p className="text-[12px] font-semibold text-slate-700">Ghi chú</p>
               <p className="mt-1 text-[13px] leading-6 text-slate-600">
                 {order.note}
+              </p>
+            </div>
+          ) : null}
+
+          {order.cancelReasonDisplay ? (
+            <div className="mt-4 rounded-[4px] border border-rose-200 bg-rose-50 p-3">
+              <p className="text-[12px] font-semibold text-rose-700">LĂ½ do há»§y</p>
+              <p className="mt-1 text-[13px] leading-6 text-rose-700">
+                {order.cancelReasonDisplay}
               </p>
             </div>
           ) : null}

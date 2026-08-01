@@ -5,7 +5,12 @@ import { toast } from "sonner"
 import { useLocationStore } from "@/stores/locationStore"
 import { resolveUserLocation, getGPSLocation } from "@/app/services/locationService"
 
-export function useUserLocation() {
+type UseUserLocationOptions = {
+  showIpFallbackToast?: boolean
+}
+
+export function useUserLocation(options: UseUserLocationOptions = {}) {
+  const { showIpFallbackToast = true } = options
   const { userLocation, isLocating, locationError, setLocation, startLocating, setError } =
     useLocationStore()
 
@@ -14,13 +19,13 @@ export function useUserLocation() {
     try {
       const location = await resolveUserLocation()
       setLocation(location)
-      if (location.source === "ip") {
+      if (showIpFallbackToast && location.source === "ip") {
         toast.warning("Đang dùng vị trí ước tính từ IP. Cho phép GPS để có kết quả chính xác hơn.")
       }
     } catch (err: any) {
       setError(err.message ?? "Không thể xác định vị trí")
     }
-  }, [startLocating, setLocation, setError])
+  }, [showIpFallbackToast, startLocating, setLocation, setError])
 
   /** Thử lại bằng GPS (user tự kích hoạt) */
   const refetch = useCallback(async () => {
