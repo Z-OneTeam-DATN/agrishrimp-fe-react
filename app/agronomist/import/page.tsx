@@ -34,6 +34,10 @@ import type {
 
 type ImportMode = "UPSERT_NEW" | "OVERWRITE";
 
+// Khớp với spring.servlet.multipart.max-file-size ở application.yml (10MB) — chặn sớm ở FE để
+// không mất công tải cả file lớn lên rồi mới bị BE trả lỗi (đặc biệt chậm với mạng yếu).
+const MAX_IMPORT_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
 export default function AgronomistImportPage() {
   return (
     <PermissionGuard permission={P.AI_IMPORT_KNOWLEDGE}>
@@ -69,7 +73,7 @@ function AgronomistImportContent() {
     onSuccess: (data) => {
       setPreview(data);
       toast.success(`Đã import ${data.validRows} dòng hợp lệ.`);
-      router.push("/agronomist");
+      router.push("/agronomist/diseases");
     },
     onError: (error: unknown) =>
       toast.error(getErrorMessage(error) || "Không thể xác nhận import."),
@@ -112,8 +116,19 @@ function AgronomistImportContent() {
                 accept=".xlsx,.xls"
                 className="hidden"
                 onChange={(event) => {
-                  setFile(event.target.files?.[0] ?? null);
+                  const selected = event.target.files?.[0] ?? null;
                   setPreview(null);
+
+                  if (selected && selected.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+                    toast.error(
+                      `File "${selected.name}" nặng ${(selected.size / (1024 * 1024)).toFixed(1)}MB, vượt quá giới hạn 10MB. Vui lòng chọn file nhỏ hơn.`,
+                    );
+                    setFile(null);
+                    event.target.value = "";
+                    return;
+                  }
+
+                  setFile(selected);
                 }}
               />
             </div>
@@ -165,7 +180,7 @@ function AgronomistImportContent() {
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#dcdfe8] bg-white px-6 py-4 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] lg:left-[260px]">
           <div className="ml-auto flex max-w-[420px] items-center justify-end gap-4">
             <Link
-              href="/agronomist"
+              href="/agronomist/diseases"
               className="inline-flex h-[38px] items-center px-4 text-[14px] font-semibold text-[#d2453f]"
             >
               Hủy import

@@ -352,7 +352,7 @@ export default function AdminTopHeader() {
             variant="outline"
             className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
           >
-            <Link href="/agronomist">Qua AI Doctor</Link>
+            <Link href="/agronomist/diseases">Qua AI Doctor</Link>
           </Button>
         ) : null}
 
