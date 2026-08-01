@@ -61,6 +61,7 @@ const ADMIN_ORDER_STATUS_ROUTE_LABELS = Object.fromEntries(
 
 const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin": "Trang chủ",
+  "/admin/activity-logs": "Nhật ký hoạt động",
   "/admin/employees": "Quản lý nhân sự",
   "/admin/employees/add": "Thêm nhân sự",
   "/admin/employees/edit": "Chỉnh sửa nhân sự",

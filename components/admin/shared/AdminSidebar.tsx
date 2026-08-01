@@ -29,6 +29,7 @@ import {
   MessageCircle,
   Stethoscope,
   MessageSquareText,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -152,10 +153,6 @@ export default function AdminSidebar() {
       orderListBasePath === "/admin/orders-processing") ||
     (pathname.startsWith("/admin/orders-all") &&
       orderListBasePath === "/admin/orders-all");
-  const canViewSystemSection = hasAnyPermission([
-    P.DASHBOARD_VIEW,
-    P.REPORT_FINANCE_VIEW,
-  ]);
   const canViewAdminSection = hasAnyPermission([
     P.STAFF_VIEW,
     P.BRANCH_VIEW,
@@ -187,6 +184,37 @@ export default function AdminSidebar() {
     P.SUPPLIER_VIEW,
   ]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
+  const canViewActivityLogs = hasAnyPermission([
+    P.DASHBOARD_VIEW,
+    P.STAFF_VIEW,
+    P.BRANCH_VIEW,
+    P.ROLE_VIEW,
+    P.ORDER_VIEW,
+    P.PURCHASE_REQUEST_VIEW,
+    P.PURCHASE_REQUEST_CREATE,
+    P.PURCHASE_REQUEST_UPDATE,
+    P.PURCHASE_REQUEST_APPROVE,
+    P.IMPORT_VIEW,
+    P.IMPORT_CREATE,
+    P.IMPORT_APPROVE,
+    P.EXPORT_VIEW,
+    P.EXPORT_CREATE,
+    P.EXPORT_APPROVE,
+    P.TRANSFER_VIEW,
+    P.TRANSFER_CREATE,
+    P.TRANSFER_APPROVE,
+    P.CHECK_VIEW,
+    P.CHECK_CREATE,
+    P.CHECK_APPROVE,
+    P.SUPPLIER_VIEW,
+    P.SUPPLIER_CREATE,
+    P.SUPPLIER_UPDATE,
+    P.SUPPLIER_DELETE,
+  ]);
+  const canViewSystemSection = canViewActivityLogs || hasAnyPermission([
+    P.DASHBOARD_VIEW,
+    P.REPORT_FINANCE_VIEW,
+  ]);
   const canViewSettings = hasPermission(P.SETTING_VIEW) || hasPermission(P.DRIVER_VIEW) || isAdmin;
   const canAccessOrderManagement =
     hasPermission(P.ORDER_VIEW) || isBranchScopedOrderUser;
@@ -615,6 +643,15 @@ export default function AdminSidebar() {
                   label="Tổng quan tài chính"
                   active={pathname.startsWith("/admin/financial")}
                   color="text-emerald-400"
+                />
+              )}
+              {canViewActivityLogs && (
+                <SidebarLink
+                  href="/admin/activity-logs"
+                  icon={History}
+                  label="Nhật ký hoạt động"
+                  active={isActive("/admin/activity-logs")}
+                  color="text-amber-400"
                 />
               )}
             </div>
