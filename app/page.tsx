@@ -74,7 +74,8 @@ export default async function Home() {
       return acc;
     }, {}),
   ).sort((a, b) => {
-    const logoPriority = Number(Boolean(b.logoUrl)) - Number(Boolean(a.logoUrl));
+    const logoPriority =
+      Number(Boolean(b.logoUrl)) - Number(Boolean(a.logoUrl));
     if (logoPriority !== 0) {
       return logoPriority;
     }
@@ -109,7 +110,7 @@ export default async function Home() {
         <div className="mt-4 w-full">
           <div className={HOME_CONTENT_CONTAINER_CLASS}>
             <div className="w-full overflow-hidden border-y border-gray-200 bg-white px-4 pb-0.5 pt-1 md:px-6 md:pb-1 md:pt-1.5 lg:px-8">
-              <p className="mb-0.5 text-center text-[10px] font-bold uppercase leading-none tracking-widest text-gray-400">
+              <p className="mb-0.5 text-center text-[11px] font-semibold leading-none text-gray-400">
                 Đơn vị đồng hành cùng chúng tôi
               </p>
 
@@ -129,7 +130,7 @@ export default async function Home() {
                         className="h-20 w-auto object-contain md:h-24"
                       />
                     ) : (
-                      <span className="whitespace-nowrap text-[24px] font-extrabold uppercase tracking-tight text-gray-700 md:text-[32px]">
+                      <span className="whitespace-nowrap text-[24px] font-extrabold tracking-normal text-gray-700 md:text-[32px]">
                         {brand.name}
                       </span>
                     )}
@@ -148,7 +149,8 @@ export default async function Home() {
               {showcaseCategories.map((category) => {
                 const style = CATEGORY_SHOWCASE_STYLE;
                 const imageSrc =
-                  resolveCategoryImage(category.imageUrl) ?? CATEGORY_FALLBACK_IMAGE;
+                  resolveCategoryImage(category.imageUrl) ??
+                  CATEGORY_FALLBACK_IMAGE;
 
                 return (
                   <Link
@@ -160,11 +162,14 @@ export default async function Home() {
                       className={`border-x-[6px] border-t-[6px] ${style.frameClass} bg-white px-2 pt-2.5 shadow-sm transition-transform duration-300 group-hover:-translate-y-1 sm:px-3 sm:pt-3 md:border-x-[8px] md:border-t-[8px] md:px-4 md:pt-4`}
                     >
                       <div className="flex aspect-square items-center justify-center overflow-hidden bg-white md:aspect-[1.18/0.86]">
-                        <CategoryShowcaseImage src={imageSrc} alt={category.name} />
+                        <CategoryShowcaseImage
+                          src={imageSrc}
+                          alt={category.name}
+                        />
                       </div>
                     </div>
                     <div
-                      className={`relative z-10 -mt-2 flex min-h-[42px] items-center justify-center rounded-[10px] border bg-white px-2 py-2 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight shadow-sm transition-colors sm:px-3 sm:text-[11px] md:min-h-[48px] md:py-2 md:text-[12px] ${style.buttonClass}`}
+                      className={`relative z-10 -mt-2 flex min-h-[42px] items-center justify-center rounded-[10px] border bg-white px-2 py-2 text-center text-[11px] font-bold leading-tight tracking-normal shadow-sm transition-colors sm:px-3 sm:text-[12px] md:min-h-[48px] md:py-2 md:text-[13px] ${style.buttonClass}`}
                     >
                       {category.name}
                     </div>

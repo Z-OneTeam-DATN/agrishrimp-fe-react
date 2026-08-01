@@ -39,7 +39,7 @@ export default function HomeFeaturedProductsSection({
       });
 
       setAllProducts((prev) => [...prev, ...(data.content ?? [])]);
-      setHasMore((next + 1) < data.totalPages);
+      setHasMore(next + 1 < data.totalPages);
       setProductPage(next);
     } finally {
       setLoadingMore(false);
@@ -59,7 +59,7 @@ export default function HomeFeaturedProductsSection({
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="h-5 w-1 shrink-0 rounded-full bg-primary" />
-          <span className="text-[17px] font-black uppercase tracking-wide text-gray-900">
+          <span className="text-[18px] font-extrabold leading-tight tracking-normal text-gray-900">
             Sản phẩm nổi bật
           </span>
         </div>
@@ -92,8 +92,8 @@ export default function HomeFeaturedProductsSection({
                       Bo cuc 5 san pham moi hang
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Desktop hien thi 1 banner dung va 10 san pham dau tien theo
-                      dung bo cuc 2 hang x 5 cot.
+                      Desktop hien thi 1 banner dung va 10 san pham dau tien
+                      theo dung bo cuc 2 hang x 5 cot.
                     </p>
                   </div>
                 </div>
