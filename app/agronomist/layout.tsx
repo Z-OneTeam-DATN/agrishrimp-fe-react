@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Clock,
+  FileSpreadsheet,
   FlaskConical,
   Loader2,
   NotebookPen,
@@ -21,32 +22,63 @@ import { setLastWorkspace } from "@/lib/workspace-permissions";
 
 const AGRONOMIST_NAV_ITEMS = [
   {
+    href: "/agronomist",
+    label: "Tri thức chatbot",
+    icon: NotebookPen,
+    permissions: [
+      P.AI_KNOWLEDGE_VIEW,
+      P.AI_KNOWLEDGE_CREATE,
+      P.AI_KNOWLEDGE_UPDATE,
+    ],
+    exact: true,
+  },
+  {
     href: "/agronomist/categories",
     label: "Quản lý danh mục",
     icon: Tags,
     permissions: [P.AI_KNOWLEDGE_VIEW],
+    exact: false,
   },
   {
     href: "/agronomist/diseases",
     label: "Quản lý phác đồ",
     icon: NotebookPen,
-    permissions: [P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_CREATE, P.AI_KNOWLEDGE_UPDATE, P.AI_IMPORT_KNOWLEDGE],
+    permissions: [
+      P.AI_KNOWLEDGE_VIEW,
+      P.AI_KNOWLEDGE_CREATE,
+      P.AI_KNOWLEDGE_UPDATE,
+      P.AI_IMPORT_KNOWLEDGE,
+    ],
+    exact: false,
   },
   {
     href: "/agronomist/review",
-    label: "Case cần duyệt",
+    label: "Câu hỏi chưa đáp",
     icon: Stethoscope,
     permissions: [P.AI_CASE_REVIEW],
+    exact: false,
+  },
+  {
+    href: "/agronomist/import",
+    label: "Import Excel",
+    icon: FileSpreadsheet,
+    permissions: [P.AI_IMPORT_KNOWLEDGE],
+    exact: false,
   },
   {
     href: "/agronomist/tester",
     label: "Chat thử nghiệm",
     icon: FlaskConical,
     permissions: [P.AI_KNOWLEDGE_APPROVE],
+    exact: false,
   },
 ] as const;
 
-export default function AgronomistLayout({ children }: { children: React.ReactNode }) {
+export default function AgronomistLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const { isLoadingAuth, user } = useAuthStore();
   const { hasPermission } = usePermissions();
@@ -101,7 +133,7 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#252896]" />
       </div>
     );
   }
@@ -117,8 +149,11 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
             Bạn chưa được cấp quyền vào workspace kỹ sư nông nghiệp
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Hãy gán quyền <span className="font-semibold text-slate-700">AGRONOMIST_WORKSPACE_USE</span>
-            {" "}cho tài khoản này để quản lý tri thức AI Doctor.
+            Hãy gán quyền{" "}
+            <span className="font-semibold text-slate-700">
+              AGRONOMIST_WORKSPACE_USE
+            </span>{" "}
+            cho tài khoản này để quản lý tri thức AI Doctor.
           </p>
         </div>
       </div>
@@ -126,12 +161,12 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       <div className="flex min-h-screen">
         <aside className="sticky top-0 z-30 flex h-screen w-[260px] shrink-0 flex-col border-r border-slate-200 bg-white text-slate-600">
           <div className="mb-4 flex h-[64px] items-center px-7">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm">
                 <img
                   src="/images/logo_arishrimp.jpg"
                   alt="AgriShrimp Logo"
@@ -140,7 +175,7 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
               </div>
               <div className="flex flex-col">
                 <h1 className="text-[18px] font-black uppercase leading-none tracking-[0.15em] text-slate-900">
-                  AGRI<span className="text-blue-600">SHRIMP</span>
+                  AGRI<span className="text-[#252896]">SHRIMP</span>
                 </h1>
                 <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-400">
                   AI Doctor
@@ -150,9 +185,14 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
           </div>
 
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-4 no-scrollbar">
-            {AGRONOMIST_NAV_ITEMS.filter((item) => item.permissions.some(hasPermission)).map((item) => {
+            {AGRONOMIST_NAV_ITEMS.filter((item) =>
+              item.permissions.some(hasPermission),
+            ).map((item) => {
               const Icon = item.icon;
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const active = item.exact
+                ? pathname === item.href
+                : pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
@@ -160,22 +200,28 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                   className={cn(
                     "group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-all duration-200",
                     active
-                      ? "bg-blue-50 text-blue-700"
+                      ? "bg-[#eef0ff] text-[#252896]"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                   )}
                 >
                   {active && (
-                    <div className="absolute left-0 h-4 w-1 rounded-r-full bg-blue-500" />
+                    <div className="absolute left-0 h-4 w-1 rounded-r-full bg-[#252896]" />
                   )}
                   <div
                     className={cn(
                       "rounded-md p-1 transition-colors",
-                      active ? "bg-blue-100" : "bg-transparent group-hover:bg-slate-100",
+                      active
+                        ? "bg-[#dfe4ff]"
+                        : "bg-transparent group-hover:bg-slate-100",
                     )}
                   >
                     <Icon
                       size={16}
-                      className={cn(active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")}
+                      className={cn(
+                        active
+                          ? "text-[#252896]"
+                          : "text-slate-400 group-hover:text-slate-600",
+                      )}
                     />
                   </div>
                   <span className="truncate">{item.label}</span>
@@ -194,7 +240,9 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                   {formattedTime}
                 </span>
                 <div className="mx-1 h-3 w-[1px] bg-slate-200" />
-                <span className="text-[12px] font-medium text-slate-500">{formattedDate}</span>
+                <span className="text-[12px] font-medium text-slate-500">
+                  {formattedDate}
+                </span>
               </div>
             </div>
 
@@ -208,15 +256,19 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                 </p>
               </div>
               <Avatar className="h-11 w-11 border-2 border-white shadow-md ring-1 ring-slate-100">
-                <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={displayName} className="object-cover" />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-[14px] font-bold text-white">
+                <AvatarImage
+                  src={user?.avatar?.imageUrl ?? ""}
+                  alt={displayName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-[#252896] text-[14px] font-bold text-white">
                   {avatarFallback}
                 </AvatarFallback>
               </Avatar>
             </div>
           </header>
 
-          <main className="p-6">{children}</main>
+          <main className="bg-white p-5 lg:p-6">{children}</main>
         </div>
       </div>
     </div>
