@@ -97,6 +97,7 @@ export default function LayoutClient({
   const isAdminPage = pathname?.startsWith("/admin");
   const isAdvisorPage = pathname?.startsWith("/advisor");
   const isChatPage = pathname?.startsWith("/chat");
+  const isAgronomistPage = pathname?.startsWith("/agronomist");
   const isAiDoctorPage = pathname === "/ai-doctor";
   const isHideLayout =
     isAdminPage || isAdvisorPage || isChatPage || isAuthPage || isAiDoctorPage;
@@ -385,7 +386,7 @@ export default function LayoutClient({
                   <div id="site-breadcrumb-slot" />
                 </div>
                 <main className="flex-1 pb-[60px] md:pb-0">{children}</main>
-                <Footer />
+                {isAgronomistPage ? null : <Footer />}
                 <ChatWidget />
               </div>
             )}
