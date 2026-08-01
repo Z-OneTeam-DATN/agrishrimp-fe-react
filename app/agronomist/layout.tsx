@@ -7,6 +7,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 import { setLastWorkspace } from "@/lib/workspace-permissions";
+import { AgronomistSidebar } from "@/components/agronomist/AgronomistSidebar";
 
 export default function AgronomistLayout({
   children,
@@ -65,8 +66,9 @@ export default function AgronomistLayout({
 
   return (
     <section className="bg-[#f7f8fb] py-5 sm:py-6 lg:py-7">
-      <div className="mx-auto w-full max-w-[1460px] px-4 sm:px-6 lg:px-8">
-        {children}
+      <div className="mx-auto flex w-full max-w-[1460px] flex-col gap-5 px-4 sm:px-6 lg:flex-row lg:px-8">
+        <AgronomistSidebar />
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
     </section>
   );
