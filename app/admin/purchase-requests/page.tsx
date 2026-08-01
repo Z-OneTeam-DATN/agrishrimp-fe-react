@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, Plus, Search, Eye } from "lucide-react";
+import { Calendar, Loader2, Plus, Search, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
+import { isAdminRole } from "@/lib/roles";
+import { cn, formatDateTimeVN } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
 import {
   AlertDialog,
@@ -20,10 +21,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
 import { PR_STATUS_LABEL } from "@/app/types/purchase.schema";
 import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -53,7 +62,77 @@ function formatCurrency(amount: number) {
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("vi-VN");
+  return formatDateTimeVN(dateStr);
+}
+
+function formatDateFilterValue(value: string) {
+  const [year, month, day] = value.split("-");
+  const numericDay = Number(day);
+
+  if (!year || !month || !day || Number.isNaN(numericDay)) {
+    return "";
+  }
+
+  return `${numericDay}/${month}/${year}`;
+}
+
+function DateFilterField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const openPicker = () => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.focus();
+  };
+
+  return (
+    <div className="w-full sm:w-[160px]">
+      <label
+        htmlFor={id}
+        className="mb-1 block text-[10.5px] font-semibold leading-none text-slate-500"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={openPicker}
+          className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 pr-9 text-left text-[13px] text-slate-900 shadow-none outline-none transition-colors hover:border-blue-200 focus-visible:border-blue-300"
+        >
+          {formatDateFilterValue(value) || "d/MM/yyyy"}
+        </button>
+        <Calendar
+          size={15}
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+        />
+        <input
+          ref={inputRef}
+          id={id}
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-y-0 right-0 h-[38px] w-10 cursor-pointer opacity-0"
+          aria-label={label}
+        />
+      </div>
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,11 +141,13 @@ export default function PurchaseRequestListPage() {
   const { hasPermission, hasAnyPermission } = usePermissions();
   const accessToken = useAuthStore((state) => state.accessToken);
   const isLoadingAuth = useAuthStore((state) => state.isLoadingAuth);
+  const user = useAuthStore((state) => state.user);
   const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [data, setData]           = useState<PurchaseRequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch]       = useState("");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
   const [toDate, setToDate] = useState(defaultDateRange.toDate);
   const [cancelTarget, setCancelTarget] = useState<PurchaseRequestResponse | null>(null);
@@ -74,6 +155,8 @@ export default function PurchaseRequestListPage() {
   const PAGE_SIZE = 20;
   const canAccessPurchaseRequests = hasAnyPermission(PURCHASE_REQUEST_PERMISSIONS);
   const canCreatePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_CREATE);
+  const canApprovePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_APPROVE);
+  const canFilterBranches = canApprovePurchaseRequest && isAdminRole(user?.role);
 
   const fetchAll = async () => {
     if (!accessToken) {
@@ -104,7 +187,23 @@ export default function PurchaseRequestListPage() {
 
     void fetchAll();
   }, [accessToken, canAccessPurchaseRequests, isLoadingAuth]);
-  useEffect(() => { setCurrentPage(1); }, [activeTab, search, fromDate, toDate]);
+  useEffect(() => { setCurrentPage(1); }, [activeTab, search, selectedBranch, fromDate, toDate]);
+
+  const branchOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    data.forEach((pr) => {
+      const label = pr.branchName?.trim();
+      const value = pr.branchId != null ? String(pr.branchId) : label;
+      if (label && value) {
+        map.set(value, label);
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "vi"));
+  }, [data]);
 
   const baseFiltered = useMemo(() => {
     return data.filter((pr) => {
@@ -117,9 +216,13 @@ export default function PurchaseRequestListPage() {
         ) return false;
       }
       if (!isDateInRange(pr.createdAt, fromDate, toDate)) return false;
+      if (canFilterBranches && selectedBranch !== "all") {
+        const branchValue = pr.branchId != null ? String(pr.branchId) : pr.branchName?.trim();
+        if (branchValue !== selectedBranch) return false;
+      }
       return true;
     });
-  }, [data, search, fromDate, toDate]);
+  }, [data, search, selectedBranch, fromDate, toDate, canFilterBranches]);
 
   const filtered = useMemo(() => {
     return baseFiltered.filter((pr) => {
@@ -205,18 +308,30 @@ export default function PurchaseRequestListPage() {
                   className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white pl-10 pr-3 text-[13px] shadow-none outline-none focus:border-blue-300"
                 />
               </div>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
+              <AdminDateRangeFilters
+                idPrefix="purchase-request"
+                fromDate={fromDate}
+                toDate={toDate}
+                onFromDateChange={setFromDate}
+                onToDateChange={setToDate}
               />
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="h-[38px] w-full rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] shadow-none outline-none focus:border-blue-300 sm:w-[150px]"
-              />
+              {canFilterBranches && branchOptions.length > 0 && (
+                <div className="w-full sm:w-[180px]">
+                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger className="h-[38px] rounded-[4px] border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                      <SelectValue placeholder="Chọn chi nhánh" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Chọn chi nhánh</SelectItem>
+                      {branchOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             {canCreatePurchaseRequest && (
               <Link href="/admin/purchase-requests/new" className="shrink-0">
@@ -322,9 +437,10 @@ export default function PurchaseRequestListPage() {
               <table className="w-full min-w-[960px] table-fixed text-[11.5px]">
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
-                    <th className="w-[16%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Mã phiếu</th>
-                    <th className="w-[26%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Nhà cung cấp</th>
-                    <th className="w-[18%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Chi nhánh</th>
+                    <th className="w-[5%] px-4 py-3 text-center text-[10.5px] font-medium text-slate-500">STT</th>
+                    <th className="w-[15%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Mã phiếu</th>
+                    <th className="w-[24%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Nhà cung cấp</th>
+                    <th className="w-[16%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Chi nhánh</th>
                     <th className="w-[13%] px-4 py-3 text-left text-[10.5px] font-medium text-slate-500">Trạng thái</th>
                     <th className="w-[12%] px-4 py-3 text-right text-[10.5px] font-medium text-slate-500">Tổng tiền</th>
                     <th className="w-[7%] px-4 py-3 text-center text-[10.5px] font-medium text-slate-500">Đợt nhập</th>
@@ -332,11 +448,14 @@ export default function PurchaseRequestListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayData.map((pr) => (
+                  {displayData.map((pr, index) => (
                     <tr
                       key={pr.id}
                       className="border-b border-slate-100 transition-colors hover:bg-slate-50"
                     >
+                      <td className="px-4 py-3 text-center align-top text-[11.5px] font-medium text-slate-500">
+                        {(currentPage - 1) * PAGE_SIZE + index + 1}
+                      </td>
                       <td className="px-4 py-3 align-top">
                         <div className="text-[12px] font-semibold text-slate-900">
                           {pr.code}

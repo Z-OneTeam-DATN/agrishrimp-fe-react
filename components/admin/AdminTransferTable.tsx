@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { getTransferStatusLabel } from "@/lib/transfer-status";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTimeVN } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface AdminTransferTableProps {
@@ -26,6 +26,7 @@ interface AdminTransferTableProps {
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
   onDelete: (id: string) => void;
+  canDelete?: boolean;
 }
 
 export function AdminTransferTable({
@@ -38,6 +39,7 @@ export function AdminTransferTable({
   selectedIds,
   onSelectionChange,
   onDelete,
+  canDelete = false,
 }: AdminTransferTableProps) {
   const router = useRouter();
 
@@ -122,7 +124,9 @@ export function AdminTransferTable({
             </TableHeader>
             <TableBody>
               {data.map((item, index) => {
-                const canDelete = item.status === "PENDING" || item.status === "DRAFT";
+                const canDeleteRow =
+                  canDelete &&
+                  (item.status === "PENDING" || item.status === "DRAFT");
                 const rowNumber = (currentPage - 1) * pageSize + index + 1;
 
                 return (
@@ -157,7 +161,7 @@ export function AdminTransferTable({
 
                     <TableCell className="px-1.5 py-2">
                       <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
-                        {item.date || new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                        {formatDateTimeVN(item.createdAt)}
                       </span>
                     </TableCell>
 
@@ -211,22 +215,24 @@ export function AdminTransferTable({
                           <Pencil size={13} className="text-slate-400 hover:text-blue-500" />
                         </Button>
 
+                        {canDelete && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className={cn(
                             "h-7 w-7",
-                            !canDelete && "opacity-20 grayscale",
+                            !canDeleteRow && "opacity-20 grayscale",
                           )}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (canDelete) onDelete(item.id);
+                            if (canDeleteRow) onDelete(item.id);
                           }}
-                          disabled={!canDelete}
-                          title={canDelete ? "Xóa phiếu" : "Không thể xóa phiếu đã xử lý"}
+                          disabled={!canDeleteRow}
+                          title={canDeleteRow ? "Xóa phiếu" : "Không thể xóa phiếu đã xử lý"}
                         >
                           <Trash2 size={13} className="text-slate-400 hover:text-rose-500" />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

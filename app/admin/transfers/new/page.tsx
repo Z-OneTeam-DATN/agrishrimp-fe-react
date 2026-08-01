@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { transferService } from "@/app/services/transfer.service";
 import { branchService } from "@/app/services/branchService";
 import { ProductService } from "@/app/services/product.service";
+import { Driver } from "@/app/types/driver.schema";
 import {
   Plus,
   Trash2,
@@ -19,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DriverNameSelect } from "@/components/admin/shared/DriverNameSelect";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -77,6 +79,10 @@ function isWarehouseBranch(branch: any) {
 
 function isSellingBranch(branch: any) {
   return !isSystemDefectBranch(branch) && !isWarehouseBranch(branch);
+}
+
+function getDriverVehicleNumber(driver: Driver | null) {
+  return String(driver?.vehicleNumber || "").trim();
 }
 
 export default function NewTransferPage() {
@@ -777,15 +783,32 @@ export default function NewTransferPage() {
                 <Label className={fieldLabelClass}>
                   Tài xế vận chuyển *
                 </Label>
-                <Input
-                  {...register("transporter")}
-                  className={cn(
-                    fieldControlClass,
-                    errors.transporter
-                      ? "border-rose-500 focus-visible:ring-rose-500"
-                      : "border-slate-200",
+                <Controller
+                  name="transporter"
+                  control={control}
+                  render={({ field }) => (
+                    <DriverNameSelect
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      onDriverChange={(driver) => {
+                        const vehicleNumber = getDriverVehicleNumber(driver);
+                        setValue("vehicle", vehicleNumber, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                        if (driver && !vehicleNumber) {
+                          toast.warning("Tài xế này chưa có biển số xe");
+                        }
+                      }}
+                      placeholder="Chọn tài xế vận chuyển"
+                      triggerClassName={cn(
+                        fieldControlClass,
+                        errors.transporter
+                          ? "border-rose-500 focus-visible:ring-rose-500"
+                          : "border-slate-200",
+                      )}
+                    />
                   )}
-                  placeholder="Họ tên tài xế..."
                 />
                 {errors.transporter && (
                   <p className="mt-1 text-[10px] font-medium text-rose-500">

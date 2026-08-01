@@ -73,6 +73,7 @@ export default function ReceiptDetailPage() {
   const canSeePrice =
     hasPermission(P.IMPORT_VIEW) || hasPermission(P.CHECK_VIEW);
   const canApprove = hasPermission(P.IMPORT_APPROVE);
+  const canUpdateReceipt = hasPermission(P.IMPORT_UPDATE);
   const canCreateReturn = hasPermission(P.EXPORT_CREATE);
   const displayText = (value: unknown) => {
     const text = String(value ?? "").trim();
@@ -322,13 +323,13 @@ export default function ReceiptDetailPage() {
       .join("");
 
     if (!labels) {
-      toast.error("Khong co hang dat QC de in nhan.");
+      toast.error("Không có hàng đạt QC để in nhãn.");
       return;
     }
 
     const printWindow = window.open("", "_blank", "width=900,height=700");
     if (!printWindow) {
-      toast.error("Trinh duyet dang chan cua so in nhan.");
+      toast.error("Trình duyệt đang chặn cửa sổ in nhãn.");
       return;
     }
 
@@ -448,7 +449,7 @@ export default function ReceiptDetailPage() {
             <Printer size={14} className="mr-2" />
             In phiếu
           </Button>
-          {receipt.status === "PENDING" && (
+          {receipt.status === "PENDING" && canUpdateReceipt && (
             <Button
               variant="outline"
               className="h-10 px-3 text-[12px] font-medium"
@@ -508,7 +509,7 @@ export default function ReceiptDetailPage() {
               Xuất trả NCC
             </Button>
           ) : null}
-          {["PENDING", "APPROVED"].includes(receipt.status) ? (
+          {["PENDING", "APPROVED"].includes(receipt.status) && canApprove ? (
             <Button
               onClick={handleCancel}
               disabled={isProcessing}

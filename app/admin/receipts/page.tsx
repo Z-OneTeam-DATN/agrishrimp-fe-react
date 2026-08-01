@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, Plus, RefreshCcw, Search } from "lucide-react";
 import { InventoryReceiptTable } from "@/components/inventory/InventoryReceiptTable";
 import { InventoryApiService } from "@/app/services/inventory.service";
-import { branchService } from "@/app/services/branchService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,13 +28,24 @@ import { toast } from "sonner";
 import type { AxiosError } from "axios";
 import { getErrorMessage } from "@/lib/axios";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { cn, formatNumber } from "@/lib/utils";
 import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const PAGE_SIZE = 20;
 
 export default function AdminReceiptListPage() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const user = useAuthStore((state) => state.user);
+  const canCreateReceipt = hasPermission(P.IMPORT_CREATE);
+  const canApproveReceipt = hasPermission(P.IMPORT_APPROVE);
+  const canDeleteReceipt = hasPermission(P.IMPORT_DELETE);
+  const canFilterBranches = canApproveReceipt && isAdminRole(user?.role);
   const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +55,6 @@ export default function AdminReceiptListPage() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
   const [toDate, setToDate] = useState(defaultDateRange.toDate);
-  const [warehouseOptions, setWarehouseOptions] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchReceipts = async () => {
@@ -68,6 +77,7 @@ export default function AdminReceiptListPage() {
         debt: Number(item.debtAmount ?? ((item.totalAmount || 0) - (item.paymentAmount || 0))) || 0,
         status: String(item.status || "PENDING").toUpperCase(),
         creator: item.creatorName || item.createdByName || item.creator || "Hệ thống",
+        createdAtRaw: item.createdAt || "",
       })));
     } catch {
       toast.error("Không thể tải danh sách phiếu nhập");
@@ -78,23 +88,26 @@ export default function AdminReceiptListPage() {
 
   useEffect(() => {
     void fetchReceipts();
-    void (async () => {
-      try {
-        const data = await branchService.getAll();
-        const list = Array.isArray(data) ? data : data.content || [];
-        setWarehouseOptions(list.map((branch: any) => ({
-          label: branch.name || branch.branchName,
-          value: branch.name || branch.branchName,
-        })));
-      } catch (error) {
-        console.error("Không thể tải danh sách kho", error);
-      }
-    })();
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedWarehouse, selectedStatus, fromDate, toDate]);
+
+  const warehouseOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    receipts.forEach((item) => {
+      const label = String(item.warehouse || "").trim();
+      if (label) {
+        map.set(label, label);
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "vi"));
+  }, [receipts]);
 
   const baseFilteredData = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -102,11 +115,11 @@ export default function AdminReceiptListPage() {
       const matchesKeyword = !keyword
         || item.code.toLowerCase().includes(keyword)
         || item.supplier.toLowerCase().includes(keyword);
-      const matchesWarehouse = selectedWarehouse === "all" || item.warehouse === selectedWarehouse;
-      const matchesDate = isDateInRange(item.dateValue, fromDate, toDate);
+      const matchesWarehouse = !canFilterBranches || selectedWarehouse === "all" || item.warehouse === selectedWarehouse;
+      const matchesDate = isDateInRange(item.createdAtRaw || item.dateValue, fromDate, toDate);
       return matchesKeyword && matchesWarehouse && matchesDate;
     });
-  }, [receipts, searchQuery, selectedWarehouse, fromDate, toDate]);
+  }, [receipts, searchQuery, selectedWarehouse, fromDate, toDate, canFilterBranches]);
 
   const filteredData = useMemo(() => {
     return baseFilteredData.filter((item) => {
@@ -146,7 +159,7 @@ export default function AdminReceiptListPage() {
   const displayData = filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const confirmDelete = async () => {
-    if (!deleteReceipt) return;
+    if (!deleteReceipt || !canDeleteReceipt) return;
     try {
       await InventoryApiService.deleteReceipt(String(deleteReceipt.id));
       toast.success(`Đã xóa phiếu ${deleteReceipt.code}`);
@@ -161,29 +174,57 @@ export default function AdminReceiptListPage() {
   return (
     <div className="space-y-4 px-1 pb-8">
       <div className="mb-8 mt-2 space-y-4">
-        <h1 className="text-[20px] font-semibold uppercase text-slate-900">Quản lý phiếu nhập</h1>
+        <div className="space-y-3">
+          <h1 className="text-[20px] font-semibold uppercase text-slate-900">Quản lý phiếu nhập</h1>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:max-w-[260px]">
-            <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
-              <SelectTrigger className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none">
-                <SelectValue placeholder="Tất cả kho" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả kho</SelectItem>
-                {warehouseOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-[320px]">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Tìm mã phiếu, nhà cung cấp..."
+                  className="h-[38px] border-slate-200 bg-white pl-10 text-[13px] shadow-none"
+                />
+              </div>
+              <AdminDateRangeFilters
+                idPrefix="receipt"
+                fromDate={fromDate}
+                toDate={toDate}
+                onFromDateChange={setFromDate}
+                onToDateChange={setToDate}
+              />
+              {canFilterBranches && warehouseOptions.length > 0 && (
+                <div className="w-full sm:w-[180px]">
+                  <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+                    <SelectTrigger className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none">
+                      <SelectValue placeholder="Chọn chi nhánh" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Chọn chi nhánh</SelectItem>
+                      {warehouseOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <Button type="button" variant="outline" size="icon" className="h-[38px] w-[38px] shrink-0" onClick={() => void fetchReceipts()} disabled={isLoading}>
+                <RefreshCcw size={15} className={isLoading ? "animate-spin" : ""} />
+              </Button>
+            </div>
+
+          {canCreateReceipt && (
           <Button
-            className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700"
+            className="h-[38px] shrink-0 self-end bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700 lg:self-auto"
             onClick={() => router.push("/admin/receipts/select-request")}
           >
             <Plus size={16} className="mr-2" />
             Thêm phiếu nhập
           </Button>
+          )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
@@ -203,7 +244,7 @@ export default function AdminReceiptListPage() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-2">
             {statusTabs.map((tab) => (
               <button
@@ -223,33 +264,6 @@ export default function AdminReceiptListPage() {
                 </span>
               </button>
             ))}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="relative w-full sm:w-[300px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Tìm mã phiếu, nhà cung cấp..."
-              className="h-[38px] border-slate-200 bg-white pl-10 text-[13px] shadow-none"
-            />
-          </div>
-          <Input
-            type="date"
-            value={fromDate}
-            onChange={(event) => setFromDate(event.target.value)}
-            className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none sm:w-[150px]"
-          />
-          <Input
-            type="date"
-            value={toDate}
-            onChange={(event) => setToDate(event.target.value)}
-            className="h-[38px] border-slate-200 bg-white text-[13px] shadow-none sm:w-[150px]"
-          />
-          <Button type="button" variant="outline" size="icon" className="h-[38px] w-[38px]" onClick={() => void fetchReceipts()} disabled={isLoading}>
-            <RefreshCcw size={15} className={isLoading ? "animate-spin" : ""} />
-          </Button>
           </div>
         </div>
       </div>
