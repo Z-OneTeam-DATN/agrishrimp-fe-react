@@ -31,6 +31,7 @@ type RouteRule = {
 const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/forbidden", exact: true },
   { path: "/admin", exact: true, permission: P.DASHBOARD_VIEW },
+  { path: "/admin/activity-logs", anyOf: ADMIN_WORKSPACE_PERMISSIONS as unknown as string[] },
   { path: "/admin/reports/sales", permission: P.REPORT_REVENUE_VIEW },
   { path: "/admin/reports/inventory", permission: P.REPORT_INVENTORY_VIEW },
   { path: "/admin/financial", permission: P.REPORT_FINANCE_VIEW },
