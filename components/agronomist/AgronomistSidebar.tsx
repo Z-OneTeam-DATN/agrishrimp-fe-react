@@ -72,8 +72,8 @@ export function AgronomistSidebar() {
   }
 
   return (
-    <aside className="w-full shrink-0 lg:w-[220px]">
-      <nav className="space-y-0.5 rounded-[8px] border border-[#e1e4ec] bg-white p-2 lg:sticky lg:top-[100px]">
+    <aside className="w-full shrink-0 lg:sticky lg:top-[calc(var(--site-header-height,64px)+24px)] lg:max-h-[calc(100vh-var(--site-header-height,64px)-48px)] lg:w-[220px] lg:self-start lg:overflow-y-auto">
+      <nav className="space-y-0.5 rounded-[8px] border border-[#e1e4ec] bg-white p-2">
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const active = item.exact
