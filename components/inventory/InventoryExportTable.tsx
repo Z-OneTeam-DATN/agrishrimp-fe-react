@@ -14,6 +14,7 @@ import {
 } from "@/lib/utils";
 import { toast } from "sonner";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
+import { getErrorMessage } from "@/lib/axios";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 import {
@@ -69,6 +70,8 @@ export function InventoryExportTable({
   };
 
   const canApprove = hasPermission(P.EXPORT_APPROVE);
+  const canUpdate = hasPermission(P.EXPORT_UPDATE);
+  const canDelete = hasPermission(P.EXPORT_DELETE);
 
   const formatDate = (dateString: string) => {
     return formatDateTimeVN(dateString);
@@ -85,7 +88,7 @@ export function InventoryExportTable({
           toast.success(`Đã duyệt lệnh ${code} thành công!`);
           if (onRefresh) await onRefresh();
         } catch (error: any) {
-          toast.error(error.response?.data?.message || "Lỗi khi duyệt lệnh");
+          toast.error(getErrorMessage(error) || "Lỗi khi duyệt lệnh");
         } finally { setIsProcessing(false); }
       }
     );
@@ -102,7 +105,7 @@ export function InventoryExportTable({
           toast.success(`Đã hoàn tất xuất kho phiếu ${code}!`);
           if (onRefresh) await onRefresh();
         } catch (error: any) {
-          toast.error(error.response?.data?.message || "Lỗi khi chốt xuất kho");
+          toast.error(getErrorMessage(error) || "Lỗi khi chốt xuất kho");
         } finally { setIsProcessing(false); }
       }
     );
@@ -213,7 +216,7 @@ export function InventoryExportTable({
 
                   <TableCell className="px-1.5 py-2 pr-4 text-right">
                     <div className="flex justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                      {status === "PENDING" && (
+                      {status === "PENDING" && canUpdate && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" title="Chỉnh sửa" onClick={(e) => { e.stopPropagation(); router.push(`/admin/exports/new-command?id=${item.id}`); }}>
                           <Pencil size={13} />
                         </Button>
@@ -225,13 +228,13 @@ export function InventoryExportTable({
                         </Button>
                       )}
 
-                      {status === "APPROVED" && (
+                      {status === "APPROVED" && canApprove && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600" title="Hoàn tất" onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.code); }}>
                           <Check size={14} />
                         </Button>
                       )}
 
-                      {status === "PENDING" && (
+                      {status === "PENDING" && canDelete && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" title="Xóa" onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.code); }}>
                           <Trash2 size={13} />
                         </Button>

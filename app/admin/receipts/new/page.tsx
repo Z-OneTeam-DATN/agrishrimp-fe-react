@@ -16,6 +16,7 @@ import {
   FileText,
 } from "lucide-react";
 import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { DriverNameSelect } from "@/components/admin/shared/DriverNameSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -354,7 +355,7 @@ function AdminReceiptFormContent() {
       if (plannedQty < 0 || acceptedQty < 0 || rejectedQty < 0) {
         setError(`items.${index}.quantityAccepted`, {
           type: "manual",
-          message: "So luong giao, dat va loi khong duoc am.",
+          message: "Số lượng giao, đạt và lỗi không được âm.",
         });
         return false;
       }
@@ -981,13 +982,17 @@ function AdminReceiptFormContent() {
             <Label className="mb-2 block text-[10.5px] font-semibold text-slate-500">
               Người giao hàng *
             </Label>
-            <Input
-              {...register("deliverer")}
-              disabled={isInfoReadOnly}
-              placeholder="Nhập tên người giao hàng"
-              className={cn(
-                "h-10 border-slate-200 text-[13px] shadow-none",
-                errors.deliverer && "border-rose-500",
+            <Controller
+              name="deliverer"
+              control={control}
+              render={({ field }) => (
+                <DriverNameSelect
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  disabled={isInfoReadOnly}
+                  placeholder="Chọn tài xế giao hàng"
+                  error={Boolean(errors.deliverer)}
+                />
               )}
             />
             {errors.deliverer && (
@@ -1280,7 +1285,7 @@ function AdminReceiptFormContent() {
                             <div className="mt-2 grid grid-cols-3 gap-2 text-[10.5px] text-slate-500">
                               <span>Còn thiếu {formatNumber(remainingAfterReceipt)}</span>
                               <span>Đã nhận {formatNumber(receivedAfterReceipt)}</span>
-                              <span className="text-right">
+                              <span className="text-left">
                                 Thực nhập kho{" "}
                                 <span className={cn("text-slate-800", hasQuantityMismatch && "text-rose-600")}>
                                   {formatNumber(acceptedQty)}

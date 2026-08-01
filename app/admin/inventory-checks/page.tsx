@@ -10,12 +10,10 @@ import {
   Pencil,
   Trash2,
   Search,
-  FileSpreadsheet,
 } from "lucide-react";
-import { format } from "date-fns";
-import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,11 +42,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { InventoryCheckApiService } from "@/app/services/inventory.service";
-import { ProductService } from "@/app/services/product.service";
-import { branchService } from "@/app/services/branchService";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { cn, formatDateTimeVN } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/axios";
 import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
 
 type InventoryCheckStatus =
@@ -106,28 +105,14 @@ const normalizeText = (value: string | number | null | undefined) =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-const getShortageRows = (products: any[]) =>
-  products.map((product: any, index: number) => {
-    const currentQty = Number(product.quantity || 0);
-    const minThreshold = Number(product.minThreshold || product.minStock || 10);
-    return {
-      stt: index + 1,
-      sku: product.sku || "",
-      name: product.productName || product.name || "",
-      currentQty,
-      minThreshold,
-    };
-  });
-
 export default function InventoryCheckListPage() {
   const router = useRouter();
   const { hasPermission, hasAnyPermission, isLoadingAuth } = usePermissions();
+  const user = useAuthStore((state) => state.user);
   const defaultDateRange = useMemo(() => getCurrentWeekRange(), []);
 
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [inventoryChecks, setInventoryChecks] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
   const [toDate, setToDate] = useState(defaultDateRange.toDate);
@@ -144,20 +129,13 @@ export default function InventoryCheckListPage() {
   const bootstrap = async () => {
     try {
       setLoading(true);
-      const [checksRes, branchesRes] = await Promise.all([
-        InventoryCheckApiService.getAll(),
-        branchService.getAll(),
-      ]);
+      const checksRes = await InventoryCheckApiService.getAll();
 
       const checksList = Array.isArray(checksRes)
         ? checksRes
         : checksRes?.data || checksRes?.content || [];
-      const branchList = Array.isArray(branchesRes)
-        ? branchesRes
-        : branchesRes?.content || [];
 
       setInventoryChecks(checksList);
-      setBranches(branchList);
     } catch (error) {
       console.error(error);
       toast.error("Không thể tải danh sách phiếu kiểm kê");
@@ -174,15 +152,32 @@ export default function InventoryCheckListPage() {
     P.CHECK_CANCEL,
     P.CHECK_DELETE,
   ]);
+  const canFilterBranches = hasPermission(P.CHECK_APPROVE) && isAdminRole(user?.role);
+
+  const branchOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    inventoryChecks.forEach((item: any) => {
+      const label = String(item.branchName || "Kho tổng").trim();
+      const value = item.branchId != null ? String(item.branchId) : label;
+      if (label && value) {
+        map.set(value, label);
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "vi"));
+  }, [inventoryChecks]);
 
   const baseFilteredData = useMemo(() => {
     return inventoryChecks.filter((item: any) => {
-      const branchId = String(item.branchId || "");
       const branchName = normalizeText(item.branchName || "Kho tổng");
+      const branchValue = item.branchId != null ? String(item.branchId) : String(item.branchName || "Kho tổng").trim();
       const q = normalizeText(searchTerm);
       const scopeLabel = normalizeText(getScopeTypeLabel(item.scopeType));
 
-      if (selectedBranchId !== "all" && branchId !== selectedBranchId) return false;
+      if (canFilterBranches && selectedBranchId !== "all" && branchValue !== selectedBranchId) return false;
       if (!isDateInRange(item.createdAt, fromDate, toDate)) return false;
 
       if (!q) return true;
@@ -195,7 +190,7 @@ export default function InventoryCheckListPage() {
         normalizeText(item.createdByName || item.checkedByName).includes(q)
       );
     });
-  }, [inventoryChecks, selectedBranchId, searchTerm, fromDate, toDate]);
+  }, [inventoryChecks, selectedBranchId, searchTerm, fromDate, toDate, canFilterBranches]);
 
   const filteredData = useMemo(() => {
     return baseFilteredData.filter((item: any) => {
@@ -325,87 +320,10 @@ export default function InventoryCheckListPage() {
       );
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message ||
-          "Không thể xóa phiếu kiểm kê này"
+        getErrorMessage(error) || "Không thể xóa phiếu kiểm kê này"
       );
     } finally {
       setConfirmDeleteId(null);
-    }
-  };
-
-  const handleExportLowStockExcel = async () => {
-    try {
-      setExporting(true);
-
-      const branchId =
-        selectedBranchId !== "all"
-          ? selectedBranchId
-          : branches[0]?.id?.toString();
-
-      if (!branchId) {
-        toast.warning("Vui lòng chọn chi nhánh để xuất báo cáo");
-        return;
-      }
-
-      const response = await ProductService.getLowStockReport(branchId);
-      const rawRows = Array.isArray(response) ? response : [];
-      const rows = getShortageRows(rawRows);
-
-      if (rows.length === 0) {
-        toast.warning("Không có sản phẩm nào dưới định mức để xuất");
-        return;
-      }
-
-      const branchName =
-        branches.find((branch: any) => String(branch.id) === String(branchId))
-          ?.name || "AGRISHRIMP CHI NHÁNH CẦN THƠ";
-
-      const now = new Date();
-      const timeLabel = format(now, "HH:mm:ss dd/MM/yyyy");
-
-      const worksheet = XLSX.utils.aoa_to_sheet([
-        ["BÁO CÁO CHI TIẾT SẢN PHẨM DƯỚI ĐỊNH MỨC TỒN KHO"],
-        [`Chi nhánh: ${branchName.toUpperCase()}`],
-        [`Thời gian xuất: ${timeLabel}`],
-        [],
-        ["STT", "SKU", "Tên sản phẩm", "Tồn hiện tại", "Định mức"],
-      ]);
-
-      XLSX.utils.sheet_add_aoa(
-        worksheet,
-        rows.map((row) => [
-          row.stt,
-          row.sku,
-          row.name,
-          row.currentQty,
-          row.minThreshold,
-        ]),
-        { origin: "A6" }
-      );
-
-      worksheet["!cols"] = [
-        { wch: 8 },
-        { wch: 24 },
-        { wch: 52 },
-        { wch: 18 },
-        { wch: 16 },
-      ];
-
-      worksheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Bao_cao_ton_thap");
-      XLSX.writeFile(
-        workbook,
-        `Bao_Cao_Ton_Kho_Duoi_Dinh_Muc_${format(now, "yyyyMMdd_HHmmss")}.xlsx`
-      );
-
-      toast.success("Đã xuất file Excel báo cáo dưới định mức tồn kho");
-    } catch (error) {
-      console.error(error);
-      toast.error("Không thể xuất file Excel");
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -431,54 +349,62 @@ export default function InventoryCheckListPage() {
   return (
     <div className="space-y-3">
       <div className="mt-2 mb-8 space-y-4 px-1">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
-              Kiểm kê kho
-            </h1>
-          </div>
-        </div>
+        <div className="space-y-3">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Kiểm kê kho
+          </h1>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="w-full xl:max-w-[260px]">
-            <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
-              <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
-                <SelectValue placeholder="Lọc theo kho kiểm kê" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả kho</SelectItem>
-                {branches.map((branch: any) => (
-                  <SelectItem key={branch.id} value={String(branch.id)}>
-                    {branch.name || branch.branchName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
-              onClick={handleExportLowStockExcel}
-              disabled={loading || exporting}
-            >
-              {exporting ? (
-                <Loader2 size={15} className="mr-2 animate-spin" />
-              ) : (
-                <FileSpreadsheet size={15} className="mr-2" />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-[320px]">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                  size={16}
+                />
+                <Input
+                  placeholder="Tìm mã phiếu, ghi chú, chi nhánh..."
+                  className="h-[38px] rounded-[4px] border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <AdminDateRangeFilters
+                idPrefix="inventory-check"
+                fromDate={fromDate}
+                toDate={toDate}
+                onFromDateChange={setFromDate}
+                onToDateChange={setToDate}
+              />
+              {canFilterBranches && branchOptions.length > 0 && (
+                <div className="w-full sm:w-[180px]">
+                  <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                    <SelectTrigger className="h-[38px] rounded-[4px] border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                      <SelectValue placeholder="Chọn chi nhánh" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Chọn chi nhánh</SelectItem>
+                      {branchOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
-              Xuất Excel
-            </Button>
-            {hasPermission(P.CHECK_CREATE) && (
-              <Button
-                className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
-                onClick={() => router.push("/admin/inventory-checks/new")}
-              >
-                <Plus size={15} className="mr-2" />
-                Tạo phiếu kiểm kê
-              </Button>
-            )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 self-end lg:self-auto">
+              {hasPermission(P.CHECK_CREATE) && (
+                <Button
+                  className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
+                  onClick={() => router.push("/admin/inventory-checks/new")}
+                >
+                  <Plus size={15} className="mr-2" />
+                  Tạo phiếu kiểm kê
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -540,7 +466,7 @@ export default function InventoryCheckListPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-2">
             {STATUS_TABS.map((tab) => (
               <button
@@ -564,33 +490,6 @@ export default function InventoryCheckListPage() {
                 </span>
               </button>
             ))}
-          </div>
-
-          <div className="flex flex-1 flex-col gap-2 xl:max-w-[620px] xl:flex-row xl:items-center xl:justify-end">
-            <div className="relative w-full xl:max-w-[300px]">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-                size={16}
-              />
-              <Input
-                placeholder="Tìm theo mã phiếu, ghi chú, người kiểm kê hoặc chi nhánh..."
-                className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 xl:w-[150px]"
-            />
-            <Input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 xl:w-[150px]"
-            />
           </div>
         </div>
 

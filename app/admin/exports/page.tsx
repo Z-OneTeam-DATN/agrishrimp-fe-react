@@ -16,12 +16,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InventoryExportApiService } from "@/app/services/inventory.service";
-import { branchService } from "@/app/services/branchService";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { getCurrentWeekRange, isDateInRange } from "@/lib/admin-date-filter";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 export default function AdminExportListPage() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const user = useAuthStore((state) => state.user);
+  const canCreateExport = hasPermission(P.EXPORT_CREATE);
+  const canApproveExport = hasPermission(P.EXPORT_APPROVE);
+  const canFilterBranches = canApproveExport && isAdminRole(user?.role);
   const defaultDateRange = React.useMemo(() => getCurrentWeekRange(), []);
   const [activeTab, setActiveTab] = useState("all");
   const [exports, setExports] = useState<any[]>([]);
@@ -30,9 +39,6 @@ export default function AdminExportListPage() {
   const [fromDate, setFromDate] = useState(defaultDateRange.fromDate);
   const [toDate, setToDate] = useState(defaultDateRange.toDate);
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
-  const [warehouseOptions, setWarehouseOptions] = useState<any[]>([
-    { label: "Tất cả kho", value: "all" },
-  ]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
@@ -51,30 +57,27 @@ export default function AdminExportListPage() {
 
   useEffect(() => {
     void fetchList();
-    void (async () => {
-      try {
-        const data = await branchService.getAll();
-        const list = Array.isArray(data) ? data : data.content || [];
-        const options = list.map((b: any) => ({
-          label: b.name || b.branchName,
-          value: b.name || b.branchName,
-        }));
-        setWarehouseOptions([
-          { label: "Tất cả kho", value: "all" },
-          ...options,
-        ]);
-      } catch (e) {
-        console.error("Lỗi tải danh sách kho:", e);
-      }
-    })();
   }, [fetchList]);
+
+  const warehouseOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+
+    exports.forEach((item) => {
+      const label = String(item.branchName || item.warehouseName || "").trim();
+      if (label) map.set(label, label);
+    });
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "vi"));
+  }, [exports]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery, selectedWarehouse, fromDate, toDate]);
 
   const baseFilteredData = React.useMemo(() => exports.filter((item) => {
-    if (selectedWarehouse !== "all" && item.branchName !== selectedWarehouse) {
+    if (canFilterBranches && selectedWarehouse !== "all" && item.branchName !== selectedWarehouse) {
       return false;
     }
 
@@ -96,7 +99,7 @@ export default function AdminExportListPage() {
     }
 
     return true;
-  }), [exports, selectedWarehouse, searchQuery, fromDate, toDate]);
+  }), [exports, selectedWarehouse, searchQuery, fromDate, toDate, canFilterBranches]);
 
   const filteredData = baseFilteredData.filter((item) => {
     let matchTab = true;
@@ -170,42 +173,63 @@ export default function AdminExportListPage() {
   return (
     <div className="space-y-3">
       <div className="mt-2 mb-8 space-y-4 px-1">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
-              Danh sách phiếu xuất trả NCC
-            </h1>
-          </div>
+        <div className="space-y-3">
+          <h1 className="text-[20px] font-semibold tracking-tight uppercase text-slate-900">
+            Danh sách phiếu xuất trả NCC
+          </h1>
 
-        </div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-[320px]">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                  size={16}
+                />
+                <Input
+                  placeholder="Tìm mã lệnh, đối tác nhận..."
+                  className="h-[38px] rounded-[4px] border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <AdminDateRangeFilters
+                idPrefix="export"
+                fromDate={fromDate}
+                toDate={toDate}
+                onFromDateChange={setFromDate}
+                onToDateChange={setToDate}
+              />
+              {canFilterBranches && warehouseOptions.length > 0 && (
+                <div className="w-full sm:w-[180px]">
+                  <Select
+                    value={selectedWarehouse}
+                    onValueChange={setSelectedWarehouse}
+                  >
+                    <SelectTrigger className="h-[38px] rounded-[4px] border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
+                      <SelectValue placeholder="Chọn chi nhánh" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Chọn chi nhánh</SelectItem>
+                      {warehouseOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
 
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="w-full xl:max-w-[260px]">
-              <Select
-                value={selectedWarehouse}
-                onValueChange={setSelectedWarehouse}
-              >
-                <SelectTrigger className="h-[38px] w-full rounded-md border-slate-200 bg-white text-[13px] shadow-none focus:ring-0">
-                  <SelectValue placeholder="Lọc theo kho xuất" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouseOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
-              onClick={() => router.push("/admin/exports/new-command")}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Tạo phiếu xuất trả NCC
-            </Button>
+          {canCreateExport && (
+          <Button
+            className="h-[38px] shrink-0 self-end bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700 lg:self-auto"
+            onClick={() => router.push("/admin/exports/new-command")}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Tạo phiếu xuất trả NCC
+          </Button>
+          )}
           </div>
         </div>
 
@@ -232,8 +256,7 @@ export default function AdminExportListPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-          <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
+        <div className="flex flex-wrap items-center gap-2">
             {tabs.map((tab) => {
               const count = (counts as any)[tab.id] ?? 0;
 
@@ -260,34 +283,6 @@ export default function AdminExportListPage() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end xl:col-span-2">
-            <div className="relative w-full sm:w-[260px]">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
-              size={16}
-            />
-            <Input
-              placeholder="Tìm mã lệnh, đối tác nhận..."
-              className="h-[38px] rounded-md border-slate-200 bg-white pl-10 text-[13px] shadow-none focus-visible:ring-blue-500/20"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            </div>
-            <Input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
-            />
-            <Input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none focus-visible:ring-blue-500/20 sm:w-[150px]"
-            />
-          </div>
         </div>
 
         <div className="overflow-hidden rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">

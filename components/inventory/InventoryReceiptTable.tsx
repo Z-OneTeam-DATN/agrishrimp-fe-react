@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatNumber } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 interface InventoryReceiptTableProps {
   receipts: any[];
@@ -53,6 +55,9 @@ export function InventoryReceiptTable({
   onPageChange,
 }: InventoryReceiptTableProps) {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canUpdateReceipt = hasPermission(P.IMPORT_UPDATE);
+  const canDeleteReceipt = hasPermission(P.IMPORT_DELETE);
   const firstItem = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastItem = Math.min(currentPage * pageSize, totalCount);
 
@@ -134,11 +139,11 @@ export function InventoryReceiptTable({
                         event.stopPropagation();
                         router.push(`/admin/receipts/${item.id}`);
                       })}
-                      {isPending && actionButton("Chỉnh sửa", <Pencil size={14} />, (event) => {
+                      {isPending && canUpdateReceipt && actionButton("Chỉnh sửa", <Pencil size={14} />, (event) => {
                         event.stopPropagation();
                         router.push(`/admin/receipts/new?id=${item.id}`);
                       })}
-                      {isPending && actionButton(
+                      {isPending && canDeleteReceipt && actionButton(
                         "Xóa phiếu",
                         <Trash2 size={14} />,
                         (event) => {

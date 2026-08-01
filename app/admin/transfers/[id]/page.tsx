@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { isAxiosError } from "axios";
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -34,6 +33,7 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
+import { getErrorMessage } from "@/lib/axios";
 import { P } from "@/lib/permissions";
 import { getTransferStatusLabel } from "@/lib/transfer-status";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -59,51 +59,6 @@ type AuditLog = {
 const DONE_STATUSES = ["COMPLETED"];
 const CANCELLABLE_STATUSES = ["PENDING", "SOURCE_CONFIRMED", "APPROVED"];
 
-const resolveTransferErrorMessage = (error: unknown) => {
-  if (isAxiosError(error)) {
-    const data = error.response?.data;
-
-    if (typeof data === "string" && data.trim()) {
-      return data;
-    }
-
-    if (data && typeof data === "object") {
-      const message =
-        (typeof data.detail === "string" && data.detail) ||
-        (typeof data.message === "string" && data.message) ||
-        (typeof data.error === "string" && data.error) ||
-        (typeof data.title === "string" && data.title);
-
-      if (message) {
-        return message;
-      }
-
-      if (Array.isArray(data.details) && data.details.length > 0) {
-        const detailMessage = data.details
-          .map((detail: any) =>
-            typeof detail === "string" ? detail : detail?.message,
-          )
-          .filter(Boolean)
-          .join(". ");
-
-        if (detailMessage) {
-          return detailMessage;
-        }
-      }
-    }
-
-    if (typeof error.message === "string" && error.message.trim()) {
-      return error.message;
-    }
-  }
-
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return "ÄĂ£ xáº£y ra lá»—i há»‡ thá»‘ng";
-};
-
 export default function TransferDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -123,9 +78,9 @@ export default function TransferDetailPage() {
   const warehouseId = useAuthStore((state) => state.warehouseId);
 
   const canApproveTransfer = hasPermission(P.TRANSFER_APPROVE);
+  const canCreateTransfer = hasPermission(P.TRANSFER_CREATE);
   const canUpdateTransfer = hasPermission(P.TRANSFER_UPDATE);
-  const canOperateTransfer =
-    hasPermission(P.TRANSFER_CREATE) || canUpdateTransfer;
+  const canCancelTransfer = hasPermission(P.TRANSFER_CANCEL);
   const currentUserBranchId =
     currentUser?.branch?.id ??
     (currentUser as any)?.branchId ??
@@ -174,16 +129,7 @@ export default function TransferDetailPage() {
       afterSuccess?.();
       await fetchData();
     } catch (error: unknown) {
-      const errData = resolveTransferErrorMessage(error);
-      if (typeof errData === "string") {
-        toast.error(errData);
-      } else {
-        toast.error(
-          String(
-            errData?.detail || errData?.message || "Đã xảy ra lỗi hệ thống",
-          ),
-        );
-      }
+      toast.error(getErrorMessage(error) || "Đã xảy ra lỗi hệ thống");
     } finally {
       setIsProcessing(false);
     }
@@ -312,7 +258,7 @@ export default function TransferDetailPage() {
   const canSourceConfirm =
     isInternalSale &&
     status === "PENDING" &&
-    canOperateTransfer &&
+    canCreateTransfer &&
     isSourceBranchUser;
   const canEdit =
     canUpdateTransfer && ["PENDING", "SOURCE_CONFIRMED"].includes(status);
@@ -321,13 +267,11 @@ export default function TransferDetailPage() {
     ((!isInternalSale && status === "PENDING") ||
       (isInternalSale && status === "SOURCE_CONFIRMED"));
   const canShip = canApproveTransfer && status === "APPROVED";
-  const canStartInspection = canOperateTransfer && status === "SHIPPING";
-  const canReceive = canOperateTransfer && status === "INSPECTING";
-  const canCancel =
-    (canOperateTransfer || canApproveTransfer) &&
-    CANCELLABLE_STATUSES.includes(status);
+  const canStartInspection = canCreateTransfer && status === "SHIPPING";
+  const canReceive = canCreateTransfer && status === "INSPECTING";
+  const canCancel = canCancelTransfer && CANCELLABLE_STATUSES.includes(status);
   const canChangeDestination =
-    (canOperateTransfer || canApproveTransfer) &&
+    canUpdateTransfer &&
     ["PENDING", "SOURCE_CONFIRMED"].includes(status);
   const outstandingAmount = Number(transfer.outstandingAmount || 0);
   const paidAmount = Number(transfer.paidAmount || 0);

@@ -85,7 +85,7 @@ export function InventorySidebar() {
           setCheckPendingCount(checks.filter((item: any) => item.status === "PENDING").length);
         }
       } catch (error) {
-        console.warn("Inventory sidebar counts sync failed");
+        console.warn("Không thể đồng bộ số liệu sidebar kho");
       }
     };
 

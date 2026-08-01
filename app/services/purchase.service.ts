@@ -8,8 +8,8 @@ export const PurchaseRequestApiService = {
 
   // ── ĐỌC ──────────────────────────────────────────────────────────────────
 
-  getAll: async (): Promise<PurchaseRequestResponse[]> => {
-    const res = await apiJava.get(BASE);
+  getAll: async (params?: { branchId?: string | number }): Promise<PurchaseRequestResponse[]> => {
+    const res = await apiJava.get(BASE, { params });
     return repairVietnameseData(res.data);
   },
 
