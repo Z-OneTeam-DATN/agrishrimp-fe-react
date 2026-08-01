@@ -304,13 +304,17 @@ export default function TransferDetailPage() {
   const isInternalSale =
     String(transfer.transferBusinessType || "").toUpperCase() ===
     "INTERNAL_SALE";
+  const sourceConfirmationRequired = Boolean(
+    transfer.sourceConfirmationRequired,
+  );
   const statusLabel = getTransferStatusLabel(
     status,
     transfer.transferBusinessType,
+    sourceConfirmationRequired,
   );
 
   const canSourceConfirm =
-    isInternalSale &&
+    sourceConfirmationRequired &&
     status === "PENDING" &&
     canOperateTransfer &&
     isSourceBranchUser;
@@ -318,8 +322,8 @@ export default function TransferDetailPage() {
     canUpdateTransfer && ["PENDING", "SOURCE_CONFIRMED"].includes(status);
   const canApprove =
     canApproveTransfer &&
-    ((!isInternalSale && status === "PENDING") ||
-      (isInternalSale && status === "SOURCE_CONFIRMED"));
+    ((!sourceConfirmationRequired && status === "PENDING") ||
+      (sourceConfirmationRequired && status === "SOURCE_CONFIRMED"));
   const canShip = canApproveTransfer && status === "APPROVED";
   const canStartInspection = canOperateTransfer && status === "SHIPPING";
   const canReceive = canOperateTransfer && status === "INSPECTING";

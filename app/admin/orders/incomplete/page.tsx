@@ -64,6 +64,8 @@ export default function IncompleteOrdersPage() {
           ]}
           filter2Placeholder="Kênh bán hàng"
           filter2Options={[{ label: "Website", value: "web" }]}
+          hideRefreshButton
+          hideSettingsButton
           onRefresh={handleRefresh}
         />
 

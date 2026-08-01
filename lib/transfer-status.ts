@@ -1,15 +1,19 @@
 export function getTransferStatusLabel(
   status: string | null | undefined,
   transferBusinessType?: string | null,
+  sourceConfirmationRequired?: boolean | null,
 ): string {
   const normalizedStatus = String(status || "").trim().toUpperCase();
   const normalizedBusinessType = String(transferBusinessType || "")
     .trim()
     .toUpperCase();
+  const needsSourceConfirmation =
+    Boolean(sourceConfirmationRequired) ||
+    normalizedBusinessType === "INTERNAL_SALE";
 
   switch (normalizedStatus) {
     case "PENDING":
-      return normalizedBusinessType === "INTERNAL_SALE"
+      return needsSourceConfirmation
         ? "Chờ xác nhận nguồn"
         : "Chờ duyệt";
     case "SOURCE_CONFIRMED":

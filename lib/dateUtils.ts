@@ -1,9 +1,11 @@
 import {
+  endOfMonth,
   format,
   isToday,
   isYesterday,
   isThisWeek,
   differenceInCalendarWeeks,
+  startOfMonth,
 } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -49,6 +51,25 @@ export function formatDate(date: unknown, pattern: string = "dd/MM/yyyy HH:mm"):
  */
 export function parseLocalDateTime(date: unknown): Date {
   return parseAppDate(date);
+}
+
+export function toDateTimeLocalValue(date: Date): string {
+  const normalized = new Date(date);
+  normalized.setSeconds(0, 0);
+  return format(normalized, "yyyy-MM-dd'T'HH:mm");
+}
+
+export function getCurrentMonthDateTimeRange(baseDate: Date = new Date()) {
+  const start = startOfMonth(baseDate);
+  start.setHours(0, 0, 0, 0);
+
+  const end = endOfMonth(baseDate);
+  end.setHours(23, 59, 0, 0);
+
+  return {
+    start: toDateTimeLocalValue(start),
+    end: toDateTimeLocalValue(end),
+  };
 }
 
 function parseAppDate(date: string | number | Date | unknown): Date {

@@ -23,19 +23,6 @@ import { resolveImageUrl } from "@/lib/resolveImageUrl"
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ"
 
-const formatDateTime = (value?: string | null) => {
-    if (!value) return ""
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return ""
-    return parsed.toLocaleString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    })
-}
-
 const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: React.ReactNode }[] = [
     {
         val: "COD",
@@ -189,7 +176,7 @@ export default function CheckoutPage() {
     const { userLocation } = useLocationStore()
     const { isAuthenticated, isLoadingAuth } = useAuthStore()
 
-    useUserLocation()
+    useUserLocation({ showIpFallbackToast: false })
 
     const prepareMutation = usePrepareOrder({
         onRateLimited: (seconds) => setRateLimitCooldown((prev) => Math.max(prev, seconds)),
@@ -396,7 +383,6 @@ export default function CheckoutPage() {
         if (locationError) {
             clearPrepareResponse()
             setAddressLocationWarning(locationError)
-            toast.warning("Địa chỉ này đang thiếu dữ liệu vị trí, hệ thống sẽ dùng phí vận chuyển ước tính nếu cần.")
         }
 
         if (addr.id) {
@@ -626,7 +612,6 @@ export default function CheckoutPage() {
     }, [prepareOrderDisplayResponse?.expiresAt])
 
     const quoteExpired = quoteExpiresAtMs !== null && quoteExpiresAtMs <= quoteNowMs
-    const quoteExpiryLabel = formatDateTime(prepareOrderDisplayResponse?.expiresAt)
 
     const appliedVoucherDetails = useMemo(() => {
         const appliedVoucherCode = prepareOrderDisplayResponse?.voucherCode?.trim().toUpperCase()
@@ -682,10 +667,15 @@ export default function CheckoutPage() {
         })
     }
 
-    const canPlaceOrder =
-        !!prepareOrderDisplayResponse &&
-        !!prepareOrderDisplayResponse.canPlaceOrder &&
-        !quoteExpired
+    const hasPreparedOrder = !!prepareOrderDisplayResponse
+    const canPlaceOrder = hasPreparedOrder && !!prepareOrderDisplayResponse.canPlaceOrder && !quoteExpired
+    const canRefreshPreparedOrder = hasPreparedOrder && quoteExpired && !!deliveryInfo?.userAddressId
+    const isOrderActionPending = confirmMutation.isPending || prepareMutation.isPending
+    const isOrderActionDisabled =
+        isOrderActionPending ||
+        rateLimitCooldown > 0 ||
+        (!canPlaceOrder && !canRefreshPreparedOrder)
+    const shouldShowMobileBottomBar = hasPreparedOrder && !!prepareOrderDisplayResponse.canPlaceOrder
 
     if (isLoadingCart) {
         return (
@@ -927,7 +917,7 @@ export default function CheckoutPage() {
                                                             {shippingPreview.carrier}
                                                         </span>
                                                         {" · "}
-                                                        Dự kiến {shippingPreview.estimatedDays} (ước tính)
+                                                        Dự kiến {shippingPreview.estimatedDays}
                                                     </div>
                                                     <div className="text-right font-semibold text-gray-700">
                                                         {formatMoney(prepareOrderDisplayResponse.totalShippingFee)}
@@ -1073,17 +1063,6 @@ export default function CheckoutPage() {
                                             </div>
                                             <p className="text-[10px] text-gray-400 text-right mt-1">Đã bao gồm VAT (nếu có)</p>
                                         </div>
-                                        {quoteExpiryLabel && (
-                                            <div className={`rounded-lg border px-3 py-2 text-xs ${
-                                                quoteExpired
-                                                    ? "border-red-200 bg-red-50 text-red-700"
-                                                    : "border-slate-200 bg-slate-50 text-slate-600"
-                                            }`}>
-                                                {quoteExpired
-                                                    ? "Báo giá đã hết hạn. Vui lòng chuẩn bị lại trước khi đặt hàng."
-                                                    : `Báo giá được giữ đến ${quoteExpiryLabel}.`}
-                                            </div>
-                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-xs text-gray-400 text-center py-4">
@@ -1092,16 +1071,18 @@ export default function CheckoutPage() {
                                 )}
 
                                 <button
-                                    onClick={handleConfirm}
-                                    disabled={!canPlaceOrder || confirmMutation.isPending || rateLimitCooldown > 0}
+                                    onClick={quoteExpired ? retryPrepare : handleConfirm}
+                                    disabled={isOrderActionDisabled}
                                     className="mt-5 w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold uppercase tracking-widest transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded"
                                 >
                                     {confirmMutation.isPending ? (
                                         <><Loader2 size={15} className="animate-spin" /> Đang xử lý...</>
+                                    ) : prepareMutation.isPending ? (
+                                        <><Loader2 size={15} className="animate-spin" /> Đang cập nhật...</>
                                     ) : rateLimitCooldown > 0 ? (
                                         `Vui lòng chờ ${rateLimitCooldown}s`
                                     ) : quoteExpired ? (
-                                        "Báo giá đã hết hạn"
+                                        "Cập nhật đơn hàng"
                                     ) : !canPlaceOrder ? (
                                         "Chọn địa chỉ giao hàng"
                                     ) : (
@@ -1126,7 +1107,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* ── MOBILE BOTTOM BAR ── */}
-            {canPlaceOrder && prepareOrderDisplayResponse && (
+            {shouldShowMobileBottomBar && prepareOrderDisplayResponse && (
                 <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
                     <div className="flex items-center gap-3 px-4 py-3">
                         <div className="flex-1">
@@ -1136,16 +1117,18 @@ export default function CheckoutPage() {
                             </p>
                         </div>
                         <button
-                            onClick={handleConfirm}
-                            disabled={!canPlaceOrder || confirmMutation.isPending || rateLimitCooldown > 0}
+                            onClick={quoteExpired ? retryPrepare : handleConfirm}
+                            disabled={isOrderActionDisabled}
                             className="px-7 py-3 bg-blue-600 text-white text-sm font-bold rounded uppercase tracking-wide transition-colors disabled:opacity-50"
                         >
                             {confirmMutation.isPending
                                 ? <Loader2 size={14} className="animate-spin" />
+                                : prepareMutation.isPending
+                                    ? <Loader2 size={14} className="animate-spin" />
                                 : rateLimitCooldown > 0
                                     ? `Chờ ${rateLimitCooldown}s`
                                 : quoteExpired
-                                    ? "Hết hạn"
+                                    ? "Cập nhật"
                                 : "Đặt hàng"
                             }
                         </button>

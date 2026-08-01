@@ -62,6 +62,8 @@ export default function ReturnOrdersPage() {
           filter1Options={[{label: "Tất cả thời gian", value: "all"}]} 
           filter2Placeholder="Chi nhánh nhận hàng"
           filter2Options={[{label: "Cửa hàng chính", value: "main"}]}
+          hideRefreshButton
+          hideSettingsButton
           onRefresh={handleRefresh}
         />
 

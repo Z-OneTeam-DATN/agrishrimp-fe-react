@@ -186,6 +186,15 @@ export type OrderPaymentStatus =
   | "REFUND_PENDING"
   | "REFUNDED"
 
+export type OrderCancelReasonCode =
+  | "CHANGE_PRODUCT"
+  | "CHANGE_ADDRESS"
+  | "FOUND_CHEAPER"
+  | "OTHER"
+  | "PAYMENT_EXPIRED"
+  | "ADMIN_CANCELLED"
+  | "SUB_ORDERS_CANCELLED"
+
 export interface SubOrderSummary {
   subOrderId: number
   branchId: number | null
@@ -226,6 +235,10 @@ export interface MyOrder {
   autoApprovalPaused?: boolean | null
   createdAt: string
   note?: string | null
+  cancelReasonCode?: OrderCancelReasonCode | null
+  cancelReasonLabel?: string | null
+  cancelReasonText?: string | null
+  cancelReasonDisplay?: string | null
   checkoutUrl: string | null
   items: MyOrderItem[]
   subOrders?: SubOrderSummary[]

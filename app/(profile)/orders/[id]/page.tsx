@@ -596,6 +596,11 @@ export default function OrderDetailPage({
                   ? "Khoản thanh toán nếu có sẽ được đối soát theo chính sách hiện hành của cửa hàng."
                   : "Cửa hàng đang tiếp nhận và xử lý yêu cầu trả hàng của bạn."}
               </p>
+              {displayStatus === "CANCELLED" && order.cancelReasonDisplay ? (
+                <p className="mt-2 text-xs font-medium text-gray-500">
+                  LĂ½ do há»§y: {order.cancelReasonDisplay}
+                </p>
+              ) : null}
             </div>
           </div>
         )}

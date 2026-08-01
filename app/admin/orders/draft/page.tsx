@@ -62,6 +62,8 @@ export default function DraftOrderListPage() {
           filter1Options={[{label: "Tất cả", value: "all"}]}
           filter2Placeholder="Nguồn đơn"
           filter2Options={[{label: "Website", value: "web"}, {label: "Tại quầy", value: "pos"}]}
+          hideRefreshButton
+          hideSettingsButton
           onRefresh={handleRefresh}
         />
 
