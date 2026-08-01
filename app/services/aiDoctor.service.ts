@@ -141,7 +141,11 @@ export const aiDoctorService = {
     return mergedDiagnosis;
   },
 
-  async chat(message: string, diagnosisContext?: { diseaseCode?: string; diseaseName?: string }) {
+  async chat(
+    message: string,
+    diagnosisContext?: { diseaseCode?: string; diseaseName?: string },
+    image?: { base64: string; mimeType: string },
+  ) {
     const isPrivate = hasPrivateAccess();
     const response = await apiJava.post<AiDoctorChatResponse>(
       isPrivate ? "/ai-doctor/chat" : "/public/ai-doctor/chat",
@@ -154,8 +158,10 @@ export const aiDoctorService = {
       diagnosisContext: diagnosisContext
         ? { diseaseCode: diagnosisContext.diseaseCode, diseaseName: diagnosisContext.diseaseName }
         : undefined,
+      imageBase64: image?.base64,
+      imageMimeType: image?.mimeType,
     },
-      { isPublic: !isPrivate } as any,
+      { isPublic: !isPrivate, timeout: image ? 60000 : undefined } as any,
     );
     return response.data;
   },

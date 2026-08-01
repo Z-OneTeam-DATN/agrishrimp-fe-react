@@ -11,6 +11,8 @@ const DEFAULT_CHAT_CONFIG: AiKnowledgeChatConfig = {
   id: 1,
   greetingMessage: "",
   fallbackMessage: "",
+  fallbackContactName: "",
+  fallbackContactPhone: "",
 };
 
 export default function AdminAiKnowledgeChatbotPage() {
@@ -33,6 +35,8 @@ export default function AdminAiKnowledgeChatbotPage() {
       aiKnowledgeService.updateConfig({
         greetingMessage: form.greetingMessage,
         fallbackMessage: form.fallbackMessage,
+        fallbackContactName: form.fallbackContactName,
+        fallbackContactPhone: form.fallbackContactPhone,
       }),
     onSuccess: async () => {
       toast.success("Đã cập nhật cấu hình chatbot.");
@@ -47,8 +51,10 @@ export default function AdminAiKnowledgeChatbotPage() {
 
       <div className="rounded-[4px] border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm leading-6 text-slate-500">
-          Giữ phản hồi production an toàn: khi không đủ chắc chắn, bot phải dùng câu fallback đã duyệt ở đây thay vì
-          trả lời tự do.
+          Fallback mặc định chỉ hiện khi AI không tư vấn được (mất kết nối/chưa cấu hình Gemini).
+          Khi không khớp bệnh nào đã duyệt nhưng AI vẫn tư vấn tự do được, hệ thống tự thêm dòng
+          khuyến cáo kèm tên/SĐT kỹ sư bên dưới vào cuối câu trả lời — không dùng làm phác đồ chính
+          thức.
         </p>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
@@ -70,6 +76,33 @@ export default function AdminAiKnowledgeChatbotPage() {
               value={form.fallbackMessage}
               onChange={(value) => setForm((current) => ({ ...current, fallbackMessage: value }))}
               minHeight="180px"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-slate-700">Tên kỹ sư liên hệ mặc định</label>
+            <input
+              type="text"
+              value={form.fallbackContactName ?? ""}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, fallbackContactName: event.target.value }))
+              }
+              placeholder="VD: Kỹ sư Nam"
+              className="mt-1.5 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">SĐT kỹ sư liên hệ mặc định</label>
+            <input
+              type="text"
+              value={form.fallbackContactPhone ?? ""}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, fallbackContactPhone: event.target.value }))
+              }
+              placeholder="VD: 0909123456"
+              className="mt-1.5 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
             />
           </div>
         </div>

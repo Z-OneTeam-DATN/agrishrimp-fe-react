@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ImagePlus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
+import { FileService } from "@/app/services/file.service";
 import { PublicProductService } from "@/app/services/publicProduct.service";
 import ProductMultiSelect from "@/components/agronomist/ProductMultiSelect";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ type DiseaseFormState = {
   causesText: string;
   engineerName: string;
   engineerPhone: string;
+  imageUrls: string[];
   enabled: boolean;
   confidenceThreshold: number;
   matchThreshold: number;
@@ -73,6 +75,7 @@ type DiseasePayload = {
   causes: string[];
   engineerName?: string;
   engineerPhone?: string;
+  imageUrls: string[];
   enabled: boolean;
   confidenceThreshold: number;
   matchThreshold: number;
@@ -142,6 +145,7 @@ function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
     causes: splitLines(form.causesText),
     engineerName: optionalText(form.engineerName),
     engineerPhone: optionalText(form.engineerPhone),
+    imageUrls: form.imageUrls,
     enabled: form.enabled,
     confidenceThreshold: numberOrFallback(form.confidenceThreshold, 0.65),
     matchThreshold: numberOrFallback(form.matchThreshold, 0.4),
@@ -300,6 +304,7 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
       causesText: "",
       engineerName: "",
       engineerPhone: "",
+      imageUrls: [],
       enabled: true,
       confidenceThreshold: 0.65,
       matchThreshold: 0.4,
@@ -322,6 +327,7 @@ function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
     causesText: item.causes.join("\n"),
     engineerName: item.engineerName || "",
     engineerPhone: item.engineerPhone || "",
+    imageUrls: item.imageUrls ?? [],
     enabled: item.enabled,
     confidenceThreshold: item.confidenceThreshold,
     matchThreshold: item.matchThreshold,
@@ -352,6 +358,7 @@ export default function DiseaseForm({
     buildFormState(initialData),
   );
   const [formErrors, setFormErrors] = useState<DiseaseFormErrors>({});
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   const productsQuery = useQuery({
     queryKey: ["agronomist-products"],
@@ -453,6 +460,48 @@ export default function DiseaseForm({
           : current.treatmentStages.filter(
               (_, stageIndex) => stageIndex !== index,
             ),
+    }));
+  };
+
+  const handleImageFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
+    setIsUploadingImages(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = (await FileService.tmpUpload(formData)) as any;
+        const imgUrl =
+          response?.url ||
+          response?.data?.url ||
+          response?.data?.tmpPath ||
+          response?.tmpPath ||
+          response?.data?.imageUrl ||
+          response?.imageUrl;
+        if (imgUrl) uploadedUrls.push(imgUrl);
+      }
+      if (uploadedUrls.length > 0) {
+        setForm((current) => ({
+          ...current,
+          imageUrls: [...current.imageUrls, ...uploadedUrls],
+        }));
+      }
+      if (uploadedUrls.length < files.length) {
+        toast.error("Một số ảnh tải lên thất bại, vui lòng thử lại.");
+      }
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error) || "Không thể tải ảnh lên.");
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
+
+  const removeImageUrl = (index: number) => {
+    setForm((current) => ({
+      ...current,
+      imageUrls: current.imageUrls.filter((_, i) => i !== index),
     }));
   };
 
@@ -641,6 +690,58 @@ export default function DiseaseForm({
             placeholder="Hiển thị kèm phác đồ để bà con liên hệ khi cần gấp — để trống nếu không cần."
             className={inputClassName}
           />
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <Label className="text-[12px] font-semibold text-[#232323]">
+          Ảnh minh họa bệnh
+        </Label>
+        <p className="text-[11px] text-slate-500">
+          Ảnh thực tế tôm mắc bệnh này — hiển thị kèm phác đồ để bà con đối
+          chiếu quan sát, giống cách AI mô tả ảnh khi tư vấn.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {form.imageUrls.map((url, index) => (
+            <div
+              key={`${url}-${index}`}
+              className="group relative h-24 w-24 overflow-hidden rounded-[4px] border border-[#e1e4ec]"
+            >
+              <img
+                src={url}
+                alt={`Ảnh minh họa ${index + 1}`}
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removeImageUrl(index)}
+                className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                aria-label="Xóa ảnh"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          <label
+            className={cn(
+              "flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-[4px] border border-dashed border-[#c9cedd] text-center text-[11px] text-slate-500 hover:border-slate-400 hover:text-slate-700",
+              isUploadingImages && "pointer-events-none opacity-60",
+            )}
+          >
+            <ImagePlus size={18} />
+            {isUploadingImages ? "Đang tải..." : "Thêm ảnh"}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              disabled={isUploadingImages}
+              onChange={(event) => {
+                void handleImageFilesSelected(event.target.files);
+                event.target.value = "";
+              }}
+            />
+          </label>
         </div>
       </div>
 

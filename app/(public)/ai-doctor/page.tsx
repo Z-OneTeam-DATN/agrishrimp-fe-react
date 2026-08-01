@@ -91,6 +91,24 @@ const createPersistentPreview = async (file: File) =>
     reader.readAsDataURL(file);
   });
 
+// Doc file thanh base64 THUAN (khong tien to "data:image/...;base64,") de gui thang cho Gemini
+// vision qua BE — khac voi createPersistentPreview (giu nguyen data URL de <img> hien thi truc tiep).
+const readFileAsRawBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Không thể đọc ảnh."));
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      if (!base64) {
+        reject(new Error("Không thể đọc dữ liệu ảnh."));
+        return;
+      }
+      resolve(base64);
+    };
+    reader.readAsDataURL(file);
+  });
+
 export default function AiDoctorChatPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +122,11 @@ export default function AiDoctorChatPage() {
   const [symptoms, setSymptoms] = useState("");
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [clarifySession, setClarifySession] = useState<ClarifySession | null>(null);
+  // Bat len sau tin nhan chat-chu DAU TIEN thanh cong — chi khi da dang tro chuyen bang chu (giong
+  // vi du ChatGPT: mo ta trieu chung truoc, gui anh sau de AI xem ky hon) thi anh gui tiep theo moi
+  // di qua chat co vision thay vi luon kich hoat chan doan YOLO tu dau. Giu luong upload-anh-lanh
+  // (chua chat gi) nguyen ven nhu cu — khong doi hanh vi mac dinh dang hoat dong tot.
+  const [hasTextChatStarted, setHasTextChatStarted] = useState(false);
 
   const nextEntryId = () => `e${entryIdRef.current++}`;
   const pushEntry = (entry: DistributiveOmit<ChatEntry, "id">) =>
@@ -135,8 +158,10 @@ export default function AiDoctorChatPage() {
   }, []);
 
   const chatMutation = useMutation({
-    mutationFn: (message: string) => aiDoctorService.chat(message),
+    mutationFn: ({ message, image }: { message: string; image?: { base64: string; mimeType: string } }) =>
+      aiDoctorService.chat(message, undefined, image),
     onSuccess: (data) => {
+      setHasTextChatStarted(true);
       pushEntry({ kind: "bot-html", html: data.reply });
     },
     onError: () => {
@@ -267,7 +292,46 @@ export default function AiDoctorChatPage() {
     if (!selectedImage || !previewUrl) {
       pushEntry({ kind: "user", text: currentSymptoms });
       setSymptoms("");
-      chatMutation.mutate(currentSymptoms);
+      chatMutation.mutate({ message: currentSymptoms });
+      return;
+    }
+
+    // Da dang tro chuyen bang chu (kieu ChatGPT: mo ta truoc, gui anh sau de xem ky hon) → gui anh
+    // kem tin nhan qua chat co vision (Gemini xem anh, noi tiep hoi thoai) thay vi kich hoat lai tu
+    // dau luong chan doan YOLO. Neu day la anh DAU TIEN (chua tung chat chu) thi van di YOLO nhu cu.
+    if (hasTextChatStarted) {
+      const currentImageForChat = selectedImage;
+      const currentPreviewUrlForChat = previewUrl;
+
+      let clientPreviewUrlForChat: string | undefined;
+      try {
+        clientPreviewUrlForChat = await createPersistentPreview(currentImageForChat);
+      } catch {
+        clientPreviewUrlForChat = undefined;
+      }
+
+      let imageBase64: string;
+      try {
+        imageBase64 = await readFileAsRawBase64(currentImageForChat);
+      } catch {
+        toast.error("Không đọc được ảnh, bà con thử chọn ảnh khác nhé.");
+        return;
+      }
+
+      pushEntry({
+        kind: "user",
+        text: currentSymptoms,
+        previewUrl: clientPreviewUrlForChat || currentPreviewUrlForChat,
+      });
+
+      setSelectedImage(null);
+      setPreviewUrl(null);
+      setSymptoms("");
+
+      chatMutation.mutate({
+        message: currentSymptoms || "Đây là ảnh tôm của tôi, bạn xem giúp tôi với.",
+        image: { base64: imageBase64, mimeType: currentImageForChat.type || "image/jpeg" },
+      });
       return;
     }
 

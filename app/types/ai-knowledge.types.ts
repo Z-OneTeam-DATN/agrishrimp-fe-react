@@ -51,6 +51,8 @@ export interface AiDiseaseKnowledge {
   signsSummary: string;
   causes: string[];
   treatmentStages: AiKnowledgeTreatmentStage[];
+  /** URL anh minh hoa benh (Cloudinary) — hien kem phac do khi AI tra loi chat. */
+  imageUrls?: string[];
   /** Tên kỹ sư/đội ngũ đứng sau tri thức bệnh này — hiển thị làm nguồn khi AI trả lời chat. */
   engineerName?: string | null;
   /** SĐT liên hệ khẩn cấp gắn với đúng bệnh này — hiển thị kèm phác đồ khi AI trả lời chat. */
@@ -85,6 +87,10 @@ export interface AiKnowledgeChatConfig {
   id: number;
   greetingMessage: string;
   fallbackMessage: string;
+  /** Ten ky su lien he mac dinh khi AI tu van tu do (khong khop benh nao trong kho tri thuc). */
+  fallbackContactName?: string | null;
+  /** SDT ky su lien he mac dinh khi AI tu van tu do (khong khop benh nao trong kho tri thuc). */
+  fallbackContactPhone?: string | null;
 }
 
 export interface AiKnowledgeImportRow {
