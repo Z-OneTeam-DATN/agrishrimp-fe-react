@@ -4,7 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import { Check, ChevronDown, ImageOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -15,6 +19,7 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { agronomistInputClassName } from "@/components/agronomist/agronomist-ui";
 
 export interface ProductOption {
   id: number;
@@ -41,7 +46,11 @@ export default function ProductMultiSelect({
   const selected = options.filter((option) => value.includes(option.id));
 
   const toggle = (id: number) => {
-    onChange(value.includes(id) ? value.filter((current) => current !== id) : [...value, id]);
+    onChange(
+      value.includes(id)
+        ? value.filter((current) => current !== id)
+        : [...value, id],
+    );
   };
 
   const remove = (id: number) => {
@@ -56,37 +65,65 @@ export default function ProductMultiSelect({
             type="button"
             variant="outline"
             role="combobox"
-            className="h-[38px] w-full justify-between rounded-md border-slate-200 bg-white px-3 text-[13px] font-normal shadow-none"
+            className={cn(
+              agronomistInputClassName,
+              "w-full justify-between px-3 font-normal",
+            )}
           >
-            <span className={cn("truncate", selected.length === 0 && "text-slate-400")}>
-              {selected.length > 0 ? `${selected.length} sản phẩm đã chọn` : placeholder}
+            <span
+              className={cn(
+                "truncate",
+                selected.length === 0 && "text-slate-400",
+              )}
+            >
+              {selected.length > 0
+                ? `${selected.length} sản phẩm đã chọn`
+                : placeholder}
             </span>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[--radix-popover-trigger-width] rounded-md p-0">
+        <PopoverContent
+          align="start"
+          className="w-[--radix-popover-trigger-width] rounded-md p-0"
+        >
           <Command shouldFilter>
-            <CommandInput placeholder="Tìm theo tên sản phẩm..." className="h-9 text-[13px]" />
+            <CommandInput
+              placeholder="Tìm theo tên sản phẩm..."
+              className="h-9 text-[13px]"
+            />
             <CommandList>
               <CommandEmpty className="px-3 py-4 text-center text-[12px] text-slate-400">
                 {loading ? "Đang tải sản phẩm..." : emptyMessage}
               </CommandEmpty>
               <CommandGroup>
-                {!loading && options.map((option) => {
-                  const checked = value.includes(option.id);
-                  return (
-                    <CommandItem
-                      key={option.id}
-                      value={option.label}
-                      onSelect={() => toggle(option.id)}
-                      className="flex items-center gap-2 text-[13px]"
-                    >
-                      <Check className={cn("h-4 w-4 shrink-0", checked ? "opacity-100" : "opacity-0")} />
-                      <ProductThumb imageUrl={option.imageUrl} label={option.label} className="h-9 w-9" />
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                    </CommandItem>
-                  );
-                })}
+                {!loading &&
+                  options.map((option) => {
+                    const checked = value.includes(option.id);
+                    return (
+                      <CommandItem
+                        key={option.id}
+                        value={option.label}
+                        onSelect={() => toggle(option.id)}
+                        className="flex items-center gap-2 text-[13px]"
+                      >
+                        <Check
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            checked ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        <ProductThumb
+                          imageUrl={option.imageUrl}
+                          label={option.label}
+                          className="h-9 w-9"
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {option.label}
+                        </span>
+                      </CommandItem>
+                    );
+                  })}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -99,9 +136,13 @@ export default function ProductMultiSelect({
             <Badge
               key={option.id}
               variant="secondary"
-              className="gap-1.5 rounded-[4px] bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100"
+              className="gap-1.5 rounded-[4px] bg-[#dfe4ff] px-2 py-1 text-[11px] font-medium text-[#252896] hover:bg-[#dfe4ff]"
             >
-              <ProductThumb imageUrl={option.imageUrl} label={option.label} className="h-5 w-5" />
+              <ProductThumb
+                imageUrl={option.imageUrl}
+                label={option.label}
+                className="h-5 w-5"
+              />
               <span className="max-w-[220px] truncate">{option.label}</span>
               <button
                 type="button"
@@ -135,7 +176,13 @@ function ProductThumb({
       )}
     >
       {imageUrl ? (
-        <Image src={imageUrl} alt={label} fill sizes="36px" className="object-cover" />
+        <Image
+          src={imageUrl}
+          alt={label}
+          fill
+          sizes="36px"
+          className="object-cover"
+        />
       ) : (
         <ImageOff className="h-4 w-4" />
       )}

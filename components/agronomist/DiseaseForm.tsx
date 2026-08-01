@@ -15,13 +15,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
 import {
+  AgronomistPanel,
+  agronomistInputClassName,
+  agronomistOutlineButtonClassName,
+  agronomistPrimaryButtonClassName,
+  agronomistTextareaClassName,
+} from "@/components/agronomist/agronomist-ui";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AiDiseaseKnowledge, AiKnowledgeCategory } from "@/app/types/ai-knowledge.types";
+import type {
+  AiDiseaseKnowledge,
+  AiKnowledgeCategory,
+} from "@/app/types/ai-knowledge.types";
 import type { PublicProductListItem } from "@/app/types/product.schema";
 
 type KnowledgeStageForm = {
@@ -102,8 +112,8 @@ const EMPTY_STAGE: KnowledgeStageForm = {
   extraProductNamesText: "",
 };
 
-const inputClassName = "h-[38px] rounded-[4px] bg-white text-[13px] shadow-none";
-const textareaClassName = "resize-none rounded-[4px] bg-white text-[13px] shadow-none";
+const inputClassName = agronomistInputClassName;
+const textareaClassName = cn("resize-none", agronomistTextareaClassName);
 const invalidFieldClassName = "border-rose-500 focus-visible:ring-rose-200";
 
 const splitLines = (value: string) =>
@@ -155,19 +165,26 @@ function buildDiseasePayload(form: DiseaseFormState): DiseasePayload {
   };
 }
 
-function validateDiseasePayload(payload: DiseasePayload, form: DiseaseFormState) {
+function validateDiseasePayload(
+  payload: DiseasePayload,
+  form: DiseaseFormState,
+) {
   const errors: DiseaseFormErrors = {};
 
   if (!payload.code) errors.code = "Vui lòng nhập mã bệnh.";
   if (payload.code && !/^[A-Z0-9_-]{2,50}$/.test(payload.code)) {
-    errors.code = "Mã bệnh chỉ gồm chữ in hoa, số, dấu gạch ngang/gạch dưới và dài 2-50 ký tự.";
+    errors.code =
+      "Mã bệnh chỉ gồm chữ in hoa, số, dấu gạch ngang/gạch dưới và dài 2-50 ký tự.";
   }
   if (!payload.nameVi) errors.nameVi = "Vui lòng nhập tên bệnh.";
   if (!payload.symptomKeywordsRaw) {
-    errors.symptomKeywordsRaw = "Vui lòng nhập dấu hiệu / triệu chứng để AI nhận diện.";
+    errors.symptomKeywordsRaw =
+      "Vui lòng nhập dấu hiệu / triệu chứng để AI nhận diện.";
   }
-  if (!payload.signsSummary) errors.signsSummary = "Vui lòng nhập mô tả dấu hiệu.";
-  if (payload.causes.length === 0) errors.causesText = "Vui lòng nhập ít nhất một nguyên nhân.";
+  if (!payload.signsSummary)
+    errors.signsSummary = "Vui lòng nhập mô tả dấu hiệu.";
+  if (payload.causes.length === 0)
+    errors.causesText = "Vui lòng nhập ít nhất một nguyên nhân.";
 
   let hasStage = false;
   form.treatmentStages.forEach((stage, index) => {
@@ -183,8 +200,10 @@ function validateDiseasePayload(payload: DiseasePayload, form: DiseaseFormState)
     hasStage = true;
 
     const stageErrors: StageFormErrors = {};
-    if (!stage.stageTitle.trim()) stageErrors.stageTitle = "Vui lòng nhập tên giai đoạn.";
-    if (instructions.length === 0) stageErrors.instructionsText = "Vui lòng nhập ít nhất một hướng dẫn.";
+    if (!stage.stageTitle.trim())
+      stageErrors.stageTitle = "Vui lòng nhập tên giai đoạn.";
+    if (instructions.length === 0)
+      stageErrors.instructionsText = "Vui lòng nhập ít nhất một hướng dẫn.";
     if (stageErrors.stageTitle || stageErrors.instructionsText) {
       errors.stages = { ...(errors.stages ?? {}), [index]: stageErrors };
     }
@@ -200,7 +219,8 @@ function validateDiseasePayload(payload: DiseasePayload, form: DiseaseFormState)
   }
 
   if (payload.confidenceThreshold < 0 || payload.confidenceThreshold > 1) {
-    errors.confidenceThreshold = "Ngưỡng tin cậy phải nằm trong khoảng 0 đến 1.";
+    errors.confidenceThreshold =
+      "Ngưỡng tin cậy phải nằm trong khoảng 0 đến 1.";
   }
   if (payload.matchThreshold < 0 || payload.matchThreshold > 1) {
     errors.matchThreshold = "Ngưỡng match phải nằm trong khoảng 0 đến 1.";
@@ -210,7 +230,9 @@ function validateDiseasePayload(payload: DiseasePayload, form: DiseaseFormState)
 }
 
 function hasFormErrors(errors: DiseaseFormErrors) {
-  const hasFieldError = Object.entries(errors).some(([key, value]) => key !== "stages" && Boolean(value));
+  const hasFieldError = Object.entries(errors).some(
+    ([key, value]) => key !== "stages" && Boolean(value),
+  );
   const hasStageError = Object.values(errors.stages ?? {}).some(
     (stage) => Boolean(stage.stageTitle) || Boolean(stage.instructionsText),
   );
@@ -259,7 +281,9 @@ function mapApiErrorToFormErrors(message: string): DiseaseFormErrors {
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1 text-[10px] font-medium text-rose-500">{message}</p>;
+  return (
+    <p className="mt-1 text-[10px] font-medium text-rose-500">{message}</p>
+  );
 }
 
 function buildFormState(item?: AiDiseaseKnowledge | null): DiseaseFormState {
@@ -324,7 +348,9 @@ export default function DiseaseForm({
   initialData?: AiDiseaseKnowledge | null;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState<DiseaseFormState>(() => buildFormState(initialData));
+  const [form, setForm] = useState<DiseaseFormState>(() =>
+    buildFormState(initialData),
+  );
   const [formErrors, setFormErrors] = useState<DiseaseFormErrors>({});
 
   const productsQuery = useQuery({
@@ -343,7 +369,10 @@ export default function DiseaseForm({
       (productsQuery.data ?? []).map((product: PublicProductListItem) => ({
         id: product.id,
         label: `${product.name} #${product.id}`,
-        imageUrl: product.variants?.find((variant) => variant.imageUrl)?.imageUrl || product.imageUrls?.[0] || null,
+        imageUrl:
+          product.variants?.find((variant) => variant.imageUrl)?.imageUrl ||
+          product.imageUrls?.[0] ||
+          null,
       })),
     [productsQuery.data],
   );
@@ -356,7 +385,9 @@ export default function DiseaseForm({
       return aiKnowledgeService.createDisease(payload);
     },
     onSuccess: () => {
-      toast.success("Đã lưu phác đồ. Phác đồ đang ở trạng thái chờ Admin duyệt trước khi AI dùng để trả lời.");
+      toast.success(
+        "Đã lưu phác đồ. Phác đồ đang ở trạng thái chờ Admin duyệt trước khi AI dùng để trả lời.",
+      );
       router.push("/agronomist/diseases");
     },
     onError: (error: unknown) => {
@@ -366,8 +397,15 @@ export default function DiseaseForm({
     },
   });
 
-  const updateField = <Field extends keyof DiseaseFormState>(field: Field, value: DiseaseFormState[Field]) => {
-    setFormErrors((current) => ({ ...current, [field]: undefined, submit: undefined }));
+  const updateField = <Field extends keyof DiseaseFormState>(
+    field: Field,
+    value: DiseaseFormState[Field],
+  ) => {
+    setFormErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      submit: undefined,
+    }));
     setForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -390,7 +428,11 @@ export default function DiseaseForm({
   };
 
   const addStage = () => {
-    setFormErrors((current) => ({ ...current, stages: undefined, submit: undefined }));
+    setFormErrors((current) => ({
+      ...current,
+      stages: undefined,
+      submit: undefined,
+    }));
     setForm((current) => ({
       ...current,
       treatmentStages: [...current.treatmentStages, { ...EMPTY_STAGE }],
@@ -398,13 +440,19 @@ export default function DiseaseForm({
   };
 
   const removeStage = (index: number) => {
-    setFormErrors((current) => ({ ...current, stages: undefined, submit: undefined }));
+    setFormErrors((current) => ({
+      ...current,
+      stages: undefined,
+      submit: undefined,
+    }));
     setForm((current) => ({
       ...current,
       treatmentStages:
         current.treatmentStages.length === 1
           ? current.treatmentStages
-          : current.treatmentStages.filter((_, stageIndex) => stageIndex !== index),
+          : current.treatmentStages.filter(
+              (_, stageIndex) => stageIndex !== index,
+            ),
     }));
   };
 
@@ -423,30 +471,42 @@ export default function DiseaseForm({
   };
 
   return (
-    <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-6 shadow-sm">
+    <AgronomistPanel className="p-6">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Mã bệnh</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Mã bệnh
+          </Label>
           <Input
             value={form.code}
             onChange={(event) => updateField("code", event.target.value)}
             aria-invalid={Boolean(formErrors.code)}
-            className={cn(inputClassName, formErrors.code && invalidFieldClassName)}
+            className={cn(
+              inputClassName,
+              formErrors.code && invalidFieldClassName,
+            )}
           />
           <FieldError message={formErrors.code} />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Tên bệnh</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Tên bệnh
+          </Label>
           <Input
             value={form.nameVi}
             onChange={(event) => updateField("nameVi", event.target.value)}
             aria-invalid={Boolean(formErrors.nameVi)}
-            className={cn(inputClassName, formErrors.nameVi && invalidFieldClassName)}
+            className={cn(
+              inputClassName,
+              formErrors.nameVi && invalidFieldClassName,
+            )}
           />
           <FieldError message={formErrors.nameVi} />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Tên tiếng Anh</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Tên tiếng Anh
+          </Label>
           <Input
             value={form.nameEn}
             onChange={(event) => updateField("nameEn", event.target.value)}
@@ -454,20 +514,29 @@ export default function DiseaseForm({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Danh mục</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Danh mục
+          </Label>
           <Select
             value={form.categoryId || undefined}
             onValueChange={(value) => updateField("categoryId", value)}
           >
             <SelectTrigger
               aria-invalid={Boolean(formErrors.categoryId)}
-              className={cn(inputClassName, formErrors.categoryId && invalidFieldClassName)}
+              className={cn(
+                inputClassName,
+                formErrors.categoryId && invalidFieldClassName,
+              )}
             >
               <SelectValue placeholder="Chưa gán danh mục" />
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => (
-                <SelectItem key={category.id} value={String(category.id)} className="text-[13px]">
+                <SelectItem
+                  key={category.id}
+                  value={String(category.id)}
+                  className="text-[13px]"
+                >
                   {category.name}
                 </SelectItem>
               ))}
@@ -479,7 +548,9 @@ export default function DiseaseForm({
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Tên gọi khác</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Tên gọi khác
+          </Label>
           <Textarea
             value={form.aliasesRaw}
             onChange={(event) => updateField("aliasesRaw", event.target.value)}
@@ -488,13 +559,20 @@ export default function DiseaseForm({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Dấu hiệu / triệu chứng</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Dấu hiệu / triệu chứng
+          </Label>
           <Textarea
             value={form.symptomKeywordsRaw}
-            onChange={(event) => updateField("symptomKeywordsRaw", event.target.value)}
+            onChange={(event) =>
+              updateField("symptomKeywordsRaw", event.target.value)
+            }
             rows={3}
             aria-invalid={Boolean(formErrors.symptomKeywordsRaw)}
-            className={cn(textareaClassName, formErrors.symptomKeywordsRaw && invalidFieldClassName)}
+            className={cn(
+              textareaClassName,
+              formErrors.symptomKeywordsRaw && invalidFieldClassName,
+            )}
           />
           <FieldError message={formErrors.symptomKeywordsRaw} />
         </div>
@@ -502,24 +580,36 @@ export default function DiseaseForm({
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Mô tả dấu hiệu</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Mô tả dấu hiệu
+          </Label>
           <Textarea
             value={form.signsSummary}
-            onChange={(event) => updateField("signsSummary", event.target.value)}
+            onChange={(event) =>
+              updateField("signsSummary", event.target.value)
+            }
             rows={4}
             aria-invalid={Boolean(formErrors.signsSummary)}
-            className={cn(textareaClassName, formErrors.signsSummary && invalidFieldClassName)}
+            className={cn(
+              textareaClassName,
+              formErrors.signsSummary && invalidFieldClassName,
+            )}
           />
           <FieldError message={formErrors.signsSummary} />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Nguyên nhân</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Nguyên nhân
+          </Label>
           <Textarea
             value={form.causesText}
             onChange={(event) => updateField("causesText", event.target.value)}
             rows={4}
             aria-invalid={Boolean(formErrors.causesText)}
-            className={cn(textareaClassName, formErrors.causesText && invalidFieldClassName)}
+            className={cn(
+              textareaClassName,
+              formErrors.causesText && invalidFieldClassName,
+            )}
           />
           <FieldError message={formErrors.causesText} />
         </div>
@@ -527,19 +617,27 @@ export default function DiseaseForm({
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">Tên kỹ sư phụ trách</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            Tên kỹ sư phụ trách
+          </Label>
           <Input
             value={form.engineerName}
-            onChange={(event) => updateField("engineerName", event.target.value)}
+            onChange={(event) =>
+              updateField("engineerName", event.target.value)
+            }
             placeholder="Hiển thị làm nguồn khi AI trả lời — để trống nếu không cần nêu tên cụ thể."
             className={inputClassName}
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-[10.5px] font-semibold text-slate-500">SĐT liên hệ khẩn cấp</Label>
+          <Label className="text-[12px] font-semibold text-[#232323]">
+            SĐT liên hệ khẩn cấp
+          </Label>
           <Input
             value={form.engineerPhone}
-            onChange={(event) => updateField("engineerPhone", event.target.value)}
+            onChange={(event) =>
+              updateField("engineerPhone", event.target.value)
+            }
             placeholder="Hiển thị kèm phác đồ để bà con liên hệ khi cần gấp — để trống nếu không cần."
             className={inputClassName}
           />
@@ -555,13 +653,19 @@ export default function DiseaseForm({
         Đang bật
       </label>
 
-      <div className="mt-6 rounded-[4px] border border-slate-200 bg-slate-50 p-5">
+      <div className="mt-6 rounded-[4px] border border-[#e1e4ec] bg-[#f7f8fa] p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-sm font-black text-slate-900">Phác đồ điều trị theo giai đoạn</p>
+            <p className="text-[13px] font-semibold uppercase text-[#232323]">
+              Phác đồ điều trị theo giai đoạn
+            </p>
           </div>
-          <Button type="button" variant="outline" onClick={addStage}
-            className="h-9 rounded-[4px] border-slate-300 text-[13px] font-medium text-slate-600 hover:bg-white">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addStage}
+            className="h-9 rounded-[4px] border-[#c9cedd] bg-white text-[12px] font-medium text-slate-700 shadow-none hover:bg-white"
+          >
             <Plus size={14} className="mr-1.5" />
             Thêm giai đoạn
           </Button>
@@ -572,31 +676,51 @@ export default function DiseaseForm({
             const stageErrors = formErrors.stages?.[index];
 
             return (
-              <div key={`${index}-${stage.stageTitle}`} className="rounded-[4px] border border-slate-200 bg-white p-4">
+              <div
+                key={`${index}-${stage.stageTitle}`}
+                className="rounded-[4px] border border-[#e1e4ec] bg-white p-4"
+              >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-slate-900">Giai đoạn {index + 1}</p>
-                  <Button type="button" variant="ghost" onClick={() => removeStage(index)}
-                    className="h-8 rounded-[4px] text-[12px] font-medium text-rose-600 hover:bg-rose-50">
+                  <p className="text-[13px] font-semibold text-[#232323]">
+                    Giai đoạn {index + 1}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => removeStage(index)}
+                    className="h-8 rounded-[4px] text-[12px] font-medium text-[#d2453f] hover:bg-rose-50"
+                  >
                     Bỏ giai đoạn
                   </Button>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-[10.5px] font-semibold text-slate-500">Tên giai đoạn</Label>
+                    <Label className="text-[12px] font-semibold text-[#232323]">
+                      Tên giai đoạn
+                    </Label>
                     <Input
                       value={stage.stageTitle}
-                      onChange={(event) => updateStage(index, { stageTitle: event.target.value })}
+                      onChange={(event) =>
+                        updateStage(index, { stageTitle: event.target.value })
+                      }
                       aria-invalid={Boolean(stageErrors?.stageTitle)}
-                      className={cn(inputClassName, stageErrors?.stageTitle && invalidFieldClassName)}
+                      className={cn(
+                        inputClassName,
+                        stageErrors?.stageTitle && invalidFieldClassName,
+                      )}
                     />
                     <FieldError message={stageErrors?.stageTitle} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10.5px] font-semibold text-slate-500">Sản phẩm áp dụng</Label>
+                    <Label className="text-[12px] font-semibold text-[#232323]">
+                      Sản phẩm áp dụng
+                    </Label>
                     <ProductMultiSelect
                       options={productOptions}
                       value={stage.productIds}
-                      onChange={(productIds) => updateStage(index, { productIds })}
+                      onChange={(productIds) =>
+                        updateStage(index, { productIds })
+                      }
                       loading={productsQuery.isLoading}
                       emptyMessage="Chưa có sản phẩm đang hoạt động trong catalog."
                     />
@@ -604,21 +728,36 @@ export default function DiseaseForm({
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-[10.5px] font-semibold text-slate-500">Hướng dẫn điều trị</Label>
+                    <Label className="text-[12px] font-semibold text-[#232323]">
+                      Hướng dẫn điều trị
+                    </Label>
                     <Textarea
                       value={stage.instructionsText}
-                      onChange={(event) => updateStage(index, { instructionsText: event.target.value })}
+                      onChange={(event) =>
+                        updateStage(index, {
+                          instructionsText: event.target.value,
+                        })
+                      }
                       rows={4}
                       aria-invalid={Boolean(stageErrors?.instructionsText)}
-                      className={cn(textareaClassName, stageErrors?.instructionsText && invalidFieldClassName)}
+                      className={cn(
+                        textareaClassName,
+                        stageErrors?.instructionsText && invalidFieldClassName,
+                      )}
                     />
                     <FieldError message={stageErrors?.instructionsText} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10.5px] font-semibold text-slate-500">Tên thuốc/sản phẩm khác</Label>
+                    <Label className="text-[12px] font-semibold text-[#232323]">
+                      Tên thuốc/sản phẩm khác
+                    </Label>
                     <Textarea
                       value={stage.extraProductNamesText}
-                      onChange={(event) => updateStage(index, { extraProductNamesText: event.target.value })}
+                      onChange={(event) =>
+                        updateStage(index, {
+                          extraProductNamesText: event.target.value,
+                        })
+                      }
                       rows={4}
                       className={textareaClassName}
                     />
@@ -634,15 +773,26 @@ export default function DiseaseForm({
         <div className="mr-auto flex items-center">
           <FieldError message={formErrors.submit} />
         </div>
-        <Button type="button" variant="outline" onClick={() => router.push("/agronomist/diseases")}
-          className="h-10 rounded-md border-slate-300 px-6 text-[13px] font-medium text-slate-600 hover:bg-slate-50">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.push("/agronomist/diseases")}
+          className={cn(agronomistOutlineButtonClassName, "h-10 px-6")}
+        >
           Hủy
         </Button>
-        <Button onClick={handleSubmit} disabled={saveMutation.isPending}
-          className="h-10 rounded-md bg-blue-600 px-8 text-[13px] font-semibold text-white hover:bg-blue-700">
-          {saveMutation.isPending ? "Đang lưu..." : form.id ? "Cập nhật phác đồ" : "Tạo phác đồ"}
+        <Button
+          onClick={handleSubmit}
+          disabled={saveMutation.isPending}
+          className={cn(agronomistPrimaryButtonClassName, "h-10 px-8")}
+        >
+          {saveMutation.isPending
+            ? "Đang lưu..."
+            : form.id
+              ? "Cập nhật phác đồ"
+              : "Tạo phác đồ"}
         </Button>
       </div>
-    </div>
+    </AgronomistPanel>
   );
 }

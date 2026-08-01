@@ -9,7 +9,10 @@ import { useAuthStore } from "@/stores/useAuthStore";
 
 const DIAGNOSIS_STORAGE_PREFIX = "ai-doctor:diagnosis:";
 const LAST_DIAGNOSIS_ID_KEY = "ai-doctor:last-id";
-const PUBLIC_SESSION_ID_KEY = "ai-doctor:public-session-id";
+// Dùng chung cho cả khách vãng lai lẫn user đã đăng nhập: chat có thể chuyển sang hỏi làm rõ
+// nhiều lượt (AI mơ hồ/gần đạt ngưỡng bệnh nào đó) nên cần 1 sessionId ổn định xuyên suốt cuộc
+// hội thoại, không phải chỉ để định danh khách vãng lai như trước.
+const CHAT_SESSION_ID_KEY = "ai-doctor:public-session-id";
 
 const canUseStorage = () => typeof window !== "undefined" && !!window.sessionStorage;
 
@@ -52,14 +55,14 @@ const getLastDiagnosisId = () => {
   return window.sessionStorage.getItem(LAST_DIAGNOSIS_ID_KEY);
 };
 
-const getPublicSessionId = () => {
+const getChatSessionId = () => {
   if (!canUseStorage()) return undefined;
 
-  let sessionId = window.localStorage.getItem(PUBLIC_SESSION_ID_KEY);
+  let sessionId = window.localStorage.getItem(CHAT_SESSION_ID_KEY);
   if (sessionId) return sessionId;
 
   sessionId = crypto?.randomUUID?.() ?? `session_${Date.now()}`;
-  window.localStorage.setItem(PUBLIC_SESSION_ID_KEY, sessionId);
+  window.localStorage.setItem(CHAT_SESSION_ID_KEY, sessionId);
   return sessionId;
 };
 
@@ -74,7 +77,7 @@ export const aiDoctorService = {
       formData.append("userSymptoms", userSymptoms.trim());
     }
     if (!hasPrivateAccess()) {
-      const sessionId = getPublicSessionId();
+      const sessionId = getChatSessionId();
       if (sessionId) {
         formData.append("sessionId", sessionId);
       }
@@ -144,7 +147,10 @@ export const aiDoctorService = {
       isPrivate ? "/ai-doctor/chat" : "/public/ai-doctor/chat",
       {
       message,
-      sessionId: isPrivate ? undefined : getPublicSessionId(),
+      // Cần ổn định cho cả user đã đăng nhập: BE có thể mở phiên hỏi làm rõ nhiều lượt
+      // (AiChatClarifySession) khoá theo sessionId — sessionId đổi mỗi tin nhắn sẽ khiến BE
+      // không nối lại được câu hỏi trước đó với câu trả lời tiếp theo.
+      sessionId: getChatSessionId(),
       diagnosisContext: diagnosisContext
         ? { diseaseCode: diagnosisContext.diseaseCode, diseaseName: diagnosisContext.diseaseName }
         : undefined,
@@ -186,5 +192,5 @@ export const aiDoctorService = {
 
   getCachedDiagnosis,
   getLastDiagnosisId,
-  getPublicSessionId,
+  getChatSessionId,
 };
