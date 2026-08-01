@@ -23,6 +23,7 @@ import {
   Warehouse,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DriverNameSelect } from "@/components/admin/shared/DriverNameSelect";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -243,13 +244,13 @@ export default function NewExportReceiptPage() {
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300"
                     size={14}
                   />
-                  <Input
-                    placeholder="Tên tài xế..."
-                    className="h-8 pl-9 text-[12px] border-slate-200 rounded-none focus:border-blue-500 shadow-none"
+                  <DriverNameSelect
                     value={shipping.driver}
-                    onChange={(e) =>
-                      setShipping({ ...shipping, driver: e.target.value })
+                    onChange={(driverName) =>
+                      setShipping({ ...shipping, driver: driverName })
                     }
+                    placeholder="Chọn tài xế"
+                    triggerClassName="h-8 rounded-none border-slate-200 pl-9 text-[12px] shadow-none focus:ring-0"
                   />
                 </div>
               </div>

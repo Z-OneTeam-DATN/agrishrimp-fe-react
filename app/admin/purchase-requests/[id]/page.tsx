@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/axios";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { PurchaseRequestApiService } from "@/app/services/purchase.service";
 import { InventoryApiService } from "@/app/services/inventory.service";
 import type { PurchaseRequestResponse } from "@/app/types/purchase.schema";
@@ -67,6 +69,7 @@ const RECEIPT_STATUS_MAP: Record<string, { label: string; cls: string }> = {
 export default function PurchaseRequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { hasPermission } = usePermissions();
 
   const [pr, setPr] = useState<PurchaseRequestResponse | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -243,9 +246,12 @@ export default function PurchaseRequestDetailPage() {
     );
   }
 
-  const canCreateReceipt = ["DELIVERING", "PARTIALLY_RECEIVED"].includes(
-    pr.status,
-  );
+  const canCreateReceipt =
+    ["DELIVERING", "PARTIALLY_RECEIVED"].includes(pr.status) &&
+    hasPermission(P.IMPORT_CREATE);
+  const canCreatePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_CREATE);
+  const canUpdatePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_UPDATE);
+  const canApprovePurchaseRequest = hasPermission(P.PURCHASE_REQUEST_APPROVE);
   const hasRemaining = pr.items?.some((i) => (i.remainingQty ?? 0) > 0);
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
@@ -286,6 +292,7 @@ export default function PurchaseRequestDetailPage() {
 
           {pr.status === "DRAFT" && (
             <>
+              {canUpdatePurchaseRequest && (
               <Link href={`/admin/purchase-requests/${pr.id}/edit`}>
                 <Button
                   variant="outline"
@@ -295,6 +302,8 @@ export default function PurchaseRequestDetailPage() {
                   Sửa
                 </Button>
               </Link>
+              )}
+              {canCreatePurchaseRequest && (
               <Button
                 size="sm"
                 className="h-8 rounded-[4px] bg-blue-600 text-[12px] font-medium text-white hover:bg-blue-700"
@@ -304,10 +313,11 @@ export default function PurchaseRequestDetailPage() {
               >
                 Gửi duyệt
               </Button>
+              )}
             </>
           )}
 
-          {pr.status === "PENDING_APPROVAL" && (
+          {pr.status === "PENDING_APPROVAL" && canApprovePurchaseRequest && (
             <>
               <Button
                 variant="outline"
@@ -334,7 +344,7 @@ export default function PurchaseRequestDetailPage() {
             </>
           )}
 
-          {pr.status === "APPROVED" && (
+          {pr.status === "APPROVED" && canUpdatePurchaseRequest && (
             <Button
               size="sm"
               className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-bold rounded-[3px]"
@@ -350,7 +360,7 @@ export default function PurchaseRequestDetailPage() {
             </Button>
           )}
 
-          {pr.status === "SENT_TO_SUPPLIER" && (
+          {pr.status === "SENT_TO_SUPPLIER" && canUpdatePurchaseRequest && (
             <>
               <Button
                 variant="outline"
@@ -381,7 +391,7 @@ export default function PurchaseRequestDetailPage() {
             </>
           )}
 
-          {pr.status === "SUPPLIER_CONFIRMED" && (
+          {pr.status === "SUPPLIER_CONFIRMED" && canUpdatePurchaseRequest && (
             <Button
               size="sm"
               className="h-8 rounded-[4px] bg-emerald-600 text-[12px] font-medium text-white hover:bg-emerald-700"
@@ -407,7 +417,8 @@ export default function PurchaseRequestDetailPage() {
             </Button>
           )}
 
-          {["PARTIALLY_RECEIVED", "COMPLETED"].includes(pr.status) && (
+          {["PARTIALLY_RECEIVED", "COMPLETED"].includes(pr.status) &&
+            canApprovePurchaseRequest && (
             <Button
               variant="outline"
               size="sm"
@@ -431,7 +442,8 @@ export default function PurchaseRequestDetailPage() {
             "SUPPLIER_CONFIRMED",
             "DELIVERING",
           ].includes(pr.status) &&
-            (pr.totalReceiptCount ?? 0) === 0 && (
+            (pr.totalReceiptCount ?? 0) === 0 &&
+            canUpdatePurchaseRequest && (
               <Button
                 variant="outline"
                 size="sm"
@@ -534,58 +546,67 @@ export default function PurchaseRequestDetailPage() {
                 const defectiveQty =
                   progress?.defectiveQty ?? Number(item.defectiveQty ?? 0);
                 const acceptedQty = Math.max(deliveredQty - defectiveQty, 0);
-                const remainingQty = Math.max(requestedQty - deliveredQty, 0);
+                const remainingQty = Math.max(
+                  Number(item.remainingQty ?? requestedQty - acceptedQty),
+                  0,
+                );
                 const fulfilled =
                   deliveredQty >= requestedQty && requestedQty > 0;
                 return (
                   <tr
                     key={item.id ?? idx}
                     className={cn(
-                      "border-b border-slate-100 hover:bg-slate-50",
+                      "h-[58px] border-b border-slate-100 hover:bg-slate-50",
                     )}
                   >
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         {item.imageUrl && (
                           <img
                             src={item.imageUrl}
                             alt=""
-                            className="w-7 h-7 rounded object-cover"
+                            className="h-7 w-7 shrink-0 rounded object-cover"
                           />
                         )}
-                        <div>
-                          <div className="text-[12.5px] font-semibold text-slate-800">
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="truncate text-[12.5px] font-semibold text-slate-800"
+                            title={item.productName || ""}
+                          >
                             {item.productName}
                           </div>
-                          <div className="text-[10.5px] text-slate-400">
+                          <div
+                            className="truncate text-[10.5px] text-slate-400"
+                            title={item.productCode || ""}
+                          >
                             {item.productCode}
                           </div>
                         </div>
                         {fulfilled && (
                           <CheckCircle2
                             size={13}
-                            className="ml-1 text-blue-500"
+                            className="ml-1 shrink-0 text-blue-500"
                           />
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-center font-semibold">
+                    <td className="whitespace-nowrap px-4 py-2 text-center font-semibold">
                       {requestedQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-slate-600">
+                    <td className="whitespace-nowrap px-4 py-2 text-center text-slate-600">
                       {deliveredQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center font-medium text-slate-700">
+                    <td className="whitespace-nowrap px-4 py-2 text-center font-medium text-slate-700">
                       {acceptedQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center font-medium text-slate-700">
+                    <td className="whitespace-nowrap px-4 py-2 text-center font-medium text-slate-700">
                       {defectiveQty}
                     </td>
-                    <td className="px-4 py-2.5 text-center">{remainingQty}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-600">
+                    <td className="whitespace-nowrap px-4 py-2 text-center">{remainingQty}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right text-slate-600">
                       {fmtCurrency(item.unitPrice ?? 0)}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-slate-700">
+                    <td className="whitespace-nowrap px-4 py-2 text-right font-semibold text-slate-700">
                       {fmtCurrency(
                         (item.requestedQty ?? 0) * (item.unitPrice ?? 0),
                       )}

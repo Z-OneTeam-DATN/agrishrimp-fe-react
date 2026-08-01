@@ -121,6 +121,23 @@ const joinErrorList = (value: unknown) => {
     .join(". ");
 };
 
+const getClientErrorFallback = (message: string) => {
+  const normalized = message.trim().toLowerCase();
+
+  if (!normalized) return "";
+  if (normalized === "network error") {
+    return "Không thể kết nối máy chủ. Vui lòng kiểm tra mạng và thử lại.";
+  }
+  if (normalized.includes("timeout") || normalized.includes("exceeded")) {
+    return "Yêu cầu quá thời gian phản hồi. Vui lòng thử lại.";
+  }
+  if (normalized.includes("request aborted")) {
+    return "Yêu cầu đã bị hủy. Vui lòng thử lại.";
+  }
+
+  return "";
+};
+
 const getErrorMessage = (error: unknown) => {
   const axiosError = error as AxiosError<unknown> | undefined;
   const data = axiosError?.response?.data;
@@ -149,13 +166,33 @@ const getErrorMessage = (error: unknown) => {
     error && typeof error === "object" && "message" in error && typeof error.message === "string"
       ? repairVietnameseText(error.message)
       : "";
+  const clientFallback = getClientErrorFallback(message);
+  if (clientFallback) return clientFallback;
   if (message && !message.startsWith("Request failed with status code")) return message;
 
-  if (axiosError?.response?.status === 400) {
-    return repairVietnameseText(
-      "Du lieu gui len khong hop le. Vui long kiem tra lai thong tin.",
-    );
-    return "Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+  switch (axiosError?.response?.status) {
+    case 400:
+      return "Dữ liệu gửi lên không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+    case 401:
+      return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+    case 403:
+      return "Bạn không có quyền thực hiện thao tác này.";
+    case 404:
+      return "Không tìm thấy dữ liệu yêu cầu.";
+    case 409:
+      return "Dữ liệu đang xung đột. Vui lòng tải lại và thử lại.";
+    case 422:
+      return "Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại thông tin.";
+    case 429:
+      return "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.";
+    case 500:
+      return "Lỗi hệ thống máy chủ. Vui lòng thử lại.";
+    case 502:
+      return "Máy chủ không phản hồi. Vui lòng thử lại.";
+    case 503:
+      return "Dịch vụ tạm thời gián đoạn. Vui lòng thử lại.";
+    default:
+      break;
   }
 
   return "Lỗi hệ thống, vui lòng thử lại.";
@@ -310,7 +347,7 @@ const createApi = (baseURL: string, timeout: number = 30000): AxiosInstance => {
     async (error: AxiosError<any>) => {
       if (isCancel(error)) return Promise.reject(error);
 
-      // Handle Network Error (Backend down)
+      // Xử lý lỗi mạng khi máy chủ không phản hồi.
       if (!error.response && error.message === "Network Error") {
         if (isClient()) {
           toast.error(

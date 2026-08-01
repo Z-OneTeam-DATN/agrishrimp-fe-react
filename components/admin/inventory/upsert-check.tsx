@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Eye,
   EyeOff,
   FileSpreadsheet,
@@ -221,30 +222,80 @@ const createCheckItemRowId = (item: any) => {
   return `${variantId}-${sku}-${batchNumber}-${checkItemRowSeed}`;
 };
 
-const mapItem = (item: any): CheckItem => ({
-  rowId: createCheckItemRowId(item),
-  productVariantId: getVariantId(item),
-  name: item.name || item.productName || item.variantName || "N/A",
-  sku: item.sku || "N/A",
-  unit: item.unit || "Cái",
-  systemQuantity: toNumber(item.systemQuantity ?? item.quantity ?? 0),
-  quantityReal: getEffectiveQuantityReal({
-    systemQuantity: item.systemQuantity ?? item.quantity ?? 0,
-    quantityReal: item.quantityReal,
-  }),
-  quantityRejected:
-    item.quantityRejected === null || item.quantityRejected === undefined
-      ? 0
-      : toNumber(item.quantityRejected),
-  minThreshold: toNumber(
-    item.minThreshold ?? item.minStock ?? item.reorderPoint ?? 10,
-    10,
-  ),
-  reason: item.reason || item.note || "",
-  batchNumber: item.batchNumber || "N/A",
-  expiryDate: item.expiryDate || null,
-  importPrice: normalizeImportPrice(item.importPrice ?? item.price),
-});
+const isExpiredLot = (value: unknown) => {
+  if (!value) return false;
+
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+
+  return parsed < today;
+};
+
+const resolveCheckItemAutoFill = (item: any) => {
+  const systemQuantity = Math.max(
+    0,
+    toNumber(item.systemQuantity ?? item.quantity ?? 0),
+  );
+  const expiryDate = item.expiryDate || item.expireDate || null;
+  const isExpired = isExpiredLot(expiryDate);
+  const existingReason = String(item.reason || item.note || "").trim();
+  const normalizedRealQty = normalizeOptionalQuantity(item.quantityReal);
+  const hasRealQty =
+    item.quantityReal !== null &&
+    item.quantityReal !== undefined &&
+    item.quantityReal !== "" &&
+    normalizedRealQty !== null;
+  const quantityReal = hasRealQty
+    ? normalizedRealQty
+    : systemQuantity === 0 || isExpired
+      ? systemQuantity
+      : null;
+  const realQtyForRejected = quantityReal ?? 0;
+  const hasRejectedQty =
+    item.quantityRejected !== null &&
+    item.quantityRejected !== undefined &&
+    item.quantityRejected !== "";
+  const rawRejectedQty = hasRejectedQty
+    ? toNumber(item.quantityRejected, 0)
+    : isExpired
+      ? realQtyForRejected
+      : 0;
+
+  return {
+    systemQuantity,
+    quantityReal,
+    quantityRejected: Math.max(0, Math.min(realQtyForRejected, rawRejectedQty)),
+    reason: existingReason || (isExpired ? "Lô hết hạn" : ""),
+    expiryDate,
+  };
+};
+
+const mapItem = (item: any): CheckItem => {
+  const autoFill = resolveCheckItemAutoFill(item);
+
+  return {
+    rowId: createCheckItemRowId(item),
+    productVariantId: getVariantId(item),
+    name: item.name || item.productName || item.variantName || "N/A",
+    sku: item.sku || "N/A",
+    unit: item.unit || "Cái",
+    systemQuantity: autoFill.systemQuantity,
+    quantityReal: autoFill.quantityReal,
+    quantityRejected: autoFill.quantityRejected,
+    minThreshold: toNumber(
+      item.minThreshold ?? item.minStock ?? item.reorderPoint ?? 10,
+      10,
+    ),
+    reason: autoFill.reason,
+    batchNumber: item.batchNumber || "N/A",
+    expiryDate: autoFill.expiryDate,
+    importPrice: normalizeImportPrice(item.importPrice ?? item.price),
+  };
+};
 
 const buildCheckPayloadDetails = (items: CheckItem[]) =>
   items.map((item) => ({
@@ -443,19 +494,6 @@ const getBadgeFromMetrics = (metrics: CheckItemMetrics) => {
   };
 };
 
-const isExpiredLot = (value: unknown) => {
-  if (!value) return false;
-
-  const parsed = new Date(String(value));
-  if (Number.isNaN(parsed.getTime())) return false;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  parsed.setHours(0, 0, 0, 0);
-
-  return parsed < today;
-};
-
 const getItemBadge = (item: CheckItem) => {
   const metrics = getItemMetrics(item);
   if (metrics.rejectedQty > 0) return { label: "Hư hại", className: "bg-rose-50 text-rose-700 border-rose-100" };
@@ -628,7 +666,7 @@ export default function InventoryUpsert({
         key,
         sku: product.sku || "N/A",
         name: product.productName || product.name || "N/A",
-        unit: product.unit || "Cai",
+        unit: product.unit || "Cái",
         totalQuantity: quantity,
         lotCount: 1,
         hasZeroStockLot: quantity <= 0,
@@ -766,7 +804,7 @@ export default function InventoryUpsert({
       setWorkflowStatus("DRAFT");
     } catch (error) {
       console.error(error);
-      toast.error("Không thể tạo snapshot tồn kho cho chi nhánh này");
+      toast.error("Không thể lấy số tồn kho hiện tại của chi nhánh này");
     } finally {
       setIsSearching(false);
     }
@@ -886,30 +924,7 @@ export default function InventoryUpsert({
           return;
         }
 
-        nextItems.unshift({
-          rowId: createCheckItemRowId(variant),
-          productVariantId: variantId,
-          name: variant.productName || variant.name || "N/A",
-          sku: variant.sku || "N/A",
-          unit: variant.unit || "Cái",
-          systemQuantity: toNumber(variant.quantity ?? 0),
-          quantityReal: getEffectiveQuantityReal({
-            systemQuantity: variant.quantity ?? 0,
-            quantityReal: null,
-          }),
-          quantityRejected: 0,
-          minThreshold: toNumber(
-            variant.minThreshold ??
-              variant.minStock ??
-              variant.reorderPoint ??
-              10,
-            10,
-          ),
-          reason: "",
-          batchNumber: variant.batchNumber || "N/A",
-          expiryDate: variant.expiryDate || null,
-          importPrice: normalizeImportPrice(variant.importPrice),
-        });
+        nextItems.unshift(mapItem(variant));
         addedCount += 1;
       });
 
@@ -1388,10 +1403,10 @@ export default function InventoryUpsert({
         ...prev,
         items:
           invalidRejectedItems.length === 1
-            ? "So luong hu hong khong duoc lon hon so luong thuc te. Hien con 1 dong chua hop le."
-            : `So luong hu hong khong duoc lon hon so luong thuc te. Hien con ${invalidRejectedItems.length} dong chua hop le.`,
+            ? "Số lượng hư hỏng không được lớn hơn số lượng thực tế. Hiện còn 1 dòng chưa hợp lệ."
+            : `Số lượng hư hỏng không được lớn hơn số lượng thực tế. Hiện còn ${invalidRejectedItems.length} dòng chưa hợp lệ.`,
       }));
-      toast.error("So luong hu hong khong duoc lon hon so luong thuc te.");
+      toast.error("Số lượng hư hỏng không được lớn hơn số lượng thực tế.");
       return false;
     }
 
@@ -1460,13 +1475,13 @@ export default function InventoryUpsert({
       setWorkflowStatus(
         getWorkflowStatus(response?.checkWorkflowStatus || response?.status),
       );
-      toast.success("Đã bắt đầu kiểm kê và chốt snapshot tồn kho");
+      toast.success("Đã bắt đầu kiểm kê và lưu lại số tồn kho hiện tại");
       router.push(
         `/admin/inventory-checks/${response?.code || saved?.code || formData.code}?edit=true`,
       );
     } catch (error: any) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Không thể bắt đầu kiểm kê");
+      toast.error(getInventoryCheckErrorMessage(error, "Không thể bắt đầu kiểm kê"));
     } finally {
       setIsSubmitting(false);
     }
@@ -1560,8 +1575,10 @@ export default function InventoryUpsert({
     } catch (error: any) {
       console.error(error);
       toast.error(
-        error?.response?.data?.message ||
+        getInventoryCheckErrorMessage(
+          error,
           "Không thể yêu cầu kiểm lại phiếu kiểm kê",
+        ),
       );
     } finally {
       setIsSubmitting(false);
@@ -1605,7 +1622,7 @@ export default function InventoryUpsert({
     } catch (error: any) {
       console.error(error);
       toast.error(
-        error?.response?.data?.message || "Không thể hủy phiếu kiểm kê",
+        getInventoryCheckErrorMessage(error, "Không thể hủy phiếu kiểm kê"),
       );
     } finally {
       setIsSubmitting(false);
@@ -1892,7 +1909,7 @@ export default function InventoryUpsert({
               </Select>
               <p className="mt-1 text-[10px] text-slate-400">
                 {isFullWarehouseScope
-                  ? "Phiếu sẽ chốt snapshot toàn bộ hàng hóa của kho khi bắt đầu kiểm kê."
+                  ? "Phiếu sẽ lưu lại số tồn kho hiện tại của toàn bộ kho khi bắt đầu kiểm kê."
                   : "Chỉ các SKU được chọn mới thuộc phạm vi kiểm kê và bị khóa giao dịch tồn kho."}
               </p>
             </div>
@@ -2098,7 +2115,7 @@ export default function InventoryUpsert({
                 className="h-8 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-slate-700"
                 onClick={collapseAllGroups}
               >
-                <ChevronRight size={14} className="mr-1.5" />
+                <ChevronUp size={14} className="mr-1.5" />
                 Thu gọn tất cả
               </Button>
               <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700">
@@ -2257,7 +2274,7 @@ export default function InventoryUpsert({
                                       : "text-slate-500",
                                 )}
                               >
-                                Lech{" "}
+                                Lệch{" "}
                                 {group.metrics.diffQty > 0
                                   ? `+${group.metrics.diffQty}`
                                   : group.metrics.diffQty}
@@ -2338,22 +2355,22 @@ export default function InventoryUpsert({
                                           Hạn sử dụng
                                         </TableHead>
                                         <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
-                                          Ton kho
+                                          Tồn kho
                                         </TableHead>
                                         <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
                                           Đếm thực
                                         </TableHead>
                                         <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
-                                          SL hu
+                                          Số lượng hư
                                         </TableHead>
                                         <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
                                           Khả dụng
                                         </TableHead>
                                         <TableHead className="hidden px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
-                                          Dinh muc
+                                          Định mức
                                         </TableHead>
                                         <TableHead className="px-3 py-2 text-right text-[10px] font-semibold text-slate-600">
-                                          Lech
+                                          Lệch
                                         </TableHead>
                                         <TableHead className="px-3 py-2 text-center text-[10px] font-semibold text-slate-600">
                                           Kết luận
@@ -2391,7 +2408,7 @@ export default function InventoryUpsert({
                                                     "-"}
                                                 </p>
                                                 <p className="mt-1 text-[10px] text-slate-400">
-                                                  SKU cha: {group.sku}
+                                                  SKU gốc: {group.sku}
                                                 </p>
                                               </div>
                                             </TableCell>
@@ -2575,7 +2592,7 @@ export default function InventoryUpsert({
                   <TableHead className="w-[150px] min-w-[150px] max-w-[150px] px-1 py-2 text-[10px] font-semibold text-[#1f1f1f] whitespace-nowrap">Sản phẩm</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Tồn kho</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Đếm thực</TableHead>
-                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">SL hư</TableHead>
+                  <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Số lượng hư</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Khả dụng</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">ĐM</TableHead>
                   <TableHead className="px-1 py-2 text-right text-[9px] font-semibold text-[#1f1f1f] whitespace-nowrap">Cần nhập</TableHead>
