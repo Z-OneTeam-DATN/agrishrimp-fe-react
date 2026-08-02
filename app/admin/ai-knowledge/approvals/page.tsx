@@ -5,7 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Eye,
+  Loader2,
+  Phone,
   RefreshCcw,
+  Save,
   Search,
   ShieldCheck,
   XCircle,
@@ -32,6 +35,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -39,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import type {
   AiDiseaseKnowledge,
+  AiKnowledgeChatConfig,
   AiKnowledgeStatus,
 } from "@/app/types/ai-knowledge.types";
 
@@ -101,10 +106,48 @@ export default function AdminAiKnowledgeApprovalsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDetail, setSelectedDetail] =
     useState<AiDiseaseKnowledge | null>(null);
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    fallbackContactName: "",
+    fallbackContactPhone: "",
+  });
 
   const diseasesQuery = useQuery({
     queryKey: ["ai-knowledge", "diseases"],
     queryFn: () => aiKnowledgeService.getDiseases(),
+  });
+
+  const configQuery = useQuery({
+    queryKey: ["ai-knowledge", "config"],
+    queryFn: () => aiKnowledgeService.getConfig(),
+  });
+
+  useEffect(() => {
+    if (configQuery.data) {
+      setContactForm({
+        fallbackContactName: configQuery.data.fallbackContactName ?? "",
+        fallbackContactPhone: configQuery.data.fallbackContactPhone ?? "",
+      });
+    }
+  }, [configQuery.data]);
+
+  const contactMutation = useMutation({
+    mutationFn: () => {
+      const current: Partial<AiKnowledgeChatConfig> = configQuery.data ?? {};
+      return aiKnowledgeService.updateConfig({
+        greetingMessage: current.greetingMessage,
+        fallbackMessage: current.fallbackMessage,
+        fallbackContactName: contactForm.fallbackContactName,
+        fallbackContactPhone: contactForm.fallbackContactPhone,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Đã cập nhật thông tin kỹ sư liên hệ.");
+      await queryClient.invalidateQueries({ queryKey: ["ai-knowledge", "config"] });
+      setIsContactDialogOpen(false);
+    },
+    onError: (error: any) =>
+      toast.error(error?.message || "Không thể cập nhật thông tin liên hệ."),
   });
 
   const diseases = diseasesQuery.data ?? [];
@@ -223,19 +266,30 @@ export default function AdminAiKnowledgeApprovalsPage() {
           <h1 className="text-[20px] font-semibold uppercase text-slate-900">
             Duyệt phác đồ điều trị
           </h1>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
-            onClick={() => void handleRefresh()}
-            disabled={diseasesQuery.isFetching}
-          >
-            <RefreshCcw
-              size={15}
-              className={cn("mr-2", diseasesQuery.isFetching && "animate-spin")}
-            />
-            Làm mới
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
+              onClick={() => setIsContactDialogOpen(true)}
+            >
+              <Phone size={15} className="mr-2" />
+              Kỹ sư liên hệ mặc định
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
+              onClick={() => void handleRefresh()}
+              disabled={diseasesQuery.isFetching}
+            >
+              <RefreshCcw
+                size={15}
+                className={cn("mr-2", diseasesQuery.isFetching && "animate-spin")}
+              />
+              Làm mới
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
@@ -480,6 +534,81 @@ export default function AdminAiKnowledgeApprovalsPage() {
           if (!open) setSelectedDetail(null);
         }}
       />
+
+      <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+        <DialogContent className="max-w-[440px] gap-0 rounded-[4px] border-slate-200 bg-white p-0 shadow-xl">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5">
+            <DialogTitle className="text-[16px] font-semibold text-slate-900">
+              Kỹ sư liên hệ mặc định
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-[12px] text-slate-500">
+              Dùng khi AI tư vấn tự do (không khớp phác đồ nào đã duyệt) — hệ
+              thống tự gắn thông tin này vào cuối câu trả lời.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 px-6 py-5">
+            <div>
+              <label className="text-[11px] font-bold uppercase text-slate-500">
+                Tên kỹ sư
+              </label>
+              <Input
+                type="text"
+                value={contactForm.fallbackContactName}
+                onChange={(event) =>
+                  setContactForm((current) => ({
+                    ...current,
+                    fallbackContactName: event.target.value,
+                  }))
+                }
+                placeholder="VD: Kỹ sư Nam"
+                className="mt-1.5 h-[38px] border-slate-200 bg-white text-[13px] shadow-none"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase text-slate-500">
+                Số điện thoại
+              </label>
+              <Input
+                type="text"
+                value={contactForm.fallbackContactPhone}
+                onChange={(event) =>
+                  setContactForm((current) => ({
+                    ...current,
+                    fallbackContactPhone: event.target.value,
+                  }))
+                }
+                placeholder="VD: 0909123456"
+                className="mt-1.5 h-[38px] border-slate-200 bg-white text-[13px] shadow-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-slate-100 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
+              onClick={() => setIsContactDialogOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              onClick={() => contactMutation.mutate()}
+              disabled={contactMutation.isPending}
+              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {contactMutation.isPending ? (
+                <Loader2 size={15} className="mr-2 animate-spin" />
+              ) : (
+                <Save size={15} className="mr-2" />
+              )}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

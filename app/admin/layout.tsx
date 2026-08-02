@@ -71,7 +71,6 @@ const ADMIN_ROUTE_RULES: RouteRule[] = [
   { path: "/admin/blog", permission: P.BLOG_VIEW },
   { path: "/admin/chat", permission: P.CHAT_VIEW },
   { path: "/admin/ai-knowledge/approvals", permission: P.AI_KNOWLEDGE_APPROVE },
-  { path: "/admin/ai-knowledge/chatbot", anyOf: [P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_UPDATE] },
 ];
 
 export default function AdminLayout({
