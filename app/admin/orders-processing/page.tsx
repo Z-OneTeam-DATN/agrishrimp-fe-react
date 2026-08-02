@@ -30,6 +30,8 @@ import {
   orderService,
 } from "@/app/services/order.service";
 import { BranchOrder } from "@/app/types/order.types";
+import { getFriendlyError } from "@/app/utils/apiError";
+import { canRequestBranchReplenishmentAction } from "@/components/admin/orders/OrderStateBadges";
 import { formatDate, getCurrentMonthDateTimeRange } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { canUseBranchOrderRoutes } from "@/lib/order-routing";
@@ -233,8 +235,8 @@ export default function OrderManagementPage() {
       const response = await orderService.requestBranchOrderReplenishment(order.orderId);
       toast.success(getReplenishmentResultMessage(order.orderCode, response));
       void fetchOrders(activeTab, search, startDateFilter, endDateFilter);
-    } catch {
-      toast.error("Không thể xử lý yêu cầu bổ sung.");
+    } catch (error) {
+      toast.error(getFriendlyError(error));
     }
   };
 
@@ -389,6 +391,9 @@ export default function OrderManagementPage() {
                     (detail?.items ?? order.items).some(
                       (item) => (item.missingQuantity ?? 0) > 0,
                     );
+                  const allowReplenishment = canRequestBranchReplenishmentAction(
+                    detail ?? order,
+                  );
 
                   return (
                     <React.Fragment key={order.orderId}>
@@ -487,7 +492,7 @@ export default function OrderManagementPage() {
                                     Chi tiết sản phẩm ({detail?.items?.length || order.items.length || 0})
                                   </h3>
 
-                                  {activeTab === "PENDING" && hasMissingItems ? (
+                                  {allowReplenishment ? (
                                     <Button
                                       size="sm"
                                       className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
@@ -503,14 +508,6 @@ export default function OrderManagementPage() {
                                     >
                                       <CheckCircle2 size={15} className="mr-1.5" />
                                       Xác nhận đơn
-                                    </Button>
-                                  ) : activeTab === "AWAITING_REPLENISHMENT" ? (
-                                    <Button
-                                      size="sm"
-                                      className="h-[32px] bg-rose-600 text-[12px] font-bold text-white shadow-sm hover:bg-rose-700"
-                                      onClick={(event) => handleRequestReplenishment(event, order)}
-                                    >
-                                      Xin điều chuyển
                                     </Button>
                                   ) : activeTab === "CONFIRMED" ? (
                                     <Button

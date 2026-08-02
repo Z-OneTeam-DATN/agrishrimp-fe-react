@@ -21,6 +21,7 @@ import {
   orderService,
 } from "@/app/services/order.service";
 import { MyOrder } from "@/app/types/order.types";
+import { getFriendlyError } from "@/app/utils/apiError";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/dateUtils";
@@ -135,8 +136,8 @@ export default function AdminOrderDetailView({
       const response = await orderService.requestAdminOrderReplenishment(order.id);
       toast.success(getReplenishmentResultMessage(getOrderCode(order), response));
       await fetchOrder();
-    } catch {
-      toast.error("Không thể xử lý yêu cầu bổ sung cho đơn hàng.");
+    } catch (error) {
+      toast.error(getFriendlyError(error));
     } finally {
       setIsSubmitting(null);
     }

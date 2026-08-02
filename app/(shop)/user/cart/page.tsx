@@ -38,6 +38,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import type { CartItem as CheckoutStoreCartItem } from "@/app/types/order.types";
 
 interface CartItem {
   id: number;
@@ -242,7 +243,7 @@ export default function CartPage() {
   const [savedVoucherCodes, setSavedVoucherCodes] = useState<string[]>([]);
   const [isVoucherDialogOpen, setIsVoucherDialogOpen] = useState(false);
 
-  const { fetchCartCount } = useCartStore();
+  const { fetchCartCount, setItems: setCheckoutStoreItems } = useCartStore();
   const { isAuthenticated, data: user, isLoading: isLoadingAuth } = useCurrentUser();
   const accessToken = useAuthStore((state) => state.accessToken);
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -259,6 +260,25 @@ export default function CartPage() {
 
     return "/san-pham";
   }, []);
+
+  const syncCheckoutStoreItems = useCallback(
+    (nextItems: CartItem[]) => {
+      const normalizedItems: CheckoutStoreCartItem[] = nextItems.map((item) => ({
+        productVariantId: item.variantId,
+        quantity: item.quantity,
+        cartItemId: item.id,
+        productId: item.productId,
+        productSlug: item.productSlug,
+        productName: item.name,
+        variantName: item.variant,
+        unitPrice: item.price,
+        imageUrl: item.image,
+      }));
+
+      setCheckoutStoreItems(normalizedItems);
+    },
+    [setCheckoutStoreItems],
+  );
 
   const fetchCart = useCallback(async () => {
     try {
@@ -321,6 +341,10 @@ export default function CartPage() {
 
     void fetchCart();
   }, [accessToken, fetchCart, fetchPublicVouchers, isLoadingAuth, isLoggedIn]);
+
+  useEffect(() => {
+    syncCheckoutStoreItems(items);
+  }, [items, syncCheckoutStoreItems]);
 
   useEffect(() => {
     if (typeof document === "undefined") {

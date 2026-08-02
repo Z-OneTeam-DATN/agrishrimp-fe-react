@@ -93,6 +93,12 @@ export interface PrepareOrderPayload {
 export interface PrepareOrderResponse {
   prepareToken: string
   expiresAt?: string | null
+  addressId?: number | null
+  deliveryAddress?: string | null
+  deliveryDistrictId?: number | null
+  deliveryWardCode?: string | null
+  receiverName?: string | null
+  receiverPhone?: string | null
   canFulfill: boolean
   canPlaceOrder?: boolean
   requiresManualApproval?: boolean
@@ -116,8 +122,8 @@ export interface ConfirmOrderPayload {
 }
 
 export interface ConfirmOrderResponse {
-  orderId: number
-  orderCode: string
+  orderId?: number | null
+  orderCode?: string | null
   status: OrderStatus
   legacyStatus?: LegacyOrderStatus | null
   paymentStatus?: OrderPaymentStatus | null
@@ -130,14 +136,14 @@ export interface ConfirmOrderResponse {
   totalShippingFee: number
   checkoutUrl: string | null
   subOrders: Array<{
-    subOrderId: number
-    branchId: number
-    branchName: string
+    subOrderId: number | null
+    branchId: number | null
+    branchName: string | null
     status: string
     subtotal: number
     shippingFee: number
-    estimatedDays: string
-    carrier: string
+    estimatedDays: string | null
+    carrier: string | null
   }>
 }
 
