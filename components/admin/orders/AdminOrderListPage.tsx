@@ -21,6 +21,7 @@ import {
   type PageResponse,
 } from "@/app/services/order.service";
 import { MyOrder, OrderStatus } from "@/app/types/order.types";
+import { getFriendlyError } from "@/app/utils/apiError";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -268,8 +269,8 @@ export default function AdminOrderListPage({
       const response = await orderService.requestAdminOrderReplenishment(orderId);
       toast.success(getReplenishmentResultMessage(orderCode, response));
       await fetchOrders();
-    } catch {
-      toast.error("Không thể xử lý yêu cầu bổ sung.");
+    } catch (error) {
+      toast.error(getFriendlyError(error));
     }
   };
 

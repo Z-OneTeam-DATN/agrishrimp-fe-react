@@ -13,6 +13,7 @@ import {
   PrepareOrderResponse,
   ConfirmOrderPayload,
   ConfirmOrderResponse,
+  PaymentMethod,
 } from "@/app/types/order.types";
 
 export interface ReturnOrder {
@@ -259,11 +260,44 @@ export const orderService = {
     return response.data;
   },
 
+  getPreparedOrder: async (
+    prepareToken: string,
+  ): Promise<PrepareOrderResponse> => {
+    const response = await apiJava.get<PrepareOrderResponse>(
+      `${orderService.PREFIX}/prepare/${encodeURIComponent(prepareToken)}`,
+    );
+    return response.data;
+  },
+
+  finalizePayosSession: async (
+    sessionCode: string,
+  ): Promise<ConfirmOrderResponse> => {
+    const response = await apiJava.get<ConfirmOrderResponse>(
+      `/payos/sessions/${encodeURIComponent(sessionCode)}/finalize`,
+    );
+    return response.data;
+  },
+
+  cancelPayosSession: async (sessionCode: string): Promise<void> => {
+    await apiJava.post(`/payos/sessions/${encodeURIComponent(sessionCode)}/cancel`);
+  },
+
   getPaymentLink: async (orderId: number | string): Promise<string> => {
     const response = await apiJava.get<{ checkoutUrl: string }>(
       `${orderService.PREFIX}/${orderId}/payment-link`,
     );
     return response.data.checkoutUrl;
+  },
+
+  retryPendingPayment: async (
+    orderId: number | string,
+    paymentMethod: PaymentMethod,
+  ): Promise<ConfirmOrderResponse> => {
+    const response = await apiJava.post<ConfirmOrderResponse>(
+      `${orderService.PREFIX}/${orderId}/retry-payment`,
+      { paymentMethod },
+    );
+    return response.data;
   },
 
   // ==========================================
