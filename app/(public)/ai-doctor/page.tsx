@@ -36,6 +36,7 @@ type ChatEntry =
   | { id: string; kind: "user"; text?: string; previewUrl?: string | null }
   | { id: string; kind: "bot-html"; html: string }
   | { id: string; kind: "bot-plain"; text: string }
+  | { id: string; kind: "bot-diagnosis"; diagnosis: AiDoctorDiagnosisResponse }
   | { id: string; kind: "bot-result"; diagnosis: AiDoctorDiagnosisResponse };
 
 // Omit<Union, K> collapses to the merged member keys instead of distributing per-variant, which
@@ -91,24 +92,6 @@ const createPersistentPreview = async (file: File) =>
     reader.readAsDataURL(file);
   });
 
-// Doc file thanh base64 THUAN (khong tien to "data:image/...;base64,") de gui thang cho Gemini
-// vision qua BE — khac voi createPersistentPreview (giu nguyen data URL de <img> hien thi truc tiep).
-const readFileAsRawBase64 = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Không thể đọc ảnh."));
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      if (!base64) {
-        reject(new Error("Không thể đọc dữ liệu ảnh."));
-        return;
-      }
-      resolve(base64);
-    };
-    reader.readAsDataURL(file);
-  });
-
 export default function AiDoctorChatPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,11 +105,6 @@ export default function AiDoctorChatPage() {
   const [symptoms, setSymptoms] = useState("");
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [clarifySession, setClarifySession] = useState<ClarifySession | null>(null);
-  // Bat len sau tin nhan chat-chu DAU TIEN thanh cong — chi khi da dang tro chuyen bang chu (giong
-  // vi du ChatGPT: mo ta trieu chung truoc, gui anh sau de AI xem ky hon) thi anh gui tiep theo moi
-  // di qua chat co vision thay vi luon kich hoat chan doan YOLO tu dau. Giu luong upload-anh-lanh
-  // (chua chat gi) nguyen ven nhu cu — khong doi hanh vi mac dinh dang hoat dong tot.
-  const [hasTextChatStarted, setHasTextChatStarted] = useState(false);
 
   const nextEntryId = () => `e${entryIdRef.current++}`;
   const pushEntry = (entry: DistributiveOmit<ChatEntry, "id">) =>
@@ -161,7 +139,6 @@ export default function AiDoctorChatPage() {
     mutationFn: ({ message, image }: { message: string; image?: { base64: string; mimeType: string } }) =>
       aiDoctorService.chat(message, undefined, image),
     onSuccess: (data) => {
-      setHasTextChatStarted(true);
       pushEntry({ kind: "bot-html", html: data.reply });
     },
     onError: () => {
@@ -220,6 +197,7 @@ export default function AiDoctorChatPage() {
         : data;
 
       if (data.needsClarification) {
+        pushEntry({ kind: "bot-diagnosis", diagnosis: hydratedDiagnosis });
         setClarifySession({ diagnosisId: data.diagnosisId });
         clarifyMutation.mutate({
           diagnosisId: data.diagnosisId,
@@ -233,7 +211,16 @@ export default function AiDoctorChatPage() {
       }
 
       setClarifySession(null);
-      pushEntry({ kind: "bot-result", diagnosis: hydratedDiagnosis });
+
+      // HEALTHY khong di qua enrichDiagnosis o BE nen khong co aiDescription — giu nguyen the bot-result
+      // "TÔM KHỎE MẠNH" nhu cu. Cac ca DISEASE gio day dung bubble tuong thuat bot-diagnosis thay vi
+      // the ket qua tinh nhu truoc.
+      if (data.status === "HEALTHY") {
+        pushEntry({ kind: "bot-result", diagnosis: hydratedDiagnosis });
+        return;
+      }
+
+      pushEntry({ kind: "bot-diagnosis", diagnosis: hydratedDiagnosis });
       toast.success("Bác sĩ đã có kết quả rồi đây!");
     },
     onError: (error: unknown) => {
@@ -293,45 +280,6 @@ export default function AiDoctorChatPage() {
       pushEntry({ kind: "user", text: currentSymptoms });
       setSymptoms("");
       chatMutation.mutate({ message: currentSymptoms });
-      return;
-    }
-
-    // Da dang tro chuyen bang chu (kieu ChatGPT: mo ta truoc, gui anh sau de xem ky hon) → gui anh
-    // kem tin nhan qua chat co vision (Gemini xem anh, noi tiep hoi thoai) thay vi kich hoat lai tu
-    // dau luong chan doan YOLO. Neu day la anh DAU TIEN (chua tung chat chu) thi van di YOLO nhu cu.
-    if (hasTextChatStarted) {
-      const currentImageForChat = selectedImage;
-      const currentPreviewUrlForChat = previewUrl;
-
-      let clientPreviewUrlForChat: string | undefined;
-      try {
-        clientPreviewUrlForChat = await createPersistentPreview(currentImageForChat);
-      } catch {
-        clientPreviewUrlForChat = undefined;
-      }
-
-      let imageBase64: string;
-      try {
-        imageBase64 = await readFileAsRawBase64(currentImageForChat);
-      } catch {
-        toast.error("Không đọc được ảnh, bà con thử chọn ảnh khác nhé.");
-        return;
-      }
-
-      pushEntry({
-        kind: "user",
-        text: currentSymptoms,
-        previewUrl: clientPreviewUrlForChat || currentPreviewUrlForChat,
-      });
-
-      setSelectedImage(null);
-      setPreviewUrl(null);
-      setSymptoms("");
-
-      chatMutation.mutate({
-        message: currentSymptoms || "Đây là ảnh tôm của tôi, bạn xem giúp tôi với.",
-        image: { base64: imageBase64, mimeType: currentImageForChat.type || "image/jpeg" },
-      });
       return;
     }
 
@@ -490,6 +438,40 @@ export default function AiDoctorChatPage() {
                   <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
                     {entry.text}
                   </div>
+                </div>
+              );
+            }
+
+            if (entry.kind === "bot-diagnosis") {
+              const diagnosis = entry.diagnosis;
+              const hasNarrative = Boolean(diagnosis.aiDescription && diagnosis.aiDescription.trim());
+              return (
+                <div key={entry.id} className="flex max-w-full flex-col items-start gap-2 pr-12">
+                  <div className="flex max-w-full justify-start gap-2.5">
+                    <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                      <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
+                    </div>
+                    {hasNarrative ? (
+                      <div
+                        className="prose prose-sm max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-gray-700 shadow-sm prose-p:my-2 prose-strong:text-[#12385a] prose-li:my-1"
+                        dangerouslySetInnerHTML={{ __html: diagnosis.aiDescription as string }}
+                      />
+                    ) : (
+                      <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
+                        {diagnosis.signsSummary || "Bác sĩ đã xem xong ảnh của bà con."}
+                      </div>
+                    )}
+                  </div>
+
+                  {!diagnosis.needsClarification && (
+                    <button
+                      onClick={() => openReport(diagnosis.diagnosisId)}
+                      className="ml-[42px] flex h-11 items-center justify-center gap-1 rounded-xl bg-[#1965A2] px-4 text-[13px] font-bold uppercase text-white shadow-sm transition-colors hover:bg-[#15588D]"
+                    >
+                      {isAuthenticated ? "Xem cách chữa trị ngay" : "Mở hồ sơ điều trị"}
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
                 </div>
               );
             }

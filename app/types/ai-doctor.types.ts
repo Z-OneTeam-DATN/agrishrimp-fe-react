@@ -43,6 +43,9 @@ export interface AiDoctorDiagnosisResponse {
   createdAt?: string;
   /** true khi độ tin cậy quá thấp — FE cần gọi clarify() để bác sĩ AI hỏi thêm thay vì kết luận ngay. */
   needsClarification?: boolean;
+  /** Narrative HTML: mô tả ảnh của Gemini + trích dẫn độ tin cậy/tên bệnh YOLO, ghép sẵn ở BE.
+   *  Chỉ có ở response của POST /diagnosis — luôn absent khi đọc lại qua GET /diagnosis/{id} hoặc /history. */
+  aiDescription?: string;
 }
 
 /** Response của POST /diagnosis/{id}/clarify — mỗi lượt hỏi-đáp làm rõ bệnh với AI. */
