@@ -28,7 +28,6 @@ import {
   BookOpen,
   MessageCircle,
   Stethoscope,
-  MessageSquareText,
   History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -221,8 +220,7 @@ export default function AdminSidebar() {
   const canViewBannerSection = hasPermission(P.BANNER_VIEW);
   const canViewBlogSection = hasPermission(P.BLOG_VIEW);
   const canApproveAiKnowledge = hasPermission(P.AI_KNOWLEDGE_APPROVE);
-  const canManageAiChatbot = hasAnyPermission([P.AI_KNOWLEDGE_VIEW, P.AI_KNOWLEDGE_UPDATE]);
-  const canViewAiKnowledgeSection = canApproveAiKnowledge || canManageAiChatbot;
+  const canViewAiKnowledgeSection = canApproveAiKnowledge;
   const workspaceLabel = hasAnyPermission([P.ROLE_VIEW, P.STAFF_VIEW, P.BRANCH_VIEW])
     ? "Quản trị"
     : hasAnyPermission([
@@ -861,24 +859,13 @@ export default function AdminSidebar() {
               AI Doctor
             </p>
             <div className="space-y-0.5">
-              {canApproveAiKnowledge && (
-                <SidebarLink
-                  href="/admin/ai-knowledge/approvals"
-                  icon={Stethoscope}
-                  label="Duyệt phác đồ"
-                  active={isActive("/admin/ai-knowledge/approvals")}
-                  color="text-emerald-400"
-                />
-              )}
-              {canManageAiChatbot && (
-                <SidebarLink
-                  href="/admin/ai-knowledge/chatbot"
-                  icon={MessageSquareText}
-                  label="Chatbot mở đầu"
-                  active={isActive("/admin/ai-knowledge/chatbot")}
-                  color="text-blue-400"
-                />
-              )}
+              <SidebarLink
+                href="/admin/ai-knowledge/approvals"
+                icon={Stethoscope}
+                label="Duyệt phác đồ"
+                active={isActive("/admin/ai-knowledge/approvals")}
+                color="text-emerald-400"
+              />
             </div>
           </section>
         )}
