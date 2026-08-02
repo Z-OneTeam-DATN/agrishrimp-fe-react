@@ -8,6 +8,8 @@ import {
   FileText,
   ChevronRight,
   ChevronDown,
+  Search,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -51,15 +53,16 @@ function BlogContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const keyword = searchParams.get("keyword") ?? "";
+  const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined;
+  const page = Number(searchParams.get("page") ?? "0");
+
   const [posts, setPosts] = useState<BlogPostDTO[]>([]);
   const [categories, setCategories] = useState<BlogCategoryDTO[]>([]);
   const [latestPosts, setLatestPosts] = useState<BlogPostDTO[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  const keyword = searchParams.get("keyword") ?? "";
-  const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined;
-  const page = Number(searchParams.get("page") ?? "0");
+  const [searchInput, setSearchInput] = useState(keyword);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -80,6 +83,7 @@ function BlogContent() {
   }, [keyword, categoryId, page]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { setSearchInput(keyword); }, [keyword]);
 
   const navigate = (params: Record<string, string | undefined>) => {
     const p = new URLSearchParams(searchParams.toString());
@@ -87,6 +91,11 @@ function BlogContent() {
       if (v) p.set(k, v); else p.delete(k);
     });
     router.push(`/blog?${p.toString()}`);
+  };
+
+  const submitSearch = () => {
+    const normalized = searchInput.trim();
+    navigate({ keyword: normalized || undefined, page: undefined });
   };
 
   const formatDate = (s: string | null) =>
@@ -99,11 +108,48 @@ function BlogContent() {
       <main className="container mx-auto w-full px-4 py-8 lg:py-10">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
           <div className="min-w-0">
-            <div className="mb-8 flex items-center gap-3">
-              <span className="inline-block h-8 w-[6px] bg-blue-700" />
-              <h1 className="text-[18px] font-bold tracking-tight text-slate-900 md:text-[22px]">
-                Bài viết và kinh nghiệm nuôi trồng thủy sản
-              </h1>
+            <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="inline-block h-8 w-[6px] shrink-0 bg-blue-700" />
+                <h1 className="text-[18px] font-bold tracking-tight text-slate-900 md:text-[22px]">
+                  Bài viết và kinh nghiệm nuôi trồng thủy sản
+                </h1>
+              </div>
+
+              <div className="flex w-full max-w-[420px] items-center border border-slate-200 bg-white shadow-sm transition-colors focus-within:border-blue-500 xl:w-[360px] 2xl:w-[420px]">
+                <Search size={17} className="ml-3 shrink-0 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") submitSearch();
+                    if (event.key === "Escape") setSearchInput(keyword);
+                  }}
+                  placeholder="Tìm bài viết..."
+                  className="h-11 min-w-0 flex-1 bg-transparent px-3 text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    aria-label="Xóa từ khóa"
+                    onClick={() => {
+                      setSearchInput("");
+                      if (keyword) navigate({ keyword: undefined, page: undefined });
+                    }}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={submitSearch}
+                  className="mr-1 flex h-9 shrink-0 items-center justify-center bg-blue-700 px-4 text-sm font-bold text-white transition-colors hover:bg-blue-800"
+                >
+                  Tìm
+                </button>
+              </div>
             </div>
 
             {(keyword || activeCategory) && (

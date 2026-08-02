@@ -71,11 +71,11 @@ export default function NotificationBell() {
       <button
         onClick={toggleOpen}
         aria-label="Thông báo"
-        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm transition-colors hover:bg-gray-100"
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm transition-colors hover:bg-gray-100"
       >
-        <Bell className="w-5 h-5 text-gray-700" />
+        <Bell className="h-[18px] w-[18px] text-gray-700" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 border-2 border-white">
+          <span className="absolute -right-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[8px] font-bold leading-none text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
