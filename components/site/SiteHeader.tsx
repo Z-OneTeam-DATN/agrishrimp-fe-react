@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   Camera,
   ChevronRight,
+  Loader2,
   Mic,
   MicOff,
   Search,
@@ -22,15 +23,19 @@ import {
   PackageSearch,
   ShieldCheck,
   Truck,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/use-logout";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import { useCartStore } from "@/stores/useCartStore";
 import { getPublicCategories } from "@/app/services/CategoryService";
+import { PublicProductService } from "@/app/services/publicProduct.service";
 import { CategoryDTO } from "@/app/types/category.type";
+import { PublicProductListItem } from "@/app/types/product.schema";
 import NotificationBell from "@/components/site/NotificationBell";
 import {
   DropdownMenu,
@@ -90,6 +95,26 @@ const getFullImageUrl = (url?: string) => {
   return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
+const formatProductPrice = (value?: number | null) => {
+  if (value == null || Number.isNaN(value)) return "Liên hệ";
+
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+const getSuggestionImage = (product: PublicProductListItem) =>
+  product.imageUrls?.[0] ||
+  product.variants?.find((variant) => variant.imageUrl)?.imageUrl ||
+  "/placeholder.svg";
+
+const getSuggestionPrice = (product: PublicProductListItem) =>
+  product.variants?.find((variant) => (variant.price ?? 0) > 0)?.price ?? null;
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export default function Header() {
   const router = useRouter();
   const { data: user, isAuthenticated, isLoading } = useCurrentUser();
@@ -103,13 +128,18 @@ export default function Header() {
   const [mobileCategories, setMobileCategories] = useState<CategoryDTO[]>([]);
   const [mobileCategoriesLoaded, setMobileCategoriesLoaded] = useState(false);
   const [isLoadingMobileCategories, setIsLoadingMobileCategories] = useState(false);
+  const [suggestedProducts, setSuggestedProducts] = useState<PublicProductListItem[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const speechRecognitionRef = useRef<BrowserSpeechRecognitionLike | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+  const normalizedSearchKeyword = searchKeyword.trim();
 
   const handleSearch = useCallback((keyword: string) => {
     setSearchKeyword(keyword);
     const trimmed = keyword.trim();
+    setIsSuggestionsOpen(false);
     startTransition(() => {
       if (!trimmed) {
         router.push("/", { scroll: false });
@@ -121,6 +151,56 @@ export default function Header() {
       });
     });
   }, [router]);
+
+  useEffect(() => {
+    if (normalizedSearchKeyword.length < 2) {
+      setSuggestedProducts([]);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingSuggestions(true);
+    const timeoutId = globalThis.setTimeout(async () => {
+      try {
+        const response = await PublicProductService.getList({
+          keyword: normalizedSearchKeyword,
+          page: 0,
+          size: 5,
+        });
+
+        if (!cancelled) {
+          setSuggestedProducts(response.content ?? []);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSuggestions(false);
+        }
+      }
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(timeoutId);
+    };
+  }, [normalizedSearchKeyword]);
+
+  const handleSearchInputChange = (value: string) => {
+    setSearchKeyword(value);
+    setIsSuggestionsOpen(true);
+  };
+
+  const handleSelectSuggestion = (product: PublicProductListItem) => {
+    setSearchKeyword(product.name);
+    setIsSuggestionsOpen(false);
+    router.push(`/san-pham/${product.slug}`);
+  };
+
+  const handleClearSearch = () => {
+    setSearchKeyword("");
+    setSuggestedProducts([]);
+    setIsSuggestionsOpen(false);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -210,6 +290,193 @@ export default function Header() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSearch(searchKeyword);
+    if (e.key === "Escape") setIsSuggestionsOpen(false);
+  };
+
+  const renderHighlightedText = (text: string) => {
+    if (!normalizedSearchKeyword) return text;
+
+    const parts = text.split(new RegExp(`(${escapeRegExp(normalizedSearchKeyword)})`, "ig"));
+    return parts.map((part, index) =>
+      part.toLocaleLowerCase("vi-VN") === normalizedSearchKeyword.toLocaleLowerCase("vi-VN") ? (
+        <mark key={`${part}-${index}`} className="bg-transparent font-extrabold text-[rgb(25,101,162)]">
+          {part}
+        </mark>
+      ) : (
+        <span key={`${part}-${index}`}>{part}</span>
+      )
+    );
+  };
+
+  const renderSuggestionsDropdown = () => {
+    const shouldShow =
+      isSuggestionsOpen &&
+      normalizedSearchKeyword.length >= 2;
+
+    if (!shouldShow) return null;
+
+    return (
+      <div className="absolute left-0 right-0 top-full z-[120] mt-2 border border-slate-200 bg-white text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
+        <div className="border-b border-slate-100 px-4 py-3 text-[12px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          Sản phẩm
+        </div>
+
+        {isLoadingSuggestions ? (
+          <div className="flex items-center gap-3 px-4 py-5 text-sm font-medium text-slate-500">
+            <Loader2 size={18} className="animate-spin text-[rgb(25,101,162)]" />
+            Đang tìm sản phẩm...
+          </div>
+        ) : suggestedProducts.length === 0 ? (
+          <div className="px-4 py-5 text-sm font-medium text-slate-500">
+            Không tìm thấy sản phẩm phù hợp.
+          </div>
+        ) : (
+          <div className="py-2">
+            {suggestedProducts.map((product) => {
+              const imageUrl = getFullImageUrl(getSuggestionImage(product));
+              const price = getSuggestionPrice(product);
+
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => handleSelectSuggestion(product)}
+                  className="grid w-full grid-cols-[52px_minmax(0,1fr)] gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span className="flex h-[52px] w-[52px] items-center justify-center overflow-hidden bg-slate-50">
+                    <img
+                      src={imageUrl}
+                      alt={product.name}
+                      className="h-full w-full object-contain"
+                      onError={(event) => {
+                        (event.currentTarget as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 text-[14px] font-bold leading-5 text-slate-950">
+                      {renderHighlightedText(product.name)}
+                    </span>
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-slate-500">
+                      {product.brandName && <span>{product.brandName}</span>}
+                      {product.brandName && product.categoryName && <span>•</span>}
+                      {product.categoryName && <span>{product.categoryName}</span>}
+                    </span>
+                    <span className="mt-1 block text-[13px] font-extrabold text-[rgb(25,101,162)]">
+                      {formatProductPrice(price)}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => handleSearch(normalizedSearchKeyword)}
+          className="flex w-full items-center justify-center border-t border-slate-100 px-4 py-3 text-center text-sm font-bold text-[rgb(25,101,162)] transition-colors hover:bg-slate-50"
+        >
+          Xem tất cả kết quả cho "{normalizedSearchKeyword}"
+        </button>
+      </div>
+    );
+  };
+
+  const renderSearchBox = (variant: "mobile" | "desktop") => {
+    const isMobile = variant === "mobile";
+    const inputClassName = isMobile
+      ? "h-10 flex-1 bg-white px-4 text-[13px] text-gray-800 outline-none placeholder:text-gray-400"
+      : "h-11 flex-1 bg-white px-4 text-[15px] text-gray-800 outline-none placeholder:text-gray-400";
+    const iconButtonClassName = isMobile
+      ? "flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+      : "flex h-11 w-10 items-center justify-center transition-colors";
+
+    return (
+      <div
+        className="relative"
+        onFocus={() => {
+          if (normalizedSearchKeyword.length >= 2) setIsSuggestionsOpen(true);
+        }}
+        onBlur={(event) => {
+          const nextTarget = event.relatedTarget as Node | null;
+          if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+            setIsSuggestionsOpen(false);
+          }
+        }}
+      >
+        <div
+          className={cn(
+            "flex items-center overflow-hidden bg-white",
+            isMobile
+              ? "rounded-[20px] border border-[#cbd8ec] shadow-[0_8px_20px_rgba(18,44,87,0.14)]"
+              : "rounded-lg"
+          )}
+        >
+          <input
+            type="text"
+            placeholder={isListening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
+            value={searchKeyword}
+            onChange={(e) => handleSearchInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className={inputClassName}
+          />
+          {searchKeyword ? (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className={cn(
+                iconButtonClassName,
+                "text-gray-400 hover:text-[rgb(25,101,162)]"
+              )}
+              aria-label="Xóa từ khóa tìm kiếm"
+            >
+              <X size={isMobile ? 15 : 16} />
+            </button>
+          ) : null}
+          {isSpeechSupported ? (
+            <button
+              type="button"
+              onClick={handleVoiceSearch}
+              className={cn(
+                iconButtonClassName,
+                isListening
+                  ? "text-red-500 animate-pulse"
+                  : "text-gray-400 hover:text-[rgb(25,101,162)]"
+              )}
+            >
+              {isListening ? <MicOff size={isMobile ? 16 : 15} /> : <Mic size={isMobile ? 16 : 15} />}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setIsImageSearchOpen(true)}
+            className={cn(
+              iconButtonClassName,
+              "text-gray-400 hover:text-[rgb(25,101,162)]"
+            )}
+          >
+            <Camera size={isMobile ? 16 : 15} />
+          </button>
+          <button
+            type="button"
+            aria-label="Tìm kiếm"
+            onClick={() => handleSearch(searchKeyword)}
+            className={
+              isMobile
+                ? "mr-2 flex h-8 w-8 items-center justify-center rounded-full text-[rgb(25,101,162)]"
+                : "mx-1 flex h-10 w-16 items-center justify-center rounded-lg bg-[rgb(25,101,162)] text-white transition-colors hover:bg-[rgb(21,88,141)] shadow-[0_6px_16px_rgba(25,101,162,0.28)]"
+            }
+          >
+            <Search size={isMobile ? 19 : 20} strokeWidth={isMobile ? 2.4 : 2.5} />
+          </button>
+        </div>
+
+        {renderSuggestionsDropdown()}
+      </div>
+    );
   };
 
   const { itemCount, fetchCartCount } = useCartStore();
@@ -585,42 +852,7 @@ export default function Header() {
             </div>
 
             <div className="pt-3">
-              <div className="flex items-center overflow-hidden rounded-[20px] border border-[#cbd8ec] bg-white shadow-[0_8px_20px_rgba(18,44,87,0.14)]">
-                <input
-                  type="text"
-                  placeholder={isListening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="h-10 flex-1 bg-white px-4 text-[13px] text-gray-800 outline-none placeholder:text-gray-400"
-                />
-                {isSpeechSupported ? (
-                  <button
-                    type="button"
-                    onClick={handleVoiceSearch}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                      isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-[rgb(25,101,162)]"
-                    }`}
-                  >
-                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setIsImageSearchOpen(true)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-[rgb(25,101,162)]"
-                >
-                  <Camera size={16} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Tìm kiếm"
-                  onClick={() => handleSearch(searchKeyword)}
-                  className="mr-2 flex h-8 w-8 items-center justify-center rounded-full text-[rgb(25,101,162)]"
-                >
-                  <Search size={19} strokeWidth={2.4} />
-                </button>
-              </div>
+              {renderSearchBox("mobile")}
             </div>
           </div>
         </div>
@@ -653,43 +885,8 @@ export default function Header() {
               </Link>
 
               <div className="min-w-0 w-full">
-                <div className="overflow-hidden">
-                  <div className="flex items-center overflow-hidden rounded-lg bg-white">
-                    <input
-                      type="text"
-                      placeholder={isListening ? "Đang nghe..." : "Tìm kiếm sản phẩm..."}
-                      value={searchKeyword}
-                      onChange={(e) => setSearchKeyword(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="h-11 flex-1 bg-white px-4 text-[15px] text-gray-800 outline-none placeholder:text-gray-400"
-                    />
-                    {isSpeechSupported ? (
-                      <button
-                        type="button"
-                        onClick={handleVoiceSearch}
-                        className={`flex h-11 w-10 items-center justify-center transition-colors ${
-                          isListening ? "text-red-500 animate-pulse" : "text-gray-400 hover:text-[rgb(25,101,162)]"
-                        }`}
-                      >
-                        {isListening ? <MicOff size={15} /> : <Mic size={15} />}
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => setIsImageSearchOpen(true)}
-                      className="flex h-11 w-10 items-center justify-center text-gray-400 hover:text-[rgb(25,101,162)] transition-colors"
-                    >
-                      <Camera size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Tìm kiếm"
-                      onClick={() => handleSearch(searchKeyword)}
-                      className="mx-1 flex h-10 w-16 items-center justify-center rounded-lg bg-[rgb(25,101,162)] text-white transition-colors hover:bg-[rgb(21,88,141)] shadow-[0_6px_16px_rgba(25,101,162,0.28)]"
-                    >
-                      <Search size={20} strokeWidth={2.5} />
-                    </button>
-                  </div>
+                <div>
+                  {renderSearchBox("desktop")}
 
                   <div className="flex items-center gap-4 px-2 pt-3 text-[11px] font-medium text-white/85">
                     <span className="flex items-center gap-2">
