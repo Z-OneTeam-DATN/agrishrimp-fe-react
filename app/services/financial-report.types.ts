@@ -34,13 +34,29 @@ export interface SupplierDebtFilters {
   debtFilter?: "all" | "not_zero" | "zero";
 }
 
+export interface CustomerDebtData {
+  id: number;
+  customerName: string;
+  phone: string;
+  staffAssignedName?: string | null;
+  totalDebt: number;
+}
+
+export interface CustomerDebtFilters {
+  search?: string;
+  endDate?: string;
+  branchId?: string | number;
+  staffId?: string | number;
+  debtFilter?: "all" | "not_zero" | "zero";
+}
+
 
 export interface CashbookEntryData {
   id: string;
   date: string;
   branchId?: number;
   direction: "IN" | "OUT";
-  source: "SUPPLIER_PAYMENT";
+  source: "SUPPLIER_PAYMENT" | "CUSTOMER_ORDER";
   code: string;
   title: string;
   description: string;

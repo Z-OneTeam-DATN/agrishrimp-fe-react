@@ -178,7 +178,11 @@ const WorkflowCard = ({
   );
 };
 
-export default function WarehouseWorkflowCards() {
+export default function WarehouseWorkflowCards({
+  refreshToken = 0,
+}: {
+  refreshToken?: number;
+}) {
   const { accessToken } = useAuthStore();
   const { hasPermission } = usePermissions();
   const canViewReceipts = hasPermission(P.IMPORT_VIEW);
@@ -421,6 +425,7 @@ export default function WarehouseWorkflowCards() {
     canViewExports,
     canViewReceipts,
     canViewTransfers,
+    refreshToken,
   ]);
 
   if (loading) {

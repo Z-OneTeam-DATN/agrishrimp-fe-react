@@ -3,6 +3,7 @@ import {
   DashboardStats,
   CustomerInsights,
   DailyResults,
+  MonthlyResults,
   RecentActivity,
   TopProduct,
   SalesPerformanceResponse,
@@ -39,6 +40,19 @@ export const dashboardService = {
       `${DASHBOARD_BASE_URL}/daily-results`,
       {
         params: { branchId },
+      },
+    );
+    return response.data;
+  },
+
+  getMonthlyResults: async (
+    yearMonth?: string,
+    branchId?: string,
+  ): Promise<MonthlyResults> => {
+    const response = await apiJava.get<MonthlyResults>(
+      `${DASHBOARD_BASE_URL}/monthly-results`,
+      {
+        params: { yearMonth, branchId },
       },
     );
     return response.data;

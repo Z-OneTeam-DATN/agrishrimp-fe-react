@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuthenticatedSession } from "@/lib/api-auth";
 
 type ProfitLossAnalysisRequest = {
   branchName?: string;
@@ -19,6 +20,18 @@ type ProfitLossAnalysisRequest = {
       note?: string;
     }>;
   };
+};
+
+// Backend trả về sentinel string thay vì bịa số khi không đủ mốc so sánh — diễn giải rõ bằng
+// tiếng Việt ở đây để cả prompt gửi Gemini lẫn phần fallback đều không hiện chữ sentinel thô.
+const describeNetProfitChange = (value?: string) => {
+  if (value === "NO_PREVIOUS_DATA") {
+    return "chưa có dữ liệu kỳ trước để so sánh";
+  }
+  if (value === "NEW_BASELINE") {
+    return "lợi nhuận ròng kỳ trước bằng 0 nên mới phát sinh, không tính được % thay đổi";
+  }
+  return `${value ?? "0"}%`;
 };
 
 const buildFallbackResponse = (payload: ProfitLossAnalysisRequest) => {
@@ -54,11 +67,7 @@ const buildFallbackResponse = (payload: ProfitLossAnalysisRequest) => {
     } den ${payload.endDate || "N/A"} cho thay ty le gia von/dat doanh thu thuan la ${
       insight?.cogsRatio ?? 0
     }% va ty le tra hang la ${insight?.returnRatio ?? 0}%.`,
-    insight?.netProfitChangePercent === "NO_PREVIOUS_DATA"
-      ? "Chua co du lieu ky truoc de so sanh bien dong loi nhuan rong."
-      : `Bien dong loi nhuan rong so voi ky truoc la ${
-          insight?.netProfitChangePercent ?? "0"
-        }%.`,
+    `Bien dong loi nhuan rong so voi ky truoc: ${describeNetProfitChange(insight?.netProfitChangePercent)}.`,
   ].join(" ");
 
   const keyDrivers = topDrivers || "Chua co du lieu dong gop bien dong ro rang.";
@@ -79,6 +88,13 @@ const buildFallbackResponse = (payload: ProfitLossAnalysisRequest) => {
 };
 
 export async function POST(request: Request) {
+  if (!(await requireAuthenticatedSession())) {
+    return NextResponse.json(
+      { success: false, message: "Yêu cầu đăng nhập" },
+      { status: 401 },
+    );
+  }
+
   try {
     const payload = (await request.json()) as ProfitLossAnalysisRequest;
 
@@ -103,7 +119,7 @@ Du lieu bao cao lai lo cua ${payload.branchName || "he thong"} tu ${
 - Trang thai ty le gia von: ${payload.insightResult.cogsRatioStatus ?? "SAFE"}
 - Ty le tra hang: ${payload.insightResult.returnRatio ?? 0}%
 - Trang thai ty le tra hang: ${payload.insightResult.returnRatioStatus ?? "SAFE"}
-- Bien dong loi nhuan rong: ${payload.insightResult.netProfitChangePercent ?? "0"}%
+- Bien dong loi nhuan rong so voi ky truoc: ${describeNetProfitChange(payload.insightResult.netProfitChangePercent)}
 - Canh bao: ${
       payload.insightResult.warnings?.length
         ? payload.insightResult.warnings.join("; ")

@@ -216,8 +216,26 @@ export const ROLE_PERMISSION_STRUCTURE: PermissionGroupItem[] = [
     icon: TrendingUp,
     screens: [
       { id: P.REPORT_REVENUE_VIEW, label: "Báo cáo doanh thu", advanced: [] },
-      { id: P.REPORT_INVENTORY_VIEW, label: "Báo cáo tồn kho", advanced: [] },
-      { id: P.REPORT_FINANCE_VIEW, label: "Báo cáo tài chính", advanced: [] },
+      {
+        id: P.REPORT_INVENTORY_VIEW,
+        label: "Báo cáo tồn kho",
+        advanced: [
+          {
+            id: P.REPORT_INVENTORY_VIEW_ALL_BRANCHES,
+            label: "Xem báo cáo tồn kho mọi chi nhánh",
+          },
+        ],
+      },
+      {
+        id: P.REPORT_FINANCE_VIEW,
+        label: "Báo cáo tài chính",
+        advanced: [
+          {
+            id: P.REPORT_FINANCE_VIEW_ALL_BRANCHES,
+            label: "Xem báo cáo tài chính mọi chi nhánh",
+          },
+        ],
+      },
     ],
   },
   {

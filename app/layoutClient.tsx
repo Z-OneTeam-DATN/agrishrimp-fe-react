@@ -34,6 +34,34 @@ const GoogleAuthProvider = dynamic(
 
 const CACHE_KEY = "_u";
 const PERMS_CACHE_KEY = "_p";
+const AUTH_HYDRATE_TIMEOUT_MS = 10_000;
+
+const withTimeout = async <T,>(
+  task: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => {
+        const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+        error.name = "TimeoutError";
+        reject(error);
+      },
+      timeoutMs,
+    );
+  });
+
+  try {
+    return await Promise.race([task, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const isTimeoutError = (error: unknown) =>
+  error instanceof Error && error.name === "TimeoutError";
 
 const readCache = (): unknown => {
   try {
@@ -200,6 +228,7 @@ export default function LayoutClient({
       if (cachedUser) {
         setUser(cachedUser as UserType);
         setPermissions(cachedPermissions);
+        setLoadingAuth(false);
       } else if (background) {
         setLoadingAuth(false);
       } else {
@@ -208,7 +237,11 @@ export default function LayoutClient({
 
       const hydrateTask = (async () => {
         try {
-          const hasServerSession = await detectServerSession();
+          const hasServerSession = await withTimeout(
+            detectServerSession(),
+            AUTH_HYDRATE_TIMEOUT_MS,
+            "Detect server session",
+          );
 
           if (!hasServerSession) {
             clearClientAuth();
@@ -216,14 +249,28 @@ export default function LayoutClient({
           }
 
           try {
-            await fetchFreshAuthSnapshot();
-          } catch {
-            await refreshAndFetchAuthSnapshot();
+            await withTimeout(
+              fetchFreshAuthSnapshot(),
+              AUTH_HYDRATE_TIMEOUT_MS,
+              "Fetch auth snapshot",
+            );
+          } catch (authError) {
+            if (isTimeoutError(authError)) {
+              throw authError;
+            }
+            await withTimeout(
+              refreshAndFetchAuthSnapshot(),
+              AUTH_HYDRATE_TIMEOUT_MS,
+              "Refresh auth snapshot",
+            );
           }
 
           lastHydratedAtRef.current = Date.now();
-        } catch {
-          clearClientAuth();
+        } catch (error) {
+          console.warn("Auth hydration failed:", error);
+          if (!cachedUser) {
+            clearClientAuth();
+          }
         } finally {
           setLoadingAuth(false);
           hydratePromiseRef.current = null;

@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireAuthenticatedSession } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
+  if (!(await requireAuthenticatedSession())) {
+    return NextResponse.json(
+      { success: false, message: "Yêu cầu đăng nhập" },
+      { status: 401 },
+    );
+  }
+
   try {
     const { insightResult, branchName } = await request.json();
 
@@ -37,7 +45,23 @@ export async function POST(request: Request) {
       .map((st: any) => `- Nhân viên: ${st.staffName}, Tổng nợ từ đơn hàng phụ trách: ${st.totalDebtFromOrders.toLocaleString('vi-VN')} VND`)
       .join("\n");
 
-    const apiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6Iv-nYPt9GDOcfk3NF48uF4vH7cVOtMJAIv_TLHgdGBRA";
+    // Dùng chung cho 2 trường hợp: chưa cấu hình GEMINI_API_KEY hoặc Gemini gọi lỗi — vẫn trả về
+    // một bản phân tích tất định dựa trên số liệu backend thay vì chặn hẳn panel AI trên UI.
+    const buildFallbackResponse = () => ({
+      success: true,
+      summary: `Tổng công nợ hiện tại là ${totalOutstandingDebt.toLocaleString('vi-VN')} VND. ${
+        totalDebtChangeVsPreviousPeriod !== null && totalDebtChangeVsPreviousPeriod !== undefined
+          ? `Thay đổi so với kỳ trước: ${totalDebtChangeVsPreviousPeriod}%.`
+          : ""
+      } (Bản phân tích chi tiết tạm thời không khả dụng do dịch vụ AI chưa được cấu hình hoặc lỗi kết nối).`,
+      recommendation: "Vui lòng theo dõi thứ tự ưu tiên thanh toán nhà cung cấp trong bảng xếp hạng để tối ưu hóa dòng tiền chi trả."
+    });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not configured");
+      return NextResponse.json(buildFallbackResponse());
+    }
 
     const prompt = `
 Bạn là một chuyên gia phân tích tài chính doanh nghiệp và cố vấn dòng tiền tối ưu cho chuỗi cửa hàng vật tư thủy sản AgriShrimp.
@@ -102,15 +126,7 @@ Yêu cầu định dạng JSON phản hồi:
     if (!geminiRes.ok) {
       const errorText = await geminiRes.text();
       console.error("Gemini API Error details:", errorText);
-      return NextResponse.json({
-        success: true,
-        summary: `Tổng công nợ hiện tại là ${totalOutstandingDebt.toLocaleString('vi-VN')} VND. ${
-          totalDebtChangeVsPreviousPeriod !== null && totalDebtChangeVsPreviousPeriod !== undefined
-            ? `Thay đổi so với kỳ trước: ${totalDebtChangeVsPreviousPeriod}%.`
-            : ""
-        } (Bản phân tích chi tiết tạm thời không khả dụng do lỗi kết nối AI).`,
-        recommendation: "Vui lòng theo dõi thứ tự ưu tiên thanh toán nhà cung cấp trong bảng xếp hạng để tối ưu hóa dòng tiền chi trả."
-      });
+      return NextResponse.json(buildFallbackResponse());
     }
 
     const geminiData = await geminiRes.json();

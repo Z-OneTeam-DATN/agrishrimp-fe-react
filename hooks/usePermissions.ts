@@ -1,6 +1,7 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useCallback } from "react";
 import { jwtDecode } from "jwt-decode";
+import { isAdminRole } from "@/lib/roles";
 
 type JwtAuthPayload = {
   exp?: number;
@@ -67,6 +68,7 @@ export function usePermissions() {
   const hasPermission = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
+      if (isAdminRole(user.role)) return true;
       return getAuthorities().includes(permission);
     },
     [user, getAuthorities]

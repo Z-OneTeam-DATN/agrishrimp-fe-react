@@ -44,10 +44,14 @@ import {
   CashbookReport,
   CashbookService,
 } from "@/app/services/cashbook.service";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { registerVietnameseFont, VIETNAMESE_PDF_FONT } from "@/lib/pdf-vietnamese-font";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 type BranchOption = { id: number; name: string };
@@ -82,6 +86,10 @@ const formatPaymentMethod = (value?: string) => {
       return "Tiền mặt";
     case "TRANSFER":
       return "Chuyển khoản";
+    case "COD":
+      return "Thu hộ (COD)";
+    case "PAYOS":
+      return "PayOS";
     case "OTHER":
       return "Khác";
     default:
@@ -90,8 +98,20 @@ const formatPaymentMethod = (value?: string) => {
 };
 
 export default function CashbookPage() {
+  return (
+    <PermissionGuard permission={P.REPORT_FINANCE_VIEW}>
+      <CashbookPageContent />
+    </PermissionGuard>
+  );
+}
+
+function CashbookPageContent() {
   const { user, warehouseId } = useAuthStore();
-  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
+  const { hasPermission } = usePermissions();
+  // Chỉ super admin (bypass mặc định trong hasPermission) hoặc tài khoản được cấp riêng quyền
+  // REPORT_FINANCE_VIEW_ALL_BRANCHES mới được chọn "Tất cả chi nhánh" / xem chi nhánh khác —
+  // không còn suy đoán qua việc tài khoản có gắn branch hay không (dễ sai khi dữ liệu thiếu).
+  const canSelectAllBranches = hasPermission(P.REPORT_FINANCE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -115,6 +135,7 @@ export default function CashbookPage() {
   const [riskData, setRiskData] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [analyzingRisk, setAnalyzingRisk] = useState(false);
+  const [analyzingAi, setAnalyzingAi] = useState(false);
 
   useEffect(() => {
     const fetchInitial = async () => {
@@ -167,32 +188,14 @@ export default function CashbookPage() {
     }
   }, [endDate, selectedBranchId, startDate]);
 
-  const fetchRiskAnalysis = useCallback(async () => {
+  // Chỉ tính toán định lượng (thuần Java, không tốn phí) — tự chạy khi đổi chi nhánh.
+  const fetchRiskData = useCallback(async () => {
     try {
       setAnalyzingRisk(true);
+      setAiAnalysis(null);
       const branchIdParam = selectedBranchId === "all" ? "ALL" : selectedBranchId;
       const data = await CashbookService.getRiskAnalysis(branchIdParam);
       setRiskData(data);
-
-      if (data && !data.insufficientData) {
-        const geminiRes = await fetch("/api/cashflow-analysis", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cashflowRisk: data })
-        });
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json();
-          if (geminiData.success) {
-            setAiAnalysis(geminiData);
-          } else {
-            setAiAnalysis(null);
-          }
-        } else {
-          setAiAnalysis(null);
-        }
-      } else {
-        setAiAnalysis(null);
-      }
     } catch (e) {
       console.error("Lỗi khi phân tích rủi ro dòng tiền:", e);
       setRiskData(null);
@@ -202,9 +205,45 @@ export default function CashbookPage() {
     }
   }, [selectedBranchId]);
 
+  const handleAiAnalysis = async () => {
+    if (!riskData || riskData.insufficientData) {
+      toast.error("Không có dữ liệu để phân tích AI!");
+      return;
+    }
+    setAnalyzingAi(true);
+    try {
+      const geminiRes = await fetch("/api/cashflow-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cashflowRisk: riskData }),
+      });
+      const geminiData = await geminiRes.json();
+      if (geminiRes.ok && geminiData.success) {
+        setAiAnalysis(geminiData);
+      } else {
+        setAiAnalysis(null);
+        toast.error("Không thể hoàn thành phân tích dòng tiền AI");
+      }
+    } catch (e) {
+      console.error("Lỗi gọi Gemini AI dòng tiền:", e);
+      toast.error("Không thể hoàn thành phân tích dòng tiền AI");
+    } finally {
+      setAnalyzingAi(false);
+    }
+  };
+
   useEffect(() => {
-    void fetchRiskAnalysis();
-  }, [fetchRiskAnalysis]);
+    void fetchRiskData();
+  }, [fetchRiskData]);
+
+  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
+  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công.
+  useEffect(() => {
+    if (riskData && !riskData.insufficientData) {
+      void handleAiAnalysis();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riskData]);
 
   useEffect(() => {
     void fetchCashbook();
@@ -287,23 +326,24 @@ export default function CashbookPage() {
 
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
+    registerVietnameseFont(doc);
     doc.setFontSize(14);
-    doc.text("SO QUY AGRI SHRIMP", 14, 14);
+    doc.text("SỔ QUỸ AGRI SHRIMP", 14, 14);
     doc.setFontSize(10);
-    doc.text(`Chi nhanh: ${branchLabel}`, 14, 20);
-    doc.text(`Ky bao cao: ${formatDateVN(startDate)} - ${formatDateVN(endDate)}`, 14, 25);
+    doc.text(`Chi nhánh: ${branchLabel}`, 14, 20);
+    doc.text(`Kỳ báo cáo: ${formatDateVN(startDate)} - ${formatDateVN(endDate)}`, 14, 25);
 
     autoTable(doc, {
       startY: 30,
       head: [[
-        "Ngay",
-        "Ma phieu",
-        "Loai",
-        "Nguon",
-        "Dien giai",
-        "So tien",
-        "Cong no",
-        "Phuong thuc",
+        "Ngày",
+        "Mã phiếu",
+        "Loại",
+        "Nguồn",
+        "Diễn giải",
+        "Số tiền",
+        "Công nợ",
+        "Phương thức",
       ]],
       body: filteredEntries.map((entry) => [
         formatDateVN(entry.date),
@@ -315,8 +355,8 @@ export default function CashbookPage() {
         formatNumber(entry.debtAmount),
         formatPaymentMethod(entry.paymentMethod),
       ]),
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 8, font: VIETNAMESE_PDF_FONT },
+      headStyles: { fillColor: [59, 130, 246], font: VIETNAMESE_PDF_FONT, fontStyle: "bold" },
     });
 
     doc.save(`So_quy_${startDate}_den_${endDate}.pdf`);
@@ -493,22 +533,36 @@ export default function CashbookPage() {
                 Trợ lý Cảnh báo dòng tiền & Phân tích rủi ro AI
               </h3>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
-              onClick={() => fetchRiskAnalysis()}
-              disabled={analyzingRisk}
-            >
-              <RefreshCw size={12} className={cn("mr-1.5", analyzingRisk && "animate-spin")} />
-              {analyzingRisk ? "Đang phân tích..." : "Phân tích lại"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+                onClick={() => void fetchRiskData()}
+                disabled={analyzingRisk}
+              >
+                <RefreshCw size={12} className={cn("mr-1.5", analyzingRisk && "animate-spin")} />
+                {analyzingRisk ? "Đang tính..." : "Làm mới"}
+              </Button>
+              {riskData && !riskData.insufficientData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+                  onClick={() => void handleAiAnalysis()}
+                  disabled={analyzingAi}
+                >
+                  <RefreshCw size={12} className={cn("mr-1.5", analyzingAi && "animate-spin")} />
+                  {analyzingAi ? "Đang phân tích..." : aiAnalysis ? "Phân tích lại" : "Phân tích AI"}
+                </Button>
+              )}
+            </div>
           </div>
 
           {analyzingRisk ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-3">
               <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
-              <p className="text-xs text-slate-500 font-medium">AI đang lập mô hình dự báo và quét rủi ro công nợ...</p>
+              <p className="text-xs text-slate-500 font-medium">Đang tính toán chỉ số rủi ro dòng tiền...</p>
             </div>
           ) : riskData?.insufficientData ? (
             <div className="rounded-[6px] bg-amber-50/55 border border-amber-100 p-4 text-center">
@@ -555,7 +609,7 @@ export default function CashbookPage() {
                       <span className="font-semibold text-emerald-600">+{formatNumber(riskData.expectedInflow)}</span>
                     </div>
                     <div className="px-3 py-2 flex justify-between">
-                      <span className="text-slate-500">Nợ đến hạn (14 ngày)</span>
+                      <span className="text-slate-500">Nợ đến hạn ({riskData.windowDays} ngày)</span>
                       <span className="font-semibold text-rose-600">-{formatNumber(riskData.totalDebtDueInWindow)}</span>
                     </div>
                     <div className="px-3 py-2 flex justify-between bg-slate-50/50">
@@ -573,7 +627,12 @@ export default function CashbookPage() {
 
               {/* Center panel: NLP Reasoning */}
               <div className="lg:col-span-8 space-y-4">
-                {aiAnalysis ? (
+                {analyzingAi ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
+                    <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" />
+                    <p className="text-xs text-slate-500 font-medium">Trí tuệ nhân tạo đang sinh văn bản giải thích...</p>
+                  </div>
+                ) : aiAnalysis ? (
                   <div className="space-y-4">
                     {/* Reasoning text */}
                     <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4">
@@ -599,7 +658,7 @@ export default function CashbookPage() {
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
-                    <p className="text-xs text-slate-400 font-medium">Đang tải phân tích AI...</p>
+                    <p className="text-xs text-slate-400 font-medium">Đang chờ dữ liệu định lượng để tự động phân tích AI...</p>
                   </div>
                 )}
               </div>

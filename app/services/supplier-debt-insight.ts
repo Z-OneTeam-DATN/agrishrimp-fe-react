@@ -1,3 +1,7 @@
+import { apiJava } from "@/lib/axios";
+
+const PREFIX = "/supplier-debt";
+
 export interface SupplierDebtInsightBreakdownItem {
   factor: "TOTAL_DEBT" | "AGE_DISTRIBUTION" | "TREND";
   value: number;
@@ -8,6 +12,7 @@ export interface SupplierDebtRankingItem {
   supplierId: number;
   supplierCode: string;
   supplierName: string;
+  phone?: string;
   totalDebt: number;
   weightedAvgDebtAge: number;
   ageStatus: "NORMAL" | "WARNING" | "CRITICAL";
@@ -44,28 +49,51 @@ export interface SupplierDebtInsightFilters {
   compareWithPreviousPeriod?: boolean;
 }
 
-const FALLBACK_MESSAGE =
-  "Phan phan tich cong no AI chua duoc khoi phuc day du tren nhanh hien tai.";
-
 export const SupplierDebtInsightService = {
   async getInsightAnalysis(
-    _filters: SupplierDebtInsightFilters,
+    filters: SupplierDebtInsightFilters,
   ): Promise<SupplierDebtInsightResult> {
-    return {
-      insufficientData: true,
-      warnings: [FALLBACK_MESSAGE],
-    };
+    const branchIdParam =
+      filters.branchId === undefined ||
+      filters.branchId === "all" ||
+      filters.branchId === "ALL"
+        ? "ALL"
+        : filters.branchId;
+
+    const response = await apiJava.get(
+      `${PREFIX}/${branchIdParam}/insight-analysis`,
+      {
+        params: {
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          compareWithPreviousPeriod: filters.compareWithPreviousPeriod ?? true,
+        },
+      },
+    );
+
+    return response.data;
   },
 
   async getAiExplanation(
-    _insightResult: SupplierDebtInsightResult,
-    _branchName: string,
+    insightResult: SupplierDebtInsightResult,
+    branchName: string,
   ): Promise<SupplierDebtAiExplanation> {
-    return {
-      success: true,
-      summary: FALLBACK_MESSAGE,
-      recommendation:
-        "Tam thoi theo doi bang cong no hien co va uu tien khoi phuc backend insight neu can phan tich sau.",
-    };
+    const response = await fetch("/api/supplier-debt-insight", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        insightResult,
+        branchName,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || "Không thể phân tích công nợ bằng AI");
+    }
+
+    return data;
   },
 };

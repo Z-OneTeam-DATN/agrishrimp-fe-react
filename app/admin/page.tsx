@@ -15,6 +15,7 @@ import {
   DailyResults,
   DashboardStats,
   InventoryInfo,
+  MonthlyResults,
   PendingOrdersSummary,
   SalesPerformanceData,
   TopProduct,
@@ -86,13 +87,26 @@ const compactCurrency = (value?: number | null) => {
 const numberText = (value?: number | null) =>
   Number(value || 0).toLocaleString("vi-VN");
 
+// "2026-08" (giá trị của <input type="month">) -> "8/2026"
+const formatMonthLabel = (value: string) => {
+  const [year, month] = value.split("-");
+  if (!year || !month) return value;
+  return `${Number(month)}/${year}`;
+};
+
 const percentText = (value?: number | null) => {
   const amount = Number(value || 0);
   if (amount === 0) return "0%";
   return `${amount > 0 ? "+" : ""}${amount.toFixed(1)}%`;
 };
 
-const getTrendColor = (value?: number | null) => {
+// Khi hôm qua = 0, % tăng trưởng không có ý nghĩa (chia cho 0) — backend trả về isNew=true
+// thay vì bịa ra "+100%", nên hiển thị nhãn "Mới" cho rõ ràng thay vì một con số gây hiểu lầm.
+const trendText = (value?: number | null, isNew?: boolean) =>
+  isNew ? "Mới" : percentText(value);
+
+const getTrendColor = (value?: number | null, isNew?: boolean) => {
+  if (isNew) return "text-blue-600";
   const amount = Number(value || 0);
   if (amount > 0) return "text-blue-600";
   if (amount < 0) return "text-red-600";
@@ -145,10 +159,19 @@ export default function AdminDashboard() {
   const [selectedBranchId, setSelectedBranchId] = useState<
     string | undefined
   >();
+  // "" nghĩa là chế độ mặc định (xem theo hôm nay). Có giá trị (yyyy-MM) thì 3 thẻ
+  // Doanh thu/Lợi nhuận/Đơn chuyển sang xem theo tháng đó, so với tháng liền trước.
+  const [selectedMonth, setSelectedMonth] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [warehouseRefreshToken, setWarehouseRefreshToken] = useState(0);
 
   const scopedBranchId = (user?.branch?.id ?? warehouseId)?.toString();
-  const canSelectAllBranches = !scopedBranchId;
+  const roleSlug = normalizeRoleSlug(user?.role);
+  // Chỉ Super Admin mới được lọc/xem tất cả chi nhánh. Admin thường và tài khoản gắn
+  // với 1 chi nhánh (Manager/Staff/Employee...) luôn bị khoá vào đúng chi nhánh của họ,
+  // kể cả khi tài khoản đó vô tình không có branch_id trong DB.
+  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
+  const canSelectAllBranches = isSuperAdmin;
   const canViewDashboard = hasPermission(P.DASHBOARD_VIEW);
   const canViewWarehouseWorkflows = hasAnyPermission([
     P.IMPORT_VIEW,
@@ -156,16 +179,16 @@ export default function AdminDashboard() {
     P.TRANSFER_VIEW,
     P.CHECK_VIEW,
   ]);
-  const roleSlug = normalizeRoleSlug(user?.role);
-  const isRestricted = ["MANAGER", "STAFF", "EMPLOYEE"].includes(roleSlug);
   const canRunProtectedQueries =
     !isLoadingAuth && !!user && !!accessToken && canViewDashboard;
 
   useEffect(() => {
-    if (scopedBranchId) {
+    // Super Admin không bị khoá theo scopedBranchId dù tài khoản của họ có gắn branch_id
+    // hay không — mặc định xem "Tất cả chi nhánh" trừ khi họ tự chọn 1 chi nhánh cụ thể.
+    if (!isSuperAdmin && scopedBranchId) {
       setSelectedBranchId(scopedBranchId);
     }
-  }, [scopedBranchId]);
+  }, [isSuperAdmin, scopedBranchId]);
 
   const { data: branches = [] } = useQuery<BranchOption[]>({
     queryKey: ["branches-list"],
@@ -176,61 +199,103 @@ export default function AdminDashboard() {
       hasPermission(P.BRANCH_VIEW),
   });
 
-  const { data: customerInsights } = useQuery<CustomerInsights>({
-    queryKey: ["customer-insights", selectedBranchId],
-    queryFn: () => dashboardService.getCustomerInsights(selectedBranchId),
-    enabled: canRunProtectedQueries && hasPermission(P.CUSTOMER_VIEW),
-  });
+  const { data: customerInsights, isError: isCustomerInsightsError } =
+    useQuery<CustomerInsights>({
+      queryKey: ["customer-insights", selectedBranchId],
+      queryFn: () => dashboardService.getCustomerInsights(selectedBranchId),
+      enabled: canRunProtectedQueries && hasPermission(P.CUSTOMER_VIEW),
+    });
 
-  const { data: stats, isLoading: isStatsLoading } = useQuery<DashboardStats>({
+  const {
+    data: stats,
+    isLoading: isStatsLoading,
+    isError: isStatsError,
+  } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats", selectedBranchId],
     queryFn: () => dashboardService.getStats(selectedBranchId),
     enabled: canRunProtectedQueries,
   });
 
-  const { data: dailyResults, isLoading: isDailyLoading } =
-    useQuery<DailyResults>({
-      queryKey: ["daily-results", selectedBranchId],
-      queryFn: () => dashboardService.getDailyResults(selectedBranchId),
+  const {
+    data: dailyResults,
+    isLoading: isDailyLoading,
+    isError: isDailyError,
+  } = useQuery<DailyResults>({
+    queryKey: ["daily-results", selectedBranchId],
+    queryFn: () => dashboardService.getDailyResults(selectedBranchId),
+    enabled: canRunProtectedQueries,
+  });
+
+  const {
+    data: monthlyResults,
+    isLoading: isMonthlyLoading,
+    isError: isMonthlyError,
+  } = useQuery<MonthlyResults>({
+    queryKey: ["monthly-results", selectedMonth, selectedBranchId],
+    queryFn: () =>
+      dashboardService.getMonthlyResults(selectedMonth, selectedBranchId),
+    enabled: canRunProtectedQueries && !!selectedMonth,
+  });
+
+  const { data: pendingSummary, isError: isPendingSummaryError } =
+    useQuery<PendingOrdersSummary>({
+      queryKey: ["pending-orders-summary", selectedBranchId],
+      queryFn: () =>
+        dashboardService.getPendingOrdersSummary(selectedBranchId),
       enabled: canRunProtectedQueries,
     });
 
-  const { data: pendingSummary } = useQuery<PendingOrdersSummary>({
-    queryKey: ["pending-orders-summary", selectedBranchId],
-    queryFn: () => dashboardService.getPendingOrdersSummary(selectedBranchId),
-    enabled: canRunProtectedQueries,
-  });
+  const { data: inventoryInfo, isError: isInventoryInfoError } =
+    useQuery<InventoryInfo>({
+      queryKey: ["inventory-info", selectedBranchId],
+      queryFn: () => dashboardService.getInventoryInfo(selectedBranchId),
+      enabled: canRunProtectedQueries,
+    });
 
-  const { data: inventoryInfo } = useQuery<InventoryInfo>({
-    queryKey: ["inventory-info", selectedBranchId],
-    queryFn: () => dashboardService.getInventoryInfo(selectedBranchId),
-    enabled: canRunProtectedQueries,
-  });
-
-  const { data: topProducts = [] } = useQuery<TopProduct[]>({
+  const { data: topProducts = [], isError: isTopProductsError } = useQuery<
+    TopProduct[]
+  >({
     queryKey: ["top-products", selectedBranchId],
     queryFn: () => dashboardService.getTopProducts(5, selectedBranchId),
     enabled: canRunProtectedQueries,
   });
 
-  const { data: salesPerformance } = useQuery({
-    queryKey: ["sales-performance", selectedBranchId],
-    queryFn: () => dashboardService.getSalesPerformance(selectedBranchId),
-    enabled: canRunProtectedQueries,
-  });
+  const { data: salesPerformance, isError: isSalesPerformanceError } =
+    useQuery({
+      queryKey: ["sales-performance", selectedBranchId],
+      queryFn: () => dashboardService.getSalesPerformance(selectedBranchId),
+      enabled: canRunProtectedQueries,
+    });
 
-  const { data: categoryDistribution = [] } = useQuery<CategoryDistribution[]>({
+  const {
+    data: categoryDistribution = [],
+    isError: isCategoryDistributionError,
+  } = useQuery<CategoryDistribution[]>({
     queryKey: ["category-distribution", selectedBranchId],
     queryFn: () => dashboardService.getCategoryDistribution(selectedBranchId),
     enabled: canRunProtectedQueries,
   });
 
-  const { data: backorders = [] } = useQuery<OrderRisk[]>({
-    queryKey: ["backorder-report", canSelectAllBranches],
-    queryFn: () => orderService.getBackorderReport(),
-    enabled: canRunProtectedQueries && canSelectAllBranches,
+  const { data: backorders = [], isError: isBackordersError } = useQuery<
+    OrderRisk[]
+  >({
+    queryKey: ["backorder-report", selectedBranchId],
+    queryFn: () => orderService.getBackorderReport(selectedBranchId),
+    enabled: canRunProtectedQueries,
     refetchInterval: 60000,
   });
+
+  const hasLoadError =
+    isStatsError ||
+    isDailyError ||
+    isMonthlyError ||
+    isPendingSummaryError ||
+    isInventoryInfoError ||
+    isTopProductsError ||
+    isSalesPerformanceError ||
+    isCategoryDistributionError ||
+    isCustomerInsightsError ||
+    isBackordersError;
 
   const branchLabel = canSelectAllBranches
     ? selectedBranchId
@@ -263,6 +328,43 @@ export default function AdminDashboard() {
     Number(inventoryInfo?.lowStockCount || 0) +
     Number(inventoryInfo?.outOfStockCount || 0);
   const urgentWork = orderWorkload + inventoryRisk + backorderCount;
+
+  // Khi chọn tháng, 3 thẻ Doanh thu/Lợi nhuận/Đơn chuyển sang số liệu tháng đó (so với
+  // tháng trước) thay vì hôm nay (so với hôm qua). "Theo dõi tiền" ở panel Ưu tiên vẫn
+  // luôn dùng dailyResults vì mô tả của nó cố định là "trong ngày", không đổi theo bộ lọc.
+  const isMonthMode = Boolean(selectedMonth);
+  const periodLabel = isMonthMode
+    ? `tháng ${formatMonthLabel(selectedMonth)}`
+    : "hôm nay";
+  const comparisonLabel = isMonthMode ? "so với tháng trước" : "so với hôm qua";
+  const isPrimaryMetricsLoading = isMonthMode ? isMonthlyLoading : isDailyLoading;
+  const revenueValue = isMonthMode
+    ? monthlyResults?.currentMonthRevenue
+    : dailyResults?.todayRevenue;
+  const revenuePercent = isMonthMode
+    ? monthlyResults?.revenueChangePercent
+    : dailyResults?.revenueChangePercent;
+  const revenueIsNew = isMonthMode
+    ? monthlyResults?.revenueIsNew
+    : dailyResults?.revenueIsNew;
+  const profitValue = isMonthMode
+    ? monthlyResults?.currentMonthProfit
+    : dailyResults?.todayProfit;
+  const profitPercent = isMonthMode
+    ? monthlyResults?.profitChangePercent
+    : dailyResults?.profitChangePercent;
+  const profitIsNew = isMonthMode
+    ? monthlyResults?.profitIsNew
+    : dailyResults?.profitIsNew;
+  const ordersValue = isMonthMode
+    ? monthlyResults?.currentMonthOrders
+    : dailyResults?.todayOrders;
+  const ordersPercent = isMonthMode
+    ? monthlyResults?.orderChangePercent
+    : dailyResults?.orderChangePercent;
+  const ordersIsNew = isMonthMode
+    ? monthlyResults?.orderIsNew
+    : dailyResults?.orderIsNew;
 
   const salesRows = salesPerformance?.data ?? [];
   const categoryRows = categoryDistribution.slice(0, 5).map((item) => ({
@@ -332,6 +434,7 @@ export default function AdminDashboard() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
         queryClient.invalidateQueries({ queryKey: ["daily-results"] }),
+        queryClient.invalidateQueries({ queryKey: ["monthly-results"] }),
         queryClient.invalidateQueries({ queryKey: ["inventory-info"] }),
         queryClient.invalidateQueries({ queryKey: ["top-products"] }),
         queryClient.invalidateQueries({ queryKey: ["sales-performance"] }),
@@ -340,6 +443,7 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ["pending-orders-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["backorder-report"] }),
       ]);
+      setWarehouseRefreshToken((token) => token + 1);
       toast.success("Đã làm mới dữ liệu tổng quan");
     } catch {
       toast.error("Không thể làm mới dữ liệu");
@@ -403,6 +507,26 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-1.5">
+            <input
+              type="month"
+              value={selectedMonth}
+              max={new Date().toISOString().slice(0, 7)}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              aria-label="Xem theo tháng"
+              className="h-10 rounded-[4px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 shadow-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            {isMonthMode && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setSelectedMonth("")}
+                className="h-10 rounded-[4px] px-2 text-[12px] text-slate-500 hover:text-slate-700"
+              >
+                Xem hôm nay
+              </Button>
+            )}
+          </div>
           {canSelectAllBranches && (
             <Select
               value={selectedBranchId || "all"}
@@ -435,30 +559,48 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {hasLoadError && (
+        <div className="flex flex-col gap-2 rounded-[4px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Một số dữ liệu chưa tải được. Số liệu đang hiển thị có thể chưa
+            đầy đủ.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="h-8 w-fit rounded-[4px] border-amber-300 bg-white px-3 text-[12px] font-semibold text-amber-800 shadow-none hover:bg-amber-100"
+          >
+            Thử lại
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Doanh thu hôm nay"
-          value={compactCurrency(dailyResults?.todayRevenue)}
-          subValue={percentText(dailyResults?.revenueChangePercent)}
-          subLabel="so với hôm qua"
-          loading={isDailyLoading}
-          trendColor={getTrendColor(dailyResults?.revenueChangePercent)}
+          label={`Doanh thu ${periodLabel}`}
+          value={compactCurrency(revenueValue)}
+          subValue={trendText(revenuePercent, revenueIsNew)}
+          subLabel={comparisonLabel}
+          loading={isPrimaryMetricsLoading}
+          trendColor={getTrendColor(revenuePercent, revenueIsNew)}
         />
         <MetricCard
-          label="Lợi nhuận hôm nay"
-          value={compactCurrency(dailyResults?.todayProfit)}
-          subValue={percentText(dailyResults?.profitChangePercent)}
-          subLabel="so với hôm qua"
-          loading={isDailyLoading}
-          trendColor={getTrendColor(dailyResults?.profitChangePercent)}
+          label={`Lợi nhuận ${periodLabel}`}
+          value={compactCurrency(profitValue)}
+          subValue={trendText(profitPercent, profitIsNew)}
+          subLabel={comparisonLabel}
+          loading={isPrimaryMetricsLoading}
+          trendColor={getTrendColor(profitPercent, profitIsNew)}
         />
         <MetricCard
-          label="Đơn hôm nay"
-          value={numberText(dailyResults?.todayOrders)}
-          subValue={percentText(dailyResults?.orderChangePercent)}
-          subLabel="so với hôm qua"
-          loading={isDailyLoading}
-          trendColor={getTrendColor(dailyResults?.orderChangePercent)}
+          label={`Đơn ${periodLabel}`}
+          value={numberText(ordersValue)}
+          subValue={trendText(ordersPercent, ordersIsNew)}
+          subLabel={comparisonLabel}
+          loading={isPrimaryMetricsLoading}
+          trendColor={getTrendColor(ordersPercent, ordersIsNew)}
         />
         <MetricCard
           label="Việc cần xử lý"
@@ -471,33 +613,75 @@ export default function AdminDashboard() {
           compact
           label="Tổng doanh thu"
           value={compactCurrency(stats?.totalRevenue)}
+          subValue={trendText(stats?.revenueChangePercent, stats?.revenueIsNew)}
+          subLabel="so với hôm qua"
           loading={isStatsLoading}
+          trendColor={getTrendColor(stats?.revenueChangePercent, stats?.revenueIsNew)}
         />
         <MetricCard
           compact
           label="Tổng đơn hàng"
           value={numberText(stats?.totalOrders)}
+          subValue={trendText(stats?.ordersChangePercent, stats?.ordersIsNew)}
+          subLabel="so với hôm qua"
           loading={isStatsLoading}
+          trendColor={getTrendColor(stats?.ordersChangePercent, stats?.ordersIsNew)}
         />
         <MetricCard
           compact
           label="Khách hàng"
           value={numberText(stats?.totalCustomers)}
+          subValue={trendText(stats?.customersChangePercent, stats?.customersIsNew)}
+          subLabel="so với hôm qua"
           loading={isStatsLoading}
+          trendColor={getTrendColor(stats?.customersChangePercent, stats?.customersIsNew)}
         />
         <MetricCard
           compact
           label="Giá trị tồn kho"
           value={compactCurrency(inventoryInfo?.totalInventoryValue)}
+          subValue={trendText(inventoryInfo?.valueChangePercent, inventoryInfo?.valueIsNew)}
+          subLabel="so với hôm qua"
+          trendColor={getTrendColor(inventoryInfo?.valueChangePercent, inventoryInfo?.valueIsNew)}
         />
       </div>
+
+      {canViewWarehouseWorkflows && (
+        <Panel title="Phiếu kho cần xử lý">
+          <WarehouseWorkflowCards refreshToken={warehouseRefreshToken} />
+        </Panel>
+      )}
+
+      <Panel title="Ưu tiên hôm nay">
+        <div className="grid gap-3 md:grid-cols-3">
+          <PriorityCard
+            label="Xử lý đơn"
+            value={orderWorkload}
+            description="Duyệt, thanh toán, đóng gói và giao hàng."
+            href="/admin/orders-all"
+          />
+          <PriorityCard
+            label="Bổ sung hàng"
+            value={inventoryRisk + backorderCount}
+            description="Mặt hàng thấp tồn, hết hàng hoặc thiếu trong đơn."
+            href="/admin/products"
+          />
+          <PriorityCard
+            label="Theo dõi tiền"
+            value={Number(dailyResults?.todayRevenue || 0)}
+            valueText={compactCurrency(dailyResults?.todayRevenue)}
+            description="So doanh thu, lợi nhuận và dòng đơn trong ngày."
+            href="/admin/financial"
+          />
+        </div>
+      </Panel>
 
       <Panel title="Khách hàng và chuyển đổi">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <InsightBox
-            label="Lượt truy cập"
-            value="Chưa kết nối"
-            note="Cần API tracking/GA để lấy số thật"
+            label="Lượt truy cập hôm nay"
+            value={numberText(customerInsights?.todayVisitors)}
+            note={`${numberText(customerInsights?.todayPageViews)} lượt xem trang · tự đo, chưa phải GA4`}
           />
           <InsightBox
             label="Khách mới tháng này"
@@ -510,9 +694,9 @@ export default function AdminDashboard() {
             note="Theo trạng thái tài khoản"
           />
           <InsightBox
-            label="Đơn / khách"
-            value={`${orderPerCustomer.toFixed(1)}%`}
-            note="Tổng đơn so với tổng khách"
+            label="Đơn / 100 khách"
+            value={orderPerCustomer.toFixed(1)}
+            note="Số đơn trung bình trên mỗi 100 khách (không phải % khách đã mua)"
           />
           <InsightBox
             label="Giá trị đơn TB"
@@ -637,35 +821,6 @@ export default function AdminDashboard() {
         </Panel>
       </div>
 
-      {canViewWarehouseWorkflows && (
-        <Panel title="Phiếu kho cần xử lý">
-          <WarehouseWorkflowCards />
-        </Panel>
-      )}
-
-      <Panel title="Ưu tiên hôm nay">
-        <div className="grid gap-3 md:grid-cols-3">
-          <PriorityCard
-            label="Xử lý đơn"
-            value={orderWorkload}
-            description="Duyệt, thanh toán, đóng gói và giao hàng."
-            href="/admin/orders-all"
-          />
-          <PriorityCard
-            label="Bổ sung hàng"
-            value={inventoryRisk + backorderCount}
-            description="Mặt hàng thấp tồn, hết hàng hoặc thiếu trong đơn."
-            href="/admin/products"
-          />
-          <PriorityCard
-            label="Theo dõi tiền"
-            value={Number(dailyResults?.todayRevenue || 0)}
-            valueText={compactCurrency(dailyResults?.todayRevenue)}
-            description="So doanh thu, lợi nhuận và dòng đơn trong ngày."
-            href="/admin/financial"
-          />
-        </div>
-      </Panel>
     </div>
   );
 }

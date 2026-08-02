@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuthenticatedSession } from "@/lib/api-auth";
 
 export interface ProfitLossData {
   grossRevenue: number;
@@ -71,6 +72,13 @@ function calculateRuleBasedSuggestion(pnl: ProfitLossData, currentMargin: number
 }
 
 export async function POST(request: Request) {
+  if (!(await requireAuthenticatedSession())) {
+    return NextResponse.json(
+      { success: false, message: "Yêu cầu đăng nhập" },
+      { status: 401 },
+    );
+  }
+
   try {
     const { pnl, currentMargin, productCount } = await request.json();
 
@@ -106,8 +114,15 @@ export async function POST(request: Request) {
     }
 
     // 2. Call Gemini API to write natural explanation (reasoning & analysis) without letting it make up numbers
-    const apiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6Iv-nYPt9GDOcfk3NF48uF4vH7cVOtMJAIv_TLHgdGBRA";
-    
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not configured");
+      return NextResponse.json(
+        { success: false, message: "Dịch vụ phân tích AI chưa được cấu hình" },
+        { status: 503 },
+      );
+    }
+
     const prompt = `
 Bạn là một chuyên gia phân tích tài chính và định giá bán lẻ cho chuỗi cửa hàng thủy hải sản AgriShrimp.
 Dựa trên các chỉ số hoạt động kinh doanh thực tế trong 30 ngày gần đây của cửa hàng:

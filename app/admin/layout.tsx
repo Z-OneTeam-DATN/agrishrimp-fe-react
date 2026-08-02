@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import AdminSidebar from "@/components/admin/shared/AdminSidebar";
 import AdminTopHeader from "@/components/admin/shared/AdminTopHeader";
@@ -79,6 +79,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { hasPermission, hasAnyPermission } = usePermissions();
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
@@ -113,12 +114,22 @@ export default function AdminLayout({
     }
   }, [hasAdminWorkspaceAccess, isLoadingAuth]);
 
+  useEffect(() => {
+    if (!isLoadingAuth && !user) {
+      router.replace("/login");
+    }
+  }, [isLoadingAuth, router, user]);
+
   if (isLoadingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f1f5f9]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   if (!hasAdminWorkspaceAccess) {

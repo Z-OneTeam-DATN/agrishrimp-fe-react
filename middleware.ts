@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
 
 /**
  * Mapping route prefix → permission code bắt buộc để truy cập.
@@ -78,7 +78,7 @@ function decodeJwt(token: string) {
   }
 }
 
-export function middleware(req: NextRequest) {
+function handleAuth(req: NextRequest): NextResponse {
   const path = req.nextUrl.pathname;
 
   // Redirect /store to /account as requested by user
@@ -164,6 +164,58 @@ export function middleware(req: NextRequest) {
   }
 
   return withSessionSync(NextResponse.next());
+}
+
+const VISITOR_COOKIE = "visitor_id";
+
+// "Lượt truy cập" ở trang tổng quan đo traffic khách ghé storefront, không tính thao tác
+// nội bộ của nhân viên trong /admin nên các đường dẫn quản trị bị loại khỏi tracking.
+function isTrackablePath(path: string) {
+  return (
+    !path.startsWith("/_next") &&
+    !path.startsWith("/api") &&
+    !path.startsWith("/images") &&
+    path !== "/favicon.ico" &&
+    !path.startsWith("/admin")
+  );
+}
+
+export function middleware(req: NextRequest, event: NextFetchEvent) {
+  const res = handleAuth(req);
+  const path = req.nextUrl.pathname;
+
+  if (isTrackablePath(path)) {
+    let visitorId = req.cookies.get(VISITOR_COOKIE)?.value;
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      res.cookies.set({
+        name: VISITOR_COOKIE,
+        value: visitorId,
+        path: "/",
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+        secure: req.nextUrl.protocol === "https:",
+      });
+    }
+
+    // Gọi API route nội bộ (không phải backend Java trực tiếp) để tái dùng JAVA_API_URL
+    // sẵn có ở runtime Node.js — Edge middleware không đảm bảo có biến env server-only đó.
+    // waitUntil giữ request này chạy tiếp sau khi response đã trả về, không làm chậm trang.
+    event.waitUntil(
+      fetch(new URL("/api/track-visit", req.url), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visitorId,
+          path,
+          userAgent: req.headers.get("user-agent") ?? "",
+        }),
+      }).catch(() => {}),
+    );
+  }
+
+  return res;
 }
 
 export const config = {
