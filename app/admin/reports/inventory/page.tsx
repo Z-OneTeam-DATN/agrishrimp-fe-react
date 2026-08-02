@@ -6,14 +6,14 @@ import {
   Warehouse,
   ClipboardList,
   TrendingDown,
-  TrendingUp,
   PackageSearch,
   ArrowLeftRight,
-  FileBarChart2,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
 
 const inventoryReports = [
   {
@@ -23,13 +23,6 @@ const inventoryReports = [
       "Quản lý số lượng và giá trị tồn kho của chi nhánh và toàn hệ thống",
     icon: Warehouse,
     href: "/admin/reports/inventory/summary",
-  },
-  {
-    id: "stock-detail",
-    title: "Báo cáo tồn kho chi tiết",
-    description: "Quản lý hàng hóa ở các trạng thái khác nhau",
-    icon: FileBarChart2,
-    href: "/admin/reports/inventory/detail",
   },
   {
     id: "stock-ledger",
@@ -44,13 +37,6 @@ const inventoryReports = [
     description: "Quản lý các sản phẩm có tồn kho dưới định mức",
     icon: TrendingDown,
     href: "/admin/reports/inventory/below-min",
-  },
-  {
-    id: "stock-above-max",
-    title: "Báo cáo tồn kho vượt định mức",
-    description: "Quản lý các sản phẩm có tồn kho vượt định mức",
-    icon: TrendingUp,
-    href: "/admin/reports/inventory/above-max",
   },
   {
     id: "io-summary",
@@ -71,6 +57,14 @@ const inventoryReports = [
 ];
 
 export default function InventoryReportListPage() {
+  return (
+    <PermissionGuard permission={P.REPORT_INVENTORY_VIEW}>
+      <InventoryReportListContent />
+    </PermissionGuard>
+  );
+}
+
+function InventoryReportListContent() {
   return (
     <div className="space-y-3">
       <div className="mt-2 mb-8">

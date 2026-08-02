@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireAuthenticatedSession } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
+  if (!(await requireAuthenticatedSession())) {
+    return NextResponse.json(
+      { success: false, message: "Yêu cầu đăng nhập" },
+      { status: 401 },
+    );
+  }
+
   try {
     const { cashflowRisk } = await request.json();
 
@@ -35,7 +43,45 @@ export async function POST(request: Request) {
       .map((d: any) => `- NCC: ${d.supplierName}, Số tiền nợ: ${d.outstandingAmount.toLocaleString('vi-VN')} VND, Hạn trả gần nhất: ${d.dueDate}, Điểm ưu tiên: ${d.priorityScore} (Hạng ${d.priorityRank})`)
       .join("\n");
 
-    const apiKey = process.env.GEMINI_API_KEY || "AQ.Ab8RN6Iv-nYPt9GDOcfk3NF48uF4vH7cVOtMJAIv_TLHgdGBRA";
+    // Dùng chung cho 2 trường hợp: chưa cấu hình GEMINI_API_KEY hoặc Gemini gọi lỗi — vẫn trả về
+    // một bản phân tích tất định dựa trên số liệu backend thay vì chặn hẳn panel AI trên UI.
+    const buildFallbackResponse = () => {
+      let fallbackReason = `Tình trạng dòng tiền hiện tại ở mức ${riskLevel}.`;
+      let fallbackActions = [
+        "Chủ động liên hệ đơn vị vận chuyển đối soát nhanh các đơn hàng COD đã hoàn thành.",
+        "Xem xét thương lượng giãn nợ với các nhà cung cấp có công nợ lớn.",
+        "Kích hoạt các chương trình khuyến mãi tăng doanh thu thu tiền mặt."
+      ];
+
+      if (riskLevel === "SAFE") {
+        fallbackReason = "Dòng tiền hiện tại của cửa hàng đang rất an toàn, đảm bảo hoàn thành tất cả các nghĩa vụ thanh toán trong kỳ.";
+        fallbackActions = ["Duy trì tiến độ thu chi hiện tại.", "Tập trung tối ưu thêm vòng quay hàng tồn kho."];
+      } else if (riskLevel === "CRITICAL") {
+        if (totalDebtDueInWindow > 0) {
+          fallbackReason = `Cảnh báo: Dòng tiền đang thiếu hụt nghiêm trọng khoảng ${shortfallAmount.toLocaleString('vi-VN')} VND so với nợ đến hạn thanh toán trong kỳ.`;
+        } else {
+          fallbackReason = `Cảnh báo: Quỹ hiện đang âm ${Math.abs(currentBalance).toLocaleString('vi-VN')} VND, dòng tiền dự phòng thiếu hụt nghiêm trọng.`;
+          fallbackActions = [
+            "Tập trung đối soát các đơn hàng COD để thu hồi vốn nhanh.",
+            "Tạm thời hạn chế các khoản chi không cấp bách.",
+            "Kích hoạt các chương trình khuyến mãi tăng doanh thu thu tiền mặt."
+          ];
+        }
+      }
+
+      return {
+        success: true,
+        reasoning: fallbackReason,
+        actions: fallbackActions,
+        prioritiesExplanation: "Ưu tiên sắp xếp theo mức độ cấp bách quá hạn và sự gắn bó/tần suất nhập hàng lâu năm của các nhà cung cấp."
+      };
+    };
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not configured");
+      return NextResponse.json(buildFallbackResponse());
+    }
 
     const prompt = `
 Bạn là một chuyên gia phân tích tài chính doanh nghiệp và cố vấn dòng tiền tối ưu cho chuỗi cửa hàng vật tư thủy sản AgriShrimp.
@@ -106,37 +152,7 @@ Yêu cầu định dạng JSON phản hồi:
     if (!geminiRes.ok) {
       const errorText = await geminiRes.text();
       console.error("Gemini Cashflow API Error details:", errorText);
-      
-      // Fallback response with simple deterministic reasoning
-      let fallbackReason = `Tình trạng dòng tiền hiện tại ở mức ${riskLevel}.`;
-      let fallbackActions = [
-        "Chủ động liên hệ đơn vị vận chuyển đối soát nhanh các đơn hàng COD đã hoàn thành.",
-        "Xem xét thương lượng giãn nợ với các nhà cung cấp có công nợ lớn.",
-        "Kích hoạt các chương trình khuyến mãi tăng doanh thu thu tiền mặt."
-      ];
-      
-      if (riskLevel === "SAFE") {
-        fallbackReason = "Dòng tiền hiện tại của cửa hàng đang rất an toàn, đảm bảo hoàn thành tất cả các nghĩa vụ thanh toán trong kỳ.";
-        fallbackActions = ["Duy trì tiến độ thu chi hiện tại.", "Tập trung tối ưu thêm vòng quay hàng tồn kho."];
-      } else if (riskLevel === "CRITICAL") {
-        if (totalDebtDueInWindow > 0) {
-          fallbackReason = `Cảnh báo: Dòng tiền đang thiếu hụt nghiêm trọng khoảng ${shortfallAmount.toLocaleString('vi-VN')} VND so với nợ đến hạn thanh toán trong kỳ.`;
-        } else {
-          fallbackReason = `Cảnh báo: Quỹ hiện đang âm ${Math.abs(currentBalance).toLocaleString('vi-VN')} VND, dòng tiền dự phòng thiếu hụt nghiêm trọng.`;
-          fallbackActions = [
-            "Tập trung đối soát các đơn hàng COD để thu hồi vốn nhanh.",
-            "Tạm thời hạn chế các khoản chi không cấp bách.",
-            "Kích hoạt các chương trình khuyến mãi tăng doanh thu thu tiền mặt."
-          ];
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        reasoning: fallbackReason,
-        actions: fallbackActions,
-        prioritiesExplanation: "Ưu tiên sắp xếp theo mức độ cấp bách quá hạn và sự gắn bó/tần suất nhập hàng lâu năm của các nhà cung cấp."
-      });
+      return NextResponse.json(buildFallbackResponse());
     }
 
     const geminiData = await geminiRes.json();

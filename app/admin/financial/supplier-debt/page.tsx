@@ -5,6 +5,7 @@ import {
   ChevronDown,
   HelpCircle,
   Download,
+  FileText,
   Search,
   Loader2,
   RefreshCw,
@@ -49,8 +50,14 @@ import {
 } from "@/app/services/supplier-debt.service";
 import { branchService } from "@/app/services/branchService";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { registerVietnameseFont, VIETNAMESE_PDF_FONT } from "@/lib/pdf-vietnamese-font";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 type BranchOption = { id: number; name: string };
@@ -71,8 +78,17 @@ const toIsoDate = (date: Date) => {
 };
 
 export default function SupplierDebtReportPage() {
+  return (
+    <PermissionGuard permission={P.REPORT_FINANCE_VIEW}>
+      <SupplierDebtReportContent />
+    </PermissionGuard>
+  );
+}
+
+function SupplierDebtReportContent() {
   const { user, warehouseId } = useAuthStore();
-  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
+  const { hasPermission } = usePermissions();
+  const canSelectAllBranches = hasPermission(P.REPORT_FINANCE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
   const [loading, setLoading] = useState(false);
@@ -95,10 +111,15 @@ export default function SupplierDebtReportPage() {
   const [insightData, setInsightData] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [analyzingInsight, setAnalyzingInsight] = useState(false);
+  const [analyzingAi, setAnalyzingAi] = useState(false);
 
-  const fetchInsightAnalysis = useCallback(async () => {
+  // Chỉ tính toán định lượng (thuần Java, không tốn phí) — tự chạy khi đổi filter. Bước gọi
+  // Gemini viết văn diễn giải tách riêng ở handleAiAnalysis, phải bấm nút mới chạy, tránh tốn
+  // quota AI mỗi lần đổi ngày/chi nhánh (đồng bộ với cách làm ở trang Lãi lỗ/Sổ quỹ).
+  const fetchInsightData = useCallback(async () => {
     try {
       setAnalyzingInsight(true);
+      setAiAnalysis(null);
       const branchIdParam = branchId === "all" ? "ALL" : branchId;
       const resData = await SupplierDebtInsightService.getInsightAnalysis({
         branchId: branchIdParam,
@@ -107,30 +128,45 @@ export default function SupplierDebtReportPage() {
         compareWithPreviousPeriod: true,
       });
       setInsightData(resData);
-
-      if (resData && !resData.insufficientData) {
-        const activeBranch = branches.find(b => String(b.id) === branchId);
-        const branchName = activeBranch ? activeBranch.name : "Toàn bộ hệ thống";
-        const explanation = await SupplierDebtInsightService.getAiExplanation(resData, branchName);
-        setAiAnalysis(explanation);
-      } else {
-        setAiAnalysis({
-          success: true,
-          summary: "Không có đủ dữ liệu dòng công nợ trong hệ thống để thực hiện phân tích.",
-          recommendation: "Vui lòng thêm dữ liệu phiếu nhập kho phát sinh công nợ nhà cung cấp."
-        });
-      }
     } catch (error) {
-      console.error("Lỗi phân tích công nợ NCC:", error);
-      toast.error("Không thể hoàn thành phân tích công nợ AI");
+      console.error("Lỗi lấy dữ liệu định lượng công nợ NCC:", error);
+      setInsightData(null);
     } finally {
       setAnalyzingInsight(false);
     }
-  }, [branchId, startDate, endDate, branches]);
+  }, [branchId, startDate, endDate]);
+
+  const handleAiAnalysis = async () => {
+    if (!insightData || insightData.insufficientData) {
+      toast.error("Không có dữ liệu để phân tích AI!");
+      return;
+    }
+    setAnalyzingAi(true);
+    try {
+      const activeBranch = branches.find((b) => String(b.id) === branchId);
+      const branchName = activeBranch ? activeBranch.name : "Toàn bộ hệ thống";
+      const explanation = await SupplierDebtInsightService.getAiExplanation(insightData, branchName);
+      setAiAnalysis(explanation);
+    } catch (error) {
+      console.error("Lỗi phân tích công nợ NCC AI:", error);
+      toast.error("Không thể hoàn thành phân tích công nợ AI");
+    } finally {
+      setAnalyzingAi(false);
+    }
+  };
 
   useEffect(() => {
-    void fetchInsightAnalysis();
-  }, [fetchInsightAnalysis]);
+    void fetchInsightData();
+  }, [fetchInsightData]);
+
+  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
+  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công.
+  useEffect(() => {
+    if (insightData && !insightData.insufficientData) {
+      void handleAiAnalysis();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insightData]);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -236,6 +272,40 @@ export default function SupplierDebtReportPage() {
     toast.success("Đã tải xuống file Excel");
   };
 
+  const handleExportPdf = () => {
+    if (!data || data.length === 0) {
+      toast.error("Không có dữ liệu để xuất");
+      return;
+    }
+
+    const activeBranch = branches.find((b) => String(b.id) === branchId);
+    const branchName = activeBranch ? activeBranch.name : "Toàn bộ hệ thống";
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    registerVietnameseFont(doc);
+    doc.setFontSize(14);
+    doc.text("CÔNG NỢ NHÀ CUNG CẤP AGRI SHRIMP", 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Chi nhánh: ${branchName}`, 14, 20);
+    doc.text(`Ngày chốt nợ: ${endDate}`, 14, 25);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Mã NCC", "Tên nhà cung cấp", "Số điện thoại", "Nợ cuối kỳ (VNĐ)"]],
+      body: data.map((row) => [
+        row.supplierCode,
+        row.supplierName,
+        row.phone || "---",
+        row.totalDebt.toLocaleString("vi-VN"),
+      ]),
+      styles: { fontSize: 8, font: VIETNAMESE_PDF_FONT },
+      headStyles: { fillColor: [59, 130, 246], font: VIETNAMESE_PDF_FONT, fontStyle: "bold" },
+    });
+
+    doc.save(`Cong_No_Nha_Cung_Cap_${endDate}.pdf`);
+    toast.success("Đã tải xuống file PDF");
+  };
+
   return (
     <div className="space-y-3">
       <div className="mt-2 mb-8 space-y-4">
@@ -256,11 +326,20 @@ export default function SupplierDebtReportPage() {
               Trợ giúp
             </Button>
             <Button
-              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
               onClick={handleExportExcel}
             >
               <Download size={16} className="mr-2" />
-              Xuất file
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+              onClick={handleExportPdf}
+            >
+              <FileText size={16} className="mr-2" />
+              PDF
             </Button>
           </div>
         </div>
@@ -369,22 +448,36 @@ export default function SupplierDebtReportPage() {
                 Trợ lý Cảnh báo & Phân tích Công nợ AI
               </h3>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
-              onClick={() => void fetchInsightAnalysis()}
-              disabled={analyzingInsight}
-            >
-              <RefreshCw size={12} className={cn("mr-1.5", analyzingInsight && "animate-spin")} />
-              {analyzingInsight ? "Đang phân tích..." : "Phân tích AI"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+                onClick={() => void fetchInsightData()}
+                disabled={analyzingInsight}
+              >
+                <RefreshCw size={12} className={cn("mr-1.5", analyzingInsight && "animate-spin")} />
+                {analyzingInsight ? "Đang tính..." : "Làm mới"}
+              </Button>
+              {insightData && !insightData.insufficientData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 border-slate-200 text-[12px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+                  onClick={() => void handleAiAnalysis()}
+                  disabled={analyzingAi}
+                >
+                  <RefreshCw size={12} className={cn("mr-1.5", analyzingAi && "animate-spin")} />
+                  {analyzingAi ? "Đang phân tích..." : aiAnalysis ? "Phân tích lại" : "Phân tích AI"}
+                </Button>
+              )}
+            </div>
           </div>
 
           {analyzingInsight ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-3">
               <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-              <p className="text-xs text-slate-500 font-medium">AI đang chạy mô hình tính toán tuổi nợ và phân tích rủi ro...</p>
+              <p className="text-xs text-slate-500 font-medium">Đang tính toán chỉ số tuổi nợ và ưu tiên xử lý công nợ...</p>
             </div>
           ) : insightData?.insufficientData ? (
             <div className="rounded-[6px] bg-amber-50/55 border border-amber-100 p-4 text-center">
@@ -451,7 +544,12 @@ export default function SupplierDebtReportPage() {
 
                 {/* Right side: AI text explaining summary & recommendations */}
                 <div className="lg:col-span-8 space-y-4">
-                  {aiAnalysis ? (
+                  {analyzingAi ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
+                      <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+                      <p className="text-xs text-slate-500 font-medium">Trí tuệ nhân tạo đang sinh văn bản giải thích...</p>
+                    </div>
+                  ) : aiAnalysis ? (
                     <div className="space-y-4">
                       {/* Summary */}
                       <div className="bg-slate-50/60 rounded-[6px] border border-slate-100 p-4">
@@ -467,7 +565,7 @@ export default function SupplierDebtReportPage() {
                     </div>
                   ) : (
                     <div className="flex h-full items-center justify-center border border-dashed border-slate-200 rounded-[6px] bg-slate-50/50 py-10">
-                      <p className="text-xs text-slate-400 font-medium">Đang tải phân tích AI...</p>
+                      <p className="text-xs text-slate-400 font-medium">Đang chờ dữ liệu định lượng để tự động phân tích AI...</p>
                     </div>
                   )}
                 </div>
@@ -582,7 +680,7 @@ export default function SupplierDebtReportPage() {
                 variant="outline"
                 size="sm"
                 className="h-7 border-slate-200 bg-white text-[11px] shadow-none hover:bg-blue-50 hover:text-blue-600"
-                onClick={() => void fetchInsightAnalysis()}
+                onClick={() => void fetchInsightData()}
               >
                 Chạy phân tích AI ngay
               </Button>

@@ -3,24 +3,51 @@ export interface DashboardStats {
   totalRevenue: number;
   totalCustomers: number;
   totalProducts: number;
+  revenueChangePercent: number;
+  revenueIsNew: boolean;
+  ordersChangePercent: number;
+  ordersIsNew: boolean;
+  customersChangePercent: number;
+  customersIsNew: boolean;
 }
 
 export interface CustomerInsights {
   totalCustomers: number;
   activeCustomers: number;
   newCustomersThisMonth: number;
+  todayVisitors: number;
+  todayPageViews: number;
 }
 
 export interface DailyResults {
   todayRevenue: number;
   yesterdayRevenue: number;
-  revenueChangePercent: number; // Thêm trường này
+  revenueChangePercent: number;
+  revenueIsNew: boolean;
   todayProfit: number;
   yesterdayProfit: number;
-  profitChangePercent: number; // Thêm trường này
+  profitChangePercent: number;
+  profitIsNew: boolean;
   todayOrders: number;
   yesterdayOrders: number;
-  orderChangePercent: number; // Thêm trường này
+  orderChangePercent: number;
+  orderIsNew: boolean;
+}
+
+export interface MonthlyResults {
+  yearMonth: string;
+  currentMonthRevenue: number;
+  previousMonthRevenue: number;
+  revenueChangePercent: number;
+  revenueIsNew: boolean;
+  currentMonthProfit: number;
+  previousMonthProfit: number;
+  profitChangePercent: number;
+  profitIsNew: boolean;
+  currentMonthOrders: number;
+  previousMonthOrders: number;
+  orderChangePercent: number;
+  orderIsNew: boolean;
 }
 
 export interface RecentActivity {
@@ -37,6 +64,8 @@ export interface InventoryInfo {
   lowStockCount: number;
   outOfStockCount: number;
   totalInventoryValue: number;
+  valueChangePercent: number;
+  valueIsNew: boolean;
 }
 
 export interface TopProduct {

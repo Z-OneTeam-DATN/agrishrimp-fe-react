@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Download, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Download, FileText, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +35,14 @@ import {
 } from "@/app/services/profit-loss.service";
 import { ProfitLossInsightService, type ProfitLossInsightResult } from "@/app/services/profit-loss-insight";
 import { branchService } from "@/app/services/branchService";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { P } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { registerVietnameseFont, VIETNAMESE_PDF_FONT } from "@/lib/pdf-vietnamese-font";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const toIsoDate = (date: Date) => {
@@ -70,8 +76,17 @@ const formatDateVN = (dateStr: string) => {
 };
 
 export default function ProfitLossReportPage() {
+  return (
+    <PermissionGuard permission={P.REPORT_FINANCE_VIEW}>
+      <ProfitLossReportContent />
+    </PermissionGuard>
+  );
+}
+
+function ProfitLossReportContent() {
   const { user, warehouseId } = useAuthStore();
-  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
+  const { hasPermission } = usePermissions();
+  const canSelectAllBranches = hasPermission(P.REPORT_FINANCE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
 
   const today = new Date();
@@ -140,6 +155,16 @@ export default function ProfitLossReportPage() {
       setAnalyzingInsight(false);
     }
   };
+
+  // Tự động chạy phân tích AI 1 lần ngay khi có dữ liệu định lượng mới (vào trang lần đầu hoặc
+  // đổi bộ lọc) — người dùng không cần bấm nút. Nút "Phân tích lại" chỉ dùng để chạy lại thủ công
+  // (ví dụ khi muốn Gemini viết lại diễn giải khác) mà không cần đổi bộ lọc.
+  useEffect(() => {
+    if (insightResult) {
+      void handleAiAnalysis();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insightResult]);
 
   useEffect(() => {
     if (startDate && endDate) {
@@ -249,7 +274,9 @@ export default function ProfitLossReportPage() {
   };
 
   const calcPercent = (curr: number, prev: number) => {
-    if (prev === 0) return curr > 0 ? "+100%" : "0%";
+    // Kỳ trước = 0 thì không chia được để ra % thật — trả "Mới" thay vì bịa "+100%" (kỳ trước
+    // có thể chỉ là chưa phát sinh, không phải "tăng đúng gấp đôi").
+    if (prev === 0) return curr > 0 ? "Mới" : "0%";
     const percent = ((curr - prev) / prev) * 100;
     return `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`;
   };
@@ -330,80 +357,24 @@ export default function ProfitLossReportPage() {
       isItalic: true,
     },
     {
+      // Gộp "II" (nhóm) và "II-1 Giá vốn hàng hóa" thành 1 dòng — trước đây 3 dòng con của II là
+      // Giá vốn/Thanh toán điểm/Phí ship trả đối tác, nhưng 2 dòng sau LUÔN = 0 (hệ thống chưa có
+      // sổ điểm thưởng hay bảng thanh toán vận chuyển cho NCC vận chuyển) nên đã bỏ khỏi bảng —
+      // còn lại đúng 1 dòng, giữ "II" và "II-1" riêng là dư thừa (2 dòng số y hệt nhau).
       id: "II",
-      label: "II. Giá vốn và chi phí bán hàng",
-      prev: prev.cost,
-      current: curr.cost,
-      change: calcPercent(curr.cost, prev.cost),
-      isBold: true,
-    },
-    {
-      id: "II-1",
-      label: "1. Giá vốn hàng hóa",
+      label: "II. Giá vốn hàng hóa",
       prev: prev.cogs,
       current: curr.cogs,
       change: calcPercent(curr.cogs, prev.cogs),
-      padding: "pl-8",
-    },
-    {
-      id: "II-2",
-      label: "2. Thanh toán bằng điểm",
-      prev: prev.pointPayment,
-      current: curr.pointPayment,
-      change: calcPercent(curr.pointPayment, prev.pointPayment),
-      padding: "pl-8",
-    },
-    {
-      id: "II-3",
-      label: "3. Phí giao hàng trả đối tác",
-      prev: prev.shippingFeePaid,
-      current: curr.shippingFeePaid,
-      change: calcPercent(curr.shippingFeePaid, prev.shippingFeePaid),
-      padding: "pl-8",
-    },
-    {
-      id: "GROSS",
-      label: "Lợi nhuận gộp (I - II)",
-      prev: prev.grossProfit,
-      current: curr.grossProfit,
-      change: calcPercent(curr.grossProfit, prev.grossProfit),
       isBold: true,
     },
     {
-      id: "III",
-      label: "III. Thu nhập khác",
-      prev: prev.totalInc,
-      current: curr.totalInc,
-      change: calcPercent(curr.totalInc, prev.totalInc),
-      isBold: true,
-    },
-    {
-      id: "III-1",
-      label: "1. Phiếu thu khác",
-      prev: prev.otherIncome,
-      current: curr.otherIncome,
-      change: calcPercent(curr.otherIncome, prev.otherIncome),
-      padding: "pl-8",
-    },
-    {
-      id: "III-2",
-      label: "2. Phí khách trả hàng",
-      prev: prev.customerReturnFee,
-      current: curr.customerReturnFee,
-      change: calcPercent(curr.customerReturnFee, prev.customerReturnFee),
-      padding: "pl-8",
-    },
-    {
-      id: "IV",
-      label: "IV. Chi phí khác",
-      prev: prev.otherExpenses,
-      current: curr.otherExpenses,
-      change: calcPercent(curr.otherExpenses, prev.otherExpenses),
-      isBold: true,
-    },
-    {
+      // "Lợi nhuận gộp" (I - Giá vốn) và "Lợi nhuận ròng" từng là 2 dòng khác nhau, nhưng vì
+      // Thu nhập khác/Chi phí khác/Thanh toán điểm/Phí ship trả đối tác đều luôn = 0 (chưa có
+      // nguồn dữ liệu thật) nên 2 số này LUÔN bằng nhau — hiện cả 2 dòng gây trùng lặp, chỉ giữ
+      // 1 dòng "Lợi nhuận ròng" làm kết quả cuối cùng.
       id: "RESULT",
-      label: "Lợi nhuận ròng (I + III - II - IV)",
+      label: "Lợi nhuận ròng (I - II)",
       prev: prev.netProfit,
       current: curr.netProfit,
       change: calcPercent(curr.netProfit, prev.netProfit),
@@ -432,6 +403,40 @@ export default function ProfitLossReportPage() {
     toast.success("Xuất file Excel thành công!");
   };
 
+  const handleExportPdf = () => {
+    if (!currentData) {
+      toast.error("Không có dữ liệu để xuất!");
+      return;
+    }
+
+    const activeBranch = branches.find((b) => String(b.id) === branchId);
+    const branchName = activeBranch ? activeBranch.name : "Toàn bộ hệ thống";
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    registerVietnameseFont(doc);
+    doc.setFontSize(14);
+    doc.text("BÁO CÁO LÃI LỖ AGRI SHRIMP", 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Chi nhánh: ${branchName}`, 14, 20);
+    doc.text(`Kỳ báo cáo: ${formatDateVN(startDate)} - ${formatDateVN(endDate)}`, 14, 25);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Chỉ tiêu báo cáo", "Kỳ trước (VNĐ)", "Kỳ hiện tại (VNĐ)", "% Thay đổi"]],
+      body: reportRows.map((row) => [
+        row.label,
+        formatNumber(row.prev),
+        formatNumber(row.current),
+        row.change,
+      ]),
+      styles: { fontSize: 8, font: VIETNAMESE_PDF_FONT },
+      headStyles: { fillColor: [59, 130, 246], font: VIETNAMESE_PDF_FONT, fontStyle: "bold" },
+    });
+
+    doc.save(`Bao_Cao_Lai_Lo_${startDate}_den_${endDate}.pdf`);
+    toast.success("Xuất file PDF thành công!");
+  };
+
   const { prevStart, prevEnd } = getPrevPeriod(startDate, endDate);
 
   return (
@@ -443,8 +448,8 @@ export default function ProfitLossReportPage() {
           </h1>
         </div>
 
-        <div className="flex flex-col gap-3 border-b-0 bg-transparent px-0 pt-0 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 border-b-0 bg-transparent px-0 pt-0 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-end">
             <div className="space-y-1">
               <span className="text-[10px] font-medium uppercase text-slate-400">
                 Từ ngày
@@ -504,11 +509,20 @@ export default function ProfitLossReportPage() {
               Trợ giúp
             </Button>
             <Button
+              variant="outline"
               onClick={handleExportExcel}
-              className="h-[38px] bg-blue-600 px-4 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
             >
               <Download className="mr-2 h-4 w-4" />
-              Xuất file
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPdf}
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 shadow-none hover:bg-blue-50 hover:text-blue-600"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              PDF
             </Button>
           </div>
         </div>
@@ -531,7 +545,7 @@ export default function ProfitLossReportPage() {
                 disabled={analyzingInsight}
               >
                 <RefreshCw size={12} className={cn("mr-1.5", analyzingInsight && "animate-spin")} />
-                {analyzingInsight ? "Đang phân tích..." : "Phân tích AI"}
+                {analyzingInsight ? "Đang phân tích..." : "Phân tích lại"}
               </Button>
             )}
           </div>
@@ -604,6 +618,8 @@ export default function ProfitLossReportPage() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Biến động lợi nhuận ròng</p>
                     {insightResult.netProfitChangePercent === "NO_PREVIOUS_DATA" ? (
                       <p className="text-sm font-semibold text-slate-500 mt-2">Chưa có dữ liệu kỳ trước</p>
+                    ) : insightResult.netProfitChangePercent === "NEW_BASELINE" ? (
+                      <p className="text-sm font-semibold text-slate-500 mt-2">Kỳ trước lợi nhuận ròng = 0</p>
                     ) : (
                       <p className="text-xl font-black text-slate-800 mt-1">
                         {Number(insightResult.netProfitChangePercent) > 0 ? "+" : ""}{insightResult.netProfitChangePercent}%
@@ -613,6 +629,10 @@ export default function ProfitLossReportPage() {
                   <div className="mt-2.5">
                     {insightResult.netProfitChangePercent === "NO_PREVIOUS_DATA" ? (
                       <span className="text-[10px] text-slate-400">Kỳ đầu tiên/Từ đầu đến nay</span>
+                    ) : insightResult.netProfitChangePercent === "NEW_BASELINE" ? (
+                      <Badge className="border-none bg-blue-50 text-blue-600 hover:bg-blue-50 text-[9px] font-semibold px-2 py-0.5 shadow-none">
+                        Mới phát sinh
+                      </Badge>
                     ) : (
                       <Badge className={cn(
                         "border-none text-[9px] font-semibold px-2 py-0.5 shadow-none",
@@ -710,7 +730,7 @@ export default function ProfitLossReportPage() {
                 </div>
               ) : (
                 <div className="bg-slate-50/60 rounded-[6px] border border-dashed border-slate-200 p-6 text-center">
-                  <p className="text-xs text-slate-500 font-medium">Bấm nút "Phân tích AI" ở góc trên để nhận bản phân tích nguyên nhân biến động chi tiết từ Gemini AI.</p>
+                  <p className="text-xs text-slate-500 font-medium">Bấm nút "Phân tích lại" ở góc trên để Gemini AI viết lại bản phân tích nguyên nhân biến động chi tiết.</p>
                 </div>
               )}
             </div>
@@ -738,7 +758,7 @@ export default function ProfitLossReportPage() {
                   <TableHead className="w-[40%] p-3 pl-6 text-[12px] font-semibold text-[#1f1f1f]">
                   Chỉ tiêu báo cáo
                   </TableHead>
-                  <TableHead className="w-[20%] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">
+                  <TableHead className="w-[20%] p-3 text-right text-[12px] font-semibold text-[#1f1f1f]">
                     <div className="space-y-0.5">
                       <p>Kỳ trước</p>
                       <p className="text-[10px] font-medium text-slate-400">
@@ -746,7 +766,7 @@ export default function ProfitLossReportPage() {
                       </p>
                     </div>
                   </TableHead>
-                  <TableHead className="w-[20%] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">
+                  <TableHead className="w-[20%] p-3 text-right text-[12px] font-semibold text-[#1f1f1f]">
                     <div className="space-y-0.5">
                       <p>Kỳ hiện tại</p>
                       <p className="text-[10px] font-medium text-slate-400">
@@ -754,7 +774,7 @@ export default function ProfitLossReportPage() {
                       </p>
                     </div>
                   </TableHead>
-                  <TableHead className="w-[20%] p-3 text-center text-[12px] font-semibold text-[#1f1f1f]">
+                  <TableHead className="w-[20%] p-3 text-right text-[12px] font-semibold text-[#1f1f1f]">
                   % thay đổi
                   </TableHead>
                 </TableRow>
@@ -782,7 +802,7 @@ export default function ProfitLossReportPage() {
                     </TableCell>
                     <TableCell
                       className={cn(
-                        "border-r border-[#f3f3f3] p-2 text-center text-[13px]",
+                        "border-r border-[#f3f3f3] p-2 text-right text-[13px]",
                         row.isBold ? "font-semibold text-slate-800" : "text-slate-600"
                       )}
                     >
@@ -790,7 +810,7 @@ export default function ProfitLossReportPage() {
                     </TableCell>
                     <TableCell
                       className={cn(
-                        "border-r border-[#f3f3f3] p-2 text-center text-[13px]",
+                        "border-r border-[#f3f3f3] p-2 text-right text-[13px]",
                         row.isBold ? "font-semibold text-slate-800" : "text-slate-600",
                         row.isResult && "font-semibold text-blue-700"
                       )}
@@ -799,7 +819,7 @@ export default function ProfitLossReportPage() {
                     </TableCell>
                     <TableCell
                       className={cn(
-                        "p-2 text-center text-[13px] font-semibold",
+                        "p-2 text-right text-[13px] font-semibold",
                         row.change === "0%"
                           ? "text-slate-400"
                           : row.change.includes("-")
@@ -858,10 +878,14 @@ export default function ProfitLossReportPage() {
               chưa tự đảo giá vốn cho hàng trả.
             </p>
             <p>
-              <span className="font-bold text-slate-800">Các mục khác:</span>{" "}
-              Thanh toán điểm, phí ship trả đối tác, thu nhập khác và chi phí
-              khác chỉ phản ánh nguồn dữ liệu thật đang có trong hệ thống; nếu
-              chưa có nguồn riêng thì đang bằng 0.
+              <span className="font-bold text-slate-800">
+                Lợi nhuận ròng (I - II):
+              </span>{" "}
+              = Doanh thu thuần - Giá vốn hàng hóa. Báo cáo đang ẩn 4 khoản
+              Thanh toán điểm, Phí giao hàng trả đối tác, Thu nhập khác, Chi
+              phí khác vì hệ thống chưa có nguồn dữ liệu thật cho các khoản
+              này (không phải bị bỏ sót — sẽ hiện lại khi có tính năng tương
+              ứng, ví dụ sổ điểm thưởng hoặc sổ chi phí vận hành khác).
             </p>
           </div>
         </DialogContent>

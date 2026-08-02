@@ -101,7 +101,7 @@ input[type="number"] {
   }
 
   body {
-    font-family: "Inter", sans-serif;
+    font-family: var(--font-inter), "Inter", sans-serif;
   }
 }
 

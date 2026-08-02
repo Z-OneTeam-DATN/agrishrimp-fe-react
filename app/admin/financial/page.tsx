@@ -9,6 +9,7 @@ import {
   BarChart3,
   Landmark,
   Users,
+  UserMinus,
   Loader2,
   Clock,
   Info,
@@ -56,6 +57,8 @@ import { PublicBranchService } from "@/app/services/publicBranch.service";
 import { formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { isAdminRole } from "@/lib/roles";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 
 type BranchOption = { id: number; name: string };
 
@@ -96,6 +99,18 @@ const reportCards = [
     meaning: "Quản lý nghĩa vụ thanh toán với nhà cung cấp, hỗ trợ lập kế hoạch chi tiền và đàm phán công nợ.",
     inScope: true,
   },
+  {
+    id: "customer-debt",
+    title: "Công nợ khách hàng",
+    description: "Theo dõi số tiền khách hàng còn nợ chốt kỳ",
+    icon: UserMinus,
+    href: "/admin/financial/customer-debt",
+    helpTitle: "Công nợ khách hàng",
+    workflow: "Tổng hợp đơn hàng chưa thanh toán đủ của mỗi khách → Loại đơn đã huỷ/trả → Ra dư nợ chốt tại ngày kết thúc",
+    formula: "Dư nợ = Tổng giá trị đơn chưa thanh toán đủ (nhị phân, chưa có mức thanh toán một phần)",
+    meaning: "Theo dõi công nợ phải thu từ khách hàng, hỗ trợ nhân viên phụ trách đôn đốc thanh toán.",
+    inScope: true,
+  },
 ];
 
 const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
@@ -122,7 +137,8 @@ export default function FinancialReportListPage() {
   const router = useRouter();
   const { user, warehouseId } = useAuthStore();
   const isAdmin = isAdminRole(user?.role);
-  const canSelectAllBranches = !user?.branch?.id && !warehouseId;
+  const { hasPermission } = usePermissions();
+  const canSelectAllBranches = hasPermission(P.REPORT_FINANCE_VIEW_ALL_BRANCHES);
   const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(

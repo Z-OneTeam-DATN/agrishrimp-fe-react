@@ -351,9 +351,13 @@ export const orderService = {
     return response.data;
   },
 
-  getBackorderReport: async (): Promise<MissingItemReport[]> => {
-    const response =
-      await apiJava.get<MissingItemReport[]>("/admin/backorders");
+  getBackorderReport: async (
+    branchId?: string,
+  ): Promise<MissingItemReport[]> => {
+    const response = await apiJava.get<MissingItemReport[]>(
+      "/admin/backorders",
+      { params: { branchId } },
+    );
     return response.data;
   },
 

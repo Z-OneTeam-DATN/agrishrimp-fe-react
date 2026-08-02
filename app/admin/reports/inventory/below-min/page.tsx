@@ -35,19 +35,40 @@ import { cn } from "@/lib/utils";
 
 import { branchService } from "@/app/services/branchService";
 import { ProductService } from "@/app/services/product.service";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
+import { TablePagination } from "@/components/admin/shared/TablePagination";
+import { registerVietnameseFont, VIETNAMESE_PDF_FONT } from "@/lib/pdf-vietnamese-font";
+import { useAuthStore } from "@/stores/useAuthStore";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-export default function InventoryBelowMinReportPage() {
+const PAGE_SIZE = 20;
+
+function InventoryBelowMinReportContent() {
   const router = useRouter();
-  
+  const { user, warehouseId } = useAuthStore();
+  const { hasPermission } = usePermissions();
+  // Trước đây dropdown chi nhánh không hề bị khoá — bất kỳ ai có quyền xem báo cáo này cũng chọn
+  // được chi nhánh bất kỳ trên URL/UI (lỗ hổng IDOR), giờ khoá theo đúng permission như các báo
+  // cáo tồn kho khác: chỉ super admin hoặc tài khoản được cấp REPORT_INVENTORY_VIEW_ALL_BRANCHES
+  // mới xem được chi nhánh khác.
+  const canSelectAllBranches = hasPermission(P.REPORT_INVENTORY_VIEW_ALL_BRANCHES);
+  const ownBranchId = (user?.branch?.id ?? warehouseId)?.toString() || "";
+
   // --- STATES ---
   const [branches, setBranches] = useState<any[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(
+    canSelectAllBranches ? "" : ownBranchId,
+  );
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [page, setPage] = useState(1);
 
   // --- FETCH DATA ---
   const fetchData = async () => {
@@ -59,9 +80,13 @@ export default function InventoryBelowMinReportPage() {
       // 1. Lấy danh sách chi nhánh (nếu chưa có)
       if (branches.length === 0) {
         const branchData = await branchService.getAll();
-        currentBranches = Array.isArray(branchData) ? branchData : (branchData?.content || []);
+        const allBranches = Array.isArray(branchData) ? branchData : (branchData?.content || []);
+        currentBranches =
+          !canSelectAllBranches && ownBranchId
+            ? allBranches.filter((b: any) => String(b.id) === ownBranchId)
+            : allBranches;
         setBranches(currentBranches);
-        
+
         // Nếu có danh sách chi nhánh và chưa chọn chi nhánh nào, chọn chi nhánh đầu tiên
         if (currentBranches.length > 0 && !selectedBranchId) {
           currentBranchId = currentBranches[0].id.toString();
@@ -83,6 +108,7 @@ export default function InventoryBelowMinReportPage() {
         
         setProducts(lowStockList);
         setFilteredProducts(lowStockList);
+        setPage(1);
       }
     } catch (error) {
       console.error("Error fetching low-stock report:", error);
@@ -100,12 +126,15 @@ export default function InventoryBelowMinReportPage() {
   const handleSearch = (val: string) => {
     setSearchTerm(val);
     const searchLower = val.toLowerCase();
-    const results = products.filter(p => 
-      (p.productName || p.name || "").toLowerCase().includes(searchLower) || 
+    const results = products.filter(p =>
+      (p.productName || p.name || "").toLowerCase().includes(searchLower) ||
       (p.sku || "").toLowerCase().includes(searchLower)
     );
     setFilteredProducts(results);
+    setPage(1);
   };
+
+  const pagedProducts = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleExportExcel = async () => {
     if (filteredProducts.length === 0) {
@@ -179,6 +208,50 @@ export default function InventoryBelowMinReportPage() {
     }
   };
 
+  const handleExportPdf = () => {
+    if (filteredProducts.length === 0) {
+      toast.warning("Không có dữ liệu để xuất");
+      return;
+    }
+
+    const branchName = branches.find((b) => b.id.toString() === selectedBranchId)?.name || "Chi nhánh";
+    const exportDate = new Date().toLocaleString("vi-VN");
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    registerVietnameseFont(doc);
+    doc.setFontSize(14);
+    doc.text("BÁO CÁO TỒN KHO DƯỚI ĐỊNH MỨC AGRI SHRIMP", 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Chi nhánh: ${branchName}`, 14, 20);
+    doc.text(`Thời gian xuất: ${exportDate}`, 14, 25);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["SKU", "Tên sản phẩm", "Tồn kho hiện tại", "Định mức tối thiểu", "Thiếu hụt"]],
+      body: filteredProducts.map((p) => [
+        p.sku || "",
+        p.productName || p.name || "",
+        String(p.quantity || 0),
+        String(p.minThreshold ?? 10),
+        String(p.shortage ?? Math.max(0, (p.minThreshold ?? 10) - (p.quantity || 0))),
+      ]),
+      styles: { fontSize: 8, font: VIETNAMESE_PDF_FONT },
+      headStyles: { fillColor: [92, 114, 147], font: VIETNAMESE_PDF_FONT, fontStyle: "bold" },
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    doc.save(`Bao_Cao_Ton_Kho_Thap_${branchName.replace(/\s/g, "_")}_${dateStr}.pdf`);
+    toast.success("Đã tải xuống file PDF");
+  };
+
+  const handlePrint = () => {
+    if (filteredProducts.length === 0) {
+      toast.warning("Không có dữ liệu để in");
+      return;
+    }
+    window.print();
+  };
+
   return (
     <div className="space-y-4 pb-10 bg-[#f0f2f5] min-h-screen">
       {/* Top Header */}
@@ -211,10 +284,10 @@ export default function InventoryBelowMinReportPage() {
           </Button>
           <div className="h-6 w-[1px] bg-slate-300 mx-2"></div>
           <div className="flex items-center gap-4 text-[13px] font-medium text-slate-600">
-            <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+            <button onClick={handleExportPdf} className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
               <Download size={16} /> Tải PDF
             </button>
-            <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+            <button onClick={handlePrint} className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
               <Printer size={16} /> In
             </button>
             <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
@@ -226,7 +299,7 @@ export default function InventoryBelowMinReportPage() {
 
       {/* Filter Bar */}
       <div className="px-6 py-2 flex items-center gap-4 bg-white/50">
-        <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+        <Select value={selectedBranchId} onValueChange={setSelectedBranchId} disabled={!canSelectAllBranches}>
           <SelectTrigger className="h-8 w-[240px] text-[13px] border-slate-300 rounded-none shadow-none bg-white font-bold">
             <SelectValue placeholder="Chọn chi nhánh" />
           </SelectTrigger>
@@ -279,18 +352,18 @@ export default function InventoryBelowMinReportPage() {
               <Table className="border-collapse">
                 <TableHeader>
                   <TableRow className="bg-[#5c7293] hover:bg-[#5c7293]">
-                    <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[50px]">STT</TableHead>
-                    <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 p-3 min-w-[200px]">Phiên bản sản phẩm</TableHead>
-                    <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-center w-[120px]">Mã SKU</TableHead>
-                    <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-right w-[150px]">Tồn kho hiện tại</TableHead>
-                    <TableHead className="text-white font-bold text-[11px] uppercase border-r border-white/10 text-right w-[170px]">Định mức tối thiểu</TableHead>
-                    <TableHead className="text-white font-bold text-[11px] uppercase text-right w-[150px]">Thiếu hụt</TableHead>
+                    <TableHead className="text-white text-[12px] whitespace-nowrap border-r border-white/10 text-center w-[50px]">STT</TableHead>
+                    <TableHead className="text-white text-[12px] whitespace-nowrap border-r border-white/10 p-3 min-w-[200px]">Phiên bản sản phẩm</TableHead>
+                    <TableHead className="text-white text-[12px] whitespace-nowrap border-r border-white/10 text-center w-[120px]">Mã SKU</TableHead>
+                    <TableHead className="text-white text-[12px] whitespace-nowrap border-r border-white/10 text-right w-[150px]">Tồn kho hiện tại</TableHead>
+                    <TableHead className="text-white text-[12px] whitespace-nowrap border-r border-white/10 text-right w-[170px]">Định mức tối thiểu</TableHead>
+                    <TableHead className="text-white text-[12px] whitespace-nowrap text-right w-[150px]">Thiếu hụt</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map((p, index) => (
+                  {pagedProducts.map((p, index) => (
                     <TableRow key={p.variantId || p.sku || index} className="bg-white border-b border-[#eee] hover:bg-slate-50 transition-colors group">
-                      <TableCell className="text-center text-slate-400 font-bold text-[12px]">{index + 1}</TableCell>
+                      <TableCell className="text-center text-slate-400 font-bold text-[12px]">{(page - 1) * PAGE_SIZE + index + 1}</TableCell>
                       <TableCell className="p-3">
                         <div className="flex flex-col">
                           <span className="text-[13px] font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{p.productName || p.name}</span>
@@ -303,11 +376,11 @@ export default function InventoryBelowMinReportPage() {
                       </TableCell>
                       <TableCell className="text-center font-mono text-[12px] text-blue-600">{p.sku}</TableCell>
                       <TableCell className="text-right font-black text-[14px] text-rose-600 bg-rose-50/30">{p.quantity || 0}</TableCell>
-                      <TableCell className="text-right font-bold text-[13px] text-slate-500 italic">10</TableCell>
+                      <TableCell className="text-right font-bold text-[13px] text-slate-500 italic">{p.minThreshold ?? 10}</TableCell>
                       <TableCell className="text-right p-3">
                         <div className="flex items-center justify-end gap-1.5 text-rose-600 font-black">
                           <AlertTriangle size={14} />
-                          <span className="text-[14px]">{Math.max(0, 10 - (p.quantity || 0))}</span>
+                          <span className="text-[14px]">{p.shortage ?? Math.max(0, (p.minThreshold ?? 10) - (p.quantity || 0))}</span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -321,6 +394,7 @@ export default function InventoryBelowMinReportPage() {
                   </TableRow>
                 </TableBody>
               </Table>
+              <TablePagination page={page} totalItems={filteredProducts.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
               {/* Action Footer */}
               <div className="p-6 bg-blue-50/50 border-t border-slate-100 flex items-center justify-between">
@@ -341,6 +415,14 @@ export default function InventoryBelowMinReportPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InventoryBelowMinReportPage() {
+  return (
+    <PermissionGuard permission={P.REPORT_INVENTORY_VIEW}>
+      <InventoryBelowMinReportContent />
+    </PermissionGuard>
   );
 }
 
