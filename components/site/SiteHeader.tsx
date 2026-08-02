@@ -639,7 +639,7 @@ export default function Header() {
 
         <div className="bg-[linear-gradient(180deg,rgb(28,117,188)_0%,rgb(25,101,162)_100%)] text-white">
           <div className="mx-auto hidden w-full max-w-[1460px] px-8 lg:px-12 xl:px-16 py-4 md:block">
-            <div className="grid items-start gap-3 xl:gap-4 lg:grid-cols-[220px_minmax(0,1fr)_300px] xl:grid-cols-[248px_minmax(0,1fr)_330px]">
+            <div className="grid items-start gap-3 xl:gap-4 lg:grid-cols-[220px_minmax(0,1fr)_340px] xl:grid-cols-[248px_minmax(0,1fr)_380px]">
               <Link href="/" className="flex items-center gap-2.5 shrink-0 min-h-11">
                 <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white/95 shadow-sm shrink-0">
                   <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
@@ -708,7 +708,7 @@ export default function Header() {
                 </div>
               </div>
 
-              <div className="flex min-w-0 items-center justify-end gap-0.5 pt-0.5 xl:justify-self-end">
+              <div className="flex min-w-0 items-center justify-end gap-1.5 pt-0.5 xl:justify-self-end">
                 {renderAuthSection()}
 
                 {isLoggedIn && <NotificationBell />}
