@@ -82,7 +82,6 @@ export default function AdminLayout({
   const { hasPermission, hasAnyPermission } = usePermissions();
   const { isLoadingAuth, user, warehouseId } = useAuthStore();
   const isBranchScopedOrderUser = canUseBranchOrderRoutes(user, warehouseId);
-  const shouldMountWebSocket = pathname.startsWith("/admin/chat");
   const hasAdminWorkspaceAccess = hasAnyPermission(
     ADMIN_WORKSPACE_PERMISSIONS as unknown as string[]
   );
@@ -133,7 +132,7 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-[#f1f5f9]">
-      {shouldMountWebSocket ? <WebSocketProvider /> : null}
+      <WebSocketProvider />
       <AdminSidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <AdminTopHeader />

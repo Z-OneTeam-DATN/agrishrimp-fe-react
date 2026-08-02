@@ -2,13 +2,13 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  Bell,
   User,
   LogOut,
   Settings as SettingsIcon,
   MapPin,
   Clock,
 } from "lucide-react";
+import NotificationBell from "@/components/site/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -365,14 +365,7 @@ export default function AdminTopHeader() {
         </div>
 
         <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-          >
-            <Bell size={20} />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-          </Button>
+          <NotificationBell />
         </div>
 
         <DropdownMenu>

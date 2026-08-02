@@ -31,6 +31,7 @@ import { P } from "@/lib/permissions";
 import { useCartStore } from "@/stores/useCartStore";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { CategoryDTO } from "@/app/types/category.type";
+import NotificationBell from "@/components/site/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -709,6 +710,8 @@ export default function Header() {
 
               <div className="flex min-w-0 items-center justify-end gap-0.5 pt-0.5 xl:justify-self-end">
                 {renderAuthSection()}
+
+                {isLoggedIn && <NotificationBell />}
 
                 <span className="text-[18px] font-light leading-none text-white/34 select-none">|</span>
                 <Link
