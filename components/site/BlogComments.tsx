@@ -3,7 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, LogIn, MessageCircle, Reply, Send, UserRound, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  LogIn,
+  Send,
+  SlidersHorizontal,
+  SmilePlus,
+  UserRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   BlogCommentDTO,
@@ -15,6 +25,8 @@ import { cn } from "@/lib/utils";
 
 const MAX_COMMENT_LENGTH = 2000;
 
+type SortMode = "newest" | "oldest";
+
 interface BlogCommentsProps {
   slug: string;
   className?: string;
@@ -22,6 +34,7 @@ interface BlogCommentsProps {
 
 interface ReplyTarget {
   parentId: number;
+  sourceId: number;
   authorName: string;
 }
 
@@ -55,6 +68,8 @@ const getErrorMessage = (error: unknown) => {
 const countComments = (comments: BlogCommentDTO[]) =>
   comments.reduce((total, comment) => total + 1 + (comment.replies?.length ?? 0), 0);
 
+const getTimestamp = (value?: string | null) => (value ? new Date(value).getTime() : 0);
+
 const appendReply = (
   comments: BlogCommentDTO[],
   parentId: number,
@@ -76,12 +91,28 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
   const [replyContent, setReplyContent] = useState("");
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [submitting, setSubmitting] = useState<"root" | "reply" | null>(null);
+  const [rootFocused, setRootFocused] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [openThreads, setOpenThreads] = useState<Set<number>>(new Set());
 
   const loginHref = `/login?redirect=/blog/${slug}`;
   const commentCount = useMemo(() => countComments(comments), [comments]);
   const currentUserName =
     user?.displayName || user?.fullName || user?.email?.split("@")[0] || "Bạn";
   const currentAvatar = getFullImageUrl(user?.avatar?.imageUrl || (user as any)?.avatarUrl);
+
+  const sortedComments = useMemo(() => {
+    const direction = sortMode === "newest" ? -1 : 1;
+
+    return [...comments]
+      .sort((a, b) => (getTimestamp(a.createdAt) - getTimestamp(b.createdAt)) * direction)
+      .map((comment) => ({
+        ...comment,
+        replies: [...(comment.replies ?? [])].sort(
+          (a, b) => getTimestamp(a.createdAt) - getTimestamp(b.createdAt)
+        ),
+      }));
+  }, [comments, sortMode]);
 
   const loadComments = useCallback(async () => {
     setLoadingComments(true);
@@ -105,6 +136,18 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
     router.push(loginHref);
   };
 
+  const toggleThread = (commentId: number) => {
+    setOpenThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  };
+
   const handleSubmitRoot = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -118,8 +161,9 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
     setSubmitting("root");
     try {
       const created = await createPublicBlogComment(slug, { content });
-      setComments((prev) => [...prev, { ...created, replies: created.replies ?? [] }]);
+      setComments((prev) => [{ ...created, replies: created.replies ?? [] }, ...prev]);
       setRootContent("");
+      setRootFocused(false);
       toast.success("Đã đăng bình luận.");
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -128,9 +172,15 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
     }
   };
 
-  const handleStartReply = (comment: BlogCommentDTO) => {
-    setReplyTarget({ parentId: comment.id, authorName: comment.authorName });
-    setReplyContent(`@${comment.authorName} `);
+  const handleStartReply = (parentId: number, sourceId: number, authorName: string) => {
+    if (!isAuthenticated) {
+      requireLogin();
+      return;
+    }
+
+    setReplyTarget({ parentId, sourceId, authorName });
+    setReplyContent(`@${authorName} `);
+    setOpenThreads((prev) => new Set(prev).add(parentId));
   };
 
   const handleSubmitReply = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -156,6 +206,7 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
         parentId: replyTarget.parentId,
       });
       setComments((prev) => appendReply(prev, replyTarget.parentId, { ...created, replies: [] }));
+      setOpenThreads((prev) => new Set(prev).add(replyTarget.parentId));
       setReplyContent("");
       setReplyTarget(null);
       toast.success("Đã trả lời bình luận.");
@@ -165,6 +216,21 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
       setSubmitting(null);
     }
   };
+
+  const renderCurrentAvatar = (sizeClass = "h-10 w-10") => (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-500",
+        sizeClass
+      )}
+    >
+      {currentAvatar ? (
+        <img src={currentAvatar} alt={currentUserName} className="h-full w-full object-cover" />
+      ) : (
+        <UserRound size={18} />
+      )}
+    </div>
+  );
 
   const renderAvatar = (comment: BlogCommentDTO, sizeClass = "h-10 w-10") => {
     const avatar = getFullImageUrl(comment.authorAvatarUrl);
@@ -192,192 +258,254 @@ export default function BlogComments({ slug, className }: BlogCommentsProps) {
     );
   };
 
-  const renderComment = (comment: BlogCommentDTO) => (
-    <article key={comment.id} className="py-5 first:pt-0 last:pb-0">
-      <div className="flex gap-3 sm:gap-4">
+  const renderReplyComposer = () => {
+    if (!replyTarget) return null;
+
+    return (
+      <form onSubmit={handleSubmitReply} className="mt-4 flex gap-3">
+        {renderCurrentAvatar("h-8 w-8")}
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <span className="text-xs font-medium text-slate-500">
+              Đang trả lời @{replyTarget.authorName}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setReplyTarget(null);
+                setReplyContent("");
+              }}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Hủy trả lời"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <textarea
+            value={replyContent}
+            onChange={(event) => setReplyContent(event.target.value)}
+            maxLength={MAX_COMMENT_LENGTH}
+            rows={2}
+            autoFocus
+            className="max-h-40 min-h-[46px] w-full resize-y border-0 border-b border-slate-300 bg-transparent px-0 py-2 text-sm leading-6 text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-slate-950"
+            placeholder={`@${replyTarget.authorName} `}
+          />
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+              aria-label="Mở biểu tượng cảm xúc"
+            >
+              <SmilePlus size={18} />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyTarget(null);
+                  setReplyContent("");
+                }}
+                className="inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-100"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submitting === "reply" || !replyContent.trim()}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {submitting === "reply" ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                Phản hồi
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    );
+  };
+
+  const renderReply = (reply: BlogCommentDTO, parent: BlogCommentDTO) => (
+    <div key={reply.id} className="flex gap-3">
+      {renderAvatar(reply, "h-8 w-8")}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <h4 className="text-[13px] font-bold text-slate-950">{reply.authorName}</h4>
+          <span className="text-xs font-medium text-slate-500">{formatCommentTime(reply.createdAt)}</span>
+        </div>
+        <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">
+          {reply.content}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleStartReply(parent.id, reply.id, reply.authorName)}
+            className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+          >
+            Phản hồi
+          </button>
+        </div>
+        {replyTarget?.sourceId === reply.id && renderReplyComposer()}
+      </div>
+    </div>
+  );
+
+  const renderComment = (comment: BlogCommentDTO) => {
+    const replies = comment.replies ?? [];
+    const isOpen = openThreads.has(comment.id);
+
+    return (
+      <article key={comment.id} className="flex gap-3 py-5 sm:gap-4">
         {renderAvatar(comment)}
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <h3 className="text-sm font-bold text-slate-950">{comment.authorName}</h3>
-            <span className="text-xs font-medium text-slate-400">
-              {formatCommentTime(comment.createdAt)}
-            </span>
+            <span className="text-xs font-medium text-slate-500">{formatCommentTime(comment.createdAt)}</span>
           </div>
 
-          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-7 text-slate-900">
             {comment.content}
           </p>
 
-          <button
-            type="button"
-            onClick={() => handleStartReply(comment)}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 transition-colors hover:text-blue-900"
-          >
-            <Reply size={14} />
-            Trả lời
-          </button>
-
-          {replyTarget?.parentId === comment.id && (
-            <form
-              onSubmit={handleSubmitReply}
-              className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 p-3"
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleStartReply(comment.id, comment.id, comment.authorName)}
+              className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
             >
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-slate-600">
-                  Trả lời {comment.authorName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReplyTarget(null);
-                    setReplyContent("");
-                  }}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-white hover:text-slate-800"
-                  aria-label="Hủy trả lời"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-              <textarea
-                value={replyContent}
-                onChange={(event) => setReplyContent(event.target.value)}
-                maxLength={MAX_COMMENT_LENGTH}
-                rows={3}
-                className="min-h-[86px] w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500"
-                placeholder={`@${comment.authorName} `}
-              />
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <span className="text-xs text-slate-400">
-                  {replyContent.trim().length}/{MAX_COMMENT_LENGTH}
-                </span>
-                <button
-                  type="submit"
-                  disabled={submitting === "reply" || !replyContent.trim()}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-xs font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {submitting === "reply" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  Gửi trả lời
-                </button>
-              </div>
-            </form>
-          )}
+              Phản hồi
+            </button>
+          </div>
 
-          {comment.replies?.length > 0 && (
-            <div className="mt-5 space-y-4 border-l border-slate-200 pl-4 sm:pl-5">
-              {comment.replies.map((reply) => (
-                <div key={reply.id} className="flex gap-3">
-                  {renderAvatar(reply, "h-8 w-8")}
-                  <div className="min-w-0 flex-1 rounded-xl bg-slate-50 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <h4 className="text-sm font-bold text-slate-900">{reply.authorName}</h4>
-                      <span className="text-xs font-medium text-slate-400">
-                        {formatCommentTime(reply.createdAt)}
-                      </span>
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
-                      {reply.content}
-                    </p>
-                  </div>
-                </div>
-              ))}
+          {replyTarget?.sourceId === comment.id && renderReplyComposer()}
+
+          {replies.length > 0 && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => toggleThread(comment.id)}
+                className="inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-bold text-blue-700 transition-colors hover:bg-blue-50"
+              >
+                {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                {replies.length} phản hồi
+              </button>
+
+              {isOpen && <div className="mt-3 space-y-5">{replies.map((reply) => renderReply(reply, comment))}</div>}
             </div>
           )}
         </div>
-      </div>
-    </article>
-  );
+      </article>
+    );
+  };
 
   return (
     <section className={cn("mt-12 border-t border-slate-200 pt-8", className)}>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <MessageCircle size={19} className="text-blue-700" />
-          <h2 className="text-lg font-bold text-slate-900">Bình luận bài viết</h2>
-        </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <h2 className="text-[22px] font-bold leading-tight text-slate-950 sm:text-[26px]">
           {commentCount} bình luận
-        </span>
+        </h2>
+
+        <label className="inline-flex h-10 items-center gap-3 text-sm font-bold text-slate-900">
+          <SlidersHorizontal size={22} />
+          <span>Sắp xếp theo</span>
+          <select
+            value={sortMode}
+            onChange={(event) => setSortMode(event.target.value as SortMode)}
+            className="cursor-pointer border-0 bg-transparent text-sm font-bold text-slate-900 outline-none"
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+          </select>
+        </label>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mt-8">
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
             <Loader2 size={16} className="animate-spin" />
             Đang kiểm tra đăng nhập...
           </div>
         ) : isAuthenticated ? (
-          <form onSubmit={handleSubmitRoot}>
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-blue-700">
-                {currentAvatar ? (
-                  <img src={currentAvatar} alt={currentUserName} className="h-full w-full object-cover" />
-                ) : (
-                  <UserRound size={18} />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-slate-900">{currentUserName}</p>
-                <p className="text-xs text-slate-500">Đang bình luận bằng tài khoản của bạn</p>
-              </div>
-            </div>
+          <form onSubmit={handleSubmitRoot} className="flex gap-3 sm:gap-4">
+            {renderCurrentAvatar()}
+            <div className="min-w-0 flex-1">
+              <textarea
+                value={rootContent}
+                onFocus={() => setRootFocused(true)}
+                onChange={(event) => setRootContent(event.target.value)}
+                maxLength={MAX_COMMENT_LENGTH}
+                rows={rootFocused || rootContent ? 3 : 1}
+                className="max-h-44 min-h-[42px] w-full resize-y border-0 border-b border-slate-300 bg-transparent px-0 py-2 text-sm leading-6 text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-slate-950"
+                placeholder="Viết bình luận..."
+              />
 
-            <textarea
-              value={rootContent}
-              onChange={(event) => setRootContent(event.target.value)}
-              maxLength={MAX_COMMENT_LENGTH}
-              rows={4}
-              className="min-h-[112px] w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
-              placeholder="Viết bình luận của bạn..."
-            />
+              {(rootFocused || rootContent) && (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+                    aria-label="Mở biểu tượng cảm xúc"
+                  >
+                    <SmilePlus size={18} />
+                  </button>
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-slate-400">
-                {rootContent.trim().length}/{MAX_COMMENT_LENGTH}
-              </span>
-              <button
-                type="submit"
-                disabled={submitting === "root" || !rootContent.trim()}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 text-sm font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {submitting === "root" ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                Gửi bình luận
-              </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRootContent("");
+                        setRootFocused(false);
+                      }}
+                      className="inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-100"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting === "root" || !rootContent.trim()}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      {submitting === "root" ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                      Bình luận
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </form>
         ) : (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Đăng nhập để tham gia thảo luận</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Bạn có thể bình luận và trả lời nhận xét ngay dưới bài viết.
-              </p>
+          <div className="flex gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+              <UserRound size={18} />
             </div>
-            <Link
-              href={loginHref}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition-colors hover:bg-blue-800"
-            >
-              <LogIn size={16} />
-              Đăng nhập
-            </Link>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 border-b border-slate-300 pb-3">
+              <span className="text-sm font-medium text-slate-500">Đăng nhập để bình luận.</span>
+              <Link
+                href={loginHref}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800"
+              >
+                <LogIn size={15} />
+                Đăng nhập
+              </Link>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-8">
         {loadingComments ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 py-12">
-            <Loader2 className="mb-3 animate-spin text-blue-600" size={28} />
-            <p className="text-sm font-medium text-slate-500">Đang tải bình luận...</p>
+          <div className="flex items-center gap-3 py-8 text-sm font-medium text-slate-500">
+            <Loader2 className="animate-spin text-blue-600" size={24} />
+            Đang tải bình luận...
           </div>
-        ) : comments.length > 0 ? (
-          <div className="divide-y divide-slate-200">{comments.map(renderComment)}</div>
+        ) : sortedComments.length > 0 ? (
+          <div className="divide-y-0">{sortedComments.map(renderComment)}</div>
         ) : (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center">
-            <h3 className="text-base font-bold text-slate-800">Chưa có bình luận nào</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Hãy là người đầu tiên chia sẻ câu hỏi hoặc kinh nghiệm của bạn.
-            </p>
+          <div className="py-10 text-sm text-slate-500">
+            Chưa có bình luận nào. Hãy là người đầu tiên chia sẻ ý kiến của bạn.
           </div>
         )}
       </div>
