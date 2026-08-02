@@ -1,4 +1,4 @@
-import { MyOrder, OrderStatus } from "@/app/types/order.types";
+import { BranchOrder, MyOrder, OrderStatus } from "@/app/types/order.types";
 import { cn } from "@/lib/utils";
 
 type BadgeTone = {
@@ -265,6 +265,20 @@ export const hasOrderShortage = (order: Pick<MyOrder, "items" | "status">) =>
   normalizeWorkflowStatus(order.status) === "AWAITING_REPLENISHMENT" ||
   (order.items ?? []).some((item) => Number(item.missingQuantity ?? 0) > 0);
 
+const REPLENISHMENT_REQUESTABLE_STATUSES: OrderStatus[] = [
+  "PENDING",
+  "AWAITING_REPLENISHMENT",
+];
+
+const hasRequestableSubOrder = (order: Pick<MyOrder, "subOrders">) =>
+  (order.subOrders ?? []).some((subOrder) =>
+    subOrder?.status
+      ? REPLENISHMENT_REQUESTABLE_STATUSES.includes(
+          subOrder.status as OrderStatus,
+        )
+      : false,
+  );
+
 export const getOrderInventoryStatus = (
   order: Pick<MyOrder, "items" | "status">,
 ) => (hasOrderShortage(order) ? "SHORTAGE" : "IN_STOCK");
@@ -273,10 +287,18 @@ export const isReplenishmentWorkflowStatus = (status: OrderStatus | string) =>
   ["AWAITING_REPLENISHMENT", "PENDING_SHORTAGE_REVIEW"].includes(status);
 
 export const canRequestReplenishmentAction = (
-  order: Pick<MyOrder, "status" | "items">,
+  order: Pick<MyOrder, "status" | "items" | "subOrders">,
 ) =>
-  ["PENDING", "AWAITING_REPLENISHMENT"].includes(order.status) &&
-  hasOrderShortage(order);
+  hasOrderShortage(order) &&
+  ((order.subOrders?.length ?? 0) > 0
+    ? hasRequestableSubOrder(order)
+    : REPLENISHMENT_REQUESTABLE_STATUSES.includes(order.status));
+
+export const canRequestBranchReplenishmentAction = (
+  order: Pick<BranchOrder, "subOrderStatus" | "items">,
+) =>
+  REPLENISHMENT_REQUESTABLE_STATUSES.includes(order.subOrderStatus) &&
+  (order.items ?? []).some((item) => Number(item.missingQuantity ?? 0) > 0);
 
 export const matchesAdminOrderStatusFilter = (
   status: OrderStatus | string,

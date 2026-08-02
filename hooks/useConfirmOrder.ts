@@ -41,11 +41,17 @@ export function useConfirmOrder(options: UseConfirmOrderOptions = {}) {
       } else {
         // COD / CASH / TRANSFER: đơn đã xong, clear cart và redirect
         clearCart()
+        const orderId = data.orderId
+        const orderCode = data.orderCode ?? ""
         // Dùng cùng trang /order-success với payOS để tránh xung đột dynamic route
         // Backend payOS config should return to https://agrishrimp.io.vn/order-success
-        router.push(
-          `/order-success?orderId=${data.orderId}&orderCode=${encodeURIComponent(data.orderCode)}&method=offline`
-        )
+        if (orderId) {
+          router.push(
+            `/order-success?orderId=${orderId}&orderCode=${encodeURIComponent(orderCode)}&method=offline`
+          )
+          return
+        }
+        router.push("/orders/list")
       }
     },
 

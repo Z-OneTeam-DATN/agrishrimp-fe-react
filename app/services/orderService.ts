@@ -23,11 +23,34 @@ export async function confirmOrder(
   return orderService.confirmOrder(payload)
 }
 
+export async function getPreparedOrder(
+  prepareToken: string
+): Promise<PrepareOrderResponse> {
+  return orderService.getPreparedOrder(prepareToken)
+}
+
+export async function finalizePayosSession(
+  sessionCode: string
+): Promise<ConfirmOrderResponse> {
+  return orderService.finalizePayosSession(sessionCode)
+}
+
+export async function cancelPayosSession(sessionCode: string): Promise<void> {
+  return orderService.cancelPayosSession(sessionCode)
+}
+
 /** Lấy lại link thanh toán payOS khi user cần mở lại
  *  GET /api/orders/{orderId}/payment-link
  */
 export async function getPaymentLink(orderId: number | string): Promise<string> {
   return orderService.getPaymentLink(orderId)
+}
+
+export async function retryPendingPayment(
+  orderId: number | string,
+  paymentMethod: ConfirmOrderPayload["paymentMethod"]
+): Promise<ConfirmOrderResponse> {
+  return orderService.retryPendingPayment(orderId, paymentMethod)
 }
 
 /** Lấy chi tiết đơn hàng đã đặt */

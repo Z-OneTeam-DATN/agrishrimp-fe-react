@@ -8,6 +8,7 @@ import { ChevronLeft, Loader2, X, Plus, MapPin, CheckCircle2, Banknote, Smartpho
 import { toast } from "sonner"
 import { cartService } from "@/app/services/cart.service"
 import { addressService } from "@/app/services/address.service"
+import { orderService } from "@/app/services/order.service"
 import { voucherService, type UserVoucher } from "@/app/services/voucher.service"
 import { useCartStore } from "@/stores/useCartStore"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -17,11 +18,19 @@ import { usePrepareOrder } from "@/hooks/usePrepareOrder"
 import { useConfirmOrder } from "@/hooks/useConfirmOrder"
 import AddressForm from "@/components/profile/AddressForm"
 import CheckoutVoucherSelector from "@/components/order/CheckoutVoucherSelector"
+import PendingPaymentResumeView from "@/components/checkout/PendingPaymentResumeView"
 import { getFriendlyError } from "@/app/utils/apiError"
-import type { DeliveryInfo, CartItem, PaymentMethod } from "@/app/types/order.types"
+import type { DeliveryInfo, CartItem, PaymentMethod, MyOrder, PrepareOrderResponse } from "@/app/types/order.types"
 import { resolveImageUrl } from "@/lib/resolveImageUrl"
 
 const formatMoney = (amount: number) => amount.toLocaleString("vi-VN") + "đ"
+
+const formatDateTime = (value?: string | null) => {
+    if (!value) return "--"
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return parsed.toLocaleString("vi-VN")
+}
 
 const PAYMENT_OPTIONS: { val: PaymentMethod; label: string; sub: string; icon: React.ReactNode }[] = [
     {
@@ -121,6 +130,17 @@ const normalizeSavedAddress = (raw: SavedAddressApi): SavedAddress | null => {
     }
 }
 
+const buildDeliveryInfoFromAddress = (addr: SavedAddress): DeliveryInfo => ({
+    address: addr.addressDetail,
+    districtId: addr.districtId ?? 0,
+    wardCode: addr.wardCode,
+    districtName: "",
+    wardName: "",
+    receiverName: addr.receiverName,
+    receiverPhone: addr.receiverPhone,
+    userAddressId: addr.id,
+})
+
 const getSavedAddressLocationError = (addr: SavedAddress) => {
     if (!addr.districtId || !addr.wardCode) {
         return "Địa chỉ này đang thiếu dữ liệu vị trí, hệ thống sẽ dùng phí vận chuyển ước tính nếu cần."
@@ -129,11 +149,90 @@ const getSavedAddressLocationError = (addr: SavedAddress) => {
     return null
 }
 
+const buildCartItemsFromPreparedQuote = (
+    preparedQuote: PrepareOrderResponse,
+    fallbackCart: CartItem[],
+): CartItem[] => {
+    const fallbackByVariantId = new Map(
+        fallbackCart.map((item) => [item.productVariantId, item])
+    )
+    const preparedItems = new Map<number, CartItem>()
+
+    preparedQuote.subOrders?.forEach((subOrder) => {
+        subOrder.items.forEach((item) => {
+            const fallback = fallbackByVariantId.get(item.productVariantId)
+            const existing = preparedItems.get(item.productVariantId)
+
+            preparedItems.set(item.productVariantId, {
+                productVariantId: item.productVariantId,
+                quantity: (existing?.quantity ?? 0) + Number(item.quantity || 0),
+                cartItemId: fallback?.cartItemId,
+                productName:
+                    fallback?.productName?.trim()
+                    || item.variantName?.trim()
+                    || `Sản phẩm #${item.productVariantId}`,
+                variantName:
+                    fallback?.variantName?.trim()
+                    || item.variantName?.trim()
+                    || undefined,
+                unitPrice: fallback?.unitPrice ?? Number(item.unitPrice || 0),
+                imageUrl: fallback?.imageUrl,
+                weightGram: fallback?.weightGram,
+            })
+        })
+    })
+
+    return preparedItems.size > 0
+        ? Array.from(preparedItems.values())
+        : fallbackCart
+}
+
+const mapApiCartItemsToCheckoutItems = (items: CheckoutCartApiItem[]): CartItem[] =>
+    items.map((item) => ({
+        productVariantId: item.variantId,
+        quantity: item.quantity,
+        productName: item.name,
+        variantName: item.variant,
+        unitPrice: item.price,
+        imageUrl: item.image,
+        cartItemId: item.id,
+    }))
+
+const filterCheckoutItemsBySelection = (items: CartItem[], selectedIds: number[]) =>
+    selectedIds.length > 0
+        ? items.filter((item) => item.cartItemId && selectedIds.includes(item.cartItemId))
+        : items
+
+const areCheckoutItemsEquivalent = (left: CartItem[], right: CartItem[]) => {
+    if (left.length !== right.length) {
+        return false
+    }
+
+    return left.every((item, index) => {
+        const other = right[index]
+        return (
+            item.productVariantId === other?.productVariantId
+            && item.quantity === other?.quantity
+            && (item.cartItemId ?? null) === (other?.cartItemId ?? null)
+        )
+    })
+}
+
+const buildCheckoutItemsSignature = (items: CartItem[]) =>
+    items
+        .map((item) => `${item.productVariantId}:${item.quantity}:${item.cartItemId ?? ""}`)
+        .join("|")
+
 export default function CheckoutPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const searchParamsKey = searchParams.toString()
     const queryVoucherCode = searchParams.get("voucher")?.trim().toUpperCase() || ""
     const selectedItemsParam = searchParams.get("items") || ""
+    const prepareTokenParam = searchParams.get("prepareToken")?.trim() || ""
+    const paymentSessionParam = searchParams.get("paymentSession")?.trim() || ""
+    const resumeOrderIdParam = searchParams.get("resumeOrderId") || ""
+    const cancelledPaymentStatus = (searchParams.get("status") || "").trim().toUpperCase()
     const selectedItemIds = useMemo(
         () => selectedItemsParam
             .split(",")
@@ -141,14 +240,26 @@ export default function CheckoutPage() {
             .filter((value) => Number.isFinite(value) && value > 0),
         [selectedItemsParam]
     )
+    const resumeOrderId = useMemo(() => {
+        const parsed = Number(resumeOrderIdParam)
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+    }, [resumeOrderIdParam])
+    const isResumePaymentMode = resumeOrderId !== null
+    const isCancelledPayosReturn = cancelledPaymentStatus === "CANCELLED"
+        && prepareTokenParam.length > 0
+        && paymentSessionParam.length > 0
 
     const [cartItems, setCartItems] = useState<CartItem[]>([])
     const [isLoadingCart, setIsLoadingCart] = useState(true)
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD")
     const [note, setNote] = useState("")
     const [addressConfirmed, setAddressConfirmed] = useState(false)
+    const [resumeOrder, setResumeOrder] = useState<MyOrder | null>(null)
+    const [isLoadingResumeOrder, setIsLoadingResumeOrder] = useState(false)
+    const [isRetryingResumePayment, setIsRetryingResumePayment] = useState(false)
 
     const [addresses, setAddresses] = useState<SavedAddress[]>([])
+    const [isLoadingAddresses, setIsLoadingAddresses] = useState(false)
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false)
     const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
     const [isSubmittingAddress, setIsSubmittingAddress] = useState(false)
@@ -162,19 +273,31 @@ export default function CheckoutPage() {
     const [showTokenExpiredModal, setShowTokenExpiredModal] = useState(false)
     const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
     const [addressLocationWarning, setAddressLocationWarning] = useState<string | null>(null)
+    const [isRestoringCancelledPayos, setIsRestoringCancelledPayos] = useState(false)
     const [quoteNowMs, setQuoteNowMs] = useState(() => Date.now())
     const confirmAttemptKeyRef = useRef<string | null>(null)
+    const handledCancelledSessionRef = useRef<string | null>(null)
 
     const {
+        items: persistedCartItems,
         deliveryInfo,
         setDeliveryInfo,
         prepareOrderResponse,
         prepareToken,
+        setItems: setStoredCartItems,
         setPrepareResponse,
         clearPrepareResponse,
     } = useCartStore()
     const { userLocation } = useLocationStore()
     const { isAuthenticated, isLoadingAuth } = useAuthStore()
+    const persistedCartItemsSignature = useMemo(
+        () => buildCheckoutItemsSignature(persistedCartItems),
+        [persistedCartItems]
+    )
+    const persistedSelectedItems = useMemo(
+        () => filterCheckoutItemsBySelection(persistedCartItems, selectedItemIds),
+        [persistedCartItemsSignature, selectedItemIds]
+    )
 
     useUserLocation({ showIpFallbackToast: false })
 
@@ -195,12 +318,28 @@ export default function CheckoutPage() {
     }, [rateLimitCooldown])
 
     useEffect(() => {
-        if (!prepareOrderResponse?.expiresAt) return
-        setQuoteNowMs(Date.now())
-        const timer = setInterval(() => {
+        if (!prepareOrderResponse?.expiresAt) {
             setQuoteNowMs(Date.now())
-        }, 1000)
-        return () => clearInterval(timer)
+            return
+        }
+
+        const expiresAtMs = new Date(prepareOrderResponse.expiresAt).getTime()
+        setQuoteNowMs(Date.now())
+
+        if (Number.isNaN(expiresAtMs)) {
+            return
+        }
+
+        const remainingMs = expiresAtMs - Date.now()
+        if (remainingMs <= 0) {
+            return
+        }
+
+        const timer = globalThis.setTimeout(() => {
+            setQuoteNowMs(Date.now())
+        }, remainingMs + 50)
+
+        return () => globalThis.clearTimeout(timer)
     }, [prepareOrderResponse?.expiresAt])
 
     useEffect(() => {
@@ -219,9 +358,12 @@ export default function CheckoutPage() {
     )
 
     const activeVoucherCode = selectedVoucher?.code?.trim().toUpperCase() || undefined
+    const checkoutRedirectTarget = searchParamsKey
+        ? `/checkout?${searchParamsKey}`
+        : "/checkout"
 
     const syncVoucherInUrl = useCallback((nextVoucherCode?: string | null) => {
-        const params = new URLSearchParams(searchParams.toString())
+        const params = new URLSearchParams(searchParamsKey)
 
         if (nextVoucherCode) {
             params.set("voucher", nextVoucherCode)
@@ -231,7 +373,7 @@ export default function CheckoutPage() {
 
         const query = params.toString()
         router.replace(query ? `/checkout?${query}` : "/checkout", { scroll: false })
-    }, [router, searchParams])
+    }, [router, searchParamsKey])
 
     const triggerPrepare = useCallback((
         userAddressId: number,
@@ -248,6 +390,18 @@ export default function CheckoutPage() {
             ...(userLocation && { userLat: userLocation.lat, userLng: userLocation.lng }),
         })
     }, [cartItems, prepareMutation, userLocation])
+
+    const syncVisibleCartItems = useCallback((nextItems: CartItem[]) => {
+        setCartItems((currentItems) =>
+            areCheckoutItemsEquivalent(currentItems, nextItems) ? currentItems : nextItems
+        )
+    }, [])
+
+    const syncStoredCartItems = useCallback((nextItems: CartItem[]) => {
+        if (!areCheckoutItemsEquivalent(persistedCartItems, nextItems)) {
+            setStoredCartItems(nextItems)
+        }
+    }, [persistedCartItems, setStoredCartItems])
 
     const fetchAvailableVouchers = useCallback(async (orderSubtotal: number) => {
         setIsLoadingVouchers(true)
@@ -365,16 +519,7 @@ export default function CheckoutPage() {
         prepareMutation.reset()
         setAddressLocationWarning(null)
 
-        const info: DeliveryInfo = {
-            address: addr.addressDetail,
-            districtId: addr.districtId ?? 0,
-            wardCode: addr.wardCode,
-            districtName: "",
-            wardName: "",
-            receiverName: addr.receiverName,
-            receiverPhone: addr.receiverPhone,
-            userAddressId: addr.id,
-        }
+        const info = buildDeliveryInfoFromAddress(addr)
         setDeliveryInfo(info)
         setAddressConfirmed(true)
         setIsAddressModalOpen(false)
@@ -399,65 +544,245 @@ export default function CheckoutPage() {
         }
     }
 
+    const restoreCancelledPayosQuote = useCallback(async (
+        normalizedAddresses: SavedAddress[],
+        currentCart: CartItem[],
+    ) => {
+        const handledKey = `${paymentSessionParam}:${prepareTokenParam}:${cancelledPaymentStatus}`
+        if (handledCancelledSessionRef.current === handledKey) {
+            return
+        }
+
+        handledCancelledSessionRef.current = handledKey
+        setIsRestoringCancelledPayos(true)
+
+        try {
+            const restoredQuote = await orderService.getPreparedOrder(prepareTokenParam)
+            const restoredCartItems = buildCartItemsFromPreparedQuote(restoredQuote, currentCart)
+
+            try {
+                await orderService.cancelPayosSession(paymentSessionParam)
+            } catch {
+                // Session may already be closed or expired; continue restoring the quote.
+            }
+
+            syncVisibleCartItems(restoredCartItems)
+            syncStoredCartItems(restoredCartItems)
+            setPrepareResponse(restoredQuote, restoredQuote.prepareToken)
+            setPaymentMethod("PAYOS")
+            setAddressConfirmed(true)
+            confirmAttemptKeyRef.current = null
+
+            const matchedAddress = normalizedAddresses.find(
+                (addr) => addr.id === restoredQuote.addressId
+            )
+
+            if (matchedAddress) {
+                setDeliveryInfo(buildDeliveryInfoFromAddress(matchedAddress))
+                setAddressLocationWarning(getSavedAddressLocationError(matchedAddress))
+            } else {
+                setDeliveryInfo({
+                    address: restoredQuote.deliveryAddress || "",
+                    districtId: Number(restoredQuote.deliveryDistrictId || 0),
+                    wardCode: restoredQuote.deliveryWardCode || "",
+                    districtName: "",
+                    wardName: "",
+                    receiverName: restoredQuote.receiverName || "",
+                    receiverPhone: restoredQuote.receiverPhone || "",
+                    userAddressId: Number(restoredQuote.addressId || 0),
+                })
+                setAddressLocationWarning(null)
+            }
+
+            if (cancelledPaymentStatus === "CANCELLED") {
+                toast.info("Bạn đã hủy thanh toán PayOS. Vui lòng chọn lại phương thức thanh toán.", {
+                    id: "payos-cancelled",
+                })
+            }
+        } catch (error) {
+            handledCancelledSessionRef.current = null
+            toast.error(getFriendlyError(error), {
+                id: "checkout-restore-error",
+            })
+
+            if (normalizedAddresses.length > 0 && currentCart.length > 0) {
+                const defaultAddr = normalizedAddresses.find((addr) => addr.isDefault) || normalizedAddresses[0]
+                handleAddressSelect(defaultAddr, currentCart)
+            }
+        } finally {
+            setIsRestoringCancelledPayos(false)
+        }
+    }, [
+        cancelledPaymentStatus,
+        paymentSessionParam,
+        prepareTokenParam,
+        setDeliveryInfo,
+        setPrepareResponse,
+        syncStoredCartItems,
+        syncVisibleCartItems,
+    ])
+
     useEffect(() => {
         if (isLoadingAuth) return
         if (!isAuthenticated) {
             toast.error("Vui lòng đăng nhập để thanh toán!")
-            router.push("/login?redirect=/checkout")
+            router.push(`/login?redirect=${encodeURIComponent(checkoutRedirectTarget)}`)
             return
         }
+        if (isResumePaymentMode) {
+            setIsLoadingCart(false)
+            return
+        }
+
+        let isMounted = true
+
         const loadData = async () => {
+            const hasPersistedSelection = persistedSelectedItems.length > 0
             try {
-                setIsLoadingCart(true)
-                const [cartData, addressData] = await Promise.all([
-                    cartService.getMyCart(),
+                if (hasPersistedSelection && !isCancelledPayosReturn) {
+                    syncVisibleCartItems(persistedSelectedItems)
+                    setIsLoadingCart(false)
+                } else {
+                    setIsLoadingCart(true)
+                }
+
+                setIsLoadingAddresses(true)
+                const [addressData, rawCartData] = await Promise.all([
                     addressService.getAll().catch(() => []),
+                    hasPersistedSelection
+                        ? Promise.resolve<CheckoutCartApiItem[]>([])
+                        : cartService.getMyCart().then((data) =>
+                            Array.isArray(data) ? data as CheckoutCartApiItem[] : []
+                        ).catch((error) => {
+                            if (isCancelledPayosReturn) {
+                                return []
+                            }
+                            throw error
+                        }),
                 ])
-                if (!cartData || cartData.length === 0) {
-                    toast.warning("Giỏ hàng trống, vui lòng thêm sản phẩm!")
-                    router.push("/user/cart")
-                    return
-                }
-                const mappedItems: CartItem[] = (cartData as CheckoutCartApiItem[]).map((item) => ({
-                    productVariantId: item.variantId,
-                    quantity: item.quantity,
-                    productName: item.name,
-                    variantName: item.variant,
-                    unitPrice: item.price,
-                    imageUrl: item.image,
-                    cartItemId: item.id, // Thêm để reference
-                }))
-                // Fix: Match theo item.id (cartItemId) từ URL, KHÔNG phải variantId
-                const filteredItems = selectedItemIds.length > 0
-                    ? mappedItems.filter((item) => item.cartItemId && selectedItemIds.includes(item.cartItemId))
-                    : mappedItems
 
-                if (selectedItemIds.length > 0 && filteredItems.length === 0) {
-                    toast.error("Không tìm thấy sản phẩm đã chọn trong giỏ hàng!")
-                    router.push("/user/cart")
+                if (!isMounted) {
                     return
                 }
 
-                setCartItems(filteredItems)
                 const normalizedAddresses = Array.isArray(addressData)
                     ? addressData
                         .map((item) => normalizeSavedAddress(item as SavedAddressApi))
                         .filter((item): item is SavedAddress => item !== null)
                     : []
                 setAddresses(normalizedAddresses)
+
+                const mappedItems = mapApiCartItemsToCheckoutItems(rawCartData || [])
+                if (mappedItems.length > 0) {
+                    syncStoredCartItems(mappedItems)
+                }
+
+                if (isCancelledPayosReturn) {
+                    const cancelledCartItems = hasPersistedSelection
+                        ? persistedSelectedItems
+                        : filterCheckoutItemsBySelection(mappedItems, selectedItemIds)
+                    syncVisibleCartItems(cancelledCartItems)
+                    await restoreCancelledPayosQuote(normalizedAddresses, cancelledCartItems)
+                    return
+                }
+
+                if (hasPersistedSelection) {
+                    if (normalizedAddresses.length > 0) {
+                        const defaultAddr = normalizedAddresses.find((a) => a.isDefault) || normalizedAddresses[0]
+                        handleAddressSelect(defaultAddr, persistedSelectedItems)
+                    }
+                    return
+                }
+
+                if (mappedItems.length === 0) {
+                    toast.warning("Giỏ hàng trống, vui lòng thêm sản phẩm!", {
+                        id: "checkout-empty-cart",
+                    })
+                    router.push("/user/cart")
+                    return
+                }
+
+                const filteredItems = filterCheckoutItemsBySelection(mappedItems, selectedItemIds)
+
+                if (selectedItemIds.length > 0 && filteredItems.length === 0) {
+                    toast.error("Không tìm thấy sản phẩm đã chọn trong giỏ hàng!", {
+                        id: "checkout-selected-items-missing",
+                    })
+                    router.push("/user/cart")
+                    return
+                }
+
+                syncVisibleCartItems(filteredItems)
+                setIsLoadingCart(false)
                 if (normalizedAddresses.length > 0) {
                     const defaultAddr = normalizedAddresses.find((a) => a.isDefault) || normalizedAddresses[0]
-                    // 🐛 FIX LỖI 400: Truyền thẳng items vào để tránh state cartItems chưa kịp cập nhật
                     handleAddressSelect(defaultAddr, filteredItems)
                 }
-            } catch {
-                toast.error("Không thể tải thông tin thanh toán!")
+            } catch (error) {
+                if (!isMounted) {
+                    return
+                }
+                toast.error(getFriendlyError(error), {
+                    id: "checkout-load-error",
+                })
             } finally {
-                setIsLoadingCart(false)
+                if (isMounted) {
+                    setIsLoadingAddresses(false)
+                    setIsLoadingCart(false)
+                }
             }
         }
-        loadData()
-    }, [router, isAuthenticated, isLoadingAuth, selectedItemsParam])
+
+        void loadData()
+
+        return () => {
+            isMounted = false
+        }
+    }, [
+        checkoutRedirectTarget,
+        router,
+        isAuthenticated,
+        isLoadingAuth,
+        selectedItemsParam,
+        isResumePaymentMode,
+        isCancelledPayosReturn,
+        persistedCartItemsSignature,
+        persistedSelectedItems,
+        restoreCancelledPayosQuote,
+        syncStoredCartItems,
+        syncVisibleCartItems,
+    ])
+
+    useEffect(() => {
+        if (!isResumePaymentMode || !resumeOrderId) return
+        if (isLoadingAuth || !isAuthenticated) return
+
+        let isMounted = true
+
+        const loadResumeOrder = async () => {
+            try {
+                setIsLoadingResumeOrder(true)
+                const data = await orderService.getOrderById(resumeOrderId)
+                if (!isMounted) return
+                setResumeOrder(data)
+                setPaymentMethod(data.paymentMethod === "PAYOS" ? "PAYOS" : "COD")
+            } catch (error) {
+                if (!isMounted) return
+                setResumeOrder(null)
+                toast.error(getFriendlyError(error))
+            } finally {
+                if (isMounted) {
+                    setIsLoadingResumeOrder(false)
+                }
+            }
+        }
+
+        void loadResumeOrder()
+
+        return () => {
+            isMounted = false
+        }
+    }, [resumeOrderId, isResumePaymentMode, isAuthenticated, isLoadingAuth])
 
     const handleAddNewAddress = async (data: AddressFormValues) => {
         setIsSubmittingAddress(true)
@@ -667,6 +992,67 @@ export default function CheckoutPage() {
         })
     }
 
+    const handleResumePaymentConfirm = async () => {
+        if (!resumeOrder) return
+
+        try {
+            setIsRetryingResumePayment(true)
+            const response = await orderService.retryPendingPayment(resumeOrder.id, paymentMethod)
+
+            if (response.checkoutUrl) {
+                window.location.href = response.checkoutUrl
+                return
+            }
+
+            if ((response.paymentStatus || "").toUpperCase() === "PAID") {
+                const orderCode = response.orderCode ?? ""
+                router.push(
+                    `/order-success?orderId=${response.orderId}&orderCode=${encodeURIComponent(orderCode)}&status=PAID`
+                )
+                return
+            }
+
+            const orderCode = response.orderCode ?? ""
+            router.push(
+                `/order-success?orderId=${response.orderId}&orderCode=${encodeURIComponent(orderCode)}&method=offline`
+            )
+        } catch (error) {
+            toast.error(getFriendlyError(error))
+            try {
+                const refreshedOrder = await orderService.getOrderById(resumeOrder.id)
+                setResumeOrder(refreshedOrder)
+            } catch {
+                // Keep the current UI state if the refresh also fails.
+            }
+        } finally {
+            setIsRetryingResumePayment(false)
+        }
+    }
+
+    const canResumePendingPayment = !!resumeOrder
+        && resumeOrder.paymentMethod === "PAYOS"
+        && ["PENDING", "UNPAID"].includes(String(resumeOrder.paymentStatus || "").toUpperCase())
+        && ["PENDING_PAYMENT", "AWAITING_PAYMENT"].includes(String(resumeOrder.status || "").toUpperCase())
+
+    const resumeBlockedMessage = useMemo(() => {
+        if (!resumeOrder) {
+            return "Không thể tải đơn hàng cần thanh toán lại."
+        }
+
+        if (String(resumeOrder.paymentStatus || "").toUpperCase() === "PAID") {
+            return "Đơn hàng này đã được thanh toán thành công."
+        }
+
+        if (
+            String(resumeOrder.paymentStatus || "").toUpperCase() === "EXPIRED"
+            || String(resumeOrder.status || "").toUpperCase() === "CANCELLED"
+        ) {
+            return "Đơn hàng này đã hết hạn thanh toán hoặc đã bị hủy, bạn cần đặt lại từ giỏ hàng."
+        }
+
+        return "Đơn hàng này không còn ở trạng thái cho phép chọn lại phương thức thanh toán."
+    }, [resumeOrder])
+
     const hasPreparedOrder = !!prepareOrderDisplayResponse
     const canPlaceOrder = hasPreparedOrder && !!prepareOrderDisplayResponse.canPlaceOrder && !quoteExpired
     const canRefreshPreparedOrder = hasPreparedOrder && quoteExpired && !!deliveryInfo?.userAddressId
@@ -677,11 +1063,82 @@ export default function CheckoutPage() {
         (!canPlaceOrder && !canRefreshPreparedOrder)
     const shouldShowMobileBottomBar = hasPreparedOrder && !!prepareOrderDisplayResponse.canPlaceOrder
 
-    if (isLoadingCart) {
+    if (isResumePaymentMode) {
+        if (isLoadingResumeOrder) {
+            return (
+                <div className="min-h-screen bg-[#f5f5f5] flex flex-col items-center justify-center gap-3 text-gray-400">
+                    <Loader2 size={28} className="animate-spin text-blue-500" />
+                    <span className="text-sm">Đang tải đơn chờ thanh toán...</span>
+                </div>
+            )
+        }
+
+        if (resumeOrder && canResumePendingPayment) {
+            return (
+                <PendingPaymentResumeView
+                    order={resumeOrder}
+                    paymentOptions={PAYMENT_OPTIONS}
+                    paymentMethod={paymentMethod}
+                    cancelledFromPayos={cancelledPaymentStatus === "CANCELLED"}
+                    isSubmitting={isRetryingResumePayment}
+                    onSelectPaymentMethod={setPaymentMethod}
+                    onSubmit={handleResumePaymentConfirm}
+                />
+            )
+        }
+
+        return (
+            <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center px-4 py-12">
+                <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                        Trang thanh toán
+                    </p>
+                    <h1 className="mt-3 text-2xl font-bold text-slate-900">
+                        {resumeOrder?.code ? `#${resumeOrder.code}` : "Đơn hàng chờ thanh toán"}
+                    </h1>
+                    <p className="mt-3 text-sm leading-6 text-slate-500">{resumeBlockedMessage}</p>
+
+                    {resumeOrder && (
+                        <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                            <div className="flex items-center justify-between gap-3">
+                                <span>Ngày đặt</span>
+                                <span className="font-medium text-slate-900">{formatDateTime(resumeOrder.createdAt)}</span>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between gap-3">
+                                <span>Tổng thanh toán</span>
+                                <span className="font-semibold text-slate-900">
+                                    {formatMoney(Number(resumeOrder.finalAmount || 0))}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                        <Link
+                            href={resumeOrder ? `/orders/${resumeOrder.id}` : "/orders/list"}
+                            className="inline-flex flex-1 items-center justify-center rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                        >
+                            Xem đơn hàng
+                        </Link>
+                        <Link
+                            href="/user/cart"
+                            className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                            Quay lại giỏ hàng
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if ((isLoadingCart && cartItems.length === 0) || isRestoringCancelledPayos) {
         return (
             <div className="min-h-screen bg-[#f5f5f5] flex flex-col items-center justify-center gap-3 text-gray-400">
                 <Loader2 size={28} className="animate-spin text-blue-500" />
-                <span className="text-sm">Đang tải...</span>
+                <span className="text-sm">
+                    {isRestoringCancelledPayos ? "Đang khôi phục phiên thanh toán..." : "Đang tải..."}
+                </span>
             </div>
         )
     }
@@ -738,7 +1195,12 @@ export default function CheckoutPage() {
                             <div className="px-5 py-4">
                                 {!addressConfirmed ? (
                                     <div className="space-y-2">
-                                        {addresses.length === 0 ? (
+                                        {isLoadingAddresses ? (
+                                            <div className="py-8 text-center text-gray-400 space-y-3">
+                                                <Loader2 size={24} className="mx-auto animate-spin text-blue-400" />
+                                                <p className="text-sm">Đang tải địa chỉ giao hàng...</p>
+                                            </div>
+                                        ) : addresses.length === 0 ? (
                                             <div className="py-8 text-center text-gray-400 space-y-3">
                                                 <MapPin size={32} className="mx-auto text-gray-200" />
                                                 <p className="text-sm">Bạn chưa có địa chỉ giao hàng nào.</p>
@@ -1162,7 +1624,12 @@ export default function CheckoutPage() {
                         <div className="flex-1 overflow-y-auto">
                             {!isAddingNewAddress ? (
                                 <div className="p-4 space-y-2">
-                                    {addresses.length === 0 && (
+                                    {isLoadingAddresses ? (
+                                        <div className="py-8 text-center text-gray-400">
+                                            <Loader2 size={22} className="mx-auto animate-spin text-blue-400" />
+                                            <p className="mt-3 text-sm">Đang tải địa chỉ...</p>
+                                        </div>
+                                    ) : addresses.length === 0 && (
                                         <p className="text-sm text-gray-400 text-center py-8">Chưa có địa chỉ nào được lưu</p>
                                     )}
                                     {addresses.map((addr) => (
