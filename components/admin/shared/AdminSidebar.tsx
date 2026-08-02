@@ -989,7 +989,14 @@ export default function AdminSidebar() {
         )}
       </div>
 
-      <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50">
+      <div className="p-4 mt-auto border-t border-slate-800/40 bg-[#020617]/50 space-y-0.5">
+        <SidebarLink
+          href="/admin/profile"
+          icon={UserCircle}
+          label="Hồ sơ cá nhân"
+          active={isActive("/admin/profile")}
+          color="text-blue-400"
+        />
         {canViewSettings && (
           <SidebarLink
             href="/admin/settings"

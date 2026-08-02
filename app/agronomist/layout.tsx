@@ -19,6 +19,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { P } from "@/lib/permissions";
 import { setLastWorkspace } from "@/lib/workspace-permissions";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 const AGRONOMIST_NAV_ITEMS = [
   {
@@ -104,6 +105,7 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
       : user?.role || "Kỹ sư nông nghiệp";
 
   const avatarFallback = displayName.trim().charAt(0).toUpperCase() || "A";
+  const avatarUrl = user?.avatar?.imageUrl || (user as any)?.avatarUrl || "";
 
   if (isLoadingAuth) {
     return (
@@ -215,7 +217,13 @@ export default function AgronomistLayout({ children }: { children: React.ReactNo
                 </p>
               </div>
               <Avatar className="h-11 w-11 border-2 border-white shadow-md ring-1 ring-slate-100">
-                <AvatarImage src={user?.avatar?.imageUrl ?? ""} alt={displayName} className="object-cover" />
+                {avatarUrl ? (
+                  <AvatarImage
+                    src={resolveImageUrl(avatarUrl)}
+                    alt={displayName}
+                    className="object-cover"
+                  />
+                ) : null}
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-[14px] font-bold text-white">
                   {avatarFallback}
                 </AvatarFallback>

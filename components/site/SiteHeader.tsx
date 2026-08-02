@@ -241,6 +241,9 @@ export default function Header() {
 
   const getUserDisplayName = () =>
     user?.fullName || user?.displayName || user?.phoneNumber || user?.email || "Người dùng";
+  const userAvatarUrl = getFullImageUrl(
+    user?.avatar?.imageUrl || (user as any)?.avatarUrl,
+  );
 
   const parentMobileCategories = mobileCategories.filter((c) => !c.parentId || c.parentId === 0);
   const getMobileChildren = (parentId: number) =>
@@ -279,7 +282,13 @@ export default function Header() {
         <DropdownMenuTrigger asChild>
           <button className="flex h-11 min-w-[148px] items-center gap-2.5 rounded-xl px-2.5 text-left outline-none transition-colors hover:bg-white/10 xl:min-w-[164px]">
             <Avatar className="h-8 w-8 shrink-0 xl:h-8 xl:w-8">
-              <AvatarImage src={getFullImageUrl(user?.avatar?.imageUrl || (user as any)?.avatarUrl) ?? ""} alt={getUserDisplayName()} className="object-cover" />
+              {userAvatarUrl ? (
+                <AvatarImage
+                  src={userAvatarUrl}
+                  alt={getUserDisplayName()}
+                  className="object-cover"
+                />
+              ) : null}
               <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
                 {getUserDisplayName().charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -406,11 +415,13 @@ export default function Header() {
                         >
                           {isLoggedIn ? (
                             <Avatar className="h-8 w-8 shrink-0">
-                              <AvatarImage
-                                src={user?.avatar?.imageUrl ?? ""}
-                                alt={getUserDisplayName()}
-                                className="object-cover"
-                              />
+                              {userAvatarUrl ? (
+                                <AvatarImage
+                                  src={userAvatarUrl}
+                                  alt={getUserDisplayName()}
+                                  className="object-cover"
+                                />
+                              ) : null}
                               <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
                                 {getUserDisplayName().charAt(0).toUpperCase()}
                               </AvatarFallback>
@@ -543,11 +554,13 @@ export default function Header() {
                 >
                   {isLoggedIn ? (
                     <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage
-                        src={user?.avatar?.imageUrl ?? ""}
-                        alt={getUserDisplayName()}
-                        className="object-cover"
-                      />
+                      {userAvatarUrl ? (
+                        <AvatarImage
+                          src={userAvatarUrl}
+                          alt={getUserDisplayName()}
+                          className="object-cover"
+                        />
+                      ) : null}
                       <AvatarFallback className="bg-white text-[#4b78b8] text-sm font-bold">
                         {getUserDisplayName().charAt(0).toUpperCase()}
                       </AvatarFallback>
