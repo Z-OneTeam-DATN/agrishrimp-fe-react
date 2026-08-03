@@ -48,36 +48,36 @@ const buildFallbackResponse = (payload: ProfitLossAnalysisRequest) => {
     .map((item) => {
       const label =
         item.factor === "REVENUE"
-          ? "doanh thu goc"
+          ? "doanh thu gốc"
           : item.factor === "COGS"
-            ? "gia von"
+            ? "giá vốn"
             : item.factor === "SHIPPING"
-              ? "phi ship rong"
+              ? "phí ship ròng"
               : item.factor === "DISCOUNT"
-                ? "chiet khau rong"
-                : "hang tra lai";
+                ? "chiết khấu ròng"
+                : "hàng trả lại";
       const delta = Number(item.changeAmount ?? 0).toLocaleString("vi-VN");
-      return `- ${label}: bien dong ${delta} VND`;
+      return `- ${label}: biến động ${delta} VNĐ`;
     })
     .join("\n");
 
   const summary = [
-    `Bao cao lai lo cua ${payload.branchName || "he thong"} trong giai doan ${
+    `Báo cáo lãi lỗ của ${payload.branchName || "hệ thống"} trong giai đoạn ${
       payload.startDate || "N/A"
-    } den ${payload.endDate || "N/A"} cho thay ty le gia von/dat doanh thu thuan la ${
+    } đến ${payload.endDate || "N/A"} cho thấy tỷ lệ giá vốn/đạt doanh thu thuần là ${
       insight?.cogsRatio ?? 0
-    }% va ty le tra hang la ${insight?.returnRatio ?? 0}%.`,
-    `Bien dong loi nhuan rong so voi ky truoc: ${describeNetProfitChange(insight?.netProfitChangePercent)}.`,
+    }% và tỷ lệ trả hàng là ${insight?.returnRatio ?? 0}%.`,
+    `Biến động lợi nhuận ròng so với kỳ trước: ${describeNetProfitChange(insight?.netProfitChangePercent)}.`,
   ].join(" ");
 
-  const keyDrivers = topDrivers || "Chua co du lieu dong gop bien dong ro rang.";
+  const keyDrivers = topDrivers || "Chưa có dữ liệu đóng góp biến động rõ ràng.";
   const recommendation = warnings.length
     ? [
-        "Uu tien xu ly cac canh bao hien tai:",
+        "Ưu tiên xử lý các cảnh báo hiện tại:",
         ...warnings.map((warning) => `- ${warning}`),
-        "- Ra soat nhom chi tieu bien dong manh nhat de xac dinh nguyen nhan goc.",
+        "- Rà soát nhóm chỉ tiêu biến động mạnh nhất để xác định nguyên nhân gốc.",
       ].join("\n")
-    : "Duy tri bien loi nhuan hien tai, tiep tuc theo doi gia von, tra hang va hieu qua khuyen mai theo tung ky.";
+    : "Duy trì biên lợi nhuận hiện tại, tiếp tục theo dõi giá vốn, trả hàng và hiệu quả khuyến mãi theo từng kỳ.";
 
   return {
     success: true,
