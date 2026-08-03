@@ -30,8 +30,8 @@ export interface AiDoctorTopPrediction {
 
 export interface AiDoctorDiagnosisResponse {
   diagnosisId: string;
-  /** HEALTHY | DISEASE — FE dùng để phân nhánh UI */
-  status?: "HEALTHY" | "DISEASE";
+  /** HEALTHY | DISEASE | UNRECOGNIZED — FE dùng để phân nhánh UI */
+  status?: "HEALTHY" | "DISEASE" | "UNRECOGNIZED";
   imageUrl?: string;
   clientImageUrl?: string;
   disease?: AiDoctorDiseaseInfo;
@@ -79,4 +79,18 @@ export interface AiDoctorHistoryListResponse {
   total: number;
   page: number;
   size: number;
+}
+
+/** Danh sách các ngày user đã chat/chẩn đoán với AI Doctor — dùng cho sidebar "Sổ khám". */
+export interface AiDoctorDailyRecordListResponse {
+  /** "yyyy-MM-dd", mới nhất trước */
+  dates: string[];
+}
+
+/** Chi tiết "sổ khám" của 1 ngày — gộp on-demand từ chat chữ + chẩn đoán qua ảnh trong ngày đó. */
+export interface AiDoctorDailyRecordDetailResponse {
+  date: string;
+  symptomsDescribed: string[];
+  diseasesDiscussed: AiDoctorDiseaseInfo[];
+  diagnoses: AiDoctorHistoryItem[];
 }

@@ -12,6 +12,7 @@ import {
   ImageIcon,
   Loader2,
   MoreVertical,
+  NotebookText,
   Send,
   ShieldAlert,
   Sparkles,
@@ -24,6 +25,7 @@ import { aiDoctorService } from "@/app/services/aiDoctor.service";
 import type { AiDoctorDiagnosisResponse } from "@/app/types/ai-doctor.types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getErrorMessage } from "@/lib/axios";
+import AiDoctorDailyRecordSheet from "@/components/ai-doctor/AiDoctorDailyRecordSheet";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_STORED_PREVIEW_EDGE = 960;
@@ -92,6 +94,33 @@ const createPersistentPreview = async (file: File) =>
     reader.readAsDataURL(file);
   });
 
+// Chua margin duoi gioi han cung 500 ky tu cua BE (AiDoctorDiagnosisService.MAX_SYMPTOMS_LENGTH).
+const MAX_SYMPTOMS_CHARS = 480;
+
+// Gop toan bo tin nhan chu nguoi dung da go truoc do (qua chatMutation) + o nhap hien tai thanh 1
+// chuoi userSymptoms khi gui anh — de enrichDiagnosis's text-match fallback thuc su ket hop duoc
+// voi YOLO/Gemini thay vi chi dua vao noi dung o nhap luc bam gui. Neu vuot ngan sach ky tu, uu
+// tien giu cac cau GAN NHAT (matchDiseaseFromText cham diem theo tokenize/containment, khong phu
+// thuoc thu tu cau, nen cat bot tu dau khong lam hong co che khop).
+const buildCumulativeSymptoms = (entries: ChatEntry[], currentText: string) => {
+  const priorTexts = entries
+    .filter((entry): entry is Extract<ChatEntry, { kind: "user" }> => entry.kind === "user")
+    .map((entry) => entry.text?.trim())
+    .filter((text): text is string => Boolean(text));
+  const allTexts = currentText ? [...priorTexts, currentText] : priorTexts;
+  if (allTexts.length === 0) return undefined;
+
+  const kept: string[] = [];
+  let total = 0;
+  for (let i = allTexts.length - 1; i >= 0; i--) {
+    const next = allTexts[i];
+    if (total + next.length + 2 > MAX_SYMPTOMS_CHARS && kept.length > 0) break;
+    kept.unshift(next);
+    total += next.length + 2;
+  }
+  return kept.join(". ");
+};
+
 export default function AiDoctorChatPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +129,7 @@ export default function AiDoctorChatPage() {
   const entryIdRef = useRef(0);
   const { isAuthenticated } = useCurrentUser();
 
+  const [isDailyRecordOpen, setIsDailyRecordOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [symptoms, setSymptoms] = useState("");
@@ -212,6 +242,14 @@ export default function AiDoctorChatPage() {
 
       setClarifySession(null);
 
+      // UNRECOGNIZED: YOLO khong nhan ra benh cu the nao tu anh — Bac si Tom da tu van goi y mo +
+      // luu san thong tin ky su lien he trong aiDescription, khong con phac do de xem nen khong tu
+      // dong mo them clarify (candidate rong se escalate ngay lap tuc, ra 2 bubble du thua).
+      if (data.status === "UNRECOGNIZED") {
+        pushEntry({ kind: "bot-diagnosis", diagnosis: hydratedDiagnosis });
+        return;
+      }
+
       // HEALTHY khong di qua enrichDiagnosis o BE nen khong co aiDescription — giu nguyen the bot-result
       // "TÔM KHỎE MẠNH" nhu cu. Cac ca DISEASE gio day dung bubble tuong thuat bot-diagnosis thay vi
       // the ket qua tinh nhu truoc.
@@ -306,7 +344,7 @@ export default function AiDoctorChatPage() {
 
     diagnoseMutation.mutate({
       image: currentImage,
-      userSymptoms: currentSymptoms || undefined,
+      userSymptoms: buildCumulativeSymptoms(entries, currentSymptoms),
       clientPreviewUrl,
     });
   };
@@ -354,6 +392,17 @@ export default function AiDoctorChatPage() {
               Tư vấn chẩn đoán bệnh tôm 24/7
             </div>
           </div>
+
+          {isAuthenticated && (
+            <button
+              type="button"
+              aria-label="Sổ khám"
+              onClick={() => setIsDailyRecordOpen(true)}
+              className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/15"
+            >
+              <NotebookText size={22} />
+            </button>
+          )}
 
           <Link
             href={isAuthenticated ? "/ai-doctor/history" : "/ai-doctor"}
@@ -463,7 +512,7 @@ export default function AiDoctorChatPage() {
                     )}
                   </div>
 
-                  {!diagnosis.needsClarification && (
+                  {!diagnosis.needsClarification && diagnosis.status !== "UNRECOGNIZED" && (
                     <button
                       onClick={() => openReport(diagnosis.diagnosisId)}
                       className="ml-[42px] flex h-11 items-center justify-center gap-1 rounded-xl bg-[#1965A2] px-4 text-[13px] font-bold uppercase text-white shadow-sm transition-colors hover:bg-[#15588D]"
@@ -732,6 +781,10 @@ export default function AiDoctorChatPage() {
             className="hidden"
           />
         </div>
+
+        {isAuthenticated && (
+          <AiDoctorDailyRecordSheet open={isDailyRecordOpen} onOpenChange={setIsDailyRecordOpen} />
+        )}
     </div>
   );
 }
