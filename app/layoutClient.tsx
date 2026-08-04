@@ -244,7 +244,13 @@ export default function LayoutClient({
           );
 
           if (!hasServerSession) {
-            clearClientAuth();
+            // Revalidation nen (vd: focus lai tab sau khi mo file picker chon anh) ma da co
+            // cachedUser tu truoc — mot lan "hasSession" cookie/meToken tam thoi khong doc duoc
+            // KHONG duoc phep logout am tham nguoi dung dang dung do dang. Chi ep logout that su
+            // khi day la lan hydrate dau (khong nen/khong cache) — luc do can ket qua dut khoat.
+            if (!background || !cachedUser) {
+              clearClientAuth();
+            }
             return;
           }
 
