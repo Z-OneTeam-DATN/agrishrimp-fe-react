@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermissions } from "@/hooks/usePermissions";
 import { apiJava, getErrorMessage } from "@/lib/axios";
 import { P } from "@/lib/permissions";
-import { canManageSystemAdminRoles } from "@/lib/roles";
+import { canManageSystemAdminRoles, isBranchlessWorkspaceRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -115,6 +115,9 @@ export default function AddEmployeePage() {
     const currentRoleId = watch("roleId");
     const currentDateOfBirth = watch("dateOfBirth");
     const currentStartDate = watch("startDate");
+
+    const selectedRole = roles.find((role) => role.id === currentRoleId);
+    const isBranchRequired = !isBranchlessWorkspaceRole(selectedRole?.permissionCodes);
 
     useEffect(() => {
         if (!isLoadingAuth && !hasPermission(P.STAFF_CREATE)) {
@@ -301,6 +304,11 @@ export default function AddEmployeePage() {
     };
 
     const onFormSubmit = async (data: EmployeeCreateInput) => {
+        if (isBranchRequired && !data.branchId) {
+            setError("branchId", { type: "manual", message: "Vui lòng chọn chi nhánh" });
+            return;
+        }
+
         try {
             setSaving(true);
             await EmployeeService.create(data as unknown as UserRequest);
@@ -643,59 +651,6 @@ export default function AddEmployeePage() {
                                     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
                                         <div className="space-y-1.5 xl:col-span-3">
                                             <Label className="text-[10px] font-medium text-slate-400">
-                                                Chi nhánh làm việc *
-                                            </Label>
-                                            <Select
-                                                value={currentBranchId ? String(currentBranchId) : undefined}
-                                                onValueChange={(val) =>
-                                                    setValue("branchId", Number(val), {
-                                                        shouldDirty: true,
-                                                        shouldValidate: true,
-                                                        shouldTouch: true,
-                                                    })
-                                                }
-                                                disabled={branches.length === 0 || !isAdmin}
-                                            >
-                                                <SelectTrigger
-                                                    className={cn(
-                                                        "h-9 text-[13px]",
-                                                        errors.branchId && "border-rose-500 focus-visible:ring-rose-500",
-                                                    )}
-                                                >
-                                                    <SelectValue
-                                                        placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"}
-                                                    />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {branches.length > 0 ? (
-                                                        branches.map((branch) => (
-                                                            <SelectItem key={branch.id} value={String(branch.id)}>
-                                                                {branch.name}
-                                                            </SelectItem>
-                                                        ))
-                                                    ) : (
-                                                        <div className="px-3 py-2 text-[12px] text-slate-400">
-                                                            Chưa có chi nhánh nào. Hãy tạo chi nhánh trước.
-                                                        </div>
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            {errors.branchId && (
-                                                <span className="text-[11px] text-rose-500">{errors.branchId.message}</span>
-                                            )}
-                                            {branches.length === 0 ? (
-                                                <span className="text-[10px] text-slate-400">
-                                                    Bạn cần tạo ít nhất 1 chi nhánh trước khi thêm nhân viên.
-                                                </span>
-                                            ) : !isAdmin ? (
-                                                <span className="text-[10px] text-slate-400">
-                                                    Tài khoản hiện tại chỉ được gán nhân viên vào chi nhánh đang phụ trách.
-                                                </span>
-                                            ) : null}
-                                        </div>
-
-                                        <div className="space-y-1.5 xl:col-span-3">
-                                            <Label className="text-[10px] font-medium text-slate-400">
                                                 Vai trò hệ thống *
                                             </Label>
                                             <Select
@@ -736,6 +691,63 @@ export default function AddEmployeePage() {
                                             {errors.roleId && (
                                                 <span className="text-[11px] text-rose-500">{errors.roleId.message}</span>
                                             )}
+                                        </div>
+
+                                        <div className="space-y-1.5 xl:col-span-3">
+                                            <Label className="text-[10px] font-medium text-slate-400">
+                                                Chi nhánh làm việc{isBranchRequired ? " *" : ""}
+                                            </Label>
+                                            <Select
+                                                value={currentBranchId ? String(currentBranchId) : undefined}
+                                                onValueChange={(val) =>
+                                                    setValue("branchId", Number(val), {
+                                                        shouldDirty: true,
+                                                        shouldValidate: true,
+                                                        shouldTouch: true,
+                                                    })
+                                                }
+                                                disabled={branches.length === 0 || !isAdmin}
+                                            >
+                                                <SelectTrigger
+                                                    className={cn(
+                                                        "h-9 text-[13px]",
+                                                        errors.branchId && "border-rose-500 focus-visible:ring-rose-500",
+                                                    )}
+                                                >
+                                                    <SelectValue
+                                                        placeholder={branches.length === 0 ? "Chưa có chi nhánh" : "Chọn chi nhánh"}
+                                                    />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {branches.length > 0 ? (
+                                                        branches.map((branch) => (
+                                                            <SelectItem key={branch.id} value={String(branch.id)}>
+                                                                {branch.name}
+                                                            </SelectItem>
+                                                        ))
+                                                    ) : (
+                                                        <div className="px-3 py-2 text-[12px] text-slate-400">
+                                                            Chưa có chi nhánh nào. Hãy tạo chi nhánh trước.
+                                                        </div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors.branchId && (
+                                                <span className="text-[11px] text-rose-500">{errors.branchId.message}</span>
+                                            )}
+                                            {!isBranchRequired ? (
+                                                <span className="text-[10px] text-slate-400">
+                                                    Vai trò này dùng chung toàn hệ thống, không cần gán chi nhánh.
+                                                </span>
+                                            ) : branches.length === 0 ? (
+                                                <span className="text-[10px] text-slate-400">
+                                                    Bạn cần tạo ít nhất 1 chi nhánh trước khi thêm nhân viên.
+                                                </span>
+                                            ) : !isAdmin ? (
+                                                <span className="text-[10px] text-slate-400">
+                                                    Tài khoản hiện tại chỉ được gán nhân viên vào chi nhánh đang phụ trách.
+                                                </span>
+                                            ) : null}
                                         </div>
 
                                         <div className="space-y-1.5 xl:col-span-3">

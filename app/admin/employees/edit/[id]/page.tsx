@@ -24,7 +24,7 @@ import { BranchService } from "@/app/services/branchService";
 import { RoleType } from "@/app/types/role.schema";
 import { BranchType, UserRequest, EmployeeUpdateSchema, EmployeeUpdateInput } from "@/app/types/employee.schema";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { canManageSystemAdminRoles } from "@/lib/roles";
+import { canManageSystemAdminRoles, isBranchlessWorkspaceRole } from "@/lib/roles";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
 
@@ -64,6 +64,9 @@ export default function EditEmployeePage() {
     const currentRoleId = watch("roleId");
     const currentDateOfBirth = watch("dateOfBirth");
     const currentStartDate = watch("startDate");
+
+    const selectedRole = roles.find((role) => role.id === currentRoleId);
+    const isBranchRequired = !isBranchlessWorkspaceRole(selectedRole?.permissionCodes);
 
     useEffect(() => {
         if (!isLoadingAuth && !hasAllPermissions([P.STAFF_VIEW, P.STAFF_UPDATE])) {
@@ -130,6 +133,11 @@ export default function EditEmployeePage() {
     }, [userId, router, reset, currentUser, hasAllPermissions, isLoadingAuth, isAdmin]);
 
     const onFormSubmit = async (data: EmployeeUpdateInput) => {
+        if (isBranchRequired && !data.branchId) {
+            setError("branchId", { type: "manual", message: "Vui lòng chọn chi nhánh" });
+            return;
+        }
+
         try {
             setSaving(true);
             // Add email when updating (email is not part of update form but required by backend)
@@ -342,16 +350,6 @@ export default function EditEmployeePage() {
                             <Input {...register("employeeCode")} disabled className="h-9 text-[13px] bg-slate-50 font-bold cursor-not-allowed" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-medium text-slate-400">Chi nhánh làm việc *</Label>
-                            <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
-                                <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            {errors.branchId && <p className="text-[10px] text-red-500 font-bold">{errors.branchId.message}</p>}
-                        </div>
-                        <div className="space-y-1.5">
                             <Label className="text-[10px] font-medium text-slate-400">Vai trò hệ thống *</Label>
                             <Select value={String(currentRoleId)} onValueChange={(val) => setValue("roleId", Number(val))}>
                                 <SelectTrigger className={cn("h-9 text-[13px]", errors.roleId && "border-red-500")}><SelectValue /></SelectTrigger>
@@ -360,6 +358,21 @@ export default function EditEmployeePage() {
                                 </SelectContent>
                             </Select>
                             {errors.roleId && <p className="text-[10px] text-red-500 font-bold">{errors.roleId.message}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-medium text-slate-400">
+                                Chi nhánh làm việc{isBranchRequired ? " *" : ""}
+                            </Label>
+                            <Select value={String(currentBranchId)} onValueChange={(val) => setValue("branchId", Number(val))} disabled={!isAdmin}>
+                                <SelectTrigger className={cn("h-9 text-[13px]", errors.branchId && "border-red-500")}><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            {errors.branchId && <p className="text-[10px] text-red-500 font-bold">{errors.branchId.message}</p>}
+                            {!isBranchRequired && (
+                                <p className="text-[10px] text-slate-400">Vai trò này dùng chung toàn hệ thống, không cần gán chi nhánh.</p>
+                            )}
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-[10px] font-medium text-slate-400">Ngày vào làm *</Label>

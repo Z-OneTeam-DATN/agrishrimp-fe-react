@@ -60,7 +60,13 @@ export const EmployeeCreateSchema = z.object({
     maxDate.setDate(maxDate.getDate() + 30);
     return d >= minDate && d <= maxDate;
   }, { message: "Ngày vào làm không hợp lệ (từ năm 2000 đến +30 ngày tới)" }),
-  branchId: requiredSelectNumber("Vui lòng chọn chi nhánh"),
+  // Bat buoc co gia tri hay khong tuy vai tro (workspace ky su/tu van thi khong can chi nhanh) —
+  // kiem tra dieu kien nay o component luc submit, zod chi con dam bao dung kieu number khi co gia tri.
+  branchId: z.preprocess((val) => {
+    if (val === "" || val === null || val === undefined) return undefined;
+    const parsed = Number(val);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }, z.number().min(1, "Vui lòng chọn chi nhánh").optional()),
   roleId: requiredSelectNumber("Vui lòng chọn vai trò"),
   citizenId: requiredText("Vui lòng nhập số CCCD")
     .regex(/^\d{12}$/, "Số CCCD phải đúng 12 chữ số"),
