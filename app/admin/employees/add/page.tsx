@@ -827,11 +827,11 @@ export default function AddEmployeePage() {
                 </Button>
                 <Button
                     type="submit"
-                    disabled={saving || uploading || ocrProcessing || branches.length === 0 || roles.length === 0}
+                    disabled={saving || uploading || ocrProcessing || (isBranchRequired && branches.length === 0) || roles.length === 0}
                     className="h-9 bg-blue-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700"
                 >
                     {saving ? <Loader2 className="mr-2 animate-spin" /> : null}
-                    Lưu nhân viên
+                    Tạo nhân viên mới
                 </Button>
             </div>
         </form>
