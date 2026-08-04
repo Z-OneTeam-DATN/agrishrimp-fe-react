@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Loader2, MessageSquarePlus, NotebookText } from "lucide-react";
+import { ChevronLeft, FileText, Loader2, MessageSquarePlus, NotebookText } from "lucide-react";
 import { aiDoctorService } from "@/app/services/aiDoctor.service";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 // Parse thu cong "yyyy-MM-dd" thay vi new Date(...) — new Date("yyyy-MM-dd") bi hieu la UTC
 // midnight, de lech lui 1 ngay khi hien thi vao buoi toi gio VN.
@@ -23,9 +25,14 @@ export default function AiDoctorHistorySidebar({
   onSelectToday: () => void;
   onSelectDate: (date: string) => void;
 }) {
+  // Component nay chi mount khi isAuthenticated da true (page.tsx), nhung accessToken co the chua
+  // kip co trong store (nhanh cachedUser luc hydrate) — gate them accessToken de tranh 401 mo côi
+  // (retry:0 -> khong bao gio thu lai cho lan mount do).
+  const accessToken = useAuthStore((state) => state.accessToken);
   const datesQuery = useQuery({
     queryKey: ["ai-doctor-daily-record-dates"],
     queryFn: () => aiDoctorService.getDailyRecordDates(),
+    enabled: Boolean(accessToken),
   });
   // Hom nay da co nut rieng "Kham hom nay" o tren — loai khoi list de tranh hien trung lap.
   const pastDates = (datesQuery.data?.dates ?? []).filter((date) => date !== todayDate);
@@ -33,6 +40,9 @@ export default function AiDoctorHistorySidebar({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-1 pt-4">
+        <Link href="/" aria-label="Về trang chủ" className="text-white transition-opacity hover:opacity-80">
+          <ChevronLeft size={22} />
+        </Link>
         <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/30 bg-white">
           <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
         </div>

@@ -88,4 +88,8 @@ export interface AiDoctorConversationTurn {
   disease?: AiDoctorDiseaseInfo;
   signsSummary?: string;
   needsClarification?: boolean;
+  /** DISEASE | HEALTHY | UNRECOGNIZED — chỉ có ở turn type DIAGNOSIS. */
+  status?: "DISEASE" | "HEALTHY" | "UNRECOGNIZED";
+  /** Narrative HTML — chỉ có giá trị khi status HEALTHY/UNRECOGNIZED. */
+  aiDescription?: string;
 }
