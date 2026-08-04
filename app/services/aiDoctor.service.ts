@@ -2,10 +2,9 @@ import { apiJava } from "@/lib/axios";
 import type {
   AiDoctorChatResponse,
   AiDoctorClarifyResponse,
-  AiDoctorDailyRecordDetailResponse,
+  AiDoctorConversationTurn,
   AiDoctorDailyRecordListResponse,
   AiDoctorDiagnosisResponse,
-  AiDoctorHistoryListResponse,
 } from "@/app/types/ai-doctor.types";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -99,22 +98,13 @@ export const aiDoctorService = {
     return response.data;
   },
 
-  async getHistory(page: number = 0, size: number = 20) {
-    const response = await apiJava.get<AiDoctorHistoryListResponse>("/ai-doctor/history", {
-      params: { page, size },
-    });
-    return response.data;
-  },
-
   async getDailyRecordDates() {
     const response = await apiJava.get<AiDoctorDailyRecordListResponse>("/ai-doctor/daily-records");
     return response.data;
   },
 
-  async getDailyRecordDetail(date: string) {
-    const response = await apiJava.get<AiDoctorDailyRecordDetailResponse>(
-      `/ai-doctor/daily-records/${date}`,
-    );
+  async getConversation(date: string) {
+    const response = await apiJava.get<AiDoctorConversationTurn[]>(`/ai-doctor/conversation/${date}`);
     return response.data;
   },
 

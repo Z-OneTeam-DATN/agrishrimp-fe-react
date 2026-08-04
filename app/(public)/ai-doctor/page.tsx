@@ -1,17 +1,16 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
   ChevronLeft,
   ImageIcon,
   Loader2,
-  MoreVertical,
   NotebookText,
   Send,
   ShieldAlert,
@@ -22,10 +21,11 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 
 import { aiDoctorService } from "@/app/services/aiDoctor.service";
-import type { AiDoctorDiagnosisResponse } from "@/app/types/ai-doctor.types";
+import type { AiDoctorConversationTurn, AiDoctorDiagnosisResponse } from "@/app/types/ai-doctor.types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getErrorMessage } from "@/lib/axios";
-import AiDoctorDailyRecordSheet from "@/components/ai-doctor/AiDoctorDailyRecordSheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import AiDoctorHistorySidebar from "@/components/ai-doctor/AiDoctorHistorySidebar";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_STORED_PREVIEW_EDGE = 960;
@@ -54,6 +54,54 @@ type DiagnosePayload = {
   image: File;
   userSymptoms?: string;
   clientPreviewUrl?: string;
+};
+
+// Dung chung de phat lai (replay) 1 ngay bat ky — vua cho "khoi phuc hom nay" luc mount, vua cho
+// "xem lai 1 ngay cu" khi bam sidebar. idPrefix de tranh dung id voi cac entry dang go song.
+const mapTurnsToEntries = (turns: AiDoctorConversationTurn[], idPrefix: string): ChatEntry[] => {
+  const result: ChatEntry[] = [];
+  turns.forEach((turn, index) => {
+    if (turn.type === "CHAT") {
+      result.push({ id: `${idPrefix}-${index}-u`, kind: "user", text: turn.questionText });
+      result.push({ id: `${idPrefix}-${index}-b`, kind: "bot-html", html: turn.answerHtml || "" });
+    } else {
+      result.push({
+        id: `${idPrefix}-${index}-u`,
+        kind: "user",
+        text: turn.userSymptoms,
+        previewUrl: turn.imageUrl,
+      });
+      result.push({
+        id: `${idPrefix}-${index}-b`,
+        kind: "bot-diagnosis",
+        diagnosis: {
+          diagnosisId: turn.diagnosisId || "",
+          status: "DISEASE",
+          imageUrl: turn.imageUrl,
+          disease: turn.disease,
+          signsSummary: turn.signsSummary,
+          needsClarification: turn.needsClarification,
+        },
+      });
+    }
+  });
+  return result;
+};
+
+// Lay ngay "yyyy-MM-dd" theo gio dia phuong trinh duyet — KHONG dung toISOString() vi no quy ve
+// UTC, de lech lui 1 ngay vao buoi toi gio VN.
+const getTodayIsoDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Parse thu cong "yyyy-MM-dd" thay vi new Date(...) — cung ly do tren.
+const formatDateLabel = (isoDate: string) => {
+  const [, month, day] = isoDate.split("-").map(Number);
+  return `${day}/${month}`;
 };
 
 const createPersistentPreview = async (file: File) =>
@@ -129,7 +177,11 @@ export default function AiDoctorChatPage() {
   const entryIdRef = useRef(0);
   const { isAuthenticated } = useCurrentUser();
 
-  const [isDailyRecordOpen, setIsDailyRecordOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  // null = dang xem chat song hom nay; co gia tri = dang xem lai (read-only) mot ngay cu tu sidebar.
+  const [viewingDate, setViewingDate] = useState<string | null>(null);
+  const isViewingHistory = viewingDate !== null;
+
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [symptoms, setSymptoms] = useState("");
@@ -140,18 +192,9 @@ export default function AiDoctorChatPage() {
   const pushEntry = (entry: DistributiveOmit<ChatEntry, "id">) =>
     setEntries((prev) => [...prev, { ...entry, id: nextEntryId() } as ChatEntry]);
 
-  const quickSymptoms = [
-    "Tôm bơi lờ đờ, tấp mé",
-    "Thân tôm đỏ hoặc có đốm trắng",
-    "Đường ruột tôm đứt khúc, trống ruột",
-    "Gan tụy teo, đổi màu",
-    "Tôm bị mềm vỏ, khó lột",
-    "Đuôi tôm bị xòe, tưa đuôi"
-  ];
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [entries, previewUrl, symptoms]);
+  }, [entries, previewUrl, symptoms, viewingDate]);
 
   useEffect(() => {
     latestComposerPreviewRef.current = previewUrl;
@@ -164,6 +207,45 @@ export default function AiDoctorChatPage() {
       }
     };
   }, []);
+
+  // Khoi phuc lai dung cac bong bong chat CUA HOM NAY sau khi tai lai trang — chi phat lai (khong
+  // goi Gemini lai), dua tren du lieu da luu san o AiKnowledgeChatLog (chat chu) +
+  // AiDoctorDiagnosisHistory (chan doan anh). KHONG bao gom cac luot hoi-dap lam ro benh (luu o
+  // bang khac, gioi han co chu dich) — bu lai, neu chan doan gan nhat hom nay van needsClarification
+  // thi khoi phuc luon clarifySession de go tiep van noi dung phien dang mo.
+  const todayIso = getTodayIsoDate();
+  const hasRestoredTodayRef = useRef(false);
+  const todayConversationQuery = useQuery({
+    queryKey: ["ai-doctor-conversation", todayIso],
+    queryFn: () => aiDoctorService.getConversation(todayIso),
+    enabled: isAuthenticated,
+  });
+
+  useEffect(() => {
+    if (hasRestoredTodayRef.current || !todayConversationQuery.data) return;
+    hasRestoredTodayRef.current = true;
+    if (todayConversationQuery.data.length === 0) return;
+
+    setEntries(mapTurnsToEntries(todayConversationQuery.data, "restored"));
+
+    const lastDiagnosisTurn = [...todayConversationQuery.data].reverse().find((turn) => turn.type === "DIAGNOSIS");
+    if (lastDiagnosisTurn?.needsClarification && lastDiagnosisTurn.diagnosisId) {
+      setClarifySession({ diagnosisId: lastDiagnosisTurn.diagnosisId });
+    }
+  }, [todayConversationQuery.data]);
+
+  // Xem lai (read-only) 1 ngay cu duoc chon tu sidebar — dung CHUNG co che phat lai voi khoi phuc
+  // hom nay o tren, chi khac nguon du lieu la ngay dang duoc chon thay vi hom nay.
+  const historyConversationQuery = useQuery({
+    queryKey: ["ai-doctor-conversation", viewingDate],
+    queryFn: () => aiDoctorService.getConversation(viewingDate as string),
+    enabled: isViewingHistory,
+  });
+  const historyEntries = useMemo(
+    () => mapTurnsToEntries(historyConversationQuery.data ?? [], "hist"),
+    [historyConversationQuery.data],
+  );
+  const displayEntries = isViewingHistory ? historyEntries : entries;
 
   const chatMutation = useMutation({
     mutationFn: ({ message, image }: { message: string; image?: { base64: string; mimeType: string } }) =>
@@ -349,6 +431,13 @@ export default function AiDoctorChatPage() {
     });
   };
 
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleDiagnose();
+    }
+  };
+
   const removeImage = () => {
     if (previewUrl?.startsWith("blob:")) {
       URL.revokeObjectURL(previewUrl);
@@ -363,12 +452,29 @@ export default function AiDoctorChatPage() {
     router.push(`/ai-doctor/result?id=${diagnosisId}`);
   };
 
-  const handleQuickSymptom = (symptom: string) => {
-    setSymptoms((prev) => (prev ? `${prev}, ${symptom.toLowerCase()}` : symptom));
+  const goToToday = () => {
+    setViewingDate(null);
+    setIsMobileSidebarOpen(false);
+  };
+
+  const selectHistoryDate = (date: string) => {
+    setViewingDate(date);
+    setIsMobileSidebarOpen(false);
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-[#eef3f9]">
+    <div className="flex min-h-screen w-full bg-[#eef3f9]">
+      <aside className="hidden w-[280px] shrink-0 border-r border-gray-200 bg-white lg:flex lg:flex-col">
+        {isAuthenticated ? (
+          <AiDoctorHistorySidebar activeDate={viewingDate} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
+        ) : (
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-gray-400">
+            Đăng nhập để xem lại Sổ khám các ngày trước.
+          </div>
+        )}
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1965A2] px-4 py-3 shadow-sm">
           <Link href="/" className="text-white transition-opacity hover:opacity-80">
             <ChevronLeft size={28} />
@@ -397,46 +503,47 @@ export default function AiDoctorChatPage() {
             <button
               type="button"
               aria-label="Sổ khám"
-              onClick={() => setIsDailyRecordOpen(true)}
-              className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/15"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/15 lg:hidden"
             >
               <NotebookText size={22} />
             </button>
           )}
-
-          <Link
-            href={isAuthenticated ? "/ai-doctor/history" : "/ai-doctor"}
-            className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/15"
-          >
-            <MoreVertical size={22} />
-          </Link>
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto p-4 pb-32">
           <div className="text-center">
             <span className="rounded-full bg-black/5 px-3 py-1 text-[11px] text-gray-500">
-              Hôm nay
+              {isViewingHistory ? formatDateLabel(viewingDate as string) : "Hôm nay"}
             </span>
           </div>
 
-          <div className="flex max-w-full justify-start gap-2.5 pr-12">
-            <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
-              <Image
-                src="/images/logo_arishrimp.jpg"
-                alt="AI"
-                fill
-                className="object-cover"
-              />
-            </div>
+          {!isViewingHistory && (
+            <div className="flex max-w-full justify-start gap-2.5 pr-12">
+              <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                <Image
+                  src="/images/logo_arishrimp.jpg"
+                  alt="AI"
+                  fill
+                  className="object-cover"
+                />
+              </div>
 
-            <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
-              Xin chào bà con! Tôi là Bác sĩ Tôm 🦐
-              <br /><br />
-              Bà con gửi cho tôi 1 tấm ảnh tôm kèm mô tả dấu hiệu, tôi sẽ giúp chẩn đoán bệnh và đưa ra cách chữa trị hiệu quả nhé!
+              <div className="max-w-[78%] rounded-[18px] rounded-bl-md bg-white px-4 py-3 text-sm leading-relaxed text-gray-800 shadow-sm">
+                Xin chào bà con! Tôi là Bác sĩ Tôm 🦐
+                <br /><br />
+                Bà con gửi cho tôi 1 tấm ảnh tôm kèm mô tả dấu hiệu, tôi sẽ giúp chẩn đoán bệnh và đưa ra cách chữa trị hiệu quả nhé!
+              </div>
             </div>
-          </div>
+          )}
 
-          {entries.map((entry) => {
+          {isViewingHistory && historyConversationQuery.isLoading && (
+            <div className="flex justify-center py-10">
+              <Loader2 className="animate-spin text-[#1965A2]" size={24} />
+            </div>
+          )}
+
+          {displayEntries.map((entry) => {
             if (entry.kind === "user") {
               return (
                 <div key={entry.id} className="ml-auto flex max-w-[88%] flex-col items-end gap-2">
@@ -627,7 +734,7 @@ export default function AiDoctorChatPage() {
             );
           })}
 
-          {chatMutation.isPending && (
+          {!isViewingHistory && chatMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
                 <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
@@ -641,7 +748,7 @@ export default function AiDoctorChatPage() {
             </div>
           )}
 
-          {diagnoseMutation.isPending && (
+          {!isViewingHistory && diagnoseMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
                 <Image
@@ -664,7 +771,7 @@ export default function AiDoctorChatPage() {
             </div>
           )}
 
-          {clarifyMutation.isPending && (
+          {!isViewingHistory && clarifyMutation.isPending && (
             <div className="flex max-w-full justify-start gap-2.5 pr-12">
               <div className="relative mt-1 h-8 w-8 shrink-0 overflow-hidden rounded-full">
                 <Image src="/images/logo_arishrimp.jpg" alt="AI" fill className="object-cover" />
@@ -681,110 +788,118 @@ export default function AiDoctorChatPage() {
           <div ref={chatEndRef} />
         </div>
 
-        <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
-          {!previewUrl && symptoms.length === 0 && !diagnoseMutation.isPending && !clarifySession && (
-            <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {quickSymptoms.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleQuickSymptom(s)}
-                  className="shrink-0 whitespace-nowrap rounded-full border border-[#c8d7f1] bg-[#eaf2fc] px-3 py-1.5 text-[11px] font-medium text-[#1965A2] transition-colors hover:bg-[#d8e5ff]"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {previewUrl && (
-            <div className="mb-3 rounded-2xl border border-[#c8d7f1] bg-[#eaf2fc] p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-wide text-[#1965A2]">
-                    Ảnh bà con đính kèm
-                  </div>
-                </div>
-                <button
-                  onClick={removeImage}
-                  className="rounded-full bg-white p-1.5 text-gray-500 transition-colors hover:bg-red-500 hover:text-white"
-                >
-                  <XCircle size={16} />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="relative h-16 w-16 overflow-hidden rounded-xl border border-white bg-white shadow-sm">
-                  <Image
-                    src={previewUrl}
-                    alt="Ảnh đính kèm"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-slate-800">
-                    {selectedImage?.name || "Ảnh tôm khám bệnh"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-end gap-3">
+        {isViewingHistory ? (
+          <div className="sticky bottom-0 border-t border-gray-200 bg-white p-4 text-center shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="mb-3 text-[#1965A2]"
-              title="Chọn ảnh"
+              type="button"
+              onClick={goToToday}
+              className="rounded-full bg-[#1965A2] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#15588D]"
             >
-              <ImageIcon size={24} />
-            </button>
-
-            <div className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 px-4 py-2">
-              <textarea
-                value={symptoms}
-                onChange={(event) => setSymptoms(event.target.value.slice(0, 300))}
-                placeholder={
-                  clarifySession
-                    ? "Nhập câu trả lời của bà con..."
-                    : "Kể bệnh: tôm bỏ ăn, nổi đầu, có đốm trắng..."
-                }
-                className="min-h-[28px] w-full resize-none bg-transparent text-sm text-gray-800 outline-none"
-              />
-              <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-400">
-                <span className="inline-flex items-center gap-1">
-                  <Sparkles size={12} />
-                  Gửi ảnh để bác sĩ xem bệnh kỹ hơn
-                </span>
-                <span>{symptoms.length}/300</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleDiagnose}
-              disabled={diagnoseMutation.isPending || clarifyMutation.isPending}
-              className="mb-1 rounded-full bg-[#1965A2] p-3 text-white transition-colors hover:bg-[#15588D] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {diagnoseMutation.isPending || clarifyMutation.isPending ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <Send size={20} />
-              )}
+              Quay lại hôm nay
             </button>
           </div>
+        ) : (
+          <div className="sticky bottom-0 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
+            {previewUrl && (
+              <div className="mb-3 rounded-2xl border border-[#c8d7f1] bg-[#eaf2fc] p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wide text-[#1965A2]">
+                      Ảnh bà con đính kèm
+                    </div>
+                  </div>
+                  <button
+                    onClick={removeImage}
+                    className="rounded-full bg-white p-1.5 text-gray-500 transition-colors hover:bg-red-500 hover:text-white"
+                  >
+                    <XCircle size={16} />
+                  </button>
+                </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleSelectImage}
-            className="hidden"
-          />
-        </div>
+                <div className="flex items-center gap-3">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-xl border border-white bg-white shadow-sm">
+                    <Image
+                      src={previewUrl}
+                      alt="Ảnh đính kèm"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-slate-800">
+                      {selectedImage?.name || "Ảnh tôm khám bệnh"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {isAuthenticated && (
-          <AiDoctorDailyRecordSheet open={isDailyRecordOpen} onOpenChange={setIsDailyRecordOpen} />
+            <div className="flex items-end gap-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mb-3 text-[#1965A2]"
+                title="Chọn ảnh"
+              >
+                <ImageIcon size={24} />
+              </button>
+
+              <div className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 px-4 py-2">
+                <textarea
+                  value={symptoms}
+                  onChange={(event) => setSymptoms(event.target.value.slice(0, 300))}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder={
+                    clarifySession
+                      ? "Nhập câu trả lời của bà con..."
+                      : "Kể bệnh: tôm bỏ ăn, nổi đầu, có đốm trắng..."
+                  }
+                  className="min-h-[28px] w-full resize-none bg-transparent text-sm text-gray-800 outline-none"
+                />
+                <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-400">
+                  <span className="inline-flex items-center gap-1">
+                    <Sparkles size={12} />
+                    Gửi ảnh để bác sĩ xem bệnh kỹ hơn
+                  </span>
+                  <span>{symptoms.length}/300</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleDiagnose}
+                disabled={diagnoseMutation.isPending || clarifyMutation.isPending}
+                className="mb-1 rounded-full bg-[#1965A2] p-3 text-white transition-colors hover:bg-[#15588D] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {diagnoseMutation.isPending || clarifyMutation.isPending ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <Send size={20} />
+                )}
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleSelectImage}
+              className="hidden"
+            />
+          </div>
         )}
+      </div>
+
+      {isAuthenticated && (
+        <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+          <SheetContent
+            side="left"
+            className="flex h-full w-full max-w-[320px] flex-col border-r-0 bg-white p-0 [&>button]:hidden"
+          >
+            <SheetTitle className="sr-only">Sổ khám</SheetTitle>
+            <AiDoctorHistorySidebar activeDate={viewingDate} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
