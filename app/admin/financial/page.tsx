@@ -99,18 +99,6 @@ const reportCards = [
     meaning: "Quản lý nghĩa vụ thanh toán với nhà cung cấp, hỗ trợ lập kế hoạch chi tiền và đàm phán công nợ.",
     inScope: true,
   },
-  {
-    id: "customer-debt",
-    title: "Công nợ khách hàng",
-    description: "Theo dõi số tiền khách hàng còn nợ chốt kỳ",
-    icon: UserMinus,
-    href: "/admin/financial/customer-debt",
-    helpTitle: "Công nợ khách hàng",
-    workflow: "Tổng hợp đơn hàng chưa thanh toán đủ của mỗi khách → Loại đơn đã huỷ/trả → Ra dư nợ chốt tại ngày kết thúc",
-    formula: "Dư nợ = Tổng giá trị đơn chưa thanh toán đủ (nhị phân, chưa có mức thanh toán một phần)",
-    meaning: "Theo dõi công nợ phải thu từ khách hàng, hỗ trợ nhân viên phụ trách đôn đốc thanh toán.",
-    inScope: true,
-  },
 ];
 
 const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
