@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, Loader2, MessageSquarePlus, NotebookText } from "lucide-react";
 import { aiDoctorService } from "@/app/services/aiDoctor.service";
@@ -31,6 +32,13 @@ export default function AiDoctorHistorySidebar({
 
   return (
     <div className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center gap-2.5 px-4 pb-1 pt-4">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
+          <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
+        </div>
+        <span className="truncate text-sm font-black tracking-tight text-slate-900">Bác sĩ Tôm AgriShrimp</span>
+      </div>
+
       <div className="shrink-0 p-3">
         <button
           type="button"
