@@ -1,15 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ComponentType } from "react";
 import {
   Activity,
   ChevronLeft,
   ChevronRight,
-  Filter,
   Loader2,
   Search,
-  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { activityLogService, ActivityLogItem, ActivityLogModule } from "@/app/services/activity-log.service";
@@ -176,20 +173,36 @@ export default function ActivityLogsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryItem label="Tổng bản ghi" value={totalElements} icon={Activity} />
-        <SummaryItem label="Thao tác duyệt trên trang" value={stats.approvable} icon={ShieldCheck} />
-        <SummaryItem label="Xóa hoặc hủy trên trang" value={stats.destructive} icon={Filter} />
-        <SummaryItem label="Nhóm chức năng trên trang" value={stats.touchedModules} icon={Filter} />
+        <SummaryItem
+          label="Tổng bản ghi"
+          value={totalElements}
+          description="Theo bộ lọc đang áp dụng"
+        />
+        <SummaryItem
+          label="Thao tác duyệt trên trang"
+          value={stats.approvable}
+          description="Trong trang đang hiển thị"
+        />
+        <SummaryItem
+          label="Xóa hoặc hủy trên trang"
+          value={stats.destructive}
+          description="Trong trang đang hiển thị"
+        />
+        <SummaryItem
+          label="Nhóm chức năng trên trang"
+          value={stats.touchedModules}
+          description="Trong trang đang hiển thị"
+        />
       </div>
 
       <div className="rounded-[4px] border border-[#dcdcdc] bg-white shadow-sm">
-        <div className="grid gap-3 border-b border-slate-100 p-3 xl:grid-cols-[minmax(260px,1fr)_180px_240px_160px_160px] xl:items-center">
+        <div className="grid gap-3 border-b border-slate-100 p-3 xl:grid-cols-[280px_180px_220px_auto] xl:items-center">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
             <Input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="Tìm người thực hiện, nội dung, đường dẫn..."
+              placeholder="Tìm người thực hiện, nội dung..."
               className="h-9 rounded-md border-slate-200 bg-white pl-9 text-[12px] shadow-none"
             />
           </div>
@@ -363,20 +376,18 @@ export default function ActivityLogsPage() {
 function SummaryItem({
   label,
   value,
-  icon: Icon,
+  description,
 }: {
   label: string;
   value: number;
-  icon: ComponentType<{ className?: string }>;
+  description: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
-      <div>
-        <p className="text-[11px] font-medium text-slate-500">{label}</p>
-        <p className="mt-1 text-[22px] font-semibold leading-none text-slate-900">{value}</p>
-      </div>
-      <div className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-slate-50 text-blue-600">
-        <Icon className="h-4 w-4" />
+    <div className="rounded-[4px] border border-[#dcdcdc] bg-white p-3 shadow-sm">
+      <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+      <div className="mt-3 space-y-1">
+        <p className="text-[20px] font-semibold leading-none text-slate-900">{value}</p>
+        <p className="text-[10px] leading-4 text-slate-500">{description}</p>
       </div>
     </div>
   );

@@ -521,6 +521,16 @@ export default function DiseaseForm({
 
   return (
     <AgronomistPanel className="p-6">
+      {initialData?.reviewNote && (
+        <div className="mb-4 rounded-[4px] border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase text-amber-700">
+            Admin yêu cầu chỉnh sửa
+          </p>
+          <p className="mt-1 text-[13px] text-amber-800">
+            {initialData.reviewNote}
+          </p>
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-4">
         <div className="space-y-2">
           <Label className="text-[12px] font-semibold text-[#232323]">

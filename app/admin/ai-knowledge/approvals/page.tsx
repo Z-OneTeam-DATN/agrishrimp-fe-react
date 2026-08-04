@@ -1,22 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Eye,
+  EyeOff,
   Loader2,
+  Pencil,
   Phone,
   RefreshCcw,
   Save,
   Search,
   ShieldCheck,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -100,7 +107,10 @@ function countProducts(item: AiDiseaseKnowledge) {
 }
 
 export default function AdminAiKnowledgeApprovalsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canEditDisease = hasPermission(P.AI_KNOWLEDGE_UPDATE);
   const [statusFilter, setStatusFilter] = useState<StatusTabId>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,6 +121,8 @@ export default function AdminAiKnowledgeApprovalsPage() {
     fallbackContactName: "",
     fallbackContactPhone: "",
   });
+  const [rejectTarget, setRejectTarget] = useState<AiDiseaseKnowledge | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const diseasesQuery = useQuery({
     queryKey: ["ai-knowledge", "diseases"],
@@ -244,16 +256,48 @@ export default function AdminAiKnowledgeApprovalsPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: number) => aiKnowledgeService.rejectDisease(id),
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      aiKnowledgeService.rejectDisease(id, reason),
     onSuccess: async () => {
-      toast.success("Đã từ chối, chuyển về trạng thái nháp cho kỹ sư sửa lại.");
+      toast.success("Đã gửi yêu cầu chỉnh sửa cho kỹ sư.");
+      await invalidate();
+      setRejectTarget(null);
+      setRejectReason("");
+    },
+    onError: (error: any) =>
+      toast.error(error?.message || "Không thể gửi yêu cầu chỉnh sửa."),
+  });
+
+  const visibilityMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+      aiKnowledgeService.setDiseaseVisibility(id, enabled),
+    onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.enabled
+          ? "Đã hiện phác đồ trên AI Doctor."
+          : "Đã ẩn phác đồ khỏi AI Doctor.",
+      );
       await invalidate();
     },
     onError: (error: any) =>
-      toast.error(error?.message || "Không thể từ chối phác đồ."),
+      toast.error(error?.message || "Không thể đổi trạng thái hiển thị."),
   });
 
-  const isMutating = approveMutation.isPending || rejectMutation.isPending;
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => aiKnowledgeService.deleteDisease(id),
+    onSuccess: async () => {
+      toast.success("Đã xoá phác đồ.");
+      await invalidate();
+    },
+    onError: (error: any) =>
+      toast.error(error?.message || "Không thể xoá phác đồ."),
+  });
+
+  const isMutating =
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    visibilityMutation.isPending ||
+    deleteMutation.isPending;
 
   const handleRefresh = async () => {
     await diseasesQuery.refetch();
@@ -455,7 +499,18 @@ export default function AdminAiKnowledgeApprovalsPage() {
                             >
                               <Eye size={15} />
                             </TableActionButton>
-                            {item.status === "IN_REVIEW" ? (
+                            {canEditDisease && (
+                              <TableActionButton
+                                label="Sửa phác đồ"
+                                className="hover:text-blue-600"
+                                onClick={() =>
+                                  router.push(`/agronomist/diseases/${item.id}/edit`)
+                                }
+                              >
+                                <Pencil size={15} />
+                              </TableActionButton>
+                            )}
+                            {item.status === "IN_REVIEW" && (
                               <>
                                 <TableActionButton
                                   label="Duyệt phác đồ"
@@ -468,15 +523,56 @@ export default function AdminAiKnowledgeApprovalsPage() {
                                   <CheckCircle2 size={15} />
                                 </TableActionButton>
                                 <TableActionButton
-                                  label="Từ chối phác đồ"
+                                  label="Yêu cầu chỉnh sửa"
                                   disabled={isMutating}
-                                  className="hover:text-rose-600"
-                                  onClick={() => rejectMutation.mutate(item.id)}
+                                  className="hover:text-amber-600"
+                                  onClick={() => setRejectTarget(item)}
                                 >
                                   <XCircle size={15} />
                                 </TableActionButton>
                               </>
-                            ) : null}
+                            )}
+                            {item.status === "APPROVED" && (
+                              <TableActionButton
+                                label={
+                                  item.enabled
+                                    ? "Ẩn khỏi AI Doctor"
+                                    : "Hiện lại trên AI Doctor"
+                                }
+                                disabled={visibilityMutation.isPending}
+                                className="hover:text-amber-600"
+                                onClick={() =>
+                                  visibilityMutation.mutate({
+                                    id: item.id,
+                                    enabled: !item.enabled,
+                                  })
+                                }
+                              >
+                                {item.enabled ? (
+                                  <EyeOff size={15} />
+                                ) : (
+                                  <Eye size={15} />
+                                )}
+                              </TableActionButton>
+                            )}
+                            {canEditDisease && (
+                              <TableActionButton
+                                label="Xoá phác đồ"
+                                disabled={deleteMutation.isPending}
+                                className="hover:text-rose-600"
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      `Xoá phác đồ "${item.nameVi}"? Không thể hoàn tác.`,
+                                    )
+                                  ) {
+                                    deleteMutation.mutate(item.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 size={15} />
+                              </TableActionButton>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -534,6 +630,60 @@ export default function AdminAiKnowledgeApprovalsPage() {
           if (!open) setSelectedDetail(null);
         }}
       />
+
+      <Dialog
+        open={Boolean(rejectTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+            setRejectReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-[440px] gap-0 rounded-[4px] border-slate-200 bg-white p-0 shadow-xl">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5">
+            <DialogTitle className="text-[16px] font-semibold text-slate-900">
+              Yêu cầu chỉnh sửa
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-[12px] text-slate-500">
+              Phác đồ &quot;{rejectTarget?.nameVi}&quot; sẽ chuyển về trạng thái Nháp. Lý do sẽ
+              hiển thị cho kỹ sư khi họ mở lại để sửa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-5">
+            <Textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="VD: Bổ sung liều lượng cụ thể cho giai đoạn 2..."
+              className="min-h-[100px] border-slate-200 text-[13px]"
+            />
+          </div>
+          <DialogFooter className="border-t border-slate-100 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRejectTarget(null)}
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
+              onClick={() =>
+                rejectTarget &&
+                rejectMutation.mutate({ id: rejectTarget.id, reason: rejectReason.trim() })
+              }
+              className="h-[38px] bg-amber-600 px-4 text-[13px] font-medium hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {rejectMutation.isPending ? (
+                <Loader2 size={15} className="mr-2 animate-spin" />
+              ) : null}
+              Gửi yêu cầu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
         <DialogContent className="max-w-[440px] gap-0 rounded-[4px] border-slate-200 bg-white p-0 shadow-xl">
