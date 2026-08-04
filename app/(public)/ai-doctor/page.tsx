@@ -458,6 +458,12 @@ export default function AiDoctorChatPage() {
   };
 
   const selectHistoryDate = (date: string) => {
+    // Ngay hom nay co the xuat hien trong danh sach So kham (da co hoat dong hom nay) — chon no
+    // phai tuong duong bam "Kham hom nay" (ve chat song), khong roi vao che do xem lai read-only.
+    if (date === todayIso) {
+      goToToday();
+      return;
+    }
     setViewingDate(date);
     setIsMobileSidebarOpen(false);
   };
@@ -466,7 +472,7 @@ export default function AiDoctorChatPage() {
     <div className="flex min-h-screen w-full bg-[#eef3f9]">
       <aside className="hidden w-[280px] shrink-0 border-r border-gray-200 bg-white lg:flex lg:flex-col">
         {isAuthenticated ? (
-          <AiDoctorHistorySidebar activeDate={viewingDate} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
+          <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
         ) : (
           <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-gray-400">
             Đăng nhập để xem lại Sổ khám các ngày trước.
@@ -896,7 +902,7 @@ export default function AiDoctorChatPage() {
             className="flex h-full w-full max-w-[320px] flex-col border-r-0 bg-white p-0 [&>button]:hidden"
           >
             <SheetTitle className="sr-only">Sổ khám</SheetTitle>
-            <AiDoctorHistorySidebar activeDate={viewingDate} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
+            <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
           </SheetContent>
         </Sheet>
       )}

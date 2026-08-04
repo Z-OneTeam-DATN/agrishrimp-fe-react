@@ -13,10 +13,12 @@ function formatDateLabel(isoDate: string) {
 
 export default function AiDoctorHistorySidebar({
   activeDate,
+  todayDate,
   onSelectToday,
   onSelectDate,
 }: {
   activeDate: string | null;
+  todayDate: string;
   onSelectToday: () => void;
   onSelectDate: (date: string) => void;
 }) {
@@ -24,6 +26,8 @@ export default function AiDoctorHistorySidebar({
     queryKey: ["ai-doctor-daily-record-dates"],
     queryFn: () => aiDoctorService.getDailyRecordDates(),
   });
+  // Hom nay da co nut rieng "Kham hom nay" o tren — loai khoi list de tranh hien trung lap.
+  const pastDates = (datesQuery.data?.dates ?? []).filter((date) => date !== todayDate);
 
   return (
     <div className="flex h-full flex-col">
@@ -48,14 +52,14 @@ export default function AiDoctorHistorySidebar({
           <div className="flex justify-center py-10">
             <Loader2 className="animate-spin text-[#1965A2]" size={24} />
           </div>
-        ) : (datesQuery.data?.dates ?? []).length === 0 ? (
+        ) : pastDates.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-center text-gray-400">
             <NotebookText size={32} className="opacity-40" />
             <p className="text-sm">Chưa có lượt khám nào</p>
           </div>
         ) : (
           <div className="space-y-1.5">
-            {(datesQuery.data?.dates ?? []).map((date) => (
+            {pastDates.map((date) => (
               <button
                 key={date}
                 type="button"
