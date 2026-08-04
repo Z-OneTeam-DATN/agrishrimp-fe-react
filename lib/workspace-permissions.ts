@@ -31,6 +31,40 @@ export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.CHAT_VIEW,
 ] as const;
 
+/**
+ * Quyền được coi là "liên quan đến nhật ký hoạt động" — dùng chung cho cả sidebar (ẩn/hiện link)
+ * và AdminLayout (chặn truy cập trực tiếp qua URL). Trước đây layout dùng nhầm
+ * ADMIN_WORKSPACE_PERMISSIONS (rất rộng — chỉ cần có bất kỳ quyền admin nào, kể cả chỉ xem sản
+ * phẩm) khiến 2 nơi lệch nhau: sidebar ẩn link nhưng gõ thẳng URL vẫn vào được trang rỗng.
+ */
+export const ACTIVITY_LOG_PERMISSIONS = [
+  P.DASHBOARD_VIEW,
+  P.STAFF_VIEW,
+  P.BRANCH_VIEW,
+  P.ROLE_VIEW,
+  P.ORDER_VIEW,
+  P.PURCHASE_REQUEST_VIEW,
+  P.PURCHASE_REQUEST_CREATE,
+  P.PURCHASE_REQUEST_UPDATE,
+  P.PURCHASE_REQUEST_APPROVE,
+  P.IMPORT_VIEW,
+  P.IMPORT_CREATE,
+  P.IMPORT_APPROVE,
+  P.EXPORT_VIEW,
+  P.EXPORT_CREATE,
+  P.EXPORT_APPROVE,
+  P.TRANSFER_VIEW,
+  P.TRANSFER_CREATE,
+  P.TRANSFER_APPROVE,
+  P.CHECK_VIEW,
+  P.CHECK_CREATE,
+  P.CHECK_APPROVE,
+  P.SUPPLIER_VIEW,
+  P.SUPPLIER_CREATE,
+  P.SUPPLIER_UPDATE,
+  P.SUPPLIER_DELETE,
+] as const;
+
 export function hasAnyPermissionCode(
   permissions: string[] = [],
   requiredPermissions: readonly string[],

@@ -51,6 +51,7 @@ import { driverService } from "@/app/services/driver.service";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { P } from "@/lib/permissions";
+import { ACTIVITY_LOG_PERMISSIONS } from "@/lib/workspace-permissions";
 import { canUseBranchOrderRoutes, getOrderListPath } from "@/lib/order-routing";
 import { isAdminRole } from "@/lib/roles";
 import {
@@ -183,33 +184,7 @@ export default function AdminSidebar() {
     P.SUPPLIER_VIEW,
   ]);
   const canViewFinanceSection = hasPermission(P.REPORT_FINANCE_VIEW);
-  const canViewActivityLogs = hasAnyPermission([
-    P.DASHBOARD_VIEW,
-    P.STAFF_VIEW,
-    P.BRANCH_VIEW,
-    P.ROLE_VIEW,
-    P.ORDER_VIEW,
-    P.PURCHASE_REQUEST_VIEW,
-    P.PURCHASE_REQUEST_CREATE,
-    P.PURCHASE_REQUEST_UPDATE,
-    P.PURCHASE_REQUEST_APPROVE,
-    P.IMPORT_VIEW,
-    P.IMPORT_CREATE,
-    P.IMPORT_APPROVE,
-    P.EXPORT_VIEW,
-    P.EXPORT_CREATE,
-    P.EXPORT_APPROVE,
-    P.TRANSFER_VIEW,
-    P.TRANSFER_CREATE,
-    P.TRANSFER_APPROVE,
-    P.CHECK_VIEW,
-    P.CHECK_CREATE,
-    P.CHECK_APPROVE,
-    P.SUPPLIER_VIEW,
-    P.SUPPLIER_CREATE,
-    P.SUPPLIER_UPDATE,
-    P.SUPPLIER_DELETE,
-  ]);
+  const canViewActivityLogs = hasAnyPermission(ACTIVITY_LOG_PERMISSIONS as unknown as string[]);
   const canViewSystemSection = canViewActivityLogs || hasAnyPermission([
     P.DASHBOARD_VIEW,
     P.REPORT_FINANCE_VIEW,
