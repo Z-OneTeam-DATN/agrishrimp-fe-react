@@ -411,7 +411,7 @@ export default function EditEmployeePage() {
                 <Button type="button" variant="ghost" onClick={() => router.back()} className="font-medium text-[11px] text-slate-400">Hủy bỏ</Button>
                 <Button type="submit" disabled={saving} className="h-9 bg-blue-600 px-10 text-[11px] font-medium text-white shadow-xl hover:bg-blue-700">
                     {saving ? <Loader2 className="animate-spin mr-2" /> : null}
-                    Cập nhật nhân viên
+                    Cập nhật thông tin
                 </Button>
             </div>
         </form>
