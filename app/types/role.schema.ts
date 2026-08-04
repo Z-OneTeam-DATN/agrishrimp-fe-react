@@ -10,6 +10,7 @@ export interface RoleType {
   updatedAt: string;
   createdByUserId: number;
   updatedByUserId: number;
+  permissionCodes?: string[];
 }
 
 export interface PermissionAction {
