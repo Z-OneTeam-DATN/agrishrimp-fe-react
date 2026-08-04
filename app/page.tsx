@@ -114,12 +114,12 @@ export default async function Home() {
                 Đơn vị đồng hành cùng chúng tôi
               </p>
 
-              <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-0 md:gap-x-20 md:gap-y-0">
-                {partnerBrands.map((brand) => (
+              <div className="animate-marquee items-center gap-x-12 md:gap-x-20">
+                {[...partnerBrands, ...partnerBrands].map((brand, index) => (
                   <Link
-                    key={brand.id}
+                    key={`${brand.id}-${index}`}
                     href={`/san-pham?brandId=${brand.id}`}
-                    className="flex min-h-[36px] items-center justify-center px-3 transition-opacity hover:opacity-60 md:min-h-[44px]"
+                    className="flex min-h-[36px] shrink-0 items-center justify-center px-3 transition-opacity hover:opacity-60 md:min-h-[44px]"
                   >
                     {brand.logoUrl ? (
                       <Image
