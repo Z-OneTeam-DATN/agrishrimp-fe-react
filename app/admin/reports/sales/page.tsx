@@ -17,7 +17,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -435,27 +435,7 @@ export default function SalesReportPage() {
               </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Từ ngày</p>
-            <SharedDatePicker
-              value={startDate}
-              onChange={setStartDate}
-              placeholder="Chọn ngày"
-              variant="compact"
-              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Đến ngày</p>
-            <SharedDatePicker
-              value={endDate}
-              onChange={setEndDate}
-              placeholder="Chọn ngày"
-              variant="compact"
-              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
-            />
-          </div>
+          <AdminDateRangeFilters idPrefix="sales-report" fromDate={startDate} toDate={endDate} onFromDateChange={setStartDate} onToDateChange={setEndDate} />
           </div>
 
           <div className="flex items-center justify-end gap-2">

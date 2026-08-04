@@ -282,13 +282,16 @@ function CustomerDebtReportContent() {
             />
           </div>
 
-          <SharedDatePicker
-            value={endDate}
-            onChange={setEndDate}
-            placeholder="Đến ngày"
-            variant="compact"
-            buttonClassName="h-[38px] w-[180px] rounded-md border-slate-200 text-[13px] shadow-none"
-          />
+          <div className="flex items-center gap-2">
+            <label className="shrink-0 text-[11px] font-semibold text-slate-600">Đến ngày:</label>
+            <SharedDatePicker
+              value={endDate}
+              onChange={setEndDate}
+              placeholder="d/MM/yyyy"
+              variant="compact"
+              buttonClassName="h-[38px] w-[158px] rounded-[4px] border-slate-200 text-[13px] shadow-none"
+            />
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -182,13 +182,16 @@ export default function SelectPurchaseRequestForReceiptPage() {
             />
           </div>
         <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
-          <SharedDatePicker
-            value={createdDate}
-            onChange={setCreatedDate}
-            placeholder="Chọn ngày"
-            variant="compact"
-            buttonClassName="h-[38px] w-full border-slate-200 bg-white text-[13px] shadow-none sm:w-[190px]"
-          />
+          <div className="flex items-center gap-2">
+            <label className="shrink-0 text-[11px] font-semibold text-slate-600">Ngày tạo:</label>
+            <SharedDatePicker
+              value={createdDate}
+              onChange={setCreatedDate}
+              placeholder="d/MM/yyyy"
+              variant="compact"
+              buttonClassName="h-[38px] w-full border-slate-200 bg-white text-[13px] shadow-none sm:w-[158px]"
+            />
+          </div>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="h-[38px] w-full border-slate-200 bg-white text-[13px] shadow-none lg:w-[220px]">
               <SelectValue placeholder="Tất cả trạng thái" />

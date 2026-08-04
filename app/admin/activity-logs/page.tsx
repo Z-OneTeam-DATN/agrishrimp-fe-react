@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import {
   Activity,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -34,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { isAdminRole } from "@/lib/roles";
@@ -125,8 +125,8 @@ export default function ActivityLogsPage() {
       const data = await activityLogService.search({
         branchId: branchId === "all" ? undefined : Number(branchId),
         module,
-        fromDate: toIsoDateFilter(fromDate),
-        toDate: toIsoDateFilter(toDate),
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
         keyword: debouncedKeyword,
         page,
         size: PAGE_SIZE,
@@ -234,21 +234,18 @@ export default function ActivityLogsPage() {
             </SelectContent>
           </Select>
 
-          <DateInput
-            value={fromDate}
-            onChange={(value) => {
+          <AdminDateRangeFilters
+            idPrefix="activity-log"
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromDateChange={(value) => {
               setFromDate(value);
               setPage(0);
             }}
-            label="Từ ngày"
-          />
-          <DateInput
-            value={toDate}
-            onChange={(value) => {
+            onToDateChange={(value) => {
               setToDate(value);
               setPage(0);
             }}
-            label="Đến ngày"
           />
 
         </div>
@@ -363,55 +360,6 @@ export default function ActivityLogsPage() {
   );
 }
 
-function DateInput({
-  value,
-  onChange,
-  label,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  label: string;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const openPicker = () => {
-    const input = inputRef.current;
-    if (!input) return;
-
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-      return;
-    }
-
-    input.focus();
-  };
-
-  return (
-    <label className="relative block">
-      <button
-        type="button"
-        onClick={openPicker}
-        className={cn(
-          "h-9 w-full rounded-md border border-slate-200 bg-white px-3 pr-9 text-left text-[12px] shadow-none outline-none transition-colors hover:border-blue-200 focus-visible:border-blue-300",
-          !value && "text-slate-400",
-        )}
-        aria-label={label}
-      >
-        {value || "dd/mm/yyyy"}
-      </button>
-      <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-      <input
-        ref={inputRef}
-        type="date"
-        value={toIsoDateFilter(value) ?? ""}
-        onChange={(event) => onChange(formatIsoDateForDisplay(event.target.value))}
-        aria-label={label}
-        className="absolute inset-y-0 right-0 h-9 w-10 cursor-pointer opacity-0"
-      />
-    </label>
-  );
-}
-
 function SummaryItem({
   label,
   value,
@@ -452,42 +400,3 @@ function formatDateTime(value: string) {
   return `${time} ${day}/${month}/${year}`;
 }
 
-function formatDateFilterInput(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  const parts = [
-    digits.slice(0, 2),
-    digits.slice(2, 4),
-    digits.slice(4, 8),
-  ].filter(Boolean);
-
-  return parts.join("/");
-}
-
-function formatIsoDateForDisplay(value: string) {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return "";
-
-  const [, year, month, day] = match;
-  return `${day}/${month}/${year}`;
-}
-
-function toIsoDateFilter(value: string) {
-  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match) return undefined;
-
-  const [, dayText, monthText, yearText] = match;
-  const day = Number(dayText);
-  const month = Number(monthText);
-  const year = Number(yearText);
-  const date = new Date(year, month - 1, day);
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return undefined;
-  }
-
-  return `${yearText}-${monthText}-${dayText}`;
-}

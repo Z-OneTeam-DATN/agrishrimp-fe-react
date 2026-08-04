@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/axios";
 import { cn } from "@/lib/utils";
 import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { SupplierSchema, SupplierFormValues } from "@/app/types/admin.schema";
 import {
     Supplier,
@@ -1439,21 +1440,8 @@ export default function SupplierDetailPage() {
                                             <RefreshCcw size={13} className="mr-1.5" /> Đặt lại lọc
                                         </Button>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                                        <SharedDatePicker
-                                            value={fromDate}
-                                            onChange={setFromDate}
-                                            placeholder="Từ ngày"
-                                            variant="compact"
-                                            buttonClassName="h-[34px] text-[12px]"
-                                        />
-                                        <SharedDatePicker
-                                            value={toDate}
-                                            onChange={setToDate}
-                                            placeholder="Đến ngày"
-                                            variant="compact"
-                                            buttonClassName="h-[34px] text-[12px]"
-                                        />
+                                    <div className="mt-2">
+                                        <AdminDateRangeFilters idPrefix="supplier-detail" fromDate={fromDate} toDate={toDate} onFromDateChange={setFromDate} onToDateChange={setToDate} />
                                     </div>
                                 </div>
 

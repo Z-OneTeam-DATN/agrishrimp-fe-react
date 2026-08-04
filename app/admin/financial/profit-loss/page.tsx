@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Download, FileText, HelpCircle, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -450,31 +450,7 @@ function ProfitLossReportContent() {
 
         <div className="flex flex-col gap-3 border-b-0 bg-transparent px-0 pt-0 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-end">
-            <div className="space-y-1">
-              <span className="text-[10px] font-medium uppercase text-slate-400">
-                Từ ngày
-              </span>
-              <SharedDatePicker
-                value={startDate}
-                onChange={setStartDate}
-                placeholder="Chọn ngày"
-                variant="compact"
-                buttonClassName="h-[38px] w-full min-w-[180px] text-[13px] font-medium shadow-none lg:w-[190px]"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-[10px] font-medium uppercase text-slate-400">
-                Đến ngày
-              </span>
-              <SharedDatePicker
-                value={endDate}
-                onChange={setEndDate}
-                placeholder="Chọn ngày"
-                variant="compact"
-                buttonClassName="h-[38px] w-full min-w-[180px] text-[13px] font-medium shadow-none lg:w-[190px]"
-              />
-            </div>
+            <AdminDateRangeFilters idPrefix="profit-loss" fromDate={startDate} toDate={endDate} onFromDateChange={setStartDate} onToDateChange={setEndDate} />
 
             <div className="space-y-1">
               <span className="text-[10px] font-medium uppercase text-slate-400">
