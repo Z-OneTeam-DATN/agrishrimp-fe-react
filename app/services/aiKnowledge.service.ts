@@ -72,8 +72,13 @@ export const aiKnowledgeService = {
     return response.data;
   },
 
-  async rejectDisease(id: number) {
-    const response = await apiJava.patch<AiDiseaseKnowledge>(`/ai-knowledge/diseases/${id}/reject`);
+  async rejectDisease(id: number, reason?: string) {
+    const response = await apiJava.patch<AiDiseaseKnowledge>(`/ai-knowledge/diseases/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  async setDiseaseVisibility(id: number, enabled: boolean) {
+    const response = await apiJava.patch<AiDiseaseKnowledge>(`/ai-knowledge/diseases/${id}/visibility`, { enabled });
     return response.data;
   },
 

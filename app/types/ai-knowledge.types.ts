@@ -63,6 +63,8 @@ export interface AiDiseaseKnowledge {
   priority: number;
   canonical: boolean;
   status: AiKnowledgeStatus;
+  /** Ly do tu choi / yeu cau chinh sua gan nhat tu admin — null neu chua tung bi tu choi. */
+  reviewNote?: string | null;
 }
 
 export interface AiKnowledgeReviewCase {
