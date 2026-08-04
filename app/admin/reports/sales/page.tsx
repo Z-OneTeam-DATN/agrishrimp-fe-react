@@ -17,7 +17,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -89,12 +89,10 @@ const toIso = (date: Date) => date.toISOString().slice(0, 10);
 
 const DETAIL_OPTIONS = {
   revenue_time: "Báo cáo doanh thu theo thời gian",
-  revenue_employee: "Báo cáo doanh thu theo nhân viên",
   delivery_detail: "Báo cáo giao hàng chi tiết",
   returns_by_order: "Trả hàng theo đơn hàng",
   returns_by_product: "Trả hàng theo sản phẩm",
   payment_time: "Báo cáo thanh toán theo thời gian",
-  payment_employee: "Báo cáo thanh toán theo nhân viên",
   payment_method: "Báo cáo theo phương thức thanh toán",
   payment_branch: "Báo cáo thanh toán theo chi nhánh",
   order_stats: "Báo cáo thống kê theo đơn hàng",
@@ -141,7 +139,7 @@ export default function SalesReportPage() {
   const [summary, setSummary] = useState<SalesReportSummary | null>(null);
   const [detail, setDetail] = useState<SalesReportDetail | null>(null);
   const [activeDetailType, setActiveDetailType] = useState<keyof typeof DETAIL_OPTIONS>("revenue_time");
-  const [revenueReportType, setRevenueReportType] = useState<"revenue_time" | "revenue_employee">("revenue_time");
+  const [revenueReportType, setRevenueReportType] = useState<"revenue_time">("revenue_time");
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -298,7 +296,7 @@ export default function SalesReportPage() {
 
   const openDetail = useCallback((type: keyof typeof DETAIL_OPTIONS) => {
     setActiveDetailType(type);
-    if (type === "revenue_time" || type === "revenue_employee") {
+    if (type === "revenue_time") {
       setRevenueReportType(type);
     }
   }, []);
@@ -435,27 +433,7 @@ export default function SalesReportPage() {
               </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Từ ngày</p>
-            <SharedDatePicker
-              value={startDate}
-              onChange={setStartDate}
-              placeholder="Chọn ngày"
-              variant="compact"
-              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Đến ngày</p>
-            <SharedDatePicker
-              value={endDate}
-              onChange={setEndDate}
-              placeholder="Chọn ngày"
-              variant="compact"
-              buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
-            />
-          </div>
+          <AdminDateRangeFilters idPrefix="sales-report" fromDate={startDate} toDate={endDate} onFromDateChange={setStartDate} onToDateChange={setEndDate} />
           </div>
 
           <div className="flex items-center justify-end gap-2">
@@ -540,17 +518,8 @@ export default function SalesReportPage() {
           </div>
 
           <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-5">
-            <Select value={revenueReportType} onValueChange={(value) => setRevenueReportType(value as "revenue_time" | "revenue_employee")}>
-              <SelectTrigger className="h-[38px] rounded-md border-slate-200 bg-white text-[13px] shadow-none">
-                <SelectValue placeholder="Chọn loại báo cáo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="revenue_time">Báo cáo doanh thu theo thời gian</SelectItem>
-                <SelectItem value="revenue_employee">Báo cáo doanh thu theo nhân viên</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button className="h-[38px] w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail(revenueReportType)}>
-              Xem chi tiết báo cáo này
+            <Button className="h-[38px] w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => void handleViewDetail("revenue_time")}>
+              Xem chi tiết báo cáo doanh thu theo thời gian
             </Button>
           </div>
         </div>
@@ -654,7 +623,6 @@ export default function SalesReportPage() {
           </div>
           <div className="space-y-1 p-5">
             <ReportLink label="Báo cáo thanh toán theo thời gian" icon={Calendar} type="payment_time" />
-            <ReportLink label="Báo cáo thanh toán theo nhân viên" icon={Users} type="payment_employee" />
             <ReportLink label="Báo cáo theo phương thức thanh toán" icon={CreditCard} type="payment_method" />
             <ReportLink label="Báo cáo thanh toán theo chi nhánh" icon={TrendingUp} type="payment_branch" />
           </div>

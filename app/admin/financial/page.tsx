@@ -17,7 +17,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import AdminDataSyncLoader from "@/components/admin/shared/AdminDataSyncLoader";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -97,18 +97,6 @@ const reportCards = [
     workflow: "Tổng hợp toàn bộ phiếu nhập hàng từ mỗi NCC → Trừ các khoản đã thanh toán → Ra dư nợ chốt tại ngày kết thúc",
     formula: "Dư nợ = Tổng giá trị phiếu nhập − Tổng đã thanh toán",
     meaning: "Quản lý nghĩa vụ thanh toán với nhà cung cấp, hỗ trợ lập kế hoạch chi tiền và đàm phán công nợ.",
-    inScope: true,
-  },
-  {
-    id: "customer-debt",
-    title: "Công nợ khách hàng",
-    description: "Theo dõi số tiền khách hàng còn nợ chốt kỳ",
-    icon: UserMinus,
-    href: "/admin/financial/customer-debt",
-    helpTitle: "Công nợ khách hàng",
-    workflow: "Tổng hợp đơn hàng chưa thanh toán đủ của mỗi khách → Loại đơn đã huỷ/trả → Ra dư nợ chốt tại ngày kết thúc",
-    formula: "Dư nợ = Tổng giá trị đơn chưa thanh toán đủ (nhị phân, chưa có mức thanh toán một phần)",
-    meaning: "Theo dõi công nợ phải thu từ khách hàng, hỗ trợ nhân viên phụ trách đôn đốc thanh toán.",
     inScope: true,
   },
 ];
@@ -400,31 +388,7 @@ export default function FinancialReportListPage() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Từ ngày
-              </p>
-              <SharedDatePicker
-                value={startDate}
-                onChange={setStartDate}
-                placeholder="Chọn ngày"
-                variant="compact"
-                buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Đến ngày
-              </p>
-              <SharedDatePicker
-                value={endDate}
-                onChange={setEndDate}
-                placeholder="Chọn ngày"
-                variant="compact"
-                buttonClassName="h-[38px] min-w-[180px] rounded-md border-slate-200 bg-white text-[13px] shadow-none lg:w-[190px]"
-              />
-            </div>
+            <AdminDateRangeFilters idPrefix="financial-overview" fromDate={startDate} toDate={endDate} onFromDateChange={setStartDate} onToDateChange={setEndDate} />
           </div>
 
           <div className="flex items-center gap-2">

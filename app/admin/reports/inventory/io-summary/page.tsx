@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -203,14 +203,7 @@ function InventoryIOSummaryContent() {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium text-slate-700">Từ ngày</span>
-          <SharedDatePicker value={dateFrom} onChange={setDateFrom} placeholder="Từ ngày" variant="compact" buttonClassName="h-8 w-[140px] border-slate-300 rounded-none text-[13px] shadow-none" />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium text-slate-700">Đến ngày</span>
-          <SharedDatePicker value={dateTo} onChange={setDateTo} placeholder="Đến ngày" variant="compact" buttonClassName="h-8 w-[140px] border-slate-300 rounded-none text-[13px] shadow-none" />
-        </div>
+        <AdminDateRangeFilters idPrefix="inventory-io-summary" fromDate={dateFrom} toDate={dateTo} onFromDateChange={setDateFrom} onToDateChange={setDateTo} />
 
         <div className="relative flex-1 max-w-[320px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />

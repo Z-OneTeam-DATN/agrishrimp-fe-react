@@ -17,7 +17,7 @@ import {
     Plus,
     MapPinCheck,
 } from "lucide-react";
-import { SharedDatePicker } from "@/components/admin/shared/BirthDatePicker";
+import { AdminDateRangeFilters } from "@/components/admin/shared/AdminDateRangeFilters";
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -452,20 +452,7 @@ export default function CustomerDetailPage({
                                 <option value="oldest">Cũ nhất</option>
                                 <option value="highest">Giá cao nhất</option>
                             </select>
-                            <SharedDatePicker
-                                value={orderDateFrom}
-                                onChange={setOrderDateFrom}
-                                placeholder="Từ ngày"
-                                variant="compact"
-                                buttonClassName="h-[30px] min-w-[132px] border-slate-300 bg-white px-2 text-[10px] font-bold"
-                            />
-                            <SharedDatePicker
-                                value={orderDateTo}
-                                onChange={setOrderDateTo}
-                                placeholder="Đến ngày"
-                                variant="compact"
-                                buttonClassName="h-[30px] min-w-[132px] border-slate-300 bg-white px-2 text-[10px] font-bold"
-                            />
+                            <AdminDateRangeFilters idPrefix="customer-orders" fromDate={orderDateFrom} toDate={orderDateTo} onFromDateChange={setOrderDateFrom} onToDateChange={setOrderDateTo} />
                             {getCancellationStats() > 0 && (
                                 <div className="ml-auto text-[11px] font-medium text-amber-700 px-2 py-1">
                                     {getCancellationStats()} đơn hủy/hoàn trả

@@ -114,7 +114,6 @@ const ADMIN_ROUTE_LABELS: Record<string, string> = {
   "/admin/financial/cashbook": "Sổ quỹ / Tiền chi",
   "/admin/financial/profit-loss": "Lãi lỗ",
   "/admin/financial/supplier-debt": "Công nợ NCC",
-  "/admin/financial/customer-debt": "Công nợ khách hàng",
   "/admin/reports/sales": "Báo cáo doanh thu",
   "/admin/reports/inventory": "Báo cáo nhập xuất tồn",
   "/admin/settings": "Cài đặt",
