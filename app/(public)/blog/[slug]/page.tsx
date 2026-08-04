@@ -607,7 +607,7 @@ export default function BlogDetailPage() {
                   "prose-img:mx-auto prose-img:h-auto prose-img:w-full prose-img:max-w-2xl prose-img:rounded-xl prose-img:object-contain prose-img:shadow-sm",
                   "prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1 prose-li:text-[13.5px] prose-li:leading-[1.85] prose-li:text-slate-700 md:prose-li:text-[14.5px]",
                   "prose-blockquote:rounded-r-xl prose-blockquote:border-l-4 prose-blockquote:border-blue-700 prose-blockquote:bg-blue-50 prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:text-slate-700 prose-blockquote:not-italic",
-                  "[overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:normal-case [&_h1]:[text-wrap:balance] [&_h2]:[text-wrap:balance] [&_h3]:[text-wrap:balance]",
+                  "[&_*]:max-w-full [&_*]:normal-case [&_h1]:[text-wrap:balance] [&_h2]:[text-wrap:balance] [&_h3]:[text-wrap:balance]",
                   "[&_b]:font-semibold [&_strong]:font-semibold [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold",
                   "[&_span]:text-inherit [&_p]:normal-case [&_h1]:normal-case [&_h2]:normal-case [&_h3]:normal-case",
                   "[&_figure]:mx-0 [&_figcaption]:text-center [&_figcaption]:text-xs [&_figcaption]:text-slate-500",
