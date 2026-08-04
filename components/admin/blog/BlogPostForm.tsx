@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import {
   BlogCategoryDTO,
   BlogPostDTO,
@@ -51,16 +53,19 @@ const QUILL_MODULES = {
 interface Props {
   categories: BlogCategoryDTO[];
   initialData?: BlogPostDTO;
+  redirectBasePath?: string;
 }
 
-export default function BlogPostForm({ categories, initialData }: Props) {
+export default function BlogPostForm({ categories, initialData, redirectBasePath = "/admin/blog/posts" }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { hasPermission } = usePermissions();
+  const canPublish = hasPermission(P.BLOG_APPROVE);
 
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [excerpt, setExcerpt] = useState(initialData?.excerpt ?? "");
   const [content, setContent] = useState(initialData?.content ?? "");
-  const [status, setStatus] = useState<"" | "DRAFT" | "PUBLISHED">(initialData?.status ?? "");
+  const [status, setStatus] = useState<"" | "DRAFT" | "IN_REVIEW" | "PUBLISHED">(initialData?.status ?? "");
   const [categoryId, setCategoryId] = useState<string>(
     initialData?.category ? String(initialData.category.id) : ""
   );
@@ -106,6 +111,16 @@ export default function BlogPostForm({ categories, initialData }: Props) {
     categoryId?: string;
   }>({});
   const isEdit = !!initialData;
+
+  const visibleCategories = useMemo(() => {
+    const active = categories.filter((c) => c.status === "ACTIVE");
+    const currentCategoryId = initialData?.category?.id;
+    if (currentCategoryId && !active.some((c) => c.id === currentCategoryId)) {
+      const current = categories.find((c) => c.id === currentCategoryId);
+      if (current) return [...active, current];
+    }
+    return active;
+  }, [categories, initialData?.category?.id]);
   const fieldLabelClass = "text-[10.5px] font-semibold text-slate-500";
   const fieldControlClass =
     "h-[38px] text-[13px] font-normal text-slate-800 shadow-none placeholder:text-slate-400";
@@ -366,7 +381,7 @@ export default function BlogPostForm({ categories, initialData }: Props) {
         await adminCreateBlogPost(fd);
         toast.success("Đã tạo bài viết");
       }
-      router.push("/admin/blog/posts");
+      router.push(redirectBasePath);
       router.refresh();
     } catch {
       toast.error("Lưu bài viết thất bại");
@@ -377,6 +392,12 @@ export default function BlogPostForm({ categories, initialData }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 px-1 pb-[100px] text-slate-800">
+      {initialData?.reviewNote && (
+        <div className="rounded-[4px] border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase text-amber-700">Admin yêu cầu chỉnh sửa</p>
+          <p className="mt-1 text-[13px] text-amber-800">{initialData.reviewNote}</p>
+        </div>
+      )}
       <div className={sectionCardClass}>
         <div className="border-b border-slate-200 pb-3">
           <span className={sectionTitleClass}>1. Thông tin bài viết</span>
@@ -465,7 +486,14 @@ export default function BlogPostForm({ categories, initialData }: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="DRAFT" className="text-[13px]">Bản nháp</SelectItem>
-                <SelectItem value="PUBLISHED" className="text-[13px]">Xuất bản ngay</SelectItem>
+                {canPublish ? (
+                  <SelectItem value="PUBLISHED" className="text-[13px]">Xuất bản ngay</SelectItem>
+                ) : (
+                  <SelectItem value="IN_REVIEW" className="text-[13px]">Gửi duyệt</SelectItem>
+                )}
+                {!canPublish && initialData?.status === "PUBLISHED" && (
+                  <SelectItem value="PUBLISHED" className="text-[13px]">Đã xuất bản</SelectItem>
+                )}
               </SelectContent>
             </Select>
             {errors.status && <p className={inlineErrorClass}>{errors.status}</p>}
@@ -495,8 +523,11 @@ export default function BlogPostForm({ categories, initialData }: Props) {
                 <SelectValue placeholder="Chọn danh mục..." />
               </SelectTrigger>
               <SelectContent>
-                {categories.length > 0 ? categories.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)} className="text-[13px]">{c.name}</SelectItem>
+                {visibleCategories.length > 0 ? visibleCategories.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)} className="text-[13px]">
+                    {c.name}
+                    {c.status === "INACTIVE" ? " (Đã ẩn)" : ""}
+                  </SelectItem>
                 )) : (
                   <div className="px-2 py-1.5 text-[12px] text-slate-400">Chưa có danh mục khả dụng</div>
                 )}

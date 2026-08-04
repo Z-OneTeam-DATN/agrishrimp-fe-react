@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   FileSpreadsheet,
   FlaskConical,
+  Newspaper,
   NotebookPen,
   Stethoscope,
   Tags,
@@ -52,6 +53,13 @@ const AGRONOMIST_NAV_ITEMS = [
     label: "Chat thử nghiệm",
     icon: FlaskConical,
     permissions: [P.AI_KNOWLEDGE_APPROVE],
+    exact: false,
+  },
+  {
+    href: "/agronomist/blog/posts",
+    label: "Bài viết blog",
+    icon: Newspaper,
+    permissions: [P.BLOG_VIEW, P.BLOG_CREATE],
     exact: false,
   },
 ] as const;

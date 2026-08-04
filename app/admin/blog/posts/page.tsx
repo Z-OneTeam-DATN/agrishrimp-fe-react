@@ -4,14 +4,18 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Plus, Edit, Trash2, Eye, EyeOff, Loader2, FileText, Search,
+  Plus, Edit, Trash2, Eye, EyeOff, Loader2, FileText, Search, CheckCircle2, XCircle,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -20,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { P } from "@/lib/permissions";
 import {
   BlogAuthorDTO,
   BlogCategoryDTO,
@@ -29,12 +35,23 @@ import {
   adminGetBlogPosts,
   adminPublishBlogPost,
   adminDraftBlogPost,
+  adminApproveBlogPost,
+  adminRejectBlogPost,
   adminDeleteBlogPost,
 } from "@/app/services/blog.service";
 
 const PAGE_SIZE = 20;
 
+const STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  PUBLISHED: { label: "Đã xuất bản", className: "text-emerald-600" },
+  IN_REVIEW: { label: "Chờ duyệt", className: "text-amber-600" },
+  DRAFT: { label: "Nháp", className: "text-slate-500" },
+};
+
 export default function BlogPostsPage() {
+  const { hasPermission } = usePermissions();
+  const canApprove = hasPermission(P.BLOG_APPROVE);
+
   const [posts, setPosts] = useState<BlogPostDTO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -49,6 +66,10 @@ export default function BlogPostsPage() {
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<BlogPostDTO | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
   const didInitKeywordEffect = useRef(false);
 
   const loadData = async (
@@ -127,6 +148,35 @@ export default function BlogPostsPage() {
     }
   };
 
+  const handleApprove = async (post: BlogPostDTO) => {
+    setApprovingId(post.id);
+    try {
+      await adminApproveBlogPost(post.id);
+      toast.success("Đã duyệt và xuất bản bài viết");
+      await loadData(keyword, statusFilter, categoryFilter, authorFilter, page);
+    } catch {
+      toast.error("Duyệt bài viết thất bại");
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectTarget) return;
+    setRejecting(true);
+    try {
+      await adminRejectBlogPost(rejectTarget.id, rejectReason.trim());
+      toast.success("Đã gửi yêu cầu chỉnh sửa cho tác giả");
+      await loadData(keyword, statusFilter, categoryFilter, authorFilter, page);
+      setRejectTarget(null);
+      setRejectReason("");
+    } catch {
+      toast.error("Gửi yêu cầu chỉnh sửa thất bại");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -149,6 +199,7 @@ export default function BlogPostsPage() {
   const statusTabs = [
     { id: "all", label: "Tất cả" },
     { id: "PUBLISHED", label: "Đã xuất bản" },
+    { id: "IN_REVIEW", label: "Chờ duyệt" },
     { id: "DRAFT", label: "Bản nháp" },
   ];
 
@@ -362,27 +413,52 @@ export default function BlogPostsPage() {
                     <td className="px-2 py-3 text-center text-[11px] text-slate-600">{(post.viewCount ?? 0).toLocaleString("vi-VN")}</td>
                     <td className="px-2 py-3 text-center text-[11px] text-slate-500">{formatDate(post.createdAt)}</td>
                     <td className="px-2 py-3 text-center">
-                      <span className="text-[11px] font-medium text-slate-600">
-                        {post.status === "PUBLISHED" ? "Xuất bản" : "Nháp"}
+                      <span className={cn("text-[11px] font-medium", (STATUS_LABELS[post.status] ?? STATUS_LABELS.DRAFT).className)}>
+                        {(STATUS_LABELS[post.status] ?? STATUS_LABELS.DRAFT).label}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost" size="icon"
-                          title={post.status === "PUBLISHED" ? "Chuyển về nháp" : "Xuất bản"}
-                          disabled={togglingId === post.id}
-                          className={cn("h-7 w-7 rounded-[4px] text-slate-400", post.status === "PUBLISHED"
-                            ? "hover:bg-amber-50 hover:text-amber-600"
-                            : "hover:bg-blue-50 hover:text-blue-600"
-                          )}
-                          onClick={() => handleToggle(post)}
-                        >
-                          {togglingId === post.id
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : post.status === "PUBLISHED" ? <EyeOff size={15} /> : <Eye size={15} />
-                          }
-                        </Button>
+                        {post.status === "IN_REVIEW" && canApprove ? (
+                          <>
+                            <Button
+                              variant="ghost" size="icon"
+                              title="Duyệt bài viết"
+                              disabled={approvingId === post.id}
+                              className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+                              onClick={() => handleApprove(post)}
+                            >
+                              {approvingId === post.id
+                                ? <Loader2 size={14} className="animate-spin" />
+                                : <CheckCircle2 size={15} />
+                              }
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              title="Yêu cầu chỉnh sửa"
+                              className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                              onClick={() => setRejectTarget(post)}
+                            >
+                              <XCircle size={15} />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost" size="icon"
+                            title={post.status === "PUBLISHED" ? "Chuyển về nháp" : "Xuất bản"}
+                            disabled={togglingId === post.id}
+                            className={cn("h-7 w-7 rounded-[4px] text-slate-400", post.status === "PUBLISHED"
+                              ? "hover:bg-amber-50 hover:text-amber-600"
+                              : "hover:bg-blue-50 hover:text-blue-600"
+                            )}
+                            onClick={() => handleToggle(post)}
+                          >
+                            {togglingId === post.id
+                              ? <Loader2 size={14} className="animate-spin" />
+                              : post.status === "PUBLISHED" ? <EyeOff size={15} /> : <Eye size={15} />
+                            }
+                          </Button>
+                        )}
                         <Link href={`/admin/blog/posts/${post.id}/edit`}>
                           <Button variant="ghost" size="icon" title="Chỉnh sửa" className="h-7 w-7 rounded-[4px] text-slate-400 hover:bg-blue-50 hover:text-blue-600">
                             <Edit size={14} />
@@ -453,6 +529,55 @@ export default function BlogPostsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={Boolean(rejectTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+            setRejectReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-[440px] gap-0 rounded-[6px] border-slate-200 bg-white p-0 shadow-xl">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5">
+            <DialogTitle className="text-[16px] font-semibold text-slate-900">
+              Yêu cầu chỉnh sửa
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-[12px] text-slate-500">
+              Bài viết &quot;{rejectTarget?.title}&quot; sẽ chuyển về trạng thái Nháp. Lý do sẽ hiển
+              thị cho tác giả khi họ mở lại để sửa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-5">
+            <Textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              placeholder="VD: Bổ sung ảnh minh họa, kiểm tra lại chính tả..."
+              className="min-h-[100px] border-slate-200 text-[13px]"
+            />
+          </div>
+          <DialogFooter className="border-t border-slate-100 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRejectTarget(null)}
+              className="h-[38px] border-slate-200 bg-white px-4 text-[13px] font-medium shadow-none"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              disabled={!rejectReason.trim() || rejecting}
+              onClick={handleReject}
+              className="h-[38px] bg-amber-600 px-4 text-[13px] font-medium hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {rejecting ? <Loader2 size={15} className="mr-2 animate-spin" /> : null}
+              Gửi yêu cầu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

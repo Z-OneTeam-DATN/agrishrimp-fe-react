@@ -18,7 +18,9 @@ export default function AgronomistLayout({
   const { hasPermission } = usePermissions();
 
   const hasWorkspaceAccess =
-    hasPermission(P.AGRONOMIST_WORKSPACE_USE) || hasPermission(P.AI_KNOWLEDGE_UPDATE);
+    hasPermission(P.AGRONOMIST_WORKSPACE_USE) ||
+    hasPermission(P.AI_KNOWLEDGE_UPDATE) ||
+    hasPermission(P.BLOG_CREATE);
 
   useEffect(() => {
     if (!isLoadingAuth && hasWorkspaceAccess) {
