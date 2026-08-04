@@ -604,7 +604,7 @@ export default function BlogDetailPage() {
                   "prose-h1:text-[1.32rem] md:prose-h1:text-[1.55rem] prose-h2:text-[1.18rem] md:prose-h2:text-[1.32rem] prose-h3:text-[1.02rem] md:prose-h3:text-[1.12rem]",
                   "prose-a:font-semibold prose-a:text-blue-700 prose-a:break-all",
                   "prose-strong:font-semibold prose-strong:text-slate-900",
-                  "prose-img:mx-auto prose-img:h-auto prose-img:w-full prose-img:rounded-xl prose-img:object-contain prose-img:shadow-sm",
+                  "prose-img:mx-auto prose-img:h-auto prose-img:w-full prose-img:max-w-2xl prose-img:rounded-xl prose-img:object-contain prose-img:shadow-sm",
                   "prose-ul:pl-5 prose-ol:pl-5 prose-li:my-1 prose-li:text-[13.5px] prose-li:leading-[1.85] prose-li:text-slate-700 md:prose-li:text-[14.5px]",
                   "prose-blockquote:rounded-r-xl prose-blockquote:border-l-4 prose-blockquote:border-blue-700 prose-blockquote:bg-blue-50 prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:text-slate-700 prose-blockquote:not-italic",
                   "[overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:normal-case [&_h1]:[text-wrap:balance] [&_h2]:[text-wrap:balance] [&_h3]:[text-wrap:balance]",
