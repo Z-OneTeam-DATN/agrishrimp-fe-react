@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { aiDoctorService } from "@/app/services/aiDoctor.service";
 import type { AiDoctorConversationTurn, AiDoctorDiagnosisResponse } from "@/app/types/ai-doctor.types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { getErrorMessage } from "@/lib/axios";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import AiDoctorHistorySidebar from "@/components/ai-doctor/AiDoctorHistorySidebar";
@@ -61,29 +62,41 @@ type DiagnosePayload = {
 const mapTurnsToEntries = (turns: AiDoctorConversationTurn[], idPrefix: string): ChatEntry[] => {
   const result: ChatEntry[] = [];
   turns.forEach((turn, index) => {
+    const uId = `${idPrefix}-${index}-u`;
+    const bId = `${idPrefix}-${index}-b`;
+
     if (turn.type === "CHAT") {
-      result.push({ id: `${idPrefix}-${index}-u`, kind: "user", text: turn.questionText });
-      result.push({ id: `${idPrefix}-${index}-b`, kind: "bot-html", html: turn.answerHtml || "" });
-    } else {
-      result.push({
-        id: `${idPrefix}-${index}-u`,
-        kind: "user",
-        text: turn.userSymptoms,
-        previewUrl: turn.imageUrl,
-      });
-      result.push({
-        id: `${idPrefix}-${index}-b`,
-        kind: "bot-diagnosis",
-        diagnosis: {
-          diagnosisId: turn.diagnosisId || "",
-          status: "DISEASE",
-          imageUrl: turn.imageUrl,
-          disease: turn.disease,
-          signsSummary: turn.signsSummary,
-          needsClarification: turn.needsClarification,
-        },
-      });
+      result.push({ id: uId, kind: "user", text: turn.questionText });
+      result.push({ id: bId, kind: "bot-html", html: turn.answerHtml || "" });
+      return;
     }
+
+    result.push({ id: uId, kind: "user", text: turn.userSymptoms, previewUrl: turn.imageUrl });
+
+    // HEALTHY dung the ket qua tinh "TOM KHOE MANH" (bot-result), khong phai bong bong tuong thuat
+    // — khop dung UI cua luong song (xem nhanh "bot-result" trong JSX render).
+    if (turn.status === "HEALTHY") {
+      result.push({
+        id: bId,
+        kind: "bot-result",
+        diagnosis: { diagnosisId: turn.diagnosisId || "", status: "HEALTHY", imageUrl: turn.imageUrl },
+      });
+      return;
+    }
+
+    result.push({
+      id: bId,
+      kind: "bot-diagnosis",
+      diagnosis: {
+        diagnosisId: turn.diagnosisId || "",
+        status: turn.status === "UNRECOGNIZED" ? "UNRECOGNIZED" : "DISEASE",
+        imageUrl: turn.imageUrl,
+        disease: turn.disease,
+        signsSummary: turn.signsSummary,
+        needsClarification: turn.needsClarification,
+        aiDescription: turn.aiDescription,
+      },
+    });
   });
   return result;
 };
@@ -176,6 +189,11 @@ export default function AiDoctorChatPage() {
   const latestComposerPreviewRef = useRef<string | null>(null);
   const entryIdRef = useRef(0);
   const { isAuthenticated } = useCurrentUser();
+  // isAuthenticated co the true truoc khi accessToken thuc su co trong store (nhanh cachedUser luc
+  // hydrate — xem layoutClient.tsx: setUser() set isAuthenticated ngay nhung accessToken chi den
+  // sau, async). Ban query voi enabled: isAuthenticated se bi 401 (retry:0 -> fail vinh vien cho
+  // lan mount do) neu ban dung luc do — gate them accessToken de doi token thuc su san sang.
+  const accessToken = useAuthStore((state) => state.accessToken);
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   // null = dang xem chat song hom nay; co gia tri = dang xem lai (read-only) mot ngay cu tu sidebar.
@@ -218,7 +236,7 @@ export default function AiDoctorChatPage() {
   const todayConversationQuery = useQuery({
     queryKey: ["ai-doctor-conversation", todayIso],
     queryFn: () => aiDoctorService.getConversation(todayIso),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(accessToken),
   });
 
   useEffect(() => {
@@ -239,7 +257,7 @@ export default function AiDoctorChatPage() {
   const historyConversationQuery = useQuery({
     queryKey: ["ai-doctor-conversation", viewingDate],
     queryFn: () => aiDoctorService.getConversation(viewingDate as string),
-    enabled: isViewingHistory,
+    enabled: isViewingHistory && Boolean(accessToken),
   });
   const historyEntries = useMemo(
     () => mapTurnsToEntries(historyConversationQuery.data ?? [], "hist"),
