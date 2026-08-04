@@ -4,9 +4,10 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   User,
   LogOut,
-  Settings as SettingsIcon,
   MapPin,
   Clock,
+  MessageCircle,
+  Stethoscope,
 } from "lucide-react";
 import NotificationBell from "@/components/site/NotificationBell";
 import {
@@ -18,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -337,25 +337,6 @@ export default function AdminTopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        {canAccessAdvisorWorkspace ? (
-          <Button
-            asChild
-            variant="outline"
-            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <Link href="/chat">Qua chat</Link>
-          </Button>
-        ) : null}
-        {canAccessAgronomistWorkspace ? (
-          <Button
-            asChild
-            variant="outline"
-            className="hidden md:inline-flex rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          >
-            <Link href="/agronomist/diseases">Qua AI Doctor</Link>
-          </Button>
-        ) : null}
-
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full">
           <MapPin size={14} className="text-blue-600" />
           <span className="text-[12px] font-bold text-blue-700">
@@ -404,13 +385,28 @@ export default function AdminTopHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
+            {canAccessAdvisorWorkspace ? (
+              <DropdownMenuItem asChild className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
+                <Link href="/chat">
+                  <MessageCircle className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
+                  <span className="text-[13px] font-medium">Qua chat</span>
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            {canAccessAgronomistWorkspace ? (
+              <DropdownMenuItem asChild className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
+                <Link href="/agronomist/diseases">
+                  <Stethoscope className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
+                  <span className="text-[13px] font-medium">Qua AI Doctor</span>
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            {(canAccessAdvisorWorkspace || canAccessAgronomistWorkspace) ? (
+              <DropdownMenuSeparator className="bg-slate-50 mx-2" />
+            ) : null}
             <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
               <User className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
               <span className="text-[13px] font-medium">Hồ sơ cá nhân</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer rounded-lg py-2.5 px-3 text-slate-600 hover:bg-blue-50 focus:bg-blue-50 group">
-              <SettingsIcon className="mr-3 h-4 w-4 text-slate-400 group-hover:text-blue-600" />
-              <span className="text-[13px] font-medium">Cài đặt hệ thống</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-50 mx-2" />
             <DropdownMenuItem
