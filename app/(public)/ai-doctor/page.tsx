@@ -470,18 +470,18 @@ export default function AiDoctorChatPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#eef3f9]">
-      <aside className="hidden w-[280px] shrink-0 border-r border-gray-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+      <aside className="hidden w-[280px] shrink-0 bg-[#1965A2] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         {isAuthenticated ? (
           <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
         ) : (
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-gray-400">
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-white/70">
             Đăng nhập để xem lại Sổ khám các ngày trước.
           </div>
         )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1965A2] px-4 py-3 shadow-sm">
+        <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1965A2] px-4 py-3 shadow-sm lg:hidden">
           <Link href="/" className="text-white transition-opacity hover:opacity-80">
             <ChevronLeft size={28} />
           </Link>
@@ -865,7 +865,7 @@ export default function AiDoctorChatPage() {
                 <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-400">
                   <span className="inline-flex items-center gap-1">
                     <Sparkles size={12} />
-                    Gửi ảnh để bác sĩ xem bệnh kỹ hơn
+                    Gửi ảnh để bác sĩ AI xem bệnh kỹ hơn — kết quả chỉ mang tính tham khảo
                   </span>
                   <span>{symptoms.length}/300</span>
                 </div>
@@ -899,7 +899,7 @@ export default function AiDoctorChatPage() {
         <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
           <SheetContent
             side="left"
-            className="flex h-full w-full max-w-[320px] flex-col border-r-0 bg-white p-0 [&>button]:hidden"
+            className="flex h-full w-full max-w-[320px] flex-col border-r-0 bg-[#1965A2] p-0 [&>button]:hidden"
           >
             <SheetTitle className="sr-only">Sổ khám</SheetTitle>
             <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
