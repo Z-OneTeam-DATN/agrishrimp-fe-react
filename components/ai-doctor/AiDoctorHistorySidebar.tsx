@@ -33,20 +33,20 @@ export default function AiDoctorHistorySidebar({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2.5 px-4 pb-1 pt-4">
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-white">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/30 bg-white">
           <Image src="/images/logo_arishrimp.jpg" alt="AgriShrimp" fill className="object-cover" />
         </div>
-        <span className="truncate text-sm font-black tracking-tight text-slate-900">Bác sĩ Tôm AgriShrimp</span>
+        <span className="truncate text-sm font-black tracking-tight text-white">Bác sĩ Tôm AgriShrimp</span>
       </div>
 
       <div className="shrink-0 p-3">
         <button
           type="button"
           onClick={onSelectToday}
-          className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold shadow-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
             activeDate === null
-              ? "border-[#1965A2] bg-[#eaf2fc] text-[#1965A2]"
-              : "border-transparent bg-white text-slate-700 hover:bg-[#eaf2fc]"
+              ? "bg-white text-[#1965A2] shadow-sm"
+              : "bg-white/10 text-white hover:bg-white/20"
           }`}
         >
           <MessageSquarePlus size={18} />
@@ -55,13 +55,13 @@ export default function AiDoctorHistorySidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-3">
-        <h3 className="mb-2 px-1 text-[11px] font-bold uppercase text-slate-400">Sổ khám</h3>
+        <h3 className="mb-2 px-1 text-[11px] font-bold uppercase text-white/60">Sổ khám</h3>
         {datesQuery.isLoading ? (
           <div className="flex justify-center py-10">
-            <Loader2 className="animate-spin text-[#1965A2]" size={24} />
+            <Loader2 className="animate-spin text-white" size={24} />
           </div>
         ) : pastDates.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-center text-gray-400">
+          <div className="flex flex-col items-center gap-2 py-16 text-center text-white/60">
             <NotebookText size={32} className="opacity-40" />
             <p className="text-sm">Chưa có lượt khám nào</p>
           </div>
@@ -74,12 +74,12 @@ export default function AiDoctorHistorySidebar({
                 onClick={() => onSelectDate(date)}
                 className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
                   activeDate === date
-                    ? "bg-[#eaf2fc] text-[#1965A2]"
-                    : "bg-white text-slate-700 hover:bg-[#eaf2fc]"
+                    ? "bg-white text-[#1965A2] shadow-sm"
+                    : "bg-white/10 text-white hover:bg-white/20"
                 }`}
               >
                 <span className="text-sm font-semibold">{formatDateLabel(date)}</span>
-                <FileText size={16} className="text-[#1965A2]" />
+                <FileText size={16} className={activeDate === date ? "text-[#1965A2]" : "text-white/70"} />
               </button>
             ))}
           </div>
