@@ -470,7 +470,7 @@ export default function AiDoctorChatPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#eef3f9]">
-      <aside className="hidden w-[280px] shrink-0 border-r border-gray-200 bg-white lg:flex lg:flex-col">
+      <aside className="hidden w-[280px] shrink-0 border-r border-gray-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         {isAuthenticated ? (
           <AiDoctorHistorySidebar activeDate={viewingDate} todayDate={todayIso} onSelectToday={goToToday} onSelectDate={selectHistoryDate} />
         ) : (
