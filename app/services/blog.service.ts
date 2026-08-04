@@ -38,7 +38,8 @@ export interface BlogPostDTO {
   excerpt: string | null;
   content: string | null;
   thumbnailUrl: string | null;
-  status: "DRAFT" | "PUBLISHED";
+  status: "DRAFT" | "IN_REVIEW" | "PUBLISHED";
+  reviewNote: string | null;
   viewCount: number;
   publishedAt: string | null;
   createdAt: string;
@@ -177,6 +178,14 @@ export const adminPublishBlogPost = async (id: number): Promise<void> => {
 
 export const adminDraftBlogPost = async (id: number): Promise<void> => {
   await apiJava.patch(buildJavaApiUrl(`/blog/posts/${id}/draft` as any));
+};
+
+export const adminApproveBlogPost = async (id: number): Promise<void> => {
+  await apiJava.patch(buildJavaApiUrl(`/blog/posts/${id}/approve` as any));
+};
+
+export const adminRejectBlogPost = async (id: number, reason: string): Promise<void> => {
+  await apiJava.patch(buildJavaApiUrl(`/blog/posts/${id}/reject` as any), { reason });
 };
 
 export const adminDeleteBlogPost = async (id: number): Promise<void> => {
