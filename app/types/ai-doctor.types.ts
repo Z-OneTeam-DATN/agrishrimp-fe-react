@@ -58,27 +58,11 @@ export interface AiDoctorClarifyResponse {
   turnsUsed?: number;
 }
 
-export interface AiDoctorHistoryItem {
-  diagnosisId: string;
-  createdAt: string;
-  imageUrl?: string;
-  disease?: AiDoctorDiseaseInfo;
-  /** true = còn đang chờ hỏi-đáp AI xác nhận, disease ở trên chỉ là dự đoán chưa chốt */
-  needsClarification?: boolean;
-}
-
 export interface AiDoctorChatResponse {
   success: boolean;
   conversationId?: string;
   reply: string;
   suggestedActions?: string[];
-}
-
-export interface AiDoctorHistoryListResponse {
-  items: AiDoctorHistoryItem[];
-  total: number;
-  page: number;
-  size: number;
 }
 
 /** Danh sách các ngày user đã chat/chẩn đoán với AI Doctor — dùng cho sidebar "Sổ khám". */
@@ -87,10 +71,21 @@ export interface AiDoctorDailyRecordListResponse {
   dates: string[];
 }
 
-/** Chi tiết "sổ khám" của 1 ngày — gộp on-demand từ chat chữ + chẩn đoán qua ảnh trong ngày đó. */
-export interface AiDoctorDailyRecordDetailResponse {
-  date: string;
-  symptomsDescribed: string[];
-  diseasesDiscussed: AiDoctorDiseaseInfo[];
-  diagnoses: AiDoctorHistoryItem[];
+/**
+ * Một lượt trong hội thoại "hôm nay" — dùng để phát lại (replay) đúng thứ tự các bong bóng chat khi
+ * tải lại trang. Không bao gồm các lượt hỏi-đáp làm rõ bệnh (giới hạn có chủ đích).
+ */
+export interface AiDoctorConversationTurn {
+  type: "CHAT" | "DIAGNOSIS";
+  createdAt: string;
+  // CHAT
+  questionText?: string;
+  answerHtml?: string;
+  // DIAGNOSIS
+  diagnosisId?: string;
+  userSymptoms?: string;
+  imageUrl?: string;
+  disease?: AiDoctorDiseaseInfo;
+  signsSummary?: string;
+  needsClarification?: boolean;
 }

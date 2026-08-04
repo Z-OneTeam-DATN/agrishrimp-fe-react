@@ -358,7 +358,7 @@ export default function TreatmentResultPage() {
 
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/ai-doctor/history"
+              href="/ai-doctor"
               className="inline-flex h-11 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-gray-50"
             >
               <Activity size={16} />
