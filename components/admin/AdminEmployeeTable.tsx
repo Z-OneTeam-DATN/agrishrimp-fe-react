@@ -40,23 +40,9 @@ interface AdminEmployeeTableProps {
   onPageChange?: (page: number) => void;
 }
 
-const ADMIN_ROLE_SLUGS = new Set(["ADMIN", "SUPER_ADMIN", "ADMINISTRATOR"]);
-
 const getEmployeeRoleLabel = (employee: UserResponse) => {
-  const roleSlug = String(employee.role?.slug || "").toUpperCase();
-  if (ADMIN_ROLE_SLUGS.has(roleSlug)) return "Quản trị viên";
+  if (employee.isSystemAccount) return "Quản trị viên";
   return employee.role?.displayName || "N/A";
-};
-
-const toReadableText = (value?: string | null) => {
-  const source = (value || "").trim();
-  if (!source) return "N/A";
-
-  return source
-    .toLocaleLowerCase("vi-VN")
-    .split(/\s+/)
-    .map((part) => part.charAt(0).toLocaleUpperCase("vi-VN") + part.slice(1))
-    .join(" ");
 };
 
 export function AdminEmployeeTable({ 
@@ -150,7 +136,7 @@ export function AdminEmployeeTable({
       <Table className="table-custom border-collapse min-w-[1120px]">
         <TableHeader>
           <TableRow className="bg-[#f0f0f0] hover:bg-[#f0f0f0] border-b border-[#ccc]">
-            <TableHead className="w-[90px] font-semibold text-[#1f1f1f] text-[12px] p-2 pl-4">Stt</TableHead>
+            <TableHead className="w-[90px] font-semibold text-[#1f1f1f] text-[12px] p-2 pl-4">STT</TableHead>
             <TableHead className="w-[300px] font-semibold text-[#1f1f1f] text-[12px] p-2">Họ tên</TableHead>
             <TableHead className="w-[220px] font-semibold text-[#1f1f1f] text-[12px] p-2">Liên hệ</TableHead>
             <TableHead className="w-[220px] font-semibold text-[#1f1f1f] text-[12px] p-2">Chi nhánh</TableHead>
@@ -178,16 +164,26 @@ export function AdminEmployeeTable({
               </TableCell>
               <TableCell className="p-2">
                 <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium not-italic">
-                    <Phone size={10} className="text-slate-400" /> {emp.phoneNumber}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-medium not-italic">CCCD: {emp.citizenId || "Chưa cập nhật"}</div>
+                  {emp.phoneNumber && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium not-italic">
+                      <Phone size={10} className="text-slate-400" /> {emp.phoneNumber}
+                    </div>
+                  )}
+                  {emp.citizenId && (
+                    <div className="text-[10px] text-slate-400 font-medium not-italic">CCCD: {emp.citizenId}</div>
+                  )}
                 </div>
               </TableCell>
               <TableCell className="p-2">
                 <div className="flex flex-col">
-                  <span className="text-[12px] font-medium text-blue-600">{toReadableText(emp.branch?.name)}</span>
-                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> {emp.createdAt ? new Date(emp.createdAt).toLocaleDateString('vi-VN') : "N/A"}</span>
+                  {emp.branch?.name && (
+                    <span className="text-[12px] font-medium text-blue-600">{emp.branch.name}</span>
+                  )}
+                  {emp.createdAt && (
+                    <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                      <Calendar size={10} /> {new Date(emp.createdAt).toLocaleDateString('vi-VN')}
+                    </span>
+                  )}
                 </div>
               </TableCell>
               <TableCell className="p-2">
@@ -220,7 +216,7 @@ export function AdminEmployeeTable({
                         </Button>
                       </Link>
                     )}
-                    {hasPermission(P.STAFF_DELETE) && (
+                    {hasPermission(P.STAFF_DELETE) && !emp.isSystemAccount && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -238,7 +234,10 @@ export function AdminEmployeeTable({
                         )}
                       </Button>
                     )}
-                    {hasPermission(P.STAFF_DELETE) && (
+                    {/* Tai khoan vai tro he thong (SUPER_ADMIN/ADMIN): backend chan moi thao tac
+                        khoa/xoa vo dieu kien — an ca 2 nut. Nhan vien da phat sinh du lieu: chi
+                        an rieng nut xoa vinh vien, van cho tam khoa binh thuong. */}
+                    {hasPermission(P.STAFF_DELETE) && !emp.isSystemAccount && !emp.hasGeneratedData && (
                       <Button
                         variant="ghost"
                         size="icon"

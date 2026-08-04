@@ -126,6 +126,10 @@ export interface UserResponse {
   emailSent: boolean;
   createdAt: string;
   createdByUserId: number;
+  /** true nếu là tài khoản vai trò hệ thống (SUPER_ADMIN/ADMIN) — không thể khóa hay xóa. */
+  isSystemAccount?: boolean;
+  /** true nếu nhân viên đã phát sinh dữ liệu — chỉ có thể tạm khóa, không thể xóa vĩnh viễn. */
+  hasGeneratedData?: boolean;
 }
 
 export interface PageResponse<T> {
