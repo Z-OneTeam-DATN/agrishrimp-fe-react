@@ -124,6 +124,23 @@ export const PublicProductService = {
     );
   },
 
+  /**
+   * Gợi ý cá nhân hóa cho tài khoản đang đăng nhập (dựa trên sản phẩm đã mua) — CỐ Ý không dùng
+   * withPublicRequest()/isPublic:true như các hàm khác trong service này, vì cờ đó khiến interceptor
+   * axios tháo hẳn header Authorization. Endpoint này nằm ngoài "/api/public/**" và luôn yêu cầu JWT.
+   */
+  getRecommendedForMe: async (limit = 8): Promise<PublicProductListItem[]> => {
+    try {
+      const response = await apiJava.get(
+        buildJavaApiUrl("/products/recommended-for-me" as ApiPath),
+        { params: { limit } },
+      );
+      return response.data || [];
+    } catch {
+      return [];
+    }
+  },
+
   getByCategory: async (
     categoryId: number | string,
   ): Promise<PublicProductListItem[]> => {
