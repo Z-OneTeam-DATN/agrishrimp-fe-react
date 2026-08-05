@@ -54,9 +54,16 @@ interface Props {
   categories: BlogCategoryDTO[];
   initialData?: BlogPostDTO;
   redirectBasePath?: string;
+  /** Admin dùng thanh nút cố định ở đáy màn hình; agronomist đặt nút ngay dưới cuối form (sidebar khác chiều rộng nên không căn cố định đúng được). */
+  stickyFooter?: boolean;
 }
 
-export default function BlogPostForm({ categories, initialData, redirectBasePath = "/admin/blog/posts" }: Props) {
+export default function BlogPostForm({
+  categories,
+  initialData,
+  redirectBasePath = "/admin/blog/posts",
+  stickyFooter = true,
+}: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { hasPermission } = usePermissions();
@@ -391,7 +398,7 @@ export default function BlogPostForm({ categories, initialData, redirectBasePath
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 px-1 pb-[100px] text-slate-800">
+    <form onSubmit={handleSubmit} className={cn("space-y-5 px-1 text-slate-800", stickyFooter && "pb-[100px]")}>
       {initialData?.reviewNote && (
         <div className="rounded-[4px] border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase text-amber-700">Admin yêu cầu chỉnh sửa</p>
@@ -868,7 +875,12 @@ export default function BlogPostForm({ categories, initialData, redirectBasePath
         </DialogContent>
       </Dialog>
 
-      <div className="fixed bottom-0 left-0 right-0 z-[999] border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
+      <div
+        className={cn(
+          "border-t border-slate-200 bg-white px-4 py-3",
+          stickyFooter ? "fixed bottom-0 left-0 right-0 z-[999] lg:left-[260px]" : "mt-2",
+        )}
+      >
         <div className="flex flex-wrap justify-end gap-3">
           <Button
             type="button"

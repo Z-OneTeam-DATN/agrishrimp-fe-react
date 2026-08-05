@@ -55,7 +55,7 @@ export default function EditAgronomistBlogPostPage() {
         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Chỉnh sửa bài viết</h1>
         <p className="mt-1 text-sm text-slate-500 line-clamp-1">{post.title}</p>
       </div>
-      <BlogPostForm categories={categories} initialData={post} redirectBasePath="/agronomist/blog/posts" />
+      <BlogPostForm categories={categories} initialData={post} redirectBasePath="/agronomist/blog/posts" stickyFooter={false} />
     </div>
   );
 }
