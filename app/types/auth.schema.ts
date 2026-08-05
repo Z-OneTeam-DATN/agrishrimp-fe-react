@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-const phoneRegex = /^(84|0)(3|5|7|8|9)[0-9]{8}$/;
 export const RegisterSchema = z
   .object({
     fullName: z
@@ -10,12 +9,8 @@ export const RegisterSchema = z
 
     contact: z
       .string()
-      .min(1, { message: "Vui lòng nhập Email hoặc SĐT" })
-      .refine(
-        (value) =>
-          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || phoneRegex.test(value),
-        { message: "Email hoặc Số điện thoại không hợp lệ" },
-      ),
+      .min(1, { message: "Vui lòng nhập Email" })
+      .email({ message: "Email không hợp lệ" }),
 
     password: z
       .string()
@@ -85,7 +80,8 @@ export type UserResponse = {
 export const LoginSchema = z.object({
   contact: z
     .string()
-    .min(1, { message: "Vui lòng nhập Email hoặc Số điện thoại" }),
+    .min(1, { message: "Vui lòng nhập Email" })
+    .email({ message: "Email không hợp lệ" }),
 
   password: z.string().min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
 
@@ -99,6 +95,30 @@ export const ResetPasswordSchema = z.object({
     .string()
     .min(1, { message: "Vui lòng nhập Email" })
     .email({ message: "Email không hợp lệ" }),
+
+  captchaToken: z.string().min(1, {
+    message: "Vui lòng xác thực Captcha",
+  }),
 });
 
 export type ResetPasswordFormValues = z.infer<typeof ResetPasswordSchema>;
+
+export const NewPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(6, { message: "Mật khẩu phải có ít nhất 6 ký tự" }),
+
+    confirmPassword: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword !== data.confirmPassword) {
+      ctx.addIssue({
+        path: ["confirmPassword"],
+        code: z.ZodIssueCode.custom,
+        message: "Mật khẩu nhập lại không khớp",
+      });
+    }
+  });
+
+export type NewPasswordFormValues = z.infer<typeof NewPasswordSchema>;

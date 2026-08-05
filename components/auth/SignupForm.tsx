@@ -146,11 +146,12 @@ export default function SignupForm() {
 
       {/* CONTACT */}
       <InputField
-        label="Email hoặc SĐT"
+        label="Email"
         icon={<Mail className="w-5 h-5" />}
         error={errors.contact?.message}
         inputProps={register("contact")}
-        placeholder="Email hoặc Số điện thoại"
+        placeholder="example@gmail.com"
+        type="email"
         getInputClass={getInputClass}
       />
 
@@ -248,6 +249,7 @@ function InputField({
   error,
   inputProps,
   placeholder,
+  type = "text",
   getInputClass,
 }: any) {
   return (
@@ -258,6 +260,7 @@ function InputField({
           {icon}
         </div>
         <input
+          type={type}
           placeholder={placeholder}
           className="w-full bg-transparent p-3 text-sm focus:outline-none"
           {...inputProps}
