@@ -113,4 +113,29 @@ export class AuthService {
     );
     return response.data;
   }
+
+  // QUÊN MẬT KHẨU
+  static async forgotPassword(
+    email: string,
+    captchaToken: string,
+  ): Promise<{ message: string }> {
+    const response = await apiJava.post<{ message: string }>(
+      `${this.PREFIX}/forgot-password`,
+      { email, captchaToken },
+    );
+    return response.data;
+  }
+
+  // ĐẶT LẠI MẬT KHẨU (từ token trong email)
+  static async resetPassword(
+    token: string,
+    newPassword: string,
+    confirmPassword: string,
+  ): Promise<{ message: string }> {
+    const response = await apiJava.post<{ message: string }>(
+      `${this.PREFIX}/reset-password`,
+      { token, newPassword, confirmPassword },
+    );
+    return response.data;
+  }
 }

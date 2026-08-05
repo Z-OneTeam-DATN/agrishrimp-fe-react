@@ -1,15 +1,16 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { X } from "lucide-react";
-import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
+import { X, Loader2 } from "lucide-react";
+import { ResetPasswordConfirmForm } from "@/components/auth/ResetPasswordConfirmForm";
 import { AUTH_MOBILE_LOGO_SHADOW } from "@/components/auth/auth-theme";
 
 export const metadata = {
-  title: "Quên mật khẩu - AgriShrimp",
-  description: "Đặt lại mật khẩu cho tài khoản AgriShrimp của bạn.",
+  title: "Đặt lại mật khẩu - AgriShrimp",
+  description: "Đặt mật khẩu mới cho tài khoản AgriShrimp của bạn.",
 };
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordConfirmPage() {
   return (
     <div className="min-h-[100dvh] w-full flex font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 overflow-hidden bg-white">
       {/* --- LEFT SIDE (Desktop Image) --- */}
@@ -55,15 +56,14 @@ export default function ResetPasswordPage() {
             <div className="w-16 h-1.5 bg-gradient-to-r from-blue-400 to-transparent mb-6 rounded-full"></div>
 
             <h2 className="text-4xl lg:text-[3rem] font-extrabold tracking-tight mb-4 leading-[1.1]">
-              Khôi phục <br />
+              Mật khẩu <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-blue-200 animate-pulse-slow">
-                Quyền truy cập
+                Mới an toàn
               </span>
             </h2>
 
             <p className="text-blue-50/80 text-base max-w-lg leading-relaxed font-light border-l border-white/20 pl-6">
-              "Chỉ mất vài giây để lấy lại quyền truy cập vào tài khoản
-              AgriShrimp của bạn."
+              "Chọn một mật khẩu mạnh để bảo vệ tài khoản AgriShrimp của bạn."
             </p>
           </div>
 
@@ -104,16 +104,22 @@ export default function ResetPasswordPage() {
 
             <div className="mb-4 text-center lg:text-left">
               <h2 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 mb-1">
-                Quên mật khẩu?
+                Đặt mật khẩu mới
               </h2>
               <p className="text-sm text-slate-500">
-                Nhập email của bạn và chúng tôi sẽ gửi liên kết đặt lại mật
-                khẩu.
+                Nhập mật khẩu mới cho tài khoản của bạn.
               </p>
             </div>
 
-            {/* RESET PASSWORD FORM */}
-            <ResetPasswordForm />
+            <Suspense
+              fallback={
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                </div>
+              }
+            >
+              <ResetPasswordConfirmForm />
+            </Suspense>
 
             <div className="mt-8 flex justify-center gap-6 text-xs text-slate-400 pb-4">
               <Link href="#" className="hover:text-blue-600 transition-colors">

@@ -156,13 +156,13 @@ export default function LoginForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 w-full">
       {/* CONTACT FIELD */}
       <div className="space-y-1.5">
-        <label className="text-sm font-semibold text-slate-700">Email hoặc SĐT</label>
+        <label className="text-sm font-semibold text-slate-700">Email</label>
         <div className={getInputClass(!!errors.contact)}>
           <span className="pl-3 text-slate-400">
             <Mail size={18} />
           </span>
           <input
-            type="text"
+            type="email"
             placeholder="example@gmail.com"
             className="w-full bg-transparent p-3 text-sm focus:outline-none"
             disabled={mutation.isPending}
