@@ -1,4 +1,4 @@
-import { apiJava, buildJavaApiUrl } from "@/lib/axios";
+import { apiJava } from "@/lib/axios";
 import type {
   AiDiseaseKnowledge,
   AiKnowledgeCategory,
@@ -7,7 +7,7 @@ import type {
   AiKnowledgeReviewCase,
   AiKeywordAnswerSet,
 } from "@/app/types/ai-knowledge.types";
-import type { AiDoctorChatResponse } from "@/app/types/ai-doctor.types";
+import type { AiDoctorChatResponse, AiDoctorDiagnosisResponse } from "@/app/types/ai-doctor.types";
 
 export const aiKnowledgeService = {
   async getCategories() {
@@ -123,12 +123,30 @@ export const aiKnowledgeService = {
     return response.data;
   },
 
-  getTemplateDownloadUrl() {
-    return buildJavaApiUrl("/ai-knowledge/import/template");
+  async downloadTemplate() {
+    const response = await apiJava.get("/ai-knowledge/import/template", {
+      responseType: "blob",
+    });
+    return response.data as Blob;
   },
 
-  async testChat(message: string) {
-    const response = await apiJava.post<AiDoctorChatResponse>("/ai-knowledge/test-chat", { message });
+  async testChat(message: string, previewDiseaseCode?: string) {
+    const response = await apiJava.post<AiDoctorChatResponse>("/ai-knowledge/test-chat", {
+      message,
+      previewDiseaseCode,
+    });
+    return response.data;
+  },
+
+  async testDiagnose(image: File, userSymptoms?: string, previewDiseaseCode?: string) {
+    const fd = new FormData();
+    fd.append("image", image);
+    if (userSymptoms?.trim()) fd.append("userSymptoms", userSymptoms.trim());
+    if (previewDiseaseCode) fd.append("previewDiseaseCode", previewDiseaseCode);
+    const response = await apiJava.post<AiDoctorDiagnosisResponse>("/ai-knowledge/test-diagnose", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 90000,
+    } as any);
     return response.data;
   },
 };

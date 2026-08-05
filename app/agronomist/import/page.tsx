@@ -25,7 +25,7 @@ import {
 } from "@/components/agronomist/agronomist-ui";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import { getErrorMessage } from "@/lib/axios";
-import { cn } from "@/lib/utils";
+import { cn, downloadBlob } from "@/lib/utils";
 import { P } from "@/lib/permissions";
 import type {
   AiKnowledgeImportPreview,
@@ -65,6 +65,13 @@ function AgronomistImportContent() {
       toast.error(getErrorMessage(error) || "Không thể đọc file Excel."),
   });
 
+  const downloadTemplateMutation = useMutation({
+    mutationFn: () => aiKnowledgeService.downloadTemplate(),
+    onSuccess: (blob) => downloadBlob(blob, "ai-knowledge-template.xlsx"),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error) || "Không thể tải file mẫu."),
+  });
+
   const applyMutation = useMutation({
     mutationFn: async () => {
       if (!preview) throw new Error("Chưa có dữ liệu preview.");
@@ -84,13 +91,19 @@ function AgronomistImportContent() {
       <AgronomistPageHeader
         title="Import tri thức AI (Excel)"
         actions={
-          <a
-            href={aiKnowledgeService.getTemplateDownloadUrl()}
-            className={agronomistOutlineButtonClassName}
+          <button
+            type="button"
+            onClick={() => downloadTemplateMutation.mutate()}
+            disabled={downloadTemplateMutation.isPending}
+            className={cn(agronomistOutlineButtonClassName, "disabled:cursor-not-allowed disabled:opacity-60")}
           >
-            <Download className="h-4 w-4" />
+            {downloadTemplateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             Tải file mẫu
-          </a>
+          </button>
         }
       />
 
