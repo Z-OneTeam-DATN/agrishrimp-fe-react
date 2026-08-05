@@ -1,10 +1,14 @@
 import { P } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/roles";
 
 export const ADVISOR_WORKSPACE_PERMISSIONS = [P.CUSTOMER_ADVISOR_USE] as const;
 export const AGRONOMIST_WORKSPACE_PERMISSIONS = [P.AGRONOMIST_WORKSPACE_USE] as const;
 export const LAST_WORKSPACE_STORAGE_KEY = "lastWorkspace";
 export type WorkspaceRoute = "/admin" | "/agronomist" | "/chat";
 
+// LƯU Ý: KHÔNG thêm P.BLOG_VIEW vào đây — quyền này giờ cũng được cấp cho vai trò kỹ sư (workspace
+// /agronomist/blog) để họ gửi bài chờ duyệt, nên nếu tính vào đây thì kỹ sư sẽ "lọt" được vào cả
+// khu vực /admin (sidebar hiện ra, "Quay lại quản trị" hiện ra) dù không có quyền admin thật nào.
 export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.DASHBOARD_VIEW,
   P.REPORT_REVENUE_VIEW,
@@ -26,7 +30,6 @@ export const ADMIN_WORKSPACE_PERMISSIONS = [
   P.CHECK_VIEW,
   P.PURCHASE_REQUEST_VIEW,
   P.BANNER_VIEW,
-  P.BLOG_VIEW,
   P.SETTING_VIEW,
   P.CHAT_VIEW,
 ] as const;
@@ -126,6 +129,13 @@ export function setLastWorkspace(workspace: WorkspaceRoute) {
 export function getPostLoginDestination(permissions: string[] = [], roleSlug?: string) {
   if (roleSlug === "USER" || roleSlug === "CUSTOMER") {
     return "/";
+  }
+
+  // Admin/super-admin luôn vào thẳng /admin, bỏ qua "lastWorkspace" đã nhớ trước đó — tránh bị
+  // dẫn nhầm sang /agronomist hay /chat chỉ vì lần trước tài khoản này từng ghé workspace đó
+  // (VD để test tính năng của kỹ sư/tư vấn).
+  if (isAdminRole(roleSlug)) {
+    return "/admin";
   }
 
   const availableWorkspaces = getAvailableWorkspaces(permissions);
