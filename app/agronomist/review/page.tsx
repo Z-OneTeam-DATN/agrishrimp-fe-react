@@ -31,6 +31,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PermissionGuard } from "@/components/auth/PermissionGuard";
+import DiseaseMultiSelect, {
+  type DiseaseOption,
+} from "@/components/agronomist/DiseaseMultiSelect";
 import {
   AgronomistPageHeader,
   AgronomistPagination,
@@ -73,7 +76,7 @@ type ReviewQuestionGroup = {
 
 type ReviewEditorState = {
   group: ReviewQuestionGroup;
-  matchedKnowledgeCode: string;
+  matchedKnowledgeCodes: string[];
   resolutionNotes: string;
 };
 
@@ -104,6 +107,23 @@ function AgronomistReviewContent() {
     queryKey: ["ai-knowledge", "review-cases"],
     queryFn: () => aiKnowledgeService.getReviewCases(),
   });
+
+  const diseasesQuery = useQuery({
+    queryKey: ["ai-knowledge", "diseases"],
+    queryFn: () => aiKnowledgeService.getDiseases(),
+  });
+
+  const diseaseOptions: DiseaseOption[] = useMemo(
+    () =>
+      (diseasesQuery.data ?? [])
+        .filter((disease) => disease.status === "APPROVED" && disease.enabled)
+        .map((disease) => ({
+          code: disease.code,
+          label: disease.nameVi || disease.code,
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label, "vi")),
+    [diseasesQuery.data],
+  );
 
   const reviewCases = reviewCasesQuery.data ?? [];
 
@@ -208,7 +228,7 @@ function AgronomistReviewContent() {
   const openEditor = (group: ReviewQuestionGroup) => {
     setEditor({
       group,
-      matchedKnowledgeCode: group.matchedKnowledgeCode || "",
+      matchedKnowledgeCodes: parseKnowledgeCodes(group.matchedKnowledgeCode),
       resolutionNotes: group.resolutionNotes || "",
     });
   };
@@ -439,21 +459,21 @@ function AgronomistReviewContent() {
               <div className="rounded-[3px] border border-[#bcc6ff] bg-[#e4e8ff] px-4 py-3 text-[12px] leading-5 text-[#252896]">
                 {editor.group.questionText}
               </div>
-              <div className="mt-5 grid gap-4 sm:grid-cols-[160px,1fr]">
+              <div className="mt-5 space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[12px] font-semibold text-[#232323]">
-                    Mã tri thức
+                    Phác đồ liên quan
                   </Label>
-                  <Input
-                    value={editor.matchedKnowledgeCode}
-                    onChange={(event) =>
+                  <DiseaseMultiSelect
+                    options={diseaseOptions}
+                    value={editor.matchedKnowledgeCodes}
+                    onChange={(codes) =>
                       setEditor({
                         ...editor,
-                        matchedKnowledgeCode: event.target.value,
+                        matchedKnowledgeCodes: codes,
                       })
                     }
-                    placeholder="VD: FAQ_DOM_TRANG"
-                    className={agronomistInputClassName}
+                    loading={diseasesQuery.isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -499,7 +519,9 @@ function AgronomistReviewContent() {
                   updateCaseMutation.mutate({
                     group: editor.group,
                     status: "IGNORED",
-                    matchedKnowledgeCode: editor.matchedKnowledgeCode,
+                    matchedKnowledgeCode: joinKnowledgeCodes(
+                      editor.matchedKnowledgeCodes,
+                    ),
                     resolutionNotes: editor.resolutionNotes,
                   })
                 }
@@ -516,7 +538,9 @@ function AgronomistReviewContent() {
                 updateCaseMutation.mutate({
                   group: editor.group,
                   status: "RESOLVED",
-                  matchedKnowledgeCode: editor.matchedKnowledgeCode,
+                  matchedKnowledgeCode: joinKnowledgeCodes(
+                    editor.matchedKnowledgeCodes,
+                  ),
                   resolutionNotes: editor.resolutionNotes,
                 })
               }
@@ -656,6 +680,18 @@ function toTime(value?: string) {
   if (!value) return 0;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function parseKnowledgeCodes(value?: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((code) => code.trim())
+    .filter(Boolean);
+}
+
+function joinKnowledgeCodes(codes: string[]): string {
+  return codes.join(",");
 }
 
 function normalizeText(value: string) {
