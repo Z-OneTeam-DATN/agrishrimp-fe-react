@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, Home, ShieldX } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ShieldX } from "lucide-react";
 
 type AdminAccessDeniedProps = {
   title?: string;
@@ -39,24 +37,6 @@ export default function AdminAccessDenied({
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
           <p className="text-slate-500 text-sm leading-relaxed">{description}</p>
-        </div>
-
-        <div className="flex gap-3 justify-center pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => window.history.back()}
-            className="gap-2"
-          >
-            <ArrowLeft size={16} />
-            Quay lại
-          </Button>
-          <Link href="/admin">
-            <Button type="button" className="gap-2 bg-blue-600 hover:bg-blue-700">
-              <Home size={16} />
-              Về trang chủ
-            </Button>
-          </Link>
         </div>
       </div>
     </div>
