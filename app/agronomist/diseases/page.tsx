@@ -48,7 +48,7 @@ import {
   agronomistPrimaryButtonClassName,
   agronomistTableHeadClassName,
 } from "@/components/agronomist/agronomist-ui";
-import { cn } from "@/lib/utils";
+import { cn, downloadBlob } from "@/lib/utils";
 import { P } from "@/lib/permissions";
 import { aiKnowledgeService } from "@/app/services/aiKnowledge.service";
 import type { AiDiseaseKnowledge } from "@/app/types/ai-knowledge.types";
@@ -86,6 +86,7 @@ function AgronomistDiseasesContent() {
     null,
   );
   const [page, setPage] = useState(0);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -144,6 +145,18 @@ function AgronomistDiseasesContent() {
     if (page > totalPages - 1) setPage(totalPages - 1);
   }, [page, totalPages]);
 
+  const handleDownloadTemplate = async () => {
+    setDownloadingTemplate(true);
+    try {
+      const blob = await aiKnowledgeService.downloadTemplate();
+      downloadBlob(blob, "ai-knowledge-template.xlsx");
+    } catch {
+      toast.error("Không thể tải file mẫu.");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -165,13 +178,19 @@ function AgronomistDiseasesContent() {
           <>
             {canImportKnowledge ? (
               <>
-                <a
-                  href={aiKnowledgeService.getTemplateDownloadUrl()}
-                  className={agronomistOutlineButtonClassName}
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  disabled={downloadingTemplate}
+                  className={cn(agronomistOutlineButtonClassName, "disabled:cursor-not-allowed disabled:opacity-60")}
                 >
-                  <Download className="h-4 w-4" />
+                  {downloadingTemplate ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
                   Tải file mẫu
-                </a>
+                </button>
                 <Link
                   href="/agronomist/import"
                   className={agronomistOutlineButtonClassName}
