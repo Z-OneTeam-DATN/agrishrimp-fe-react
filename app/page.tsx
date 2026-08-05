@@ -4,6 +4,7 @@ import { Tag } from "lucide-react";
 
 import Banner from "@/components/site/SiteBanner";
 import HomeFeaturedProductsSection from "@/components/site/HomeFeaturedProductsSection";
+import HomeRecommendedProductsSection from "@/components/site/HomeRecommendedProductsSection";
 import HomeLatestBlogSection from "@/components/site/HomeLatestBlogSection";
 import { getPublicCategories } from "@/app/services/CategoryService";
 import { getPublicBrands } from "@/app/services/brand.service";
@@ -180,6 +181,8 @@ export default async function Home() {
           </div>
         </div>
       )}
+
+      <HomeRecommendedProductsSection />
 
       <HomeFeaturedProductsSection initialPage={firstPage} />
 
