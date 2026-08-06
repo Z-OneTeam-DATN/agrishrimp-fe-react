@@ -10,7 +10,7 @@ import {
 
 import { formatNumber } from "@/lib/utils";
 import { PublicProductListItem } from "@/app/types/product.schema";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/stores/useCartStore";
 import { cartService } from "@/app/services/cart.service";
@@ -80,14 +80,40 @@ export function ProductCardSkeleton() {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
-  const { fetchCartCount } = useCartStore(); // ✅ Thay đổi ở đây
+  const { fetchCartCount } = useCartStore();
   const [isAdding, setIsAdding] = useState(false);
 
   if (!product) return null;
 
   const firstVariant = product.variants?.[0];
-  const displayImage =
-    firstVariant?.imageUrl ?? product.imageUrls?.[0] ?? "/placeholder.svg";
+  
+  // Extract all valid image URLs (split by comma if multiple URLs exist)
+  const allImages: string[] = Array.from(
+    new Set(
+      (product.variants || [])
+        .flatMap((v) => (v.imageUrl || "").split(","))
+        .concat(product.imageUrls || [])
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0 && s !== "/placeholder.svg")
+    )
+  );
+  if (allImages.length === 0) allImages.push("/placeholder.svg");
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    if (!isHovered || allImages.length <= 1) {
+      setCurrentImageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+    }, 900);
+
+    return () => clearInterval(interval);
+  }, [isHovered, allImages.length]);
 
   const brandLabel = product.brandName || product.supplierName || product.categoryName || "";
 
@@ -111,7 +137,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     setIsAdding(true);
     try {
       await cartService.updateQuantity(firstVariant.id, 1);
-      fetchCartCount(); // ✅ Cập nhật lại số lượng ở Header bằng cách gọi API
+      fetchCartCount();
       animateFlyToCart(e);
       toast.success(`Đã thêm ${product.name} vào giỏ hàng`);
     } catch (error: any) {
@@ -131,21 +157,37 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/san-pham/${product.slug}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="group relative flex h-full flex-col border border-[#ececec] bg-white p-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-[#d9e4d9] hover:shadow-[0_16px_34px_rgba(15,23,42,0.1)]"
     >
       <div className="relative mx-auto w-full max-w-[220px] overflow-hidden bg-white pt-[84%]">
         <Image
-          src={displayImage}
+          key={`card-img-${currentImageIndex}-${allImages[currentImageIndex]}`}
+          src={allImages[currentImageIndex] || "/placeholder.svg"}
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
-          className={`object-contain p-0 transition-transform duration-500 group-hover:scale-[1.04] ${
+          className={`object-contain p-0 transition-all duration-500 group-hover:scale-[1.04] ${
             product.isOutOfStock ? "opacity-50 grayscale" : ""
           }`}
           onError={(e) => {
             (e.target as HTMLImageElement).src = "/placeholder.svg";
           }}
         />
+
+        {allImages.length > 1 && isHovered && (
+          <div className="absolute bottom-1 left-0 right-0 z-10 flex justify-center gap-1 transition-opacity duration-300">
+            {allImages.map((_, idx) => (
+              <span
+                key={`dot-${idx}`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  idx === currentImageIndex ? "w-3 bg-[#1965a2]" : "w-1.5 bg-slate-300"
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 flex flex-1 flex-col items-center text-center">
