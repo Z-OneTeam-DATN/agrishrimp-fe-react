@@ -1,7 +1,6 @@
 import { apiJava, apiNext } from "@/lib/axios";
 import {
   RegisterRequest,
-  UserResponse,
   AuthResponse,
   LoginFormValues,
 } from "@/app/types/auth.schema";
@@ -88,8 +87,16 @@ export class AuthService {
   }
 
   // ĐĂNG KÝ
-  static async register(userData: RegisterRequest): Promise<UserResponse> {
-    const response = await apiJava.post<UserResponse>("/auth/signup", userData);
+  static async registerJava(userData: RegisterRequest): Promise<AuthResponse> {
+    const response = await apiJava.post<AuthResponse>("/auth/signup", userData);
+    return response.data;
+  }
+
+  static async registerNext(userData: RegisterRequest): Promise<AuthResponse> {
+    const response = await apiNext.post<AuthResponse>(
+      `${this.PREFIX}/signup`,
+      userData,
+    );
     return response.data;
   }
 

@@ -11,7 +11,9 @@ import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { RegisterSchema, RegisterFormValues } from "@/app/types/auth.schema";
 import { AuthService } from "@/app/services/auth.service";
+import { getErrorMessage } from "@/lib/axios";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { getPostLoginDestination } from "@/lib/workspace-permissions";
 import {
   AUTH_ACCENT_RING,
   AUTH_ACCENT_SOLID,
@@ -48,36 +50,56 @@ export default function SignupForm() {
   const mutation = useMutation({
     mutationFn: (data: RegisterFormValues) => {
       console.log("Submitting Register Payload:", data);
-      return AuthService.register(data);
+      return AuthService.registerNext(data);
     },
-    onSuccess: async () => {
-      // Spring set httpOnly auth cookies on signup. Read them via the Next.js
-      // me-token route so the Zustand store has an accessToken immediately —
-      // otherwise apiJava sends no Authorization header and cart calls 401.
+    onSuccess: async (res) => {
+      const setAccessAndRefreshToken = useAuthStore.getState().setAccessAndRefreshToken;
+      const setPermissions = useAuthStore.getState().setPermissions;
+
       try {
-        const authData = await AuthService.meTokenNext();
-        useAuthStore.getState().setAccessAndRefreshToken(authData);
+        sessionStorage.removeItem("_u");
+        sessionStorage.removeItem("_p");
       } catch {
-        // If hydration fails, middleware will repair the hasSession desync
-        // on the next page load and the auth flow will recover.
+        // Ignore storage access issues in restricted browsers.
       }
+
+      setPermissions([]);
+      setAccessAndRefreshToken(res);
+
+      let permissions: string[] = [];
+      try {
+        permissions = await AuthService.getMyPermissionsNext();
+        setPermissions(permissions);
+      } catch {
+        // A new customer account can continue with an empty permission list.
+      }
+
+      toast.success("Đăng ký thành công!");
       router.refresh();
-      router.push("/");
+      router.push(getPostLoginDestination(permissions, res.role));
     },
-    onError: (error: any) => {
-      const status = error?.response?.status;
-      const detail: string =
-        error?.response?.data?.detail || error?.response?.data?.message || "";
+    onError: (error: unknown) => {
+      const status =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
+      const detail = getErrorMessage(error);
 
       console.log("Signup error:", status, detail);
 
       const message = detail.toLowerCase();
 
-      if (status === 400 && message.includes("email")) {
+      if (
+        (status === 409 && message.includes("email")) ||
+        message.includes("email này đã được sử dụng")
+      ) {
         setError("contact", {
           type: "server",
-          message: "Email này đã tồn tại",
+          message: "Email này đã được sử dụng",
         });
+        resetCaptcha();
         return;
       }
 
@@ -96,7 +118,7 @@ export default function SignupForm() {
         return;
       }
 
-      if (status >= 500) {
+      if (typeof status === "number" && status >= 500) {
         toast.error("Lỗi hệ thống, vui lòng thử lại.");
         resetCaptcha();
         return;
