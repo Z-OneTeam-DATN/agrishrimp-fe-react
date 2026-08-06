@@ -28,7 +28,10 @@ let failedQueue: FailedQueueItem[] = [];
 const isClient = () => typeof window !== "undefined";
 const isDev = process.env.NODE_ENV === "development";
 const DEFAULT_PUBLIC_API_BASE_URL = "https://api.agrishrimp.io.vn/api";
-const DEFAULT_SERVER_API_BASE_URL = "http://api:8004/api";
+const DEFAULT_SERVER_API_BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "http://api:8004/api"
+    : "http://localhost:8004/api";
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 

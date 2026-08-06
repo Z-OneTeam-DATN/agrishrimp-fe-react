@@ -176,7 +176,7 @@ export function AdminSupplierTable({
                                 <TableCell className="p-2 text-right pr-4 align-top">
                                     <div className="flex justify-end gap-1.5">
                                         <Link href={`/admin/suppliers/${supplier.id}`}>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-all rounded-md">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white transition-all rounded-md">
                                                 <Pencil size={14} />
                                             </Button>
                                         </Link>

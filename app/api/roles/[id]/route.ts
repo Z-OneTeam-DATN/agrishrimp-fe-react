@@ -1,7 +1,11 @@
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
-const javaApiUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
+const javaApiUrl =
+  process.env.JAVA_API_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "http://api:8004/api"
+    : "http://localhost:8004/api");
 
 export async function DELETE(
   request: NextRequest,
