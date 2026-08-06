@@ -281,7 +281,7 @@ export default function EditProductPage() {
 
     const { fields, append, remove } = useFieldArray({ control, name: "variants" });
     const [variantDataMap, setVariantDataMap] = useState<Record<number, any>>({});
-    const firstVariantImagePreview = (variantImagePreviews[0] || "").trim();
+    const firstVariantImagePreview = (variantImagePreviews[0]?.[0] || "").trim();
 
     const steps = useMemo(
         () => [

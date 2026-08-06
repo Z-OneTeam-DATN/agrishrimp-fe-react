@@ -1689,8 +1689,8 @@ export default function AddProductPage() {
                                     <div key={field.id} className={cn("bg-white", isSelected && "bg-blue-50/40")}>
                                         <div className="flex min-h-[56px] items-center gap-3 px-5 py-3">
                                             <div className="flex w-6 shrink-0 items-center justify-center">
-                                                {variantImagePreviews[idx] ? (
-                                                    <img src={variantImagePreviews[idx]} className="h-7 w-7 rounded-md object-cover" alt="SKU" />
+                                                {variantImagePreviews[idx]?.[0] ? (
+                                                    <img src={variantImagePreviews[idx][0]} className="h-7 w-7 rounded-md object-cover" alt="SKU" />
                                                 ) : (
                                                     <span className="text-[12px] font-semibold text-slate-400">
                                                         {idx + 1}
