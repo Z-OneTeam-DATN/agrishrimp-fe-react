@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import dynamic from "next/dynamic";
 import {
-    X, Trash2, Save, ChevronLeft, Camera, Upload, AlertCircle, FileText, Layers, Loader2, ChevronDown, Check, Package, Info, Copy, ChevronUp
+    X, Trash2, Save, ChevronLeft, Camera, Upload, AlertCircle, FileText, Layers, Loader2, ChevronDown, Check, Package, Info, Copy, ChevronUp, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -245,8 +245,8 @@ export default function EditProductPage() {
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
 
-    const [variantImageFiles, setVariantImageFiles] = useState<(File | string | null)[]>([]);
-    const [variantImagePreviews, setVariantImagePreviews] = useState<string[]>([]);
+    const [variantImageFiles, setVariantImageFiles] = useState<File[][]>([]);
+    const [variantImagePreviews, setVariantImagePreviews] = useState<string[][]>([]);
 
     const [categories, setCategories] = useState<any[]>([]);
     const [brands, setBrands] = useState<any[]>([]);
@@ -527,9 +527,14 @@ export default function EditProductPage() {
                     setVariantDataMap(extraData);
                     reset(mappedData);
 
-                    const vImages = (productDetail.variants || []).map((v: any) => v.imageUrl || null);
-                    setVariantImageFiles(vImages);
-                    setVariantImagePreviews(vImages.map((img: string | null) => img || ""));
+                    const initialPreviews: string[][] = (productDetail.variants || []).map((v: any) =>
+                        (v.imageUrl || "")
+                            .split(",")
+                            .map((s: string) => s.trim())
+                            .filter((s: string) => s.length > 0)
+                    );
+                    setVariantImagePreviews(initialPreviews);
+                    setVariantImageFiles(initialPreviews.map(() => []));
 
                     const savedDraft = localStorage.getItem(draftStorageKey);
                     if (savedDraft) {
@@ -987,7 +992,7 @@ export default function EditProductPage() {
                 const fieldName = `variants.${attributeEditor.variantIndex}.attributeValueIds` as const;
                 const currentSelectedIds = getValues(fieldName) || [];
                 const otherAttributeValueIds = currentSelectedIds.filter(
-                    (id: number) => !refreshedValueDetails.some((detail) => Number(detail.valueId) === id)
+(id: number) => !refreshedValueDetails.some((detail) => Number(detail.valueId) === id)
                 );
 
                 setValue(fieldName, [...otherAttributeValueIds, Number(latestAddedValue.valueId)], {
@@ -1006,11 +1011,45 @@ export default function EditProductPage() {
         }
     };
 
-    const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setVariantImageFiles((prev) => { const n = [...prev]; n[variantIndex] = file; return n; });
-        setVariantImagePreviews((prev) => { const n = [...prev]; n[variantIndex] = URL.createObjectURL(file); return n; });
+    const handleVariantImageChange = (
+        variantIndex: number,
+        e: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        setVariantImageFiles((prev) => {
+            const next = [...prev];
+            const currentFiles = next[variantIndex] || [];
+            next[variantIndex] = [...currentFiles, ...files];
+            return next;
+        });
+        setVariantImagePreviews((prev) => {
+            const next = [...prev];
+            const currentPreviews = next[variantIndex] || [];
+            const newPreviews = files.map((f) => URL.createObjectURL(f));
+            next[variantIndex] = [...currentPreviews, ...newPreviews];
+            return next;
+        });
+        setMediaDirty(true);
+        e.target.value = "";
+    };
+
+    const handleRemoveVariantImage = (variantIndex: number, imgIdx: number) => {
+        setVariantImageFiles((prev) => {
+            const next = [...prev];
+            if (next[variantIndex]) {
+                next[variantIndex] = next[variantIndex].filter((_, i) => i !== imgIdx);
+            }
+            return next;
+        });
+        setVariantImagePreviews((prev) => {
+            const next = [...prev];
+            if (next[variantIndex]) {
+                next[variantIndex] = next[variantIndex].filter((_, i) => i !== imgIdx);
+            }
+            return next;
+        });
         setMediaDirty(true);
     };
 
@@ -1031,8 +1070,8 @@ export default function EditProductPage() {
         const newBarcode = `893${Math.floor(100000000 + Math.random() * 900000000)}`;
 
         append({ ...DEFAULT_VARIANT, sku: newSku, barcode: newBarcode });
-        setVariantImageFiles((prev) => [...prev, null]);
-        setVariantImagePreviews((prev) => [...prev, ""]);
+        setVariantImageFiles((prev) => [...prev, []]);
+        setVariantImagePreviews((prev) => [...prev, []]);
         setVariantDataMap(prev => ({ ...prev, [fields.length]: { quantity: 0, batches: [] } }));
     };
 
@@ -1063,10 +1102,10 @@ export default function EditProductPage() {
             attributeValueIds: [...(source?.attributeValueIds || [])],
         });
 
-        const sourceFile = variantImageFiles[idx];
-        const sourcePreview = variantImagePreviews[idx] || "";
-        setVariantImageFiles((prev) => [...prev, sourceFile ?? null]);
-        setVariantImagePreviews((prev) => [...prev, sourcePreview]);
+        const sourceFiles = variantImageFiles[idx] || [];
+        const sourcePreviews = variantImagePreviews[idx] || [];
+        setVariantImageFiles((prev) => [...prev, [...sourceFiles]]);
+        setVariantImagePreviews((prev) => [...prev, [...sourcePreviews]]);
         setVariantDataMap((prev) => ({ ...prev, [fields.length]: { quantity: 0, batches: [] } }));
         setMediaDirty(true);
     };
@@ -1101,8 +1140,8 @@ export default function EditProductPage() {
     };
 
     const onSubmit = async (data: ProductFormData) => {
-        const firstVariantImage = variantImageFiles[0];
-        if (!firstVariantImage) return toast.error("Vui lòng tải ảnh cho biến thể đầu tiên.");
+        const firstVariantPreviews = variantImagePreviews[0] || [];
+        if (firstVariantPreviews.length === 0) return toast.error("Vui lòng tải ít nhất 1 ảnh cho biến thể đầu tiên.");
         const skus = data.variants.map(v => v.sku.toLowerCase().trim());
         if (skus.length !== new Set(skus).size) return toast.error("Mã SKU giữa các biến thể không được trùng lặp.");
 
@@ -1128,8 +1167,8 @@ export default function EditProductPage() {
 
         try {
             setIsLoading(true);
-            const existingFirstVariantImage = typeof firstVariantImage === 'string' ? firstVariantImage : null;
-            const newFirstVariantImageFile = typeof firstVariantImage === 'string' ? null : firstVariantImage;
+            const firstExistingImage = firstVariantPreviews.find((url) => !url.startsWith("blob:")) || null;
+            const firstNewImageFile = (variantImageFiles[0] || [])[0] || null;
 
             const productData: any = {
                 name: data.name.trim(),
@@ -1137,12 +1176,13 @@ export default function EditProductPage() {
                 ...(data.brandId && { brandId: Number(data.brandId) }),
                 description: data.description || "",
                 status: data.status,
-                images: existingFirstVariantImage ? [existingFirstVariantImage] : [],
+                images: firstExistingImage ? [firstExistingImage] : [],
                 variants: rawVariants.map((v: any, vIdx: number) => {
-                    const img = variantImageFiles[vIdx];
+                    const vPreviews = (variantImagePreviews[vIdx] || []).filter((url) => !url.startsWith("blob:"));
                     return {
-                        sku: v.sku.trim(), barcode: v.barcode?.trim() || "",
-                        image: typeof img === 'string' ? img : null,
+                        sku: v.sku.trim(),
+                        barcode: v.barcode?.trim() || "",
+                        image: vPreviews.length > 0 ? vPreviews.join(",") : null,
                         attributeValueIds: v.attributeValueIds || [],
                     };
                 }),
@@ -1151,13 +1191,15 @@ export default function EditProductPage() {
             const formData = new FormData();
             formData.append("data", new Blob([JSON.stringify(productData)], { type: "application/json" }));
 
-            if (newFirstVariantImageFile) {
-                formData.append("productImages", newFirstVariantImageFile as File);
+            if (firstNewImageFile) {
+                formData.append("productImages", firstNewImageFile);
             }
 
-            variantImageFiles.forEach((file) => {
-                if (file && typeof file !== 'string') {
-                    formData.append("variantImages", file as File);
+            variantImageFiles.forEach((fileList) => {
+                if (fileList && fileList.length > 0) {
+                    fileList.forEach((file) => {
+                        formData.append("variantImages", file);
+                    });
                 } else {
                     formData.append("variantImages", new Blob([], { type: "image/png" }));
                 }
@@ -1344,8 +1386,8 @@ export default function EditProductPage() {
                                     <div key={field.id} className={cn("bg-white", isSelected && "bg-blue-50/40")}>
                                         <div className="flex min-h-[56px] items-center gap-3 px-5 py-3">
                                             <div className="flex w-6 shrink-0 items-center justify-center">
-                                                {variantImagePreviews[idx] ? (
-                                                    <img src={variantImagePreviews[idx]} className="h-7 w-7 rounded-md object-cover" alt="SKU" />
+                                                {variantImagePreviews[idx]?.[0] ? (
+                                                    <img src={variantImagePreviews[idx][0]} className="h-7 w-7 rounded-md object-cover" alt="SKU" />
                                                 ) : (
                                                     <span className="text-[12px] font-semibold text-slate-400">{idx + 1}</span>
                                                 )}
@@ -1377,13 +1419,56 @@ export default function EditProductPage() {
 
                                         {!isCollapsed && (
                                         <div className="flex flex-col gap-5 border-t border-slate-100 px-6 py-5 xl:flex-row">
-                                            <div className="flex flex-col items-center shrink-0">
-                                                <div onClick={() => document.getElementById(`v-img-${idx}`)?.click()} className="group relative flex h-[100px] w-[100px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 transition-all hover:border-blue-500">
-                                                    {variantImagePreviews[idx] ? <img src={variantImagePreviews[idx]} className="w-full h-full object-cover" alt="Variant" /> : <><Camera size={26} className="text-slate-300" /><span className="mt-1 text-[9px] font-normal text-slate-300">Chọn ảnh</span></>}
-                                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Upload size={15} className="text-white" /></div>
+                                            <div className="flex flex-col shrink-0 gap-1.5">
+                                                <Label className="text-[10.5px] font-semibold text-slate-500">
+                                                    Ảnh biến thể ({(variantImagePreviews[idx] || []).length} ảnh)
+                                                </Label>
+                                                <div className="flex flex-wrap items-center gap-2 max-w-[280px]">
+                                                    {(variantImagePreviews[idx] || []).map((imgSrc, imgIdx) => (
+                                                        <div
+                                                            key={`v-preview-${idx}-${imgIdx}`}
+                                                            className="group relative h-[72px] w-[72px] overflow-hidden rounded-md border border-slate-200 bg-slate-50 shrink-0"
+                                                        >
+                                                            <img src={imgSrc} className="h-full w-full object-cover" alt={`SKU #${idx + 1}`} />
+                                                            {imgIdx === 0 && (
+                                                                <span className="absolute top-0.5 left-0.5 rounded bg-blue-600 px-1 py-0.5 text-[8px] font-bold text-white shadow">
+                                                                    Bìa
+                                                                </span>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveVariantImage(idx, imgIdx)}
+                                                                className="absolute top-0.5 right-0.5 rounded-full bg-slate-900/70 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-rose-600"
+                                                                title="Xóa ảnh"
+                                                            >
+                                                                <X size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+
+                                                    <div
+                                                        onClick={() =>
+                                                            document.getElementById(`v-img-${idx}`)?.click()
+                                                        }
+                                                        className="flex h-[72px] w-[72px] cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 transition-all hover:border-blue-500 hover:bg-blue-50/50 shrink-0"
+                                                    >
+                                                        <Plus size={16} className="text-slate-400" />
+                                                        <span className="mt-0.5 text-[9px] font-medium text-slate-500">
+                                                            {(variantImagePreviews[idx] || []).length === 0 ? "Chọn ảnh" : "+ Ảnh"}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <input type="file" id={`v-img-${idx}`} hidden onChange={(e) => handleVariantImageChange(idx, e)} accept="image/*" />
-                                                <p className="mt-1.5 text-center text-[9px] font-medium text-slate-400">Ảnh SKU / Barcode</p>
+                                                <input
+                                                    type="file"
+                                                    id={`v-img-${idx}`}
+                                                    hidden
+                                                    multiple
+                                                    onChange={(e) => handleVariantImageChange(idx, e)}
+                                                    accept="image/*"
+                                                />
+                                                <p className="text-[9px] text-slate-400">
+                                                    Ảnh #1 làm ảnh chính ngoài trang chủ
+                                                </p>
                                             </div>
 
                                             <div className="flex-1 space-y-4">
