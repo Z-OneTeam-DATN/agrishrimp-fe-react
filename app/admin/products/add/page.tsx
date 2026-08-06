@@ -1280,16 +1280,30 @@ export default function AddProductPage() {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        const invalidFiles = files.filter((f) => f.size > MAX_FILE_SIZE);
+        if (invalidFiles.length > 0) {
+            toast.error(
+                `Dung lượng ảnh vượt quá giới hạn cho phép (Tối đa 10MB): ${invalidFiles.map((f) => f.name).join(", ")}`
+            );
+        }
+
+        const validFiles = files.filter((f) => f.size <= MAX_FILE_SIZE);
+        if (validFiles.length === 0) {
+            e.target.value = "";
+            return;
+        }
+
         setVariantImageFiles((prev) => {
             const next = [...prev];
             const currentFiles = next[variantIndex] || [];
-            next[variantIndex] = [...currentFiles, ...files];
+            next[variantIndex] = [...currentFiles, ...validFiles];
             return next;
         });
         setVariantImagePreviews((prev) => {
             const next = [...prev];
             const currentPreviews = next[variantIndex] || [];
-            const newPreviews = files.map((f) => URL.createObjectURL(f));
+            const newPreviews = validFiles.map((f) => URL.createObjectURL(f));
             next[variantIndex] = [...currentPreviews, ...newPreviews];
             return next;
         });
