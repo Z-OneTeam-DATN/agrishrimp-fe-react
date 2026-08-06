@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
-const internalApiBaseUrl = process.env.JAVA_API_URL ?? "http://api:8004/api";
+const internalApiBaseUrl =
+  process.env.JAVA_API_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "http://api:8004/api"
+    : "http://localhost:8004/api");
 
 const nextConfig = {
   output: "standalone",

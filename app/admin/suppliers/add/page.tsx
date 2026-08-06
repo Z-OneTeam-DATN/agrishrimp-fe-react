@@ -317,16 +317,15 @@ export default function AddSupplierPage() {
                 const missingFields: string[] = [];
                 const statuses = businessInfo.fieldStatuses as Record<string, string> | undefined;
                 if (statuses) {
-                    if (statuses.name !== "FOUND") missingFields.push("Tên công ty");
-                    if (statuses.owner !== "FOUND") missingFields.push("Người đại diện");
-                    if (statuses.phone !== "FOUND") missingFields.push("SĐT");
-                    if (statuses.issueDate !== "FOUND") missingFields.push("Ngày thành lập");
-                    if (statuses.mainBusinessSector !== "FOUND") missingFields.push("Ngành nghề");
+                    if (statuses.name !== "FOUND" && statuses.name !== "VERIFIED") missingFields.push("Tên công ty");
+                    if (statuses.owner !== "FOUND" && statuses.owner !== "VERIFIED") missingFields.push("Người đại diện");
+                    if (statuses.issueDate !== "FOUND" && statuses.issueDate !== "VERIFIED") missingFields.push("Ngày thành lập");
+                    if (statuses.mainBusinessSector !== "FOUND" && statuses.mainBusinessSector !== "VERIFIED") missingFields.push("Ngành nghề");
                 }
                 if (missingFields.length > 0) {
                     toast.warning(`Tra cứu thành công. Một số thông tin chưa tìm được: ${missingFields.join(", ")}`);
                 } else {
-                    toast.success("Đã điền đầy đủ thông tin từ tra cứu MST!");
+                    toast.success("Đã tra cứu và đối soát đầy đủ thông tin doanh nghiệp thành công!");
                 }
             } else {
                 toast.error("Không tìm thấy doanh nghiệp với MST này.");
@@ -390,7 +389,7 @@ export default function AddSupplierPage() {
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Mã số thuế *</Label>
                                 <div className="flex gap-2">
-                                    <Input {...register("taxCode")} className="h-[38px] flex-1 rounded-md border-slate-200 font-mono text-[13px] shadow-none focus:border-emerald-500" />
+                                    <Input {...register("taxCode")} className="h-[38px] flex-1 rounded-md border-slate-200 font-mono text-[13px] shadow-none focus:border-blue-500" />
                                     {!duplicateTaxCode && (
                                         <Button type="button" variant="outline" onClick={handleLookupTaxCode} className="h-[38px] shrink-0 rounded-md border-slate-200 bg-white px-3 text-[11px] font-medium text-blue-600 hover:bg-blue-50">
                                             <Search size={14} className="mr-1" /> Tra cứu
@@ -402,13 +401,13 @@ export default function AddSupplierPage() {
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Tên công ty / Pháp nhân *</Label>
-                                <Input {...register("name")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-emerald-500" />
+                                <Input {...register("name")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] font-normal shadow-none focus:border-blue-500" />
                                 {errors.name && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.name.message}</p>}
                                 {!errors.name && duplicateName && <p className="mt-1 text-[10px] font-medium text-amber-600">{duplicateName}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Họ và tên người đại diện *</Label>
-                                <Input {...register("contactName")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("contactName")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-blue-500" />
                                 {errors.contactName && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.contactName.message}</p>}
                             </div>
                         </div>
@@ -456,7 +455,7 @@ export default function AddSupplierPage() {
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">SĐT di động *</Label>
-                                <Input {...register("phone")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("phone")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-blue-500" />
                                 {errors.phone && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.phone.message}</p>}
                             </div>
                         </div>
@@ -465,17 +464,17 @@ export default function AddSupplierPage() {
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-4">
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Cơ quan thuế quản lý *</Label>
-                                <Input {...register("taxAuthority")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("taxAuthority")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-blue-500" />
                                 {errors.taxAuthority && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.taxAuthority.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Ngành nghề kinh doanh chính *</Label>
-                                <Input {...register("mainBusinessSector")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("mainBusinessSector")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-blue-500" />
                                 {errors.mainBusinessSector && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.mainBusinessSector.message}</p>}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[10.5px] font-semibold text-slate-500">Email liên hệ</Label>
-                                <Input {...register("email")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500" />
+                                <Input {...register("email")} disabled={!!duplicateTaxCode} className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-blue-500" />
                                 {errors.email && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.email.message}</p>}
                             </div>
                         </div>
@@ -486,7 +485,7 @@ export default function AddSupplierPage() {
                             <Input
                                 {...register("addressDetail")}
                                 disabled={!!duplicateTaxCode}
-                                className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-emerald-500"
+                                className="h-[38px] rounded-md border-slate-200 text-[13px] shadow-none focus:border-blue-500"
                                 placeholder="Ví dụ: Số 123, đường Nguyễn Văn Linh, Phường An Lạc, Quận Ninh Kiều, TP. Cần Thơ"
                             />
                             {errors.addressDetail && <p className="mt-1 text-[10px] font-medium text-rose-500">{errors.addressDetail.message}</p>}
@@ -496,7 +495,7 @@ export default function AddSupplierPage() {
 
             <div className="fixed bottom-0 left-0 right-0 z-[999] flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-4 py-3 lg:left-[260px]">
                 <Button type="button" variant="outline" className="h-10 min-w-[110px] rounded-md border-slate-300 bg-white px-6 text-[13px] font-medium text-slate-600" onClick={() => router.back()}>Hủy bỏ</Button>
-                <Button type="button" disabled={isSubmitting || !!duplicateTaxCode || !!duplicateName} onClick={handleOpenConfirm} className="h-10 min-w-[180px] rounded-md bg-emerald-600 px-6 text-[13px] font-semibold text-white hover:bg-emerald-700">
+                <Button type="button" disabled={isSubmitting || !!duplicateTaxCode || !!duplicateName} onClick={handleOpenConfirm} className="h-10 min-w-[180px] rounded-md bg-blue-600 px-6 text-[13px] font-semibold text-white hover:bg-blue-700">
                     <Save size={16} className="mr-2" /> {isSubmitting ? "Đang lưu..." : "Lưu nhà cung cấp"}
                 </Button>
             </div>
@@ -548,7 +547,7 @@ export default function AddSupplierPage() {
                                 setIsConfirmOpen(false);
                                 await handleSubmit(onSubmit, onError)();
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
                             {isSubmitting ? "Đang lưu..." : "Xác nhận lưu"}
                         </Button>
@@ -575,7 +574,7 @@ export default function AddSupplierPage() {
 
                     <DialogFooter className="gap-2">
                         <Button type="button" variant="outline" onClick={handleDiscardDraft}>Bỏ nháp</Button>
-                        <Button type="button" onClick={handleRestoreDraft} className="bg-emerald-600 hover:bg-emerald-700 text-white">Khôi phục nháp</Button>
+                        <Button type="button" onClick={handleRestoreDraft} className="bg-blue-600 hover:bg-blue-700 text-white">Khôi phục nháp</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

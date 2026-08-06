@@ -400,16 +400,15 @@ export default function SupplierDetailPage() {
                 const missingFields: string[] = [];
                 const statuses = businessInfo.fieldStatuses as Record<string, string> | undefined;
                 if (statuses) {
-                    if (statuses.name !== "FOUND") missingFields.push("Tên công ty");
-                    if (statuses.owner !== "FOUND") missingFields.push("Người đại diện");
-                    if (statuses.phone !== "FOUND") missingFields.push("SĐT");
-                    if (statuses.issueDate !== "FOUND") missingFields.push("Ngày thành lập");
-                    if (statuses.mainBusinessSector !== "FOUND") missingFields.push("Ngành nghề");
+                    if (statuses.name !== "FOUND" && statuses.name !== "VERIFIED") missingFields.push("Tên công ty");
+                    if (statuses.owner !== "FOUND" && statuses.owner !== "VERIFIED") missingFields.push("Người đại diện");
+                    if (statuses.issueDate !== "FOUND" && statuses.issueDate !== "VERIFIED") missingFields.push("Ngày thành lập");
+                    if (statuses.mainBusinessSector !== "FOUND" && statuses.mainBusinessSector !== "VERIFIED") missingFields.push("Ngành nghề");
                 }
                 if (missingFields.length > 0) {
                     toast.warning(`Tra cứu thành công. Một số thông tin chưa tìm được: ${missingFields.join(", ")}`);
                 } else {
-                    toast.success("Đã điền đầy đủ thông tin từ tra cứu MST!");
+                    toast.success("Đã tra cứu và đối soát đầy đủ thông tin doanh nghiệp thành công!");
                 }
             } else {
                 toast.error("Không tìm thấy doanh nghiệp với MST này.");
